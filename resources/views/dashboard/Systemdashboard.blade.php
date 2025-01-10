@@ -114,11 +114,15 @@
         }
 
         #top-search {
-            display: flex;
+            display: none;  /* Hide by default */
             align-items: center;
             width: 100%;
             max-width: 600px; /* Adjust max width as needed */
             margin: 0 auto;
+        }
+
+        #top-search.show {
+            display: flex;  /* Only display when the 'show' class is added */
         }
 
         #search-input {
@@ -173,21 +177,21 @@
         <button id="close-btn" class="close-btn">&times;</button>
 
            <!-- User Info Section -->
-    <div class="user-info">
-        <!-- Display user's profile picture -->
-        <img 
-            src="path_to_user_image.jpg" 
-            alt="User Profile" 
-            class="rounded-circle mb-2" 
-            style="width: 80px; height: 80px; object-fit: cover;"
-        >
-        <!-- Display user's name -->
-        <h5>{{ session('user_name', 'User Name') }}</h5>
-    </div>
+           <div class="user-info">
+    <!-- Display user's profile picture -->
+    <img 
+        src="{{ session('profile_picture', 'default-profile.jpg') }}" 
+        alt="User Profile" 
+        class="rounded-circle mb-2" 
+        style="width: 80px; height: 80px; object-fit: cover;">
+    
+    <!-- Display user's name -->
+    <h5>{{ session('user_name', 'User Name') }}</h5>
+</div>
 
         <h5 class="text-center">Navigation</h5>
         <nav class="nav flex-column">
-            <a class="nav-link active" href="#" onclick="loadContent('dashboard')">Dashboard</a>
+            <a class="nav-link active" href="#" id="dashboard" onclick="loadContent('dashboard')">System Clock</a>
             <a class="nav-link" href="#" onclick="loadContent('orders')">Orders</a>
             <a class="nav-link" href="#" onclick="loadContent('unreceived')">Unreceived</a>
             <a class="nav-link" href="#" onclick="loadContent('receiving')">Received</a>
@@ -213,14 +217,15 @@
     </footer>
 
     <script>
-     const sidebar = document.getElementById('sidebar');
+  const sidebar = document.getElementById('sidebar');
     const mainContent = document.getElementById('main-content');
     const burgerMenu = document.getElementById('burger-menu');
     const closeBtn = document.getElementById('close-btn');
     const navbarBrand = document.querySelector('.navbar-brand');
     const dynamicContent = document.getElementById('dynamic-content');
-    const topSearch = document.getElementById('top-search');
+    const searchContainer = document.getElementById('top-search');
     const searchInput = document.getElementById('search-input');
+    let showSearch = false; // Initially hide search for dashboard
 
     // Toggle sidebar visibility
     burgerMenu.addEventListener('click', () => {
@@ -248,12 +253,10 @@
     // Function to dynamically load content based on module selection
     function loadContent(module) {
         let content = '';
-        let showSearch = true; // Default is to show search bar
-
-        if (module == 'dashboard') {
-            showSearch = false; // Show search bar in non-dashboard modules
+        if (module !== 'dashboard') {
+            showSearch = true;  // Show search bar in non-dashboard modules
         } else {
-            showSearch = true; // Hide search bar in dashboard module
+            showSearch = false; // Hide search bar in dashboard
         }
 
         switch(module) {
@@ -290,27 +293,44 @@
             default:
                 content = '<h3>Select a module from the sidebar</h3>';
         }
+        const searchContainer = document.getElementById('top-search');
+          // Show or hide the search bar based on the module
+                // Set content based on selected module
+            if (module !== 'dashboard') {
+                content = `<h3>${module.charAt(0).toUpperCase() + module.slice(1)} Content</h3><p>Here is the ${module} details.</p>`;
+                searchContainer.classList.add('show');  // Show the search bar for non-dashboard modules
+                searchInput.style.display = 'flex'; 
+            } else {
+                content = '<h3>Dashboard Content</h3><p>Here is your dashboard overview.</p>';
+                searchContainer.classList.remove('show');  // Hide the search bar on the dashboard
+                searchInput.style.display = 'none'; 
+                searchInput.value = ''; 
+            }
+
         dynamicContent.innerHTML = content;
 
-        // Show or hide the search bar based on the module
-        if (showSearch) {
-            topSearch.style.display = 'flex'; // Show search for non-dashboard modules
-        } else {
-            topSearch.style.display = 'none'; // Hide search on dashboard
-        }
+      
 
         // Update active class for the clicked module
         const navLinks = document.querySelectorAll('.sidebar .nav-link');
         navLinks.forEach(link => link.classList.remove('active'));
         document.querySelector(`.sidebar .nav-link[href="#"][onclick*="${module}"]`).classList.add('active');
+
+     
     }
 
-    // Implement dynamic search (filter content based on input)
-    searchInput.addEventListener('input', function() {
-        let searchTerm = searchInput.value.toLowerCase();
-        // You can add logic here to filter content based on the search term
-        // For example, matching content with the search input
-    });
+    // Set default content to 'dashboard' and hide the search bar
+    window.onload = () => {
+        const topSearch = document.getElementById('top-search'); // Define topSearch here
+        const searchInput = document.getElementById('search-input'); // Get the search input as well
+
+        loadContent('dashboard'); // By default load dashboard, no search
+        topSearch.style.display = 'none';  // Hide the search bar on the dashboard
+
+        // Optionally reset the input value when the search bar is hidden
+        searchInput.value = '';  // Clear the search input field if needed
+        searchInput.style.display = 'none'; 
+    }
     </script>
 </body>
 </html>
