@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -19,9 +17,9 @@ services:
     container_name: ims_laravel_db
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: laravel
+      MYSQL_DATABASE: dbims
       MYSQL_USER: user
-      MYSQL_PASSWORD: password
+      MYSQL_PASSWORD: ''
     ports:
       - "3306:3306"
     networks:
