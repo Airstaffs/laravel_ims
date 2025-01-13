@@ -31,10 +31,14 @@ services:
     environment:
       PMA_HOST: db
       MYSQL_ROOT_PASSWORD: root
+      PMA_ARBITRARY: 1
+      UPLOAD_LIMIT: 128M
     ports:
       - "8080:80"
     networks:
       - app-network
+    volumes:
+      - ./phpmyadmin-custom.ini:/usr/local/etc/php/conf.d/custom.ini
 
 networks:
   app-network:
