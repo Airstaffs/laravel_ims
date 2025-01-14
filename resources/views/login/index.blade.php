@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'IMS - Login')</title>
+    <title>{{ session('site_title', 'IMS') }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
-            background: linear-gradient(135deg, #007bff, #6610f2);
+            background: {{ session('theme_color', '#007bff') }};
             height: 100vh;
             display: flex;
             align-items: center;
@@ -35,7 +35,7 @@
             height: 45px;
         }
         .btn-primary {
-            background: #007bff;
+            background: {{ session('theme_color', '#007bff') }};
             border: none;
             height: 45px;
             border-radius: 5px;
