@@ -12,6 +12,8 @@ COPY . .
 
 RUN composer install
 
+RUN docker-php-ext-install pdo pdo_mysql
+
 # Set permissions for Laravel storage
 RUN chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
 
