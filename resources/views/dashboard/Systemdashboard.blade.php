@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
+    <title>{{ session('site_title', 'IMS') }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -13,13 +15,15 @@
         }
 
         .navbar {
-            background-color: #007bff;
+            background-color: {{ session('theme_color', '#007bff') }};
             transition: margin-left 0.3s ease-in-out, padding-left 0.3s ease-in-out;
         }
 
         .navbar-brand, .nav-link {
             color: #fff !important;
         }
+
+  
 
         .sidebar {
             height: 100vh;
@@ -132,6 +136,15 @@
             border-radius: 5px;
             border: 1px solid #ccc;
         }
+            /* Ensure tab text is visible */
+    .nav-tabs .nav-link {
+        color: black !important; /* Set text color to black */
+        font-weight: bold;      /* Make it stand out */
+    }
+    .nav-tabs .nav-link.active {
+        color: white !important; /* Set text color to white for the active tab */
+        background-color: #007bff !important; /* Blue background for active tab */
+    }
     </style>
 </head>
 <body>
@@ -141,7 +154,12 @@
             <button id="burger-menu" class="navbar-toggler" type="button">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <a class="navbar-brand" href="#">IMS (Inventory Management System)</a>
+            <a class="navbar-brand" href="#">
+            @if(session('logo'))
+                <img src="{{ asset('storage/' . session('logo')) }}" alt="Logo" style="max-width: 50px; max-height: 50px;">
+            @endif
+            {{ session('site_title', 'IMS') }}
+        </a>
 
             <div class="search-bar d-flex align-items-center mx-auto" id="top-search">
                 <input 
@@ -159,7 +177,7 @@
                         <a class="nav-link" href="#">Profile</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="#">Settings</a>
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">Settings</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
@@ -211,6 +229,187 @@
         </div>
     </div>
 
+ <!-- Settings Modal -->
+<div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="settingsModalLabel">Admin Settings</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="settingsTab" role="tablist">
+                    <!-- Combined Tab for Title & Design -->
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design" type="button" role="tab" aria-controls="design" aria-selected="true">Title & Design</button>
+                    </li>
+                    <!-- Add User Tab -->
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="user-tab" data-bs-toggle="tab" data-bs-target="#user" type="button" role="tab" aria-controls="user" aria-selected="false">Add User</button>
+                    </li>
+                </ul>
+         <!-- Combined Tab for Title & Design -->
+                <div class="tab-content mt-3" id="settingsTabContent">
+                    <!-- Title & Design Tab -->
+                    <div class="tab-pane fade show active" id="design" role="tabpanel" aria-labelledby="design-tab">
+                        <h5>Title & Design Settings</h5>
+                       <!-- Title & Design Settings Form -->
+                            <form action="{{ route('update.system.design') }}" method="POST" enctype="multipart/form-data">
+                                @csrf
+                                @method('POST')
+                                <!-- Site Title -->
+                                <div class="mb-3">
+                                    <label for="siteTitle" class="form-label">Site Title</label>
+                                    <input type="text" class="form-control" id="siteTitle" name="site_title" placeholder="Enter site title" value="{{ $systemDesign->site_title ?? '' }}" required>
+                                </div>
+                                <!-- Theme Color -->
+                                <div class="mb-3">
+                                    <label for="themeColor" class="form-label">Theme Color</label>
+                                    <input type="color" class="form-control" id="themeColor" name="theme_color" value="{{ $systemDesign->theme_color ?? '#007bff' }}" required>
+                                </div>
+                                <!-- Logo Upload -->
+                                <div class="mb-3">
+                                    <label for="logoUpload" class="form-label">Upload Logo</label>
+                                    <input type="file" class="form-control" id="logoUpload" name="logo">
+                                    @if (!empty($systemDesign->logo))
+                                        <p>Current Logo: <img src="{{ asset('storage/' . $systemDesign->logo) }}" alt="Logo" width="100"></p>
+                                    @endif
+                                </div>
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </form>
+                    </div>
+
+                    <!-- Add User Tab -->
+                    <div class="tab-pane fade" id="user" role="tabpanel" aria-labelledby="user-tab">
+                    <h5>Add User</h5>
+                    <form action="{{ route('add-user') }}" method="POST">
+                        @csrf
+                        <!-- Username -->
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" placeholder="Enter username" required>
+                        </div>
+                        
+                        <!-- Password -->
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="password" name="password" placeholder="Enter password" required>
+                                <button type="button" class="btn btn-outline-secondary toggle-password" data-target="#password">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Confirm Password -->
+                        <div class="mb-3">
+                            <label for="password_confirmation" class="form-label">Confirm Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" placeholder="Confirm password" required>
+                                <button type="button" class="btn btn-outline-secondary toggle-password" data-target="#password_confirmation">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- User Role -->
+                        <div class="mb-3">
+                            <label for="userRole" class="form-label">User Role</label>
+                            <select class="form-select" id="userRole" name="role">
+                                <option value="SuperAdmin">Super-Admin</option>
+                                <option value="SubAdmin">Sub-Admin</option>
+                                <option value="User">User</option>
+                            </select>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">Add User</button>
+                    </form>
+                </div>
+
+                    
+                </div>
+            </div>
+             <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+    
+<!-- Success Notification for adding user-->
+@if (session('success'))
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="successToast" class="toast align-items-center text-bg-success border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                {{ session('success') }}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+@endif
+
+<!-- Error Notification -->
+@if (session('error'))
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="errorToast" class="toast align-items-center text-bg-danger border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                {{ session('error') }}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+@endif
+
+<!-- Validation Errors -->
+@if ($errors->any())
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="validationToast" class="toast align-items-center text-bg-warning border-0 show" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+@endif
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Automatically show all toasts on page load
+        const toastElList = [].slice.call(document.querySelectorAll('.toast'));
+        toastElList.forEach(function (toastEl) {
+            new bootstrap.Toast(toastEl).show();
+        });
+    });
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Add click event listeners to all toggle-password buttons
+        document.querySelectorAll('.toggle-password').forEach(button => {
+            button.addEventListener('click', () => {
+                const targetInput = document.querySelector(button.getAttribute('data-target'));
+                const icon = button.querySelector('i');
+                
+                if (targetInput.type === 'password') {
+                    targetInput.type = 'text'; // Show password
+                    icon.classList.remove('bi-eye');
+                    icon.classList.add('bi-eye-slash');
+                } else {
+                    targetInput.type = 'password'; // Hide password
+                    icon.classList.remove('bi-eye-slash');
+                    icon.classList.add('bi-eye');
+                }
+            });
+        });
+    });
+</script>
     <!-- Footer -->
     <footer>
         &copy; 2025 IMS (Inventory Management System). All rights reserved.
