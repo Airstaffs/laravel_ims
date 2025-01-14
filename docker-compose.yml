@@ -32,7 +32,7 @@ services:
       PMA_HOST: db
       MYSQL_ROOT_PASSWORD: root
       PMA_ARBITRARY: 1
-      UPLOAD_LIMIT: 128M
+      UPLOAD_LIMIT: 500M
     ports:
       - "8080:80"
     networks:
