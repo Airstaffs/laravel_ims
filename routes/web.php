@@ -29,4 +29,12 @@ Route::get('/dashboard/Systemdashboard', function () {
 Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
 Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');
 
+Route::get('/Systemmodule/{module}Module/{moduleName}', function ($module, $moduleName) {
+    $availableModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Validation', 'Testing', 'Cleaning', 'Packing', 'Stockroom'];
 
+    if (in_array($moduleName, $availableModules)) {
+        return view("Systemmodule.{$module}Module.{$moduleName}");
+    }
+
+    abort(404);
+})->name('modules');

@@ -208,18 +208,22 @@
 </div>
 
         <h5 class="text-center">Navigation</h5>
+    
         <nav class="nav flex-column">
-            <a class="nav-link active" href="#" id="dashboard" onclick="loadContent('dashboard')">System Clock</a>
-            <a class="nav-link" href="#" onclick="loadContent('orders')">Orders</a>
-            <a class="nav-link" href="#" onclick="loadContent('unreceived')">Unreceived</a>
-            <a class="nav-link" href="#" onclick="loadContent('receiving')">Received</a>
-            <a class="nav-link" href="#" onclick="loadContent('labeling')">Labeling</a>
-            <a class="nav-link" href="#" onclick="loadContent('validation')">Validation</a>
-            <a class="nav-link" href="#" onclick="loadContent('testing')">Testing</a>
-            <a class="nav-link" href="#" onclick="loadContent('cleaning')">Cleaning</a>
-            <a class="nav-link" href="#" onclick="loadContent('packing')">Packing</a>
-            <a class="nav-link" href="#" onclick="loadContent('stockroom')">Stockroom</a>
+            <a class="nav-link active" href="#" id="dashboard" onclick="loadContent('dashboard', 'dashboard')">System Clock</a>
+            <a class="nav-link" href="#" onclick="loadContent('Order', 'Order')">Orders</a>
+            <a class="nav-link" href="#" onclick="loadContent('Unreceived', 'Unreceived')">Unreceived</a>
+            <a class="nav-link" href="#" onclick="loadContent('Receiving', 'Receiving')">Received</a>
+            <a class="nav-link" href="#" onclick="loadContent('Labeling', 'Labeling')">Labeling</a>
+            <a class="nav-link" href="#" onclick="loadContent('Validation', 'Validation')">Validation</a>
+            <a class="nav-link" href="#" onclick="loadContent('Testing', 'Testing')">Testing</a>
+            <a class="nav-link" href="#" onclick="loadContent('Cleaning', 'Cleaning')">Cleaning</a>
+            <a class="nav-link" href="#" onclick="loadContent('Packing', 'Packing')">Packing</a>
+            <a class="nav-link" href="#" onclick="loadContent('Stockroom', 'Stockroom')">Stockroom</a>
         </nav>
+
+
+       
     </div>
 
     <!-- Content -->
@@ -449,87 +453,88 @@
         }
     });
 
-    // Function to dynamically load content based on module selection
     function loadContent(module) {
-        let content = '';
-        if (module !== 'dashboard') {
-            showSearch = true;  // Show search bar in non-dashboard modules
-        } else {
-            showSearch = false; // Hide search bar in dashboard
-        }
+    const dynamicContent = document.getElementById('dynamic-content');
+    const searchContainer = document.getElementById('top-search');
+    const searchInput = document.querySelector('#top-search input');
+    
+    // Get the base URL of your application
+    const baseUrl = window.location.origin;  // E.g., 'http://127.0.0.1:8000'
 
-        switch(module) {
-            case 'dashboard':
-                content = '<h3>Dashboard Content</h3><p>Here is your dashboard overview.</p>';
-                break;
-            case 'orders':
-                content = '<h3>Orders Content</h3><p>Here are your orders.</p>';
-                break;
-            case 'unreceived':
-                content = '<h3>Unreceived Content</h3><p>Here are the unreceived items.</p>';
-                break;
-            case 'receiving':
-                content = '<h3>Received Content</h3><p>Here are the received items.</p>';
-                break;
-            case 'labeling':
-                content = '<h3>Labeling Content</h3><p>Here is your labeling information.</p>';
-                break;
-            case 'validation':
-                content = '<h3>Validation Content</h3><p>Here is the validation information.</p>';
-                break;
-            case 'testing':
-                content = '<h3>Testing Content</h3><p>Here are the testing details.</p>';
-                break;
-            case 'cleaning':
-                content = '<h3>Cleaning Content</h3><p>Here are the cleaning details.</p>';
-                break;
-            case 'packing':
-                content = '<h3>Packing Content</h3><p>Here are the packing details.</p>';
-                break;
-            case 'stockroom':
-                content = '<h3>Stockroom Content</h3><p>Here are the stockroom details.</p>';
-                break;
-            default:
-                content = '<h3>Select a module from the sidebar</h3>';
-        }
-        const searchContainer = document.getElementById('top-search');
-          // Show or hide the search bar based on the module
-                // Set content based on selected module
-            if (module !== 'dashboard') {
-                content = `<h3>${module.charAt(0).toUpperCase() + module.slice(1)} Content</h3><p>Here is the ${module} details.</p>`;
-                searchContainer.classList.add('show');  // Show the search bar for non-dashboard modules
-                searchInput.style.display = 'flex'; 
-            } else {
-                content = '<h3>Dashboard Content</h3><p>Here is your dashboard overview.</p>';
-                searchContainer.classList.remove('show');  // Hide the search bar on the dashboard
-                searchInput.style.display = 'none'; 
-                searchInput.value = ''; 
+    // Construct the URL dynamically using the module name
+    const url = `${baseUrl}/Systemmodule/${module}Module/${module}`;
+
+    // Fetch the content for the selected module
+    fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.text();
+        })
+        .then(html => {
+            dynamicContent.innerHTML = html;  // Load the module's HTML content into the dynamic content container
+            initSearch(module); // Initialize search for the dynamically loaded content
+        })
+        .catch(error => {
+            dynamicContent.innerHTML = '<p>Error loading content.</p>';
+            console.error('Error:', error);
+        });
+
+    // Show or hide the search bar based on the module
+    if (module !== 'dashboard') {
+        searchContainer.classList.add('show'); // Show the search bar
+        searchInput.style.display = 'flex'; // Ensure input is visible
+    } else {
+        searchContainer.classList.remove('show'); // Hide the search bar
+        searchInput.style.display = 'none';
+        searchInput.value = ''; // Clear the input value
+    }
+
+    // Update active class for navigation links
+    const navLinks = document.querySelectorAll('.nav .nav-link');
+    navLinks.forEach(link => link.classList.remove('active'));
+    const activeLink = document.querySelector(`.nav .nav-link[onclick*="${module}"]`);
+    if (activeLink) activeLink.classList.add('active');
+
+    searchInput.value = ''; // Clear the search field when switching modules
+    const rows = document.querySelectorAll('.custom-table tbody tr');
+    rows.forEach(row => row.style.display = ""); // Reset rows display to default
+}
+
+function initSearch(module) {
+    const searchInput = document.querySelector('#top-search input');
+    const dataTable = document.querySelector('.custom-table tbody'); // For table view
+    const mobileView = document.querySelector('.mobile-view'); // For mobile view
+
+    if (searchInput && (dataTable || mobileView)) {
+        searchInput.addEventListener("input", function () {
+            const filter = searchInput.value.toLowerCase();
+
+            if (dataTable) {
+                // Handle search for table view
+                const rows = dataTable.querySelectorAll("tr");
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll("td");
+                    let rowText = '';
+                    cells.forEach(cell => {
+                        rowText += cell.textContent.toLowerCase();
+                    });
+                    row.style.display = rowText.includes(filter) ? "" : "none";
+                });
             }
 
-        dynamicContent.innerHTML = content;
-
-      
-
-        // Update active class for the clicked module
-        const navLinks = document.querySelectorAll('.sidebar .nav-link');
-        navLinks.forEach(link => link.classList.remove('active'));
-        document.querySelector(`.sidebar .nav-link[href="#"][onclick*="${module}"]`).classList.add('active');
-
-     
+            if (mobileView) {
+                // Handle search for mobile view (card layout)
+                const rows = mobileView.querySelectorAll(".custom-table-row");
+                rows.forEach(row => {
+                    let rowText = row.textContent.toLowerCase();
+                    row.style.display = rowText.includes(filter) ? "" : "none";
+                });
+            }
+        });
     }
-
-    // Set default content to 'dashboard' and hide the search bar
-    window.onload = () => {
-        const topSearch = document.getElementById('top-search'); // Define topSearch here
-        const searchInput = document.getElementById('search-input'); // Get the search input as well
-
-        loadContent('dashboard'); // By default load dashboard, no search
-        topSearch.style.display = 'none';  // Hide the search bar on the dashboard
-
-        // Optionally reset the input value when the search bar is hidden
-        searchInput.value = '';  // Clear the search input field if needed
-        searchInput.style.display = 'none'; 
-    }
-    </script>
+}
+  </script>
 </body>
 </html>
