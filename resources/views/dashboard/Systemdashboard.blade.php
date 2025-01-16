@@ -416,7 +416,6 @@
                     <ul id="storeList" class="list-group">
                     <!-- New stores will be appended here dynamically -->
                 </ul>
-<<<<<<< HEAD
 
                     </div>
                     <!-- Add Store Button -->
@@ -651,8 +650,6 @@
                         <button type="submit" class="btn btn-primary">UPDATE</button>
                     </form>
                 </div>
-=======
->>>>>>> e267457e90b8054391aec58fbb4919d700f48e41
 
                     </div>
                     <!-- Add Store Button -->

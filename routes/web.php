@@ -45,23 +45,6 @@ Route::get('/Systemmodule/{module}Module/{moduleName}', function ($module, $modu
 Route::get('/get-stores', [StoreController::class, 'getStores']);
 
 Route::post('/add-store', [StoreController::class, 'addstore'])->name('add-store');
-Route::get('/get-store/{id}', function($id) {
-    $store = Store::find($id);
-    return response()->json(['store' => $store]);
-});
-
-Route::post('/update-store/{id}', function(Request $request, $id) {
-    $store = Store::find($id);
-    $store->storename = $request->storename;
-    $store->ClientID = $request->ClientID;
-    $store->clientsecret = $request->clientsecret;
-    $store->refreshtoken = $request->refreshtoken;
-    $store->MerchantID = $request->MerchantID;
-    $store->MarketplaceID = $request->MarketplaceID;
-    $store->save();
-    
-    return response()->json(['success' => true, 'store' => $store]);
-});
 
 Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
 
