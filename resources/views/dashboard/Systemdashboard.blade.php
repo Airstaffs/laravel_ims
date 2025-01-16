@@ -4,10 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ session('site_title', 'IMS') }}</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
-
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -145,6 +151,39 @@
         color: white !important; /* Set text color to white for the active tab */
         background-color: #007bff !important; /* Blue background for active tab */
     }
+
+          #storeList .list-group-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    background-color: #f8f9fa;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#storeList .list-group-item:hover {
+    background-color: #e9ecef;
+}
+
+#storeList .edit-store-btn {
+    background-color: #007bff;
+    border: none;
+    color: white;
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+#storeList .edit-store-btn:hover {
+    background-color: #0056b3;
+}          
+
+.d-flex button {
+    margin-left: 5px; /* Adjust spacing between buttons */
+}
     </style>
 </head>
 <body>
@@ -251,6 +290,12 @@
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="user-tab" data-bs-toggle="tab" data-bs-target="#user" type="button" role="tab" aria-controls="user" aria-selected="false">Add User</button>
                     </li>
+               
+                    <!-- Add Store List Tab -->
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="store-tab" data-bs-toggle="tab" data-bs-target="#store" type="button" role="tab" aria-controls="store" aria-selected="false">Store List</button>
+                </li>
+                    
                 </ul>
          <!-- Combined Tab for Title & Design -->
                 <div class="tab-content mt-3" id="settingsTabContent">
@@ -329,17 +374,284 @@
                         <button type="submit" class="btn btn-primary">Add User</button>
                     </form>
                 </div>
+         
+                <!-- Store List Tab Content -->
+                <div class="tab-pane fade" id="store" role="tabpanel" aria-labelledby="store-tab">
+                    <h5>Store List</h5>
+                    <!-- Store List Display -->
+                    <div id="storeListContainer">
+                    <ul id="storeList" class="list-group">
+                    <!-- New stores will be appended here dynamically -->
+                </ul>
 
-                    
+                    </div>
+                    <!-- Add Store Button -->
+                    <button class="btn btn-primary" id="addStoreButton">Add Store</button>
                 </div>
-            </div>
-             <div class="modal-footer">
+            <!-- Store List Tab Content END-->   
+
+                </div>
+          </div>
+          <!--   <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div> -->
+        </div>
+    </div>
+</div>
+
+        <!-- Add Store Modal -->
+
+<div class="modal fade" id="addStoreModal" tabindex="-1" aria-labelledby="addStoreModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="addStoreForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addStoreModalLabel">Add New Store</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="newStoreName" class="form-label">Store Name</label>
+                        <input type="text" class="form-control" id="newStoreName" name="storename" placeholder="Enter store name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save Store</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Store Modal -->
+<div class="modal fade" id="editStoreModal" tabindex="-1" aria-labelledby="editStoreModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editStoreModalLabel">Edit Store</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editStoreForm">
+                    <input type="hidden" id="editStoreId">
+                    <div class="mb-3">
+                        <label for="editStoreName" class="form-label">Store Name</label>
+                        <input type="text" class="form-control" id="editStoreName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editClientID" class="form-label">Client ID</label>
+                        <input type="text" class="form-control" id="editClientID" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editClientSecret" class="form-label">Client Secret</label>
+                        <input type="text" class="form-control" id="editClientSecret" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRefreshToken" class="form-label">Refresh Token</label>
+                        <input type="text" class="form-control" id="editRefreshToken" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editMerchantID" class="form-label">Merchant ID</label>
+                        <input type="text" class="form-control" id="editMerchantID" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editMarketplaceID" class="form-label">Marketplace ID</label>
+                        <input type="text" class="form-control" id="editMarketplaceID" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
             </div>
         </div>
     </div>
 </div>
-    
+
+<script>
+ 
+ axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+// Show the add store modal and hide the settings modal
+document.getElementById('addStoreButton').addEventListener('click', function() {
+    // Show the add store modal
+    $('#addStoreModal').modal('show');
+    $('#settingsModal').modal('hide');
+});
+
+// Add Store Submission
+document.getElementById('addStoreForm').addEventListener('submit', function(e) {
+    e.preventDefault(); // Prevent default form submission
+
+    const storeName = document.getElementById('newStoreName').value.trim();
+
+    // Check if store name already exists in the list
+    const existingStores = Array.from(document.getElementById('storeList').getElementsByTagName('li'));
+    const storeExists = existingStores.some(store => store.textContent.includes(storeName));
+
+    if (storeExists) {
+        alert('Store name already exists. Please choose a different name.');
+        return; // Prevent adding the store if the name already exists
+    }
+
+    // Send the data to the Laravel backend
+    axios.post('/add-store', { storename: storeName })
+        .then(response => {
+            if (response.data.success) {
+                const storeList = document.getElementById('storeList');
+                const newStoreItem = document.createElement('li');
+                newStoreItem.classList.add('list-group-item');
+                newStoreItem.innerHTML = `
+                    ${response.data.store.storename} 
+                   <div class="d-flex justify-content-end">
+                    <button class="btn btn-secondary btn-sm edit-store-btn" 
+                            data-id="${response.data.store.id}" 
+                            data-name="${response.data.store.storename}">
+                        Edit
+                    </button>
+                    <button class="btn btn-danger btn-sm delete-store-btn" 
+                            data-id="${response.data.store.store_id}">
+                        Delete
+                    </button>
+                </div>
+                `;
+                storeList.appendChild(newStoreItem);
+                $('#addStoreModal').modal('hide');
+                $('#settingsModal').modal('show');
+                $('#store-tab').tab('show');
+            } else {
+                alert('Failed to add store');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while saving the store.');
+        });
+});
+
+// Fetch and display the list of stores on page load
+document.addEventListener('DOMContentLoaded', function () {
+    fetchStoreList();
+});
+
+// Function to fetch and display store list from the server
+function fetchStoreList() {
+    axios.get('/get-stores')
+        .then(response => {
+            const storeList = document.getElementById('storeList');
+            storeList.innerHTML = ''; // Clear the list before populating it
+
+            response.data.stores.forEach(store => {
+                const listItem = document.createElement('li');
+                listItem.classList.add('list-group-item');
+                listItem.innerHTML = `
+                    ${store.storename} 
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-secondary btn-sm edit-store-btn" 
+                                data-id="${store.store_id}" 
+                                data-name="${store.storename}">
+                            Edit
+                        </button>
+                        <button class="btn btn-danger btn-sm delete-store-btn" 
+                                data-id="${store.store_id}">
+                            Delete
+                        </button>
+                    </div>
+                `;
+                storeList.appendChild(listItem);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching stores:', error);
+        });
+}
+
+// Re-fetch store list when switching to the "Store List" tab
+$('#store-tab').on('click', function() {
+    fetchStoreList(); // Re-fetch the store list when the tab is clicked
+});
+
+// Delete Store functionality
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('delete-store-btn')) {
+        const storeId = e.target.dataset.id;
+
+        // Confirm before deleting
+        if (confirm('Are you sure you want to delete this store?')) {
+            // Send the delete request to the backend
+            axios.delete(`/delete-store/${storeId}`)
+                .then(response => {
+                    if (response.data.success) {
+                        const storeItem = e.target.closest('li');
+                        storeItem.remove();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting store:', error);
+                    alert('An error occurred while deleting the store. Please try again later.');
+                });
+        }
+    }
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('edit-store-btn')) {
+        const storeId = e.target.dataset.id;
+
+        // Fetch the store details using the store ID
+        axios.get(`/get-store/${storeId}`)
+            .then(response => {
+                const store = response.data.store;
+
+                // Populate the modal with the current store details
+                document.getElementById('editStoreId').value = store.id;
+                document.getElementById('editStoreName').value = store.storename;
+                document.getElementById('editClientID').value = store.ClientID;
+                document.getElementById('editClientSecret').value = store.clientsecret;
+                document.getElementById('editRefreshToken').value = store.refreshtoken;
+                document.getElementById('editMerchantID').value = store.MerchantID;
+                document.getElementById('editMarketplaceID').value = store.MarketplaceID;
+
+                // Show the modal
+                $('#editStoreModal').modal('show');
+            })
+            .catch(error => {
+                console.error('Error fetching store details:', error);
+                alert('An error occurred while fetching store details.');
+            });
+    }
+});
+
+document.getElementById('editStoreForm').addEventListener('submit', function(e) {
+    e.preventDefault(); // Prevent default form submission
+
+    const storeId = document.getElementById('editStoreId').value;
+    const updatedStoreData = {
+        storename: document.getElementById('editStoreName').value.trim(),
+        ClientID: document.getElementById('editClientID').value.trim(),
+        clientsecret: document.getElementById('editClientSecret').value.trim(),
+        refreshtoken: document.getElementById('editRefreshToken').value.trim(),
+        MerchantID: document.getElementById('editMerchantID').value.trim(),
+        MarketplaceID: document.getElementById('editMarketplaceID').value.trim()
+    };
+
+    // Send the update request to the backend
+    axios.post(`/update-store/${storeId}`, updatedStoreData)
+        .then(response => {
+            if (response.data.success) {
+                // Update the store in the list
+                const storeItem = document.querySelector(`[data-id="${storeId}"]`).closest('li');
+                storeItem.querySelector('.storename').textContent = updatedStoreData.storename;
+
+                // Close the modal
+                $('#editStoreModal').modal('hide');
+            } else {
+                alert('Failed to update store');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating store:', error);
+            alert('An error occurred while updating the store.');
+        });
+});
+</script>   
 <!-- Success Notification for adding user-->
 @if (session('success'))
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
