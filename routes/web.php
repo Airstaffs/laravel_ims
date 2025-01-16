@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\SystemDesignController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Tests\AwsInventoryController;
+use App\Http\Controllers\StoreController;
+use App\Http\Models\Store;
+use App\Http\Controllers\AttendanceController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -44,6 +47,18 @@ Route::get('/Systemmodule/{module}Module/{moduleName}', function ($module, $modu
 
     abort(404);
 })->name('modules');
+
+
+Route::get('/get-stores', [StoreController::class, 'getStores']);
+
+Route::post('/add-store', [StoreController::class, 'addstore'])->name('add-store');
+
+Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
+
+
+Route::get('/dashboard/Systemdashboard', [AttendanceController::class, 'attendance']);
+Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
+Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
 
 // AWS Inventory Routes
 Route::get('/aws-inventory', function () {
