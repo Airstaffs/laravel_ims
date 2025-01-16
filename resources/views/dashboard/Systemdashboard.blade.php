@@ -416,6 +416,7 @@
                     <ul id="storeList" class="list-group">
                     <!-- New stores will be appended here dynamically -->
                 </ul>
+<<<<<<< HEAD
 
                     </div>
                     <!-- Add Store Button -->
@@ -650,12 +651,85 @@
                         <button type="submit" class="btn btn-primary">UPDATE</button>
                     </form>
                 </div>
+=======
+>>>>>>> e267457e90b8054391aec58fbb4919d700f48e41
 
-                    
+                    </div>
+                    <!-- Add Store Button -->
+                    <button class="btn btn-primary" id="addStoreButton">Add Store</button>
                 </div>
-            </div>
-             <div class="modal-footer">
+            <!-- Store List Tab Content END-->   
+
+                </div>
+          </div>
+          <!--   <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div> -->
+        </div>
+    </div>
+</div>
+
+        <!-- Add Store Modal -->
+
+<div class="modal fade" id="addStoreModal" tabindex="-1" aria-labelledby="addStoreModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="addStoreForm">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addStoreModalLabel">Add New Store</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="newStoreName" class="form-label">Store Name</label>
+                        <input type="text" class="form-control" id="newStoreName" name="storename" placeholder="Enter store name" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Save Store</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Store Modal -->
+<div class="modal fade" id="editStoreModal" tabindex="-1" aria-labelledby="editStoreModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editStoreModalLabel">Edit Store</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editStoreForm">
+                    <input type="hidden" id="editStoreId">
+                    <div class="mb-3">
+                        <label for="editStoreName" class="form-label">Store Name</label>
+                        <input type="text" class="form-control" id="editStoreName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editClientID" class="form-label">Client ID</label>
+                        <input type="text" class="form-control" id="editClientID" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editClientSecret" class="form-label">Client Secret</label>
+                        <input type="text" class="form-control" id="editClientSecret" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editRefreshToken" class="form-label">Refresh Token</label>
+                        <input type="text" class="form-control" id="editRefreshToken" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editMerchantID" class="form-label">Merchant ID</label>
+                        <input type="text" class="form-control" id="editMerchantID" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editMarketplaceID" class="form-label">Marketplace ID</label>
+                        <input type="text" class="form-control" id="editMarketplaceID" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </form>
             </div>
         </div>
     </div>
