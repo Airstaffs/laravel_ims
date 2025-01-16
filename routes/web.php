@@ -5,7 +5,7 @@ use App\Http\Controllers\LoginController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\SystemDesignController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\Tests\AwsInventoryController;
+use App\Http\Controllers\AwsInventoryController;
 use App\Http\Controllers\StoreController;
 use App\Http\Models\Store;
 use App\Http\Controllers\AttendanceController;

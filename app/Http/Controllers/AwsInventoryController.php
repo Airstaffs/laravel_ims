@@ -1,10 +1,14 @@
 <?php
 
-namespace App\Http\Controllers\Tests;
+namespace App\Http\Controllers;
+
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 require_once app_path('Helpers/aws_helpers.php');
+
+
 
 class AwsInventoryController extends Controller
 {
@@ -58,8 +62,25 @@ class AwsInventoryController extends Controller
             // Construct the full URL
             $url = "{$endpoint}{$path}?{$queryString}";
 
+            // Log the request details (headers, body, etc.) for debugging
+            Log::info('Request details:', [
+                'url' => $url,
+                'headers' => $headers,
+                'queryString' => $queryString
+            ]);
+
             // Make the HTTP request
             $response = Http::timeout(10)->withHeaders($headers)->get($url);
+
+            // Log the curl information (response details)
+            $curlInfo = [
+                'effectiveUrl' => $response->effectiveUri(),
+                'statusCode' => $response->status(),
+                'responseHeaders' => $response->headers(),
+                'responseBody' => $response->body(),
+            ];
+
+            Log::info('Curl Info:', $curlInfo);
 
             if ($response->successful()) {
                 return response()->json([
@@ -83,4 +104,6 @@ class AwsInventoryController extends Controller
         }
     }
 }
+
+
 

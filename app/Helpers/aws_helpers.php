@@ -176,7 +176,7 @@ if (!function_exists('calculateSignature')) {
     function calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams)
     {
         $canonicalUri = $path;
-        $canonicalQueryString = buildQueryString($nextToken, $customParams); // Adjust as needed
+        $canonicalQueryString = "";//buildQueryString($nextToken, $customParams); // Adjust as needed
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com\nx-amz-date:{$amzDate}\n";
         $signedHeaders = 'host;x-amz-date';
         $payloadHash = hash('sha256', ''); // Empty payload for GET request
