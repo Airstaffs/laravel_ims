@@ -43,6 +43,7 @@ class ComposerStaticInit626b9e7ddd47fb7eff9aaa53cce0c9ad
         'c72349b1fe8d0deeedd3a52e8aa814d8' => __DIR__ . '/..' . '/mockery/mockery/library/helpers.php',
         'ce9671a430e4846b44e1c68c7611f9f5' => __DIR__ . '/..' . '/mockery/mockery/library/Mockery.php',
         'd634523d799d97a8ab4807b650bf5cea' => __DIR__ . '/..' . '/pestphp/pest-plugin-laravel/src/Autoload.php',
+        '9a6b846a94b76937db705590def65a8b' => __DIR__ . '/../..' . '/app/Helpers/aws_helpers.php',
     );
 
     public static $prefixLengthsPsr4 = array (
@@ -606,6 +607,9 @@ class ComposerStaticInit626b9e7ddd47fb7eff9aaa53cce0c9ad
         'App\\Http\\Controllers\\IndexController' => __DIR__ . '/../..' . '/app/Http/Controllers/IndexController.php',
         'App\\Http\\Controllers\\LoginController' => __DIR__ . '/../..' . '/app/Http/Controllers/LoginController.php',
         'App\\Http\\Controllers\\SystemDesignController' => __DIR__ . '/../..' . '/app/Http/Controllers/SystemDesignController.php',
+        'App\\Http\\Controllers\\Tests\\AwsInventoryController' => __DIR__ . '/../..' . '/app/Http/Controllers/Tests/AwsInventoryController.php',
+        'App\\Http\\Controllers\\UserController' => __DIR__ . '/../..' . '/app/Http/Controllers/UserController.php',
+        'App\\Http\\Middleware\\ThemeSettingsMiddleware' => __DIR__ . '/../..' . '/app/Http/Middleware/ThemeSettingsMiddleware.php',
         'App\\Http\\Requests\\Auth\\LoginRequest' => __DIR__ . '/../..' . '/app/Http/Requests/Auth/LoginRequest.php',
         'App\\Http\\Requests\\ProfileUpdateRequest' => __DIR__ . '/../..' . '/app/Http/Requests/ProfileUpdateRequest.php',
         'App\\Models\\SystemDesign' => __DIR__ . '/../..' . '/app/Models/SystemDesign.php',
