@@ -7,6 +7,7 @@ use App\Http\Controllers\SystemDesignController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\StoreController;
 use App\Http\Models\Store;
+use App\Http\Controllers\AttendanceController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -62,14 +63,9 @@ Route::post('/update-store/{id}', function(Request $request, $id) {
     return response()->json(['success' => true, 'store' => $store]);
 });
 
-<<<<<<< HEAD
 Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
 
-use App\Http\Controllers\AttendanceController;
 
 Route::get('/dashboard/Systemdashboard', [AttendanceController::class, 'attendance']);
 Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
 Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
-=======
-Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
->>>>>>> e267457e90b8054391aec58fbb4919d700f48e41
