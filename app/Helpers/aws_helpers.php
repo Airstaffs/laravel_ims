@@ -50,6 +50,12 @@ if (!function_exists('fetchAccessToken')) {
                 'refresh_token' => $credentials['refresh_token'],
             ];
 
+            
+            Log::info('Credentials:', [
+                'client_id' => $credentials['client_id'],
+                'refresh_token' => $credentials['refresh_token'],
+            ]);
+
             // Send the POST request with Content-Type header
             $response = Http::asForm()
                 ->post(
@@ -66,15 +72,21 @@ if (!function_exists('fetchAccessToken')) {
                 return false;
             }
 
+            // Decode the response
             $decodedResponse = $response->json();
 
-            return $returnRaw ? $decodedResponse : ($decodedResponse['access_token'] ?? false);
+            // Log the response for debugging (do not log sensitive tokens in production)
+            Log::info('Access Token Response:', $decodedResponse);
+
+            // return $returnRaw ? $decodedResponse : ($decodedResponse['access_token'] ?? false);
+            return $decodedResponse['access_token'];
         } catch (\Exception $e) {
             Log::error("Error fetching access token: " . $e->getMessage());
             return false;
         }
     }
 }
+
 /*
 if (!function_exists('fetchRDT')) {
     function fetchRDT($credentials, $accessToken, $jsonbody, $nextToken = null)
@@ -157,7 +169,7 @@ if (!function_exists('buildQueryString')) {
 }
 
 if (!function_exists('buildHeaders')) {
-    function buildHeaders($credentials, $accessToken, $method, $service, $region, $path, $nextToken, $customParams)
+    function buildHeaders($credentials, $accessToken, $method, $service, $region, $path, $nextToken, $customParams, $endpoint)
     {
         $amzDate = gmdate('Ymd\THis\Z');
         $signatureDetails = calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams);
@@ -165,9 +177,9 @@ if (!function_exists('buildHeaders')) {
         $authorizationHeader = "{$signatureDetails['algorithm']} Credential={$credentials['client_id']}/{$signatureDetails['dateStamp']}/{$signatureDetails['region']}/{$signatureDetails['service']}/aws4_request, SignedHeaders={$signatureDetails['signedHeaders']}, Signature={$signatureDetails['signature']}";
 
         return [
-            "x-amz-date: {$amzDate}",
-            "x-amz-access-token: {$accessToken}",
-            "Authorization: {$authorizationHeader}"
+            "x-amz-date" => $amzDate,
+            "x-amz-access-token" => $accessToken,
+            "Authorization" => $authorizationHeader,
         ];
     }
 }
