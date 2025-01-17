@@ -20,6 +20,5 @@ class Store extends Model
         'refreshtoken',
         'MerchantID',
         'MarketplaceID',
-        'owner_id', // Include this if it's editable
     ];
 }
