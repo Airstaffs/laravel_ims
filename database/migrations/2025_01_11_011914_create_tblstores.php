@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('refreshtoken'); // Refresh token
             $table->string('MerchantID'); // Merchant ID
             $table->string('MarketplaceID'); // Merchant ID
-    
+         
             $table->timestamps();
         });
     }
@@ -33,3 +33,5 @@ return new class extends Migration
         Schema::dropIfExists('tblstores');
     }
 };
+
+

@@ -3,6 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Store; // Assuming Store model is used to manage stores
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class StoreController extends Controller
 {
@@ -36,21 +37,73 @@ class StoreController extends Controller
                 'store' => $store // Send the store data back
             ]);
         }
-
-
-        public function update(Request $request, $id)
+        public function updateStore(Request $request, $id)
         {
-            $request->validate([
-                'storename' => 'required|string|max:255',
-            ]);
+            try {
+                // Find the store by ID
+                $store = Store::where('store_id', $id)->first();
         
-            $store = Store::findOrFail($id);
-            $store->storename = $request->storename;
-            $store->save();
+                if (!$store) {
+                    return response()->json(['success' => false, 'message' => 'Store not found.']);
+                }
         
-            return response()->json(['success' => true, 'store' => $store]);
+                // Ensure 'storename' is provided and not empty
+                if (empty($request->storename)) {
+                    return response()->json(['success' => false, 'message' => 'Store name is required.']);
+                }
+        
+                // Check if the updated store name already exists (excluding the current store)
+                $existingStore = Store::where('storename', $request->storename)
+                                      ->where('store_id', '!=', $id) // Exclude the current store
+                                      ->first();
+        
+                if ($existingStore) {
+                    return response()->json(['success' => false, 'message' => 'The store name already exists in the list.']);
+                }
+        
+                // Prepare the data to update, ensuring only 'storename' is required
+                $updatedData = [
+                    'storename' => $request->storename
+                ];
+        
+                // Update other fields only if they are provided
+                if (!empty($request->ClientID)) {
+                    $updatedData['ClientID'] = $request->ClientID;
+                }
+                if (!empty($request->clientsecret)) {
+                    $updatedData['clientsecret'] = $request->clientsecret;
+                }
+                if (!empty($request->refreshtoken)) {
+                    $updatedData['refreshtoken'] = $request->refreshtoken;
+                }
+                if (!empty($request->MerchantID)) {
+                    $updatedData['MerchantID'] = $request->MerchantID;
+                }
+                if (!empty($request->MarketplaceID)) {
+                    $updatedData['MarketplaceID'] = $request->MarketplaceID;
+                }
+        
+                // Update the store with the new data
+                $store->update($updatedData);
+        
+                return response()->json(['success' => true, 'message' => 'Store updated successfully.']);
+            } catch (\Exception $e) {
+                Log::error('Error updating store: ' . $e->getMessage());
+                return response()->json(['success' => false, 'message' => 'An error occurred while updating the store.']);
+            }
         }
+
         
+         public function getStoreID($id) {
+                $store = Store::find($id);
+            
+                if (!$store) {
+                    return response()->json(['error' => 'Store not found'], 404);
+                }
+            
+                return response()->json(['store' => $store], 200);
+            }
+                       
         // Delete Store
         public function delete($id)
         {

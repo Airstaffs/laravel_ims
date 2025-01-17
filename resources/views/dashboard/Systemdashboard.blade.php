@@ -432,75 +432,6 @@
     </div>
 </div>
 
-        <!-- Add Store Modal -->
-
-<div class="modal fade" id="addStoreModal" tabindex="-1" aria-labelledby="addStoreModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form id="addStoreForm">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addStoreModalLabel">Add New Store</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="newStoreName" class="form-label">Store Name</label>
-                        <input type="text" class="form-control" id="newStoreName" name="storename" placeholder="Enter store name" required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary">Save Store</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Edit Store Modal -->
-<div class="modal fade" id="editStoreModal" tabindex="-1" aria-labelledby="editStoreModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editStoreModalLabel">Edit Store</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editStoreForm">
-                    <input type="hidden" id="editStoreId">
-                    <div class="mb-3">
-                        <label for="editStoreName" class="form-label">Store Name</label>
-                        <input type="text" class="form-control" id="editStoreName" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editClientID" class="form-label">Client ID</label>
-                        <input type="text" class="form-control" id="editClientID" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editClientSecret" class="form-label">Client Secret</label>
-                        <input type="text" class="form-control" id="editClientSecret" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editRefreshToken" class="form-label">Refresh Token</label>
-                        <input type="text" class="form-control" id="editRefreshToken" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editMerchantID" class="form-label">Merchant ID</label>
-                        <input type="text" class="form-control" id="editMerchantID" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editMarketplaceID" class="form-label">Marketplace ID</label>
-                        <input type="text" class="form-control" id="editMarketplaceID" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Save Changes</button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-
-
  <!-- Profile Modal -->
  <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -602,61 +533,6 @@
 
                     </div>
 
-
-
-                    <!-- Add User Tab -->
-                    <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="user-tab">
-                    <h5>User</h5>
-                    <form action="{{ route('add-user') }}" method="POST">
-                        @csrf
-                        <!-- Username -->
-                        <div class="mb-3">
-                            <label for="username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="myusername" name="myusername" placeholder="Enter username" value="{{ session('user_name', 'User Name') }}" required>
-                        </div>
-                        
-                        <!-- Password -->
-                        <div class="mb-3">
-                            <label for="password" class="form-label">New Password</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="newpassword" name="password" placeholder="Enter password" required>
-                                <button type="button" class="btn btn-outline-secondary toggle-password" data-target="#password">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- Confirm Password -->
-                        <div class="mb-3">
-                            <label for="password_confirmation" class="form-label">Confirm Password</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="newpassword_confirmation" name="password_confirmation" placeholder="Confirm password" required>
-                                <button type="button" class="btn btn-outline-secondary toggle-password" data-target="#password_confirmation">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <!-- User Role -->
-                        <div class="mb-3">
-                            <label for="userRole" class="form-label">User Role</label>
-                            <select class="form-select" id="myuserRole" name="role">
-                                <option value="SuperAdmin">Super-Admin</option>
-                                <option value="SubAdmin">Sub-Admin</option>
-                                <option value="User">User</option>
-                            </select>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary">UPDATE</button>
-                    </form>
-                </div>
-
-                    </div>
-                    <!-- Add Store Button -->
-                    <button class="btn btn-primary" id="addStoreButton">Add Store</button>
-                </div>
-            <!-- Store List Tab Content END-->   
-
                 </div>
           </div>
           <!--   <div class="modal-footer">
@@ -700,30 +576,30 @@
             </div>
             <div class="modal-body">
                 <form id="editStoreForm">
-                    <input type="hidden" id="editStoreId">
+                    <input type='hidden' id="editStoreId">
                     <div class="mb-3">
                         <label for="editStoreName" class="form-label">Store Name</label>
                         <input type="text" class="form-control" id="editStoreName" required>
                     </div>
                     <div class="mb-3">
                         <label for="editClientID" class="form-label">Client ID</label>
-                        <input type="text" class="form-control" id="editClientID" required>
+                        <input type="text" class="form-control" id="editClientID">
                     </div>
                     <div class="mb-3">
                         <label for="editClientSecret" class="form-label">Client Secret</label>
-                        <input type="text" class="form-control" id="editClientSecret" required>
+                        <input type="text" class="form-control" id="editClientSecret">
                     </div>
                     <div class="mb-3">
                         <label for="editRefreshToken" class="form-label">Refresh Token</label>
-                        <input type="text" class="form-control" id="editRefreshToken" required>
+                        <input type="text" class="form-control" id="editRefreshToken">
                     </div>
                     <div class="mb-3">
                         <label for="editMerchantID" class="form-label">Merchant ID</label>
-                        <input type="text" class="form-control" id="editMerchantID" required>
+                        <input type="text" class="form-control" id="editMerchantID">
                     </div>
                     <div class="mb-3">
                         <label for="editMarketplaceID" class="form-label">Marketplace ID</label>
-                        <input type="text" class="form-control" id="editMarketplaceID" required>
+                        <input type="text" class="form-control" id="editMarketplaceID">
                     </div>
                     <button type="submit" class="btn btn-primary">Save Changes</button>
                 </form>
@@ -769,7 +645,7 @@ document.getElementById('addStoreForm').addEventListener('submit', function(e) {
                     ${response.data.store.storename} 
                    <div class="d-flex justify-content-end">
                     <button class="btn btn-secondary btn-sm edit-store-btn" 
-                            data-id="${response.data.store.id}" 
+                            data-id="${response.data.store.store_id}" 
                             data-name="${response.data.store.storename}">
                         Edit
                     </button>
@@ -858,66 +734,87 @@ document.addEventListener('click', function(e) {
     }
 });
 
-document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('edit-store-btn')) {
-        const storeId = e.target.dataset.id;
-
-        // Fetch the store details using the store ID
-        axios.get(`/get-store/${storeId}`)
-            .then(response => {
-                const store = response.data.store;
-
-                // Populate the modal with the current store details
-                document.getElementById('editStoreId').value = store.id;
-                document.getElementById('editStoreName').value = store.storename;
-                document.getElementById('editClientID').value = store.ClientID;
-                document.getElementById('editClientSecret').value = store.clientsecret;
-                document.getElementById('editRefreshToken').value = store.refreshtoken;
-                document.getElementById('editMerchantID').value = store.MerchantID;
-                document.getElementById('editMarketplaceID').value = store.MarketplaceID;
-
-                // Show the modal
-                $('#editStoreModal').modal('show');
-            })
-            .catch(error => {
-                console.error('Error fetching store details:', error);
-                alert('An error occurred while fetching store details.');
-            });
-    }
-});
-
-document.getElementById('editStoreForm').addEventListener('submit', function(e) {
-    e.preventDefault(); // Prevent default form submission
-
-    const storeId = document.getElementById('editStoreId').value;
-    const updatedStoreData = {
-        storename: document.getElementById('editStoreName').value.trim(),
-        ClientID: document.getElementById('editClientID').value.trim(),
-        clientsecret: document.getElementById('editClientSecret').value.trim(),
-        refreshtoken: document.getElementById('editRefreshToken').value.trim(),
-        MerchantID: document.getElementById('editMerchantID').value.trim(),
-        MarketplaceID: document.getElementById('editMarketplaceID').value.trim()
-    };
-
-    // Send the update request to the backend
-    axios.post(`/update-store/${storeId}`, updatedStoreData)
+$(document).on('click', '.edit-store-btn', function() {
+    const storeId = $(this).data('id');
+    $('#settingsModal').modal('hide');
+    // Fetch the store details using the store ID
+    axios.get(`/get-store/${storeId}`)
         .then(response => {
-            if (response.data.success) {
-                // Update the store in the list
-                const storeItem = document.querySelector(`[data-id="${storeId}"]`).closest('li');
-                storeItem.querySelector('.storename').textContent = updatedStoreData.storename;
+            const store = response.data.store;
 
-                // Close the modal
-                $('#editStoreModal').modal('hide');
-            } else {
-                alert('Failed to update store');
-            }
+            // Populate the modal with the current store details
+            $('#editStoreId').val(store.store_id);
+            $('#editStoreName').val(store.storename);
+            $('#editClientID').val(store.ClientID);
+            $('#editClientSecret').val(store.clientsecret);
+            $('#editRefreshToken').val(store.refreshtoken);
+            $('#editMerchantID').val(store.MerchantID);
+            $('#editMarketplaceID').val(store.MarketplaceID);
+
+            // Show the modal
+            $('#editStoreModal').modal('show');
         })
         .catch(error => {
-            console.error('Error updating store:', error);
-            alert('An error occurred while updating the store.');
+            console.error('Error fetching store details:', error);
+            alert('An error occurred while fetching store details.');
         });
 });
+
+document.getElementById('editStoreForm').addEventListener('submit', function (e) {
+    e.preventDefault(); // Prevent default form submission
+
+    const storeId = document.getElementById('editStoreId').value.trim();
+    if (!storeId) {
+        alert('Store ID is missing. Please try again.');
+        return;
+    }
+
+    // Gather the updated data from the form
+    const updatedStoreData = {
+        store_id: storeId,  // Should match the store_id column in the database
+        storename: document.getElementById('editStoreName').value.trim() || null,
+        ClientID: document.getElementById('editClientID').value.trim() || null,
+        clientsecret: document.getElementById('editClientSecret').value.trim() || null,
+        refreshtoken: document.getElementById('editRefreshToken').value.trim() || null,
+        MerchantID: document.getElementById('editMerchantID').value.trim() || null,
+        MarketplaceID: document.getElementById('editMarketplaceID').value.trim() || null
+    };
+
+    console.log(updatedStoreData);
+
+    // Send request to update store
+    axios.post('/update-store/' + storeId, updatedStoreData, {
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => {
+        console.log(response);
+        if (response.data.success) {
+            alert('Store updated successfully');
+            fetchStoreList();
+            $('#editStoreModal').modal('hide');
+            $('#settingsModal').modal('show');
+            $('#store-tab').tab('show');
+        } else {
+            // Display the error message returned by the server
+            alert(response.data.message || 'Failed to update store');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating store:', error);
+        alert('An error occurred while updating the store.');
+    });
+});
+
+
+// Alternatively, if you're using the close button explicitly, you can handle it like this:
+    document.querySelector('#editStoreModal .btn-close').addEventListener('click', function() {
+    // Show the settings modal and select the store tab after closing the edit modal
+    $('#settingsModal').modal('show');
+    $('#store-tab').tab('show'); // This activates the store tab
+});
+
 </script>   
 <!-- Success Notification for adding user-->
 @if (session('success'))

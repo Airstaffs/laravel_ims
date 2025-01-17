@@ -43,11 +43,11 @@ Route::get('/Systemmodule/{module}Module/{moduleName}', function ($module, $modu
 
 
 Route::get('/get-stores', [StoreController::class, 'getStores']);
+Route::get('/get-store/{id}', [StoreController::class, 'getStoreID'])->name('get-store');
+Route::post('/update-store/{id}', [StoreController::class, 'updateStore'])->name('update-store');
 
 Route::post('/add-store', [StoreController::class, 'addstore'])->name('add-store');
-
 Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
-
 
 Route::get('/dashboard/Systemdashboard', [AttendanceController::class, 'attendance']);
 Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
