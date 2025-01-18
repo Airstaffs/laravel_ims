@@ -120,7 +120,7 @@ class StoreController extends Controller
             // Query tblstores to get marketplace details for the given store
             $marketplaces = DB::table('tblstores')
                 ->where('store_name', $store)
-                ->get(['marketplace as marketplace', 'marketplace_id as marketplace_id']);
+                ->get(['Marketplace as marketplace', 'MarketplaceID as marketplace_id']);
             
             // Combine the marketplaces into a key-value pair
             $marketplaceData = [];
