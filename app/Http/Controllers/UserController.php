@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
@@ -30,4 +31,30 @@ class UserController extends Controller
             return back()->with('error', 'Failed to add user. Please try again.');
         }
     }
+    
+    public function updatepassword(Request $request)
+    {
+        $currentUserId = Auth::user()->id; // Get the current user's ID
+
+        // Validate the request
+        $request->validate([
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        try {
+            // Find the current user by ID
+            $user = User::findOrFail($currentUserId);
+
+            // Update the user's password
+            $user->update([
+                'password' => Hash::make($request->password),
+            ]);
+
+            return back()->with('success', 'Password updated successfully!');
+        } catch (\Exception $e) {
+            Log::error('Failed to update password: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update password. Please try again.');
+        }
+    }
+
 }

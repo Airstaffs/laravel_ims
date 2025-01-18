@@ -33,6 +33,7 @@ Route::get('/dashboard/Systemdashboard', function () {
 
 // User Routes
 Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
+Route::post('/update-password', [UserController::class, 'updatepassword'])->name('update-password');
 
 // System Design Routes
 Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');

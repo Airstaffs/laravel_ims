@@ -212,7 +212,7 @@
                 <i class="bi bi-gear"></i>
             </a>
             <!-- Logout Icon -->
-            <a class="nav-link p-2" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+            <a class="nav-link p-2" href="#" onclick="event.preventDefault(); showLogoutModal();">
                 <i class="bi bi-box-arrow-right"></i>
             </a>
         </div>
@@ -248,7 +248,8 @@
 
                     <!-- Logout -->
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center justify-content-center" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                        <a class="nav-link d-flex align-items-center justify-content-center" href="#" 
+                        onclick="event.preventDefault(); showLogoutModal();">
                             <i class="bi bi-box-arrow-right me-2"></i>
                             <span class="d-none d-lg-inline">Logout</span>
                         </a>
@@ -651,7 +652,7 @@
                     <!-- Add User Tab -->
                     <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="user-tab">
                         <h5>User</h5>
-                        <form action="{{ route('add-user') }}" method="POST">
+                        <form action="{{ route('update-password') }}" method="POST">
                             @csrf
                             <!-- Username -->
                             <div class="mb-3">
@@ -681,19 +682,10 @@
                                 </div>
                             </div>
 
-                            <!-- User Role -->
-                            <div class="mb-3">
-                                <label for="userRole" class="form-label">User Role</label>
-                                <select class="form-select" id="myuserRole" name="role">
-                                    <option value="SuperAdmin">Super-Admin</option>
-                                    <option value="SubAdmin">Sub-Admin</option>
-                                    <option value="User">User</option>
-                                </select>
-                            </div>
-
                             <button type="submit" class="btn btn-primary">UPDATE</button>
                         </form>
                     </div>
+					
                 </div>
             </div>
             <div class="modal-footer">
@@ -1005,84 +997,6 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
 @endif
 
 
-
-<!-- Audio Elements -->
-<audio id="clockin-sound" src="/sounds/clockin.mp3"></audio>
-<audio id="clockout-sound" src="/sounds/clockout.mp3"></audio>
-<audio id="error-sound" src="/sounds/error.mp3"></audio>
-
-<!-- Success Modal -->
-@if (session('success'))
-<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="successModalLabel">Success</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center">
-                <p class="fs-4">{{ session('success') }}</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
-<!-- Error Modal -->
-@if (session('error'))
-<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="errorModalLabel">Error</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center">
-                <p class="fs-4">{{ session('error') }}</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // Get the audio elements
-        const clockinSound = document.getElementById('clockin-sound');
-        const clockoutSound = document.getElementById('clockout-sound');
-        const errorSound = document.getElementById('error-sound');
-
-        // Check conditions for playing sounds
-        @if (session('success'))
-            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-            successModal.show();
-
-            @if (!$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut))
-                // If there's no last record or both TimeIn and TimeOut are filled, play clockin sound
-                clockoutSound.play();
-            @elseif ($lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut)
-                // If TimeIn exists and TimeOut is null, play clockout sound
-                clockinSound.play();
-            @endif
-        @endif
-
-        // Show error modal and play error sound if an error message exists
-        @if (session('error'))
-            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
-            errorModal.show();
-            errorSound.play();
-        @endif
-    });
-</script>
-
-
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Automatically show all toasts on page load
@@ -1112,6 +1026,118 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
         });
     });
 </script>
+
+
+
+<!-- Audio Elements -->
+<audio id="clockin-sound" src="/sounds/clockin2.mp3"></audio>
+<audio id="clockout-sound" src="/sounds/clockout2.mp3"></audio>
+<audio id="clockin-question-sound" src="/sounds/clockin_question.mp3"></audio>
+<audio id="clockout-question-sound" src="/sounds/clockout_question.mp3"></audio>
+<audio id="error-sound" src="/sounds/error2.mp3"></audio>
+<audio id="logout-sound" src="/sounds/logout.mp3"></audio>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel">Success</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="fs-4" id="successMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="errorModalLabel">Error</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="fs-4">{{ session('error') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get the audio elements
+        const clockinSound = document.getElementById('clockin-sound');
+        const clockoutSound = document.getElementById('clockout-sound');
+        const errorSound = document.getElementById('error-sound');
+        // Get the modal and message elements
+        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+        const successMessage = document.getElementById('successMessage');
+
+        // Check conditions for playing sounds
+        @if (session('success_clockin'))
+            successMessage.textContent = "{{ session('success_clockin') }}";
+            successModal.show();
+            clockinSound.play();
+        @endif
+
+        @if (session('success_clockout'))
+            successMessage.textContent = "{{ session('success_clockout') }}";
+            successModal.show();
+            clockoutSound.play();
+        @endif
+
+        // Show error modal and play error sound if an error message exists
+        @if (session('error'))
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            errorModal.show();
+            errorSound.play();
+        @endif
+    });
+</script>
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to logout?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
+                <button type="button" class="btn btn-danger" id="confirmLogout">Yes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+        const logoutSound = document.getElementById('logout-sound');
+    // Show the logout confirmation modal
+    function showLogoutModal() {
+        const logoutModal = new bootstrap.Modal(document.getElementById('logoutModal'));
+        logoutModal.show();
+        logoutSound.play();
+    }
+
+    // Handle the "Yes" button click in the modal
+    document.getElementById('confirmLogout').addEventListener('click', function () {
+        document.getElementById('logout-form').submit();
+    });
+</script>
+
     <!-- Footer -->
     <footer>
         &copy; 2025 IMS (Inventory Management System). All rights reserved.
@@ -1292,15 +1318,20 @@ document.addEventListener('DOMContentLoaded', () => {
   </script>
   
   
-  
+
 <script>
+const clockin_question_Sound = document.getElementById('clockin-question-sound');
+const clockout_question_Sound = document.getElementById('clockout-question-sound'); 
+
     function confirmClockIn() {
+        clockin_question_Sound.play();
         if (confirm('Are you sure you want to Clock In?')) {
             document.getElementById('clockin-form').submit();
         }
     }
 
     function confirmClockOut() {
+        clockout_question_Sound.play();
         if (confirm('Are you sure you want to Clock Out?')) {
             document.getElementById('clockout-form').submit();
         }
