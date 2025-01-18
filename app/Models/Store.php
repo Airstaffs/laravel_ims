@@ -14,11 +14,6 @@ class Store extends Model
     protected $primaryKey = 'store_id'; // Primary key
 
     protected $fillable = [
-        'storename',
-        'ClientID',
-        'clientsecret',
-        'refreshtoken',
-        'MerchantID',
-        'MarketplaceID',
+        'storename', 'client_id', 'client_secret', 'refresh_token', 'MerchantID', 'Marketplace', 'MarketplaceID',
     ];
 }

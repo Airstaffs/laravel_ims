@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Models\Store; // Assuming Store model is used to manage stores
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class StoreController extends Controller
 {
@@ -24,9 +25,9 @@ class StoreController extends Controller
             $store = new Store();
             $store->storename = $request->storename;
             $store->owner_id = auth()->id(); // Assuming the logged-in user is the owner
-            $store->ClientID = ''; // Add as necessary
-            $store->clientsecret = ''; // Add as necessary
-            $store->refreshtoken = ''; // Add as necessary
+            $store->client_id = ''; // Add as necessary
+            $store->client_secret = ''; // Add as necessary
+            $store->refresh_token = ''; // Add as necessary
             $store->MerchantID = ''; // Add as necessary
             $store->MarketplaceID = ''; // Add as necessary
             $store->save();
@@ -66,22 +67,13 @@ class StoreController extends Controller
                     'storename' => $request->storename
                 ];
         
-                // Update other fields only if they are provided
-                if (!empty($request->ClientID)) {
-                    $updatedData['ClientID'] = $request->ClientID;
-                }
-                if (!empty($request->clientsecret)) {
-                    $updatedData['clientsecret'] = $request->clientsecret;
-                }
-                if (!empty($request->refreshtoken)) {
-                    $updatedData['refreshtoken'] = $request->refreshtoken;
-                }
-                if (!empty($request->MerchantID)) {
-                    $updatedData['MerchantID'] = $request->MerchantID;
-                }
-                if (!empty($request->MarketplaceID)) {
-                    $updatedData['MarketplaceID'] = $request->MarketplaceID;
-                }
+                // Update other fields only if they are provided, otherwise set them to null
+                $updatedData['client_id'] = !empty($request->client_id ) ? $request->client_id : null;
+                $updatedData['client_secret'] = !empty($request->client_secret) ? $request->client_secret : null;
+                $updatedData['refresh_token'] = !empty($request->refresh_token) ? $request->refresh_token : null;
+                $updatedData['MerchantID'] = !empty($request->MerchantID) ? $request->MerchantID : null;
+                $updatedData['Marketplace'] = !empty($request->Marketplace) ? $request->Marketplace : null;
+                $updatedData['MarketplaceID'] = !empty($request->MarketplaceID) ? $request->MarketplaceID : null;
         
                 // Update the store with the new data
                 $store->update($updatedData);
@@ -92,7 +84,6 @@ class StoreController extends Controller
                 return response()->json(['success' => false, 'message' => 'An error occurred while updating the store.']);
             }
         }
-
         
          public function getStoreID($id) {
                 $store = Store::find($id);
@@ -111,5 +102,14 @@ class StoreController extends Controller
             $store->delete();
         
             return response()->json(['success' => true]);
-        }        
+                } 
+        public function fetchMarketplaces() 
+        {
+            $marketplaces = DB::table('tbldefinitions')
+                ->where('category', 'Marketplace')
+                ->select('value', 'name') // Fetch both 'value' and 'name' fields
+                ->get();
+        
+            return response()->json($marketplaces);
+        }
 }

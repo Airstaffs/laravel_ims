@@ -15,11 +15,13 @@ return new class extends Migration
             $table->id('store_id'); // Primary key
             $table->unsignedBigInteger('owner_id'); // Owner ID (foreign key)
             $table->string('storename'); // Store name
-            $table->string('ClientID'); // Client ID
-            $table->string('clientsecret'); // Client secret
-            $table->string('refreshtoken'); // Refresh token
+            $table->string('client_id'); // Client ID
+            $table->string('client_secret'); // Client secret
+            $table->string('refresh_token'); // Refresh token
             $table->string('MerchantID'); // Merchant ID
             $table->string('MarketplaceID'); // Merchant ID
+            $table->string('Marketplace'); // Merchant ID
+
          
             $table->timestamps();
         });
@@ -33,5 +35,4 @@ return new class extends Migration
         Schema::dropIfExists('tblstores');
     }
 };
-
 
