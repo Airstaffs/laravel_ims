@@ -488,6 +488,19 @@
                         <label for="editMerchantID" class="form-label">Merchant ID</label>
                         <input type="text" class="form-control" id="editMerchantID">
                     </div>
+
+                    <div class="mb-3">
+                        <label for="editMarketplace" class="form-label">Select Marketplace</label>
+                        <select class="form-select" id="selectMarketplace" multiple>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editMarketplace" class="form-label">Marketplace</label>
+                        <input type="text" class="form-control" id="editMarketplace">
+                    </div>
+
                     <div class="mb-3">
                         <label for="editMarketplaceID" class="form-label">Marketplace ID</label>
                         <input type="text" class="form-control" id="editMarketplaceID">
@@ -827,10 +840,11 @@ $(document).on('click', '.edit-store-btn', function() {
             // Populate the modal with the current store details
             $('#editStoreId').val(store.store_id);
             $('#editStoreName').val(store.storename);
-            $('#editClientID').val(store.ClientID);
-            $('#editClientSecret').val(store.clientsecret);
-            $('#editRefreshToken').val(store.refreshtoken);
+            $('#editClientID').val(store.client_id);
+            $('#editClientSecret').val(store.client_secret);
+            $('#editRefreshToken').val(store.refresh_token);
             $('#editMerchantID').val(store.MerchantID);
+            $('#editMarketplace').val(store.Marketplace);
             $('#editMarketplaceID').val(store.MarketplaceID);
 
             // Show the modal
@@ -855,10 +869,11 @@ document.getElementById('editStoreForm').addEventListener('submit', function (e)
     const updatedStoreData = {
         store_id: storeId,  // Should match the store_id column in the database
         storename: document.getElementById('editStoreName').value.trim() || null,
-        ClientID: document.getElementById('editClientID').value.trim() || null,
-        clientsecret: document.getElementById('editClientSecret').value.trim() || null,
-        refreshtoken: document.getElementById('editRefreshToken').value.trim() || null,
+        client_id: document.getElementById('editClientID').value.trim() || null,
+        client_secret: document.getElementById('editClientSecret').value.trim() || null,
+        refresh_token: document.getElementById('editRefreshToken').value.trim() || null,
         MerchantID: document.getElementById('editMerchantID').value.trim() || null,
+        Marketplace: document.getElementById('editMarketplace').value.trim() || null,
         MarketplaceID: document.getElementById('editMarketplaceID').value.trim() || null
     };
 
@@ -896,6 +911,51 @@ document.getElementById('editStoreForm').addEventListener('submit', function (e)
     $('#settingsModal').modal('show');
     $('#store-tab').tab('show'); // This activates the store tab
 });
+
+
+function fetchMarketplaces() {
+    console.log("Modal is shown, fetching marketplaces..."); // Check if the modal is opening
+    axios.get('/fetch-marketplaces')
+        .then(response => {
+            const marketplaceSelect = document.getElementById('selectMarketplace');
+            marketplaceSelect.innerHTML = ''; // Clear existing options
+
+            response.data.forEach(marketplace => {
+                const option = document.createElement('option');
+                option.value = marketplace.value; // Set the 'value' field
+                option.textContent = marketplace.name; // Display the 'name' field
+                marketplaceSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching marketplaces:', error);
+        });
+}
+
+function updateMarketplaceFields() {
+    const marketplaceSelect = document.getElementById('selectMarketplace');
+    const selectedOptions = Array.from(marketplaceSelect.selectedOptions);
+
+    // Retrieve existing values from the input fields
+    const currentNames = document.getElementById('editMarketplace').value.split(',').map(name => name.trim());
+    const currentIDs = document.getElementById('editMarketplaceID').value.split(',').map(id => id.trim());
+
+    // Add new values, avoiding duplicates
+    selectedOptions.forEach(option => {
+        if (!currentNames.includes(option.textContent)) {
+            currentNames.push(option.textContent);
+            currentIDs.push(option.value);
+        }
+    });
+
+    // Update the fields with the updated values
+    document.getElementById('editMarketplace').value = currentNames.filter(Boolean).join(', ');
+    document.getElementById('editMarketplaceID').value = currentIDs.filter(Boolean).join(', ');
+}
+
+// Attach event listeners
+document.getElementById('editStoreModal').addEventListener('show.bs.modal', fetchMarketplaces);
+document.getElementById('selectMarketplace').addEventListener('change', updateMarketplaceFields);
 
 </script>   
 <!-- Success Notification for adding user-->
