@@ -112,4 +112,26 @@ class StoreController extends Controller
         
             return response()->json($marketplaces);
         }
+
+        public function fetchMarketplacestblstores(Request $request)
+        {
+            $store = $request->input('store');
+            
+            // Query tblstores to get marketplace details for the given store
+            $marketplaces = DB::table('tblstores')
+                ->where('store_name', $store)
+                ->get(['marketplace as marketplace', 'marketplace_id as marketplace_id']);
+            
+            // Combine the marketplaces into a key-value pair
+            $marketplaceData = [];
+            foreach ($marketplaces as $marketplace) {
+                // Set the marketplace name as key and marketplace_id as value
+                $marketplaceData[$marketplace->marketplace] = $marketplace->marketplace_id;
+            }
+        
+            return response()->json([
+                'success' => true,
+                'marketplaces' => $marketplaceData, // Return key-value pairs
+            ]);
+        }
 }
