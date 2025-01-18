@@ -122,16 +122,26 @@ class StoreController extends Controller
                 ->where('storename', $store)
                 ->get(['Marketplace as marketplace', 'MarketplaceID as marketplace_id']);
             
-            // Combine the marketplaces into a key-value pair
+            // Split the marketplaces and marketplace IDs into individual key-value pairs
             $marketplaceData = [];
             foreach ($marketplaces as $marketplace) {
-                // Set the marketplace name as key and marketplace_id as value
-                $marketplaceData[$marketplace->marketplace] = $marketplace->marketplace_id;
+                $names = explode(',', $marketplace->marketplace); // Split by comma
+                $ids = explode(',', $marketplace->marketplace_id); // Split by comma
+                
+                // Combine each name with its corresponding ID
+                for ($i = 0; $i < count($names); $i++) {
+                    $name = trim($names[$i]); // Remove extra spaces
+                    $id = $ids[$i] ?? null; // Use corresponding ID or null if not available
+                    if ($id) {
+                        $marketplaceData[$name] = $id;
+                    }
+                }
             }
         
             return response()->json([
                 'success' => true,
-                'marketplaces' => $marketplaceData, // Return key-value pairs
+                'marketplaces' => $marketplaceData, // Return the structured key-value pairs
             ]);
         }
+        
 }
