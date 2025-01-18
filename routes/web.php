@@ -33,6 +33,7 @@ Route::get('/dashboard/Systemdashboard', function () {
 
 // User Routes
 Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
+Route::post('/update-password', [UserController::class, 'updatepassword'])->name('update-password');
 
 // System Design Routes
 Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');
@@ -55,10 +56,12 @@ Route::post('/update-store/{id}', [StoreController::class, 'updateStore'])->name
 
 Route::post('/add-store', [StoreController::class, 'addstore'])->name('add-store');
 Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
+Route::get('/fetch-marketplaces', [StoreController::class, 'fetchMarketplaces']);
 
 Route::get('/dashboard/Systemdashboard', [AttendanceController::class, 'attendance']);
 Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
 Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
+
 
 // AWS Inventory Routes
 Route::get('/aws-inventory', function () {

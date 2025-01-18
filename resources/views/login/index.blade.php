@@ -146,9 +146,16 @@
         &copy; 2025 IMS (Inventory Management System)
     </footer>
 
+    <audio id="successAudio" src="/sounds/login.mp3" preload="auto"></audio>
+    <audio id="errorAudio" src="/sounds/error2.mp3" preload="auto"></audio>
+
     <script>
+            const successAudio = document.getElementById('successAudio');
+            const errorAudio = document.getElementById('errorAudio');
         // Check if there are session messages
         @if(session('success'))
+                // Play the audio and show the modal
+                successAudio.play().catch(error => console.error('Audio playback failed:', error));
             Swal.fire({
                 icon: 'success',
                 title: 'Success',
@@ -160,6 +167,8 @@
         @endif
 
         @if(session('error'))
+                // Play the audio and show the modal
+                errorAudio.play().catch(error => console.error('Audio playback failed:', error));
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
@@ -168,6 +177,8 @@
         @endif
 
         @if($errors->any())
+                // Play the audio and show the modal
+                errorAudio.play().catch(error => console.error('Audio playback failed:', error));
             Swal.fire({
                 icon: 'error',
                 title: 'Error',

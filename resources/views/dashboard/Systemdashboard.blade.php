@@ -212,7 +212,7 @@
                 <i class="bi bi-gear"></i>
             </a>
             <!-- Logout Icon -->
-            <a class="nav-link p-2" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+            <a class="nav-link p-2" href="#" onclick="event.preventDefault(); showLogoutModal();">
                 <i class="bi bi-box-arrow-right"></i>
             </a>
         </div>
@@ -248,7 +248,8 @@
 
                     <!-- Logout -->
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center justify-content-center" href="#" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
+                        <a class="nav-link d-flex align-items-center justify-content-center" href="#" 
+                        onclick="event.preventDefault(); showLogoutModal();">
                             <i class="bi bi-box-arrow-right me-2"></i>
                             <span class="d-none d-lg-inline">Logout</span>
                         </a>
@@ -488,6 +489,19 @@
                         <label for="editMerchantID" class="form-label">Merchant ID</label>
                         <input type="text" class="form-control" id="editMerchantID">
                     </div>
+
+                    <div class="mb-3">
+                        <label for="editMarketplace" class="form-label">Select Marketplace</label>
+                        <select class="form-select" id="selectMarketplace" multiple>
+                            <!-- Options will be populated dynamically -->
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="editMarketplace" class="form-label">Marketplace</label>
+                        <input type="text" class="form-control" id="editMarketplace">
+                    </div>
+
                     <div class="mb-3">
                         <label for="editMarketplaceID" class="form-label">Marketplace ID</label>
                         <input type="text" class="form-control" id="editMarketplaceID">
@@ -638,7 +652,7 @@
                     <!-- Add User Tab -->
                     <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="user-tab">
                         <h5>User</h5>
-                        <form action="{{ route('add-user') }}" method="POST">
+                        <form action="{{ route('update-password') }}" method="POST">
                             @csrf
                             <!-- Username -->
                             <div class="mb-3">
@@ -668,19 +682,10 @@
                                 </div>
                             </div>
 
-                            <!-- User Role -->
-                            <div class="mb-3">
-                                <label for="userRole" class="form-label">User Role</label>
-                                <select class="form-select" id="myuserRole" name="role">
-                                    <option value="SuperAdmin">Super-Admin</option>
-                                    <option value="SubAdmin">Sub-Admin</option>
-                                    <option value="User">User</option>
-                                </select>
-                            </div>
-
                             <button type="submit" class="btn btn-primary">UPDATE</button>
                         </form>
                     </div>
+					
                 </div>
             </div>
             <div class="modal-footer">
@@ -827,10 +832,11 @@ $(document).on('click', '.edit-store-btn', function() {
             // Populate the modal with the current store details
             $('#editStoreId').val(store.store_id);
             $('#editStoreName').val(store.storename);
-            $('#editClientID').val(store.ClientID);
-            $('#editClientSecret').val(store.clientsecret);
-            $('#editRefreshToken').val(store.refreshtoken);
+            $('#editClientID').val(store.client_id);
+            $('#editClientSecret').val(store.client_secret);
+            $('#editRefreshToken').val(store.refresh_token);
             $('#editMerchantID').val(store.MerchantID);
+            $('#editMarketplace').val(store.Marketplace);
             $('#editMarketplaceID').val(store.MarketplaceID);
 
             // Show the modal
@@ -855,10 +861,11 @@ document.getElementById('editStoreForm').addEventListener('submit', function (e)
     const updatedStoreData = {
         store_id: storeId,  // Should match the store_id column in the database
         storename: document.getElementById('editStoreName').value.trim() || null,
-        ClientID: document.getElementById('editClientID').value.trim() || null,
-        clientsecret: document.getElementById('editClientSecret').value.trim() || null,
-        refreshtoken: document.getElementById('editRefreshToken').value.trim() || null,
+        client_id: document.getElementById('editClientID').value.trim() || null,
+        client_secret: document.getElementById('editClientSecret').value.trim() || null,
+        refresh_token: document.getElementById('editRefreshToken').value.trim() || null,
         MerchantID: document.getElementById('editMerchantID').value.trim() || null,
+        Marketplace: document.getElementById('editMarketplace').value.trim() || null,
         MarketplaceID: document.getElementById('editMarketplaceID').value.trim() || null
     };
 
@@ -896,6 +903,51 @@ document.getElementById('editStoreForm').addEventListener('submit', function (e)
     $('#settingsModal').modal('show');
     $('#store-tab').tab('show'); // This activates the store tab
 });
+
+
+function fetchMarketplaces() {
+    console.log("Modal is shown, fetching marketplaces..."); // Check if the modal is opening
+    axios.get('/fetch-marketplaces')
+        .then(response => {
+            const marketplaceSelect = document.getElementById('selectMarketplace');
+            marketplaceSelect.innerHTML = ''; // Clear existing options
+
+            response.data.forEach(marketplace => {
+                const option = document.createElement('option');
+                option.value = marketplace.value; // Set the 'value' field
+                option.textContent = marketplace.name; // Display the 'name' field
+                marketplaceSelect.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching marketplaces:', error);
+        });
+}
+
+function updateMarketplaceFields() {
+    const marketplaceSelect = document.getElementById('selectMarketplace');
+    const selectedOptions = Array.from(marketplaceSelect.selectedOptions);
+
+    // Retrieve existing values from the input fields
+    const currentNames = document.getElementById('editMarketplace').value.split(',').map(name => name.trim());
+    const currentIDs = document.getElementById('editMarketplaceID').value.split(',').map(id => id.trim());
+
+    // Add new values, avoiding duplicates
+    selectedOptions.forEach(option => {
+        if (!currentNames.includes(option.textContent)) {
+            currentNames.push(option.textContent);
+            currentIDs.push(option.value);
+        }
+    });
+
+    // Update the fields with the updated values
+    document.getElementById('editMarketplace').value = currentNames.filter(Boolean).join(', ');
+    document.getElementById('editMarketplaceID').value = currentIDs.filter(Boolean).join(', ');
+}
+
+// Attach event listeners
+document.getElementById('editStoreModal').addEventListener('show.bs.modal', fetchMarketplaces);
+document.getElementById('selectMarketplace').addEventListener('change', updateMarketplaceFields);
 
 </script>   
 <!-- Success Notification for adding user-->
@@ -945,84 +997,6 @@ document.getElementById('editStoreForm').addEventListener('submit', function (e)
 @endif
 
 
-
-<!-- Audio Elements -->
-<audio id="clockin-sound" src="/sounds/clockin.mp3"></audio>
-<audio id="clockout-sound" src="/sounds/clockout.mp3"></audio>
-<audio id="error-sound" src="/sounds/error.mp3"></audio>
-
-<!-- Success Modal -->
-@if (session('success'))
-<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="successModalLabel">Success</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center">
-                <p class="fs-4">{{ session('success') }}</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
-<!-- Error Modal -->
-@if (session('error'))
-<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title" id="errorModalLabel">Error</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body text-center">
-                <p class="fs-4">{{ session('error') }}</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-@endif
-
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        // Get the audio elements
-        const clockinSound = document.getElementById('clockin-sound');
-        const clockoutSound = document.getElementById('clockout-sound');
-        const errorSound = document.getElementById('error-sound');
-
-        // Check conditions for playing sounds
-        @if (session('success'))
-            const successModal = new bootstrap.Modal(document.getElementById('successModal'));
-            successModal.show();
-
-            @if (!$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut))
-                // If there's no last record or both TimeIn and TimeOut are filled, play clockin sound
-                clockoutSound.play();
-            @elseif ($lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut)
-                // If TimeIn exists and TimeOut is null, play clockout sound
-                clockinSound.play();
-            @endif
-        @endif
-
-        // Show error modal and play error sound if an error message exists
-        @if (session('error'))
-            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
-            errorModal.show();
-            errorSound.play();
-        @endif
-    });
-</script>
-
-
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Automatically show all toasts on page load
@@ -1052,6 +1026,118 @@ document.getElementById('editStoreForm').addEventListener('submit', function (e)
         });
     });
 </script>
+
+
+
+<!-- Audio Elements -->
+<audio id="clockin-sound" src="/sounds/clockin2.mp3"></audio>
+<audio id="clockout-sound" src="/sounds/clockout2.mp3"></audio>
+<audio id="clockin-question-sound" src="/sounds/clockin_question.mp3"></audio>
+<audio id="clockout-question-sound" src="/sounds/clockout_question.mp3"></audio>
+<audio id="error-sound" src="/sounds/error2.mp3"></audio>
+<audio id="logout-sound" src="/sounds/logout.mp3"></audio>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="successModalLabel">Success</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="fs-4" id="successMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="errorModalLabel">Error</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="fs-4">{{ session('error') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get the audio elements
+        const clockinSound = document.getElementById('clockin-sound');
+        const clockoutSound = document.getElementById('clockout-sound');
+        const errorSound = document.getElementById('error-sound');
+        // Get the modal and message elements
+        const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+        const successMessage = document.getElementById('successMessage');
+
+        // Check conditions for playing sounds
+        @if (session('success_clockin'))
+            successMessage.textContent = "{{ session('success_clockin') }}";
+            successModal.show();
+            clockinSound.play();
+        @endif
+
+        @if (session('success_clockout'))
+            successMessage.textContent = "{{ session('success_clockout') }}";
+            successModal.show();
+            clockoutSound.play();
+        @endif
+
+        // Show error modal and play error sound if an error message exists
+        @if (session('error'))
+            const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+            errorModal.show();
+            errorSound.play();
+        @endif
+    });
+</script>
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to logout?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
+                <button type="button" class="btn btn-danger" id="confirmLogout">Yes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+        const logoutSound = document.getElementById('logout-sound');
+    // Show the logout confirmation modal
+    function showLogoutModal() {
+        const logoutModal = new bootstrap.Modal(document.getElementById('logoutModal'));
+        logoutModal.show();
+        logoutSound.play();
+    }
+
+    // Handle the "Yes" button click in the modal
+    document.getElementById('confirmLogout').addEventListener('click', function () {
+        document.getElementById('logout-form').submit();
+    });
+</script>
+
     <!-- Footer -->
     <footer>
         &copy; 2025 IMS (Inventory Management System). All rights reserved.
@@ -1232,15 +1318,20 @@ document.addEventListener('DOMContentLoaded', () => {
   </script>
   
   
-  
+
 <script>
+const clockin_question_Sound = document.getElementById('clockin-question-sound');
+const clockout_question_Sound = document.getElementById('clockout-question-sound'); 
+
     function confirmClockIn() {
+        clockin_question_Sound.play();
         if (confirm('Are you sure you want to Clock In?')) {
             document.getElementById('clockin-form').submit();
         }
     }
 
     function confirmClockOut() {
+        clockout_question_Sound.play();
         if (confirm('Are you sure you want to Clock Out?')) {
             document.getElementById('clockout-form').submit();
         }

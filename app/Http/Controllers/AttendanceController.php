@@ -81,7 +81,7 @@ class AttendanceController extends Controller
         ]);
 
         // Redirect back with a success message
-        return redirect()->back()->with('success', 'Clocked in successfully at ' . $currentDateTime->format('h:i A'));
+        return redirect()->back()->with('success_clockin', 'Clocked in successfully at ' . $currentDateTime->format('h:i A'));
     }
 
     public function clockOut(Request $request)
@@ -108,7 +108,7 @@ class AttendanceController extends Controller
                 ->update(['TimeOut' => $currentDateTime]);
 
             // Redirect back with a success message
-            return redirect()->back()->with('success', 'Clocked out successfully at ' . $currentDateTime->format('h:i A'));
+            return redirect()->back()->with('success_clockout', 'Clocked out successfully at ' . $currentDateTime->format('h:i A'));
         } else {
             // If no valid record found, return an error message
             return redirect()->back()->with('error', 'No valid clock-in record found for today to clock out.');

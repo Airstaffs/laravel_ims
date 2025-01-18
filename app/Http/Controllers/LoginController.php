@@ -63,7 +63,9 @@ class LoginController extends Controller
         $request->session()->put('profile_picture', $user->profile_picture); // Assuming 'profile_picture' is the field in the user table
         $request->session()->put('userid', $user->id); // Assuming 'profile_picture' is the field in the user table
 
-        return redirect()->intended('/dashboard/Systemdashboard')->with('success', 'Login successful!');
+
+        //return redirect()->intended('/dashboard/Systemdashboard')->with('success', 'Login successful!');
+        return redirect()->back()->with('success', 'Log in successfully');
     }
 
     // If authentication fails, redirect back with an error
