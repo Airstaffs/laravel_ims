@@ -19,11 +19,11 @@ class AwsInventoryController extends Controller
         // Validate request input
         $request->validate([
             'store' => 'required|string',
-            'MarketplaceID' => 'required|string'
+            'marketplace' => 'required|string'
         ]);
 
         $store = $request->input('store');
-        $MarketplaceID = $request->input('MarketplaceID');
+        $MarketplaceID = $request->input('marketplace');
 
         $credentials = AWSCredentials($store);
         // Static query parameters
