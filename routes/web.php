@@ -9,6 +9,7 @@ use App\Http\Controllers\AwsInventoryController;
 use App\Http\Controllers\StoreController;
 use App\Http\Models\Store;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\USPSController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -29,7 +30,7 @@ Route::post('/login', [LoginController::class, 'authenticate'])->name('login');
 // Dashboard Route (Protected with auth middleware)
 Route::get('/dashboard/Systemdashboard', function () {
     return view('dashboard.Systemdashboard');
-})->middleware('auth'); 
+})->middleware('auth');
 
 // User Routes
 Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
@@ -69,6 +70,12 @@ Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->
 Route::get('/aws-inventory', function () {
     return view('tests.aws_inventory');
 })->name('aws.inventory.view');
-
-// Inventory Summary Route
 Route::post('/aws/inventory/summary', [AwsInventoryController::class, 'fetchInventorySummary'])->name('aws.inventory.summary');
+
+// USPS
+Route::get('/uspstracking', function () {
+    return view('tests.usps');
+})->name('usps.tracking');
+
+Route::post('/usps/tracking', [USPSController::class, 'USPSfetchTrackDetails'])->name('usps.trackingnumber');
+
