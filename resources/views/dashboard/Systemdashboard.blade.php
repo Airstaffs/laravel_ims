@@ -424,7 +424,54 @@
                 </div>
             <!-- Store List Tab Content END-->   
 
+
+
+     <div class="tab-pane fade" id="privilege" role="tabpanel" aria-labelledby="privilege-tab">
+    <h5>User Privileges</h5>
+    <form action="{{ route('update-user-privileges') }}" method="POST">
+        @csrf
+        <!-- Select User -->
+        <div class="mb-3">
+            <label for="selectUser" class="form-label">Select User</label>
+            <select class="form-select" id="selectUser" name="user_id" required>
+                <!-- Dynamically populate with users -->
+                @foreach ($users as $user)
+                    <option value="{{ $user->id }}">{{ $user->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        
+        <!-- Main Module -->
+        <h6>Main Module</h6>
+        <div class="mb-3">
+            @foreach (['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom'] as $mainModule)
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="main_module" id="main_{{ $mainModule }}" value="{{ $mainModule }}" required>
+                    <label class="form-check-label" for="main_{{ $mainModule }}">
+                        {{ $mainModule }}
+                    </label>
                 </div>
+            @endforeach
+        </div>
+
+        <!-- Sub-Modules Privileges -->
+        <h6>Sub-Modules</h6>
+        <div class="mb-3">
+            @foreach (['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom'] as $subModule)
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="sub_modules[]" id="sub_{{ $subModule }}" value="{{ $subModule }}">
+                    <label class="form-check-label" for="sub_{{ $subModule }}">
+                        {{ $subModule }}
+                    </label>
+                </div>
+            @endforeach
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Privileges</button>
+    </form>
+</div>
+
+             </div>
           </div>
           <!--   <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -649,7 +696,7 @@
 
                     </div>
 
-                    <!-- Add User Tab -->
+                    <!-- Profile Tab -->
                     <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="user-tab">
                         <h5>User</h5>
                         <form action="{{ route('update-password') }}" method="POST">
