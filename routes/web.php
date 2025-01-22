@@ -10,6 +10,7 @@ use App\Http\Controllers\StoreController;
 use App\Http\Models\Store;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\USPSController;
+use App\Http\Controllers\UPSController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -78,4 +79,11 @@ Route::get('/uspstracking', function () {
 })->name('usps.tracking');
 
 Route::post('/usps/tracking', [USPSController::class, 'USPSfetchTrackDetails'])->name('usps.trackingnumber');
+
+// UPS
+Route::get('/upstracking', function () {
+    return view('tests.ups');
+})->name('ups.tracking');
+
+Route::post('/usps/tracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
 
