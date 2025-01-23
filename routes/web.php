@@ -81,9 +81,9 @@ Route::get('/uspstracking', function () {
 Route::post('/usps/tracking', [USPSController::class, 'USPSfetchTrackDetails'])->name('usps.trackingnumber');
 
 // UPS
-Route::get('/upstracking', function () {
+Route::get('/apis/upstracking', function () {
     return view('tests.ups');
 })->name('ups.tracking');
 
-Route::post('/usps/tracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
+Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
 

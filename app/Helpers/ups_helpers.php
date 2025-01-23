@@ -33,42 +33,71 @@ if (!function_exists('UPSCredentials')) {
     }
 }
 
-function upsRefresher()
+function upsRefresher($bypassTimeCheck = false) // Add a parameter for bypassing time validation
 {
     // ID for UPS
     $id = 2;
 
-    // Fetch the API details from the database
-    $apiDetails = DB::table('tblpais')->where('id', $id)->first();
+    try {
+        // Fetch the API details from the database
+        $apiDetails = DB::table('tblapis')->where('id', $id)->first();
 
-    if ($apiDetails) {
-        $currentTime = time();
-        $expiration = $apiDetails->expires_in - 1800; // Subtract 30 minutes
+        if ($apiDetails) {
+            $currentTime = time();
+            $expiration = $apiDetails->expires_in - 1800; // Subtract 30 minutes
 
-        // Execute only if the current time is greater than the expiration time
-        if ($currentTime > $expiration) {
-            $payload = [
-                'grant_type' => 'refresh_token',
-                'refresh_token' => $apiDetails->refresh_token,
-            ];
+            // Log current time and expiration check
+            Log::info("UPS Refresher: Current time: {$currentTime}, Expiration time: {$expiration}");
 
-            $credentials = base64_encode("{$apiDetails->client_id}:{$apiDetails->client_secret}");
+            // Check if bypass is enabled or token is expired
+            if ($bypassTimeCheck || $currentTime > $expiration) {
+                if ($bypassTimeCheck) {
+                    Log::info('UPS Refresher: Time validation bypassed for testing.');
+                } else {
+                    Log::info('UPS Refresher: Token is expired or about to expire. Refreshing...');
+                }
 
-            // Send the POST request to refresh the token
-            $response = Http::withHeaders([
-                'Content-Type' => 'application/x-www-form-urlencoded',
-                'Authorization' => "Basic $credentials",
-            ])->asForm()->post('https://onlinetools.ups.com/security/v1/oauth/refresh', $payload);
+                $payload = [
+                    'grant_type' => 'refresh_token',
+                    'refresh_token' => $apiDetails->refresh_token,
+                ];
 
-            if ($response->successful() && $response->json('access_token')) {
-                // Update the database with the new tokens and expiration time
-                DB::table('tblpais')->where('id', $id)->update([
-                    'access_token' => $response->json('access_token'),
-                    'refresh_token' => $response->json('refresh_token'),
-                    'expires_in' => time() + $response->json('expires_in'),
-                ]);
+                $credentials = base64_encode("{$apiDetails->client_id}:{$apiDetails->client_secret}");
+
+                // Send the POST request to refresh the token
+                $response = Http::withHeaders([
+                    'Content-Type' => 'application/x-www-form-urlencoded',
+                    'Authorization' => "Basic $credentials",
+                ])->asForm()->post('https://onlinetools.ups.com/security/v1/oauth/refresh', $payload);
+
+                // Log the response status and body
+                Log::info('UPS Refresher: Response status: ' . $response->status());
+                Log::debug('UPS Refresher: Response body: ', $response->json());
+
+                if ($response->successful() && $response->json('access_token')) {
+                    // Update the database with the new tokens and expiration time
+                    DB::table('tblapis')->where('id', $id)->update([
+                        'access_token' => $response->json('access_token'),
+                        'refresh_token' => $response->json('refresh_token'),
+                        'expires_in' => time() + $response->json('expires_in'),
+                    ]);
+
+                    Log::info('UPS Refresher: Tokens refreshed and updated in the database successfully.');
+                } else {
+                    Log::error('UPS Refresher: Failed to refresh tokens. Response: ', $response->json());
+                }
+            } else {
+                Log::info('UPS Refresher: Token is still valid. No action needed.');
             }
+        } else {
+            Log::warning('UPS Refresher: No API details found for the given ID.');
         }
+    } catch (\Exception $e) {
+        // Log any unexpected errors
+        Log::error('UPS Refresher: An error occurred: ' . $e->getMessage(), [
+            'trace' => $e->getTraceAsString(),
+        ]);
     }
 }
+
 

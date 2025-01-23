@@ -19,6 +19,7 @@ class UPSController extends Controller
 
         $trackingNumber = $validated['trackingnumber'];
 
+        upsRefresher(true);
         $credentials = UPSCredentials();
 
         $query = [
@@ -44,6 +45,7 @@ class UPSController extends Controller
             } else {
                 // Log and throw exception for non-successful responses
                 Log::error("UPS API Request failed: " . $response->body());
+                Log::error("Sheesh! " . $credentials['access_token']);
                 return response()->json([
                     'success' => false,
                     'error' => "API Request failed with status: " . $response->status(),
