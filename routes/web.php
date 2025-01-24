@@ -61,6 +61,11 @@ Route::get('/fetch-marketplaces', [StoreController::class, 'fetchMarketplaces'])
 Route::get('/dashboard/Systemdashboard', [AttendanceController::class, 'attendance']);
 Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
 Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
+Route::post('/update-computed-hours', [AttendanceController::class, 'updateComputedHours'])->name('update.computed.hours');
+Route::post('/attendance/update-hours', [AttendanceController::class, 'updateHours'])->name('attendance.update.hours');
+Route::post('/attendance/filter', [AttendanceController::class, 'filterAttendanceAjax'])->name('attendance.filter.ajax');
+Route::post('/attendance/auto-clockout', [AttendanceController::class, 'autoClockOut'])->name('auto-clockout');
+Route::post('/update-notes/{id}', [AttendanceController::class, 'updateNotes'])->name('update-notes');
 
 
 // AWS Inventory Routes
@@ -70,3 +75,4 @@ Route::get('/aws-inventory', function () {
 
 // Inventory Summary Route
 Route::post('/aws/inventory/summary', [AwsInventoryController::class, 'fetchInventorySummary'])->name('aws.inventory.summary');
+
