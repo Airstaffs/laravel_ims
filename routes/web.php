@@ -87,3 +87,23 @@ Route::get('/apis/upstracking', function () {
 
 Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
 
+Route::get('/apis/ebay-callback', function () {
+    // Check if the 'code' parameter is present in the URL
+    if (isset($_GET['code'])) {
+        $authorizationCode = $_GET['code']; // Get the authorization code from the URL
+        // Call the getAccessToken function to exchange the authorization code for an access token
+        $accessToken = getAccessToken($authorizationCode);
+
+        if ($accessToken) {
+            // Access token obtained successfully
+            return response()->json(['access_token' => $accessToken]);
+        } else {
+            // Failed to retrieve access token
+            return response()->json(['error' => 'Unable to obtain access token.'], 500);
+        }
+    } else {
+        // No authorization code received in the request
+        return response()->json(['error' => 'Authorization code not provided.'], 400);
+    }
+});
+
