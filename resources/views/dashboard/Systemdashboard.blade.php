@@ -315,7 +315,23 @@ $subModules = session('sub_modules', []); // Get the granted sub-modules from th
             <h3>Select a module from the sidebar</h3>
         </div>
     </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+    const settingsModal = document.getElementById('settingsModal');
 
+    settingsModal.addEventListener('shown.bs.modal', function () {
+        const defaultTab = document.querySelector('#design-tab');
+        const defaultTabPane = document.querySelector('#design');
+
+        // Force the default tab to be shown
+        if (defaultTab && defaultTabPane) {
+            defaultTab.classList.add('active');
+            defaultTab.setAttribute('aria-selected', 'true');
+            defaultTabPane.classList.add('show', 'active');
+        }
+    });
+});
+</script>
  <!-- Settings Modal -->
 <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
