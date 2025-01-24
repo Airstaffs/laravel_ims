@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use Illuminate\Support\Facades\Auth;
@@ -9,6 +8,12 @@ use App\Http\Controllers\AwsInventoryController;
 use App\Http\Controllers\StoreController;
 use App\Http\Models\Store;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\UserPrivilegesController;
+use App\Models\User;
+
+use Illuminate\Support\Facades\Schema;
+use App\Http\Controllers\USPSController;
+use App\Http\Controllers\UPSController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -27,9 +32,19 @@ Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [LoginController::class, 'authenticate'])->name('login');
 
 // Dashboard Route (Protected with auth middleware)
+Route::get('/dashboard/Systemdashboard', [LoginController::class, 'showSystemDashboard'])->middleware('auth');
+Route::get('/get-user-privileges/{userId}', [UserController::class, 'getUserPrivileges']);
+Route::post('/save-user-privileges', [UserController::class, 'saveUserPrivileges'])->name('saveUserPrivileges');
+
+
+Route::get('/fetchNewlyAddedStoreCol', [UserController::class, 'fetchNewlyAddedStoreCol']);
+
+
+Route::get('/get-store-columns', [UserController::class, 'getStoreColumns']);
+
 Route::get('/dashboard/Systemdashboard', function () {
     return view('dashboard.Systemdashboard');
-})->middleware('auth'); 
+})->middleware('auth');
 
 // User Routes
 Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
@@ -37,6 +52,8 @@ Route::post('/update-password', [UserController::class, 'updatepassword'])->name
 
 // System Design Routes
 Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');
+
+
 
 // Module Routes
 Route::get('/Systemmodule/{module}Module/{moduleName}', function ($module, $moduleName) {
@@ -57,6 +74,8 @@ Route::post('/update-store/{id}', [StoreController::class, 'updateStore'])->name
 Route::post('/add-store', [StoreController::class, 'addstore'])->name('add-store');
 Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
 Route::get('/fetch-marketplaces', [StoreController::class, 'fetchMarketplaces']);
+Route::get('/fetch-marketplaces-tblstores', [StoreController::class, 'fetchMarketplacestblstores'])->name('fetchMarketplacestblstores');
+Route::post('/user/privileges/update', [UserPrivilegesController::class, 'update'])->name('update-user-privileges');
 
 Route::get('/dashboard/Systemdashboard', [AttendanceController::class, 'attendance']);
 Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
@@ -72,7 +91,19 @@ Route::post('/update-notes/{id}', [AttendanceController::class, 'updateNotes'])-
 Route::get('/aws-inventory', function () {
     return view('tests.aws_inventory');
 })->name('aws.inventory.view');
-
-// Inventory Summary Route
 Route::post('/aws/inventory/summary', [AwsInventoryController::class, 'fetchInventorySummary'])->name('aws.inventory.summary');
+
+// USPS
+Route::get('/uspstracking', function () {
+    return view('tests.usps');
+})->name('usps.tracking');
+
+Route::post('/usps/tracking', [USPSController::class, 'USPSfetchTrackDetails'])->name('usps.trackingnumber');
+
+// UPS
+Route::get('/apis/upstracking', function () {
+    return view('tests.ups');
+})->name('ups.tracking');
+
+Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
 

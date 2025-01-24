@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -194,6 +195,7 @@
     margin-left: 5px; /* Adjust spacing between buttons */
 }
 
+<<<<<<< HEAD
 #filter-form {
         width: 100%; /* Form takes 90% of the container width */
         display: flex; /* Use flexbox for layout */
@@ -208,6 +210,12 @@
         width: 20%; /* Button takes 20% of the form width */
     }
    
+=======
+
+
+
+
+>>>>>>> 6f431f588e2718cfcc8329af616cfe16e4ab199d
 
     </style>
 </head>
@@ -304,7 +312,10 @@
     <!-- Display user's name -->
     <h5>{{ session('user_name', 'User Name') }}</h5>
 </div>
-
+<?php
+$mainModule = session('main_module', ''); // Get the main module from the session
+$subModules = session('sub_modules', []); // Get the granted sub-modules from the session
+?>
         <h5 class="text-center">Navigation</h5>
     
         <nav class="nav flex-column">
@@ -353,6 +364,11 @@
                     <!-- Add Store List Tab -->
                 <li class="nav-item" role="presentation">
                     <button class="nav-link" id="store-tab" data-bs-toggle="tab" data-bs-target="#store" type="button" role="tab" aria-controls="store" aria-selected="false">Store List</button>
+                </li>
+
+                    <!-- Privileges Tab -->
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="privilege-tab" data-bs-toggle="tab" data-bs-target="#privilege" type="button" role="tab" aria-controls="privilege" aria-selected="false">Privileges</button>
                 </li>
                     
                 </ul>
@@ -447,9 +463,48 @@
                     <!-- Add Store Button -->
                     <button class="btn btn-primary" id="addStoreButton">Add Store</button>
                 </div>
-            <!-- Store List Tab Content END-->   
+            <!-- Store List Tab Content END-->  
+             
+          
+            <div class="tab-pane fade" id="privilege" role="tabpanel" aria-labelledby="privilege-tab">
+    <h5>User Privileges</h5>
+    <form id="privilegeForm">
+    @csrf
+    <!-- Select User -->
+    @php
+        // Fetch all users directly in the Blade view
+        $Allusers = \App\Models\User::all();
+        // Determine which user is selected (default to admin if no user is selected)
+        $selectedUser = request()->has('user_id') ? \App\Models\User::find(request('user_id')) : \App\Models\User::where('username', 'admin')->first();
+    @endphp
 
-                </div>
+    <label for="selectUser" class="form-label">Select User</label>
+    <select class="form-select" id="selectUser" name="user_id" required>
+        <!-- Default option (Select User) -->
+
+        @foreach ($Allusers as $userOption)
+            <option value="{{ $userOption->id }}"
+                {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
+                {{ $userOption->username }}
+            </option>
+        @endforeach
+    </select>
+
+    <!-- Main Module -->
+    <div id="mainModuleContainer"></div>
+
+    <!-- Sub-Modules Privileges -->
+    <div id="subModuleContainer"></div>
+
+    <!-- Stores -->
+    <div id="storeContainer"></div>
+
+    <button type="submit" class="btn btn-primary">Save Privileges</button>
+</form>
+</div>
+
+
+             </div>
           </div>
           <!--   <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -457,7 +512,154 @@
         </div>
     </div>
 </div>
+<script>
 
+document.addEventListener("DOMContentLoaded", function() {
+        const selectUser = document.getElementById('selectUser');
+
+        // Function to hide the selected option
+        selectUser.addEventListener('change', function() {
+            const selectedValue = this.value;
+            
+            // Loop through all options and hide the selected one
+            Array.from(this.options).forEach(option => {
+                if (option.value == selectedValue) {
+                    option.style.display = 'none'; // Hide the selected option
+                } else {
+                    option.style.display = 'block'; // Ensure other options are visible
+                }
+            });
+        });
+
+        // Hide the default "Select User" option once the user selects a user
+        if (selectUser.value !== "") {
+            const defaultOption = selectUser.querySelector('option[value=""]');
+            if (defaultOption) {
+                defaultOption.style.display = 'none';
+            }
+        }
+    });
+
+document.getElementById('privilegeForm').addEventListener('submit', function (e) {
+    e.preventDefault(); // Prevent default form submission
+
+    // Collect CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    // Collect form data
+    const formDataToSend = {
+    user_id: parseInt(document.getElementById('selectUser').value, 10), // Ensure it's an integer
+    main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
+    sub_modules: [...document.querySelectorAll('input[name="sub_modules[]"]:checked')].map(input => input.value),
+    privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input => input.value),
+    _token: csrfToken,
+};
+
+    console.log("Sending data:", formDataToSend);
+
+    // Send data to the server
+    fetch('/save-user-privileges', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify(formDataToSend),
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert("User privileges saved successfully!");
+            } else {
+                alert("Failed to save user privileges: " + (data.message || "Unknown error"));
+            }
+        })
+        .catch(error => {
+            console.error("Error saving user privileges:", error);
+        });
+});
+</script>    
+<script>
+
+    // Trigger the change event when the page loads to fetch the default user privileges
+    window.onload = function() {
+        let selectedUserId = document.getElementById('selectUser').value || '{{ $selectedUser->id }}';
+        if (selectedUserId) {
+            fetchUserPrivileges(selectedUserId);
+        }
+    };
+
+    document.getElementById('selectUser').addEventListener('change', function () {
+        var userId = this.value;
+        if (userId) {
+            fetchUserPrivileges(userId);
+        }
+    });
+
+    function fetchUserPrivileges(userId) {
+        fetch(`/get-user-privileges/${userId}`)
+            .then(response => {
+             //   console.log(response); // Log response for debugging
+                return response.json();
+            })
+            .then(data => {
+            //    console.log(data);
+                updateForm(data);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    function updateForm(data) {
+    if (!data) {
+       // console.error("No data received for user privileges");
+        return;
+    }
+
+    // Update Main Module (Editable)
+    let mainModuleHTML = '<h6>Main Module</h6><div class="row mb-3">';
+    const mainModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom'];
+    mainModules.forEach(mainModule => {
+        mainModuleHTML += `
+            <div class="col-4 form-check mb-2 px-10">
+                <input class="form-check-input" type="radio" name="main_module" value="${mainModule}" ${data.main_module === mainModule ? 'checked' : ''} required>
+                <label class="form-check-label">${mainModule}</label>
+            </div>`;
+    });
+    mainModuleHTML += '</div>';
+    document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
+
+    // Update Sub-Modules (Editable)
+    let subModulesHTML = '<h6>Sub-Modules</h6><div class="row mb-3">';
+    const subModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom'];
+    subModules.forEach(subModule => {
+        subModulesHTML += `
+            <div class="col-4 form-check mb-2 px-10">
+                <input class="form-check-input" type="checkbox" name="sub_modules[]" value="${subModule}" ${data.sub_modules && data.sub_modules[subModule] ? 'checked' : ''}>
+                <label class="form-check-label">${subModule}</label>
+            </div>`;
+    });
+    subModulesHTML += '</div>';
+    document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
+
+    // Update Stores (Editable)
+    let storeHTML = '<h6>Stores</h6><div class="row mb-3">';
+    if (data.privileges_stores && data.privileges_stores.length > 0) {
+        data.privileges_stores.forEach(store => {
+            storeHTML += `
+                <div class="col-4 form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="privileges_stores[]" value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                    <label class="form-check-label">${store.store_name}</label>
+                </div>`;
+        });
+    } else {
+        storeHTML += '<p>No stores available</p>';
+    }
+    storeHTML += '</div>';
+    document.getElementById('storeContainer').innerHTML = storeHTML;
+}
+
+
+</script>
 
 <!-- Add Store Modal -->
 
@@ -671,7 +873,11 @@
                         </div>
                     </div>
 
+<<<<<<< HEAD
                     <!-- Tab -->
+=======
+                    <!-- Profile Tab -->
+>>>>>>> 6f431f588e2718cfcc8329af616cfe16e4ab199d
                     <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="user-tab">
                         <h5>Change Password</h5>
                         <form action="{{ route('update-password') }}" method="POST">
@@ -827,6 +1033,7 @@
         </div>
     </div>
 </div>
+<<<<<<< HEAD
 
 <!-- NOTES Modal -->
 <div class="modal fade" id="editNotesModal" tabindex="-1" aria-labelledby="editNotesModalLabel" aria-hidden="true">
@@ -898,6 +1105,12 @@ function updateNotes() {
 </script>
 
 <script>
+=======
+<script>
+
+</script>
+<script>
+>>>>>>> 6f431f588e2718cfcc8329af616cfe16e4ab199d
  axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
 // Show the add store modal and hide the settings modal
@@ -957,9 +1170,39 @@ document.getElementById('addStoreForm').addEventListener('submit', function(e) {
         });
 });
 
+function refreshStoreList() {
+        const userId = document.getElementById('selectUser').value; // Get selected user ID
+
+        fetch(`/fetchNewlyAddedStoreCol?user_id=${userId}`) // Pass user_id to the backend
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.stores) {
+                    let storeListHTML = '<h6>Stores</h6><div class="row mb-3">';
+                    data.stores.forEach(store => {
+                        storeListHTML += `
+                            <div class="col-4 form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="privileges_stores[]" value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                                <label class="form-check-label">${store.store_name}</label>
+                            </div>`;
+                    });
+                    storeListHTML += '</div>';
+
+                    // Update the store container in the Privileges tab
+                    document.getElementById('storeContainer').innerHTML = storeListHTML;
+                }
+            })
+            .catch(error => console.error('Error fetching store list:', error));
+    }
+
+    // Call refreshStoreList on load to populate the stores with the selected user's privileges
+    document.addEventListener('DOMContentLoaded', () => {
+        refreshStoreList();
+    });
+
 // Fetch and display the list of stores on page load
 document.addEventListener('DOMContentLoaded', function () {
     fetchStoreList();
+    refreshStoreList()
 });
 
 // Function to fetch and display store list from the server
@@ -997,6 +1240,11 @@ function fetchStoreList() {
 // Re-fetch store list when switching to the "Store List" tab
 $('#store-tab').on('click', function() {
     fetchStoreList(); // Re-fetch the store list when the tab is clicked
+});
+
+// Re-fetch store list when switching to the "Store List" tab
+$('#privilege-tab').on('click', function() {
+    refreshStoreList()// Re-fetch the store list when the tab is clicked
 });
 
 // Delete Store functionality
@@ -1303,6 +1551,7 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
             errorSound.play();
         @endif
     });
+
 </script>
 
 <!-- Logout Confirmation Modal -->
@@ -1354,7 +1603,7 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     const searchContainer = document.getElementById('top-search');
     const searchInput = document.getElementById('search-input');
     let showSearch = false; // Initially hide search for dashboard
-
+    const mainModule = "<?= session('main_module', 'dashboard') ?>";
     // Toggle sidebar visibility
     burgerMenu.addEventListener('click', () => {
         const isMobile = window.innerWidth <= 768;
@@ -1377,19 +1626,23 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
             burgerMenu.classList.remove('hidden');
         }
     });
+ // Function to load content dynamically based on the module
+function loadContent(module) {
+    // Retrieve user's allowed modules and main module from the session
+    const allowedModules = <?= json_encode(session('sub_modules', [])) ?>;
+    const mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase(); // Ensure it's lowercase for consistency
 
-    function loadContent(module) {
-    const dynamicContent = document.getElementById('dynamic-content');
-    const searchContainer = document.getElementById('top-search');
-    const searchInput = document.querySelector('#top-search input');
-    
-    // Get the base URL of your application
-    const baseUrl = window.location.origin;  // E.g., 'http://127.0.0.1:8000'
+    // Check if the user has permission to access the module or if it's the main module
+    if (!allowedModules.includes(module.toLowerCase()) && module.toLowerCase() !== mainModule) {
+        alert("You do not have permission to access this module.");
+        return; // Stop further execution
+    }
 
-    // Construct the URL dynamically using the module name
+    // Construct the URL for the module dynamically
+    const baseUrl = window.location.origin; // e.g., 'http://127.0.0.1:8000'
     const url = `${baseUrl}/Systemmodule/${module}Module/${module}`;
 
-    // Fetch the content for the selected module
+    // Fetch and load the content for the module
     fetch(url)
         .then(response => {
             if (!response.ok) {
@@ -1398,8 +1651,8 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
             return response.text();
         })
         .then(html => {
-            dynamicContent.innerHTML = html;  // Load the module's HTML content into the dynamic content container
-            initSearch(module); // Initialize search for the dynamically loaded content
+            dynamicContent.innerHTML = html; // Update the content container
+            initSearch(module); // Initialize search functionality for the module
         })
         .catch(error => {
             dynamicContent.innerHTML = '<p>Error loading content.</p>';
@@ -1426,6 +1679,10 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     const rows = document.querySelectorAll('.custom-table tbody tr');
     rows.forEach(row => row.style.display = ""); // Reset rows display to default
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadContent(mainModule);
+});
 
 function initSearch(module) {
     const searchInput = document.querySelector('#top-search input');
