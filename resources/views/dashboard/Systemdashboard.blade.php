@@ -294,15 +294,16 @@ $subModules = session('sub_modules', []); // Get the granted sub-modules from th
     
         <nav class="nav flex-column">
             <a class="nav-link active" href="#" id="dashboard" onclick="loadContent('dashboard', 'dashboard')">System Clock</a>
-            <a class="nav-link" href="#" onclick="loadContent('Order', 'Order')">Orders</a>
-            <a class="nav-link" href="#" onclick="loadContent('Unreceived', 'Unreceived')">Unreceived</a>
-            <a class="nav-link" href="#" onclick="loadContent('Receiving', 'Receiving')">Received</a>
-            <a class="nav-link" href="#" onclick="loadContent('Labeling', 'Labeling')">Labeling</a>
-            <a class="nav-link" href="#" onclick="loadContent('Validation', 'Validation')">Validation</a>
-            <a class="nav-link" href="#" onclick="loadContent('Testing', 'Testing')">Testing</a>
-            <a class="nav-link" href="#" onclick="loadContent('Cleaning', 'Cleaning')">Cleaning</a>
-            <a class="nav-link" href="#" onclick="loadContent('Packing', 'Packing')">Packing</a>
-            <a class="nav-link" href="#" onclick="loadContent('Stockroom', 'Stockroom')">Stockroom</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('ordersLink').click()">Orders</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('unreceivedLink').click()">Unreceived</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('receivingLink').click()">Received</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('labelingLink').click()">Labeling</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('validationLink').click()">Validation</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('testingLink').click()">Testing</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('cleaningLink').click()">Cleaning</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('packingLink').click()">Packing</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('stockroomLink').click()">Stockroom</a>
+
         </nav>
 
 
@@ -311,8 +312,25 @@ $subModules = session('sub_modules', []); // Get the granted sub-modules from th
 
     <!-- Content -->
     <div id="main-content" class="content">
-        <div id="dynamic-content">
-            <h3>Select a module from the sidebar</h3>
+        
+        <div id="app">
+<a id="ordersLink" style="display:none" href="#" @click.prevent="currentComponent = 'orders'">Orders</a>
+<a id="unreceivedLink" style="display:none" href="#" @click.prevent="currentComponent = 'unreceived'">Unreceived</a>
+<a id="receivingLink" style="display:none" href="#" @click.prevent="currentComponent = 'received'">Received</a>
+<a id="labelingLink" style="display:none" href="#" @click.prevent="currentComponent = 'labelling'">Labeling</a>
+<a id="validationLink" style="display:none" href="#" @click.prevent="currentComponent = 'validation'">Validation</a>
+<a id="testingLink" style="display:none" href="#" @click.prevent="currentComponent = 'testing'">Testing</a>
+<a id="cleaningLink" style="display:none" href="#" @click.prevent="currentComponent = 'cleaning'">Cleaning</a>
+<a id="packingLink" style="display:none" href="#" @click.prevent="currentComponent = 'packing'">Packing</a>
+<a id="stockroomLink" style="display:none" href="#" @click.prevent="currentComponent = 'stockroom'">Stockroom</a>
+<div>
+        <!-- Dynamically load component -->
+        <component :is="currentComponent"></component>
+    </div>
+</div>
+<div id="dynamic-content">
+
+@vite(['resources/css/app.css', 'resources/js/app.js'])
         </div>
     </div>
 <script>

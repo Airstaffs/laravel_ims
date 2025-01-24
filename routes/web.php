@@ -102,3 +102,11 @@ Route::get('/apis/upstracking', function () {
 
 Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
 
+
+use App\Http\Controllers\DynamicTagController;
+
+Route::get('/dynamic-tags', [DynamicTagController::class, 'index']);
+
+use App\Http\Controllers\TestTableController;
+
+Route::get('/test', [TestTableController::class, 'index']);
