@@ -91,7 +91,7 @@ class LoginController extends Controller
               }
               $request->session()->put('stores', $activeStores);
 
-
+       
         //return redirect()->intended('/dashboard/Systemdashboard')->with('success', 'Login successful!');
         return redirect()->back()->with('success', 'Log in successfully');
     }

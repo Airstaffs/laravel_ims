@@ -286,7 +286,10 @@
     <!-- Display user's name -->
     <h5>{{ session('user_name', 'User Name') }}</h5>
 </div>
-
+<?php
+$mainModule = session('main_module', ''); // Get the main module from the session
+$subModules = session('sub_modules', []); // Get the granted sub-modules from the session
+?>
         <h5 class="text-center">Navigation</h5>
     
         <nav class="nav flex-column">
@@ -452,7 +455,6 @@
     <label for="selectUser" class="form-label">Select User</label>
     <select class="form-select" id="selectUser" name="user_id" required>
         <!-- Default option (Select User) -->
-        <option value="" disabled {{ !$selectedUser ? 'selected' : '' }}>Select User</option>
 
         @foreach ($Allusers as $userOption)
             <option value="{{ $userOption->id }}"
@@ -1389,7 +1391,7 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     const searchContainer = document.getElementById('top-search');
     const searchInput = document.getElementById('search-input');
     let showSearch = false; // Initially hide search for dashboard
-
+    const mainModule = "<?= session('main_module', 'dashboard') ?>";
     // Toggle sidebar visibility
     burgerMenu.addEventListener('click', () => {
         const isMobile = window.innerWidth <= 768;
@@ -1412,19 +1414,23 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
             burgerMenu.classList.remove('hidden');
         }
     });
+ // Function to load content dynamically based on the module
+function loadContent(module) {
+    // Retrieve user's allowed modules and main module from the session
+    const allowedModules = <?= json_encode(session('sub_modules', [])) ?>;
+    const mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase(); // Ensure it's lowercase for consistency
 
-    function loadContent(module) {
-    const dynamicContent = document.getElementById('dynamic-content');
-    const searchContainer = document.getElementById('top-search');
-    const searchInput = document.querySelector('#top-search input');
-    
-    // Get the base URL of your application
-    const baseUrl = window.location.origin;  // E.g., 'http://127.0.0.1:8000'
+    // Check if the user has permission to access the module or if it's the main module
+    if (!allowedModules.includes(module.toLowerCase()) && module.toLowerCase() !== mainModule) {
+        alert("You do not have permission to access this module.");
+        return; // Stop further execution
+    }
 
-    // Construct the URL dynamically using the module name
+    // Construct the URL for the module dynamically
+    const baseUrl = window.location.origin; // e.g., 'http://127.0.0.1:8000'
     const url = `${baseUrl}/Systemmodule/${module}Module/${module}`;
 
-    // Fetch the content for the selected module
+    // Fetch and load the content for the module
     fetch(url)
         .then(response => {
             if (!response.ok) {
@@ -1433,8 +1439,8 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
             return response.text();
         })
         .then(html => {
-            dynamicContent.innerHTML = html;  // Load the module's HTML content into the dynamic content container
-            initSearch(module); // Initialize search for the dynamically loaded content
+            dynamicContent.innerHTML = html; // Update the content container
+            initSearch(module); // Initialize search functionality for the module
         })
         .catch(error => {
             dynamicContent.innerHTML = '<p>Error loading content.</p>';
@@ -1461,6 +1467,10 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     const rows = document.querySelectorAll('.custom-table tbody tr');
     rows.forEach(row => row.style.display = ""); // Reset rows display to default
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadContent(mainModule);
+});
 
 function initSearch(module) {
     const searchInput = document.querySelector('#top-search input');
