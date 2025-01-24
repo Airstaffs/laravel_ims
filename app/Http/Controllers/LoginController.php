@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\SystemDesign;
+use Illuminate\Support\Facades\DB;
 class LoginController extends Controller
 {
     /**
@@ -24,6 +25,8 @@ class LoginController extends Controller
             'logo' => $systemDesign->logo,
         ]);
     }
+
+
 
     // Return the login view, passing in system design settings
     return view('login.index', compact('systemDesign')); // Pass systemDesign to the view if needed
@@ -61,16 +64,57 @@ class LoginController extends Controller
         $user = Auth::user();
         $request->session()->put('user_name', $user->username); // Assuming 'username' is the field in the user table
         $request->session()->put('profile_picture', $user->profile_picture); // Assuming 'profile_picture' is the field in the user table
-        $request->session()->put('userid', $user->id); // Assuming 'profile_picture' is the field in the user table
+        $request->session()->put('userid', $user->id); // Assuming 'profile_picture' is the field in the user table\
+
+              // Fetch the user's main module and store it in the session
+              $request->session()->put('main_module', $user->main_module);
+
+              // Fetch sub-modules and store them in the session
+              $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom']; // Your predefined sub-modules
+              $activeSubModules = [];
+              foreach ($subModules as $module) {
+                  if ($user->{$module} == 1) {
+                      $activeSubModules[] = $module;
+                  }
+              }
+              $request->session()->put('sub_modules', $activeSubModules);
+  
+              // Fetch store columns and store the selected stores in the session
+              $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
+              $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
+              
+              $activeStores = [];
+              foreach ($storeColumns as $storeColumn) {
+                  if ($user->{$storeColumn} == 1) {
+                      $activeStores[] = $storeColumn;
+                  }
+              }
+              $request->session()->put('stores', $activeStores);
 
 
         //return redirect()->intended('/dashboard/Systemdashboard')->with('success', 'Login successful!');
         return redirect()->back()->with('success', 'Log in successfully');
     }
-
+        
     // If authentication fails, redirect back with an error
     return back()->withErrors([
         'username' => 'The provided credentials do not match our records.',
     ])->withInput();
     }
+   
+
+   public function showSystemDashboard()
+   {
+    if (Auth::check()) {
+        // Fetch all users from the database
+        $Allusers = \App\Models\User::all();
+
+        // Pass users to the view
+        return view('dashboard.Systemdashboard', ['Allusers' => $Allusers]);
+    } else {
+        return redirect()->route('login')->with('error', 'Please log in to access the dashboard.');
+    }
+  }
+
+
 }

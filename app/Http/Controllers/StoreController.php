@@ -5,6 +5,8 @@ use App\Models\Store; // Assuming Store model is used to manage stores
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Database\Schema\Blueprint;
 
 class StoreController extends Controller
 {
@@ -16,28 +18,42 @@ class StoreController extends Controller
     }
 
     
-        public function addstore(Request $request)
-        {
-            $request->validate([
-                'storename' => 'required|string|max:255',
-            ]);
+    public function addstore(Request $request)
+    {
+        $request->validate([
+            'storename' => 'required|string|max:255',
+        ]);
     
-            $store = new Store();
-            $store->storename = $request->storename;
-            $store->owner_id = auth()->id(); // Assuming the logged-in user is the owner
-            $store->client_id = ''; // Add as necessary
-            $store->client_secret = ''; // Add as necessary
-            $store->refresh_token = ''; // Add as necessary
-            $store->MerchantID = ''; // Add as necessary
-            $store->MarketplaceID = ''; // Add as necessary
-            $store->save();
+        $storename = $request->storename;
     
-            // Return the store data in the response
-            return response()->json([
-                'success' => true,
-                'store' => $store // Send the store data back
-            ]);
+        // Sanitize the storename: replace spaces with underscores
+        $sanitizedStorename = str_replace(' ', '_', $storename);
+    
+        // Save the store to the database
+        $store = new Store();
+        $store->storename = $storename; // Keep original storename for the store record
+        $store->owner_id = auth()->id(); // Assuming the logged-in user is the owner
+        $store->client_id = ''; // Add as necessary
+        $store->client_secret = ''; // Add as necessary
+        $store->refresh_token = ''; // Add as necessary
+        $store->MerchantID = ''; // Add as necessary
+        $store->MarketplaceID = ''; // Add as necessary
+        $store->save();
+    
+        // Add a column to the 'tbluser' table if it doesn't already exist
+        if (!Schema::hasColumn('tbluser', 'store_' . $sanitizedStorename)) {
+            Schema::table('tbluser', function (Blueprint $table) use ($sanitizedStorename) {
+                $table->boolean('store_' . $sanitizedStorename)->default(false); // Add the new column with sanitized name
+            });
         }
+    
+        // Return the store data in the response
+        return response()->json([
+            'success' => true,
+            'store' => $store // Send the store data back
+        ]);
+    }
+    
         public function updateStore(Request $request, $id)
         {
             try {
@@ -98,11 +114,25 @@ class StoreController extends Controller
         // Delete Store
         public function delete($id)
         {
+            // Find the store by ID
             $store = Store::findOrFail($id);
+        
+            // Get the sanitized store name (in case the column name has underscores)
+            $sanitizedStoreName = str_replace(' ', '_', $store->storename);
+        
+            // Drop the corresponding column in tbluser
+            if (Schema::hasColumn('tbluser', 'store_' . $sanitizedStoreName)) {
+                Schema::table('tbluser', function (Blueprint $table) use ($sanitizedStoreName) {
+                    $table->dropColumn('store_' . $sanitizedStoreName);
+                });
+            }
+        
+            // Delete the store
             $store->delete();
         
+            // Return a success response
             return response()->json(['success' => true]);
-                } 
+        }
         public function fetchMarketplaces() 
         {
             $marketplaces = DB::table('tbldefinitions')
@@ -143,5 +173,7 @@ class StoreController extends Controller
                 'marketplaces' => $marketplaceData, // Return the structured key-value pairs
             ]);
         }
+
+        
         
 }
