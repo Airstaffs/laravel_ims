@@ -315,7 +315,7 @@ $subModules = session('sub_modules', []); // Get the granted sub-modules from th
             <h3>Select a module from the sidebar</h3>
         </div>
     </div>
-<script>
+ <script>
     document.addEventListener('DOMContentLoaded', function () {
     const settingsModal = document.getElementById('settingsModal');
 
@@ -998,15 +998,11 @@ function refreshStoreList() {
             .catch(error => console.error('Error fetching store list:', error));
     }
 
-    // Call refreshStoreList on load to populate the stores with the selected user's privileges
-    document.addEventListener('DOMContentLoaded', () => {
-        refreshStoreList();
-    });
 
 // Fetch and display the list of stores on page load
 document.addEventListener('DOMContentLoaded', function () {
     fetchStoreList();
-    refreshStoreList()
+
 });
 
 // Function to fetch and display store list from the server
