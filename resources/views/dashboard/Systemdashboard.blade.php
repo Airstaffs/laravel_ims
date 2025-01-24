@@ -15,15 +15,6 @@
     
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl);
-        });
-    });
-</script>
-
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -205,10 +196,8 @@
         width: 35%; /* Date pickers take 30% of the form width */
     }
 
-    #filter-form .form-group-button {
-        width: 20%; /* Button takes 20% of the form width */
-    }
-   
+
+
 
     </style>
 </head>
@@ -334,7 +323,23 @@ $subModules = session('sub_modules', []); // Get the granted sub-modules from th
             <h3>Select a module from the sidebar</h3>
         </div>
     </div>
+ <script>
+    document.addEventListener('DOMContentLoaded', function () {
+    const settingsModal = document.getElementById('settingsModal');
 
+    settingsModal.addEventListener('shown.bs.modal', function () {
+        const defaultTab = document.querySelector('#design-tab');
+        const defaultTabPane = document.querySelector('#design');
+
+        // Force the default tab to be shown
+        if (defaultTab && defaultTabPane) {
+            defaultTab.classList.add('active');
+            defaultTab.setAttribute('aria-selected', 'true');
+            defaultTabPane.classList.add('show', 'active');
+        }
+    });
+});
+</script>
  <!-- Settings Modal -->
 <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -732,6 +737,7 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
         </div>
     </div>
 </div>
+
 
 
 <!-- PROFILE Modal -->
@@ -1176,15 +1182,11 @@ function refreshStoreList() {
             .catch(error => console.error('Error fetching store list:', error));
     }
 
-    // Call refreshStoreList on load to populate the stores with the selected user's privileges
-    document.addEventListener('DOMContentLoaded', () => {
-        refreshStoreList();
-    });
 
 // Fetch and display the list of stores on page load
 document.addEventListener('DOMContentLoaded', function () {
     fetchStoreList();
-    refreshStoreList()
+
 });
 
 // Function to fetch and display store list from the server
@@ -1777,214 +1779,5 @@ const clockout_question_Sound = document.getElementById('clockout-question-sound
         }
     }
 </script>
-
-<script>
-$(document).ready(function () {
-    function updateComputedHours(clockId, timeIn, timeOut) {
-        $.ajax({
-            url: "{{ route('update.computed.hours') }}",
-            type: "POST",
-            data: {
-                _token: "{{ csrf_token() }}",
-                timeIn: timeIn,
-                timeOut: timeOut,
-            },
-            success: function (response) {
-                const computedCell = $(`#computed-hours-${clockId}`);
-                computedCell.html(`${response.hours} hrs ${response.minutes} mins`);
-                if (response.message) {
-                    computedCell.append(`<div class="text-muted">(${response.message})</div>`);
-                }
-            },
-            error: function (error) {
-                console.error("Error updating computed hours:", error);
-            }
-        });
-    }
-
-    // Function to loop through all rows and update computed hours
-    function updateAllComputedHours() {
-        $('.update-computed-hours').each(function () {
-            const clockId = $(this).data('id'); // Get clock ID
-            const timeIn = $(this).data('timein'); // Get TimeIn
-            const timeOut = $(this).data('timeout'); // Get TimeOut (or null)
-
-            updateComputedHours(clockId, timeIn, timeOut);
-        });
-    }
-
-    // Call updateAllComputedHours every 30 seconds
-    setInterval(updateAllComputedHours, 30000); // 30,000 milliseconds = 30 seconds
-
-    // Optionally, call it once when the page loads
-    updateAllComputedHours();
-
-    function updateHours() {
-            $.ajax({
-                url: "{{ route('attendance.update.hours') }}",
-                type: "POST",
-                data: {
-                    _token: "{{ csrf_token() }}"
-                },
-                success: function (response) {
-                    // Update Today's Hours and This Week's Hours
-                    $('#today-hours').text(response.todayHours);
-                    $('#week-hours').text(response.weekHours);
-                },
-                error: function (error) {
-                    console.error("Error updating hours:", error);
-                }
-            });
-        }
-
-        // Call updateHours every 30 seconds
-        setInterval(updateHours, 30000); // 30,000 milliseconds = 30 seconds
-
-        // Optionally, call it once when the page loads
-        updateHours();
-});
-
-</script>
-
-<script>
-    $(document).ready(function () {
-
-        // Function to fetch attendance data
-        function fetchAttendanceData(startDate = null, endDate = null) {
-            $.ajax({
-                url: "{{ route('attendance.filter.ajax') }}", // AJAX route
-                type: "POST",
-                data: {
-                    _token: "{{ csrf_token() }}",
-                    start_date: startDate,
-                    end_date: endDate
-                },
-                success: function (response) {
-                    const tableBody = $('#attendance-table-body');
-                    const totalHoursSpan = $('#total-hours');
-                    tableBody.empty(); // Clear the table body
-                    let totalMinutes = 0;
-
-                    if (response.employeeClocks.length > 0) {
-                        response.employeeClocks.forEach(function (clock) {
-                            const timeIn = new Date(clock.time_in);
-                            const timeOut = clock.time_out
-                                ? new Date(clock.time_out)
-                                : new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-                            const diffInMinutes = Math.round((timeOut - timeIn) / 60000);
-                            totalMinutes += diffInMinutes;
-                            const hours = Math.floor(diffInMinutes / 60);
-                            const minutes = diffInMinutes % 60;
-
-                            // Append row
-                            tableBody.append(`
-                                <tr>
-                                    <td>
-                                        ${timeIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        <div class="text-muted">
-                                            ${timeIn.toLocaleDateString()}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        ${
-                                            clock.time_out
-                                                ? `${timeOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                   <div class="text-muted">${timeOut.toLocaleDateString()}</div>`
-                                                : '<span class="text-danger">Not yet timed out</span>'
-                                        }
-                                    </td>
-                                    <td>${hours} hrs ${minutes} mins</td>
-                                </tr>
-                            `);
-                        });
-
-                        // Calculate total hours from totalMinutes
-                        const totalHours = Math.floor(totalMinutes / 60);
-                        const totalRemainingMinutes = totalMinutes % 60;
-                        totalHoursSpan.text(`${totalHours} hrs ${totalRemainingMinutes} mins`);
-                    } else {
-                        tableBody.append(`
-                            <tr>
-                                <td colspan="3" class="text-center">No records found.</td>
-                            </tr>
-                        `);
-                        totalHoursSpan.text('0:00');
-                    }
-                },
-                error: function (xhr, status, error) {
-                    console.error("Error fetching data:", error);
-                }
-            });
-        }
-
-        // Load default 10 rows on page load
-        fetchAttendanceData();
-
-        // Fetch data on filter button click
-        $('#filter-button').on('click', function () {
-            const startDate = $('#start-date').val();
-            const endDate = $('#end-date').val();
-            fetchAttendanceData(startDate, endDate);
-        });
-        
-    });
-
-    document.addEventListener('DOMContentLoaded', function () {
-    function autoClockOut() {
-        const lastRecordTimeIn = "{{ $verylastRecord ? $verylastRecord->TimeIn : null }}"; // Fetch TimeIn from server-side variable
-        if (!lastRecordTimeIn) return; // Exit if no TimeIn is available
-
-        // Convert TimeIn to a Date object
-        const timeInDate = new Date(lastRecordTimeIn);
-        const currentDate = new Date(
-            new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })
-        );
-
-        // Check if TimeIn is not today
-        const isNotToday = timeInDate.toLocaleDateString() !== currentDate.toLocaleDateString();
-
-        // Check if TimeIn is more than 8 hours ago
-        const eightHoursAgo = new Date(currentDate.getTime() - 8 * 60 * 60 * 1000); // Subtract 8 hours from the current time
-        const isMoreThan8HoursAgo = timeInDate < eightHoursAgo;
-
-        // Auto clock out if either condition is true
-        if (isNotToday || isMoreThan8HoursAgo) {
-            console.log("Auto Clocking Out: TimeIn is not today or more than 8 hours ago.");
-
-            // Send the request to auto clock-out
-            fetch("{{ route('auto-clockout') }}", {
-                method: "POST",
-                headers: {
-                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({}),
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    //console.log(data.message);
-                    // Reload the page after a short delay to show updated data
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    //console.error(data.message);
-                }
-            })
-            .catch(error => {
-                //console.error("Error during auto clock-out:", error);
-            });
-        }
-    }
-
-    // Call the function after 30 seconds
-    setTimeout(autoClockOut, 30000);
-    autoClockOut();
-});
-
-
-
-</script>
-
-
 </body>
 </html>
