@@ -12,6 +12,8 @@ use App\Http\Controllers\UserPrivilegesController;
 use App\Models\User;
 
 use Illuminate\Support\Facades\Schema;
+use App\Http\Controllers\USPSController;
+use App\Http\Controllers\UPSController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -40,6 +42,9 @@ Route::get('/fetchNewlyAddedStoreCol', [UserController::class, 'fetchNewlyAddedS
 
 Route::get('/get-store-columns', [UserController::class, 'getStoreColumns']);
 
+Route::get('/dashboard/Systemdashboard', function () {
+    return view('dashboard.Systemdashboard');
+})->middleware('auth');
 
 // User Routes
 Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
@@ -81,6 +86,19 @@ Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->
 Route::get('/aws-inventory', function () {
     return view('tests.aws_inventory');
 })->name('aws.inventory.view');
-
-// Inventory Summary Route
 Route::post('/aws/inventory/summary', [AwsInventoryController::class, 'fetchInventorySummary'])->name('aws.inventory.summary');
+
+// USPS
+Route::get('/uspstracking', function () {
+    return view('tests.usps');
+})->name('usps.tracking');
+
+Route::post('/usps/tracking', [USPSController::class, 'USPSfetchTrackDetails'])->name('usps.trackingnumber');
+
+// UPS
+Route::get('/apis/upstracking', function () {
+    return view('tests.ups');
+})->name('ups.tracking');
+
+Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
+
