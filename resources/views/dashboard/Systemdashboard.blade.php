@@ -484,6 +484,33 @@
     </div>
 </div>
 <script>
+
+document.addEventListener("DOMContentLoaded", function() {
+        const selectUser = document.getElementById('selectUser');
+
+        // Function to hide the selected option
+        selectUser.addEventListener('change', function() {
+            const selectedValue = this.value;
+            
+            // Loop through all options and hide the selected one
+            Array.from(this.options).forEach(option => {
+                if (option.value == selectedValue) {
+                    option.style.display = 'none'; // Hide the selected option
+                } else {
+                    option.style.display = 'block'; // Ensure other options are visible
+                }
+            });
+        });
+
+        // Hide the default "Select User" option once the user selects a user
+        if (selectUser.value !== "") {
+            const defaultOption = selectUser.querySelector('option[value=""]');
+            if (defaultOption) {
+                defaultOption.style.display = 'none';
+            }
+        }
+    });
+
 document.getElementById('privilegeForm').addEventListener('submit', function (e) {
     e.preventDefault(); // Prevent default form submission
 
