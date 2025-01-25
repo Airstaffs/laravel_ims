@@ -173,19 +173,6 @@ Route::get('/apis/ebay-login', action: function () {
 });
 
 
-
-use App\Http\Controllers\DynamicTagController;
-
-Route::get('/dynamic-tags', [DynamicTagController::class, 'index']);
-
-use App\Http\Controllers\TestTableController;
-
-Route::get('/test', [TestTableController::class, 'index']);
-
-use App\Http\Controllers\DynamicTagController;
-
-Route::get('/dynamic-tags', [DynamicTagController::class, 'index']);
-
 use App\Http\Controllers\TestTableController;
 
 Route::get('/test', [TestTableController::class, 'index']);
