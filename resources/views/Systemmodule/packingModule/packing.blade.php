@@ -1,5 +1,5 @@
 <div id="dynamic-content">
-    <h3>Labeling Module</h3>
+    <h3>Packing Module</h3>
     <div class="custom-table">
         <table class="product-table">
             <thead>

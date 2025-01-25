@@ -66,32 +66,33 @@ class LoginController extends Controller
         $request->session()->put('profile_picture', $user->profile_picture); // Assuming 'profile_picture' is the field in the user table
         $request->session()->put('userid', $user->id); // Assuming 'profile_picture' is the field in the user table\
 
-              // Fetch the user's main module and store it in the session
-              $request->session()->put('main_module', $user->main_module);
+            // Fetch the user's main module and store it in the session
+            $mainModule = $user->main_module; // Assuming `main_module` exists in the user table
+            $request->session()->put('main_module', $mainModule);
+    
+            // Fetch sub-modules and store active ones in the session
+            $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom'];
+            $activeSubModules = [];
+            foreach ($subModules as $module) {
+                if ($user->{$module} == 1) { // Check if the sub-module is enabled for the user
+                    $activeSubModules[] = $module;
+                }
+            }
+            $request->session()->put('sub_modules', $activeSubModules);
+    
+            // Fetch store columns and store active stores in the session
+            $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
+            $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
+    
+            $activeStores = [];
+            foreach ($storeColumns as $storeColumn) {
+                if ($user->{$storeColumn} == 1) { // Check if the store is enabled for the user
+                    $activeStores[] = $storeColumn;
+                }
+            }
+            $request->session()->put('stores', $activeStores);
 
-              // Fetch sub-modules and store them in the session
-              $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom']; // Your predefined sub-modules
-              $activeSubModules = [];
-              foreach ($subModules as $module) {
-                  if ($user->{$module} == 1) {
-                      $activeSubModules[] = $module;
-                  }
-              }
-              $request->session()->put('sub_modules', $activeSubModules);
-  
-              // Fetch store columns and store the selected stores in the session
-              $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
-              $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
-              
-              $activeStores = [];
-              foreach ($storeColumns as $storeColumn) {
-                  if ($user->{$storeColumn} == 1) {
-                      $activeStores[] = $storeColumn;
-                  }
-              }
-              $request->session()->put('stores', $activeStores);
-
-
+       
         //return redirect()->intended('/dashboard/Systemdashboard')->with('success', 'Login successful!');
         return redirect()->back()->with('success', 'Log in successfully');
     }

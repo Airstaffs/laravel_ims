@@ -15,6 +15,14 @@
     
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+</script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -186,9 +194,19 @@
     margin-left: 5px; /* Adjust spacing between buttons */
 }
 
+#filter-form {
+        width: 100%; /* Form takes 90% of the container width */
+        display: flex; /* Use flexbox for layout */
+        align-items: center; /* Vertically align items */
+    }
 
+    #filter-form .form-group {
+        width: 35%; /* Date pickers take 30% of the form width */
+    }
 
-
+    #filter-form .form-group-button {
+        width: 20%; /* Button takes 20% of the form width */
+    }
 
 
     </style>
@@ -286,20 +304,24 @@
     <!-- Display user's name -->
     <h5>{{ session('user_name', 'User Name') }}</h5>
 </div>
-
+<?php
+$mainModule = session('main_module', ''); // Get the main module from the session
+$subModules = session('sub_modules', []); // Get the granted sub-modules from the session
+?>
         <h5 class="text-center">Navigation</h5>
     
         <nav class="nav flex-column">
             <a class="nav-link active" href="#" id="dashboard" onclick="loadContent('dashboard', 'dashboard')">System Clock</a>
-            <a class="nav-link" href="#" onclick="loadContent('Order', 'Order')">Orders</a>
-            <a class="nav-link" href="#" onclick="loadContent('Unreceived', 'Unreceived')">Unreceived</a>
-            <a class="nav-link" href="#" onclick="loadContent('Receiving', 'Receiving')">Received</a>
-            <a class="nav-link" href="#" onclick="loadContent('Labeling', 'Labeling')">Labeling</a>
-            <a class="nav-link" href="#" onclick="loadContent('Validation', 'Validation')">Validation</a>
-            <a class="nav-link" href="#" onclick="loadContent('Testing', 'Testing')">Testing</a>
-            <a class="nav-link" href="#" onclick="loadContent('Cleaning', 'Cleaning')">Cleaning</a>
-            <a class="nav-link" href="#" onclick="loadContent('Packing', 'Packing')">Packing</a>
-            <a class="nav-link" href="#" onclick="loadContent('Stockroom', 'Stockroom')">Stockroom</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('ordersLink').click()">Orders</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('unreceivedLink').click()">Unreceived</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('receivingLink').click()">Received</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('labelingLink').click()">Labeling</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('validationLink').click()">Validation</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('testingLink').click()">Testing</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('cleaningLink').click()">Cleaning</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('packingLink').click()">Packing</a>
+            <a class="nav-link" href="#" onclick="document.getElementById('stockroomLink').click()">Stockroom</a>
+
         </nav>
 
 
@@ -308,11 +330,44 @@
 
     <!-- Content -->
     <div id="main-content" class="content">
-        <div id="dynamic-content">
-            <h3>Select a module from the sidebar</h3>
+        
+        <div id="app">
+<a id="ordersLink" style="display:none" href="#" @click.prevent="currentComponent = 'orders'">Orders</a>
+<a id="unreceivedLink" style="display:none" href="#" @click.prevent="currentComponent = 'unreceived'">Unreceived</a>
+<a id="receivingLink" style="display:none" href="#" @click.prevent="currentComponent = 'received'">Received</a>
+<a id="labelingLink" style="display:none" href="#" @click.prevent="currentComponent = 'labelling'">Labeling</a>
+<a id="validationLink" style="display:none" href="#" @click.prevent="currentComponent = 'validation'">Validation</a>
+<a id="testingLink" style="display:none" href="#" @click.prevent="currentComponent = 'testing'">Testing</a>
+<a id="cleaningLink" style="display:none" href="#" @click.prevent="currentComponent = 'cleaning'">Cleaning</a>
+<a id="packingLink" style="display:none" href="#" @click.prevent="currentComponent = 'packing'">Packing</a>
+<a id="stockroomLink" style="display:none" href="#" @click.prevent="currentComponent = 'stockroom'">Stockroom</a>
+<div>
+        <!-- Dynamically load component -->
+        <component :is="currentComponent"></component>
+    </div>
+</div>
+<div id="dynamic-content">
+
+@vite(['resources/css/app.css', 'resources/js/app.js'])
         </div>
     </div>
+ <script>
+    document.addEventListener('DOMContentLoaded', function () {
+    const settingsModal = document.getElementById('settingsModal');
 
+    settingsModal.addEventListener('shown.bs.modal', function () {
+        const defaultTab = document.querySelector('#design-tab');
+        const defaultTabPane = document.querySelector('#design');
+
+        // Force the default tab to be shown
+        if (defaultTab && defaultTabPane) {
+            defaultTab.classList.add('active');
+            defaultTab.setAttribute('aria-selected', 'true');
+            defaultTabPane.classList.add('show', 'active');
+        }
+    });
+});
+</script>
  <!-- Settings Modal -->
 <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -452,7 +507,6 @@
     <label for="selectUser" class="form-label">Select User</label>
     <select class="form-select" id="selectUser" name="user_id" required>
         <!-- Default option (Select User) -->
-        <option value="" disabled {{ !$selectedUser ? 'selected' : '' }}>Select User</option>
 
         @foreach ($Allusers as $userOption)
             <option value="{{ $userOption->id }}"
@@ -713,12 +767,13 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
 </div>
 
 
+
 <!-- PROFILE Modal -->
 <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="profileModalLabel">PROFILE</h5>
+                <h5 class="modal-title" id="profileModalLabel"><b>PROFILE</b></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -727,11 +782,18 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                         <button class="nav-link active" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab" aria-controls="attendance" aria-selected="true">Attendance</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="userprofile-tab" data-bs-toggle="tab" data-bs-target="#userprofile" type="button" role="tab" aria-controls="userprofile" aria-selected="false">User</button>
+                        <button class="nav-link" id="userprofile-tab" data-bs-toggle="tab" data-bs-target="#userprofile" type="button" role="tab" aria-controls="userprofile" aria-selected="false">Account</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="timerecord-tab" data-bs-toggle="tab" data-bs-target="#timerecord" type="button" role="tab" aria-controls="timerecord" aria-selected="false">Record</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="myprivileges-tab" data-bs-toggle="tab" data-bs-target="#myprivileges" type="button" role="tab" aria-controls="myprivileges" aria-selected="false">My Privileges</button>
                     </li>
                 </ul>
 
                 <div class="tab-content mt-3" id="settingsTabContent">
+
                     <!-- Attendance Tab -->
                     <div class="tab-pane fade show active text-center" id="attendance" role="tabpanel" aria-labelledby="attendance-tab">
                         <h5>Attendance / Clock-in & Clock-out</h5>
@@ -739,7 +801,7 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                         <!-- Time, Day, and Date Display -->
                         <div class="mb-3">
                             <div id="current-time" style="font-size: 3rem; font-weight: bold;"></div>
-                            <div id="current-day" style="font-size: 1.5rem; margin-top: 10px;"></div>
+                            <div id="current-day" style="font-size: 1.2rem; margin-top: 10px;"></div>
                             <div style="display:none;" id="current-date" style="font-size: 1.2rem; margin-top: 5px; color: #6c757d;"></div>
                         </div>
 
@@ -749,7 +811,7 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                             <form action="{{ route('attendance.clockin') }}" method="POST" id="clockin-form">
                                 @csrf
                                 <button type="button" 
-                                        class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-primary' : 'btn-secondary' }} px-5 py-3 fs-5" 
+                                        class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-primary' : 'btn-secondary' }} px-4 py-3 fs-5" 
                                         style="min-width: 15%;"
                                         onclick="confirmClockIn()" 
                                         {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
@@ -761,7 +823,7 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                             <form action="{{ route('attendance.clockout') }}" method="POST" id="clockout-form">
                                 @csrf
                                 <button type="button" 
-                                        class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-primary' : 'btn-secondary' }} px-5 py-3 fs-5" 
+                                        class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-primary' : 'btn-secondary' }} px-4 py-3 fs-5" 
                                         style="min-width: 15%;"
                                         onclick="confirmClockOut()" 
                                         {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
@@ -770,12 +832,11 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                             </form>
                         </div>
 
-
                         <!-- Computations for Today's Hours and This Week's Hours -->
                         <div class="mt-4 p-3 bg-light border rounded">
-                            <p><strong>Today's Hours:</strong> {{ $todayHoursFormatted ?? '0:00' }}</p>
-                            <p><strong>This Week's Hours:</strong> {{ $weekHoursFormatted ?? '0:00' }}</p>
-                        </div>
+                            <p><strong>Today's Hours:</strong> <span id="today-hours">{{ $todayHoursFormatted ?? '0:00' }}</span></p>
+                            <p><strong>This Week's Hours:</strong> <span id="week-hours">{{ $weekHoursFormatted ?? '0:00' }}</span></p>
+                        </div>              
 
                         <!-- Attendance Table -->
                         <div class="table-responsive mt-4">
@@ -785,72 +846,63 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                                         <th>Time In</th>
                                         <th>Time Out</th>
                                         <th>Computed Hours</th>
+                                        <th>Notes</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach ($employeeClocks as $clock)
-                                    <tr>
-                                        <!-- Time In -->
-                                        <td>
-                                            {{ \Carbon\Carbon::parse($clock->TimeIn)->format('h:i A') }}
+                                @foreach ($employeeClocksThisweek as $clockwk)
+                                <tr data-bs-toggle="tooltip" data-bs-placement="top" title="{{ $clockwk->Notes }}">
+
+                                    <!-- Time In -->
+                                    <td>
+                                        {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}
+                                        <div class="text-muted">
+                                            {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}
+                                        </div>
+                                    </td>
+
+                                    <!-- Time Out -->
+                                    <td>
+                                        @if ($clockwk->TimeOut)
+                                            {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('h:i A') }}
                                             <div class="text-muted">
-                                                {{ \Carbon\Carbon::parse($clock->TimeIn)->format('M d, Y') }}
+                                                {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('M d, Y') }}
                                             </div>
-                                        </td>
+                                        @else
+                                            <span class="text-danger">Not yet timed out</span>
+                                        @endif
+                                    </td>
 
-                                        <!-- Time Out -->
-                                        <td>
-                                            @if ($clock->TimeOut)
-                                                {{ \Carbon\Carbon::parse($clock->TimeOut)->format('h:i A') }}
-                                                <div class="text-muted">
-                                                    {{ \Carbon\Carbon::parse($clock->TimeOut)->format('M d, Y') }}
-                                                </div>
-                                            @else
-                                                <span class="text-danger">Not yet timed out</span>
-                                            @endif
-                                        </td>
+                                    <!-- Computed Hours -->
+                                    <td id="computed-hours-{{ $clockwk->ID }}">
+                                        <span class="text-muted">Not yet calculated</span></td>
 
-                                        <!-- Computed Hours -->
-                                        <td>
-                                        @php
-                                            // Ensure consistent timezone for TimeIn and TimeOut
-                                            $timeIn = \Carbon\Carbon::parse($clock->TimeIn)->setTimezone('America/Los_Angeles'); // Parse TimeIn without altering timezone
-                                            $timeOut = $clock->TimeOut
-                                                ? \Carbon\Carbon::parse($clock->TimeOut)->setTimezone('America/Los_Angeles')
-                                                : now()->setTimezone('America/Los_Angeles')->subHours(8); // Subtract 8 hours from now()
-
-                                            // Calculate total minutes worked
-                                            $totalMinutes = $timeIn->diffInMinutes($timeOut);
-
-                                            // Convert total minutes into hours and remaining minutes
-                                            $hours = floor($totalMinutes / 60); // Get whole hours
-                                            $minutes = $totalMinutes % 60; // Get remaining minutes
-                                        @endphp
-
-                                            @if ($clock->TimeIn)
-                                                {{ $hours }} hrs {{ $minutes }} mins
-                                                <div class="text-muted">
-                                                    @if (!$clock->TimeOut)
-                                                        (Calculated until now)
-                                                    @endif
-                                                </div>
-                                            @else
-                                                <span class="text-danger">No Time In</span>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
+                                    <!-- Update Button -->
+                                     <td style="display:none;">
+                                        <button
+                                            class="btn btn-primary update-computed-hours d-none"
+                                            data-id="{{ $clockwk->ID }}"
+                                            data-timein="{{ $clockwk->TimeIn }}"
+                                            data-timeout="{{ $clockwk->TimeOut }}">
+                                            Update
+                                        </button>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editNotesModal" 
+                                                onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                @endforeach
+                            </tbody>
                             </table>
                         </div>
-
-    
-
                     </div>
 
-                    <!-- Profile Tab -->
-                    <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="user-tab">
-                        <h5>User</h5>
+                    <!-- Tab -->
+                    <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="userprofile-tab">
+                        <h5>Change Password</h5>
                         <form action="{{ route('update-password') }}" method="POST">
                             @csrf
                             <!-- Username -->
@@ -885,6 +937,117 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                         </form>
                     </div>
 					
+                    
+                    <!--  Tab -->
+                    <div class="tab-pane fade show text-center" id="timerecord" role="tabpanel" aria-labelledby="timerecord-tab">
+
+                        <div class="container">
+                            <!-- Date Range Filter --> 
+                                <form id="filter-form" class="mb-3">
+                                    <!-- Start Date -->
+                                    <div class="form-group">
+                                        <label for="start-date" class="form-label visually-hidden">Start Date:</label>
+                                        <input type="date" class="form-control" id="start-date" name="start_date" placeholder="Start Date">
+                                    </div>
+
+                                    <!-- End Date -->
+                                    <div class="form-group">
+                                        <label for="end-date" class="form-label visually-hidden">End Date:</label>
+                                        <input type="date" class="form-control" id="end-date" name="end_date" placeholder="End Date">
+                                    </div>
+
+                                    <!-- Filter Button -->
+                                    <div class="form-group-button">
+                                        <button type="button" id="filter-button" class="btn btn-primary w-100">Filter</button>
+                                    </div>
+                                </form>
+
+                            <!-- Computations -->
+                            <strong><p>Total Hours: <span id="total-hours">0:00</span></p></strong>
+
+                            <!-- Attendance Table -->
+                            <div class="table-responsive mt-4">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Time In</th>
+                                            <th>Time Out</th>
+                                            <th>Computed Hours</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="attendance-table-body">
+                                        <!-- Default Rows Will Be Loaded Dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Tab -->
+                    <div class="tab-pane fade show" id="myprivileges" role="tabpanel" aria-labelledby="myprivileges-tab">
+                        <h5 style="font-weight: bold; color: #333;">Account Privileges</h5>
+                        <div class="row">
+                            <!-- First Column -->
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="order" name="order" value="1" disabled {{ $user->order ? 'checked' : '' }}>
+                                    <label class="" for="order" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Order
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="unreceived" name="unreceived" value="1" disabled {{ $user->unreceived ? 'checked' : '' }}>
+                                    <label class="" for="unreceived" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Unreceived
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="receiving" name="receiving" value="1" disabled {{ $user->receiving ? 'checked' : '' }}>
+                                    <label class="" for="receiving" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Receiving
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="labeling" name="labeling" value="1" disabled {{ $user->labeling ? 'checked' : '' }}>
+                                    <label class="" for="labeling" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Labeling
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Second Column -->
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="testing" name="testing" value="1" disabled {{ $user->testing ? 'checked' : '' }}>
+                                    <label class="" for="testing" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Testing
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="cleaning" name="cleaning" value="1" disabled {{ $user->cleaning ? 'checked' : '' }}>
+                                    <label class="" for="cleaning" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Cleaning
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="packing" name="packing" value="1" disabled {{ $user->packing ? 'checked' : '' }}>
+                                    <label class="" for="packing" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Packing
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="stockroom" name="stockroom" value="1" disabled {{ $user->stockroom ? 'checked' : '' }}>
+                                    <label class="" for="stockroom" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Stockroom
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+
+
                 </div>
             </div>
             <div class="modal-footer">
@@ -893,9 +1056,76 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
         </div>
     </div>
 </div>
+
+<!-- NOTES Modal -->
+<div class="modal fade" id="editNotesModal" tabindex="-1" aria-labelledby="editNotesModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editNotesModalLabel">Edit Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editNotesForm">
+                    @csrf
+                    <input type="hidden" id="recordId" name="recordId">
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                    <button type="button" class="btn btn-primary" onclick="updateNotes()">Update</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Listen for the `hidden.bs.modal` event on the notes modal
+    const editNotesModal = document.getElementById('editNotesModal');
+    editNotesModal.addEventListener('hidden.bs.modal', function () {
+        // Show the profileModal when the notes modal is closed
+        const profileModal = new bootstrap.Modal(document.getElementById('profileModal'));
+        profileModal.show();
+    });
+});
+
+function populateNotesModal(recordId, notes) {
+    document.getElementById('recordId').value = recordId; // Set the record ID in the hidden input
+    document.getElementById('notes').value = notes; // Set the Notes in the textarea
+}
+
+function updateNotes() {
+    const recordId = document.getElementById('recordId').value;
+    const notes = document.getElementById('notes').value;
+
+    // Send an AJAX request to update the Notes
+    fetch(`/update-notes/${recordId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        },
+        body: JSON.stringify({ notes: notes }),
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload(); // Reload the page to reflect the changes
+        } else {
+            alert('Failed to update notes.');
+        }
+    })
+    .catch(error => {
+        console.error('Error updating notes:', error);
+        alert('An error occurred. Please try again.');
+    });
+}
 
 </script>
+
 <script>
  axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
@@ -980,15 +1210,11 @@ function refreshStoreList() {
             .catch(error => console.error('Error fetching store list:', error));
     }
 
-    // Call refreshStoreList on load to populate the stores with the selected user's privileges
-    document.addEventListener('DOMContentLoaded', () => {
-        refreshStoreList();
-    });
 
 // Fetch and display the list of stores on page load
 document.addEventListener('DOMContentLoaded', function () {
     fetchStoreList();
-    refreshStoreList()
+
 });
 
 // Function to fetch and display store list from the server
@@ -1389,7 +1615,7 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     const searchContainer = document.getElementById('top-search');
     const searchInput = document.getElementById('search-input');
     let showSearch = false; // Initially hide search for dashboard
-
+    const mainModule = "<?= session('main_module', 'dashboard') ?>";
     // Toggle sidebar visibility
     burgerMenu.addEventListener('click', () => {
         const isMobile = window.innerWidth <= 768;
@@ -1412,19 +1638,23 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
             burgerMenu.classList.remove('hidden');
         }
     });
+ // Function to load content dynamically based on the module
+function loadContent(module) {
+    // Retrieve user's allowed modules and main module from the session
+    const allowedModules = <?= json_encode(session('sub_modules', [])) ?>;
+    const mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase(); // Ensure it's lowercase for consistency
 
-    function loadContent(module) {
-    const dynamicContent = document.getElementById('dynamic-content');
-    const searchContainer = document.getElementById('top-search');
-    const searchInput = document.querySelector('#top-search input');
-    
-    // Get the base URL of your application
-    const baseUrl = window.location.origin;  // E.g., 'http://127.0.0.1:8000'
+    // Check if the user has permission to access the module or if it's the main module
+    if (!allowedModules.includes(module.toLowerCase()) && module.toLowerCase() !== mainModule) {
+        alert("You do not have permission to access this module.");
+        return; // Stop further execution
+    }
 
-    // Construct the URL dynamically using the module name
+    // Construct the URL for the module dynamically
+    const baseUrl = window.location.origin; // e.g., 'http://127.0.0.1:8000'
     const url = `${baseUrl}/Systemmodule/${module}Module/${module}`;
 
-    // Fetch the content for the selected module
+    // Fetch and load the content for the module
     fetch(url)
         .then(response => {
             if (!response.ok) {
@@ -1433,8 +1663,8 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
             return response.text();
         })
         .then(html => {
-            dynamicContent.innerHTML = html;  // Load the module's HTML content into the dynamic content container
-            initSearch(module); // Initialize search for the dynamically loaded content
+            dynamicContent.innerHTML = html; // Update the content container
+            initSearch(module); // Initialize search functionality for the module
         })
         .catch(error => {
             dynamicContent.innerHTML = '<p>Error loading content.</p>';
@@ -1461,6 +1691,10 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     const rows = document.querySelectorAll('.custom-table tbody tr');
     rows.forEach(row => row.style.display = ""); // Reset rows display to default
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+    loadContent(mainModule);
+});
 
 function initSearch(module) {
     const searchInput = document.querySelector('#top-search input');
@@ -1541,7 +1775,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Update the elements
             currentTimeElement.textContent = formattedTime; // Display time with AM/PM
-            currentDayElement.textContent = pacificDay; // Display the day
+            currentDayElement.textContent = pacificDay + " , " + pacificDate; // Display the day
             currentDateElement.textContent = pacificDate; // Display the date
         }
     }
@@ -1573,5 +1807,211 @@ const clockout_question_Sound = document.getElementById('clockout-question-sound
         }
     }
 </script>
+
+<script>
+$(document).ready(function () {
+    function updateComputedHours(clockId, timeIn, timeOut) {
+        $.ajax({
+            url: "{{ route('update.computed.hours') }}",
+            type: "POST",
+            data: {
+                _token: "{{ csrf_token() }}",
+                timeIn: timeIn,
+                timeOut: timeOut,
+            },
+            success: function (response) {
+                const computedCell = $(`#computed-hours-${clockId}`);
+                computedCell.html(`${response.hours} hrs ${response.minutes} mins`);
+                if (response.message) {
+                    computedCell.append(`<div class="text-muted">(${response.message})</div>`);
+                }
+            },
+            error: function (error) {
+                console.error("Error updating computed hours:", error);
+            }
+        });
+    }
+
+    // Function to loop through all rows and update computed hours
+    function updateAllComputedHours() {
+        $('.update-computed-hours').each(function () {
+            const clockId = $(this).data('id'); // Get clock ID
+            const timeIn = $(this).data('timein'); // Get TimeIn
+            const timeOut = $(this).data('timeout'); // Get TimeOut (or null)
+
+            updateComputedHours(clockId, timeIn, timeOut);
+        });
+    }
+
+    // Call updateAllComputedHours every 30 seconds
+    setInterval(updateAllComputedHours, 30000); // 30,000 milliseconds = 30 seconds
+
+    // Optionally, call it once when the page loads
+    updateAllComputedHours();
+
+    function updateHours() {
+            $.ajax({
+                url: "{{ route('attendance.update.hours') }}",
+                type: "POST",
+                data: {
+                    _token: "{{ csrf_token() }}"
+                },
+                success: function (response) {
+                    // Update Today's Hours and This Week's Hours
+                    $('#today-hours').text(response.todayHours);
+                    $('#week-hours').text(response.weekHours);
+                },
+                error: function (error) {
+                    console.error("Error updating hours:", error);
+                }
+            });
+        }
+
+        // Call updateHours every 30 seconds
+        setInterval(updateHours, 30000); // 30,000 milliseconds = 30 seconds
+
+        // Optionally, call it once when the page loads
+        updateHours();
+});
+
+</script>
+
+<script>
+    $(document).ready(function () {
+
+        // Function to fetch attendance data
+        function fetchAttendanceData(startDate = null, endDate = null) {
+            $.ajax({
+                url: "{{ route('attendance.filter.ajax') }}", // AJAX route
+                type: "POST",
+                data: {
+                    _token: "{{ csrf_token() }}",
+                    start_date: startDate,
+                    end_date: endDate
+                },
+                success: function (response) {
+                    const tableBody = $('#attendance-table-body');
+                    const totalHoursSpan = $('#total-hours');
+                    tableBody.empty(); // Clear the table body
+                    let totalMinutes = 0;
+
+                    if (response.employeeClocks.length > 0) {
+                        response.employeeClocks.forEach(function (clock) {
+                            const timeIn = new Date(clock.time_in);
+                            const timeOut = clock.time_out
+                                ? new Date(clock.time_out)
+                                : new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+                            const diffInMinutes = Math.round((timeOut - timeIn) / 60000);
+                            totalMinutes += diffInMinutes;
+                            const hours = Math.floor(diffInMinutes / 60);
+                            const minutes = diffInMinutes % 60;
+
+                            // Append row
+                            tableBody.append(`
+                                <tr>
+                                    <td>
+                                        ${timeIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        <div class="text-muted">
+                                            ${timeIn.toLocaleDateString()}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        ${
+                                            clock.time_out
+                                                ? `${timeOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                   <div class="text-muted">${timeOut.toLocaleDateString()}</div>`
+                                                : '<span class="text-danger">Not yet timed out</span>'
+                                        }
+                                    </td>
+                                    <td>${hours} hrs ${minutes} mins</td>
+                                </tr>
+                            `);
+                        });
+
+                        // Calculate total hours from totalMinutes
+                        const totalHours = Math.floor(totalMinutes / 60);
+                        const totalRemainingMinutes = totalMinutes % 60;
+                        totalHoursSpan.text(`${totalHours} hrs ${totalRemainingMinutes} mins`);
+                    } else {
+                        tableBody.append(`
+                            <tr>
+                                <td colspan="3" class="text-center">No records found.</td>
+                            </tr>
+                        `);
+                        totalHoursSpan.text('0:00');
+                    }
+                },
+                error: function (xhr, status, error) {
+                    console.error("Error fetching data:", error);
+                }
+            });
+        }
+
+        // Load default 10 rows on page load
+        fetchAttendanceData();
+
+        // Fetch data on filter button click
+        $('#filter-button').on('click', function () {
+            const startDate = $('#start-date').val();
+            const endDate = $('#end-date').val();
+            fetchAttendanceData(startDate, endDate);
+        });
+        
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+    function autoClockOut() {
+        const lastRecordTimeIn = "{{ $verylastRecord ? $verylastRecord->TimeIn : null }}"; // Fetch TimeIn from server-side variable
+        if (!lastRecordTimeIn) return; // Exit if no TimeIn is available
+
+        // Convert TimeIn to a Date object
+        const timeInDate = new Date(lastRecordTimeIn);
+        const currentDate = new Date(
+            new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' })
+        );
+
+        // Check if TimeIn is not today
+        const isNotToday = timeInDate.toLocaleDateString() !== currentDate.toLocaleDateString();
+
+        // Check if TimeIn is more than 8 hours ago
+        const eightHoursAgo = new Date(currentDate.getTime() - 8 * 60 * 60 * 1000); // Subtract 8 hours from the current time
+        const isMoreThan8HoursAgo = timeInDate < eightHoursAgo;
+
+        // Auto clock out if either condition is true
+        if (isNotToday || isMoreThan8HoursAgo) {
+            console.log("Auto Clocking Out: TimeIn is not today or more than 8 hours ago.");
+
+            // Send the request to auto clock-out
+            fetch("{{ route('auto-clockout') }}", {
+                method: "POST",
+                headers: {
+                    "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({}),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    //console.log(data.message);
+                    // Reload the page after a short delay to show updated data
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    //console.error(data.message);
+                }
+            })
+            .catch(error => {
+                //console.error("Error during auto clock-out:", error);
+            });
+        }
+    }
+
+    // Call the function after 30 seconds
+    setTimeout(autoClockOut, 30000);
+    autoClockOut();
+});
+
+</script>
+
 </body>
 </html>
