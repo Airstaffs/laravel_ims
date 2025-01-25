@@ -102,8 +102,10 @@ Route::get('/apis/upstracking', function () {
 
 Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
 
-Route::get('/apis/ebay-callback', function () {
+Route::get('/apis/ebay-callback', action: function () {
+    require app_path('Helpers/ebay_helpers.php');
     // Check if the 'code' parameter is present in the URL
+    echo "Hello";
     if (isset($_GET['code'])) {
         $authorizationCode = $_GET['code']; // Get the authorization code from the URL
         // Call the getAccessToken function to exchange the authorization code for an access token
@@ -121,4 +123,15 @@ Route::get('/apis/ebay-callback', function () {
         return response()->json(['error' => 'Authorization code not provided.'], 400);
     }
 });
+
+Route::get('/apis/ebay-login', action: function () {
+    $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e'; // Replace with your client ID
+    $redirectUrl = 'https://ims.tecniquality.com/Admin/modules/orders/callback.php'; // Replace with your redirect URL
+    $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
+    
+    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
+    
+    echo "<a href='{$authUrl}'>Authorize with eBay</a>";
+});
+
 
