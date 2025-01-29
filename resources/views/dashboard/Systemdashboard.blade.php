@@ -304,54 +304,101 @@
     <!-- Display user's name -->
     <h5>{{ session('user_name', 'User Name') }}</h5>
 </div>
-<?php
-$mainModule = session('main_module', ''); // Get the main module from the session
-$subModules = session('sub_modules', []); // Get the granted sub-modules from the session
-?>
-        <h5 class="text-center">Navigation</h5>
-    
-        <nav class="nav flex-column">
-            <a class="nav-link active" href="#" id="dashboard" onclick="loadContent('dashboard', 'dashboard')">System Clock</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('ordersLink').click()">Orders</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('unreceivedLink').click()">Unreceived</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('receivingLink').click()">Received</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('labelingLink').click()">Labeling</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('validationLink').click()">Validation</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('testingLink').click()">Testing</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('cleaningLink').click()">Cleaning</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('packingLink').click()">Packing</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('stockroomLink').click()">Stockroom</a>
 
-        </nav>
+
+
+        <h5 class="text-center">Navigation</h5>
+ <?php
+  // Fetch the main module from session
+$mainModule = session('main_module', ''); // Default to empty if not set
+$subModules = session('sub_modules', []); // Get submodules
+
+// Fallback if the main module is not set, use the first available submodule as fallback
+$defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+
+// Check permissions and module definitions as before
+function checkPermission($module, $mainModule, $subModules) {
+    // Special handling for dashboard
+    if ($module === 'dashboard') {
+        return true;
+    }
+    // Check main module first, then submodules
+    return $module === $mainModule || in_array($module, $subModules);
+}
+
+// Module definitions remain the same
+$modules = [
+    'orders' => 'Orders',
+    'unreceived' => 'Unreceived',
+    'received' => 'Received',
+    'labeling' => 'Labeling',
+    'validation' => 'Validation',
+    'testing' => 'Testing',
+    'cleaning' => 'Cleaning',
+    'packing' => 'Packing',
+    'stockroom' => 'Stockroom',
+];
+?>
+
+<script>
+    console.log("Default module from PHP: ", "{{ $defaultModule }}");
+    window.defaultComponent = "{{ $defaultModule }}"; // Ensure this matches the default module logic
+</script>
+
+<!-- Navigation structure with main module highlighted -->
+<nav class="nav flex-column">
+    <?php if ($mainModule): ?>
+        <!-- If we have a main module, show it first -->
+        <a class="nav-link active" href="#" 
+           onclick="document.getElementById('<?= $mainModule ?>Link').click()">
+            <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
+        </a>
+    <?php endif; ?>
+    
+    <a class="nav-link" href="#" id="dashboard" 
+       onclick="loadContent('dashboard', 'dashboard')">System Clock</a>
+    
+    <?php foreach ($modules as $module => $label): ?>
+        <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
+            <a class="nav-link" href="#" 
+               onclick="document.getElementById('<?= $module ?>Link').click()">
+                <?= $label ?>
+            </a>
+        <?php endif; ?>
+    <?php endforeach; ?>
+</nav>
 
 
        
     </div>
 
-    <!-- Content -->
     <div id="main-content" class="content">
+    <div id="app">
+        <!-- Hidden component triggers -->
+        <?php foreach ($modules as $module => $label): ?>
+            <a id="<?= $module ?>Link" 
+               style="display:none" 
+               href="#" 
+               @click.prevent="currentComponent = '<?= $module ?>'">
+                <?= $label ?>
+            </a>
+        <?php endforeach; ?>
         
-        <div id="app">
-<a id="ordersLink" style="display:none" href="#" @click.prevent="currentComponent = 'orders'">Orders</a>
-<a id="unreceivedLink" style="display:none" href="#" @click.prevent="currentComponent = 'unreceived'">Unreceived</a>
-<a id="receivingLink" style="display:none" href="#" @click.prevent="currentComponent = 'received'">Received</a>
-<a id="labelingLink" style="display:none" href="#" @click.prevent="currentComponent = 'labelling'">Labeling</a>
-<a id="validationLink" style="display:none" href="#" @click.prevent="currentComponent = 'validation'">Validation</a>
-<a id="testingLink" style="display:none" href="#" @click.prevent="currentComponent = 'testing'">Testing</a>
-<a id="cleaningLink" style="display:none" href="#" @click.prevent="currentComponent = 'cleaning'">Cleaning</a>
-<a id="packingLink" style="display:none" href="#" @click.prevent="currentComponent = 'packing'">Packing</a>
-<a id="stockroomLink" style="display:none" href="#" @click.prevent="currentComponent = 'stockroom'">Stockroom</a>
-<div>
-        <!-- Dynamically load component -->
+        <!-- Vue component with main module as default -->
         <component :is="currentComponent"></component>
     </div>
-</div>
-<div id="dynamic-content">
 
-@vite(['resources/css/app.css', 'resources/js/app.js'])
-        </div>
+    <div id="dynamic-content">
+      @vite(['resources/js/app.js'])
     </div>
+</div>
+
+</div>
+
+
  <script>
+
+
     document.addEventListener('DOMContentLoaded', function () {
     const settingsModal = document.getElementById('settingsModal');
 
@@ -380,22 +427,32 @@ $subModules = session('sub_modules', []); // Get the granted sub-modules from th
                 <ul class="nav nav-tabs" id="settingsTab" role="tablist">
                     <!-- Combined Tab for Title & Design -->
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design" type="button" role="tab" aria-controls="design" aria-selected="true">Title & Design</button>
+                        <button class="nav-link active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design" type="button" role="tab" aria-controls="design" aria-selected="true">
+                            <i class="bi bi-palette"></i>
+                            <span class="d-none d-sm-inline"> Title & Design</span>
+                        </button>
                     </li>
                     <!-- Add User Tab -->
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="user-tab" data-bs-toggle="tab" data-bs-target="#user" type="button" role="tab" aria-controls="user" aria-selected="false">Add User</button>
+                        <button class="nav-link" id="user-tab" data-bs-toggle="tab" data-bs-target="#user" type="button" role="tab" aria-controls="user" aria-selected="false">
+                            <i class="bi bi-person-plus"></i>
+                            <span class="d-none d-sm-inline"> Add User</span>
+                        </button>
                     </li>
-               
                     <!-- Add Store List Tab -->
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="store-tab" data-bs-toggle="tab" data-bs-target="#store" type="button" role="tab" aria-controls="store" aria-selected="false">Store List</button>
-                </li>
-
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="store-tab" data-bs-toggle="tab" data-bs-target="#store" type="button" role="tab" aria-controls="store" aria-selected="false">
+                            <i class="bi bi-shop"></i>
+                            <span class="d-none d-sm-inline"> Store List</span>
+                        </button>
+                    </li>
                     <!-- Privileges Tab -->
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="privilege-tab" data-bs-toggle="tab" data-bs-target="#privilege" type="button" role="tab" aria-controls="privilege" aria-selected="false">Privileges</button>
-                </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="privilege-tab" data-bs-toggle="tab" data-bs-target="#privilege" type="button" role="tab" aria-controls="privilege" aria-selected="false">
+                            <i class="bi bi-shield-lock"></i>
+                            <span class="d-none d-sm-inline"> Privileges</span>
+                        </button>
+                    </li>
                     
                 </ul>
          <!-- Combined Tab for Title & Design -->
@@ -779,16 +836,28 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
             <div class="modal-body">
                 <ul class="nav nav-tabs" id="settingsTab" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab" aria-controls="attendance" aria-selected="true">Attendance</button>
+                        <button class="nav-link active" id="attendance-tab" data-bs-toggle="tab" data-bs-target="#attendance" type="button" role="tab" aria-controls="attendance" aria-selected="true">
+                            <i class="bi bi-calendar-check"></i>
+                            <span class="d-none d-sm-inline"> Attendance</span>
+                        </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="userprofile-tab" data-bs-toggle="tab" data-bs-target="#userprofile" type="button" role="tab" aria-controls="userprofile" aria-selected="false">Account</button>
+                        <button class="nav-link" id="userprofile-tab" data-bs-toggle="tab" data-bs-target="#userprofile" type="button" role="tab" aria-controls="userprofile" aria-selected="false">
+                            <i class="bi bi-person"></i>
+                            <span class="d-none d-sm-inline"> Account</span>
+                        </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="timerecord-tab" data-bs-toggle="tab" data-bs-target="#timerecord" type="button" role="tab" aria-controls="timerecord" aria-selected="false">Record</button>
+                        <button class="nav-link" id="timerecord-tab" data-bs-toggle="tab" data-bs-target="#timerecord" type="button" role="tab" aria-controls="timerecord" aria-selected="false">
+                            <i class="bi bi-clock"></i>
+                            <span class="d-none d-sm-inline"> Record</span>
+                        </button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="myprivileges-tab" data-bs-toggle="tab" data-bs-target="#myprivileges" type="button" role="tab" aria-controls="myprivileges" aria-selected="false">My Privileges</button>
+                        <button class="nav-link" id="myprivileges-tab" data-bs-toggle="tab" data-bs-target="#myprivileges" type="button" role="tab" aria-controls="myprivileges" aria-selected="false">
+                            <i class="bi bi-shield-lock"></i>
+                            <span class="d-none d-sm-inline"> My Privileges</span>
+                        </button>
                     </li>
                 </ul>
 
@@ -988,28 +1057,29 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                     <div class="tab-pane fade show" id="myprivileges" role="tabpanel" aria-labelledby="myprivileges-tab">
                         <h5 style="font-weight: bold; color: #333;">Account Privileges</h5>
                         <div class="row">
+						
                             <!-- First Column -->
                             <div class="col-md-6">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="order" name="order" value="1" disabled {{ $user->order ? 'checked' : '' }}>
+                                    <input class="form-check-input" type="checkbox" id="order" name="order" value="1" disabled>
                                     <label class="" for="order" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Order
                                     </label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="unreceived" name="unreceived" value="1" disabled {{ $user->unreceived ? 'checked' : '' }}>
+                                    <input class="form-check-input" type="checkbox" id="unreceived" name="unreceived" value="1" disabled>
                                     <label class="" for="unreceived" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Unreceived
                                     </label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="receiving" name="receiving" value="1" disabled {{ $user->receiving ? 'checked' : '' }}>
+                                    <input class="form-check-input" type="checkbox" id="receiving" name="receiving" value="1" disabled>
                                     <label class="" for="receiving" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Receiving
                                     </label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="labeling" name="labeling" value="1" disabled {{ $user->labeling ? 'checked' : '' }}>
+                                    <input class="form-check-input" type="checkbox" id="labeling" name="labeling" value="1" disabled>
                                     <label class="" for="labeling" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Labeling
                                     </label>
@@ -1019,30 +1089,31 @@ document.getElementById('privilegeForm').addEventListener('submit', function (e)
                             <!-- Second Column -->
                             <div class="col-md-6">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="testing" name="testing" value="1" disabled {{ $user->testing ? 'checked' : '' }}>
+                                    <input class="form-check-input" type="checkbox" id="testing" name="testing" value="1" disabled>
                                     <label class="" for="testing" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Testing
                                     </label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="cleaning" name="cleaning" value="1" disabled {{ $user->cleaning ? 'checked' : '' }}>
+                                    <input class="form-check-input" type="checkbox" id="cleaning" name="cleaning" value="1" disabled>
                                     <label class="" for="cleaning" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Cleaning
                                     </label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="packing" name="packing" value="1" disabled {{ $user->packing ? 'checked' : '' }}>
+                                    <input class="form-check-input" type="checkbox" id="packing" name="packing" value="1" disabled>
                                     <label class="" for="packing" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Packing
                                     </label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="stockroom" name="stockroom" value="1" disabled {{ $user->stockroom ? 'checked' : '' }}>
+                                    <input class="form-check-input" type="checkbox" id="stockroom" name="stockroom" value="1" disabled>
                                     <label class="" for="stockroom" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Stockroom
                                     </label>
                                 </div>
                             </div>
+							
                         </div>
                     </div>
 
@@ -1606,95 +1677,63 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     </footer>
 
     <script>
-  const sidebar = document.getElementById('sidebar');
-    const mainContent = document.getElementById('main-content');
-    const burgerMenu = document.getElementById('burger-menu');
-    const closeBtn = document.getElementById('close-btn');
-    const navbarBrand = document.querySelector('.navbar-brand');
-    const dynamicContent = document.getElementById('dynamic-content');
-    const searchContainer = document.getElementById('top-search');
-    const searchInput = document.getElementById('search-input');
-    let showSearch = false; // Initially hide search for dashboard
-    const mainModule = "<?= session('main_module', 'dashboard') ?>";
-    // Toggle sidebar visibility
-    burgerMenu.addEventListener('click', () => {
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile) {
-            sidebar.classList.toggle('visible');
-        } else {
-            sidebar.classList.toggle('visible');
-            mainContent.classList.toggle('sidebar-visible');
-            navbarBrand.classList.toggle('shifted');
-            burgerMenu.classList.toggle('hidden');
-        }
-    });
+const sidebar = document.getElementById('sidebar');
+const mainContent = document.getElementById('main-content');
+const burgerMenu = document.getElementById('burger-menu');
+const closeBtn = document.getElementById('close-btn');
+const navbarBrand = document.querySelector('.navbar-brand');
+const dynamicContent = document.getElementById('dynamic-content');
+const searchContainer = document.getElementById('top-search');
+const searchInput = document.getElementById('search-input');
+let showSearch = false; // Initially hide search for dashboard
 
-    // Hide sidebar and reset content layout for all devices
-    closeBtn.addEventListener('click', () => {
-        sidebar.classList.remove('visible');
-        if (window.innerWidth > 768) {
-            mainContent.classList.remove('sidebar-visible');
-            navbarBrand.classList.remove('shifted');
-            burgerMenu.classList.remove('hidden');
-        }
-    });
- // Function to load content dynamically based on the module
+// Function to toggle sidebar visibility
+burgerMenu.addEventListener('click', () => {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        sidebar.classList.toggle('visible');
+    } else {
+        sidebar.classList.toggle('visible');
+        mainContent.classList.toggle('sidebar-visible');
+        navbarBrand.classList.toggle('shifted');
+        burgerMenu.classList.toggle('hidden');
+    }
+});
+
+// Hide sidebar when close button is clicked
+closeBtn.addEventListener('click', () => {
+    sidebar.classList.remove('visible');
+    if (window.innerWidth > 768) {
+        mainContent.classList.remove('sidebar-visible');
+        navbarBrand.classList.remove('shifted');
+        burgerMenu.classList.remove('hidden');
+    }
+});
+
+// Function to load content dynamically based on the module
 function loadContent(module) {
-    // Retrieve user's allowed modules and main module from the session
     const allowedModules = <?= json_encode(session('sub_modules', [])) ?>;
-    const mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase(); // Ensure it's lowercase for consistency
+    const mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
 
-    // Check if the user has permission to access the module or if it's the main module
     if (!allowedModules.includes(module.toLowerCase()) && module.toLowerCase() !== mainModule) {
         alert("You do not have permission to access this module.");
-        return; // Stop further execution
+        return;
     }
 
-    // Construct the URL for the module dynamically
-    const baseUrl = window.location.origin; // e.g., 'http://127.0.0.1:8000'
-    const url = `${baseUrl}/Systemmodule/${module}Module/${module}`;
+    // Dynamically set the Vue component
+    app.config.globalProperties.currentComponent = module.toLowerCase(); // Make sure this line is after app is mounted
 
-    // Fetch and load the content for the module
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.text();
-        })
-        .then(html => {
-            dynamicContent.innerHTML = html; // Update the content container
-            initSearch(module); // Initialize search functionality for the module
-        })
-        .catch(error => {
-            dynamicContent.innerHTML = '<p>Error loading content.</p>';
-            console.error('Error:', error);
-        });
-
-    // Show or hide the search bar based on the module
-    if (module !== 'dashboard') {
-        searchContainer.classList.add('show'); // Show the search bar
-        searchInput.style.display = 'flex'; // Ensure input is visible
-    } else {
-        searchContainer.classList.remove('show'); // Hide the search bar
-        searchInput.style.display = 'none';
-        searchInput.value = ''; // Clear the input value
-    }
-
-    // Update active class for navigation links
+    // Update the navigation state if necessary
     const navLinks = document.querySelectorAll('.nav .nav-link');
     navLinks.forEach(link => link.classList.remove('active'));
-    const activeLink = document.querySelector(`.nav .nav-link[onclick*="${module}"]`);
+    const activeLink = document.querySelector(`.nav .nav-link[data-module="${module}"]`);
     if (activeLink) activeLink.classList.add('active');
-
-    searchInput.value = ''; // Clear the search field when switching modules
-    const rows = document.querySelectorAll('.custom-table tbody tr');
-    rows.forEach(row => row.style.display = ""); // Reset rows display to default
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadContent(mainModule);
+    loadContent(window.defaultComponent); // Load the default module passed from PHP
 });
+
 
 function initSearch(module) {
     const searchInput = document.querySelector('#top-search input');
@@ -2011,6 +2050,50 @@ $(document).ready(function () {
     autoClockOut();
 });
 
+// Fetch privileges data when the page loads
+document.addEventListener('DOMContentLoaded', function () {
+    let lastPrivileges = null; // Store last fetched privileges
+
+    // Function to fetch privileges and update checkboxes if there are changes
+    function fetchPrivileges() {
+        fetch('{{ route('myprivileges') }}')
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const privileges = data.data;
+
+                    // Compare with last fetched data to detect changes
+                    if (JSON.stringify(lastPrivileges) !== JSON.stringify(privileges)) {
+                        console.log("Privileges updated, applying changes...");
+                        
+                        // Update checkboxes dynamically
+                        document.getElementById('order').checked = privileges.order === 1;
+                        document.getElementById('unreceived').checked = privileges.unreceived === 1;
+                        document.getElementById('receiving').checked = privileges.receiving === 1;
+                        document.getElementById('labeling').checked = privileges.labeling === 1;
+                        document.getElementById('testing').checked = privileges.testing === 1;
+                        document.getElementById('cleaning').checked = privileges.cleaning === 1;
+                        document.getElementById('packing').checked = privileges.packing === 1;
+                        document.getElementById('stockroom').checked = privileges.stockroom === 1;
+
+                        // Store the new data as the last fetched data
+                        lastPrivileges = privileges;
+                    }
+                } else {
+                    console.error('Error fetching privileges:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+
+    // Fetch privileges initially when page loads
+    fetchPrivileges();
+
+    // Set interval to check for updates every 5 seconds
+    setInterval(fetchPrivileges, 5000);
+});
 </script>
 
 </body>
