@@ -304,54 +304,101 @@
     <!-- Display user's name -->
     <h5>{{ session('user_name', 'User Name') }}</h5>
 </div>
-<?php
-$mainModule = session('main_module', ''); // Get the main module from the session
-$subModules = session('sub_modules', []); // Get the granted sub-modules from the session
-?>
-        <h5 class="text-center">Navigation</h5>
-    
-        <nav class="nav flex-column">
-            <a class="nav-link active" href="#" id="dashboard" onclick="loadContent('dashboard', 'dashboard')">System Clock</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('ordersLink').click()">Orders</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('unreceivedLink').click()">Unreceived</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('receivingLink').click()">Received</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('labelingLink').click()">Labeling</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('validationLink').click()">Validation</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('testingLink').click()">Testing</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('cleaningLink').click()">Cleaning</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('packingLink').click()">Packing</a>
-            <a class="nav-link" href="#" onclick="document.getElementById('stockroomLink').click()">Stockroom</a>
 
-        </nav>
+
+
+        <h5 class="text-center">Navigation</h5>
+ <?php
+  // Fetch the main module from session
+$mainModule = session('main_module', ''); // Default to empty if not set
+$subModules = session('sub_modules', []); // Get submodules
+
+// Fallback if the main module is not set, use the first available submodule as fallback
+$defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+
+// Check permissions and module definitions as before
+function checkPermission($module, $mainModule, $subModules) {
+    // Special handling for dashboard
+    if ($module === 'dashboard') {
+        return true;
+    }
+    // Check main module first, then submodules
+    return $module === $mainModule || in_array($module, $subModules);
+}
+
+// Module definitions remain the same
+$modules = [
+    'orders' => 'Orders',
+    'unreceived' => 'Unreceived',
+    'received' => 'Received',
+    'labeling' => 'Labeling',
+    'validation' => 'Validation',
+    'testing' => 'Testing',
+    'cleaning' => 'Cleaning',
+    'packing' => 'Packing',
+    'stockroom' => 'Stockroom',
+];
+?>
+
+<script>
+    console.log("Default module from PHP: ", "{{ $defaultModule }}");
+    window.defaultComponent = "{{ $defaultModule }}"; // Ensure this matches the default module logic
+</script>
+
+<!-- Navigation structure with main module highlighted -->
+<nav class="nav flex-column">
+    <?php if ($mainModule): ?>
+        <!-- If we have a main module, show it first -->
+        <a class="nav-link active" href="#" 
+           onclick="document.getElementById('<?= $mainModule ?>Link').click()">
+            <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
+        </a>
+    <?php endif; ?>
+    
+    <a class="nav-link" href="#" id="dashboard" 
+       onclick="loadContent('dashboard', 'dashboard')">System Clock</a>
+    
+    <?php foreach ($modules as $module => $label): ?>
+        <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
+            <a class="nav-link" href="#" 
+               onclick="document.getElementById('<?= $module ?>Link').click()">
+                <?= $label ?>
+            </a>
+        <?php endif; ?>
+    <?php endforeach; ?>
+</nav>
 
 
        
     </div>
 
-    <!-- Content -->
     <div id="main-content" class="content">
+    <div id="app">
+        <!-- Hidden component triggers -->
+        <?php foreach ($modules as $module => $label): ?>
+            <a id="<?= $module ?>Link" 
+               style="display:none" 
+               href="#" 
+               @click.prevent="currentComponent = '<?= $module ?>'">
+                <?= $label ?>
+            </a>
+        <?php endforeach; ?>
         
-        <div id="app">
-<a id="ordersLink" style="display:none" href="#" @click.prevent="currentComponent = 'orders'">Orders</a>
-<a id="unreceivedLink" style="display:none" href="#" @click.prevent="currentComponent = 'unreceived'">Unreceived</a>
-<a id="receivingLink" style="display:none" href="#" @click.prevent="currentComponent = 'received'">Received</a>
-<a id="labelingLink" style="display:none" href="#" @click.prevent="currentComponent = 'labelling'">Labeling</a>
-<a id="validationLink" style="display:none" href="#" @click.prevent="currentComponent = 'validation'">Validation</a>
-<a id="testingLink" style="display:none" href="#" @click.prevent="currentComponent = 'testing'">Testing</a>
-<a id="cleaningLink" style="display:none" href="#" @click.prevent="currentComponent = 'cleaning'">Cleaning</a>
-<a id="packingLink" style="display:none" href="#" @click.prevent="currentComponent = 'packing'">Packing</a>
-<a id="stockroomLink" style="display:none" href="#" @click.prevent="currentComponent = 'stockroom'">Stockroom</a>
-<div>
-        <!-- Dynamically load component -->
+        <!-- Vue component with main module as default -->
         <component :is="currentComponent"></component>
     </div>
-</div>
-<div id="dynamic-content">
 
-@vite(['resources/css/app.css', 'resources/js/app.js'])
-        </div>
+    <div id="dynamic-content">
+      @vite(['resources/js/app.js'])
     </div>
+</div>
+
+</div>
+
+
  <script>
+
+
     document.addEventListener('DOMContentLoaded', function () {
     const settingsModal = document.getElementById('settingsModal');
 
@@ -1606,95 +1653,63 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     </footer>
 
     <script>
-  const sidebar = document.getElementById('sidebar');
-    const mainContent = document.getElementById('main-content');
-    const burgerMenu = document.getElementById('burger-menu');
-    const closeBtn = document.getElementById('close-btn');
-    const navbarBrand = document.querySelector('.navbar-brand');
-    const dynamicContent = document.getElementById('dynamic-content');
-    const searchContainer = document.getElementById('top-search');
-    const searchInput = document.getElementById('search-input');
-    let showSearch = false; // Initially hide search for dashboard
-    const mainModule = "<?= session('main_module', 'dashboard') ?>";
-    // Toggle sidebar visibility
-    burgerMenu.addEventListener('click', () => {
-        const isMobile = window.innerWidth <= 768;
-        if (isMobile) {
-            sidebar.classList.toggle('visible');
-        } else {
-            sidebar.classList.toggle('visible');
-            mainContent.classList.toggle('sidebar-visible');
-            navbarBrand.classList.toggle('shifted');
-            burgerMenu.classList.toggle('hidden');
-        }
-    });
+const sidebar = document.getElementById('sidebar');
+const mainContent = document.getElementById('main-content');
+const burgerMenu = document.getElementById('burger-menu');
+const closeBtn = document.getElementById('close-btn');
+const navbarBrand = document.querySelector('.navbar-brand');
+const dynamicContent = document.getElementById('dynamic-content');
+const searchContainer = document.getElementById('top-search');
+const searchInput = document.getElementById('search-input');
+let showSearch = false; // Initially hide search for dashboard
 
-    // Hide sidebar and reset content layout for all devices
-    closeBtn.addEventListener('click', () => {
-        sidebar.classList.remove('visible');
-        if (window.innerWidth > 768) {
-            mainContent.classList.remove('sidebar-visible');
-            navbarBrand.classList.remove('shifted');
-            burgerMenu.classList.remove('hidden');
-        }
-    });
- // Function to load content dynamically based on the module
+// Function to toggle sidebar visibility
+burgerMenu.addEventListener('click', () => {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile) {
+        sidebar.classList.toggle('visible');
+    } else {
+        sidebar.classList.toggle('visible');
+        mainContent.classList.toggle('sidebar-visible');
+        navbarBrand.classList.toggle('shifted');
+        burgerMenu.classList.toggle('hidden');
+    }
+});
+
+// Hide sidebar when close button is clicked
+closeBtn.addEventListener('click', () => {
+    sidebar.classList.remove('visible');
+    if (window.innerWidth > 768) {
+        mainContent.classList.remove('sidebar-visible');
+        navbarBrand.classList.remove('shifted');
+        burgerMenu.classList.remove('hidden');
+    }
+});
+
+// Function to load content dynamically based on the module
 function loadContent(module) {
-    // Retrieve user's allowed modules and main module from the session
     const allowedModules = <?= json_encode(session('sub_modules', [])) ?>;
-    const mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase(); // Ensure it's lowercase for consistency
+    const mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
 
-    // Check if the user has permission to access the module or if it's the main module
     if (!allowedModules.includes(module.toLowerCase()) && module.toLowerCase() !== mainModule) {
         alert("You do not have permission to access this module.");
-        return; // Stop further execution
+        return;
     }
 
-    // Construct the URL for the module dynamically
-    const baseUrl = window.location.origin; // e.g., 'http://127.0.0.1:8000'
-    const url = `${baseUrl}/Systemmodule/${module}Module/${module}`;
+    // Dynamically set the Vue component
+    app.config.globalProperties.currentComponent = module.toLowerCase(); // Make sure this line is after app is mounted
 
-    // Fetch and load the content for the module
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.text();
-        })
-        .then(html => {
-            dynamicContent.innerHTML = html; // Update the content container
-            initSearch(module); // Initialize search functionality for the module
-        })
-        .catch(error => {
-            dynamicContent.innerHTML = '<p>Error loading content.</p>';
-            console.error('Error:', error);
-        });
-
-    // Show or hide the search bar based on the module
-    if (module !== 'dashboard') {
-        searchContainer.classList.add('show'); // Show the search bar
-        searchInput.style.display = 'flex'; // Ensure input is visible
-    } else {
-        searchContainer.classList.remove('show'); // Hide the search bar
-        searchInput.style.display = 'none';
-        searchInput.value = ''; // Clear the input value
-    }
-
-    // Update active class for navigation links
+    // Update the navigation state if necessary
     const navLinks = document.querySelectorAll('.nav .nav-link');
     navLinks.forEach(link => link.classList.remove('active'));
-    const activeLink = document.querySelector(`.nav .nav-link[onclick*="${module}"]`);
+    const activeLink = document.querySelector(`.nav .nav-link[data-module="${module}"]`);
     if (activeLink) activeLink.classList.add('active');
-
-    searchInput.value = ''; // Clear the search field when switching modules
-    const rows = document.querySelectorAll('.custom-table tbody tr');
-    rows.forEach(row => row.style.display = ""); // Reset rows display to default
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    loadContent(mainModule);
+    loadContent(window.defaultComponent); // Load the default module passed from PHP
 });
+
 
 function initSearch(module) {
     const searchInput = document.querySelector('#top-search input');
