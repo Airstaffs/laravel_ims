@@ -155,36 +155,98 @@ class UserController extends Controller
         return response()->json($userPrivileges);
     }
     
-    
     public function fetchNewlyAddedStoreCol(Request $request)
     {
-        $stores = []; // Initialize the store list
-        $userId = $request->input('user_id'); // Get selected user ID
+        // First, let's log that we've received the request
+        Log::info('Starting store fetch process', [
+            'user_id' => $request->input('user_id'),
+            'request_url' => $request->fullUrl()
+        ]);
     
-        // Fetch the stores dynamically from the schema
-        $storeColumns = Schema::getColumnListing('tbluser');
-        $stores = collect($storeColumns)
-            ->filter(function ($column) {
-                return str_starts_with($column, 'store_');
-            })
-            ->map(function ($store) use ($userId) {
-                $storeName = str_replace('store_', '', $store); // Remove 'store_' prefix
-                $storeName = str_replace('_', ' ', $storeName); // Replace underscores with spaces
-                
-                // Check if the user has privileges for this store
-                $isChecked = $userId ? \App\Models\User::find($userId)->privileges_stores->contains($store) : false;
+        try {
+            $stores = []; 
+            $userId = $request->input('user_id');
     
-                return [
-                    'store_column' => $store, // Original column name
-                    'store_name' => $storeName, // User-friendly name
-                    'is_checked' => $isChecked, // Whether the store is checked for the user
-                ];
-            })
-            ->values();
+            // Let's verify we can connect to the database
+            try {
+                DB::connection()->getPdo();
+                Log::info('Database connection successful');
+            } catch (\Exception $e) {
+                Log::error('Database connection failed', ['error' => $e->getMessage()]);
+                throw new \Exception('Database connection failed: ' . $e->getMessage());
+            }
     
-        return response()->json(['stores' => $stores]);
+            // Check if we can access the schema
+            try {
+                $storeColumns = Schema::getColumnListing('tbluser');
+                Log::info('Successfully retrieved columns', ['columns' => $storeColumns]);
+            } catch (\Exception $e) {
+                Log::error('Failed to get table columns', ['error' => $e->getMessage()]);
+                throw new \Exception('Schema access failed: ' . $e->getMessage());
+            }
+    
+            // Verify user exists if user_id is provided
+            if ($userId) {
+                $user = User::find($userId);
+                if (!$user) {
+                    Log::warning('User not found', ['user_id' => $userId]);
+                    return response()->json(['error' => 'User not found'], 404);
+                }
+                Log::info('User found', ['user_id' => $userId]);
+            }
+    
+            // Process the store columns
+            $stores = collect($storeColumns)
+                ->filter(function ($column) {
+                    return str_starts_with($column, 'store_');
+                })
+                ->map(function ($store) use ($userId, $user) {
+                    Log::info('Processing store column', ['store' => $store]);
+                    
+                    $storeName = str_replace('store_', '', $store);
+                    $storeName = str_replace('_', ' ', $storeName);
+    
+                    // Safely check privileges
+                    try {
+                        $isChecked = false;
+                        if ($userId && isset($user) && method_exists($user, 'privileges_stores')) {
+                            $isChecked = $user->privileges_stores->contains($store);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Error checking store privileges', [
+                            'store' => $store,
+                            'error' => $e->getMessage()
+                        ]);
+                        throw new \Exception('Privilege check failed: ' . $e->getMessage());
+                    }
+    
+                    return [
+                        'store_column' => $store,
+                        'store_name' => $storeName,
+                        'is_checked' => $isChecked,
+                    ];
+                })
+                ->values();
+    
+            Log::info('Successfully processed stores', ['store_count' => count($stores)]);
+            return response()->json(['stores' => $stores]);
+    
+        } catch (\Exception $e) {
+            Log::error('Store fetching failed', [
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to fetch stores',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
-        public function saveUserPrivileges(Request $request)
+
+public function saveUserPrivileges(Request $request)
         {
             try {
                 // Typecast user_id to integer before validation

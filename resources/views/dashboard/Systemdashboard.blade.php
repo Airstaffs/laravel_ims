@@ -341,8 +341,9 @@ $modules = [
 ?>
 
 <script>
-    console.log("Default module from PHP: ", "{{ $defaultModule }}");
-    window.defaultComponent = "{{ $defaultModule }}"; // Ensure this matches the default module logic
+    window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+    window.allowedModules = <?= json_encode(session('sub_modules', [])) ?>;
+    window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
 </script>
 
 <!-- Navigation structure with main module highlighted -->
@@ -354,9 +355,6 @@ $modules = [
             <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
         </a>
     <?php endif; ?>
-    
-    <a class="nav-link" href="#" id="dashboard" 
-       onclick="loadContent('dashboard', 'dashboard')">System Clock</a>
     
     <?php foreach ($modules as $module => $label): ?>
         <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
@@ -399,21 +397,38 @@ $modules = [
  <script>
 
 
-    document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () {
     const settingsModal = document.getElementById('settingsModal');
 
     settingsModal.addEventListener('shown.bs.modal', function () {
         const defaultTab = document.querySelector('#design-tab');
         const defaultTabPane = document.querySelector('#design');
 
-        // Force the default tab to be shown
+        // Ensure Bootstrap properly activates the tab
         if (defaultTab && defaultTabPane) {
-            defaultTab.classList.add('active');
-            defaultTab.setAttribute('aria-selected', 'true');
-            defaultTabPane.classList.add('show', 'active');
+            new bootstrap.Tab(defaultTab).show();
+        }
+    });
+
+    settingsModal.addEventListener('hidden.bs.modal', function () {
+        // Reset all tabs
+        document.querySelectorAll('#settingsTab .nav-link').forEach(tab => {
+            tab.classList.remove('active');
+            tab.setAttribute('aria-selected', 'false');
+        });
+
+        document.querySelectorAll('#settingsTabContent .tab-pane').forEach(tabPane => {
+            tabPane.classList.remove('show', 'active');
+        });
+
+        // Reapply the default tab using Bootstrap's method
+        const defaultTab = document.querySelector('#design-tab');
+        if (defaultTab) {
+            new bootstrap.Tab(defaultTab).show();
         }
     });
 });
+
 </script>
  <!-- Settings Modal -->
 <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
@@ -596,151 +611,185 @@ $modules = [
     </div>
 </div>
 <script>
-
 document.addEventListener("DOMContentLoaded", function() {
-        const selectUser = document.getElementById('selectUser');
+    initializeUserSelect();
+    initializePrivilegeForm();
+});
 
-        // Function to hide the selected option
-        selectUser.addEventListener('change', function() {
-            const selectedValue = this.value;
-            
-            // Loop through all options and hide the selected one
-            Array.from(this.options).forEach(option => {
-                if (option.value == selectedValue) {
-                    option.style.display = 'none'; // Hide the selected option
-                } else {
-                    option.style.display = 'block'; // Ensure other options are visible
-                }
-            });
+function initializeUserSelect() {
+    const selectUser = document.getElementById('selectUser');
+    
+    // Handle user selection changes
+    selectUser.addEventListener('change', function() {
+        const selectedValue = this.value;
+        
+        // Update visibility of options
+        Array.from(this.options).forEach(option => {
+            option.style.display = option.value === selectedValue ? 'none' : 'block';
         });
-
-        // Hide the default "Select User" option once the user selects a user
-        if (selectUser.value !== "") {
+        
+        // Hide default option if a user is selected
+        if (selectedValue !== "") {
             const defaultOption = selectUser.querySelector('option[value=""]');
             if (defaultOption) {
                 defaultOption.style.display = 'none';
             }
         }
+
+        // Fetch and display user privileges
+        if (selectedValue) {
+            fetchUserPrivileges(selectedValue);
+        }
     });
+}
 
-document.getElementById('privilegeForm').addEventListener('submit', function (e) {
-    e.preventDefault(); // Prevent default form submission
+function initializePrivilegeForm() {
+    const form = document.getElementById('privilegeForm');
+    
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        try {
+            const formData = collectFormData();
+            const response = await saveUserPrivileges(formData);
+            
+            if (response.success) {
+                // Show success message
+                showNotification('Success', 'User privileges saved successfully!', 'success');
+                
+                // Immediately fetch and update the display
+                await fetchUserPrivileges(formData.user_id);
+            } else {
+                showNotification('Error', response.message || 'Failed to save privileges', 'error');
+            }
+        } catch (error) {
+            console.error('Error in form submission:', error);
+            showNotification('Error', 'An unexpected error occurred', 'error');
+        }
+    });
+}
 
-    // Collect CSRF token
+function collectFormData() {
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    return {
+        user_id: parseInt(document.getElementById('selectUser').value, 10),
+        main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
+        sub_modules: [...document.querySelectorAll('input[name="sub_modules[]"]:checked')].map(input => input.value),
+        privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input => input.value),
+        _token: csrfToken
+    };
+}
 
-    // Collect form data
-    const formDataToSend = {
-    user_id: parseInt(document.getElementById('selectUser').value, 10), // Ensure it's an integer
-    main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
-    sub_modules: [...document.querySelectorAll('input[name="sub_modules[]"]:checked')].map(input => input.value),
-    privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input => input.value),
-    _token: csrfToken,
-};
-
-    console.log("Sending data:", formDataToSend);
-
-    // Send data to the server
-    fetch('/save-user-privileges', {
+async function saveUserPrivileges(formData) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    const response = await fetch('/save-user-privileges', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': csrfToken,
+            'X-CSRF-TOKEN': csrfToken
         },
-        body: JSON.stringify(formDataToSend),
-    })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert("User privileges saved successfully!");
-            } else {
-                alert("Failed to save user privileges: " + (data.message || "Unknown error"));
-            }
-        })
-        .catch(error => {
-            console.error("Error saving user privileges:", error);
-        });
-});
-</script>    
-<script>
-
-    // Trigger the change event when the page loads to fetch the default user privileges
-    window.onload = function() {
-        let selectedUserId = document.getElementById('selectUser').value || '{{ $selectedUser->id }}';
-        if (selectedUserId) {
-            fetchUserPrivileges(selectedUserId);
-        }
-    };
-
-    document.getElementById('selectUser').addEventListener('change', function () {
-        var userId = this.value;
-        if (userId) {
-            fetchUserPrivileges(userId);
-        }
+        body: JSON.stringify(formData)
     });
+    
+    return await response.json();
+}
 
-    function fetchUserPrivileges(userId) {
-        fetch(`/get-user-privileges/${userId}`)
-            .then(response => {
-             //   console.log(response); // Log response for debugging
-                return response.json();
-            })
-            .then(data => {
-            //    console.log(data);
-                updateForm(data);
-            })
-            .catch(error => console.error('Error:', error));
+async function fetchUserPrivileges(userId) {
+    try {
+        const response = await fetch(`/get-user-privileges/${userId}`);
+        const data = await response.json();
+        updateForm(data);
+    } catch (error) {
+        console.error('Error fetching user privileges:', error);
+        showNotification('Error', 'Failed to fetch user privileges', 'error');
     }
+}
 
-    function updateForm(data) {
+function updateForm(data) {
     if (!data) {
-       // console.error("No data received for user privileges");
+        console.error("No data received for user privileges");
         return;
     }
 
-    // Update Main Module (Editable)
-    let mainModuleHTML = '<h6>Main Module</h6><div class="row mb-3">';
+    // Update Main Module
+    updateMainModule(data);
+    
+    // Update Sub-Modules
+    updateSubModules(data);
+    
+    // Update Stores
+    updateStores(data);
+}
+
+function updateMainModule(data) {
     const mainModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom'];
-    mainModules.forEach(mainModule => {
-        mainModuleHTML += `
-            <div class="col-4 form-check mb-2 px-10">
-                <input class="form-check-input" type="radio" name="main_module" value="${mainModule}" ${data.main_module === mainModule ? 'checked' : ''} required>
-                <label class="form-check-label">${mainModule}</label>
-            </div>`;
-    });
-    mainModuleHTML += '</div>';
+    const mainModuleHTML = `
+        <h6>Main Module</h6>
+        <div class="row mb-3">
+            ${mainModules.map(module => `
+                <div class="col-4 form-check mb-2 px-10">
+                    <input class="form-check-input" type="radio" name="main_module" 
+                           value="${module}" ${data.main_module === module ? 'checked' : ''} required>
+                    <label class="form-check-label">${module}</label>
+                </div>
+            `).join('')}
+        </div>
+    `;
     document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
+}
 
-    // Update Sub-Modules (Editable)
-    let subModulesHTML = '<h6>Sub-Modules</h6><div class="row mb-3">';
+function updateSubModules(data) {
     const subModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom'];
-    subModules.forEach(subModule => {
-        subModulesHTML += `
-            <div class="col-4 form-check mb-2 px-10">
-                <input class="form-check-input" type="checkbox" name="sub_modules[]" value="${subModule}" ${data.sub_modules && data.sub_modules[subModule] ? 'checked' : ''}>
-                <label class="form-check-label">${subModule}</label>
-            </div>`;
-    });
-    subModulesHTML += '</div>';
+    const subModulesHTML = `
+        <h6>Sub-Modules</h6>
+        <div class="row mb-3">
+            ${subModules.map(module => `
+                <div class="col-4 form-check mb-2 px-10">
+                    <input class="form-check-input" type="checkbox" name="sub_modules[]" 
+                           value="${module}" ${data.sub_modules && data.sub_modules[module] ? 'checked' : ''}>
+                    <label class="form-check-label">${module}</label>
+                </div>
+            `).join('')}
+        </div>
+    `;
     document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
+}
 
-    // Update Stores (Editable)
-    let storeHTML = '<h6>Stores</h6><div class="row mb-3">';
-    if (data.privileges_stores && data.privileges_stores.length > 0) {
-        data.privileges_stores.forEach(store => {
-            storeHTML += `
-                <div class="col-4 form-check mb-2">
-                    <input class="form-check-input" type="checkbox" name="privileges_stores[]" value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                    <label class="form-check-label">${store.store_name}</label>
-                </div>`;
-        });
-    } else {
-        storeHTML += '<p>No stores available</p>';
-    }
-    storeHTML += '</div>';
+function updateStores(data) {
+    const storeHTML = `
+        <h6>Stores</h6>
+        <div class="row mb-3">
+            ${data.privileges_stores && data.privileges_stores.length > 0 
+                ? data.privileges_stores.map(store => `
+                    <div class="col-4 form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="privileges_stores[]" 
+                               value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                        <label class="form-check-label">${store.store_name}</label>
+                    </div>
+                `).join('')
+                : '<p>No stores available</p>'
+            }
+        </div>
+    `;
     document.getElementById('storeContainer').innerHTML = storeHTML;
 }
 
+function showNotification(title, message, type) {
+    // You can implement this using your preferred notification library
+    // For now, we'll use a simple alert, but you might want to use something like
+    // SweetAlert2 or Toastr for better user experience
+    alert(`${title}: ${message}`);
+}
+
+// Initialize the form when the page loads
+window.onload = function() {
+    const selectedUserId = document.getElementById('selectUser').value;
+    if (selectedUserId) {
+        fetchUserPrivileges(selectedUserId);
+    }
+};
 
 </script>
 
@@ -1208,7 +1257,7 @@ document.getElementById('addStoreButton').addEventListener('click', function() {
 });
 
 // Add Store Submission
-document.getElementById('addStoreForm').addEventListener('submit', function(e) {
+document.getElementById('addStoreForm').addEventListener('submit', function (e) {
     e.preventDefault(); // Prevent default form submission
 
     const storeName = document.getElementById('newStoreName').value.trim();
@@ -1231,22 +1280,34 @@ document.getElementById('addStoreForm').addEventListener('submit', function(e) {
                 newStoreItem.classList.add('list-group-item');
                 newStoreItem.innerHTML = `
                     ${response.data.store.storename} 
-                   <div class="d-flex justify-content-end">
-                    <button class="btn btn-secondary btn-sm edit-store-btn" 
-                            data-id="${response.data.store.store_id}" 
-                            data-name="${response.data.store.storename}">
-                        Edit
-                    </button>
-                    <button class="btn btn-danger btn-sm delete-store-btn" 
-                            data-id="${response.data.store.store_id}">
-                        Delete
-                    </button>
-                </div>
+                    <div class="d-flex justify-content-end">
+                        <button class="btn btn-secondary btn-sm edit-store-btn" 
+                                data-id="${response.data.store.store_id}" 
+                                data-name="${response.data.store.storename}">
+                            Edit
+                        </button>
+                        <button class="btn btn-danger btn-sm delete-store-btn" 
+                                data-id="${response.data.store.store_id}">
+                            Delete
+                        </button>
+                    </div>
                 `;
                 storeList.appendChild(newStoreItem);
+
+                // Hide the add store modal
                 $('#addStoreModal').modal('hide');
-                $('#settingsModal').modal('show');
-                $('#store-tab').tab('show');
+
+                // Ensure the modal is fully closed before opening settings modal
+                $('#addStoreModal').on('hidden.bs.modal', function () {
+                    $('#settingsModal').modal('show');
+
+                    // Ensure the store tab is active
+                    $('.nav-tabs .nav-link').removeClass('active');
+                    $('.tab-content .tab-pane').removeClass('active show');
+
+                    $('#store-tab').addClass('active');
+                    $('#store-tab-pane').addClass('active show');
+                });
             } else {
                 alert('Failed to add store');
             }
@@ -1257,35 +1318,12 @@ document.getElementById('addStoreForm').addEventListener('submit', function(e) {
         });
 });
 
-function refreshStoreList() {
-        const userId = document.getElementById('selectUser').value; // Get selected user ID
 
-        fetch(`/fetchNewlyAddedStoreCol?user_id=${userId}`) // Pass user_id to the backend
-            .then(response => response.json())
-            .then(data => {
-                if (data && data.stores) {
-                    let storeListHTML = '<h6>Stores</h6><div class="row mb-3">';
-                    data.stores.forEach(store => {
-                        storeListHTML += `
-                            <div class="col-4 form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="privileges_stores[]" value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                                <label class="form-check-label">${store.store_name}</label>
-                            </div>`;
-                    });
-                    storeListHTML += '</div>';
-
-                    // Update the store container in the Privileges tab
-                    document.getElementById('storeContainer').innerHTML = storeListHTML;
-                }
-            })
-            .catch(error => console.error('Error fetching store list:', error));
-    }
 
 
 // Fetch and display the list of stores on page load
 document.addEventListener('DOMContentLoaded', function () {
     fetchStoreList();
-
 });
 
 // Function to fetch and display store list from the server
@@ -1325,11 +1363,108 @@ $('#store-tab').on('click', function() {
     fetchStoreList(); // Re-fetch the store list when the tab is clicked
 });
 
-// Re-fetch store list when switching to the "Store List" tab
-$('#privilege-tab').on('click', function() {
-    refreshStoreList()// Re-fetch the store list when the tab is clicked
-});
+function refreshStoreList() {
+    const userId = document.getElementById('selectUser').value;
+    if (!userId) {
+        console.warn('No user selected');
+        return;
+    }
 
+    showLoadingIndicator();
+    
+    fetch(`/fetchNewlyAddedStoreCol?user_id=${userId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data && data.stores) {
+                updateStoreList(data.stores);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching store list:', error);
+            showErrorMessage('Failed to load stores. Please try again.');
+        })
+        .finally(() => {
+            hideLoadingIndicator();
+        });
+}
+
+function updateStoreList(stores) {
+    const storeContainer = document.getElementById('storeContainer');
+    
+    // Save current checkbox states
+    const currentStates = new Map();
+    document.querySelectorAll('input[name="privileges_stores[]"]').forEach(input => {
+        currentStates.set(input.value, input.checked);
+    });
+
+    let storeListHTML = '<h6>Stores</h6><div class="row mb-3">';
+    
+    stores.forEach(store => {
+        // Check if we have a saved state, otherwise use the server state
+        const isChecked = currentStates.has(store.store_column) 
+            ? currentStates.get(store.store_column)
+            : store.is_checked;
+            
+        storeListHTML += `
+            <div class="col-4 form-check mb-2">
+                <input class="form-check-input" 
+                       type="checkbox"
+                       name="privileges_stores[]"
+                       value="${store.store_column}"
+                       ${isChecked ? 'checked' : ''}>
+                <label class="form-check-label">${store.store_name}</label>
+            </div>`;
+    });
+    
+    storeListHTML += '</div>';
+    storeContainer.innerHTML = storeListHTML;
+}
+
+function showLoadingIndicator() {
+    const container = document.getElementById('storeContainer');
+    container.innerHTML += '<div class="loading-spinner">Loading stores...</div>';
+}
+
+function hideLoadingIndicator() {
+    const spinner = document.querySelector('.loading-spinner');
+    if (spinner) {
+        spinner.remove();
+    }
+}
+
+function showErrorMessage(message) {
+    document.getElementById('storeContainer').innerHTML = 
+        `<div class="alert alert-danger">${message}</div>`;
+}
+
+// Event Listeners
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize privilege tab listener
+    const privilegeTab = document.getElementById('privilege-tab');
+    if (privilegeTab) {
+        privilegeTab.addEventListener('click', function() {
+            const userId = document.getElementById('selectUser').value;
+            if (userId) {
+                refreshStoreList();
+            }
+        });
+    }
+
+    // Initialize select user change listener
+    const selectUser = document.getElementById('selectUser');
+    if (selectUser) {
+        selectUser.addEventListener('change', function() {
+            if (this.value) {
+                refreshStoreList();
+            }
+        });
+    }
+});
 // Delete Store functionality
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('delete-store-btn')) {
@@ -1710,29 +1845,7 @@ closeBtn.addEventListener('click', () => {
     }
 });
 
-// Function to load content dynamically based on the module
-function loadContent(module) {
-    const allowedModules = <?= json_encode(session('sub_modules', [])) ?>;
-    const mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
 
-    if (!allowedModules.includes(module.toLowerCase()) && module.toLowerCase() !== mainModule) {
-        alert("You do not have permission to access this module.");
-        return;
-    }
-
-    // Dynamically set the Vue component
-    app.config.globalProperties.currentComponent = module.toLowerCase(); // Make sure this line is after app is mounted
-
-    // Update the navigation state if necessary
-    const navLinks = document.querySelectorAll('.nav .nav-link');
-    navLinks.forEach(link => link.classList.remove('active'));
-    const activeLink = document.querySelector(`.nav .nav-link[data-module="${module}"]`);
-    if (activeLink) activeLink.classList.add('active');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    loadContent(window.defaultComponent); // Load the default module passed from PHP
-});
 
 
 function initSearch(module) {
