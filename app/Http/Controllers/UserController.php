@@ -257,7 +257,7 @@ class UserController extends Controller
         }
     }
 
-	public function saveUserPrivileges(Request $request)
+public function saveUserPrivileges(Request $request)
         {
             try {
                 // Typecast user_id to integer before validation

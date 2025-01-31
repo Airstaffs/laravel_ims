@@ -1,9 +1,9 @@
 import { createApp } from 'vue';
 
-// Import all components
+// Import components
 import Orders from './components/orders.vue';
 import Labeling from './components/labeling.vue';
-import Unreceived from './components/Unreceived.vue';
+import Unreceived from './components/unreceived.vue';
 import Cleaning from './components/cleaning.vue';
 import Packing from './components/packing.vue';
 import Received from './components/received.vue';
@@ -11,16 +11,41 @@ import Stockroom from './components/stockroom.vue';
 import Testing from './components/testing.vue';
 import Validation from './components/validation.vue';
 
-// Create the main application
+// Create the Vue app
 const app = createApp({
     data() {
         return {
-            currentComponent: window.defaultComponent || 'dashboard', // Default module from PHP
+            currentComponent: window.defaultComponent,
         };
     },
     mounted() {
-        // Log to confirm that Vue has mounted and is using the correct defaultComponent
         console.log(`Vue app mounted with default component: ${this.currentComponent}`);
+        // Load the default content after Vue is mounted
+        if (window.defaultComponent) {
+            this.loadContent(window.defaultComponent);
+        }
+    },
+    methods: {
+        loadContent(module) {
+            const allowedModules = window.allowedModules || []; // Get from PHP
+            const mainModule = window.mainModule || 'dashboard'; // Get from PHP
+
+            if (!allowedModules.includes(module.toLowerCase()) && 
+                module.toLowerCase() !== mainModule.toLowerCase()) {
+                alert("You do not have permission to access this module.");
+                return;
+            }
+
+            // Update Vue component
+            this.currentComponent = module.toLowerCase();
+
+            // Update navigation active state
+            document.querySelectorAll('.nav .nav-link').forEach(link => 
+                link.classList.remove('active')
+            );
+            const activeLink = document.querySelector(`.nav .nav-link[data-module="${module}"]`);
+            if (activeLink) activeLink.classList.add('active');
+        }
     },
     components: {
         orders: Orders,
@@ -35,8 +60,14 @@ const app = createApp({
     }
 });
 
-// Mount Vue app to the DOM
-document.addEventListener('DOMContentLoaded', () => {
-    console.log("DOM loaded, mounting Vue app...");
-    app.mount('#app'); // Ensure this matches your element in HTML
-});
+// Mount Vue app and store instance
+window.appInstance = app.mount('#app');
+
+// Add the loadContent function to window for external access
+window.loadContent = (module) => {
+    if (window.appInstance) {
+        window.appInstance.loadContent(module);
+    } else {
+        console.error("Vue app instance is not yet available.");
+    }
+};
