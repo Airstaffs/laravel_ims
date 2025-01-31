@@ -50,6 +50,9 @@ Route::get('/dashboard/Systemdashboard', function () {
 Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
 Route::post('/update-password', [UserController::class, 'updatepassword'])->name('update-password');
 Route::get('/myprivileges', [UserController::class, 'showmyprivileges'])->name('myprivileges');
+Route::get('/users', [UserController::class, 'createdusers'])->name('user');
+Route::post('/update-user/{id}', [UserController::class, 'update'])->name('update-user');
+Route::delete('/delete-user/{id}', [UserController::class, 'destroy'])->name('delete-user');
 
 // System Design Routes
 Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');
