@@ -22,19 +22,20 @@ Route::get('/', function () {
 });
 
 // Logout Route
-Route::post('/logout', function () {
-    // Clear all session data
+Route::get('/logout', function () {
     Session::flush();
-    
-    // Logout the user
     Auth::logout();
-    
-    // Invalidate the session
     request()->session()->invalidate();
-    
-    // Regenerate the CSRF token
     request()->session()->regenerateToken();
+    return redirect('/login')->with('message', 'Your session has expired. Please login again.');
+})->name('logout.expired');
 
+// Keep your existing POST route
+Route::post('/logout', function () {
+    Session::flush();
+    Auth::logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
     return redirect('/login');
 })->name('logout');
 
@@ -197,3 +198,17 @@ Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPr
 
 // In routes/web.php
 Route::post('/refresh-user-session', [UserSessionController::class, 'refreshSession']);
+
+Route::get('/keep-alive', function () {
+    // Refresh the session
+    request()->session()->regenerate();
+    return response()->json(['status' => 'ok']);
+})->middleware('web');
+
+Route::get('/csrf-token', function () {
+    return response()->json(['token' => csrf_token()]);
+})->middleware('web');
+
+Route::middleware(['web', \App\Http\Middleware\RefreshSession::class])->group(function () {
+    // Your existing routes go here
+});

@@ -265,10 +265,13 @@
 
                     <!-- Settings -->
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center justify-content-center" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">
-                            <i class="bi bi-gear me-2"></i>
-                            <span class="d-none d-lg-inline">Settings</span>
-                        </a>
+                    <a class="nav-link d-flex align-items-center justify-content-center" 
+                            href="#" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#settingsModal">
+                                <i class="bi bi-gear me-2"></i>
+                                <span class="d-none d-lg-inline">Settings</span>
+                            </a>
                     </li>
 
                     <!-- Logout -->
@@ -281,6 +284,9 @@
                         <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
                             @csrf
                         </form>
+                        <form id="logout-expired-form" action="{{ route('logout.expired') }}" method="GET" style="display: none;">
+                        </form>
+
                     </li>
                 </ul>
             </div>
@@ -659,6 +665,9 @@ function initializePrivilegeForm() {
         e.preventDefault();
         
         try {
+            // Refresh CSRF token before submitting
+            await refreshCsrfToken();
+            
             const formData = collectFormData();
             const response = await saveUserPrivileges(formData);
             
@@ -667,7 +676,6 @@ function initializePrivilegeForm() {
                 
                 await fetchUserPrivileges(formData.user_id);
                 
-                // Update navigation with correct structure
                 updateUserNavigation({
                     main_module: formData.main_module,
                     sub_modules: formData.sub_modules,
@@ -684,10 +692,27 @@ function initializePrivilegeForm() {
                     }
                 });
 
-                // Force component update
                 if (window.appInstance) {
                     forceComponentUpdate(formData.main_module);
                 }
+
+                // Get the modal element
+                const modalEl = document.getElementById('settingsModal');
+                modalEl.style.display = 'none';
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+                modalEl.classList.remove('show');
+                
+                // Re-bind modal trigger
+                const settingsButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#settingsModal"]');
+                if (settingsButton) {
+                    settingsButton.setAttribute('data-bs-toggle', 'modal');
+                    settingsButton.setAttribute('data-bs-target', '#settingsModal');
+                }
+
+                form.classList.remove('was-validated');
+                initializeUserSelect();
 
             } else {
                 showNotification('Error', response.message || 'Failed to save privileges', 'error');
@@ -697,6 +722,19 @@ function initializePrivilegeForm() {
             showNotification('Error', 'An unexpected error occurred', 'error');
         }
     });
+}
+
+// Add this new function to refresh CSRF token
+async function refreshCsrfToken() {
+    try {
+        const response = await fetch('/csrf-token');
+        const data = await response.json();
+        document.querySelector('meta[name="csrf-token"]').setAttribute('content', data.token);
+        return true;
+    } catch (error) {
+        console.error('Error refreshing CSRF token:', error);
+        return false;
+    }
 }
 
 function collectFormData() {
@@ -2054,6 +2092,11 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
         const logoutSound = document.getElementById('logout-sound');
     // Show the logout confirmation modal
     function showLogoutModal() {
+
+        if (document.getElementsByName('_token').length === 0) {
+        window.location.href = '/logout';
+        return;
+    }
         const logoutModal = new bootstrap.Modal(document.getElementById('logoutModal'));
         logoutModal.show();
         logoutSound.play();
@@ -2063,6 +2106,19 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
     document.getElementById('confirmLogout').addEventListener('click', function () {
         document.getElementById('logout-form').submit();
     });
+
+
+    function keepSessionAlive() {
+    fetch('/keep-alive', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    }).catch(error => console.log('Session refresh failed:', error));
+}
+
+        // Ping every 10 minutes
+        setInterval(keepSessionAlive, 600000);
 </script>
 
     <!-- Footer -->
