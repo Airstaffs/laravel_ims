@@ -212,8 +212,8 @@
     </style>
 </head>
 <body>
-    <!-- Navbar -->
-    <nav id="top-navbar" class="navbar navbar-expand-lg">
+ <!-- Navbar -->
+ <nav id="top-navbar" class="navbar navbar-expand-lg">
         <div class="container-fluid">
             <button id="burger-menu" class="navbar-toggler" type="button">
                 <span class="navbar-toggler-icon"></span>
@@ -243,13 +243,10 @@
         </div>
 
         <div class="search-bar d-flex align-items-center mx-auto" id="top-search">
-            <input 
-                type="text" 
-                class="form-control" 
-                placeholder="Search..." 
-                aria-label="Search"
-                id="search-input"
-            />
+        <div id="appsearch">
+           <searching @search="fetchInventory" />
+           </div>
+
         </div>
 
             <!-- Navbar Collapse for Desktop -->
