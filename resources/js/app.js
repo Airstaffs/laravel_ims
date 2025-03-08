@@ -1,5 +1,9 @@
 import { createApp } from 'vue';
 
+// Import Bootstrap CSS & JS
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap/dist/js/bootstrap.bundle.min.js';
+
 // Import components
 import Order from './components/orders.vue';
 import Labeling from './components/labeling.vue';
@@ -10,12 +14,13 @@ import Receiving from './components/receiving.vue';
 import Stockroom from './components/stockroom.vue';
 import Testing from './components/testing.vue';
 import Validation from './components/validation.vue';
-import Searching from './components/searching.vue'; // Import Searching Component
-
+import Searching from './components/searching.vue';
+// Create Vue app
 const app = createApp({
     data() {
         return {
             currentComponent: window.defaultComponent,
+            collapses: {},
         };
     },
     mounted() {
@@ -51,7 +56,18 @@ const app = createApp({
                     link.classList.remove('active');
                 }
             });
-        }
+        },
+
+        // ✅ Improved Bootstrap Collapse Logic
+        toggleCollapse(id) {
+            const element = document.getElementById(id);
+            if (!element) return;
+
+            if (!this.collapses[id]) {
+                this.collapses[id] = new bootstrap.Collapse(element, { toggle: false });
+            }
+            this.collapses[id].toggle();
+        },
     },
     components: {
         'order': Order,
@@ -66,6 +82,7 @@ const app = createApp({
     }
 });
 
+// Mount the main app
 window.appInstance = app.mount('#app');
 
 window.loadContent = (module) => {

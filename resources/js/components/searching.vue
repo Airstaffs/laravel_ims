@@ -35,5 +35,13 @@
     border: 1px solid #ccc;
     border-radius: 4px;
   }
+  @media (max-width: 768px) {
+    input {
+
+    width: 160%;
+
+  }
+  
+  }
   </style>
   

@@ -169,10 +169,10 @@ if (!function_exists('buildQueryString')) {
 }
 
 if (!function_exists('buildHeaders')) {
-    function buildHeaders($credentials, $accessToken, $method, $service, $region, $path, $nextToken, $customParams, $endpoint)
+    function buildHeaders($credentials, $accessToken, $method, $service, $region, $path, $nextToken, $customParams, $endpoint, $canonicalHeaders)
     {
         $amzDate = gmdate('Ymd\THis\Z');
-        $signatureDetails = calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams);
+        $signatureDetails = calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams, $canonicalHeaders);
 
         $authorizationHeader = "{$signatureDetails['algorithm']} Credential={$credentials['client_id']}/{$signatureDetails['dateStamp']}/{$signatureDetails['region']}/{$signatureDetails['service']}/aws4_request, SignedHeaders={$signatureDetails['signedHeaders']}, Signature={$signatureDetails['signature']}";
 
@@ -185,14 +185,14 @@ if (!function_exists('buildHeaders')) {
 }
 
 if (!function_exists('calculateSignature')) {
-    function calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams)
+    function calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams, $canonicalHeaders)
     {
         $canonicalUri = $path;
         $canonicalQueryString = "";//buildQueryString($nextToken, $customParams); // Adjust as needed
-        $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com\nx-amz-date:{$amzDate}\n";
+        $canonicalfullheader = "$canonicalHeaders\nx-amz-date:{$amzDate}\n";
         $signedHeaders = 'host;x-amz-date';
         $payloadHash = hash('sha256', ''); // Empty payload for GET request
-        $canonicalRequest = "{$method}\n{$canonicalUri}\n{$canonicalQueryString}\n{$canonicalHeaders}\n{$signedHeaders}\n{$payloadHash}";
+        $canonicalRequest = "{$method}\n{$canonicalUri}\n{$canonicalQueryString}\n{$canonicalfullheader}\n{$signedHeaders}\n{$payloadHash}";
 
         $algorithm = 'AWS4-HMAC-SHA256';
         $dateStamp = substr($amzDate, 0, 8);

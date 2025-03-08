@@ -1,124 +1,287 @@
 <template>
-  <div class="orders-container">
-    <h1 class="orders-title">Stockroom</h1>
+  <div class="vue-container">
+    <h1 class="vue-title">Stockroom Module</h1>
+    <!-- Pagination -->
+    <div class="pagination">
+      <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Back</button>
+      <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+      <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
+      
+      <select v-model="perPage" @change="changePerPage">
+        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+          {{ option }}
+        </option>
+      </select>
+    </div>
+
     <div class="table-container">
-      <table>
+      <table class="table table-bordered">
         <thead>
           <tr>
             <th>
-              <input type="checkbox" @click="toggleAll" />
-              <span class="header-date"></span>
+              <input type="checkbox" @click="toggleAll" v-model="selectAll" />
+              <a style="color:black" @click="sortBy('AStitle')" class="sortable">
+                Product Name
+                <span v-if="sortColumn === 'AStitle'">
+                  {{ sortOrder === 'asc' ? '▲' : '▼' }}
+                </span>
+              </a>
+              <span style="margin-right: 20px;"></span>
+              <a style="color:black" @click="sortBy('rtcounter')" class="sortable">
+                RT counter
+                <span v-if="sortColumn === 'rtcounter'">
+                  {{ sortOrder === 'asc' ? '▲' : '▼' }}
+                </span> </a>
+
+                <span style="margin-right: 20px;"></span>
+
+                <button class="Desktop" style="border: solid 1px black; background-color: aliceblue;" @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}</button>
+
+             
             </th>
-            <th>Details</th>
-            <th>Order ID</th>
-            <th>FNSKU</th>
-            <th>MSKU</th>
-            <th>Condition</th>
-            <th>Actions</th>
+            <th class="Desktop">Location</th>
+            <th class="Desktop">Added date</th>
+            <th class="Desktop">Updated date</th>
+            <th class="Desktop">Fnsku</th>
+            <th class="Desktop">Msku</th>
+            <th class="Desktop">Asin</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">FBM</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">FBA</th>
+            <th class="Desktop"style="background-color: antiquewhite;" v-if="showDetails">Outbound</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Inbound</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Unfulfillable</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Reserved</th>
+            <th class="Desktop" >Fulfillment</th>
+            <th class="Desktop">Status</th>
+            <th class="Desktop">Serialnumber</th>
+            <th class="Desktop">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="item in paginatedInventory" :key="item.id">
-            <td>
-              <div class="checkbox-container">
-                <input type="checkbox" v-model="item.checked" />
-                <span class="placeholder-date">{{ item.shipBy || 'Placeholder Date' }}</span>
-              </div>
-            </td>
-            <td class="product-cell">
-              <img
-                :src="item.imageUrl"
-                alt="Product Image"
-                class="product-thumbnail"
-              />
-              <span class="product-name">{{ item.productname }}</span>
-            </td>
-            <td>{{ item.id }}</td>
-            <td>{{ item.fnsku }}</td>
-            <td>{{ item.msku }}</td>
-            <td>{{ item.condition }}</td>
-            <td>{{ item.totalquantity }}</td>
-          </tr>
+          <template v-for="(item, index) in sortedInventory" :key="item.id">
+            <tr>
+              <td class="vue-details">
+                <div class="checkbox-container">
+                  <input type="checkbox" v-model="item.checked" />
+                  <span class="placeholder-date">{{ item.shipBy || '' }}</span>
+                </div>
+                <div class="product-container">
+                  <img src="" alt="Product Image" class="product-thumbnail" />
+                  <div class="product-info">
+                    <p class="product-name">RT# : {{ item.rtcounter }}</p>
+                    <p class="product-name">{{ item.AStitle }}</p>
+
+                    <p class="Mobile">Location : {{ item.warehouselocation }}</p>
+                    <p class="Mobile">Added date : {{ item.datedelivered }}</p>
+                    <p class="Mobile">Updated date : {{ item.lastDateUpdate }}</p>
+                    <p class="Mobile">Fnsku : {{ item.FNSKUviewer }}</p>
+                    <p class="Mobile">Msku : {{ item.MSKUviewer }}</p>
+                    <p class="Mobile">Asin : {{ item.ASINviewer }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="Desktop">
+                <span><strong></strong> {{ item.warehouselocation }}</span>
+                </td>
+        
+              <td class="Desktop">
+                <span><strong></strong> {{ item.datedelivered }}</span>
+              </td>
+              
+              <td class="Desktop">
+                <span><strong></strong> {{ item.lastDateUpdate }}</span>
+              </td>
+              
+              <td class="Desktop">           
+                <span><strong></strong> {{ item.FNSKUviewer }}</span>
+              </td>
+              
+              <td class="Desktop">        
+                <span><strong></strong> {{ item.MSKUviewer }}</span>
+              </td>
+              
+              <td class="Desktop">              
+               <span><strong></strong> {{ item.ASINviewer }}</span>
+              </td>
+              
+
+
+             <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.FBMAvailable }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.FbaAvailable }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.Outbound }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.Inbound }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.Reserved }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.Unfulfillable }}</span>
+              </td>
+            <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
+
+
+              <td class="Desktop">
+                <span><strong></strong> {{ item.Fulfilledby }}</span>
+              </td>
+
+              <td class="Desktop">
+                <span><strong></strong> {{ item.Status }}</span>
+              </td>
+
+              <td class="Desktop">
+                <span><strong></strong> {{ item.serialnumber }}</span>
+              </td>
+          
+
+             <!-- Button for more details -->
+              <td class="Desktop">
+                {{ item.totalquantity }}
+                <button class="btn-moredetails" @click="toggleDetails(index)">
+                  {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                </button>
+                <br>
+                <button class="btn-moredetails">example</button><br>
+                <button class="btn-moredetails">example</button><br>
+                <button class="btn-moredetails">example</button><br>
+              </td>
+            </tr>
+             <!-- More details results -->
+            <tr v-if="expandedRows[index]">
+              <td colspan="11">
+                <div class="expanded-content p-3 border rounded">
+                  <div class="Mobile">
+                  <button class="btn-moredetails">sample button</button>
+                  <button class="btn-moredetails">sample button</button>
+                  <button class="btn-moredetails">sample button</button>
+                  </div>
+                  <strong>Product Name:</strong> {{ item.AStitle }}
+                </div>
+              </td>
+            </tr>
+
+             <!-- Button for more details (Mobile) -->
+               <td class="Mobile">
+                {{ item.totalquantity }}
+                <button style="width: 100%; border-bottom: 2px solid black; padding:0px" @click="toggleDetails(index)">
+                  {{ expandedRows[index] ? 'Less Details ▲ ' : 'More Details ▼ ' }}
+                </button>
+              </td>
+          
+          
+          </template>
         </tbody>
       </table>
+      <!-- Pagination -->
       <div class="pagination">
-        <button
-          @click="prevPage"
-          :disabled="currentPage === 1"
-          class="pagination-button"
-        >
-          Previous
-        </button>
+        <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Back</button>
         <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-        <button
-          @click="nextPage"
-          :disabled="currentPage === totalPages"
-          class="pagination-button"
-        >
-          Next
-        </button>
+        <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
       </div>
     </div>
   </div>
+  
 </template>
 
 <script>
-import { eventBus } from './eventBus';
 import axios from 'axios';
+import { eventBus } from './eventBus'; // Using your event bus
+import '../../css/modules.css';
+
 
 export default {
-  name: 'orders',
+  name: 'ProductList',
   data() {
     return {
       inventory: [],
       currentPage: 1,
-      itemsPerPage: 10,
+      totalPages: 1,
+      perPage: 10, // Default rows per page
       selectAll: false,
+      expandedRows: {},
+      sortColumn: '',
+      sortOrder: 'asc',   
+      showDetails: false,
     };
   },
   computed: {
-    filteredInventory() {
-      const searchQuery = eventBus.searchQuery.toLowerCase();
-      return this.inventory.filter((item) =>
-        item.productname.toLowerCase().includes(searchQuery)
-      );
+    searchQuery() {
+      return eventBus.searchQuery;
     },
-    totalPages() {
-      return Math.ceil(this.filteredInventory.length / this.itemsPerPage);
-    },
-    paginatedInventory() {
-      const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-      return this.filteredInventory.slice(
-        startIndex,
-        startIndex + this.itemsPerPage
-      );
+    sortedInventory() {
+      if (!this.sortColumn) return this.inventory;
+      return [...this.inventory].sort((a, b) => {
+        const valueA = a[this.sortColumn];
+        const valueB = b[this.sortColumn];
+
+        if (typeof valueA === 'number' && typeof valueB === 'number') {
+          return this.sortOrder === 'asc' ? valueA - valueB : valueB - valueA;
+        }
+
+        return this.sortOrder === 'asc'
+          ? String(valueA).localeCompare(String(valueB))
+          : String(valueB).localeCompare(String(valueA));
+      });
     },
   },
   methods: {
     async fetchInventory() {
       try {
-        const response = await axios.get(import.meta.env.VITE_API_URL);
-        this.inventory = response.data.map((item) => ({
-          ...item,
-          imageUrl: item.imageUrl || 'https://via.placeholder.com/60x60?text=No+Image',
-          checked: false,
-          shipBy: '', // Placeholder for future dates
-        }));
+        const response = await axios.get(`http://127.0.0.1:8000/products`, {
+          params: { search: this.searchQuery, page: this.currentPage, per_page: this.perPage, location: 'stockroom' },
+        });
+
+        this.inventory = response.data.data;
+        this.totalPages = response.data.last_page;
       } catch (error) {
         console.error('Error fetching inventory data:', error);
       }
     },
-    toggleAll() {
-      this.selectAll = !this.selectAll;
-      this.paginatedInventory.forEach((item) => {
-        item.checked = this.selectAll;
-      });
-    },
-    nextPage() {
-      if (this.currentPage < this.totalPages) this.currentPage++;
+    changePerPage() {
+      this.currentPage = 1;
+      this.fetchInventory();
     },
     prevPage() {
-      if (this.currentPage > 1) this.currentPage--;
+      if (this.currentPage > 1) {
+        this.currentPage--;
+        this.fetchInventory();
+      }
+    },
+    nextPage() {
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+        this.fetchInventory();
+      }
+    },
+    toggleAll() {
+      this.inventory.forEach((item) => (item.checked = this.selectAll));
+    },
+    toggleDetails(index) {
+      this.expandedRows = { ...this.expandedRows, [index]: !this.expandedRows[index] };
+    },
+    toggleDetailsVisibility() {
+      this.showDetails = !this.showDetails;
+    },
+    sortBy(column) {
+      if (this.sortColumn === column) {
+        this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortColumn = column;
+        this.sortOrder = 'asc';
+      }
+    },
+  },
+  watch: {
+    searchQuery() {
+      this.currentPage = 1;
+      this.fetchInventory();
     },
   },
   mounted() {
@@ -127,128 +290,10 @@ export default {
 };
 </script>
 
-<style scoped>
-.orders-container {
-  padding: 20px;
-  font-family: Arial, sans-serif;
-  background-color: #f5f5f5;
+<style>
+
+.expanded-content{
+background-color: azure;
 }
 
-.orders-title {
-  text-align: left;
-  font-size: 1.5rem;
-  margin-bottom: 10px;
-  color: #111;
-}
-
-.table-container {
-  overflow-x: auto;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-thead {
-  background-color: #f7f7f7;
-  border-bottom: 2px solid #ddd;
-}
-
-th {
-  text-align: left;
-  padding: 10px 12px;
-  font-weight: bold;
-  color: #333;
-  white-space: nowrap;
-}
-
-tbody tr:nth-child(even) {
-  background-color: #f9f9f9;
-}
-
-tbody tr:hover {
-  background-color: #f1f1f1;
-}
-
-td {
-  padding: 12px;
-  vertical-align: middle;
-  white-space: nowrap;
-  color: #333;
-  text-align: left;
-}
-
-.checkbox-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-
-.placeholder-date {
-  font-size: 0.85rem;
-  color: #666;
-}
-
-.product-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.product-thumbnail {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #ddd;
-}
-
-.product-name {
-  color: #0073bb;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.product-name:hover {
-  text-decoration: underline;
-}
-
-.pagination {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-}
-
-.pagination-info {
-  font-size: 1rem;
-  color: #555;
-}
-
-.pagination-button {
-  padding: 8px 12px;
-  font-size: 0.9rem;
-  color: #fff;
-  background-color: #0073bb;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.pagination-button:disabled {
-  background-color: #ddd;
-  cursor: not-allowed;
-}
-
-.pagination-button:not(:disabled):hover {
-  background-color: #0056a3;
-}
 </style>

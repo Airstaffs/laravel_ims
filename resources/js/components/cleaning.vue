@@ -1,132 +1,190 @@
 <template>
-  <div class="orders-container">
-    <h1 class="orders-title">Cleaning</h1>
+  <div class="vue-container">
+    <h1 class="vue-title">Cleaning Module</h1>
+    <!-- Pagination -->
+    <div class="pagination">
+      <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Previous</button>
+      <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+      <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
+      <select v-model="perPage" @change="changePerPage">
+        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+          {{ option }}
+        </option>
+      </select>
+    </div>
+
     <div class="table-container">
-      <table>
+      <table class="table table-bordered">
         <thead>
           <tr>
             <th>
-              <input type="checkbox" @click="toggleAll" />
-              <span class="header-date"></span>
+              <input type="checkbox" @click="toggleAll" v-model="selectAll" />
+              
+              <a style="color:black" @click="sortBy('AStitle')" class="sortable">
+                Product Name
+                <span v-if="sortColumn === 'AStitle'">
+                  {{ sortOrder === 'asc' ? '▲' : '▼' }}
+                </span>
+              </a>
+              <span style="margin-right: 20px;"></span>
+              <a style="color:black" @click="sortBy('rtcounter')" class="sortable">
+                RT counter
+                <span v-if="sortColumn === 'rtcounter'">
+                  {{ sortOrder === 'asc' ? '▲' : '▼' }}
+                </span>
+              </a>
             </th>
+            <th>Dates/Price</th>
             <th>Details</th>
-            <th>Order Details</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(item, index) in paginatedInventory" :key="item.id">
-            <td>
-              <div class="checkbox-container">
-                <input type="checkbox" v-model="item.checked" />
-                <span class="placeholder-date">{{ item.shipBy || 'Placeholder Date' }}</span>
-              </div>
-            </td>
-            <td class="product-cell">
-              <img
-                :src="item.imageUrl"
-                alt="Product Image"
-                class="product-thumbnail"
-              />
-              <span class="product-name">{{ item.productname }}</span>
-            </td>
-            <td class="order-details">
-              <span><strong>ID:</strong> {{ item.id }}</span><br />
-              <span><strong>FNSKU:</strong> {{ item.fnsku }}</span><br />
-              <span><strong>MSKU:</strong> {{ item.msku }}</span><br />
-              <span><strong>Condition:</strong> {{ item.condition }}</span>
-            </td>
-            <td>
-              {{ item.totalquantity }}
-              <button @click="toggleDetails(index)" class="more-details-btn">
-                {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
-              </button>
-            </td>
-          </tr>
-          <tr v-if="expandedRows[index]" class="expanded-row">
-            <td colspan="4">
-              <div class="expanded-content">
-                <strong>Product Name:</strong> {{ item.productname }}
-              </div>
-            </td>
-          </tr>
+          <template v-for="(item, index) in sortedInventory" :key="item.id">
+            <tr>
+              <td class="vue-details">
+  <div class="checkbox-container">
+    <input type="checkbox" v-model="item.checked" />
+    <span class="placeholder-date">{{ item.shipBy || '' }}</span>
+  </div>
+  
+  <div class="product-container">
+    <img src="" alt="Product Image" class="product-thumbnail" />
+    <div class="product-info">
+      <p class="product-name">RT# : {{ item.rtcounter }}</p>
+      <p class="product-name">{{ item.AStitle }}</p>
+    </div>
+  </div>
+</td>
+
+
+              <td>
+                <span><strong>ID:</strong> {{ item.ProductID }}</span>
+              </td><td>
+                <span><strong>ASIN:</strong> {{ item.ProductModuleLoc }}</span>
+              </td><td>
+                <span><strong>FNSKU:</strong> {{ item.serialnumber }}</span>
+              </td><td>
+                <span><strong>Condition:</strong> {{ item.gradingview }}</span>
+              </td>
+         
+              
+              <td>
+                {{ item.totalquantity }}
+                <button class="btn btn-primary btn-sm" @click="toggleDetails(index)">
+                  {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                </button>
+              </td>
+            </tr>
+
+            <tr v-if="expandedRows[index]">
+              <td colspan="4">
+                <div class="expanded-content p-3 border rounded">
+                  <strong>Product Name:</strong> {{ item.AStitle }}
+                </div>
+              </td>
+            </tr>
+          </template>
         </tbody>
       </table>
+
+      <!-- Pagination -->
       <div class="pagination">
-        <button
-          @click="prevPage"
-          :disabled="currentPage === 1"
-          class="pagination-button"
-        >
-          Previous
-        </button>
+        <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Previous</button>
         <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-        <button
-          @click="nextPage"
-          :disabled="currentPage === totalPages"
-          class="pagination-button"
-        >
-          Next
-        </button>
+        <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { eventBus } from './eventBus';
 import axios from 'axios';
+import { eventBus } from './eventBus'; // Using your event bus
+import '../../css/modules.css';
 
 export default {
-  name: 'orders',
+  name: 'ProductList',
   data() {
     return {
       inventory: [],
       currentPage: 1,
-      itemsPerPage: 10,
+      totalPages: 1,
+      perPage: 10, // Default rows per page
       selectAll: false,
       expandedRows: {},
+      sortColumn: '',
+      sortOrder: 'asc',
     };
   },
   computed: {
-    filteredInventory() {
-      const searchQuery = eventBus.searchQuery.toLowerCase();
-      return this.inventory.filter((item) =>
-        item.productname.toLowerCase().includes(searchQuery)
-      );
+    searchQuery() {
+      return eventBus.searchQuery;
     },
-    totalPages() {
-      return Math.ceil(this.filteredInventory.length / this.itemsPerPage);
-    },
-    paginatedInventory() {
-      const startIndex = (this.currentPage - 1) * this.itemsPerPage;
-      return this.filteredInventory.slice(
-        startIndex,
-        startIndex + this.itemsPerPage
-      );
+    sortedInventory() {
+      if (!this.sortColumn) return this.inventory;
+      return [...this.inventory].sort((a, b) => {
+        const valueA = a[this.sortColumn];
+        const valueB = b[this.sortColumn];
+
+        if (typeof valueA === 'number' && typeof valueB === 'number') {
+          return this.sortOrder === 'asc' ? valueA - valueB : valueB - valueA;
+        }
+
+        return this.sortOrder === 'asc'
+          ? String(valueA).localeCompare(String(valueB))
+          : String(valueB).localeCompare(String(valueA));
+      });
     },
   },
   methods: {
     async fetchInventory() {
       try {
-        const response = await axios.get('http://127.0.0.1:8000/test');
-        this.inventory = response.data;
+        const response = await axios.get(`http://127.0.0.1:8000/products`, {
+          params: { search: this.searchQuery, page: this.currentPage, per_page: this.perPage, location: 'stockroom' },
+        });
+
+        this.inventory = response.data.data;
+        this.totalPages = response.data.last_page;
       } catch (error) {
         console.error('Error fetching inventory data:', error);
       }
     },
+    changePerPage() {
+      this.currentPage = 1;
+      this.fetchInventory();
+    },
     prevPage() {
-      if (this.currentPage > 1) this.currentPage--;
+      if (this.currentPage > 1) {
+        this.currentPage--;
+        this.fetchInventory();
+      }
     },
     nextPage() {
-      if (this.currentPage < this.totalPages) this.currentPage++;
+      if (this.currentPage < this.totalPages) {
+        this.currentPage++;
+        this.fetchInventory();
+      }
     },
     toggleAll() {
-      this.selectAll = !this.selectAll;
       this.inventory.forEach((item) => (item.checked = this.selectAll));
     },
     toggleDetails(index) {
-      this.$set(this.expandedRows, index, !this.expandedRows[index]);
+      this.expandedRows = { ...this.expandedRows, [index]: !this.expandedRows[index] };
+    },
+    sortBy(column) {
+      if (this.sortColumn === column) {
+        this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortColumn = column;
+        this.sortOrder = 'asc';
+      }
+    },
+  },
+  watch: {
+    searchQuery() {
+      this.currentPage = 1;
+      this.fetchInventory();
     },
   },
   mounted() {
@@ -135,184 +193,24 @@ export default {
 };
 </script>
 
-<style scoped>
-.orders-container {
-  padding: 20px;
-  font-family: Arial, sans-serif;
-  background-color: #f5f5f5;
-}
-
-.orders-title {
-  text-align: left;
-  font-size: 1.5rem;
+<style>
+.pagination-controls {
   margin-bottom: 10px;
-  color: #111;
 }
-
-.table-container {
-  overflow-x: auto;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  background: #fff;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-thead {
-  background-color: #f7f7f7;
-  border-bottom: 2px solid #ddd;
-}
-
-th {
-  text-align: left;
-  padding: 10px 12px;
-  font-weight: bold;
-  color: #333;
-  white-space: nowrap;
-}
-
-tbody tr:nth-child(even) {
-  background-color: #f9f9f9;
-}
-
-tbody tr:hover {
-  background-color: #f1f1f1;
-}
-
-td {
-  padding: 12px;
-  vertical-align: middle;
-  color: #333;
-  text-align: left;
-  white-space: normal;
-}
-
-.checkbox-container {
+.product-container {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 5px;
-}
-
-.placeholder-date {
-  font-size: 0.85rem;
-  color: #666;
-}
-
-.product-cell {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: center; /* Aligns image and text vertically */
 }
 
 .product-thumbnail {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #ddd;
+  width: 100px; /* Adjust the image size as needed */
+  height: auto;
+  margin-right: 10px; /* Adds spacing between image and text */
 }
 
-.product-name {
-  color: #0073bb;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.product-name:hover {
-  text-decoration: underline;
-}
-
-.order-details {
-  font-size: 0.9rem;
-  line-height: 1.5;
-}
-
-.more-details-btn {
-  background-color: #0073bb;
-  color: white;
-  border: none;
-  padding: 5px 10px;
-  cursor: pointer;
-  font-size: 0.85rem;
-  border-radius: 4px;
-  margin-left: 10px;
-}
-
-.more-details-btn:hover {
-  background-color: #0056a3;
-}
-
-.expanded-row {
-  background-color: #eef7ff;
-}
-
-.expanded-content {
-  padding: 10px;
-  font-size: 0.9rem;
-  color: #333;
-  border-top: 1px solid #ddd;
-}
-
-.pagination {
-  margin-top: 20px;
+.product-info {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column; /* Ensures text is stacked vertically */
 }
 
-.pagination-info {
-  font-size: 1rem;
-  color: #555;
-}
-
-.pagination-button {
-  padding: 8px 12px;
-  font-size: 0.9rem;
-  color: #fff;
-  background-color: #0073bb;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.pagination-button:disabled {
-  background-color: #ddd;
-  cursor: not-allowed;
-}
-
-.pagination-button:not(:disabled):hover {
-  background-color: #0056a3;
-}
-
-/* Mobile Adjustments */
-@media (max-width: 768px) {
-  .orders-container {
-    padding: 10px;
-  }
-
-  .orders-title {
-    font-size: 1.2rem;
-  }
-
-  .table-container {
-    overflow-x: auto;
-  }
-
-  th, td {
-    padding: 8px;
-    font-size: 0.85rem;
-  }
-
-  .pagination {
-    flex-direction: column;
-    gap: 5px;
-  }
-}
 </style>
