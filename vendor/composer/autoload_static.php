@@ -609,6 +609,7 @@ class ComposerStaticInit626b9e7ddd47fb7eff9aaa53cce0c9ad
         'App\\Http\\Controllers\\AwsInventoryController' => __DIR__ . '/../..' . '/app/Http/Controllers/AwsInventoryController.php',
         'App\\Http\\Controllers\\Controller' => __DIR__ . '/../..' . '/app/Http/Controllers/Controller.php',
         'App\\Http\\Controllers\\DashboardController' => __DIR__ . '/../..' . '/app/Http/Controllers/DashboardController.php',
+        'App\\Http\\Controllers\\Ebay\\EbayController' => __DIR__ . '/../..' . '/app/Http/Controllers/Ebay/EbayController.php',
         'App\\Http\\Controllers\\EmployeeClockController' => __DIR__ . '/../..' . '/app/Http/Controllers/EmployeeClockController.php',
         'App\\Http\\Controllers\\IndexController' => __DIR__ . '/../..' . '/app/Http/Controllers/IndexController.php',
         'App\\Http\\Controllers\\LoginController' => __DIR__ . '/../..' . '/app/Http/Controllers/LoginController.php',
