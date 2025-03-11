@@ -6,11 +6,27 @@ services:
     image: ims_laravel
     container_name: ims_laravel
     ports:
-      - "8000:8000"
+      - "8000:8000"  # Laravel
     volumes:
       - .:/var/www/html
+    depends_on:
+      - db
     networks:
       - app-network
+
+  vite:
+    image: node:18
+    container_name: ims_laravel_vite
+    working_dir: /var/www/html
+    volumes:
+      - .:/var/www/html
+    command: ["/bin/sh", "-c", "npm install && npm run dev"]
+    ports:
+      - "5173:5173"
+    networks:
+      - app-network
+    depends_on:
+      - app
 
   db:
     image: mysql:8
