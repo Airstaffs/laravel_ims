@@ -105,7 +105,7 @@ class LoginController extends Controller
 
         // Store sub-modules
         $subModules = ['order', 'unreceived', 'receiving', 'labeling', 
-                      'testing', 'cleaning', 'packing', 'stockroom'];
+                      'testing', 'cleaning', 'packing', 'stockroom','fnsku'];
         
         $activeSubModules = array_filter($subModules, function($module) use ($user) {
             return $user->{$module} == 1;

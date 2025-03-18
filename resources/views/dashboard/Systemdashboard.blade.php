@@ -340,6 +340,7 @@ $modules = [
     'testing' => 'Testing',
     'cleaning' => 'Cleaning',
     'packing' => 'Packing',
+    'fnsku' => 'Fnsku',
     'stockroom' => 'Stockroom'
 ];
 ?>
@@ -1077,6 +1078,7 @@ function initializePrivilegeForm() {
                         'testing': 'Testing',
                         'cleaning': 'Cleaning',
                         'packing': 'Packing',
+                        'fnsku': 'Fnsku',
                         'stockroom': 'Stockroom'
                     }
                 });
@@ -1200,7 +1202,7 @@ function updateForm(data) {
 }
 
 function updateMainModule(data) {
-    const mainModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom'];
+    const mainModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom','Fnsku'];
     const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
@@ -1217,7 +1219,7 @@ function updateMainModule(data) {
 }
 
 function updateSubModules(data) {
-    const subModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom'];
+    const subModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom','Fnsku'];
     const subModulesHTML = `
         <h6>Sub-Modules</h6>
         <div class="row mb-3">

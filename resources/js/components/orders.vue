@@ -36,8 +36,6 @@
                 <span style="margin-right: 20px;"></span>
 
                 <button class="Desktop" style="border: solid 1px black; background-color: aliceblue;" @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}</button>
-
-             
             </th>
             <th class="Desktop">Location</th>
             <th class="Desktop">Added date</th>
@@ -67,12 +65,13 @@
                 </div>
                 <div class="product-container">
                   <div class="product-image-container" @click="openImageModal(item)">
-                    <img :src="'/images/thumbnails/' + item.ProductID + '.jpg'" 
+                    <!-- Use the actual file path for the main image -->
+                    <img :src="'/images/thumbnails/' + item.img1" 
                          :alt="item.ProductTitle || 'Product'" 
                          class="product-thumbnail clickable-image" 
                          @error="handleImageError($event)" />
-                    <div class="image-count-badge" v-if="getAdditionalImagesCount(item) > 0">
-                      +{{ getAdditionalImagesCount(item) }}
+                    <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
+                      +{{ countAdditionalImages(item) }}
                     </div>
                   </div>
                
@@ -91,7 +90,7 @@
               </td>
               <td class="Desktop">
                 <span><strong></strong> {{ item.warehouselocation }}</span>
-                </td>
+              </td>
         
               <td class="Desktop">
                 <span><strong></strong> {{ item.datedelivered }}</span>
@@ -113,8 +112,6 @@
                <span><strong></strong> {{ item.ASINviewer }}</span>
               </td>
               
-
-
              <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
               <td v-if="showDetails">
                 <span><strong></strong> {{ item.FBMAvailable }}</span>
@@ -136,7 +133,6 @@
               </td>
             <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
 
-
               <td class="Desktop">
                 <span><strong></strong> {{ item.Fulfilledby }}</span>
               </td>
@@ -149,7 +145,6 @@
                 <span><strong></strong> {{ item.serialnumber }}</span>
               </td>
           
-
              <!-- Button for more details -->
               <td class="Desktop">
                 {{ item.totalquantity }}
@@ -183,8 +178,6 @@
                   {{ expandedRows[index] ? 'Less Details ▲ ' : 'More Details ▼ ' }}
                 </button>
               </td>
-          
-          
           </template>
         </tbody>
       </table>
@@ -208,6 +201,8 @@
           <button class="nav-button next" @click="nextImage" v-if="modalImages.length > 1">&gt;</button>
         </div>
         
+        <div class="image-counter">{{ currentImageIndex + 1 }} / {{ modalImages.length }}</div>
+        
         <div class="thumbnails-container" v-if="modalImages.length > 1">
           <div v-for="(image, index) in modalImages" 
                :key="index" 
@@ -217,19 +212,15 @@
             <img :src="image" :alt="`Thumbnail ${index + 1}`" />
           </div>
         </div>
-        
-        <div class="image-counter">{{ currentImageIndex + 1 }} / {{ modalImages.length }}</div>
       </div>
     </div>
   </div>
-  
 </template>
 
 <script>
 import axios from 'axios';
 import { eventBus } from './eventBus'; // Using your event bus
 import '../../css/modules.css';
-
 
 export default {
   name: 'ProductList',
@@ -248,8 +239,7 @@ export default {
       // Modal state
       showImageModal: false,
       modalImages: [],
-      currentImageIndex: 0,
-      productImageCounts: {}, // Stores the count of additional images per product
+      currentImageIndex: 0
     };
   },
   computed: {
@@ -270,36 +260,63 @@ export default {
           ? String(valueA).localeCompare(String(valueB))
           : String(valueB).localeCompare(String(valueA));
       });
-    },
+    }
   },
   methods: {
     handleImageError(event) {
       // If image fails to load, use an inline SVG placeholder
-      console.log('Product image failed to load, using default image');
       event.target.src = this.defaultImage;
       event.target.onerror = null; // Prevent infinite error loop
     },
     
-    getAdditionalImagesCount(item) {
-      return this.productImageCounts[item.ProductID] || 0;
+    // Count additional images based on the image fields (img2-img15)
+    countAdditionalImages(item) {
+      if (!item) return 0;
+      
+      let count = 0;
+      // Check fields img2 through img15
+      for (let i = 2; i <= 15; i++) {
+        const fieldName = `img${i}`;
+        if (item[fieldName] && item[fieldName] !== 'NULL' && item[fieldName].trim() !== '') {
+          count++;
+        }
+      }
+      
+      return count;
     },
     
+    // Open image modal with all available images from img1-img15 fields
     openImageModal(item) {
-      if (!item.ProductID) return;
+      if (!item) return;
       
-      this.showImageModal = true;
-      this.currentImageIndex = 0;
+      // Reset modal state
       this.modalImages = [];
+      this.currentImageIndex = 0;
       
-      // Add the main image
-      const mainImagePath = `/images/thumbnails/${item.ProductID}.jpg`;
-      this.modalImages.push(mainImagePath);
+      // Image field names in your data (img1 through img15)
+      const imageFields = [
+        'img2', 'img3', 'img4', 'img5', 
+        'img6', 'img7', 'img8', 'img9', 'img10', 
+        'img11', 'img12', 'img13', 'img14', 'img15'
+      ];
       
-      // Add additional images if they exist
-      const count = this.getAdditionalImagesCount(item);
-      for (let i = 1; i <= count; i++) {
-        this.modalImages.push(`/images/thumbnails/${item.ProductID}_${i}.jpg`);
+      // Loop through all possible image fields and add non-empty ones
+      imageFields.forEach(field => {
+        if (item[field] && item[field] !== 'NULL' && item[field].trim() !== '') {
+          // Use the direct image field value as the path
+          const imagePath = `/images/thumbnails/${item[field]}`;
+          this.modalImages.push(imagePath);
+        }
+      });
+      
+      // If no images were found, add a default image
+      if (this.modalImages.length === 0) {
+        const defaultPath = `/images/thumbnails/${item.ProductID}.jpg`;
+        this.modalImages.push(defaultPath);
       }
+      
+      // Show the modal
+      this.showImageModal = true;
       
       // Prevent scrolling when modal is open
       document.body.style.overflow = 'hidden';
@@ -329,34 +346,7 @@ export default {
       }
     },
     
-    checkForAdditionalImages(productId) {
-      let count = 0;
-      let checking = true;
-      let index = 1;
-      
-      const checkImage = () => {
-        const img = new Image();
-        const path = `/images/thumbnails/${productId}_${index}.jpg`;
-        
-        img.onload = () => {
-          // Image exists
-          count++;
-          index++;
-          checkImage(); // Check for next image
-        };
-        
-        img.onerror = () => {
-          // No more images
-          this.$set(this.productImageCounts, productId, count);
-          checking = false;
-        };
-        
-        img.src = path;
-      };
-      
-      checkImage();
-    },
-    
+    // Fetch inventory data from the API
     async fetchInventory() {
       try {
         const response = await axios.get(`http://127.0.0.1:8000/products`, {
@@ -366,44 +356,42 @@ export default {
         this.inventory = response.data.data;
         this.totalPages = response.data.last_page;
         
-        // After loading inventory, check for additional images
-        this.$nextTick(() => {
-          this.inventory.forEach(item => {
-            if (item.ProductID) {
-              this.checkForAdditionalImages(item.ProductID);
-            }
-          });
-        });
-        
       } catch (error) {
         console.error('Error fetching inventory data:', error);
       }
     },
+    
     changePerPage() {
       this.currentPage = 1;
       this.fetchInventory();
     },
+    
     prevPage() {
       if (this.currentPage > 1) {
         this.currentPage--;
         this.fetchInventory();
       }
     },
+    
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
         this.fetchInventory();
       }
     },
+    
     toggleAll() {
       this.inventory.forEach((item) => (item.checked = this.selectAll));
     },
+    
     toggleDetails(index) {
       this.expandedRows = { ...this.expandedRows, [index]: !this.expandedRows[index] };
     },
+    
     toggleDetailsVisibility() {
       this.showDetails = !this.showDetails;
     },
+    
     sortBy(column) {
       if (this.sortColumn === column) {
         this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
@@ -411,19 +399,21 @@ export default {
         this.sortColumn = column;
         this.sortOrder = 'asc';
       }
-    },
+    }
   },
+  
   watch: {
     searchQuery() {
       this.currentPage = 1;
       this.fetchInventory();
-    },
+    }
   },
+  
   mounted() {
     this.fetchInventory();
     
     // Handle keyboard navigation for the modal
-    window.addEventListener('keydown', (e) => {
+    const handleKeyDown = (e) => {
       if (!this.showImageModal) return;
       
       switch (e.key) {
@@ -437,11 +427,17 @@ export default {
           this.prevImage();
           break;
       }
-    });
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    this.handleKeyDown = handleKeyDown; // Store for cleanup
   },
+  
   beforeDestroy() {
     // Clean up keyboard event listener
-    window.removeEventListener('keydown', this.handleKeyDown);
+    if (this.handleKeyDown) {
+      window.removeEventListener('keydown', this.handleKeyDown);
+    }
   }
 };
 </script>
@@ -591,6 +587,7 @@ export default {
   overflow-x: auto;
   gap: 10px;
   padding: 10px 0;
+  margin-top: 15px;
 }
 
 .modal-thumbnail {
@@ -600,6 +597,7 @@ export default {
   border-radius: 4px;
   overflow: hidden;
   cursor: pointer;
+  flex-shrink: 0;
 }
 
 .modal-thumbnail.active {

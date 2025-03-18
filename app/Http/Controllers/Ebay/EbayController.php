@@ -12,7 +12,8 @@ use Carbon\Carbon;
 
 // require base_path('Helpers/ebay_helpers.php');
 require base_path('app/Helpers/ebay_helpers.php');
-ini_set('max_execution_time', 0);
+
+
 class EbayController extends Controller
 {
     protected $apiEndpoint = 'https://api.ebay.com/ws/api.dll';
@@ -20,19 +21,11 @@ class EbayController extends Controller
     /**
      * Fetch orders from eBay API
      */
-
-     public function __construct()
-     {
-         // This will remove the time limit for all methods in this controller
-         ini_set('max_execution_time', 0);
-         // Increase memory limit if needed
-         ini_set('memory_limit', '512M');
-     }
     
      
     public function fetchOrders(Request $request)
     {
-        set_time_limit(0);
+
         $serverconfig = env('EBAY_SERVER_CONFIG', 'LOCAL');
         $pageNumber = $request->input('page', 1);
         $credentials = EbayCredentials();
@@ -365,7 +358,7 @@ class EbayController extends Controller
             'tracking_number4' => $trackingNumber4,  // Added fourth tracking number
             'tracking_number5' => $trackingNumber5,  // Added fifth tracking number
             'shipping_carrier' => $shippingCarrier,  // Added shipping carrier
-             'items' => $items
+            'items' => $items
         ];
 
         // Debug the processed order
@@ -404,7 +397,15 @@ class EbayController extends Controller
                 foreach ($order['items'] as $item) {
                  
                     $itemID = $item['item_id'];
-                    $title = $item['title'];
+                   // $title = $item['title'];
+
+                    $originalTitle = $item['title'];
+    
+                    // Clean the title - remove emojis and special characters
+                    $title = $this->cleanTitle($originalTitle);
+
+
+
                     $quantityPurchased = $item['quantity_purchased'];
                     $transactionPrice = $item['item_details']['item']['SellingStatus']['CurrentPrice'] ?? 0.00;
                     $conditionDisplay = $item['item_details']['Item']['ConditionDisplayName'] ?? 'Unknown';
@@ -431,7 +432,7 @@ class EbayController extends Controller
 
                     // ✅ Ensure keywords are properly formatted
                     $keywords = array_map('strtolower', $keywords); // Convert to lowercase for case-insensitive comparison
-
+                    $itemDescription = '';
                     if (!empty($item['item_details']['Item']['Description'])) {
                         $htmlDescription = (string) $item['item_details']['Item']['Description'];
                         $itemDescription = strip_tags($htmlDescription); // Remove HTML tags
@@ -548,41 +549,73 @@ class EbayController extends Controller
                             ]);
 
                             Log::info("Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID");
-                        }
-
+                
                         // ✅ Download Images Using `ProductID`
                         if (isset($item['item_details']['Item']['PictureDetails']['PictureURL'])) {
-                            $itemImages = array_slice($item['item_details']['Item']['PictureDetails']['PictureURL'], 0, 15);
+                            // Create directory if it doesn't exist
+                            $imageDir = public_path('images/thumbnails');
+                            if (!file_exists($imageDir)) {
+                                mkdir($imageDir, 0755, true);
+                            }
+                        
+                            // Get images (limit to 5 to prevent timeout)
+                            $itemImages = array_slice($item['item_details']['Item']['PictureDetails']['PictureURL'], 0, 5);
+                            
                             foreach ($itemImages as $index => $imageUrl) {
-                                $filename = basename($imageUrl);
-                               // $imagePath = storage_path("app/public/images/thumbnails/{$productID}");
-                                $imagePath = storage_path("../resources/js/images/thumbnails/{$productID}");
-
-                                // Append an index for multiple images
+                                // Build file names
+                                $imageName = "{$productID}";
                                 if ($index > 0) {
-                                    $imagePath .= "_{$index}";
+                                    $imageName .= "_{$index}";
                                 }
-                                $imagePath .= ".jpg";
-
-                                // Save image
+                                $imageName .= ".jpg";
+                                
+                                // Full path to save the image
+                                $imagePath = $imageDir . '/' . $imageName;
+                                
+                                // Create a context with timeout to prevent hanging
+                                $context = stream_context_create([
+                                    'http' => [
+                                        'timeout' => 10 // 10 seconds timeout
+                                    ]
+                                ]);
+                                
+                                // Save image with proper error handling
                                 try {
-                                    file_put_contents($imagePath, file_get_contents($imageUrl));
+                                    Log::info("Downloading image from: $imageUrl");
+                                    $imageData = @file_get_contents($imageUrl, false, $context);
+                                    
+                                    if ($imageData === false) {
+                                        Log::error("Failed to download image from: $imageUrl");
+                                        continue;
+                                    }
+                                    
+                                    // Ensure directory exists
+                                    if (!file_exists(dirname($imagePath))) {
+                                        mkdir(dirname($imagePath), 0755, true);
+                                    }
+                                    
+                                    // Save the image
+                                    if (file_put_contents($imagePath, $imageData) === false) {
+                                        Log::error("Failed to save image to: $imagePath");
+                                        continue;
+                                    }
+                                    
+                                    // Update database with image filename
+                                    $imgField = "img" . ($index + 1); // img1, img2, etc.
+                                    
+                                    DB::table('tblproduct')
+                                        ->where('ProductID', $productID)
+                                        ->update([
+                                            $imgField => $imageName
+                                        ]);
+                                    
+                                    Log::info("Successfully saved image $index as $imageName for ProductID: $productID");
                                 } catch (\Exception $e) {
-                                    Log::error("Error saving image for ProductID $productID: " . $e->getMessage());
-                                    continue;
+                                    Log::error("Error processing image $index for ProductID $productID: " . $e->getMessage());
                                 }
-
-                                $filenameOnly = basename($imagePath);
-                                $imgField = "img" . ($index + 1); // img1, img2, etc.
-
-                                // ✅ Update database with image filename
-                                DB::table('tblproduct')
-                                    ->where('ProductID', $productID)
-                                    ->update([
-                                        $imgField => $filenameOnly
-                                    ]);
                             }
                         }
+                      }  
 
                     } catch (\Exception $e) {
                         Log::error("Error processing Order ID $orderID, Item ID $itemID: " . $e->getMessage());
@@ -595,6 +628,23 @@ class EbayController extends Controller
 
 
 
+    function cleanTitle($text) {
+        // Pattern to match emoji characters
+        $pattern = '/[\x{1F600}-\x{1F64F}|\x{1F300}-\x{1F5FF}|\x{1F680}-\x{1F6FF}|\x{1F700}-\x{1F77F}|\x{1F780}-\x{1F7FF}|\x{1F800}-\x{1F8FF}|\x{1F900}-\x{1F9FF}|\x{1FA00}-\x{1FA6F}|\x{1FA70}-\x{1FAFF}|\x{2600}-\x{26FF}|\x{2700}-\x{27BF}]/u';
+        
+        // Remove emojis
+        $cleanText = preg_replace($pattern, '', $text);
+        
+        // Also remove special characters like stars, fire, etc.
+        $cleanText = preg_replace('/[⭐🔥!]/u', '', $cleanText);
+        
+        // Remove multiple spaces that might be left after emoji removal
+        $cleanText = preg_replace('/\s+/', ' ', $cleanText);
+        
+        // Trim any leading/trailing whitespace
+        return trim($cleanText);
+    }
+    
 
 
     private function fetchItemDetails($itemId, $accessToken)
