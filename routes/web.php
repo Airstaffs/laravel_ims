@@ -186,6 +186,12 @@ use App\Http\Controllers\Ebay\EbayController;
 
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
+use App\Http\Controllers\Amzn\FBAShipmentController;
+// localhost:8000
+Route::get('/amzn/fba-shipment/step1/create-shipment', [FBAShipmentController::class, 'step1_createShipment']);
+Route::get('/amzn/fba-shipment/step2/generate-packing', [FBAShipmentController::class, 'step2a_generate_packing']);
+Route::get('/amzn/fba-shipment/step2/list-packing-options', [FBAShipmentController::class, 'step2b_list_packing_options']);
+Route::get('/amzn/fba-shipment/step2/list-items-packing-option', [FBAShipmentController::class, 'step2c_list_items_by_packing_options']);
 
 Route::get('/apis/ebay-login', action: function () {
     $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e'; // Replace with your client ID
