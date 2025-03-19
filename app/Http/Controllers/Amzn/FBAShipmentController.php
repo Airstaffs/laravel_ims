@@ -426,7 +426,6 @@ class FBAShipmentController extends Controller
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
-        $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/packingOptions';
         $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/packingGroups/' . $packingGroupId . '/items';
         $customParams = [];
 
@@ -522,7 +521,7 @@ class FBAShipmentController extends Controller
                 // If no operationId, return success response but indicate missing operation tracking
                 return response()->json([
                     'success' => true,
-                    'message' => 'Operation Step 2b Success.',
+                    'message' => 'Operation Step 2c Success.',
                     'data' => $data,
                     'logs' => $curlInfo,
                 ]);
@@ -563,12 +562,12 @@ class FBAShipmentController extends Controller
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
         $inboundplanid = $request->input('inboundplanid', 'wffacd6859-1abf-499e-82ff-76497a17ae63');// from process 1
         $packingGroupId = $request->input('packingGroupId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');// from process 2b
-        $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
+        $packingOptionId = $request->input('packingOptionId', 'poc7a60e6f-3e37-4899-bb42-35f6161273f2'); // from process 2b
 
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
-        $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/packingOptions/' . $packingGroupId . '/confirmation';
+        $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/packingOptions/' . $packingOptionId . '/confirmation';
         $customParams = [];
 
         $companydetails = $this->fetchCompanyDetails();
@@ -631,7 +630,7 @@ class FBAShipmentController extends Controller
             $response = Http::timeout(50)
                 ->withHeaders($headers)
                 // ->withBody($jsonData, 'application/json') // Ensure JSON is properly sent
-                ->get($url);
+                ->post($url);
 
             // Log the cURL information (response details)
             $curlInfo = $response->handlerStats();
@@ -663,7 +662,7 @@ class FBAShipmentController extends Controller
                 // If no operationId, return success response but indicate missing operation tracking
                 return response()->json([
                     'success' => true,
-                    'message' => 'Operation Step 2b Success.',
+                    'message' => 'Operation Step 2d Success.',
                     'data' => $data,
                     'logs' => $curlInfo,
                 ]);
@@ -804,7 +803,7 @@ class FBAShipmentController extends Controller
                 // If no operationId, return success response but indicate missing operation tracking
                 return response()->json([
                     'success' => true,
-                    'message' => 'Operation Step 2b Success.',
+                    'message' => 'Operation Step 3a Success.',
                     'data' => $data,
                     'logs' => $curlInfo,
                 ]);
