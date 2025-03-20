@@ -36,6 +36,7 @@ class UserController extends Controller
                 'testing',
                 'cleaning',
                 'packing',
+                'fnsku',
                 'stockroom'
             )
             ->where('id', $currentUserId)
@@ -170,6 +171,7 @@ class UserController extends Controller
                     'Testing' => (bool) $selectedUser->testing,
                     'Cleaning' => (bool) $selectedUser->cleaning,
                     'Packing' => (bool) $selectedUser->packing,
+                    'Fnsku' => (bool) $selectedUser->fnsku,
                     'Stockroom' => (bool) $selectedUser->stockroom,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
@@ -300,7 +302,7 @@ public function saveUserPrivileges(Request $request)
                 $user->main_module = $data['main_module'];
         
                 // Update sub-modules dynamically
-                $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom']; // Ensure these modules are valid
+                $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom','fnsku']; // Ensure these modules are valid
                 foreach ($subModules as $module) {
                     $user->{$module} = in_array(ucfirst($module), $data['sub_modules'] ?? []) ? 1 : 0;
                 }

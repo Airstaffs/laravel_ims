@@ -21,6 +21,7 @@ return array(
     'App\\Http\\Controllers\\AwsInventoryController' => $baseDir . '/app/Http/Controllers/AwsInventoryController.php',
     'App\\Http\\Controllers\\Controller' => $baseDir . '/app/Http/Controllers/Controller.php',
     'App\\Http\\Controllers\\DashboardController' => $baseDir . '/app/Http/Controllers/DashboardController.php',
+    'App\\Http\\Controllers\\Ebay\\EbayController' => $baseDir . '/app/Http/Controllers/Ebay/EbayController.php',
     'App\\Http\\Controllers\\EmployeeClockController' => $baseDir . '/app/Http/Controllers/EmployeeClockController.php',
     'App\\Http\\Controllers\\IndexController' => $baseDir . '/app/Http/Controllers/IndexController.php',
     'App\\Http\\Controllers\\LoginController' => $baseDir . '/app/Http/Controllers/LoginController.php',
