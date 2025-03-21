@@ -193,6 +193,8 @@ Route::get('/amzn/fba-shipment/step2/generate-packing', [FBAShipmentController::
 Route::get('/amzn/fba-shipment/step2/list-packing-options', [FBAShipmentController::class, 'step2b_list_packing_options']);
 Route::get('/amzn/fba-shipment/step2/list-items-packing-option', [FBAShipmentController::class, 'step2c_list_items_by_packing_options']);
 Route::get('/amzn/fba-shipment/step2/confirm-packing-option', [FBAShipmentController::class, 'step2d_confirm_packing_option']);
+Route::get('/amzn/fba-shipment/step3/packing_information', [FBAShipmentController::class, 'step3a_packing_information']);
+Route::get('/amzn/fba-shipment/step4/placement_option', [FBAShipmentController::class, 'step4a_placement_option']);
 
 Route::get('/apis/ebay-login', action: function () {
     $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e'; // Replace with your client ID

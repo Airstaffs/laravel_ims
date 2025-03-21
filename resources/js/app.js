@@ -15,6 +15,7 @@ import Stockroom from './components/stockroom.vue';
 import Testing from './components/testing.vue';
 import Validation from './components/validation.vue';
 import Searching from './components/searching.vue';
+
 // Create Vue app
 const app = createApp({
     data() {
