@@ -341,7 +341,8 @@ $modules = [
     'cleaning' => 'Cleaning',
     'packing' => 'Packing',
     'fnsku' => 'Fnsku',
-    'stockroom' => 'Stockroom'
+    'stockroom' => 'Stockroom',
+    'fbashipmentinbound' => 'FBA Inbound Shipment'
 ];
 ?>
 

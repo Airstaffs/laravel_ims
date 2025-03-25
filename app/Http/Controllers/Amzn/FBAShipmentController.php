@@ -15,6 +15,41 @@ require base_path('app/Helpers/aws_helpers.php');
 
 class FBAShipmentController extends Controller
 {
+    public function fetch_shipment(Request $request)
+    {
+        $shipments = DB::table('tblfbashipmenthistory')
+            ->select(
+                'shipmentID',
+                DB::raw('MAX(dateshipped) as latest_shipped'),
+                DB::raw('MAX(store) as store'),
+                DB::raw('COUNT(*) as item_count')
+            )
+            ->where('row_show', 1)
+            ->whereNotNull('shipmentID')
+            ->groupBy('shipmentID')
+            ->orderByDesc('latest_shipped')
+            ->get();
+
+        // Attach items to each shipment
+        foreach ($shipments as $shipment) {
+            $shipment->items = DB::table('tblfbashipmenthistory')
+                ->where('shipmentID', $shipment->shipmentID)
+                ->where('row_show', 1)
+                ->get([
+                    'ProductName',
+                    'ASIN',
+                    'FNSKU',
+                    'MSKU',
+                    'Serialnumber',
+                    'shipmentID',
+                    'Location',
+                    'dateshipped'
+                ]);
+        }
+
+        return response()->json($shipments);
+    }
+
     public function step1_createShipment(Request $request)
     {
         $request->validate([
@@ -137,7 +172,8 @@ class FBAShipmentController extends Controller
             'store' => 'nullable|string',
             'destinationMarketplace' => 'nullable|string',
             'nextToken' => 'nullable|string',
-            'shipmentID' => 'nullable|string'
+            'shipmentID' => 'nullable|string',
+            'inboundplanid' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
         $store = $request->input('store', 'Renovar Tech');

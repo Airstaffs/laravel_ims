@@ -159,7 +159,6 @@ Route::get('/apis/ebay-login', action: function () {
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
 
-
 Route::get('/apis/ebay-callback', action: function () {
     require app_path('Helpers/ebay_helpers.php');
     // Check if the 'code' parameter is present in the URL
@@ -188,6 +187,8 @@ Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
 use App\Http\Controllers\Amzn\FBAShipmentController;
 // localhost:8000
+
+Route::get('/amzn/fba-shipment/fetch-shipments', [FBAShipmentController::class, 'fetch_shipment']);
 Route::get('/amzn/fba-shipment/step1/create-shipment', [FBAShipmentController::class, 'step1_createShipment']);
 Route::get('/amzn/fba-shipment/step2/generate-packing', [FBAShipmentController::class, 'step2a_generate_packing']);
 Route::get('/amzn/fba-shipment/step2/list-packing-options', [FBAShipmentController::class, 'step2b_list_packing_options']);

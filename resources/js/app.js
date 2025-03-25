@@ -15,6 +15,7 @@ import Stockroom from './components/stockroom.vue';
 import Testing from './components/testing.vue';
 import Validation from './components/validation.vue';
 import Searching from './components/searching.vue';
+import FbaInboundShipment from './components/Stockroom/fba_inbound_shipment.vue';
 
 // Create Vue app
 const app = createApp({
@@ -34,12 +35,15 @@ const app = createApp({
             const moduleName = module;
             const allowedModules = window.allowedModules || [];
             const mainModule = window.mainModule;
-
-            if (!allowedModules.includes(moduleName) && moduleName !== mainModule) {
+        
+            // ✅ Allow fbashipmentinbound regardless of permission
+            if (moduleName != 'fbashipmentinbound' && 
+                !allowedModules.includes(moduleName) && 
+                moduleName !== mainModule) {
                 alert("You do not have permission to access this module.");
                 return;
             }
-
+        
             this.forceUpdate(moduleName);
         },
         forceUpdate(moduleName) {
@@ -80,6 +84,7 @@ const app = createApp({
         'stockroom': Stockroom,
         'testing': Testing,
         'validation': Validation,
+        'fbashipmentinbound': FbaInboundShipment,
     }
 });
 
