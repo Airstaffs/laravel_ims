@@ -187,7 +187,7 @@ Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
 use App\Http\Controllers\Amzn\FBAShipmentController;
 // localhost:8000
-
+Route::post('/amzn/fba-shipment/add-item', [FBAShipmentController::class, 'addItemToShipment']);
 Route::get('/amzn/fba-shipment/fetch-shipments', [FBAShipmentController::class, 'fetch_shipment']);
 Route::get('/amzn/fba-shipment/step1/create-shipment', [FBAShipmentController::class, 'step1_createShipment']);
 Route::get('/amzn/fba-shipment/step2/generate-packing', [FBAShipmentController::class, 'step2a_generate_packing']);

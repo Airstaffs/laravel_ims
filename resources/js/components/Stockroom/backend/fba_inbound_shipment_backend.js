@@ -18,5 +18,12 @@ export default {
       params: payload
     });
     return res.data;
+  },
+  async addItemToShipment(shipmentID, product) {
+    const res = await axios.post(`${API_BASE_URL}/amzn/fba-shipment/add-item`, {
+      shipmentID,
+      product
+    });
+    return res.data;
   }
 };

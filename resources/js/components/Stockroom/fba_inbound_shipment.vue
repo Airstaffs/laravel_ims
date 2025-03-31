@@ -7,42 +7,52 @@
             <h2>Select a Shipment</h2>
 
             <div v-for="shipment in shipments" :key="shipment.shipmentID" class="shipment-block">
-                <h3>{{ shipment.shipmentID }} - {{ shipment.store }} ({{ shipment.item_count }} items)</h3>
+                <div class="shipment-header">
+                    <strong>{{ shipment.shipmentID }}</strong> - {{ shipment.store }} ({{ shipment.item_count }} items)
+                    <button @click="toggleVisibility(shipment.shipmentID)">
+                        {{ visibleShipments[shipment.shipmentID] ? 'Hide Items' : 'Show Items' }}
+                    </button>
+                    <button @click="selectShipment(shipment)">
+                        ➡️ Ship to Amazon
+                    </button>
+                </div>
 
-                <table class="shipment-table">
-                    <thead>
-                        <tr>
-                            <th>Image</th>
-                            <th>Details</th>
-                            <th>Qty</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="item in shipment.items" :key="item.FNSKU">
-                            <td><img :src="'https://via.placeholder.com/50'" width="50" /></td>
-                            <td>
-                                <div><strong>Title:</strong> {{ item.ProductName }}</div>
-                                <div><strong>ASIN:</strong> {{ item.ASIN }}</div>
-                                <div><strong>MSKU:</strong> {{ item.MSKU }}</div>
-                                <div><strong>FNSKU:</strong> {{ item.FNSKU }}</div>
-                                <div><strong>Serial#:</strong> {{ item.Serialnumber }}</div>
-                            </td>
-                            <td>1</td>
-                            <td><button @click="deleteItem(shipment.shipmentID, item)">🗑️ Delete</button></td>
-                        </tr>
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="4" style="text-align: right;">
-                                <button @click="addItem(shipment.shipmentID)">➕ Add Item</button>
-                                <button @click="confirmShipment(shipment.shipmentID)">✅ Confirm Shipment</button>
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
+                <div v-show="visibleShipments[shipment.shipmentID]">
+                    <table class="shipment-table">
+                        <thead>
+                            <tr>
+                                <th>Image</th>
+                                <th>Details</th>
+                                <th>Qty</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="item in shipment.items" :key="item.FNSKU">
+                                <td><img :src="'https://via.placeholder.com/50'" width="50" /></td>
+                                <td>
+                                    <div><strong>Title:</strong> {{ item.ProductName }}</div>
+                                    <div><strong>ASIN:</strong> {{ item.ASIN }}</div>
+                                    <div><strong>MSKU:</strong> {{ item.MSKU }}</div>
+                                    <div><strong>FNSKU:</strong> {{ item.FNSKU }}</div>
+                                    <div><strong>Serial#:</strong> {{ item.Serialnumber }}</div>
+                                </td>
+                                <td>1</td>
+                                <td><button @click="deleteItem(shipment.shipmentID, item)">🗑️ Delete</button></td>
+                            </tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" style="text-align: right;">
+                                    <button @click="openAddItemModal(shipment.shipmentID)">➕ Add Item</button>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
         </div>
+
 
         <!-- View 2: Create Inbound Plan (Step 1) -->
         <div v-else>
@@ -92,16 +102,65 @@
             <pre>{{ packingResponse }}</pre>
         </div>
     </div>
+
+    <!-- Add Item Modal -->
+    <div v-if="showAddItemModal" class="modal-overlay">
+        <div class="modal-content">
+            <h2>Add Item to Shipment: {{ selectedShipmentID }}</h2>
+
+            <input v-model="productSearch" @input="fetchProducts" placeholder="Search products..." />
+
+            <label>Per Page:</label>
+            <select v-model="productPerPage" @change="fetchProducts">
+                <option>5</option>
+                <option>10</option>
+                <option>20</option>
+            </select>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>ProductID</th>
+                        <th>Title</th>
+                        <th>FNSKU</th>
+                        <th>MSKU</th>
+                        <th>ASIN</th>
+                        <th>Serial #</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="product in productList" :key="product.ProductID">
+                        <td>{{ product.ProductID }}</td>
+                        <td>{{ product.ProductTitle }}</td>
+                        <td>{{ product.FNSKUviewer }}</td>
+                        <td>{{ product.MSKUviewer }}</td>
+                        <td>{{ product.ASINviewer }}</td>
+                        <td>{{ product.serialnumber }}</td>
+                        <td><button @click="addProductToShipment(product)">➕ Add</button></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="modal-footer">
+                <button :disabled="productPage <= 1" @click="productPage--; fetchProducts()">⬅ Prev</button>
+                <button :disabled="productPage >= productPagination.last_page"
+                    @click="productPage++; fetchProducts()">Next ➡</button>
+                <button @click="showAddItemModal = false">Close</button>
+            </div>
+        </div>
+    </div>
 </template>
 
 <script>
 import shipmentService from '@/components/Stockroom/backend/fba_inbound_shipment_backend.js';
-
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 export default {
     data() {
         return {
             shipments: [],
             selectedShipment: null,
+            visibleShipments: {},
             form: {
                 store: '',
                 destinationMarketplace: '',
@@ -109,7 +168,14 @@ export default {
                 inboundplanid: '' // include this so it's bound in Step 2A
             },
             response: null,
-            packingResponse: null
+            packingResponse: null,
+            showAddItemModal: false,
+            productList: [],
+            productSearch: '',
+            productPerPage: 10,
+            productPage: 1,
+            productPagination: {}
+
         };
     },
     created() {
@@ -120,6 +186,11 @@ export default {
             try {
                 const res = await shipmentService.getShipments();
                 this.shipments = res;
+
+                this.visibleShipments = {};
+                res.forEach(shipment => {
+                    this.visibleShipments[shipment.shipmentID] = false;
+                });
             } catch (error) {
                 console.error("Error fetching shipments:", error);
             }
@@ -160,9 +231,49 @@ export default {
             console.log('Delete', shipmentID, item);
             // API call or local remove
         },
-        confirmShipment(shipmentID) {
-            console.log('Confirm shipment:', shipmentID);
-            // Final API step
+        toggleVisibility(shipmentID) {
+            this.visibleShipments[shipmentID] = !this.visibleShipments[shipmentID];
+        },
+        openAddItemModal(shipmentID) {
+            this.selectedShipmentID = shipmentID;
+            this.showAddItemModal = true;
+            this.productSearch = '';
+            this.productPage = 1;
+            this.fetchProducts();
+        },
+        async fetchProducts() {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/products`, {
+                    params: {
+                        search: this.productSearch,
+                        location: 'stockroom',
+                        page: this.productPage,
+                        per_page: this.productPerPage
+                    }
+                });
+
+                this.productList = res.data.data;
+                this.productPagination = {
+                    total: res.data.total,
+                    current_page: res.data.current_page,
+                    last_page: res.data.last_page
+                };
+            } catch (error) {
+                console.error("Error fetching products:", error);
+            }
+        },
+        async addProductToShipment(product) {
+            try {
+                const res = await shipmentService.addItemToShipment(this.selectedShipmentID, product);
+                if (res.success) {
+                    alert("Item added successfully!");
+                    this.showAddItemModal = false;
+                    this.fetchShipments(); // refresh the shipment list to reflect the new item
+                }
+            } catch (error) {
+                console.error("Error adding item:", error);
+                alert("Failed to add item.");
+            }
         }
     }
 };
@@ -221,5 +332,30 @@ button {
 .back-btn {
     margin-top: 20px;
     background: #ddd;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: white;
+    padding: 20px;
+    width: 90%;
+    max-width: 900px;
+    border-radius: 8px;
+}
+
+.modal-footer {
+    margin-top: 10px;
+    text-align: right;
 }
 </style>

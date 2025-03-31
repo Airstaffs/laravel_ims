@@ -15,6 +15,43 @@ require base_path('app/Helpers/aws_helpers.php');
 
 class FBAShipmentController extends Controller
 {
+    public function addItemToShipment(Request $request)
+    {
+        $request->validate([
+            'shipmentID' => 'required|string',
+            'product' => 'required|array'
+        ]);
+
+        $shipmentID = $request->shipmentID;
+        $product = $request->product;
+
+        // Get dateshipped from existing shipment
+        $dateshipped = DB::table('tblfbashipmenthistory')
+            ->where('shipmentID', $shipmentID)
+            ->value('dateshipped');
+
+        if (!$dateshipped) {
+            return response()->json(['error' => 'Invalid shipment ID or no shipment date found.'], 404);
+        }
+
+        // Insert the product into the shipment
+        DB::table('tblfbashipmenthistory')->insert([
+            'ProductName' => $product['ProductTitle'] ?? '',
+            'ASIN' => $product['ASINviewer'] ?? '',
+            'FNSKU' => $product['FNSKUviewer'] ?? '',
+            'MSKU' => $product['MSKUviewer'] ?? '',
+            'Serialnumber' => $product['serialnumber'] ?? '',
+            'shipmentID' => $shipmentID,
+            'dateshipped' => $dateshipped,
+            'Location' => 'SHIPMENT',
+            'store' => 'Renovar Tech',
+            'row_show' => 1,
+            'processby' => auth()->user()->name ?? 'System'
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
     public function fetch_shipment(Request $request)
     {
         $shipments = DB::table('tblfbashipmenthistory')

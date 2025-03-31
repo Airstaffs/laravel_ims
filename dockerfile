@@ -28,8 +28,9 @@ RUN composer install
 # Install frontend dependencies
 RUN npm install
 
-# Set permissions for Laravel storage and bootstrap cache
-RUN chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
+RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache && \
+    chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
+
 
 # Expose port 8000
 EXPOSE 8000
