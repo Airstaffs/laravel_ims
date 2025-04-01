@@ -1,9 +1,48 @@
 <template>
     <div class="container">
         <h1>📦 FBA Inbound Shipment</h1>
+        <!-- Only show toggle if NOT in View 2 -->
+        <div v-if="!selectedShipment">
+            <button @click="toggleView" class="toggle-btn">
+                <span v-if="showCartMode">📦 View Shipments</span>
+                <span v-else>🛒 View Cart</span>
+            </button>
+        </div>
+
+
+
+        <!-- Show Cart View -->
+        <div v-if="showCartMode">
+            <h2>🛒 Draft Cart</h2>
+            <button @click="openAddItemModal()">➕ Add an Item to Cart</button>
+            <table class="shipment-table">
+                <thead>
+                    <tr>
+                        <th>Product ID</th>
+                        <th>Title</th>
+                        <th>ASIN</th>
+                        <th>FNSKU</th>
+                        <th>MSKU</th>
+                        <th>Serial #</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="item in cartItems" :key="item.ProdID">
+                        <td>{{ item.ProdID }}</td>
+                        <td>{{ item.ProductTitle }}</td>
+                        <td>{{ item.ASINviewer }}</td>
+                        <td>{{ item.FNSKUviewer }}</td>
+                        <td>{{ item.MSKUviewer }}</td>
+                        <td>{{ item.serialnumber }}</td>
+                        <td><button @click="removeCartItem(item.ProdID)">🗑️ Remove</button></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
 
         <!-- View 1: List of Existing Shipments -->
-        <div v-if="!selectedShipment">
+        <div v-if="!selectedShipment && !showCartMode">
             <h2>Select a Shipment</h2>
 
             <div v-for="shipment in shipments" :key="shipment.shipmentID" class="shipment-block">
@@ -55,7 +94,7 @@
 
 
         <!-- View 2: Create Inbound Plan (Step 1) -->
-        <div v-else>
+        <div v-if="selectedShipment && !showCartMode">
             <h2>Step 1: Create Inbound Plan for Shipment</h2>
             <form @submit.prevent="createShipment" class="shipment-form">
                 <div class="form-group">
@@ -112,9 +151,9 @@
 
             <label>Per Page:</label>
             <select v-model="productPerPage" @change="fetchProducts">
-                <option>5</option>
-                <option>10</option>
                 <option>20</option>
+                <option>50</option>
+                <option>100</option>
             </select>
 
             <table>
@@ -137,7 +176,7 @@
                         <td>{{ product.MSKUviewer }}</td>
                         <td>{{ product.ASINviewer }}</td>
                         <td>{{ product.serialnumber }}</td>
-                        <td><button @click="addProductToShipment(product)">➕ Add</button></td>
+                        <button @click="handleAddItem(product)">➕ Add</button>
                     </tr>
                 </tbody>
             </table>
@@ -158,6 +197,9 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 export default {
     data() {
         return {
+            showCartMode: false,
+            cartID: null,
+            cartItems: [], // This will hold the cart item list
             shipments: [],
             selectedShipment: null,
             visibleShipments: {},
@@ -172,7 +214,7 @@ export default {
             showAddItemModal: false,
             productList: [],
             productSearch: '',
-            productPerPage: 10,
+            productPerPage: 20,
             productPage: 1,
             productPagination: {}
 
@@ -234,11 +276,19 @@ export default {
         toggleVisibility(shipmentID) {
             this.visibleShipments[shipmentID] = !this.visibleShipments[shipmentID];
         },
-        openAddItemModal(shipmentID) {
+        async openAddItemModal(shipmentID = null) {
             this.selectedShipmentID = shipmentID;
             this.showAddItemModal = true;
             this.productSearch = '';
             this.productPage = 1;
+
+            if (this.showCartMode) {
+                const res = await axios.get(`${API_BASE_URL}/amzn/fba-cart/get-or-create-cart`, {
+                    params: { processby: this.currentUser }
+                });
+                this.cartID = res.data.CartID;
+            }
+
             this.fetchProducts();
         },
         async fetchProducts() {
@@ -262,6 +312,29 @@ export default {
                 console.error("Error fetching products:", error);
             }
         },
+        async handleAddItem(product) {
+            try {
+                if (this.showCartMode) {
+                    await axios.post(`${API_BASE_URL}/amzn/fba-cart/add`, {
+                        ProdID: product.ProductID,
+                        CartID: this.cartID,
+                        processby: this.currentUser
+                    });
+                    alert('Item added to cart!');
+                    this.fetchCartItems();
+                } else {
+                    await shipmentService.addItemToShipment(this.selectedShipmentID, product);
+                    alert('Item added to shipment!');
+                    this.fetchShipments();
+                }
+
+                this.showAddItemModal = false;
+
+            } catch (error) {
+                console.error("Add item error:", error);
+                alert('❌ Error adding item.');
+            }
+        },
         async addProductToShipment(product) {
             try {
                 const res = await shipmentService.addItemToShipment(this.selectedShipmentID, product);
@@ -274,7 +347,56 @@ export default {
                 console.error("Error adding item:", error);
                 alert("Failed to add item.");
             }
+        },
+        toggleView() {
+            this.showCartMode = !this.showCartMode;
+            if (this.showCartMode) {
+                this.fetchCartItems(); // Fetch cart items when toggled to cart mode
+            } else {
+                this.fetchShipments(); // Re-fetch shipments if needed
+            }
+        },
+        async fetchCartItems() {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amzn/fba-cart/list`, {
+                    params: { processby: this.currentUser } // replace with actual user variable
+                });
+                this.cartItems = res.data;
+            } catch (error) {
+                console.error("Error fetching cart items:", error);
+            }
+        },
+        async addToCart(prodID) {
+            try {
+                const res = await axios.post(`${API_BASE_URL}/amzn/fba-cart/add`, {
+                    ProdID: prodID,
+                    CartID: this.cartID,            // ✅ make sure cartID exists from getOrCreateCart
+                    processby: 'Jundell'     // ✅ can be static for now
+                });
+                alert('Item added to cart ✅');
+                this.fetchCartItems(); // refresh cart
+            } catch (error) {
+                if (error.response && error.response.status === 409) {
+                    alert('⚠️ Item already in cart');
+                } else {
+                    console.error("Error adding to cart:", error);
+                    alert('❌ Failed to add item.');
+                }
+            }
+        },
+        async removeCartItem(prodID) {
+            try {
+                await axios.delete(`${API_BASE_URL}/amzn/fba-cart/remove`, {
+                    data: { ProdID: prodID }
+                });
+                alert('🗑️ Item removed from cart');
+                this.fetchCartItems(); // refresh cart
+            } catch (error) {
+                console.error("Error removing cart item:", error);
+                alert('❌ Failed to remove item');
+            }
         }
+
     }
 };
 </script>

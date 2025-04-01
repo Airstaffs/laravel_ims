@@ -185,6 +185,13 @@ use App\Http\Controllers\Ebay\EbayController;
 
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
+use App\Http\Controllers\Amzn\FBACartController;
+
+Route::post('/amzn/fba-cart/add', [FBACartController::class, 'addToCart']);
+Route::get('/amzn/fba-cart/list', [FBACartController::class, 'list']);
+Route::get('/amzn/fba-cart/get-or-create-cart', [FBACartController::class, 'getOrCreateCart']);
+Route::delete('/amzn/fba-cart/remove', [FBACartController::class, 'removeFromCart']);
+
 use App\Http\Controllers\Amzn\FBAShipmentController;
 // localhost:8000
 Route::post('/amzn/fba-shipment/add-item', [FBAShipmentController::class, 'addItemToShipment']);

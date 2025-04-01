@@ -273,6 +273,7 @@
 import axios from "axios";
 import { eventBus } from "./eventBus"; // Using your event bus
 import "../../css/modules.css";
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
   name: "ProductList",
@@ -314,9 +315,7 @@ export default {
   methods: {
     async fetchInventory() {
       try {
-        const response = await axios.get(
-          `http://127.0.0.1:8000/products`,
-          {
+        const response = await axios.get(`${API_BASE_URL}/products`, {
             params: {
               search: this.searchQuery,
               page: this.currentPage,

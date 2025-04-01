@@ -4,10 +4,13 @@ namespace App\Http\Controllers\Amzn;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\User;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
 
@@ -17,40 +20,61 @@ class FBAShipmentController extends Controller
 {
     public function addItemToShipment(Request $request)
     {
-        $request->validate([
-            'shipmentID' => 'required|string',
-            'product' => 'required|array'
-        ]);
+        try {
+            // Validate request
+            $request->validate([
+                'shipmentID' => 'required|string',
+                'product' => 'required|array'
+            ]);
 
-        $shipmentID = $request->shipmentID;
-        $product = $request->product;
+            // Get the authenticated user
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json(['error' => 'Not authenticated'], 401);
+            }
 
-        // Get dateshipped from existing shipment
-        $dateshipped = DB::table('tblfbashipmenthistory')
-            ->where('shipmentID', $shipmentID)
-            ->value('dateshipped');
+            $user = User::find($user->id)->fresh(); // ensure fresh data
+            $username = $user->name ?? 'System';
 
-        if (!$dateshipped) {
-            return response()->json(['error' => 'Invalid shipment ID or no shipment date found.'], 404);
+            $shipmentID = $request->shipmentID;
+            $product = $request->product;
+
+            // Get dateshipped from existing shipment
+            $dateshipped = DB::table('tblfbashipmenthistory')
+                ->where('shipmentID', $shipmentID)
+                ->value('dateshipped');
+
+            if (!$dateshipped) {
+                return response()->json(['error' => 'Invalid shipment ID or no shipment date found.'], 404);
+            }
+
+            // Insert the product into the shipment
+            DB::table('tblfbashipmenthistory')->insert([
+                'ProductName' => $product['ProductTitle'] ?? '',
+                'ASIN' => $product['ASINviewer'] ?? '',
+                'FNSKU' => $product['FNSKUviewer'] ?? '',
+                'MSKU' => $product['MSKUviewer'] ?? '',
+                'Serialnumber' => $product['serialnumber'] ?? '',
+                'shipmentID' => $shipmentID,
+                'dateshipped' => $dateshipped,
+                'Location' => 'SHIPMENT',
+                'store' => 'Renovar Tech',
+                'row_show' => 1,
+                'processby' => $username
+            ]);
+
+            return response()->json(['success' => true]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to add item to shipment', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json(['error' => 'Failed to add item to shipment.'], 500);
         }
-
-        // Insert the product into the shipment
-        DB::table('tblfbashipmenthistory')->insert([
-            'ProductName' => $product['ProductTitle'] ?? '',
-            'ASIN' => $product['ASINviewer'] ?? '',
-            'FNSKU' => $product['FNSKUviewer'] ?? '',
-            'MSKU' => $product['MSKUviewer'] ?? '',
-            'Serialnumber' => $product['serialnumber'] ?? '',
-            'shipmentID' => $shipmentID,
-            'dateshipped' => $dateshipped,
-            'Location' => 'SHIPMENT',
-            'store' => 'Renovar Tech',
-            'row_show' => 1,
-            'processby' => auth()->user()->name ?? 'System'
-        ]);
-
-        return response()->json(['success' => true]);
     }
+
 
     public function fetch_shipment(Request $request)
     {

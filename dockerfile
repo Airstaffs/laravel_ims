@@ -9,6 +9,9 @@ RUN apt-get update && apt-get install -y \
     unzip \
     curl
 
+# ✅ Install PHP extensions (PDO + MySQL)
+RUN docker-php-ext-install pdo pdo_mysql
+
 # Install Node.js and npm
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y nodejs
@@ -28,9 +31,9 @@ RUN composer install
 # Install frontend dependencies
 RUN npm install
 
+# Set folder permissions
 RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache && \
     chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
-
 
 # Expose port 8000
 EXPOSE 8000
