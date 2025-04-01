@@ -21,6 +21,9 @@
         {{ totalScanned }}
       </span>
     </div>
+    <button class="pagination-button" @click="loadFBAInboundShipment">
+      FBA Inbound Shipment
+    </button>
     
     <!-- Pagination -->
     <div class="pagination">
