@@ -17,6 +17,7 @@ use App\Http\Controllers\UPSController;
 use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\EmployeeClockController;
 use App\Http\Controllers\UserLogsController;
+use App\Http\Controllers\StockroomController;
 
 
 Route::get('/', function () {
@@ -241,4 +242,11 @@ Route::get('/csrf-token', function () {
 
 Route::middleware(['web', \App\Http\Middleware\RefreshSession::class])->group(function () {
     // Your existing routes go here
+});
+
+
+Route::prefix('api/stockroom')->group(function () {
+    Route::get('products', [StockroomController::class, 'index']);
+    Route::post('process-scan', [StockroomController::class, 'processScan']);
+    Route::post('print-label', [StockroomController::class, 'printLabel']);
 });
