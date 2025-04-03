@@ -18,6 +18,7 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\EmployeeClockController;
 use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\StockroomController;
+use App\Http\Controllers\UnreceivedController;
 
 
 Route::get('/', function () {
@@ -233,9 +234,18 @@ Route::middleware(['web', \App\Http\Middleware\RefreshSession::class])->group(fu
     // Your existing routes go here
 });
 
-
+// Routes for Stockroom scanner
 Route::prefix('api/stockroom')->group(function () {
     Route::get('products', [StockroomController::class, 'index']);
     Route::post('process-scan', [StockroomController::class, 'processScan']);
     Route::post('print-label', [StockroomController::class, 'printLabel']);
+});
+
+// Routes for Unreceived scanner
+Route::prefix('api/unreceived')->group(function () {
+    Route::get('products', [UnreceivedController::class, 'index']);
+    Route::get('verify-tracking', [UnreceivedController::class, 'verifyTracking']);
+    Route::get('get-next-rpn', [UnreceivedController::class, 'getNextRpn']);
+    Route::post('process-scan', [UnreceivedController::class, 'processScan']);
+    // Other unreceived-specific endpoints
 });
