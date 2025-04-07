@@ -75,6 +75,18 @@ class FBAShipmentController extends Controller
         }
     }
 
+    public function deleteShipmentItem(Request $request)
+    {
+        $request->validate([
+            'ID' => 'required|integer',
+        ]);
+
+        DB::table('tblfbashipmenthistory')
+            ->where('ID', $request->ID)
+            ->delete();
+
+        return response()->json(['message' => 'Item removed from shipment.']);
+    }
 
     public function fetch_shipment(Request $request)
     {
@@ -97,6 +109,7 @@ class FBAShipmentController extends Controller
                 ->where('shipmentID', $shipment->shipmentID)
                 ->where('row_show', 1)
                 ->get([
+                    'ID',
                     'ProductName',
                     'ASIN',
                     'FNSKU',
@@ -109,6 +122,229 @@ class FBAShipmentController extends Controller
         }
 
         return response()->json($shipments);
+    }
+
+    public function package_dimension_fetcher(Request $request)
+    {
+        $request->validate([
+            'store' => 'nullable|string',
+            'destinationMarketplace' => 'nullable|string',
+            'nextToken' => 'nullable|string',
+            'shipmentID' => 'nullable|string'
+        ]);
+
+        $store = $request->input('store', 'Renovar Tech');
+        $nextToken = $request->input('nextToken', null);
+        $destinationMarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
+        $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
+
+        // Fetch ASINs from tblfbashipmenthistory where shipmentID matches
+        $asins = DB::table('tblfbashipmenthistory')
+            ->where('shipmentID', $shipmentID)
+            ->pluck('asin'); // Fetch only the 'asin' column
+
+        $data_additionale = [];
+
+        // Process each ASIN
+        foreach ($asins as $asin) {
+            // Query tblasin for dimension data
+            $asinData = DB::table('tblasin')
+                ->where('asin', $asin)
+                ->select(
+                    'white_length',
+                    'white_width',
+                    'white_height',
+                    'white_lbs',
+                    'dimension_length',
+                    'dimension_width',
+                    'dimension_height'
+                )
+                ->first();
+
+            // Format the data as required
+            $formattedData = [
+                'asin' => $asin,
+                'shipmentID' => $shipmentID,
+                'retail_box' => [
+                    'retail_length' => $asinData ? $asinData->dimension_length : null,
+                    'retail_width' => $asinData ? $asinData->dimension_width : null,
+                    'retail_height' => $asinData ? $asinData->dimension_height : null
+                ],
+                'white_box' => [
+                    'white_length' => $asinData ? $asinData->white_length : null,
+                    'white_width' => $asinData ? $asinData->white_width : null,
+                    'white_height' => $asinData ? $asinData->white_height : null,
+                    'white_lbs' => $asinData ? $asinData->white_lbs : null
+                ],
+                'processed_at' => now(),
+            ];
+
+            // Add to results array
+            $data_additionale[] = $formattedData;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Processed ASINs successfully',
+            'data' => $data_additionale
+        ]);
+    }
+
+    /*
+        public function package_dimension_fetcher(Request $request)
+        {
+            $request->validate([
+                'store' => 'nullable|string',
+                'destinationMarketplace' => 'nullable|string',
+                'nextToken' => 'nullable|string',
+                'shipmentID' => 'nullable|string'
+            ]);
+
+            $store = $request->input('store', 'Renovar Tech');
+            $nextToken = $request->input('nextToken', null);
+            $destinationMarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
+            $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
+
+            // Fetch ASINs from tblshiphistory where shipmentID matches
+            $asins = DB::table('tblshiphistory')
+                ->where('shipmentID', $shipmentID)
+                ->pluck('asin'); // Fetch only the 'asin' column
+
+            $data_additionale = [];
+
+            // Process each ASIN
+            foreach ($asins as $asin) {
+                // Call amazon_catalog_asin and pass the asin
+                $data = $this->amazon_catalog_asin($asin, $store, $destinationMarketplace, $shipmentID);
+
+                // Collect the results
+                $data_additionale[] = [
+                    'asin' => $asin,
+                    'shipmentID' => $shipmentID,
+                    'data' => $data, // Store returned data
+                    'processed_at' => now(),
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Processed ASINs successfully',
+                'data' => $data_additionale
+            ]);
+        }
+    */
+
+
+
+    public function amazon_catalog_asin($asin, $store, $destinationmarketplace)
+    {
+
+        $data_additionale = []; // data that is to be passed to jsonCreation
+        $nextToken = null;
+
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
+        $path = '/inbound/fba/2024-03-20/inboundPlans';
+
+        $customParams = [
+            'marketplaceIds' => $destinationmarketplace,
+            'includedData' => "attributes,classifications,dimensions,identifiers,images,productTypes,salesRanks,summaries,relationships,vendorDetails"
+        ];
+
+        $companydetails = $this->fetchCompanyDetails();
+
+        if (!$companydetails) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        // Generate JSON payload
+        $jsonData = [];
+
+        // Check if JSON encoding failed
+        if ($jsonData === false) {
+            Log::error('JSON Encoding Failed:', ['error' => json_last_error_msg()]);
+            return response()->json(['success' => false, 'message' => 'JSON encoding error'], 500);
+        }
+
+
+        $credentials = AWSCredentials($store);
+        if (!$credentials) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No credentials found for the given store.',
+            ], 500);
+        }
+
+        $accessToken = fetchAccessToken($credentials, $returnRaw = false);
+        if (!$accessToken) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch access token.',
+            ], 500);
+        }
+
+        try {
+            // Build headers using the helper function
+            $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+            // Ensure Content-Type is set
+            $headers['Content-Type'] = 'application/json';
+            $headers['accept'] = 'application/json';
+
+            // Log the headers
+            Log::info('Request headers:', $headers);
+
+            // Build query string using the helper function
+            $queryString = buildQueryString($nextToken, $customParams);
+
+            // Construct the full URL
+            $url = "{$endpoint}{$path}{$asin}{$queryString}";
+
+            // Log the request details (headers, body, etc.) for debugging
+            Log::info('Request details:', [
+                'url' => $url,
+                'headers' => $headers,
+                'queryString' => $queryString,
+                'body' => $jsonData
+            ]);
+
+            // Make the HTTP request (change GET to POST)
+            $response = Http::timeout(50)
+                ->withHeaders($headers)
+                ->withBody($jsonData, 'application/json') // Ensure JSON is properly sent
+                ->get($url);
+
+            // Log the curl information (response details)
+            $curlInfo = $response->handlerStats(); // This will give you cURL-like information
+
+            Log::info('Curl Info:', $curlInfo);
+
+            // Return the response with logs included
+            if ($response->successful()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => $response->json(),
+                    'logs' => $curlInfo, // Add the log details here
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Successfully sent but error.',
+                'headers' => $headers,
+                'error' => $response->json(),
+                // 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
+                'logs' => $curlInfo,
+            ], $response->status());
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during the API request.',
+                'error' => $e->getMessage(),
+                'logs' => $curlInfo ?? null, // If logs exist, return them
+            ], 500);
+        }
+
+        // prodduces inboundplanid
     }
 
     public function step1_createShipment(Request $request)
@@ -226,7 +462,6 @@ class FBAShipmentController extends Controller
         // prodduces inboundplanid
     }
 
-
     public function step2a_generate_packing(Request $request)
     {
         $request->validate([
@@ -241,7 +476,7 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
-        $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1');
+        $inboundplanid = $request->input('inboundplanid', 'wfcef22641-f04e-414d-ae7a-17c8d29caf61');
 
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
@@ -1075,7 +1310,6 @@ class FBAShipmentController extends Controller
     {
         return DB::table('tblcompanydetails')->where('id', 1)->first();
     }
-
     protected function JsonCreation($action, $companydetails, $marketplaceID, $shipmentID, $data_additionale)
     {
         $systemconfig = 'test';
