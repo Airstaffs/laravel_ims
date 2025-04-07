@@ -335,7 +335,7 @@ function checkPermission($module, $mainModule, $subModules) {
 $modules = [
     'order' => 'Order',
     'unreceived' => 'Unreceived',
-    'receiving' => 'Receiving',
+    'receiving' => 'Received',
     'labeling' => 'Labeling',
     'validation' => 'Validation',
     'testing' => 'Testing',

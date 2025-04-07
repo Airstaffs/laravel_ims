@@ -176,6 +176,7 @@ import { eventBus } from './eventBus';
 import ScannerComponent from './Scanner.vue';
 import { SoundService } from './Sound_service';
 import '../../css/modules.css';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
   name: 'ReceivedModule',
@@ -221,7 +222,7 @@ export default {
   methods: {
     async fetchInventory() {
       try {
-        const response = await axios.get(`/products`, {
+        const response = await axios.get(`${API_BASE_URL}/products`, {
           params: { 
             search: this.searchQuery, 
             page: this.currentPage, 
