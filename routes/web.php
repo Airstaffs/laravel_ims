@@ -19,6 +19,7 @@ use App\Http\Controllers\EmployeeClockController;
 use App\Http\Controllers\UserLogsController;
 use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\UnreceivedController;
+use App\Http\Controllers\ReceivedController;
 
 
 Route::get('/', function () {
@@ -161,7 +162,6 @@ Route::get('/apis/ebay-login', action: function () {
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
 
-
 Route::get('/apis/ebay-callback', action: function () {
     require app_path('Helpers/ebay_helpers.php');
     // Check if the 'code' parameter is present in the URL
@@ -188,12 +188,24 @@ use App\Http\Controllers\Ebay\EbayController;
 
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
+use App\Http\Controllers\Amzn\FBACartController;
+
+Route::post('/amzn/fba-cart/add', [FBACartController::class, 'addToCart']);
+Route::get('/amzn/fba-cart/list', [FBACartController::class, 'list']);
+Route::get('/amzn/fba-cart/get-or-create-cart', [FBACartController::class, 'getOrCreateCart']);
+Route::delete('/amzn/fba-cart/remove', [FBACartController::class, 'removeFromCart']);
+
 use App\Http\Controllers\Amzn\FBAShipmentController;
 // localhost:8000
+Route::post('/amzn/fba-shipment/add-item', [FBAShipmentController::class, 'addItemToShipment']);
+Route::get('/amzn/fba-shipment/fetch-shipments', [FBAShipmentController::class, 'fetch_shipment']);
 Route::get('/amzn/fba-shipment/step1/create-shipment', [FBAShipmentController::class, 'step1_createShipment']);
 Route::get('/amzn/fba-shipment/step2/generate-packing', [FBAShipmentController::class, 'step2a_generate_packing']);
 Route::get('/amzn/fba-shipment/step2/list-packing-options', [FBAShipmentController::class, 'step2b_list_packing_options']);
 Route::get('/amzn/fba-shipment/step2/list-items-packing-option', [FBAShipmentController::class, 'step2c_list_items_by_packing_options']);
+Route::get('/amzn/fba-shipment/step2/confirm-packing-option', [FBAShipmentController::class, 'step2d_confirm_packing_option']);
+Route::get('/amzn/fba-shipment/step3/packing_information', [FBAShipmentController::class, 'step3a_packing_information']);
+Route::get('/amzn/fba-shipment/step4/placement_option', [FBAShipmentController::class, 'step4a_placement_option']);
 
 Route::get('/apis/ebay-login', action: function () {
     $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e'; // Replace with your client ID
@@ -248,4 +260,16 @@ Route::prefix('api/unreceived')->group(function () {
     Route::get('get-next-rpn', [UnreceivedController::class, 'getNextRpn']);
     Route::post('process-scan', [UnreceivedController::class, 'processScan']);
     // Other unreceived-specific endpoints
+});
+
+// Routes for Received scanner 
+Route::prefix('api/received')->group(function () {
+    Route::get('products', [ReceivedController::class, 'index']);
+    Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
+    Route::post('process-scan', [ReceivedController::class, 'processScan']);
+});
+
+// Routes for Labeling Function 
+Route::prefix('api/labeling')->group(function () {
+    Route::get('products', [LabelingController::class, 'index']);
 });

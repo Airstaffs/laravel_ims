@@ -21,13 +21,20 @@
         {{ totalScanned }}
       </span>
     </div>
+    <button class="pagination-button" @click="loadFBAInboundShipment">
+      FBA Inbound Shipment
+    </button>
     
     <!-- Pagination -->
     <div class="pagination">
-      <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Back</button>
+      <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+        Back
+      </button>
       <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-      <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
-      
+      <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
+        Next
+      </button>
+
       <select v-model="perPage" @change="changePerPage">
         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
           {{ option }}
@@ -41,24 +48,32 @@
           <tr>
             <th>
               <input type="checkbox" @click="toggleAll" v-model="selectAll" />
-              <a style="color:black" @click="sortBy('AStitle')" class="sortable">
+              <a style="color: black" @click="sortBy('AStitle')" class="sortable">
                 Product Name
                 <span v-if="sortColumn === 'AStitle'">
-                  {{ sortOrder === 'asc' ? '▲' : '▼' }}
+                  {{ sortOrder === "asc" ? "▲" : "▼" }}
                 </span>
               </a>
-              <span style="margin-right: 20px;"></span>
-              <a style="color:black" @click="sortBy('rtcounter')" class="sortable">
+              <span style="margin-right: 20px"></span>
+              <a style="color: black" @click="sortBy('rtcounter')" class="sortable">
                 RT counter
                 <span v-if="sortColumn === 'rtcounter'">
-                  {{ sortOrder === 'asc' ? '▲' : '▼' }}
-                </span> </a>
+                  {{ sortOrder === "asc" ? "▲" : "▼" }}
+                </span>
+              </a>
 
-                <span style="margin-right: 20px;"></span>
+              <span style="margin-right: 20px"></span>
 
-                <button class="Desktop" style="border: solid 1px black; background-color: aliceblue;" @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}</button>
-
-             
+              <button class="Desktop" style="
+                                    border: solid 1px black;
+                                    background-color: aliceblue;
+                                " @click="toggleDetailsVisibility">
+                {{
+                  showDetails
+                    ? "Hide extra columns"
+                    : "Show extra columns"
+                }}
+              </button>
             </th>
             <th class="Desktop">Location</th>
             <th class="Desktop">Added date</th>
@@ -66,13 +81,25 @@
             <th class="Desktop">Fnsku</th>
             <th class="Desktop">Msku</th>
             <th class="Desktop">Asin</th>
-            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">FBM</th>
-            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">FBA</th>
-            <th class="Desktop"style="background-color: antiquewhite;" v-if="showDetails">Outbound</th>
-            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Inbound</th>
-            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Unfulfillable</th>
-            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Reserved</th>
-            <th class="Desktop" >Fulfillment</th>
+            <th class="Desktop" style="background-color: antiquewhite" v-if="showDetails">
+              FBM
+            </th>
+            <th class="Desktop" style="background-color: antiquewhite" v-if="showDetails">
+              FBA
+            </th>
+            <th class="Desktop" style="background-color: antiquewhite" v-if="showDetails">
+              Outbound
+            </th>
+            <th class="Desktop" style="background-color: antiquewhite" v-if="showDetails">
+              Inbound
+            </th>
+            <th class="Desktop" style="background-color: antiquewhite" v-if="showDetails">
+              Unfulfillable
+            </th>
+            <th class="Desktop" style="background-color: antiquewhite" v-if="showDetails">
+              Reserved
+            </th>
+            <th class="Desktop">Fulfillment</th>
             <th class="Desktop">Status</th>
             <th class="Desktop">Serialnumber</th>
             <th class="Desktop">Actions</th>
@@ -84,53 +111,82 @@
               <td class="vue-details">
                 <div class="checkbox-container">
                   <input type="checkbox" v-model="item.checked" />
-                  <span class="placeholder-date">{{ item.shipBy || '' }}</span>
+                  <span class="placeholder-date">{{
+                    item.shipBy || ""
+                    }}</span>
                 </div>
                 <div class="product-container">
                   <img src="" alt="Product Image" class="product-thumbnail" />
                   <div class="product-info">
-                    <p class="product-name">RT# : {{ item.rtcounter }}</p>
-                    <p class="product-name">{{ item.AStitle }}</p>
+                    <p class="product-name">
+                      RT# : {{ item.rtcounter }}
+                    </p>
+                    <p class="product-name">
+                      {{ item.AStitle }}
+                    </p>
 
-                    <p class="Mobile">Location : {{ item.warehouselocation }}</p>
-                    <p class="Mobile">Added date : {{ item.datedelivered }}</p>
-                    <p class="Mobile">Updated date : {{ item.lastDateUpdate }}</p>
-                    <p class="Mobile">Fnsku : {{ item.FNSKUviewer }}</p>
-                    <p class="Mobile">Msku : {{ item.MSKUviewer }}</p>
-                    <p class="Mobile">Asin : {{ item.ASINviewer }}</p>
+                    <p class="Mobile">
+                      Location :
+                      {{ item.warehouselocation }}
+                    </p>
+                    <p class="Mobile">
+                      Added date :
+                      {{ item.datedelivered }}
+                    </p>
+                    <p class="Mobile">
+                      Updated date :
+                      {{ item.lastDateUpdate }}
+                    </p>
+                    <p class="Mobile">
+                      Fnsku : {{ item.FNSKUviewer }}
+                    </p>
+                    <p class="Mobile">
+                      Msku : {{ item.MSKUviewer }}
+                    </p>
+                    <p class="Mobile">
+                      Asin : {{ item.ASINviewer }}
+                    </p>
                   </div>
                 </div>
               </td>
               <td class="Desktop">
-                <span><strong></strong> {{ item.warehouselocation }}</span>
-                </td>
-        
+                <span><strong></strong>
+                  {{ item.warehouselocation }}</span>
+              </td>
+
               <td class="Desktop">
-                <span><strong></strong> {{ item.datedelivered }}</span>
+                <span><strong></strong>
+                  {{ item.datedelivered }}</span>
               </td>
-              
+
               <td class="Desktop">
-                <span><strong></strong> {{ item.lastDateUpdate }}</span>
+                <span><strong></strong>
+                  {{ item.lastDateUpdate }}</span>
               </td>
-              
-              <td class="Desktop">           
-                <span><strong></strong> {{ item.FNSKUviewer }}</span>
+
+              <td class="Desktop">
+                <span><strong></strong>
+                  {{ item.FNSKUviewer }}</span>
               </td>
-              
-              <td class="Desktop">        
-                <span><strong></strong> {{ item.MSKUviewer }}</span>
+
+              <td class="Desktop">
+                <span><strong></strong>
+                  {{ item.MSKUviewer }}</span>
               </td>
-              
-              <td class="Desktop">              
-               <span><strong></strong> {{ item.ASINviewer }}</span>
+
+              <td class="Desktop">
+                <span><strong></strong>
+                  {{ item.ASINviewer }}</span>
               </td>
               
               <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
               <td v-if="showDetails">
-                <span><strong></strong> {{ item.FBMAvailable }}</span>
+                <span><strong></strong>
+                  {{ item.FBMAvailable }}</span>
               </td>
               <td v-if="showDetails">
-                <span><strong></strong> {{ item.FbaAvailable }}</span>
+                <span><strong></strong>
+                  {{ item.FbaAvailable }}</span>
               </td>
               <td v-if="showDetails">
                 <span><strong></strong> {{ item.Outbound }}</span>
@@ -142,13 +198,16 @@
                 <span><strong></strong> {{ item.Reserved }}</span>
               </td>
               <td v-if="showDetails">
-                <span><strong></strong> {{ item.Unfulfillable }}</span>
+                <span><strong></strong>
+                  {{ item.Unfulfillable }}</span>
               </td>
-            <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
-
+              <!-- Hidden -->
+              <!-- Hidden -->
+              <!-- Hidden -->
 
               <td class="Desktop">
-                <span><strong></strong> {{ item.Fulfilledby }}</span>
+                <span><strong></strong>
+                  {{ item.Fulfilledby }}</span>
               </td>
 
               <td class="Desktop">
@@ -156,51 +215,70 @@
               </td>
 
               <td class="Desktop">
-                <span><strong></strong> {{ item.serialnumber }}</span>
+                <span><strong></strong>
+                  {{ item.serialnumber }}</span>
               </td>
-          
 
-             <!-- Button for more details -->
+              <!-- Button for more details -->
               <td class="Desktop">
                 {{ item.totalquantity }}
                 <button class="btn-moredetails" @click="toggleDetails(index)">
-                  {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                  {{
+                    expandedRows[index]
+                      ? "Less Details"
+                      : "More Details"
+                  }}
                 </button>
-                <br>
-                <button class="btn-moredetails">example</button><br>
-                <button class="btn-moredetails">example</button><br>
-                <button class="btn-moredetails">example</button><br>
+                <br />
+                <button class="btn-moredetails">example</button><br />
+                <button class="btn-moredetails">example</button><br />
+                <button class="btn-moredetails">example</button><br />
               </td>
             </tr>
-             <!-- More details results -->
+            <!-- More details results -->
             <tr v-if="expandedRows[index]">
               <td colspan="11">
                 <div class="expanded-content p-3 border rounded">
                   <div class="Mobile">
-                  <button class="btn-moredetails">sample button</button>
-                  <button class="btn-moredetails">sample button</button>
-                  <button class="btn-moredetails">sample button</button>
+                    <button class="btn-moredetails">
+                      sample button
+                    </button>
+                    <button class="btn-moredetails">
+                      sample button
+                    </button>
+                    <button class="btn-moredetails">
+                      sample button
+                    </button>
                   </div>
-                  <strong>Product Name:</strong> {{ item.AStitle }}
+                  <strong>Product Name:</strong>
+                  {{ item.AStitle }}
                 </div>
               </td>
             </tr>
 
-             <!-- Button for more details (Mobile) -->
-               <td class="Mobile">
-                {{ item.totalquantity }}
-                <button style="width: 100%; border-bottom: 2px solid black; padding:0px" @click="toggleDetails(index)">
-                  {{ expandedRows[index] ? 'Less Details ▲ ' : 'More Details ▼ ' }}
-                </button>
-              </td>
-          
-          
+            <!-- Button for more details (Mobile) -->
+            <td class="Mobile">
+              {{ item.totalquantity }}
+              <button style="
+                                    width: 100%;
+                                    border-bottom: 2px solid black;
+                                    padding: 0px;
+                                " @click="toggleDetails(index)">
+                {{
+                  expandedRows[index]
+                    ? "Less Details ▲ "
+                    : "More Details ▼ "
+                }}
+              </button>
+            </td>
           </template>
         </tbody>
       </table>
       <!-- Pagination -->
       <div class="pagination">
-        <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Back</button>
+        <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+          Back
+        </button>
         <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
         <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
       </div>
@@ -433,23 +511,10 @@
 import axios from 'axios';
 import { eventBus } from './eventBus'; // Using your event bus
 import '../../css/modules.css';
-
-// Add the camera constraints constant here, outside the component definition
-const CAMERA_CONSTRAINTS = {
-  video: { 
-    facingMode: "environment",
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
-    // Add these to control zoom level
-    advanced: [
-      { zoom: 1 } // 1 = no zoom, increase for more zoom
-    ]
-  },
-  audio: false
-};
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
-  name: 'ProductList',
+  name: "ProductList",
   data() {
     return {
       inventory: [],
@@ -458,8 +523,8 @@ export default {
       perPage: 10, // Default rows per page
       selectAll: false,
       expandedRows: {},
-      sortColumn: '',
-      sortOrder: 'asc',   
+      sortColumn: "",
+      sortOrder: "asc",
       showDetails: false,
       
       // Scanner related data
@@ -507,11 +572,13 @@ export default {
         const valueA = a[this.sortColumn];
         const valueB = b[this.sortColumn];
 
-        if (typeof valueA === 'number' && typeof valueB === 'number') {
-          return this.sortOrder === 'asc' ? valueA - valueB : valueB - valueA;
+        if (typeof valueA === "number" && typeof valueB === "number") {
+          return this.sortOrder === "asc"
+            ? valueA - valueB
+            : valueB - valueA;
         }
 
-        return this.sortOrder === 'asc'
+        return this.sortOrder === "asc"
           ? String(valueA).localeCompare(String(valueB))
           : String(valueB).localeCompare(String(valueA));
       });
@@ -567,20 +634,14 @@ export default {
     // Fetch inventory method
     async fetchInventory() {
       try {
-        const response = await axios.get('/products', {
-          params: { 
-            search: this.searchQuery, 
-            page: this.currentPage, 
-            per_page: this.perPage, 
-            location: 'stockroom' 
-          },
-          withCredentials: true
+        const response = await axios.get(`${API_BASE_URL}/products`, {
+          params: { search: this.searchQuery, page: this.currentPage, per_page: this.perPage, location: 'stockroom' }, withCredentials: true
         });
 
         this.inventory = response.data.data;
         this.totalPages = response.data.last_page;
       } catch (error) {
-        console.error('Error fetching inventory data:', error);
+        console.error("Error fetching inventory data:", error);
       }
     },
 
@@ -607,7 +668,10 @@ export default {
       this.inventory.forEach((item) => (item.checked = this.selectAll));
     },
     toggleDetails(index) {
-      this.expandedRows = { ...this.expandedRows, [index]: !this.expandedRows[index] };
+      this.expandedRows = {
+        ...this.expandedRows,
+        [index]: !this.expandedRows[index],
+      };
     },
     toggleDetailsVisibility() {
       this.showDetails = !this.showDetails;
@@ -616,10 +680,17 @@ export default {
     // Sorting method
     sortBy(column) {
       if (this.sortColumn === column) {
-        this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+        this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
       } else {
         this.sortColumn = column;
-        this.sortOrder = 'asc';
+        this.sortOrder = "asc";
+      }
+    },
+    loadFBAInboundShipment() {
+      if (window.loadContent) {
+        window.loadContent("fbashipmentinbound");
+      } else {
+        console.error("loadContent not found on window");
       }
     },
 
@@ -1499,11 +1570,9 @@ stopCamera() {
 </script>
 
 <style>
-/* Existing styles */
-.expanded-content{
-  background-color: azure;
+/* Existing styles */.expanded-content {
+    background-color: azure;
 }
-
 /* NEW - Top Notification Styles */
 .top-notification-container {
   position: fixed;

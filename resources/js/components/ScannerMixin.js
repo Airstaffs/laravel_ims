@@ -42,7 +42,7 @@ export default {
       showCameraModal: false,
       capturedImages: [],
       previewImages: true,
-      maxImages: 5,
+      maxImages: 10,
       isCameraBeingReleased: false,
       
       // Scan statistics

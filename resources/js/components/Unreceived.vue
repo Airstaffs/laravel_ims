@@ -134,7 +134,9 @@
 import axios from 'axios';
 import { eventBus } from './eventBus'; 
 import ScannerComponent from './Scanner.vue';
+import { SoundService } from './Sound_service';
 import '../../css/modules.css';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
   name: 'UnreceivedModule',
@@ -157,6 +159,7 @@ export default {
       trackingValid: false,
       trackingFound: false,
       productId: '',
+      rtcounter: '', // Added rtcounter field
       
       // For validation
       trackingNumberValid: true,
@@ -191,6 +194,7 @@ export default {
         this.totalPages = response.data.last_page;
       } catch (error) {
         console.error('Error fetching inventory data:', error);
+        SoundService.error(); // Error vibration for fetch failure
       }
     },
     
@@ -216,12 +220,17 @@ export default {
     validateTrackingNumber() {
       // Basic validation - can be enhanced as needed
       this.trackingNumberValid = this.trackingNumber.trim() !== '';
+      if (!this.trackingNumberValid) {
+        SoundService.error(); // Error vibration for invalid input
+      }
+      return this.trackingNumberValid;
     },
     
     // Handle PRD date change - auto submit in auto mode
     handlePrdDateChange(event) {
       // In auto mode, when date is selected, automatically submit
       if (!this.showManualInput && this.prdDate) {
+        SoundService.success(); // Success sound for date selection
         this.submitScan();
       }
     },
@@ -229,6 +238,7 @@ export default {
     // Handle Today button click - set today's date and auto submit in auto mode
     handleTodayButtonClick() {
       this.prdDate = this.todayDate;
+      SoundService.success(); // Success sound for today button
       
       // In auto mode, automatically submit
       if (!this.showManualInput) {
@@ -254,6 +264,7 @@ export default {
       
       if (!this.trackingNumberValid) {
         this.$refs.scanner.showScanError('Please enter a valid tracking number');
+        SoundService.error(); // Error vibration for invalid tracking
         return;
       }
       
@@ -267,8 +278,9 @@ export default {
           // Tracking found in the database
           this.trackingFound = true;
           
-          // Store the product ID received from the backend
+          // Store the product ID and rtcounter received from the backend
           this.productId = response.data.productId;
+          this.rtcounter = response.data.rtcounter; // Store rtcounter
           
           // Get next RPN number from backend
           const rpnResponse = await axios.get('/api/unreceived/get-next-rpn');
@@ -276,14 +288,19 @@ export default {
           
           // Move to RPN step
           this.currentStep = 2;
+          SoundService.success(); // Success sound for found tracking
         } else {
           // Tracking not found
           this.$refs.scanner.showScanError('Tracking number not found in orders');
           this.trackingFound = false;
+          SoundService.notFound(); // Not found sound for missing tracking
+          this.$refs.trackingInput.select();
         }
       } catch (error) {
         console.error('Error verifying tracking:', error);
         this.$refs.scanner.showScanError('Error checking tracking number');
+        SoundService.error(); // Error vibration for network/server error
+        this.$refs.trackingInput.select();
       }
     },
     
@@ -291,6 +308,7 @@ export default {
     goToNextStep() {
       if (this.currentStep === 2) {
         this.currentStep = 3;
+        SoundService.success(); // Success sound for next step
         
         // In auto mode, don't set a default date - wait for user to select
         if (this.showManualInput) {
@@ -304,79 +322,113 @@ export default {
     // Set today's date for PRD
     setTodayDate() {
       this.prdDate = this.todayDate;
+      SoundService.success(); // Success sound for today date
     },
     
     // Submit the scan data
-    async submitScan() {
-      if (!this.prdDate) {
-        this.$refs.scanner.showScanError('Please select a PRD date');
-        return;
-      }
-      
-      if (!this.productId) {
-        this.$refs.scanner.showScanError('Missing product ID, please verify tracking number again');
-        return;
-      }
-      
-      try {
-        // Prepare the scan data
-        const scanData = {
-          trackingNumber: this.trackingNumber,
-          rpnNumber: this.rpnNumber,
-          prdDate: this.prdDate,
-          productId: this.productId
-        };
-        
-        // Get images from scanner component
-        const images = this.$refs.scanner.capturedImages.map(img => img.data);
-        
-        // Send data to API
-        const response = await axios.post('/api/unreceived/process-scan', {
-          ...scanData,
-          Images: images
-        }, {
-          withCredentials: true,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        });
-        
-        const data = response.data;
-        
-        if (data.success) {
-          // Show success notification
-          this.$refs.scanner.showScanSuccess(data.item || 'Item received successfully');
-          
-          // Add to scan history
-          this.$refs.scanner.addSuccessScan({
-            trackingnumber: this.trackingNumber,
-            rpn: this.rpnNumber,
-            prd: this.prdDate
-          });
-          
-          // Reset workflow
-          this.resetScannerState();
-          
-          // Refresh inventory
-          this.fetchInventory();
-        } else {
-          // Show error notification
-          this.$refs.scanner.showScanError(data.message || 'Error processing scan');
-          
-          // Add to error scan history
-          this.$refs.scanner.addErrorScan({
-            trackingnumber: this.trackingNumber,
-            rpn: this.rpnNumber,
-            prd: this.prdDate
-          }, data.reason || 'error');
-        }
-      } catch (error) {
-        console.error('Error submitting scan:', error);
-        this.$refs.scanner.showScanError('Network or server error');
-      }
-    },
+    // Submit the scan data
+async submitScan() {
+  if (!this.prdDate) {
+    this.$refs.scanner.showScanError('Please select a PRD date');
+    SoundService.error(); // Error vibration for missing date
+    return;
+  }
+  
+  if (!this.productId) {
+    this.$refs.scanner.showScanError('Missing product ID, please verify tracking number again');
+    SoundService.error(); // Error vibration for missing product ID
+    return;
+  }
+  
+  try {
+    // Prepare the scan data
+    const scanData = {
+      trackingNumber: this.trackingNumber,
+      rpnNumber: this.rpnNumber,
+      prdDate: this.prdDate,
+      productId: this.productId,
+      rtcounter: this.rtcounter // Include rtcounter
+    };
     
+    // Get images from scanner component
+    const images = this.$refs.scanner.capturedImages.map(img => img.data);
+    
+    // Send data to API
+    const response = await axios.post('/api/unreceived/process-scan', {
+      ...scanData,
+      Images: images
+    }, {
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    
+    const data = response.data;
+    
+    if (data.success) {
+      // Show success notification
+      this.$refs.scanner.showScanSuccess(data.item || 'Item received successfully');
+      SoundService.successScan(true); // Play special success sound with 
+      
+      const dateParts = this.prdDate.split('-');
+    const prdFormatted = dateParts.length === 3 ? 
+      `PRD${dateParts[1]}${dateParts[2]}${dateParts[0].substring(2)}` : 'PRD';
+      
+      // Add to scan history with detailed information
+      this.$refs.scanner.addSuccessScan({
+        Trackingnumber: this.trackingNumber,
+        RPN: this.rpnNumber,
+        PRD: prdFormatted
+      });
+
+      
+      // Reset workflow
+      this.resetScannerState();
+      
+      // Refresh inventory
+      this.fetchInventory();
+    } else {
+      // Show error notification
+      this.$refs.scanner.showScanError(data.message || 'Error processing scan');
+      SoundService.scanRejected(true); // Play special error sound with vibration
+
+      const dateParts = this.prdDate.split('-');
+    const prdFormatted = dateParts.length === 3 ? 
+      `PRD${dateParts[1]}${dateParts[2]}${dateParts[0].substring(2)}` : 'PRD';
+      
+      // Add to error scan history with detailed information
+      this.$refs.scanner.addErrorScan({
+        Trackingnumber: this.trackingNumber,
+        RPN: this.rpnNumber,
+        PRD: prdFormatted
+      }, data.reason || 'error');
+      
+      // Auto-select the tracking input text for quick rescanning
+      this.$nextTick(() => {
+        if (this.currentStep === 1 && this.$refs.trackingInput) {
+          this.$refs.trackingInput.select(); // Select all text in tracking input
+        } else if (this.currentStep === 3) {
+          // For date inputs, we might need a different approach
+          const dateInput = document.querySelector('.date-input');
+          if (dateInput) dateInput.focus();
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error submitting scan:', error);
+    this.$refs.scanner.showScanError('Network or server error');
+    SoundService.scanRejected(true); // Play special error sound with vibration
+    
+    // Auto-select the tracking input text for quick rescanning
+    this.$nextTick(() => {
+      if (this.currentStep === 1 && this.$refs.trackingInput) {
+        this.$refs.trackingInput.select(); // Select all text in tracking input
+      }
+    });
+  }
+},
     // Reset scanner state
     resetScannerState() {
       // Reset the scanner workflow to initial state
@@ -386,6 +438,7 @@ export default {
       this.prdDate = '';
       this.trackingFound = false;
       this.productId = '';
+      this.rtcounter = ''; // Reset rtcounter
       
       // Clear any pending auto-verify timeouts
       if (this.autoVerifyTimeout) {

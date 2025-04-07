@@ -1,6 +1,118 @@
 <template>
   <div class="vue-container">
-    <h1 class="vue-title">Cleaning Module</h1>
+    <h1 class="vue-title">Received Module</h1>
+    
+    <!-- Scanner Component -->
+    <scanner-component
+      scanner-title="Received Scanner"
+      storage-prefix="received"
+      :enable-camera="true"
+      :display-fields="['trackingnumber', 'firstsn', 'secondsn', 'pcn', 'basket']"
+      :api-endpoint="'/api/received/process-scan'"
+      @process-scan="handleScanProcess"
+      @hardware-scan="handleHardwareScan"
+      @scanner-opened="handleScannerOpened"
+      @scanner-closed="handleScannerClosed"
+      @scanner-reset="handleScannerReset"
+      @mode-changed="handleModeChange"
+      ref="scanner"
+    >
+      <!-- Define custom input fields for Received module -->
+      <template #input-fields>
+        <!-- Step 1: Tracking Number Input -->
+        <div class="input-group" v-if="currentStep === 1">
+          <label>Tracking Number:</label>
+          <input 
+            type="text" 
+            v-model="trackingNumber" 
+            placeholder="Enter Tracking Number..." 
+            @input="handleTrackingInput"
+            @keyup.enter="verifyTrackingNumber"
+            ref="trackingInput"
+          />
+          <!-- Only show Verify Tracking button in Manual mode -->
+          <button v-if="showManualInput" @click="verifyTrackingNumber" class="verify-button">Verify Tracking</button>
+        </div>
+        
+        <!-- Step 2: Pass/Fail Buttons (shown after tracking verification) -->
+        <div class="input-group" v-if="currentStep === 2">
+          <div class="tracking-verified">
+            <div class="success-banner">Tracking found for {{ trackingNumber }}</div>
+          </div>
+          <div class="pass-fail-buttons">
+            <button @click="passItem" class="pass-button">
+              <i class="fas fa-check"></i> Pass
+            </button>
+            <button @click="failItem" class="fail-button">
+              <i class="fas fa-times"></i> Fail
+            </button>
+          </div>
+        </div>
+        
+        <!-- Step 3: First Serial Number Input -->
+        <div class="input-group" v-if="currentStep === 3">
+          <label>First Serial Number:</label>
+          <input 
+            type="text" 
+            v-model="firstSerialNumber" 
+            placeholder="Scan First Serial Number..."
+            @input="handleFirstSerialInput"
+            @keyup.enter="processFirstSerial"
+            ref="firstSerialInput"
+          />
+          <button v-if="showManualInput" @click="processFirstSerial" class="scan-button">Scan</button>
+        </div>
+        
+        <!-- Step 4: Second Serial Number Input (with Skip option) -->
+        <div class="input-group" v-if="currentStep === 4">
+          <label>Second Serial Number:</label>
+          <input 
+            type="text" 
+            v-model="secondSerialNumber" 
+            placeholder="Scan Second Serial Number (or Skip)..."
+            @input="handleSecondSerialInput"
+            @keyup.enter="processSecondSerial"
+            ref="secondSerialInput"
+          />
+          <div class="button-group">
+            <button v-if="showManualInput" @click="processSecondSerial" class="scan-button">Scan</button>
+            <button @click="skipSecondSerial" class="skip-button">Skip</button>
+          </div>
+        </div>
+        
+        <!-- Step 5: PCN Input  -->
+      <div class="input-group" v-if="currentStep === 5">
+        <label>PCN (Product Control Number):</label>
+        <input 
+          type="text" 
+          v-model="pcnNumber" 
+          placeholder="Scan PCN Number..."
+          @input="handlePcnInput"
+          @keyup.enter="processPcnNumber"
+          ref="pcnInput"
+        />
+        <div class="container-type-hint">Enter PCN format: PCN followed by numbers (e.g., PCN12345)</div>
+        <button v-if="showManualInput" @click="processPcnNumber" class="scan-button">Scan</button>
+      </div>
+        
+        <!-- Step 6: Basket Number Input (now step 6) -->
+        <div class="input-group" v-if="currentStep === 6">
+          <label>Basket/Container Number:</label>
+          <input 
+            type="text" 
+            v-model="basketNumber" 
+            placeholder="Enter BKT/SH/ENV + numbers..."
+            @input="handleBasketInput"
+            @keyup.enter="processBasketNumber"
+            ref="basketInput"
+          />
+          <div class="container-type-hint">Enter numbers with prefix: BKT (Basket), SH (Shelf), or ENV (Envelope)</div>
+          <button v-if="showManualInput" @click="processBasketNumber" class="scan-button">Submit</button>
+        </div>
+      </template>
+    </scanner-component>
+    
+    <!-- Table Container -->
     <div class="table-container">
       <table>
         <thead>
@@ -60,11 +172,16 @@
 
 <script>
 import axios from 'axios';
-import { eventBus } from './eventBus'; // Using your event bus
+import { eventBus } from './eventBus';
+import ScannerComponent from './Scanner.vue';
+import { SoundService } from './Sound_service';
 import '../../css/modules.css';
 
 export default {
-  name: 'ProductList',
+  name: 'ReceivedModule',
+  components: {
+    ScannerComponent
+  },
   data() {
     return {
       inventory: [],
@@ -72,53 +189,769 @@ export default {
       totalPages: 1,
       selectAll: false,
       expandedRows: {},
+      
+      // Scanner workflow data
+      currentStep: 1, // 1: Tracking, 2: Pass/Fail, 3: First SN, 4: Second SN, 5: PCN, 6: Basket
+      trackingNumber: '',
+      firstSerialNumber: '',
+      secondSerialNumber: '',
+      pcnNumber: '',  // New PCN field
+      basketNumber: '',
+      trackingValid: false,
+      trackingFound: false,
+      productId: '',
+      rtcounter: '', // Added rtcounter field
+      status: '', // 'pass' or 'fail'
+      
+      // For validation
+      trackingNumberValid: true,
+      basketNumberValid: true,
+      pcnNumberValid: true,  // New validation field
+      
+      // For auto verification
+      autoVerifyTimeout: null,
+      showManualInput: false // Track manual mode state
     };
   },
   computed: {
     searchQuery() {
-      return eventBus.searchQuery; // Making search reactive
-    },
+      return eventBus.searchQuery;
+    }
   },
   methods: {
     async fetchInventory() {
       try {
-        const response = await axios.get(`http://127.0.0.1:8000/products`, {
-          params: { search: this.searchQuery, page: this.currentPage, location: 'stockroom', },
+        const response = await axios.get(`/products`, {
+          params: { 
+            search: this.searchQuery, 
+            page: this.currentPage, 
+            location: 'Received'
+          },
         });
-
+        
         this.inventory = response.data.data;
         this.totalPages = response.data.last_page;
       } catch (error) {
         console.error('Error fetching inventory data:', error);
+        SoundService.error(); // Error sound for fetch failure
       }
     },
+    
+    // Handle tracking input with auto verification in auto mode
+    handleTrackingInput(event) {
+      this.validateTrackingNumber();
+      
+      // In auto mode, automatically verify after short delay when typing
+      if (!this.showManualInput && this.trackingNumberValid && this.trackingNumber.length >= 5) {
+        // Clear any existing timeout to avoid multiple calls
+        if (this.autoVerifyTimeout) {
+          clearTimeout(this.autoVerifyTimeout);
+        }
+        
+        // Set new timeout for auto verification
+        this.autoVerifyTimeout = setTimeout(() => {
+          this.verifyTrackingNumber();
+        }, 500); // 500ms delay to let user finish typing
+      }
+    },
+    
+    // Validation method for tracking number
+    validateTrackingNumber() {
+      // Basic validation - can be enhanced as needed
+      this.trackingNumberValid = this.trackingNumber.trim() !== '';
+      if (!this.trackingNumberValid) {
+        SoundService.error(); // Play error sound for invalid input
+      }
+      return this.trackingNumberValid;
+    },
+    
+    // Validation method for basket number
+    validateBasketNumber() {
+      // Updated regex to support BKT, SH, or ENV prefixes
+      const basketRegex = /^(BKT|SH|ENV)\d+$/i;
+      this.basketNumberValid = basketRegex.test(this.basketNumber.trim());
+      if (!this.basketNumberValid) {
+        SoundService.error(); // Play error sound for invalid input
+      }
+      return this.basketNumberValid;
+    },
+    
+    // Validation method for PCN
+    validatePcnNumber() {
+      if (this.pcnNumber.trim() === 'N/A') {
+        this.pcnNumberValid = true;
+        return true;
+      }
+      
+      const pcnRegex = /^PCN\d+$/i;
+      this.pcnNumberValid = pcnRegex.test(this.pcnNumber.trim());
+      if (!this.pcnNumberValid) {
+        SoundService.error(); // Play error sound for invalid input
+      }
+      return this.pcnNumberValid;
+    },
+    
+    // Step 1: Verify tracking number
+    async verifyTrackingNumber() {
+      this.validateTrackingNumber();
+      
+      if (!this.trackingNumberValid) {
+        this.$refs.scanner.showScanError('Please enter a valid tracking number');
+        SoundService.error(); // Play error sound for invalid input
+        return;
+      }
+      
+      try {
+        // Check if tracking exists in database
+        const response = await axios.get('/api/received/verify-tracking', {
+          params: { tracking: this.trackingNumber }
+        });
+        
+        if (response.data.found) {
+          // Tracking found in the database
+          this.trackingFound = true;
+          
+          // Store the product ID and rtcounter received from the backend
+          this.productId = response.data.productId;
+          this.rtcounter = response.data.rtcounter; // Store rtcounter
+          
+          // Move to Pass/Fail step
+          this.currentStep = 2;
+          SoundService.success(); // Play success sound for finding tracking
+        } else {
+          // Tracking not found
+          this.$refs.scanner.showScanError('Tracking number not found');
+          this.trackingFound = false;
+          SoundService.notFound(); // Play not found sound for missing 
+          this.$refs.trackingInput.select();
+          
+        }
+      } catch (error) {
+        console.error('Error verifying tracking:', error);
+        this.$refs.scanner.showScanError('Error checking tracking number');
+        SoundService.error(); // Play error sound for network/server errors
+        this.$refs.trackingInput.select();
+      }
+    },
+    
+    // Step 2: Pass or fail the item
+    passItem() {
+      this.status = 'pass';
+      this.currentStep = 3; // Move to First Serial Number step
+      SoundService.success(); // Success sound for pass action
+      
+      // Focus on the first serial number input
+      this.$nextTick(() => {
+        if (this.$refs.firstSerialInput) {
+          this.$refs.firstSerialInput.focus();
+        }
+      });
+    },
+    
+    // For failed items - move to basket number entry but allow image capture
+    failItem() {
+      this.status = 'fail';
+      
+      // Add a camera button for failed items
+      this.$refs.scanner.showScanSuccess('Item marked for failure - capture images if needed');
+      SoundService.error(true); // Error sound with vibration for fail action
+      
+      // Go to PCN step first instead of directly to basket
+      this.currentStep = 5;
+      
+      // Focus on the PCN input
+      this.$nextTick(() => {
+        if (this.$refs.pcnInput) {
+          this.$refs.pcnInput.focus();
+        }
+      });
+    },
+
+    // Handle first serial number input
+    handleFirstSerialInput() {
+      // Auto-process in auto mode when input is valid
+      if (!this.showManualInput && this.firstSerialNumber.trim().length > 5) {
+        if (this.autoVerifyTimeout) {
+          clearTimeout(this.autoVerifyTimeout);
+        }
+        
+        this.autoVerifyTimeout = setTimeout(() => {
+          this.processFirstSerial();
+        }, 500);
+      }
+    },
+    
+    // Process first serial number
+    async processFirstSerial() {
+      if (!this.firstSerialNumber.trim()) {
+        this.$refs.scanner.showScanError('Please enter a valid serial number');
+        SoundService.error(); // Error sound for invalid input
+        this.$refs.firstSerialNumber.select();
+        return;
+      }
+      
+      // Capture image for first serial
+      await this.captureSerialImage();
+      SoundService.success(); // Success sound after capturing image
+      
+      // Move to second serial number step
+      this.currentStep = 4;
+      
+      // Focus on the second serial number input
+      this.$nextTick(() => {
+        if (this.$refs.secondSerialInput) {
+          this.$refs.secondSerialInput.focus();
+        }
+      });
+    },
+    
+    // Handle second serial number input
+    handleSecondSerialInput() {
+      // Auto-process in auto mode when input is valid
+      if (!this.showManualInput && this.secondSerialNumber.trim().length > 5) {
+        if (this.autoVerifyTimeout) {
+          clearTimeout(this.autoVerifyTimeout);
+        }
+        
+        this.autoVerifyTimeout = setTimeout(() => {
+          this.processSecondSerial();
+        }, 500);
+      }
+    },
+    
+    // Process second serial number
+    async processSecondSerial() {
+      if (!this.secondSerialNumber.trim()) {
+        this.$refs.scanner.showScanError('Please enter a valid serial number');
+        SoundService.error(); // Error sound for invalid input
+        this.$refs.secondSerialNumber.select();
+        return;
+      }
+      
+      // Capture image for second serial
+      await this.captureSerialImage();
+      SoundService.success(); // Success sound after capturing image
+      
+      // Move to PCN step
+      this.currentStep = 5;
+      
+      // Focus on the PCN input
+      this.$nextTick(() => {
+        if (this.$refs.pcnInput) {
+          this.$refs.pcnInput.focus();
+        }
+      });
+    },
+    
+    // Skip second serial number
+    skipSecondSerial() {
+      this.secondSerialNumber = 'N/A'; // Mark as not applicable
+      SoundService.success(); // Success sound for skip action
+      
+      // Move to PCN step
+      this.currentStep = 5;
+      
+      // Focus on the PCN input
+      this.$nextTick(() => {
+        if (this.$refs.pcnInput) {
+          this.$refs.pcnInput.focus();
+        }
+      });
+    },
+    
+    // Handle PCN input
+    handlePcnInput() {
+      // Auto-process in auto mode when input is valid
+      if (!this.showManualInput && this.pcnNumber.trim().length > 4) {
+        if (this.autoVerifyTimeout) {
+          clearTimeout(this.autoVerifyTimeout);
+        }
+        
+        this.autoVerifyTimeout = setTimeout(() => {
+          this.processPcnNumber();
+        }, 500);
+      }
+    },
+    
+    // Process PCN
+    async processPcnNumber() {
+      if (!this.validatePcnNumber()) {
+        this.$refs.scanner.showScanError('PCN must start with PCN followed by numbers (e.g. PCN12345)');
+        SoundService.error(); // Error sound for invalid PCN
+        this.$refs.pcnInput.select();
+        return;
+      }
+      
+      // Capture image for PCN
+      await this.captureSerialImage();
+      SoundService.success(); // Success sound after capturing PCN image
+      
+      // Move to basket number step
+      this.currentStep = 6;
+      
+      // Focus on the basket number input
+      this.$nextTick(() => {
+        if (this.$refs.basketInput) {
+          this.$refs.basketInput.focus();
+        }
+      });
+    },
+
+    
+    // Handle basket number input
+    handleBasketInput() {
+      // Auto-process in auto mode when input is valid
+      if (!this.showManualInput && this.basketNumber.trim().length > 3) {
+        if (this.autoVerifyTimeout) {
+          clearTimeout(this.autoVerifyTimeout);
+        }
+        
+        this.autoVerifyTimeout = setTimeout(() => {
+          this.processBasketNumber();
+        }, 500);
+      }
+    },
+    
+    // Process basket number
+    processBasketNumber() {
+      if (!this.validateBasketNumber()) {
+        this.$refs.scanner.showScanError('Basket number must start with BKT, SH, or ENV followed by numbers');
+        SoundService.error(); // Error sound for invalid basket
+        this.$refs.basketInput.select();
+        return;
+      }
+      
+      // Submit data based on status (pass or fail)
+      if (this.status === 'fail') {
+        this.submitFailedItem();
+      } else {
+        this.submitScanData();
+      }
+    },
+    
+    // Capture image of serial number
+    async captureSerialImage() {
+      // Use scanner component to capture image
+      if (this.$refs.scanner && this.$refs.scanner.captureFromScanner) {
+        try {
+          await this.$refs.scanner.captureFromScanner();
+          return true;
+        } catch (error) {
+          console.error('Error capturing image:', error);
+          SoundService.error(); // Error sound for capture failure
+          return false;
+        }
+      }
+      return false;
+    },
+    
+    // Submit failed item data
+    async submitFailedItem() {
+  try {
+    // Make sure we have a basket number
+    if (!this.validateBasketNumber()) {
+      this.$refs.scanner.showScanError('Basket number must start with BKT, SH, or ENV followed by numbers');
+      SoundService.error(); // Error vibration for invalid basket
+      return;
+    }
+
+    if (!this.validatePcnNumber()) {
+      this.$refs.scanner.showScanError('PCN must start with PCN followed by numbers (e.g. PCN12345)');
+      SoundService.error(); // Error vibration for invalid PCN
+      return;
+    }
+
+    // Get images from scanner component
+    const images = this.$refs.scanner.capturedImages.map(img => img.data);
+    
+    const failData = {
+      trackingNumber: this.trackingNumber,
+      status: 'fail',
+      pcnNumber: this.pcnNumber, // Include PCN field
+      basketNumber: this.basketNumber,
+      productId: this.productId,
+      rtcounter: this.rtcounter, // Include rtcounter
+      images: images
+    };
+    
+    const response = await axios.post('/api/received/process-scan', failData, {
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (response.data.success) {
+      this.$refs.scanner.showScanSuccess('Item marked as failed');
+      SoundService.successScan(true); // Use successscan sound for final submission
+      
+      // Add to scan history
+      this.$refs.scanner.addSuccessScan({
+        trackingnumber: this.trackingNumber,
+        status: 'fail',
+        pcn: this.pcnNumber,
+        basket: this.basketNumber
+      });
+      
+      // Clear all captured images if requested by the server
+      if (response.data.clearImages) {
+        this.$refs.scanner.capturedImages = [];
+      }
+      
+      // Reset scanner state
+      this.resetScannerState();
+      
+      // Refresh inventory
+      this.fetchInventory();
+    } else {
+      this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
+      SoundService.scanRejected(true); // Use scanrejected sound for submission error
+    }
+  } catch (error) {
+    console.error('Error submitting failed item:', error);
+    SoundService.scanRejected(true); // Use scanrejected sound for submission error
+    
+    // Enhanced error handling
+    if (error.response && error.response.status === 422) {
+      console.log('Validation errors:', error.response.data);
+      if (error.response.data.errors) {
+        const errorMessages = [];
+        Object.keys(error.response.data.errors).forEach(field => {
+          errorMessages.push(`${field}: ${error.response.data.errors[field].join(', ')}`);
+        });
+        const errorMsg = errorMessages.join('\n');
+        this.$refs.scanner.showScanError(`Validation error: ${errorMsg}`);
+      } else {
+        this.$refs.scanner.showScanError('Validation failed. Please check your inputs.');
+      }
+    } else {
+      this.$refs.scanner.showScanError('Network or server error');
+    }
+  }
+},
+
+    
+    // Submit complete scan data
+async submitScanData() {
+  try {
+    // Get images from scanner component
+    const images = this.$refs.scanner.capturedImages.map(img => img.data);
+    
+    // Prepare the scan data - now with PCN
+    const scanData = {
+      trackingNumber: this.trackingNumber,
+      status: 'pass',
+      firstSerialNumber: this.firstSerialNumber,
+      secondSerialNumber: this.secondSerialNumber,
+      pcnNumber: this.pcnNumber, // Include PCN
+      basketNumber: this.basketNumber,
+      productId: this.productId,
+      rtcounter: this.rtcounter, // Include rtcounter
+      images: images
+    };
+    
+    // Debug: Log the data being sent
+    console.log('Submitting scan data:', scanData);
+    
+    // Send data to API
+    const response = await axios.post('/api/received/process-scan', scanData, {
+      withCredentials: true,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (response.data.success) {
+      // Show success notification
+      this.$refs.scanner.showScanSuccess('Item received successfully');
+      SoundService.successScan(true); // Use successscan sound for final submission
+      
+      // Add to scan history
+      this.$refs.scanner.addSuccessScan({
+        trackingnumber: this.trackingNumber,
+        firstsn: this.firstSerialNumber,
+        secondsn: this.secondSerialNumber,
+        pcn: this.pcnNumber, // Include PCN in scan history
+        basket: this.basketNumber
+      });
+      
+      // Clear all captured images if requested by the server
+      if (response.data.clearImages) {
+        this.$refs.scanner.capturedImages = [];
+      }
+      
+      // Reset workflow
+      this.resetScannerState();
+      
+      // Refresh inventory
+      this.fetchInventory();
+    } else {
+      // Show error notification
+      this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
+      SoundService.scanRejected(true); // Use scanrejected sound for submission error
+      
+      // Add to error scan history
+      this.$refs.scanner.addErrorScan({
+        trackingnumber: this.trackingNumber,
+        firstsn: this.firstSerialNumber,
+        secondsn: this.secondSerialNumber,
+        pcn: this.pcnNumber, // Include PCN in error history
+        basket: this.basketNumber
+      }, response.data.reason || 'error');
+    }
+  } catch (error) {
+    console.error('Error submitting scan:', error);
+    SoundService.scanRejected(true); // Use scanrejected sound for submission error
+    
+    // Enhanced error handling for validation errors
+    if (error.response && error.response.status === 422) {
+      console.log('Validation errors:', error.response.data);
+      if (error.response.data.errors) {
+        const errorMessages = [];
+        Object.keys(error.response.data.errors).forEach(field => {
+          errorMessages.push(`${field}: ${error.response.data.errors[field].join(', ')}`);
+        });
+        const errorMsg = errorMessages.join('\n');
+        this.$refs.scanner.showScanError(`Validation error: ${errorMsg}`);
+      } else {
+        this.$refs.scanner.showScanError('Validation failed. Please check your inputs.');
+      }
+    } else {
+      this.$refs.scanner.showScanError('Network or server error');
+    }
+  }
+},
+    
+    // Reset scanner state
+    resetScannerState() {
+      // Reset all data
+      this.currentStep = 1;
+      this.trackingNumber = '';
+      this.firstSerialNumber = '';
+      this.secondSerialNumber = '';
+      this.pcnNumber = '';  // Reset PCN
+      this.basketNumber = '';
+      this.trackingValid = false;
+      this.trackingFound = false;
+      this.productId = '';
+      this.rtcounter = ''; // Reset rtcounter
+      this.status = '';
+      
+      // Clear any pending auto-verify timeouts
+      if (this.autoVerifyTimeout) {
+        clearTimeout(this.autoVerifyTimeout);
+        this.autoVerifyTimeout = null;
+      }
+      
+      // Focus back on tracking input
+      this.$nextTick(() => {
+        if (this.$refs.trackingInput) {
+          this.$refs.trackingInput.focus();
+        }
+      });
+    },
+    
+    // Scanner event handlers
+    handleScanProcess() {
+      // Process based on current step
+      switch (this.currentStep) {
+        case 1:
+          this.verifyTrackingNumber();
+          break;
+        case 3:
+          this.processFirstSerial();
+          break;
+        case 4:
+          this.processSecondSerial();
+          break;
+        case 5:
+          this.processPcnNumber();  // Handle PCN scan
+          break;
+        case 6:
+          this.processBasketNumber();
+          break;
+      }
+    },
+    
+    // Handle hardware scanner input
+    handleHardwareScan(scannedCode) {
+      // Determine which step we're on and handle the scan accordingly
+      switch (this.currentStep) {
+        case 1:
+          this.trackingNumber = scannedCode;
+          this.verifyTrackingNumber();
+          break;
+        case 3:
+          this.firstSerialNumber = scannedCode;
+          this.processFirstSerial();
+          break;
+        case 4:
+          this.secondSerialNumber = scannedCode;
+          this.processSecondSerial();
+          break;
+        case 5:
+          this.pcnNumber = scannedCode;  // Scan PCN
+          this.processPcnNumber();
+          break;
+        case 6:
+          this.basketNumber = scannedCode;
+          this.processBasketNumber();
+          break;
+      }
+    },
+    
+    // Handle mode changes
+    handleModeChange(event) {
+      this.showManualInput = event.manual;
+    },
+    
+    // Scanner opened event
+    handleScannerOpened() {
+      console.log('Scanner opened');
+      // Get current mode from scanner component
+      this.showManualInput = this.$refs.scanner.showManualInput;
+      this.resetScannerState();
+    },
+    
+    // Scanner closed event
+    handleScannerClosed() {
+      console.log('Scanner closed');
+      this.fetchInventory();
+    },
+    
+    // Scanner reset event
+    handleScannerReset() {
+      console.log('Scanner reset');
+      this.resetScannerState();
+    },
+    
+    // Pagination methods
     prevPage() {
       if (this.currentPage > 1) {
         this.currentPage--;
         this.fetchInventory();
       }
     },
+    
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
         this.fetchInventory();
       }
     },
+    
     toggleAll() {
       this.inventory.forEach((item) => (item.checked = this.selectAll));
     },
+    
     toggleDetails(index) {
       this.$set(this.expandedRows, index, !this.expandedRows[index]);
     },
   },
   watch: {
     searchQuery() {
-      this.currentPage = 1; // Reset to first page on search
+      this.currentPage = 1;
       this.fetchInventory();
     },
   },
   mounted() {
+    axios.defaults.baseURL = window.location.origin;
     this.fetchInventory();
   },
 };
 </script>
+
+<style scoped>
+/* Styles for the Received Module */
+.success-banner {
+  background-color: #4CAF50;
+  color: white;
+  padding: 10px;
+  text-align: center;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+.pass-fail-buttons {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.pass-button, .fail-button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 4px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.pass-button {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.fail-button {
+  background-color: #f44336;
+  color: white;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.scan-button, .skip-button, .verify-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.scan-button, .verify-button {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.skip-button {
+  background-color: #FF9800;
+  color: white;
+}
+
+.container-type-hint {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+.date-input-container {
+  position: relative;
+  width: 100%;
+}
+
+.calendar-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* Your existing table styles */
+.table-container {
+  margin-top: 20px;
+}
+</style>

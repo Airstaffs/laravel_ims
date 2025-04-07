@@ -14,7 +14,7 @@ if (!function_exists('AWSCredentials')) {
     function AWSCredentials($store)
     {
         try {
-            $id = ($store === 'Renovar Tech') ? 1 : 2;
+            $id = ($store === 'Renovar Tech') ? 6 : 10;
 
             $credentials = (array) DB::table('tblstores')->where('store_id', $id)->first();
 
