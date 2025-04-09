@@ -270,7 +270,7 @@ export default {
       
       try {
         // Check if tracking exists in database
-        const response = await axios.get('/api/unreceived/verify-tracking', {
+        const response = await axios.get(`${API_BASE_URL}/api/unreceived/verify-tracking`, {
           params: { tracking: this.trackingNumber }
         });
         
@@ -283,7 +283,7 @@ export default {
           this.rtcounter = response.data.rtcounter; // Store rtcounter
           
           // Get next RPN number from backend
-          const rpnResponse = await axios.get('/api/unreceived/get-next-rpn');
+          const rpnResponse = await axios.get(`${API_BASE_URL}/api/unreceived/get-next-rpn`);
           this.rpnNumber = rpnResponse.data.rpn || `RPN${Math.floor(Math.random() * 100000)}`; // Fallback for testing
           
           // Move to RPN step
@@ -342,26 +342,31 @@ async submitScan() {
   
   try {
     // Prepare the scan data
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
     const scanData = {
+      _token: csrfToken, // Add CSRF token here
       trackingNumber: this.trackingNumber,
       rpnNumber: this.rpnNumber,
       prdDate: this.prdDate,
       productId: this.productId,
-      rtcounter: this.rtcounter // Include rtcounter
+      rtcounter: this.rtcounter
     };
     
     // Get images from scanner component
     const images = this.$refs.scanner.capturedImages.map(img => img.data);
     
     // Send data to API
-    const response = await axios.post('/api/unreceived/process-scan', {
+    const response = await axios.post(`${API_BASE_URL}/api/unreceived/process-scan`, {
+
       ...scanData,
       Images: images
     }, {
       withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': csrfToken // Also add it to headers
       }
     });
     
