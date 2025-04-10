@@ -21,6 +21,7 @@ use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\UnreceivedController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\LabelingController;
+use App\Http\Controllers\EbayAuthController;
 
 
 Route::get('/', function () {
@@ -213,8 +214,9 @@ Route::get('/amzn/fba-shipment/step3/packing_information', [FBAShipmentControlle
 Route::get('/amzn/fba-shipment/step4/placement_option', [FBAShipmentController::class, 'step4a_placement_option']);
 Route::get('/amzn/fba-shipment/step4/list_placement_option', [FBAShipmentController::class, 'step4b_list_placement_option']);
 
+
 Route::get('/apis/ebay-login', action: function () {
-    $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e'; // Replace with your client ID
+    $clientId = 'Christia-LaravelI-SBX-8f72598d8-73053ea8'; // Replace with your client ID
     $redirectUrl = 'https://ims.tecniquality.com/Admin/modules/orders/callback.php'; // Replace with your redirect URL
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
     
@@ -273,9 +275,15 @@ Route::prefix('api/received')->group(function () {
     Route::get('products', [ReceivedController::class, 'index']);
     Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
     Route::post('process-scan', [ReceivedController::class, 'processScan']);
+    Route::post('upload-image', [ReceivedController::class, 'uploadImage']); // Fixed this line
 });
+
+Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::class, 'upload']);
+
 
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {
     Route::get('products', [LabelingController::class, 'index']);
 });
+
+

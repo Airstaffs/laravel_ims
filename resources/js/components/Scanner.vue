@@ -78,6 +78,49 @@
           
           <!-- Camera/Scanner View - only if camera is enabled -->
           <div v-if="enableCamera" class="scanner-view" :class="{ 'compact-view': isCompactMode, 'active-camera': scannerCameraActive }">
+
+            <div v-if="productThumbnails.length > 0" class="scanner-product-thumbnails-container">
+  <!-- First image preview (always visible) -->
+  <div 
+    v-if="productThumbnails.length > 0"
+    class="scanner-default-thumbnail"
+    @click="openProductImagePreview(0)"
+  >
+    <img :src="productThumbnails[0].src" alt="Product image" />
+    <div class="scanner-thumbnail-label">
+      <i class="fas fa-search-plus"></i> View All ({{ productThumbnails.length }})
+    </div>
+  </div>
+</div>
+
+<!-- Product Image Preview Modal with unique class names -->
+<div v-if="showProductImageModal" class="scanner-product-image-modal" @click="closeProductImagePreview">
+  <div class="scanner-product-image-content" @click.stop>
+    <div class="scanner-product-image-header">
+      <h3>Product Image {{ currentProductImageIndex + 1 }}/{{ productThumbnails.length }}</h3>
+      <button @click="closeProductImagePreview" class="scanner-close-preview-btn">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+    <div class="scanner-product-image-body">
+      <div class="scanner-product-image-container">
+        <img :src="currentProductImage.src" alt="Product image" class="scanner-preview-image" />
+      </div>
+      <div class="scanner-product-image-controls">
+        <button @click="prevProductImage" :disabled="currentProductImageIndex === 0" class="scanner-nav-btn scanner-prev-btn">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <div class="scanner-image-info">
+          <span class="scanner-image-label" v-if="currentProductImage.label">{{ currentProductImage.label }}</span>
+        </div>
+        <button @click="nextProductImage" :disabled="currentProductImageIndex >= productThumbnails.length - 1" class="scanner-nav-btn scanner-next-btn">
+          <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
             <!-- When camera is inactive, show the grid overlay -->
             <div v-if="!scannerCameraActive" class="scanner-overlay">
               <div class="scanner-corner top-left"></div>
@@ -174,7 +217,7 @@
           <!-- Action Buttons -->
           <div class="scanner-actions">
             <button @click="resetScanner" class="reset-button">Reset</button>
-            <button @click="closeScannerModal" class="done-button">Done</button>
+            <button @click="closeScannerModal" class="done-button">Exit</button>
           </div>
         </div>
         
@@ -250,6 +293,19 @@
           </div>
         </div>
       </div>
+
+      <div v-if="isProcessing" class="loading-overlay">
+        <div class="loading-content">
+          <div class="spinner">
+            <div class="bounce1"></div>
+            <div class="bounce2"></div>
+            <div class="bounce3"></div>
+          </div>
+          <div class="loading-text">{{ loadingMessage }}</div>
+        </div>
+      </div>
+
+
     </div>
   </div>
 </template>
@@ -262,9 +318,16 @@ export default {
   mixins: [ScannerMixin],
   data() {
     return {
+      isProcessing: false,
+      loadingMessage: 'Processing scan...',
       // Add image preview data
       showImagePreviewModal: false,
-      currentImageIndex: 0
+      currentImageIndex: 0,
+
+    productThumbnails: [],
+    showThumbnailsPanel: false,
+    showProductImageModal: false,
+    currentProductImageIndex: 0,
     };
   },
   computed: {
@@ -289,7 +352,17 @@ export default {
         return this.capturedImages[this.currentImageIndex];
       }
       return { data: '', timestamp: '' };
+    },
+
+      // Get the current product image being previewed
+  currentProductImage() {
+    if (this.productThumbnails.length > 0 && 
+        this.currentProductImageIndex >= 0 && 
+        this.currentProductImageIndex < this.productThumbnails.length) {
+      return this.productThumbnails[this.currentProductImageIndex];
     }
+    return { src: '', label: '' };
+  }
   },
   methods: {
     // Open the image preview modal
@@ -322,6 +395,25 @@ export default {
         this.currentImageIndex++;
       }
     },
+
+  showLoadingState(message = 'Processing scan...') {
+    this.isProcessing = true;
+    this.loadingMessage = message;
+  },
+  
+  // Method to hide loading state
+  hideLoadingState() {
+    this.isProcessing = false;
+  },
+  
+  // Exposing loading methods to parent components
+  startLoading(message) {
+    this.showLoadingState(message);
+  },
+  
+  stopLoading() {
+    this.hideLoadingState();
+  },
     
     // Delete the current image from preview
     deleteCurrentImage() {
@@ -338,7 +430,75 @@ export default {
           this.closeImagePreview();
         }
       }
+    },
+
+  // Load product thumbnails based on product data
+  loadProductThumbnails(productData) {
+    this.productThumbnails = [];
+    const basePath = '/images/thumbnails/';
+    
+    // Check the product data for image fields
+    // Add each non-null image to the thumbnails array
+    const imageFields = [
+      { field: 'img1', label: 'Image 1' },
+      { field: 'img2', label: 'Image 2' },
+      { field: 'img3', label: 'Image 3' },
+      { field: 'img4', label: 'Image 4' },
+      { field: 'img5', label: 'Image 5' },
+      { field: 'img6', label: 'Image 6' },
+      { field: 'img7', label: 'Image 7' },
+      { field: 'img8', label: 'Image 8' },
+      { field: 'img9', label: 'Image 9' },
+      { field: 'img10', label: 'Image 10' },
+      { field: 'img11', label: 'Image 11' },
+      { field: 'img12', label: 'Image 12' },
+      { field: 'img13', label: 'Image 13' },
+      { field: 'img14', label: 'Image 14' },
+      { field: 'img15', label: 'Image 15' }
+    ];
+    
+    imageFields.forEach(item => {
+      if (productData && productData[item.field]) {
+        this.productThumbnails.push({
+          src: basePath + productData[item.field],
+          label: item.label
+        });
+      }
+    });
+  },
+  
+  // Open product image preview
+  openProductImagePreview(index) {
+    this.currentProductImageIndex = index;
+    this.showProductImageModal = true;
+    document.body.style.overflow = 'hidden'; // Prevent scrolling
+  },
+  
+  // Close product image preview
+  closeProductImagePreview() {
+    this.showProductImageModal = false;
+    document.body.style.overflow = ''; // Re-enable scrolling
+  },
+  
+  // Navigate to previous product image
+  prevProductImage() {
+    if (this.currentProductImageIndex > 0) {
+      this.currentProductImageIndex--;
     }
+  },
+  
+  // Navigate to next product image
+  nextProductImage() {
+    if (this.currentProductImageIndex < this.productThumbnails.length - 1) {
+      this.currentProductImageIndex++;
+    }
+  },
+  // Method to clear product thumbnails
+  clearProductThumbnails() {
+    this.productThumbnails = [];
+    this.showProductImageModal = false;
+  }
+     
   }
 };
 </script>
@@ -1592,4 +1752,266 @@ input:checked + .toggle-slider:before {
     font-size: 13px;
   }
 }
+
+
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+  border-radius: 8px;
+}
+
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.loading-text {
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Spinner Animation */
+.spinner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 0 auto;
+}
+
+.spinner > div {
+  width: 18px;
+  height: 18px;
+  background-color: #4CAF50;
+  border-radius: 100%;
+  display: inline-block;
+  animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+}
+
+.spinner .bounce1 {
+  animation-delay: -0.32s;
+}
+
+.spinner .bounce2 {
+  animation-delay: -0.16s;
+}
+
+@keyframes sk-bouncedelay {
+  0%, 80%, 100% { 
+    transform: scale(0);
+  } 40% { 
+    transform: scale(1.0);
+  }
+}
+
+/* On mobile devices, make sure the loader is centered */
+@media (max-width: 600px) {
+  .loading-overlay {
+    border-radius: 0;
+  }
+  
+  .loading-text {
+    font-size: 14px;
+    padding: 0 20px;
+  }
+}
+
+/* Product Thumbnails Styles with unique class names */
+.scanner-product-thumbnails-container {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  display: flex;
+}
+
+.scanner-default-thumbnail {
+  width: 80px;
+  height: 80px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  position: relative;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  background-color: #000;
+}
+
+.scanner-default-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.2s;
+}
+
+.scanner-default-thumbnail:hover img {
+  transform: scale(1.05);
+}
+
+.scanner-thumbnail-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 10px;
+  padding: 4px;
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+/* Product Image Preview Modal with unique class names */
+.scanner-product-image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2500; /* Higher than other modals */
+}
+
+.scanner-product-image-content {
+  width: 95%;
+  max-width: 800px;
+  background-color: #222;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.scanner-product-image-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #333;
+  border-bottom: 1px solid #444;
+}
+
+.scanner-product-image-header h3 {
+  margin: 0;
+  color: white;
+  font-size: 16px;
+}
+
+.scanner-close-preview-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.scanner-product-image-body {
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  overflow-y: auto;
+}
+
+.scanner-product-image-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 15px;
+  min-height: 300px;
+}
+
+.scanner-preview-image {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
+.scanner-product-image-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.scanner-nav-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.scanner-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.scanner-image-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.scanner-image-label {
+  color: #aaa;
+  font-size: 12px;
+  margin-top: 5px;
+  display: block;
+  text-align: center;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 600px) {
+  .scanner-default-thumbnail {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .scanner-product-image-content {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+  }
+}
+
+@media (max-width: 360px) {
+  .scanner-default-thumbnail {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .scanner-thumbnail-label {
+    font-size: 9px;
+  }
+}
+
+
 </style>

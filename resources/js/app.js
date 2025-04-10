@@ -4,6 +4,9 @@ import { createApp } from 'vue';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
 
+import axios from 'axios';
+
+
 // Import components
 import Order from './components/orders.vue';
 import Labeling from './components/labeling.vue';
@@ -16,6 +19,19 @@ import Testing from './components/testing.vue';
 import Validation from './components/validation.vue';
 import Searching from './components/searching.vue';
 import FbaInboundShipment from './components/Stockroom/fba_inbound_shipment.vue';
+
+// Include CSRF token in all requests
+axios.defaults.withCredentials = true;
+
+// Get CSRF token from meta tag
+const token = document.head.querySelector('meta[name="csrf-token"]');
+if (token) {
+  axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
+} else {
+  console.error('CSRF token not found: https://laravel.com/docs/csrf#csrf-x-csrf-token');
+}
+
+
 
 // Create Vue app
 const app = createApp({

@@ -7,7 +7,7 @@
       scanner-title="Received Scanner"
       storage-prefix="received"
       :enable-camera="true"
-      :display-fields="['trackingnumber', 'firstsn', 'secondsn', 'pcn', 'basket']"
+      :display-fields="['Trackingnumber', 'FirstSN', 'SecondSN', 'PCN', 'Basket']"
       :api-endpoint="'/api/received/process-scan'"
       @process-scan="handleScanProcess"
       @hardware-scan="handleHardwareScan"
@@ -304,7 +304,7 @@ export default {
       
       try {
         // Check if tracking exists in database
-        const response = await axios.get('/api/received/verify-tracking', {
+        const response = await axios.get(`${API_BASE_URL}/api/received/verify-tracking`, {
           params: { tracking: this.trackingNumber }
         });
         
@@ -315,7 +315,7 @@ export default {
           // Store the product ID and rtcounter received from the backend
           this.productId = response.data.productId;
           this.rtcounter = response.data.rtcounter; // Store rtcounter
-          
+          this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
           // Move to Pass/Fail step
           this.currentStep = 2;
           SoundService.success(); // Play success sound for finding tracking
@@ -392,7 +392,7 @@ export default {
       }
       
       // Capture image for first serial
-      await this.captureSerialImage();
+     //await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing image
       
       // Move to second serial number step
@@ -430,7 +430,7 @@ export default {
       }
       
       // Capture image for second serial
-      await this.captureSerialImage();
+    //  await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing image
       
       // Move to PCN step
@@ -484,7 +484,7 @@ export default {
       }
       
       // Capture image for PCN
-      await this.captureSerialImage();
+    //  await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing PCN image
       
       // Move to basket number step
@@ -561,29 +561,38 @@ export default {
       SoundService.error(); // Error vibration for invalid PCN
       return;
     }
-
+    //loading animation
+    this.$refs.scanner.startLoading('Processing Data');
     // Get images from scanner component
     const images = this.$refs.scanner.capturedImages.map(img => img.data);
-    
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+
     const failData = {
+      _token: csrfToken,
       trackingNumber: this.trackingNumber,
       status: 'fail',
       pcnNumber: this.pcnNumber, // Include PCN field
       basketNumber: this.basketNumber,
       productId: this.productId,
       rtcounter: this.rtcounter, // Include rtcounter
-      images: images
+      Images: images
     };
     
-    const response = await axios.post('/api/received/process-scan', failData, {
+    const response = await axios.post(`${API_BASE_URL}/api/received/process-scan`, failData, {
       withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': csrfToken
       }
     });
     
     if (response.data.success) {
+       //clear fetch delivered item image
+       this.$refs.scanner.clearProductThumbnails();
+      //stop loading animation
+      this.$refs.scanner.stopLoading();
       this.$refs.scanner.showScanSuccess('Item marked as failed');
       SoundService.successScan(true); // Use successscan sound for final submission
       
@@ -606,10 +615,12 @@ export default {
       // Refresh inventory
       this.fetchInventory();
     } else {
+      this.$refs.scanner.stopLoading();
       this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
       SoundService.scanRejected(true); // Use scanrejected sound for submission error
     }
   } catch (error) {
+
     console.error('Error submitting failed item:', error);
     SoundService.scanRejected(true); // Use scanrejected sound for submission error
     
@@ -634,54 +645,89 @@ export default {
 
     
     // Submit complete scan data
-async submitScanData() {
+    async submitScanData() {
   try {
-    // Get images from scanner component
-    const images = this.$refs.scanner.capturedImages.map(img => img.data);
-    
-    // Prepare the scan data - now with PCN
+    // Get CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+      //loading animation
+     this.$refs.scanner.startLoading('Processing Data...');
+    // Create data without images first
     const scanData = {
+      _token: csrfToken,
       trackingNumber: this.trackingNumber,
       status: 'pass',
       firstSerialNumber: this.firstSerialNumber,
       secondSerialNumber: this.secondSerialNumber,
-      pcnNumber: this.pcnNumber, // Include PCN
+      pcnNumber: this.pcnNumber,
       basketNumber: this.basketNumber,
       productId: this.productId,
-      rtcounter: this.rtcounter, // Include rtcounter
-      images: images
+      rtcounter: this.rtcounter
+      // No images in this initial request
     };
     
     // Debug: Log the data being sent
-    console.log('Submitting scan data:', scanData);
+    console.log('Submitting scan data (without images):', scanData);
     
     // Send data to API
-    const response = await axios.post('/api/received/process-scan', scanData, {
+    const response = await axios.post(`${API_BASE_URL}/api/received/process-scan`, scanData, {
       withCredentials: true,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-CSRF-TOKEN': csrfToken
       }
     });
     
     if (response.data.success) {
+      // If basic data submission was successful, now upload images one by one
+      const images = this.$refs.scanner.capturedImages.map(img => img.data);
+      if (images.length > 0) {
+        const hasSerialTwo = this.secondSerialNumber !== 'N/A';
+        const hasPcn = this.pcnNumber !== 'N/A';
+        
+        // Upload each image separately
+        for (let i = 0; i < images.length; i++) {
+          try {
+           // Change this line in your submitScanData method:
+            const imageResponse = await axios.post(`${API_BASE_URL}/api/images/upload`, {
+                _token: csrfToken,
+                productId: this.productId,
+                imageIndex: i,
+                imageData: images[i],
+                hasSerialTwo: hasSerialTwo,
+                hasPcn: hasPcn
+            }, {
+                withCredentials: true,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
+                }
+            });
+            console.log(`Image ${i} uploaded:`, imageResponse.data);
+          } catch (imageError) {
+            console.error(`Error uploading image ${i}:`, imageError);
+          }
+        }
+      }
+      //clear fetch delivered item image
+      this.$refs.scanner.clearProductThumbnails();
+      //stop loading animation
+      this.$refs.scanner.stopLoading();
       // Show success notification
       this.$refs.scanner.showScanSuccess('Item received successfully');
-      SoundService.successScan(true); // Use successscan sound for final submission
+      SoundService.successScan(true);
       
       // Add to scan history
       this.$refs.scanner.addSuccessScan({
-        trackingnumber: this.trackingNumber,
-        firstsn: this.firstSerialNumber,
-        secondsn: this.secondSerialNumber,
-        pcn: this.pcnNumber, // Include PCN in scan history
-        basket: this.basketNumber
+        Trackingnumber: this.trackingNumber,
+        FirstSN: this.firstSerialNumber,
+        SecondSN: this.secondSerialNumber,
+        PCN: this.pcnNumber,
+        Basket: this.basketNumber // Fixed property name
       });
-      
-      // Clear all captured images if requested by the server
-      if (response.data.clearImages) {
-        this.$refs.scanner.capturedImages = [];
-      }
+      // Clear captured images
+      this.$refs.scanner.capturedImages = [];
       
       // Reset workflow
       this.resetScannerState();
@@ -689,22 +735,23 @@ async submitScanData() {
       // Refresh inventory
       this.fetchInventory();
     } else {
+      this.$refs.scanner.stopLoading();
       // Show error notification
       this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
-      SoundService.scanRejected(true); // Use scanrejected sound for submission error
+      SoundService.scanRejected(true);
       
       // Add to error scan history
       this.$refs.scanner.addErrorScan({
-        trackingnumber: this.trackingNumber,
-        firstsn: this.firstSerialNumber,
-        secondsn: this.secondSerialNumber,
-        pcn: this.pcnNumber, // Include PCN in error history
-        basket: this.basketNumber
+        Trackingnumber: this.trackingNumber,
+        FirstSN: this.firstSerialNumber,
+        SecondSN: this.secondSerialNumber,
+        PCN: this.pcnNumber,
+        Basket: this.basketNumber // Fixed property name
       }, response.data.reason || 'error');
     }
   } catch (error) {
     console.error('Error submitting scan:', error);
-    SoundService.scanRejected(true); // Use scanrejected sound for submission error
+    SoundService.scanRejected(true);
     
     // Enhanced error handling for validation errors
     if (error.response && error.response.status === 422) {
@@ -719,12 +766,13 @@ async submitScanData() {
       } else {
         this.$refs.scanner.showScanError('Validation failed. Please check your inputs.');
       }
+    } else if (error.response && error.response.status === 403) {
+      this.$refs.scanner.showScanError('Permission denied. Please try again or contact support.');
     } else {
       this.$refs.scanner.showScanError('Network or server error');
     }
   }
-},
-    
+},    
     // Reset scanner state
     resetScannerState() {
       // Reset all data
@@ -739,6 +787,11 @@ async submitScanData() {
       this.productId = '';
       this.rtcounter = ''; // Reset rtcounter
       this.status = '';
+
+       // Clear the product thumbnails
+  if (this.$refs.scanner && this.$refs.scanner.clearProductThumbnails) {
+    this.$refs.scanner.clearProductThumbnails();
+  }
       
       // Clear any pending auto-verify timeouts
       if (this.autoVerifyTimeout) {

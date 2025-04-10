@@ -42,7 +42,7 @@ export default {
       showCameraModal: false,
       capturedImages: [],
       previewImages: true,
-      maxImages: 10,
+      maxImages: 12,
       isCameraBeingReleased: false,
       
       // Scan statistics
@@ -50,10 +50,40 @@ export default {
       successfulScans: 0,
       failedScans: 0,
       recentScans: [],
-      showScans: true
+      showScans: true,
+
+      isMobileDevice: false
+
     };
   },
   methods: {
+
+     // Detect if the device is mobile
+  detectMobileDevice() {
+    // Simple mobile detection logic
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    this.isMobileDevice = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+  },
+
+
+  setupKeyboardControl() {
+    // Skip if not a mobile device
+    if (!this.isMobileDevice) return;
+    
+    // Find all input elements in the scanner modal
+    const inputs = this.$el.querySelectorAll('input[type="text"], input:not([type])');
+    
+    inputs.forEach(input => {
+      if (!this.showManualInput) {
+        // Auto mode: Prevent keyboard by using the inputmode attribute
+        input.setAttribute('inputmode', 'none');
+      } else {
+        // Manual mode: Allow keyboard
+        input.setAttribute('inputmode', 'text');
+      }
+    });
+  },
+
     // Modal controls
     openScannerModal() {
       this.showScannerModal = true;
@@ -63,6 +93,16 @@ export default {
       
       // Emit initial mode
       this.$emit('mode-changed', { manual: this.showManualInput });
+
+      this.detectMobileDevice();
+      
+      // Apply keyboard control for mobile devices
+      if (this.isMobileDevice) {
+        this.$nextTick(() => {
+          this.setupKeyboardControl();
+        });
+      }
+
       
       // Activate camera if enabled and in auto mode
       if (this.enableCamera && !this.showManualInput) {
@@ -97,6 +137,14 @@ export default {
     // Toggle between auto and manual modes
     toggleManualInput() {
       this.showManualInput = !this.showManualInput;
+
+      // Apply keyboard control for mobile devices
+      if (this.isMobileDevice) {
+        this.$nextTick(() => {
+          this.setupKeyboardControl();
+        });
+      }
+
       
       // Emit mode change event
       this.$emit('mode-changed', { manual: this.showManualInput });
@@ -346,7 +394,17 @@ export default {
         // Emit mode changed event
         this.$emit('mode-changed', { manual: false });
         this.restartCamera();
+
+             
+        // Apply keyboard control for mobile devices
+        if (this.isMobileDevice) {
+          this.$nextTick(() => {
+            this.setupKeyboardControl();
+          });
+        }
       }
+
+      
       
       // Clear notifications
       this.showSuccessNotification = false;
@@ -465,7 +523,18 @@ export default {
   mounted() {
     // Load scans from storage when component mounts
     this.loadScans();
+       // Detect if on mobile device
+    this.detectMobileDevice();
   },
+  
+  updated() {
+    // Re-apply keyboard control if inputs were added/changed on mobile
+    if (this.showScannerModal && this.isMobileDevice) {
+      this.setupKeyboardControl();
+    }
+  },
+  
+
   beforeDestroy() {
     // Clean up resources if component is destroyed
     if (this.scannerCameraActive) {

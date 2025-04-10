@@ -53,17 +53,34 @@ class ReceivedController extends Controller
             ->first();
             
         if ($product) {
+            // Get image fields for the product
+            $imageFields = [
+                'img1', 'img2', 'img3', 'img4', 'img5',
+                'img6', 'img7', 'img8', 'img9', 'img10',
+                'img11', 'img12', 'img13', 'img14', 'img15'
+            ];
+            
+            // Create a productDetails object with just the necessary fields
+            $productDetails = new \stdClass();
+            
+            // Add image fields if they exist
+            foreach ($imageFields as $field) {
+                if (property_exists($product, $field) && !empty($product->$field)) {
+                    $productDetails->$field = $product->$field;
+                }
+            }
+            
             return response()->json([
                 'found' => true,
                 'productId' => $product->ProductID,
-                'rtcounter' => $product->rtcounter, // Added rtcounter to the response
-                'trackingnumber' => $product->trackingnumber
+                'rtcounter' => $product->rtcounter,
+                'trackingnumber' => $product->trackingnumber,
+                'productDetails' => $productDetails // Include product details with images
             ]);
         } else {
             return response()->json(['found' => false]);
         }
     }
-
     
     public function processScan(Request $request)
     {
@@ -79,11 +96,11 @@ class ReceivedController extends Controller
                     'basketNumber' => ['required', 'regex:/^(BKT|SH|ENV)\d+$/i'],
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'], // PCN format validation for failed items
                     'productId' => 'required',
-                    'rtcounter' => 'required',
-                    'images' => 'sometimes|array'
+                    'rtcounter' => 'required'
+                    // Removed images validation
                 ]);
             } else {
-                // Your existing validation for pass status with PCN format validation
+                // Your existing validation for pass status
                 $request->validate([
                     'trackingNumber' => 'required',
                     'status' => 'required|in:pass',
@@ -92,11 +109,11 @@ class ReceivedController extends Controller
                     'pcnNumber' => ['required', 'regex:/^PCN\d+$/i'], // PCN format validation for pass items
                     'basketNumber' => ['required', 'regex:/^(BKT|SH|ENV)\d+$/i'],
                     'productId' => 'required',
-                    'rtcounter' => 'required',
-                    'images' => 'sometimes|array'
+                    'rtcounter' => 'required'
+                    // Removed images validation
                 ]);
             }
-
+    
             DB::beginTransaction();
             
             // Get the last 12 digits of the tracking number
@@ -132,73 +149,11 @@ class ReceivedController extends Controller
                     'basketnumber' => $request->basketNumber,
                     'Username' => $user
                 ];
-
-                // Update product status for failed item first
+    
+                // Update product status for failed item
                 $updateResult = DB::table('tblproduct')
                     ->where('ProductID', $request->productId)
                     ->update($updateData);
-                
-                // Only process images if the update was successful
-                $imageFilenames = [];
-                $columnMapping = [];
-                
-                if ($updateResult > 0 && $request->has('images') && !empty($request->images)) {
-                    $imageCount = count($request->images);
-                    Log::info('Processing images for failed item:', ['count' => $imageCount]);
-                    
-                    // Use absolute path for image directory
-                    $directory = public_path('images/product_images');
-                    
-                    // Make sure the directory exists
-                    if (!File::exists($directory)) {
-                        File::makeDirectory($directory, 0755, true);
-                    }
-                    
-                    // For failed items, all images go to capturedimg1-8, starting with productid_3
-                    $capturedImgColumns = [
-                        'capturedimg1', 'capturedimg2', 'capturedimg3', 'capturedimg4',
-                        'capturedimg5', 'capturedimg6', 'capturedimg7', 'capturedimg8'
-                    ];
-                    
-                    for ($i = 0; $i < $imageCount && $i < count($capturedImgColumns); $i++) {
-                        $imageData = $request->images[$i];
-                        
-                        // If the image is base64 encoded
-                        if (strpos($imageData, 'data:image') === 0) {
-                            // Extract the image data from base64 string
-                            list($type, $data) = explode(';', $imageData);
-                            list(, $data) = explode(',', $data);
-                            $imageData = base64_decode($data);
-                            
-                            // For failed items, start with productId_3
-                            $suffix = $i + 3;
-                            $filename = $request->productId . '_' . $suffix . '.jpg';
-                            $path = $directory . '/' . $filename;
-                            
-                            // Store the image directly using File
-                            File::put($path, $imageData);
-                            $imageFilenames[] = $filename;
-                            $columnMapping[] = $capturedImgColumns[$i];
-                            
-                            Log::info('Failed item image saved:', ['path' => $path, 'filename' => $filename]);
-                        }
-                    }
-                    
-                    // Now update with image information if we have any
-                    if (count($imageFilenames) > 0) {
-                        $imageUpdateData = [];
-                        
-                        // Add image filenames to update data
-                        for ($i = 0; $i < count($imageFilenames); $i++) {
-                            $imageUpdateData[$columnMapping[$i]] = $imageFilenames[$i];
-                        }
-                        
-                        // Update with image information
-                        DB::table('tblproduct')
-                            ->where('ProductID', $request->productId)
-                            ->update($imageUpdateData);
-                    }
-                }
                     
                 // Record history
                 DB::table('tblitemprocesshistory')->insert([
@@ -210,9 +165,7 @@ class ReceivedController extends Controller
                 ]);
                 
                 Log::info('Failed item processed', [
-                    'updateResult' => $updateResult,
-                    'images' => $imageFilenames,
-                    'columns' => $columnMapping
+                    'updateResult' => $updateResult
                 ]);
                 
                 DB::commit();
@@ -220,15 +173,12 @@ class ReceivedController extends Controller
                 return response()->json([
                     'success' => true,
                     'item' => $request->trackingNumber . ' marked as failed',
-                    'images' => $imageFilenames,
-                    'columns' => $columnMapping,
-                    'playsound' => 1,
-                    'clearImages' => true // Signal frontend to clear images
+                    'playsound' => 1
                 ]);
             } else {
                 // Process successfully received item
                 
-                // Prepare the database update first
+                // Prepare the database update
                 $updateData = [
                     'serialnumber' => $request->firstSerialNumber,
                     'serialnumberb' => $request->secondSerialNumber,
@@ -238,130 +188,13 @@ class ReceivedController extends Controller
                     'Username' => $user
                 ];
                 
-                // Update the product first before processing images
+                // Update the product
                 $updateResult = DB::table('tblproduct')
                     ->where('ProductID', $request->productId)
                     ->update($updateData);
                 
-                // Only process images if the update was successful
-                $imageLinks = [];
-                $imageFilenames = [];
-                $columnMapping = [];
-                
-                if ($updateResult > 0 && $request->has('images') && !empty($request->images)) {
-                    $imageCount = count($request->images);
-                    Log::info('Processing images:', ['count' => $imageCount]);
-                    
-                    // Use absolute path for image directory
-                    $directory = public_path('images/product_images');
-                    
-                    // Make sure the directory exists
-                    if (!File::exists($directory)) {
-                        File::makeDirectory($directory, 0755, true);
-                    }
-                    
-                    $hasSerialTwo = ($request->secondSerialNumber !== 'N/A');
-                    $hasPcn = ($request->pcnNumber !== 'N/A');
-                    
-                    for ($i = 0; $i < $imageCount && $i < 10; $i++) {
-                        $imageData = $request->images[$i];
-                        
-                        // If the image is base64 encoded
-                        if (strpos($imageData, 'data:image') === 0) {
-                            // Extract the image data from base64 string
-                            list($type, $data) = explode(';', $imageData);
-                            list(, $data) = explode(',', $data);
-                            $imageData = base64_decode($data);
-                            
-                            // Generate filenames based on index and product ID
-                            $filename = '';
-                            
-                            // First two images are special - serial captures + PCN
-                            if ($i === 0) {
-                                // First serial image
-                                $filename = $request->productId . '.jpg';
-                            } else if ($i === 1 && $hasSerialTwo) {
-                                // Second serial image
-                                $filename = $request->productId . '_1.jpg';
-                            } else if (($i === 1 && !$hasSerialTwo && $hasPcn) || 
-                                      ($i === 2 && $hasSerialTwo && $hasPcn)) {
-                                // PCN image - depends on whether we have a second serial
-                                $filename = $request->productId . '_2.jpg';
-                            } else {
-                                // Additional images - calculate correct index
-                                $startingIndex = 0;
-                                if ($hasSerialTwo) $startingIndex++;
-                                if ($hasPcn) $startingIndex++;
-                                
-                                $suffix = $i + 1;
-                                if ($i > $startingIndex) {
-                                    $suffix = $i + (3 - $startingIndex);
-                                }
-                                
-                                $filename = $request->productId . '_' . $suffix . '.jpg';
-                            }
-                            
-                            $path = $directory . '/' . $filename;
-                            
-                            // Store the image directly using File
-                            File::put($path, $imageData);
-                            $imageLinks[] = $path;
-                            $imageFilenames[] = $filename;
-                            
-                            Log::info('Image saved:', ['path' => $path, 'filename' => $filename]);
-                        }
-                    }
-                    
-                    // If images were added, update image columns
-                    if (count($imageFilenames) > 0) {
-                        $imageUpdateData = [];
-                        
-                        // First assign serial capture images
-                        if (count($imageFilenames) > 0) {
-                            $imageUpdateData['Serial1capturedimg'] = $imageFilenames[0];
-                            $columnMapping[] = 'Serial1capturedimg';
-                            
-                            $imageIndex = 1;
-                            
-                            if ($hasSerialTwo && count($imageFilenames) > $imageIndex) {
-                                $imageUpdateData['Serial2capturedimg'] = $imageFilenames[$imageIndex];
-                                $columnMapping[] = 'Serial2capturedimg';
-                                $imageIndex++;
-                            }
-                            
-                            // Add PCN image if present
-                            if ($hasPcn && count($imageFilenames) > $imageIndex) {
-                                $imageUpdateData['PCNcapturedimg'] = $imageFilenames[$imageIndex];
-                                $columnMapping[] = 'PCNcapturedimg';
-                                $imageIndex++;
-                            }
-                            
-                            // Calculate starting index for additional images
-                            $startIndex = $imageIndex;
-                            
-                            // Map remaining images to capturedimg1 through capturedimg8
-                            $capturedImgColumns = [
-                                'capturedimg1', 'capturedimg2', 'capturedimg3', 'capturedimg4',
-                                'capturedimg5', 'capturedimg6', 'capturedimg7', 'capturedimg8'
-                            ];
-                            
-                            for ($i = $startIndex; $i < count($imageFilenames) && ($i - $startIndex) < count($capturedImgColumns); $i++) {
-                                $columnIndex = $i - $startIndex;
-                                $imageUpdateData[$capturedImgColumns[$columnIndex]] = $imageFilenames[$i];
-                                $columnMapping[] = $capturedImgColumns[$columnIndex];
-                            }
-                        }
-                        
-                        // Update with image information
-                        DB::table('tblproduct')
-                            ->where('ProductID', $request->productId)
-                            ->update($imageUpdateData);
-                    }
-                }
-                
                 Log::info('Update result:', [
-                    'rowsAffected' => $updateResult, 
-                    'imageColumns' => $columnMapping ?? []
+                    'rowsAffected' => $updateResult
                 ]);
                 
                 if ($updateResult === 0) {
@@ -385,10 +218,7 @@ class ReceivedController extends Controller
                 return response()->json([
                     'success' => true,
                     'item' => $request->trackingNumber . ' processed successfully',
-                    'images' => $imageFilenames ?? [],
-                    'columns' => $columnMapping ?? [],
-                    'playsound' => 1,
-                    'clearImages' => true // Signal frontend to clear images
+                    'playsound' => 1
                 ]);
             }
             
@@ -417,4 +247,140 @@ class ReceivedController extends Controller
             ], 500);
         }
     }
+    public function uploadImage(Request $request)
+{
+    Log::info('Received image upload request:', [
+        'productId' => $request->input('productId'),
+        'imageIndex' => $request->input('imageIndex'),
+        'hasImage' => $request->has('imageData')
+    ]);
+    
+    try {
+        $request->validate([
+            'productId' => 'required',
+            'imageIndex' => 'required|integer',
+            'imageData' => 'required|string',
+            'hasSerialTwo' => 'required|boolean',
+            'hasPcn' => 'required|boolean'
+        ]);
+        
+        $productId = $request->input('productId');
+        $imageIndex = $request->input('imageIndex');
+        $imageData = $request->input('imageData');
+        $hasSerialTwo = $request->input('hasSerialTwo');
+        $hasPcn = $request->input('hasPcn');
+        
+        // Check if product exists
+        $productExists = DB::table('tblproduct')
+            ->where('ProductID', $productId)
+            ->exists();
+            
+        if (!$productExists) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found with ID: ' . $productId
+            ], 404);
+        }
+        
+        // Process the image
+        if (strpos($imageData, 'data:image') === 0) {
+            // Extract the image data from base64 string
+            list($type, $data) = explode(';', $imageData);
+            list(, $data) = explode(',', $data);
+            $imageData = base64_decode($data);
+            
+            // Use absolute path for image directory
+            $directory = public_path('images/product_images');
+            
+            // Make sure the directory exists
+            if (!File::exists($directory)) {
+                File::makeDirectory($directory, 0755, true);
+            }
+            
+            // Generate filename based on index and product ID
+            $filename = '';
+            
+            // First two images are special - serial captures + PCN
+            if ($imageIndex === 0) {
+                // First serial image
+                $filename = $productId . '.jpg';
+                $columnName = 'Serial1capturedimg';
+            } else if ($imageIndex === 1 && $hasSerialTwo) {
+                // Second serial image
+                $filename = $productId . '_1.jpg';
+                $columnName = 'Serial2capturedimg';
+            } else if (($imageIndex === 1 && !$hasSerialTwo && $hasPcn) || 
+                      ($imageIndex === 2 && $hasSerialTwo && $hasPcn)) {
+                // PCN image - depends on whether we have a second serial
+                $filename = $productId . '_2.jpg';
+                $columnName = 'PCNcapturedimg';
+            } else {
+                // Additional images - calculate correct index
+                $startingIndex = 0;
+                if ($hasSerialTwo) $startingIndex++;
+                if ($hasPcn) $startingIndex++;
+                
+                $suffix = $imageIndex + 1;
+                if ($imageIndex > $startingIndex) {
+                    $suffix = $imageIndex + (3 - $startingIndex);
+                }
+                
+                $filename = $productId . '_' . $suffix . '.jpg';
+                
+                // Calculate which captured image column to use
+                $columnIndex = $imageIndex - $startingIndex - 1;
+                if ($columnIndex < 0) $columnIndex = 0;
+                
+                $capturedImgColumns = [
+                    'capturedimg1', 'capturedimg2', 'capturedimg3', 'capturedimg4',
+                    'capturedimg5', 'capturedimg6', 'capturedimg7', 'capturedimg8'
+                ];
+                
+                if ($columnIndex < count($capturedImgColumns)) {
+                    $columnName = $capturedImgColumns[$columnIndex];
+                } else {
+                    $columnName = $capturedImgColumns[0]; // Default to first column if out of range
+                }
+            }
+            
+            $path = $directory . '/' . $filename;
+            
+            // Store the image directly using File
+            File::put($path, $imageData);
+            
+            // Update the database with the image filename
+            DB::table('tblproduct')
+                ->where('ProductID', $productId)
+                ->update([$columnName => $filename]);
+            
+            Log::info('Image saved:', [
+                'path' => $path, 
+                'filename' => $filename, 
+                'column' => $columnName
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'filename' => $filename,
+                'column' => $columnName
+            ]);
+        } else {
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid image data format'
+            ], 400);
+        }
+    } catch (\Exception $e) {
+        Log::error('Error uploading image:', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error uploading image: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
 }
