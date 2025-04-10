@@ -122,9 +122,9 @@
             </form>
 
             <!-- API Response -->
-            <div v-if="response" class="response-box">
-                <h3>API Response:</h3>
-                <pre>{{ response }}</pre>
+            <div v-if="response">
+                <br>
+                <p>Created Inboundplanid successfully.</p>
             </div>
 
             <!-- Step 2A: Generate Packing Options -->
@@ -162,6 +162,16 @@
                  <pre>{{ confirmpackingResponse }}</pre> -->
             </div>
 
+            <div v-if="step3PackingResponse">
+                <p>{{ step3PackingResponse.message }}</p>
+            </div>
+
+            <div v-if="placementOptionResponse">
+                <p>{{ placementOptionResponse.message }}</p>
+            </div>
+
+
+
             <div v-if="Donefetchingandconstructedthetableinput">
                 <table>
                     <thead>
@@ -174,20 +184,87 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="(item, index) in combinedPackingItems" :key="index">
-                            <td>{{ item.msku }}</td>
-                            <td>{{ item.quantity }}</td>
-                            <td>{{ item.fnsku }}</td>
-                            <td>{{ item.asin }}</td>
-                            <td>
-                                <select v-model="item.selectedBoxType">
-                                    <option value="retail_box">Retail Box</option>
-                                    <option value="white_box">White Box</option>
-                                </select>
-                            </td>
-                        </tr>
+                        <template v-for="(item, index) in combinedPackingItems" :key="index">
+                            <!-- Main Item Row -->
+                            <tr>
+                                <td>{{ item.msku }}</td>
+                                <td>{{ item.quantity }}</td>
+                                <td>{{ item.fnsku }}</td>
+                                <td>{{ item.asin }}</td>
+                                <td>
+                                    <select v-model="item.selectedBoxType" @change="onBoxTypeChange(item)">
+                                        <option value="retail_box">Retail Box</option>
+                                        <option value="white_box">White Box</option>
+                                    </select>
+                                </td>
+                            </tr>
+
+                            <!-- Dimension Row -->
+                            <tr>
+                                <td colspan="5" style="font-weight: bold; font-size: 0.9em;">
+                                    <template v-if="item.selectedBoxType === 'retail_box'">
+                                        Retail Box:
+                                        {{ item.dimensionInfo.retail_box.retail_length || 'N/A' }} x
+                                        {{ item.dimensionInfo.retail_box.retail_width || 'N/A' }} x
+                                        {{ item.dimensionInfo.retail_box.retail_height || 'N/A' }} inches —
+                                        {{ item.dimensionInfo.retail_box.retail_lbs || 'N/A' }} lbs
+                                    </template>
+
+                                    <template v-else-if="item.selectedBoxType === 'white_box'">
+                                        White Box:
+                                        {{ item.dimensionInfo.white_box.white_length || 'N/A' }} x
+                                        {{ item.dimensionInfo.white_box.white_width || 'N/A' }} x
+                                        {{ item.dimensionInfo.white_box.white_height || 'N/A' }} inches —
+                                        {{ item.dimensionInfo.white_box.white_lbs || 'N/A' }} lbs
+                                    </template>
+                                </td>
+                            </tr>
+
+                        </template>
                     </tbody>
                 </table>
+
+                <!-- 📦 Global Package Dimensions Input -->
+                <div class="form-group" style="margin-top: 24px;">
+
+                    <table class="shipment-table" style="width: auto; text-align: left;">
+                        <thead>
+                            <tr>
+                                <td colspan="4">
+                                    <h3>📦 Package Dimensions for Entire Shipment</h3>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Length (IN)</th>
+                                <th>Width (IN)</th>
+                                <th>Height (IN)</th>
+                                <th>Weight (LB)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><input type="number" v-model="form.packageLength" step="0.01" min="0"
+                                        placeholder="e.g. 24.5" />
+                                </td>
+                                <td><input type="number" v-model="form.packageWidth" step="0.01" min="0"
+                                        placeholder="e.g. 12.25" />
+                                </td>
+                                <td><input type="number" v-model="form.packageHeight" step="0.01" min="0"
+                                        placeholder="e.g. 18.75" />
+                                </td>
+                                <td><input type="number" v-model="form.packageWeight" step="0.01" min="0"
+                                        placeholder="e.g. 48.6" />
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Submit -->
+                <button @click="proceedToStep3PackingInfo" class="btn btn-primary" style="margin-top: 16px;">
+                    Proceed to Step 3
+                </button>
+
             </div>
 
 
@@ -244,7 +321,8 @@
             <div class="modal-footer">
                 <button :disabled="productPage <= 1" @click="productPage--; fetchProducts()">⬅ Prev</button>
                 <button :disabled="productPage >= productPagination.last_page"
-                    @click="productPage++; fetchProducts()">Next ➡</button>
+                    @click="productPage++; fetchProducts()">Next
+                    ➡</button>
                 <button @click="showAddItemModal = false">Close</button>
             </div>
         </div>
@@ -285,6 +363,10 @@ export default {
                 inboundplanid: '',
                 packingGroupId: '',
                 packingOptionId: '',
+                packageWeight: '',
+                packageLength: '',
+                packageWidth: '',
+                packageHeight: ''
             },
             stores: [],
             showStoreModal: false,
@@ -293,14 +375,17 @@ export default {
             packingResponse: null,
             listpackingResponse: null,
             listitemspackingResponse: null,
-            confirmpackingResponse: null,
+            confirmPackingResponse: null,
+            placementOptionResponse: null,
             showAddItemModal: false,
             productList: [],
             productSearch: '',
             productPerPage: 20,
             productPage: 1,
             productPagination: {},
-            Donefetchingandconstructedthetableinput: false
+            Donefetchingandconstructedthetableinput: false,
+            step3PackingResponse: null,
+            sheeshables: false
         };
     },
     created() {
@@ -642,7 +727,6 @@ export default {
                 };
             }
         },
-        // Add this method to your Vue methods
         async fetchAndCombinePackageDimensions() {
             try {
                 const res = await axios.post("/amzn/fba-shipment/fetch_package_dimensions", {
@@ -656,12 +740,15 @@ export default {
                 }
 
                 const dimensionData = res.data.data;
-
-                // Merge dimensions with items from listitemspackingResponse
                 const items = this.listitemspackingResponse?.data?.items || [];
 
-                this.combinedPackingItems = items.map(item => {
-                    const match = dimensionData.find(d => d.asin === item.asin);
+                this.combinedPackingItems = items.map((item) => {
+                    const match = dimensionData.find((d) => d.asin === item.asin);
+
+                    // Try to find previous selection
+                    const existingItem = this.combinedPackingItems?.find(i => i.asin === item.asin);
+                    const selectedBoxType = existingItem?.selectedBoxType || 'retail_box';
+
                     return {
                         ...item,
                         dimensionInfo: match || {
@@ -670,41 +757,125 @@ export default {
                             asin: item.asin,
                             shipmentID: this.form.shipmentID
                         },
-                        selectedBoxType: 'retail_box' // default selection
+                        selectedBoxType
                     };
                 });
 
+
                 this.Donefetchingandconstructedthetableinput = true;
-                console.log("✅ Process completed successfully!");
             } catch (error) {
                 console.error("Error fetching and combining package dimensions:", error);
             }
         },
-        async proceedToStep3PackingInfo() {
+        async onBoxTypeChange(item) {
             try {
-                const payload = this.combinedPackingItems.map(item => {
+                const res = await axios.post("/amzn/fba-shipment/fetch_package_dimensions", {
+                    store: this.form.store,
+                    destinationMarketplace: this.form.destinationMarketplace,
+                    shipmentID: this.form.shipmentID
+                });
+
+                const dimensionData = res.data.data;
+                const updated = dimensionData.find(d => d.asin === item.asin);
+
+                if (updated) {
+                    // ✅ Force Vue to reassign the object to trigger reactivity
+                    item.dimensionInfo = updated;
+                    console.log(item);
+                }
+            } catch (error) {
+                console.error("Failed to fetch new dimensions:", error);
+            }
+        },
+
+        // Add this method to handle Step 3 submission
+        async proceedToStep3PackingInfo() {
+            const requiredFields = ['store', 'destinationMarketplace', 'shipmentID', 'inboundplanid', 'packingGroupId', 'packingOptionId'];
+            const missing = requiredFields.filter(field => !this.form[field]);
+            if (missing.length) {
+                console.warn("Missing required form fields:", missing);
+                return;
+            }
+
+            const payload = {
+                items: this.combinedPackingItems.map(item => {
                     return {
                         msku: item.msku,
                         quantity: item.quantity,
                         fnsku: item.fnsku,
                         asin: item.asin,
-                        ...item.dimensionInfo[item.selectedBoxType], // Extract dimensions from selected box type
+                        ...item.dimensionInfo[item.selectedBoxType],
                         box_type: item.selectedBoxType
                     };
-                });
+                }),
+                package: {
+                    weight: this.packageWeight,
+                    dimensions: this.packageDimensions
+                }
+            };
 
+            try {
                 const response = await axios.get('/amzn/fba-shipment/step3/packing_information', {
                     params: {
                         data: JSON.stringify(payload),
-                        // Add other necessary fields if needed
+                        ...this.form
                     }
                 });
 
-                console.log('Step 3 response:', response.data);
+                this.step3PackingResponse = {
+                    success: true,
+                    message: "Packing info submitted successfully!",
+                    data: response.data
+                };
+
+                this.Donefetchingandconstructedthetableinput = false;
+
+                await this.step4PlacementOption();
             } catch (error) {
                 console.error('Error sending to Step 3:', error);
+                this.step3PackingResponse = {
+                    success: false,
+                    message: "❌ Failed to submit packing info.",
+                    data: error.message
+                };
+            }
+        },
+        formatBoxDimensions(box) {
+            if (!box) return 'N/A';
+            const length = box.retail_length || box.white_length;
+            const width = box.retail_width || box.white_width;
+            const height = box.retail_height || box.white_height;
+            const weight = box.lbs || box.white_lbs;
+
+            if (!length || !width || !height) return 'N/A dimensions';
+
+            return `${length} x ${width} x ${height} inches — ${weight ?? 'N/A'} lbs`;
+        },
+        async step4PlacementOption() {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step4/placement_option`, {
+                    params: {
+                        ...this.form
+                    }
+                });
+
+                this.placementOptionResponse = {
+                    success: res.data.success,
+                    message: res.data.message,
+                    data: res.data.data
+                };
+
+                console.log("✅ Step 4 (Placement Option) completed!");
+            } catch (error) {
+                console.error("❌ Error in Step 4:", error);
+                this.placementOptionResponse = {
+                    success: false,
+                    message: "Failed to confirm placement option.",
+                    data: error.message
+                };
             }
         }
+
     }
 };
 </script>
