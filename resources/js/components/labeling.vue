@@ -264,10 +264,10 @@ export default {
       
       // Add captured images from the new fields
       const capturedImageFields = [
-        'Serial1capturedimg', 'Serial2capturedimg','PCNcapturedimg',
-        'capturedimg1', 'capturedimg2', 'capturedimg3', 
+        'capturedimg1', 'capturedimg2','capturedimg3',
         'capturedimg4', 'capturedimg5', 'capturedimg6', 
-        'capturedimg7', 'capturedimg8'
+        'capturedimg7', 'capturedimg8', 'capturedimg9', 
+        'capturedimg10', 'capturedimg11', 'capturedimg12'
       ];
       
       capturedImageFields.forEach(field => {

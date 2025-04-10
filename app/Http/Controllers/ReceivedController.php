@@ -53,17 +53,34 @@ class ReceivedController extends Controller
             ->first();
             
         if ($product) {
+            // Get image fields for the product
+            $imageFields = [
+                'img1', 'img2', 'img3', 'img4', 'img5',
+                'img6', 'img7', 'img8', 'img9', 'img10',
+                'img11', 'img12', 'img13', 'img14', 'img15'
+            ];
+            
+            // Create a productDetails object with just the necessary fields
+            $productDetails = new \stdClass();
+            
+            // Add image fields if they exist
+            foreach ($imageFields as $field) {
+                if (property_exists($product, $field) && !empty($product->$field)) {
+                    $productDetails->$field = $product->$field;
+                }
+            }
+            
             return response()->json([
                 'found' => true,
                 'productId' => $product->ProductID,
-                'rtcounter' => $product->rtcounter, // Added rtcounter to the response
-                'trackingnumber' => $product->trackingnumber
+                'rtcounter' => $product->rtcounter,
+                'trackingnumber' => $product->trackingnumber,
+                'productDetails' => $productDetails // Include product details with images
             ]);
         } else {
             return response()->json(['found' => false]);
         }
     }
-
     
     public function processScan(Request $request)
     {

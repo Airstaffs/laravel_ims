@@ -339,6 +339,9 @@ async submitScan() {
     SoundService.error(); // Error vibration for missing product ID
     return;
   }
+
+   //loading animation
+   this.$refs.scanner.startLoading('Processing Data');
   
   try {
     // Prepare the scan data
@@ -373,6 +376,9 @@ async submitScan() {
     const data = response.data;
     
     if (data.success) {
+      
+      //stop loading animation
+      this.$refs.scanner.stopLoading();
       // Show success notification
       this.$refs.scanner.showScanSuccess(data.item || 'Item received successfully');
       SoundService.successScan(true); // Play special success sound with 

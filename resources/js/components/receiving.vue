@@ -7,7 +7,7 @@
       scanner-title="Received Scanner"
       storage-prefix="received"
       :enable-camera="true"
-      :display-fields="['Trackingnumber', 'FirstSN', 'SecondSN', 'PCN', 'Basket#']"
+      :display-fields="['Trackingnumber', 'FirstSN', 'SecondSN', 'PCN', 'Basket']"
       :api-endpoint="'/api/received/process-scan'"
       @process-scan="handleScanProcess"
       @hardware-scan="handleHardwareScan"
@@ -315,7 +315,7 @@ export default {
           // Store the product ID and rtcounter received from the backend
           this.productId = response.data.productId;
           this.rtcounter = response.data.rtcounter; // Store rtcounter
-          
+          this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
           // Move to Pass/Fail step
           this.currentStep = 2;
           SoundService.success(); // Play success sound for finding tracking
@@ -392,7 +392,7 @@ export default {
       }
       
       // Capture image for first serial
-      await this.captureSerialImage();
+     //await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing image
       
       // Move to second serial number step
@@ -430,7 +430,7 @@ export default {
       }
       
       // Capture image for second serial
-      await this.captureSerialImage();
+    //  await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing image
       
       // Move to PCN step
@@ -484,7 +484,7 @@ export default {
       }
       
       // Capture image for PCN
-      await this.captureSerialImage();
+    //  await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing PCN image
       
       // Move to basket number step
@@ -561,7 +561,8 @@ export default {
       SoundService.error(); // Error vibration for invalid PCN
       return;
     }
-
+    //loading animation
+    this.$refs.scanner.startLoading('Processing Data');
     // Get images from scanner component
     const images = this.$refs.scanner.capturedImages.map(img => img.data);
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
@@ -588,6 +589,10 @@ export default {
     });
     
     if (response.data.success) {
+       //clear fetch delivered item image
+       this.$refs.scanner.clearProductThumbnails();
+      //stop loading animation
+      this.$refs.scanner.stopLoading();
       this.$refs.scanner.showScanSuccess('Item marked as failed');
       SoundService.successScan(true); // Use successscan sound for final submission
       
@@ -610,10 +615,12 @@ export default {
       // Refresh inventory
       this.fetchInventory();
     } else {
+      this.$refs.scanner.stopLoading();
       this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
       SoundService.scanRejected(true); // Use scanrejected sound for submission error
     }
   } catch (error) {
+
     console.error('Error submitting failed item:', error);
     SoundService.scanRejected(true); // Use scanrejected sound for submission error
     
@@ -642,7 +649,8 @@ export default {
   try {
     // Get CSRF token
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-
+      //loading animation
+     this.$refs.scanner.startLoading('Processing Data...');
     // Create data without images first
     const scanData = {
       _token: csrfToken,
@@ -673,7 +681,6 @@ export default {
     if (response.data.success) {
       // If basic data submission was successful, now upload images one by one
       const images = this.$refs.scanner.capturedImages.map(img => img.data);
-      
       if (images.length > 0) {
         const hasSerialTwo = this.secondSerialNumber !== 'N/A';
         const hasPcn = this.pcnNumber !== 'N/A';
@@ -703,7 +710,10 @@ export default {
           }
         }
       }
-      
+      //clear fetch delivered item image
+      this.$refs.scanner.clearProductThumbnails();
+      //stop loading animation
+      this.$refs.scanner.stopLoading();
       // Show success notification
       this.$refs.scanner.showScanSuccess('Item received successfully');
       SoundService.successScan(true);
@@ -716,7 +726,6 @@ export default {
         PCN: this.pcnNumber,
         Basket: this.basketNumber // Fixed property name
       });
-      
       // Clear captured images
       this.$refs.scanner.capturedImages = [];
       
@@ -726,6 +735,7 @@ export default {
       // Refresh inventory
       this.fetchInventory();
     } else {
+      this.$refs.scanner.stopLoading();
       // Show error notification
       this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
       SoundService.scanRejected(true);
@@ -777,6 +787,11 @@ export default {
       this.productId = '';
       this.rtcounter = ''; // Reset rtcounter
       this.status = '';
+
+       // Clear the product thumbnails
+  if (this.$refs.scanner && this.$refs.scanner.clearProductThumbnails) {
+    this.$refs.scanner.clearProductThumbnails();
+  }
       
       // Clear any pending auto-verify timeouts
       if (this.autoVerifyTimeout) {
