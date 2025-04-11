@@ -260,6 +260,7 @@ export default {
     
     // Step navigation
     async verifyTrackingNumber() {
+      // Tracking found in the database
       this.validateTrackingNumber();
       
       if (!this.trackingNumberValid) {
@@ -275,8 +276,20 @@ export default {
         });
         
         if (response.data.found) {
-          // Tracking found in the database
           this.trackingFound = true;
+     
+          if (response.data.alreadyScanned) {
+            // Item has already been scanned
+            SoundService.alreadyScanned(); // Play already scanned sound
+          
+            // Show warning notification for already scanned item (using our new method)
+            this.$refs.scanner.showScanWarning(`Item already scanned`);
+            
+            // Focus back on tracking input for next scan
+            this.$refs.trackingInput.select();
+            return;
+          }
+
           
           // Store the product ID and rtcounter received from the backend
           this.productId = response.data.productId;
