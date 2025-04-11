@@ -288,3 +288,5 @@ Route::prefix('api/labeling')->group(function () {
 });
 
 
+Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
+Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
