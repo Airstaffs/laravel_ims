@@ -1321,7 +1321,7 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wf9bf2add6-47d0-4d46-8acc-338dcfb32ada');// from process 1
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
         $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
 
@@ -1450,7 +1450,148 @@ class FBAShipmentController extends Controller
         }
     }
 
+    public function step4c_get_shipment(Request $request)
+    {
+        $request->validate([
+            'store' => 'nullable|string',
+            'destinationMarketplace' => 'nullable|string',
+            'nextToken' => 'nullable|string',
+            'shipmentID' => 'nullable|string'
+        ]);
+        $data_additionale = []; // data that is to be passed to jsonCreation
+        $store = $request->input('store', 'All Renewed');
+        $nextToken = $request->input('nextToken', null);
+        $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
+        $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
+        $shipmentIdfromAPI = $request->input('shipmentIdfromAPI', 'sh82013eed-8bd2-4642-aaae-80e7177e4d31');
 
+
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
+        $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/shipments/' . $shipmentIdfromAPI;
+
+        $customParams = [];
+
+        $companydetails = $this->fetchCompanyDetails();
+
+        if (!$companydetails) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        // Generate JSON payload
+        $jsonData = $this->JsonCreation('step4a', null, 'ATVPDKIKX0DER', null, $data_additionale);
+
+        // Check if JSON encoding failed
+        if ($jsonData === false) {
+            Log::error('JSON Encoding Failed:', ['error' => json_last_error_msg()]);
+            return response()->json(['success' => false, 'message' => 'JSON encoding error'], 500);
+        }
+
+        $credentials = AWSCredentials($store);
+
+        if (!$credentials) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No credentials found for the given store.',
+            ], 500);
+        }
+
+        $accessToken = fetchAccessToken($credentials, $returnRaw = false);
+        if (!$accessToken) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch access token.',
+            ], 500);
+        }
+
+        try {
+            // Build headers using the helper function
+            $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+            // Ensure Content-Type is set
+            $headers['Content-Type'] = 'application/json';
+            $headers['accept'] = 'application/json';
+
+            // Log the headers
+            Log::info('Request headers:', $headers);
+
+            // Build query string using the helper function
+            $queryString = buildQueryString($nextToken, $customParams);
+
+            // Construct the full URL
+            $url = "{$endpoint}{$path}{$queryString}";
+
+            // Log the request details (headers, body, etc.) for debugging
+            Log::info('Request details:', [
+                'url' => $url,
+                'headers' => $headers,
+                'queryString' => $queryString,
+                // 'body' => json_decode($jsonData, true) // Decode before logging
+            ]);
+
+            // Make the HTTP request (POST)
+            $response = Http::timeout(50)
+                ->withHeaders($headers)
+                // ->withBody($jsonData, 'application/json') // Ensure JSON is properly sent
+                ->get($url);
+
+            // Log the cURL information (response details)
+            $curlInfo = $response->handlerStats();
+            Log::info('Curl Info:', $curlInfo);
+
+            // Check if request was successful
+            if ($response->successful()) {
+                $data = $response->json(); // Parse JSON response
+
+                // Extract operationId
+                $operationId = $data['operationId'] ?? null;
+
+                // If operationId exists, call getOperationStatus()
+                if ($operationId) {
+                    Log::info("Tracking operation: {$operationId}");
+
+                    // Call the operation status function
+                    $operationStatusResponse = $this->getOperationStatus($store, $destinationmarketplace, $operationId);
+
+                    // Return the operation response
+                    return response()->json([
+                        'success' => true,
+                        'operationId' => $operationId,
+                        'operationStatus' => $operationStatusResponse->getData(true), // Get operation tracking response
+                        'logs' => $curlInfo,
+                    ]);
+                }
+
+                // If no operationId, return success response but indicate missing operation tracking
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Operation Step 4b Success.',
+                    'data' => $data,
+                    'logs' => $curlInfo,
+                ]);
+            }
+
+            // If request failed
+            return response()->json([
+                'success' => false,
+                'message' => 'Successfully sent but API returned an error.',
+                'headers' => $headers,
+                'error' => $response->json(),
+                'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
+                'logs' => $curlInfo,
+            ], $response->status());
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during the API request.',
+                'error' => $e->getMessage(),
+                'logs' => $curlInfo ?? null, // If logs exist, return them
+            ], 500);
+        }
+    }
     protected function fetchCompanyDetails()
     {
         return DB::table('tblcompanydetails')->where('id', 1)->first();

@@ -265,8 +265,38 @@
                     Proceed to Step 3
                 </button>
 
+
             </div>
 
+            <div v-if="listPlacementOptionsResponse">
+                <h2>📦 Placement Options</h2>
+                <table class="placement-table">
+                    <thead>
+                        <tr>
+                            <th>Placement Option ID</th>
+                            <th>Shipment ID</th>
+                            <th>Description</th>
+                            <th>Destination Address</th>
+                            <th>Fee (USD)</th>
+                            <th>Warehouse ID</th>
+                            <th>Destination Type</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(option, index) in enrichedPlacementOptions" :key="index">
+                            <td>{{ option.placementOptionId }}</td>
+                            <td>{{ option.shipmentId }}</td>
+                            <td>{{ option.description }}</td>
+                            <td>{{ option.destinationAddress }}</td>
+                            <td>{{ option.fee }}</td>
+                            <td>{{ option.warehouseId }}</td>
+                            <td>{{ option.destinationType }}</td>
+                            <td>{{ option.status }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
             <hr>
             <h2>Step 3: Destination & Transportation</h2>
@@ -366,7 +396,8 @@ export default {
                 packageWeight: '',
                 packageLength: '',
                 packageWidth: '',
-                packageHeight: ''
+                packageHeight: '',
+                placementOptionId: ''
             },
             stores: [],
             showStoreModal: false,
@@ -385,7 +416,9 @@ export default {
             productPagination: {},
             Donefetchingandconstructedthetableinput: false,
             step3PackingResponse: null,
-            sheeshables: false
+            sheeshables: false,
+            listPlacementOptionsResponse: null,
+            enrichedPlacementOptions: []
         };
     },
     created() {
@@ -866,6 +899,9 @@ export default {
                 };
 
                 console.log("✅ Step 4 (Placement Option) completed!");
+                await this.fetchPlacementOptions();
+                console.log(this.listPlacementOptionsResponse);
+                console.log(this.enrichedPlacementOptions);
             } catch (error) {
                 console.error("❌ Error in Step 4:", error);
                 this.placementOptionResponse = {
@@ -874,7 +910,61 @@ export default {
                     data: error.message
                 };
             }
+        },
+        async fetchPlacementOptions() {
+            try {
+                const res = await axios.get('/amzn/fba-shipment/step4/list_placement_option', {
+                    params: { ...this.form }
+                });
+                if (res.data.success) {
+                    this.listPlacementOptionsResponse = res.data.data;
+                    await this.enrichPlacementOptions();
+                }
+            } catch (error) {
+                console.error("Error fetching placement options:", error);
+            }
+        },
+
+        async enrichPlacementOptions() {
+            const options = this.listPlacementOptionsResponse.placementOptions;
+            const enriched = [];
+
+            console.log("PlacementOptions");
+            console.log(this.listPlacementOptionsResponse);
+
+            for (const option of options) {
+                const shipmentId = option.shipmentIds[0];
+                try {
+                    const shipmentRes = await axios.get('/amzn/fba-shipment/step4/get_shipment', {
+                        params: {
+                            ...this.form,
+                            shipmentIdfromAPI: shipmentId
+                        }
+                    });
+
+                    const shipmentData = shipmentRes.data.data;
+                    const address = shipmentData.destination?.address || {};
+                    const fullAddress = `${address.name || '-'}, ${address.addressLine1 || '-'}, ${address.city || '-'}, ${address.stateOrProvinceCode || '-'} ${address.postalCode || '-'}, ${address.countryCode || '-'}`;
+
+                    enriched.push({
+                        placementOptionId: option.placementOptionId,
+                        shipmentId: shipmentId,
+                        description: option.fees[0]?.description || '-',
+                        fee: option.fees[0]?.value.amount || '0.00',
+                        warehouseId: shipmentData.destination?.warehouseId || '-',
+                        destinationType: shipmentData.destination?.destinationType || '-',
+                        destinationAddress: fullAddress,
+                        status: shipmentData.status || '-'
+                    });
+                } catch (e) {
+                    console.warn(`Failed to enrich shipment ${shipmentId}:`, e);
+                }
+            }
+
+            this.enrichedPlacementOptions = enriched;
         }
+
+
 
     }
 };
@@ -958,5 +1048,22 @@ button {
 .modal-footer {
     margin-top: 10px;
     text-align: right;
+}
+
+.placement-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.placement-table th,
+.placement-table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+}
+
+.placement-table th {
+    background-color: #f2f2f2;
 }
 </style>

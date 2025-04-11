@@ -213,6 +213,7 @@ Route::get('/amzn/fba-shipment/step2/confirm-packing-option', [FBAShipmentContro
 Route::get('/amzn/fba-shipment/step3/packing_information', [FBAShipmentController::class, 'step3a_packing_information']);
 Route::get('/amzn/fba-shipment/step4/placement_option', [FBAShipmentController::class, 'step4a_placement_option']);
 Route::get('/amzn/fba-shipment/step4/list_placement_option', [FBAShipmentController::class, 'step4b_list_placement_option']);
+Route::get('/amzn/fba-shipment/step4/get_shipment', [FBAShipmentController::class, 'step4c_get_shipment']);
 
 
 Route::get('/apis/ebay-login', action: function () {
