@@ -268,10 +268,11 @@ Route::prefix('api/unreceived')->group(function () {
 // Routes for Received scanner 
 Route::prefix('api/received')->group(function () {
     Route::get('products', [ReceivedController::class, 'index']);
-    Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
+    Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);  
+    Route::post('validate-pcn', [ReceivedController::class, 'validatePcn']); // <-- Now points
     Route::post('process-scan', [ReceivedController::class, 'processScan']);
-    Route::post('upload-image', [ReceivedController::class, 'uploadImage']); // Fixed this line
 });
+
 
 Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::class, 'upload']);
 

@@ -44,24 +44,44 @@ class UnreceivedController extends Controller
         // Extract the last 12 digits
         $last12Digits = substr($tracking, -12);
         
-        // Check if tracking exists in tblproduct where ProductModuleLoc = 'Orders'
-        // Find just one matching product
-        $product = DB::table('tblproduct')
+        // First, check if the product exists in Received status (already scanned)
+        $receivedProduct = DB::table('tblproduct')
+            ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
+            ->whereIn('ProductModuleLoc', ['Received', 'Labeling'])
+            ->first();
+            
+        if ($receivedProduct) {
+            // Product exists but has already been received
+            return response()->json([
+                'found' => true,
+                'productId' => $receivedProduct->ProductID,
+                'rtcounter' => $receivedProduct->rtcounter,
+                'trackingnumber' => $receivedProduct->trackingnumber,
+                'alreadyScanned' => true
+            ]);
+        }
+        
+        // If not found in Received, check in Orders
+        $ordersProduct = DB::table('tblproduct')
             ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
             ->where('ProductModuleLoc', 'Orders')
             ->first();
             
-        if ($product) {
+        if ($ordersProduct) {
+            // Product found in Orders and ready for receiving
             return response()->json([
                 'found' => true,
-                'productId' => $product->ProductID,
-                'rtcounter' => $product->rtcounter, // Added rtcounter to the response
-                'trackingnumber' => $product->trackingnumber
+                'productId' => $ordersProduct->ProductID,
+                'rtcounter' => $ordersProduct->rtcounter,
+                'trackingnumber' => $ordersProduct->trackingnumber,
+                'alreadyScanned' => false
             ]);
-        } else {
-            return response()->json(['found' => false]);
         }
+        
+        // Product not found anywhere
+        return response()->json(['found' => false]);
     }
+    
             
     public function getNextRpn()
     {

@@ -478,6 +478,53 @@ export default {
       // Save to storage
       this.saveScans();
     },
+
+    // Show warning notification (for already scanned items)
+showScanWarning(message) {
+  this.scanErrorMessage = message;
+  this.showErrorNotification = true;
+  this.showSuccessNotification = false;
+  
+  // Get the notification element and change its class
+  this.$nextTick(() => {
+    const notificationEl = document.querySelector('.top-notification.error');
+    if (notificationEl) {
+      notificationEl.classList.remove('error');
+      notificationEl.classList.add('warning');
+      
+      // Find the icon and change it to a warning icon
+      const iconEl = notificationEl.querySelector('i');
+      if (iconEl) {
+        iconEl.classList.remove('fa-exclamation-circle');
+        iconEl.classList.add('fa-exclamation-triangle');
+      }
+    }
+  });
+  
+  // Clear after delay (longer for warnings - 5 seconds)
+  setTimeout(() => {
+    this.showErrorNotification = false;
+    
+    // Reset the class when hiding
+    this.$nextTick(() => {
+      const warningEl = document.querySelector('.top-notification.warning');
+      if (warningEl) {
+        warningEl.classList.remove('warning');
+        warningEl.classList.add('error');
+        
+        // Reset the icon
+        const iconEl = warningEl.querySelector('i');
+        if (iconEl) {
+          iconEl.classList.remove('fa-exclamation-triangle');
+          iconEl.classList.add('fa-exclamation-circle');
+        }
+      }
+    });
+  }, 5000); // 5 seconds for warnings (longer than regular errors)
+  
+  // Add to failed scans count since it's not a successful scan
+  this.failedScans++;
+},
     
     // Storage methods
     saveScans() {

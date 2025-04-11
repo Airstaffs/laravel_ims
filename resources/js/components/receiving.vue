@@ -311,6 +311,18 @@ export default {
         if (response.data.found) {
           // Tracking found in the database
           this.trackingFound = true;
+
+          if (response.data.alreadyScanned) {
+            // Item has already been scanned
+            SoundService.alreadyScanned(); // Play already scanned sound
+          
+            // Show warning notification for already scanned item (using our new method)
+            this.$refs.scanner.showScanWarning(`Item already scanned`);
+            
+            // Focus back on tracking input for next scan
+            this.$refs.trackingInput.select();
+            return;
+          }
           
           // Store the product ID and rtcounter received from the backend
           this.productId = response.data.productId;
@@ -475,29 +487,49 @@ export default {
     },
     
     // Process PCN
-    async processPcnNumber() {
-      if (!this.validatePcnNumber()) {
-        this.$refs.scanner.showScanError('PCN must start with PCN followed by numbers (e.g. PCN12345)');
-        SoundService.error(); // Error sound for invalid PCN
-        this.$refs.pcnInput.select();
-        return;
-      }
-      
-      // Capture image for PCN
-    //  await this.captureSerialImage();
-      SoundService.success(); // Success sound after capturing PCN image
-      
-      // Move to basket number step
-      this.currentStep = 6;
-      
-      // Focus on the basket number input
-      this.$nextTick(() => {
-        if (this.$refs.basketInput) {
-          this.$refs.basketInput.focus();
-        }
-      });
-    },
+   async processPcnNumber() {
+  if (!this.validatePcnNumber()) {
+    this.$refs.scanner.showScanError('PCN must start with PCN followed by numbers (e.g. PCN12345)');
+    SoundService.error(); // Error sound for invalid PCN
+    this.$refs.pcnInput.select();
+    return;
+  }
+  
+  try {
+    // First validate PCN format locally
+    // Then check if PCN is already used in the database
+    const pcnResponse = await axios.post(`${API_BASE_URL}/api/received/validate-pcn`, {
+  pcn: this.pcnNumber
+});
 
+    
+    if (pcnResponse.data.alreadyUsed) {
+      // PCN already exists in the database
+      this.$refs.scanner.showScanWarning(`${this.pcnNumber} is already in use`);
+      SoundService.PCNalreadyUsed(); // Use the same sound as for already scanned items
+      this.$refs.pcnInput.select();
+      return;
+    }
+    
+    // Capture image for PCN
+    // await this.captureSerialImage();
+    SoundService.success(); // Success sound after capturing PCN image
+    
+    // Move to basket number step
+    this.currentStep = 6;
+    
+    // Focus on the basket number input
+    this.$nextTick(() => {
+      if (this.$refs.basketInput) {
+        this.$refs.basketInput.focus();
+      }
+    });
+  } catch (error) {
+    console.error('Error validating PCN:', error);
+    this.$refs.scanner.showScanError('Error validating PCN');
+    SoundService.error();
+  }
+},
     
     // Handle basket number input
     handleBasketInput() {

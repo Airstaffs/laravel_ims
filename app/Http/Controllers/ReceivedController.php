@@ -37,22 +37,37 @@ class ReceivedController extends Controller
             ->paginate($perPage);
         
         return response()->json($products);
-    }
-
-    public function verifyTracking(Request $request)
+    }public function verifyTracking(Request $request)
     {
         $tracking = $request->input('tracking');
         
         // Extract the last 12 digits
         $last12Digits = substr($tracking, -12);
         
-        // Check if tracking exists in tblproduct where ProductModuleLoc = 'Orders'
-        $product = DB::table('tblproduct')
+        // First, check if tracking exists in Labeling (already scanned)
+        $labelingProduct = DB::table('tblproduct')
+            ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
+            ->whereIn('ProductModuleLoc', ['Labeling', 'Validation'])
+            ->first();
+            
+        if ($labelingProduct) {
+            // Product exists but has already been scanned and moved to Labeling
+            return response()->json([
+                'found' => true,
+                'productId' => $labelingProduct->ProductID,
+                'rtcounter' => $labelingProduct->rtcounter,
+                'trackingnumber' => $labelingProduct->trackingnumber,
+                'alreadyScanned' => true
+            ]);
+        }
+        
+        // Then check if it exists in Received (valid for processing)
+        $receivedProduct = DB::table('tblproduct')
             ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
             ->where('ProductModuleLoc', 'Received')
             ->first();
             
-        if ($product) {
+        if ($receivedProduct) {
             // Get image fields for the product
             $imageFields = [
                 'img1', 'img2', 'img3', 'img4', 'img5',
@@ -65,22 +80,61 @@ class ReceivedController extends Controller
             
             // Add image fields if they exist
             foreach ($imageFields as $field) {
-                if (property_exists($product, $field) && !empty($product->$field)) {
-                    $productDetails->$field = $product->$field;
+                if (property_exists($receivedProduct, $field) && !empty($receivedProduct->$field)) {
+                    $productDetails->$field = $receivedProduct->$field;
                 }
             }
             
             return response()->json([
                 'found' => true,
-                'productId' => $product->ProductID,
-                'rtcounter' => $product->rtcounter,
-                'trackingnumber' => $product->trackingnumber,
-                'productDetails' => $productDetails // Include product details with images
+                'productId' => $receivedProduct->ProductID,
+                'rtcounter' => $receivedProduct->rtcounter,
+                'trackingnumber' => $receivedProduct->trackingnumber,
+                'productDetails' => $productDetails
             ]);
-        } else {
-            return response()->json(['found' => false]);
+        }
+        
+        // Product not found
+        return response()->json(['found' => false]);
+    }
+
+    public function validatePcn(Request $request)
+    {
+        try {
+            // Get the PCN from the request
+            $pcn = $request->input('pcn');
+            
+            if (empty($pcn)) {
+                return response()->json([
+                    'valid' => false,
+                    'message' => 'PCN is required'
+                ], 400);
+            }
+            
+            // Check if PCN exists in the database
+            $pcnExists = DB::table('tblproduct')
+                ->where('PCN', $pcn)
+                ->exists();
+                
+            return response()->json([
+                'valid' => true, // Format is valid (validated in frontend)
+                'alreadyUsed' => $pcnExists,
+                'pcn' => $pcn
+            ]);
+        } catch (\Exception $e) {
+            // Log the error
+            Log::error('Error validating PCN:', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'valid' => false,
+                'message' => 'Error validating PCN: ' . $e->getMessage()
+            ], 500);
         }
     }
+
     
     public function processScan(Request $request)
     {

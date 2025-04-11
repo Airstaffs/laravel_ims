@@ -967,6 +967,13 @@ input:checked + .toggle-slider:before {
   border-left: 4px solid #f44336;
 }
 
+.top-notification.warning {
+  background-color: #fff3cd;
+  color: #856404;
+  border-left: 4px solid #ffc107;
+}
+
+
 /* Scanned items list styles */
 .scanned-items {
   margin-bottom: 15px;
