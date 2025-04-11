@@ -196,11 +196,15 @@ Route::post('/amzn/fba-cart/add', [FBACartController::class, 'addToCart']);
 Route::get('/amzn/fba-cart/list', [FBACartController::class, 'list']);
 Route::get('/amzn/fba-cart/get-or-create-cart', [FBACartController::class, 'getOrCreateCart']);
 Route::delete('/amzn/fba-cart/remove', [FBACartController::class, 'removeFromCart']);
+Route::post('/amzn/fba-cart/commit', [FBACartController::class, 'commitCart']);
 
 use App\Http\Controllers\Amzn\FBAShipmentController;
 // localhost:8000
 Route::post('/amzn/fba-shipment/add-item', [FBAShipmentController::class, 'addItemToShipment']);
 Route::get('/amzn/fba-shipment/fetch-shipments', [FBAShipmentController::class, 'fetch_shipment']);
+Route::post('/amzn/fba-shipment/delete-item', [FBAShipmentController::class, 'deleteShipmentItem']);
+Route::post('/amzn/fba-shipment/fetch_package_dimensions', [FBAShipmentController::class, 'package_dimension_fetcher']);
+
 Route::get('/amzn/fba-shipment/step1/create-shipment', [FBAShipmentController::class, 'step1_createShipment']);
 Route::get('/amzn/fba-shipment/step2/generate-packing', [FBAShipmentController::class, 'step2a_generate_packing']);
 Route::get('/amzn/fba-shipment/step2/list-packing-options', [FBAShipmentController::class, 'step2b_list_packing_options']);
@@ -208,6 +212,7 @@ Route::get('/amzn/fba-shipment/step2/list-items-packing-option', [FBAShipmentCon
 Route::get('/amzn/fba-shipment/step2/confirm-packing-option', [FBAShipmentController::class, 'step2d_confirm_packing_option']);
 Route::get('/amzn/fba-shipment/step3/packing_information', [FBAShipmentController::class, 'step3a_packing_information']);
 Route::get('/amzn/fba-shipment/step4/placement_option', [FBAShipmentController::class, 'step4a_placement_option']);
+Route::get('/amzn/fba-shipment/step4/list_placement_option', [FBAShipmentController::class, 'step4b_list_placement_option']);
 
 
 Route::get('/apis/ebay-login', action: function () {
