@@ -292,60 +292,169 @@
         </div>
     </nav>
 
-    <!-- Sidebar -->
-    <div id="sidebar" class="sidebar">
-        <button id="close-btn" class="close-btn">&times;</button>
+  <!-- Updated Sidebar -->
+<div id="sidebar" class="sidebar">
+    <button id="close-btn" class="close-btn">&times;</button>
 
-           <!-- User Info Section -->
-           <div class="user-info">
-    <!-- Display user's profile picture -->
-    <img 
-        src="{{ session('profile_picture', 'default-profile.jpg') }}" 
-        alt="User Profile" 
-        class="rounded-circle mb-2" 
-        style="width: 80px; height: 80px; object-fit: cover;">
+    <!-- User Info Section -->
+    <div class="user-info">
+        <img 
+            src="{{ session('profile_picture', 'default-profile.jpg') }}" 
+            alt="User Profile" 
+            class="rounded-circle mb-2" 
+            style="width: 80px; height: 80px; object-fit: cover;">
+        
+        <h5>{{ session('user_name', 'User Name') }}</h5>
+    </div>
+
+    <h5 class="text-center">Navigation</h5>
     
-    <!-- Display user's name -->
-    <h5>{{ session('user_name', 'User Name') }}</h5>
+    <?php
+    // In your blade template
+    $mainModule = strtolower(session('main_module', '')); 
+    $subModules = array_map('strtolower', session('sub_modules', [])); 
+    
+    // Fallback for main module
+    $defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+    
+    function checkPermission($module, $mainModule, $subModules) {
+        // Convert to lowercase for comparison
+        $module = strtolower($module);
+        $mainModule = strtolower($mainModule);
+        $subModules = array_map('strtolower', (array)$subModules);
+        
+        if ($module === 'dashboard') {
+            return true;
+        }
+        return $module === $mainModule || in_array($module, $subModules);
+    }
+    
+    $modules = [
+        'order' => 'Order',
+        'unreceived' => 'Unreceived',
+        'receiving' => 'Received',
+        'labeling' => 'Labeling',
+        'validation' => 'Validation',
+        'testing' => 'Testing',
+        'cleaning' => 'Cleaning',
+        'packing' => 'Packing',
+        'fnsku' => 'Fnsku',
+        'stockroom' => 'Stockroom',
+        'fbashipmentinbound' => 'FBA Inbound Shipment'
+    ];
+    ?>
+
+    <script>
+        window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+        window.allowedModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
+        window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+    </script>
+
+    <!-- Updated Navigation structure with improved highlighting -->
+    <nav class="nav flex-column sidebar-nav">
+        <?php if ($mainModule): ?>
+            <!-- If we have a main module, show it first -->
+            <a class="nav-link <?= (request()->segment(1) == $mainModule) ? 'active' : '' ?>" 
+               href="/<?= $mainModule ?>" 
+               onclick="highlightNavLink(this); document.getElementById('<?= $mainModule ?>Link').click(); closeSidebar(); return false;">
+                <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
+            </a>
+        <?php endif; ?>
+        
+        <?php foreach ($modules as $module => $label): ?>
+            <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
+                <a class="nav-link <?= (request()->segment(1) == $module) ? 'active' : '' ?>" 
+                   href="/<?= $module ?>" 
+                   onclick="highlightNavLink(this); document.getElementById('<?= $module ?>Link').click(); closeSidebar(); return false;">
+                    <?= $label ?>
+                </a>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    </nav>
 </div>
 
-
-
-        <h5 class="text-center">Navigation</h5>
-        <?php
-// In your blade template
-$mainModule = strtolower(session('main_module', '')); 
-$subModules = array_map('strtolower', session('sub_modules', [])); 
-
-// Fallback for main module
-$defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
-
-function checkPermission($module, $mainModule, $subModules) {
-    // Convert to lowercase for comparison
-    $module = strtolower($module);
-    $mainModule = strtolower($mainModule);
-    $subModules = array_map('strtolower', (array)$subModules);
-    
-    if ($module === 'dashboard') {
-        return true;
+<style>
+    /* Additional styles for the sidebar navigation */
+    .sidebar-nav .nav-link {
+        color: #adb5bd;
+        padding: 10px 15px;
+        margin-bottom: 5px;
+        border-radius: 5px;
+        transition: all 0.2s ease;
     }
-    return $module === $mainModule || in_array($module, $subModules);
-}
+    
+    .sidebar-nav .nav-link:hover {
+        background-color: #495057;
+        color: #fff;
+    }
+    
+    .sidebar-nav .nav-link.active {
+        color: #fff;
+        background-color: {{ session('theme_color', '#007bff') }};
+        border-radius: 5px;
+        font-weight: 500;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+</style>
 
-$modules = [
-    'order' => 'Order',
-    'unreceived' => 'Unreceived',
-    'receiving' => 'Received',
-    'labeling' => 'Labeling',
-    'validation' => 'Validation',
-    'testing' => 'Testing',
-    'cleaning' => 'Cleaning',
-    'packing' => 'Packing',
-    'fnsku' => 'Fnsku',
-    'stockroom' => 'Stockroom',
-    'fbashipmentinbound' => 'FBA Inbound Shipment'
-];
-?>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to highlight the current active page based on URL
+        function setActiveNavLink() {
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+            
+            navLinks.forEach(link => {
+                // Remove active class from all links
+                link.classList.remove('active');
+                
+                // Check if link href matches current path
+                if (link.getAttribute('href') === currentPath) {
+                    link.classList.add('active');
+                }
+            });
+        }
+        
+        // Initialize active link on page load
+        setActiveNavLink();
+        
+        // Set up close button functionality
+        const closeBtn = document.getElementById('close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', closeSidebar);
+        }
+    });
+    
+    // Function to highlight clicked nav link
+    function highlightNavLink(element) {
+        // Remove active class from all nav links
+        const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+        navLinks.forEach(link => link.classList.remove('active'));
+        
+        // Add active class to clicked link
+        element.classList.add('active');
+    }
+    
+    // Function to close the sidebar
+    function closeSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const content = document.getElementById('main-content');
+        const burgerMenu = document.getElementById('burger-menu');
+        const navbarBrand = document.querySelector('.navbar-brand');
+        
+        // Remove visible class from sidebar
+        if (sidebar) sidebar.classList.remove('visible');
+        
+        // Remove sidebar-visible class from content
+        if (content) content.classList.remove('sidebar-visible');
+        
+        // Show burger menu again
+        if (burgerMenu) burgerMenu.classList.remove('hidden');
+        
+        // Reset navbar brand position
+        if (navbarBrand) navbarBrand.classList.remove('shifted');
+    }
+</script>
 
 <script>
     window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
@@ -353,28 +462,6 @@ $modules = [
     window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
 </script>
 
-<!-- Navigation structure with main module highlighted -->
-<nav class="nav flex-column">
-    <?php if ($mainModule): ?>
-        <!-- If we have a main module, show it first -->
-        <a class="nav-link active" href="#" 
-           onclick="document.getElementById('<?= $mainModule ?>Link').click()">
-            <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
-        </a>
-    <?php endif; ?>
-    
-    <?php foreach ($modules as $module => $label): ?>
-        <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
-            <a class="nav-link" href="#" 
-               onclick="document.getElementById('<?= $module ?>Link').click()">
-                <?= $label ?>
-            </a>
-        <?php endif; ?>
-    <?php endforeach; ?>
-</nav>
-
-
-       
     </div>
 
     <div id="main-content" class="content">
