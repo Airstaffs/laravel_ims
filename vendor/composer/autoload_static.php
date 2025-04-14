@@ -208,9 +208,9 @@ class ComposerStaticInit626b9e7ddd47fb7eff9aaa53cce0c9ad
         ),
         'phpDocumentor\\Reflection\\' => 
         array (
-            0 => __DIR__ . '/..' . '/phpdocumentor/reflection-docblock/src',
-            1 => __DIR__ . '/..' . '/phpdocumentor/type-resolver/src',
-            2 => __DIR__ . '/..' . '/phpdocumentor/reflection-common/src',
+            0 => __DIR__ . '/..' . '/phpdocumentor/reflection-common/src',
+            1 => __DIR__ . '/..' . '/phpdocumentor/reflection-docblock/src',
+            2 => __DIR__ . '/..' . '/phpdocumentor/type-resolver/src',
         ),
         'Whoops\\' => 
         array (
@@ -594,7 +594,9 @@ class ComposerStaticInit626b9e7ddd47fb7eff9aaa53cce0c9ad
     );
 
     public static $classMap = array (
+        'App\\Console\\Commands\\EbayOrdersFetcher' => __DIR__ . '/../..' . '/app/Console/Commands/EbayOrdersFetcher.php',
         'App\\Console\\Commands\\TestEbayHelpers' => __DIR__ . '/../..' . '/app/Console/Commands/TestEbayHelpers.php',
+        'App\\Http\\Controllers\\Amzn\\FBACartController' => __DIR__ . '/../..' . '/app/Http/Controllers/Amzn/FBACartController.php',
         'App\\Http\\Controllers\\Amzn\\FBAShipmentController' => __DIR__ . '/../..' . '/app/Http/Controllers/Amzn/FBAShipmentController.php',
         'App\\Http\\Controllers\\AttendanceController' => __DIR__ . '/../..' . '/app/Http/Controllers/AttendanceController.php',
         'App\\Http\\Controllers\\Auth\\AuthenticatedSessionController' => __DIR__ . '/../..' . '/app/Http/Controllers/Auth/AuthenticatedSessionController.php',
@@ -611,13 +613,19 @@ class ComposerStaticInit626b9e7ddd47fb7eff9aaa53cce0c9ad
         'App\\Http\\Controllers\\DashboardController' => __DIR__ . '/../..' . '/app/Http/Controllers/DashboardController.php',
         'App\\Http\\Controllers\\Ebay\\EbayController' => __DIR__ . '/../..' . '/app/Http/Controllers/Ebay/EbayController.php',
         'App\\Http\\Controllers\\EmployeeClockController' => __DIR__ . '/../..' . '/app/Http/Controllers/EmployeeClockController.php',
+        'App\\Http\\Controllers\\ImageUploadController' => __DIR__ . '/../..' . '/app/Http/Controllers/ImageUploadController.php',
+        'App\\Http\\Controllers\\ImageUploadControllerCopy' => __DIR__ . '/../..' . '/app/Http/Controllers/ImageUploadControllerCopy.php',
         'App\\Http\\Controllers\\IndexController' => __DIR__ . '/../..' . '/app/Http/Controllers/IndexController.php',
+        'App\\Http\\Controllers\\LabelingController' => __DIR__ . '/../..' . '/app/Http/Controllers/LabelingController.php',
         'App\\Http\\Controllers\\LoginController' => __DIR__ . '/../..' . '/app/Http/Controllers/LoginController.php',
+        'App\\Http\\Controllers\\ReceivedController' => __DIR__ . '/../..' . '/app/Http/Controllers/ReceivedController.php',
+        'App\\Http\\Controllers\\StockroomController' => __DIR__ . '/../..' . '/app/Http/Controllers/StockroomController.php',
         'App\\Http\\Controllers\\StoreController' => __DIR__ . '/../..' . '/app/Http/Controllers/StoreController.php',
         'App\\Http\\Controllers\\SystemDesignController' => __DIR__ . '/../..' . '/app/Http/Controllers/SystemDesignController.php',
         'App\\Http\\Controllers\\TestTableController' => __DIR__ . '/../..' . '/app/Http/Controllers/TestTableController.php',
         'App\\Http\\Controllers\\UPSController' => __DIR__ . '/../..' . '/app/Http/Controllers/UPSController.php',
         'App\\Http\\Controllers\\USPSController' => __DIR__ . '/../..' . '/app/Http/Controllers/USPSController.php',
+        'App\\Http\\Controllers\\UnreceivedController' => __DIR__ . '/../..' . '/app/Http/Controllers/UnreceivedController.php',
         'App\\Http\\Controllers\\UserController' => __DIR__ . '/../..' . '/app/Http/Controllers/UserController.php',
         'App\\Http\\Controllers\\UserLogsController' => __DIR__ . '/../..' . '/app/Http/Controllers/UserLogsController.php',
         'App\\Http\\Controllers\\UserSessionController' => __DIR__ . '/../..' . '/app/Http/Controllers/UserSessionController.php',

@@ -114,50 +114,170 @@
     
     <!-- Table Container -->
     <div class="table-container">
-      <table>
+      <table class="table table-bordered">
         <thead>
           <tr>
             <th>
               <input type="checkbox" @click="toggleAll" v-model="selectAll" />
-              <span class="header-date"></span>
+              <a style="color:black" @click="sortBy('AStitle')" class="sortable">
+                Product Name
+                <span v-if="sortColumn === 'AStitle'">
+                  {{ sortOrder === 'asc' ? '▲' : '▼' }}
+                </span>
+              </a>
+              <span style="margin-right: 20px;"></span>
+              <a style="color:black" @click="sortBy('rtcounter')" class="sortable">
+                RT counter
+                <span v-if="sortColumn === 'rtcounter'">
+                  {{ sortOrder === 'asc' ? '▲' : '▼' }}
+                </span> </a>
+
+                <span style="margin-right: 20px;"></span>
+
+                <button class="Desktop" style="border: solid 1px black; background-color: aliceblue;" @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}</button>
             </th>
-            <th>Details</th>
-            <th>Order Details</th>
-            <th>Actions</th>
+            <th class="Desktop">Location</th>
+            <th class="Desktop">Added date</th>
+            <th class="Desktop">Updated date</th>
+            <th class="Desktop">Fnsku</th>
+            <th class="Desktop">Msku</th>
+            <th class="Desktop">Asin</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">FBM</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">FBA</th>
+            <th class="Desktop"style="background-color: antiquewhite;" v-if="showDetails">Outbound</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Inbound</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Unfulfillable</th>
+            <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Reserved</th>
+            <th class="Desktop" >Fulfillment</th>
+            <th class="Desktop">Status</th>
+            <th class="Desktop">Serialnumber</th>
+            <th class="Desktop">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="(item, index) in inventory" :key="item.id">
-            <td>
-              <div class="checkbox-container">
-                <input type="checkbox" v-model="item.checked" />
-                <span class="placeholder-date">{{ item.shipBy || 'N/A' }}</span>
-              </div>
-              <img :src="item.imageUrl" alt="Product Image" class="product-thumbnail" />
-            </td>
-            <td class="vue-details">
-              <span class="product-name">{{ item.AStitle }}</span>
-            </td>
-            <td class="vue-details">
-              <span><strong>ID:</strong> {{ item.ProductID }}</span><br />
-              <span><strong>ASIN:</strong> {{ item.ProductModuleLoc }}</span><br />
-              <span><strong>FNSKU:</strong> {{ item.serialnumber }}</span><br />
-              <span><strong>Condition:</strong> {{ item.gradingview }}</span>
-            </td>
-            <td>
-              {{ item.totalquantity }}
-              <button @click="toggleDetails(index)" class="more-details-btn">
-                {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
-              </button>
-            </td>
-          </tr>
-          <tr v-if="expandedRows[index]" class="expanded-row">
-            <td colspan="4">
-              <div class="expanded-content">
-                <strong>Product Name:</strong> {{ item.ProductTitle }}
-              </div>
-            </td>
-          </tr>
+          <template v-for="(item, index) in sortedInventory" :key="item.id">
+            <tr>
+              <td class="vue-details">
+                <div class="checkbox-container">
+                  <input type="checkbox" v-model="item.checked" />
+                  <span class="placeholder-date">{{ item.shipBy || '' }}</span>
+                </div>
+                <div class="product-container">
+                  <div class="product-image-container" @click="openImageModal(item)">
+                    <!-- Use the actual file path for the main image -->
+                    <img :src="'/images/thumbnails/' + item.img1" 
+                         :alt="item.ProductTitle || 'Product'" 
+                         class="product-thumbnail clickable-image" 
+                         @error="handleImageError($event)" />
+                    <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
+                      +{{ countAdditionalImages(item) }}
+                    </div>
+                  </div>
+               
+                  <div class="product-info">
+                    <p class="product-name">RT# : {{ item.rtcounter }}</p>
+                    <p class="product-name">{{ item.ProductTitle }}</p>
+
+                    <p class="Mobile">Location : {{ item.warehouselocation }}</p>
+                    <p class="Mobile">Added date : {{ item.datedelivered }}</p>
+                    <p class="Mobile">Updated date : {{ item.lastDateUpdate }}</p>
+                    <p class="Mobile">Fnsku : {{ item.FNSKUviewer }}</p>
+                    <p class="Mobile">Msku : {{ item.MSKUviewer }}</p>
+                    <p class="Mobile">Asin : {{ item.ASINviewer }}</p>
+                  </div>
+                </div>
+              </td>
+              <td class="Desktop">
+                <span><strong></strong> {{ item.warehouselocation }}</span>
+              </td>
+        
+              <td class="Desktop">
+                <span><strong></strong> {{ item.datedelivered }}</span>
+              </td>
+              
+              <td class="Desktop">
+                <span><strong></strong> {{ item.lastDateUpdate }}</span>
+              </td>
+              
+              <td class="Desktop">           
+                <span><strong></strong> {{ item.FNSKUviewer }}</span>
+              </td>
+              
+              <td class="Desktop">        
+                <span><strong></strong> {{ item.MSKUviewer }}</span>
+              </td>
+              
+              <td class="Desktop">              
+               <span><strong></strong> {{ item.ASINviewer }}</span>
+              </td>
+              
+             <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.FBMAvailable }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.FbaAvailable }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.Outbound }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.Inbound }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.Reserved }}</span>
+              </td>
+              <td v-if="showDetails">
+                <span><strong></strong> {{ item.Unfulfillable }}</span>
+              </td>
+            <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
+
+              <td class="Desktop">
+                <span><strong></strong> {{ item.Fulfilledby }}</span>
+              </td>
+
+              <td class="Desktop">
+                <span><strong></strong> {{ item.Status }}</span>
+              </td>
+
+              <td class="Desktop">
+                <span><strong></strong> {{ item.serialnumber }}</span>
+              </td>
+          
+             <!-- Button for more details -->
+              <td class="Desktop">
+                {{ item.totalquantity }}
+                <button class="btn-moredetails" @click="toggleDetails(index)">
+                  {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                </button>
+                <br>
+                <button class="btn-moredetails">example</button><br>
+                <button class="btn-moredetails">example</button><br>
+                <button class="btn-moredetails">example</button><br>
+              </td>
+            </tr>
+             <!-- More details results -->
+            <tr v-if="expandedRows[index]">
+              <td colspan="11">
+                <div class="expanded-content p-3 border rounded">
+                  <div class="Mobile">
+                  <button class="btn-moredetails">sample button</button>
+                  <button class="btn-moredetails">sample button</button>
+                  <button class="btn-moredetails">sample button</button>
+                  </div>
+                  <strong>Product Name:</strong> {{ item.AStitle }}
+                </div>
+              </td>
+            </tr>
+
+             <!-- Button for more details (Mobile) -->
+               <td class="Mobile">
+                {{ item.totalquantity }}
+                <button style="width: 100%; border-bottom: 2px solid black; padding:0px" @click="toggleDetails(index)">
+                  {{ expandedRows[index] ? 'Less Details ▲ ' : 'More Details ▼ ' }}
+                </button>
+              </td>
+          </template>
         </tbody>
       </table>
       <!-- Pagination -->
@@ -170,6 +290,7 @@
   </div>
 </template>
 
+// ReceivedModule.vue
 <script>
 import axios from 'axios';
 import { eventBus } from './eventBus';
@@ -211,22 +332,131 @@ export default {
       
       // For auto verification
       autoVerifyTimeout: null,
-      showManualInput: false // Track manual mode state
+      showManualInput: false, // Track manual mode state
+      
+      perPage: 10, // Default rows per page
+      sortColumn: '',
+      sortOrder: 'asc',   
+      showDetails: false,
+      defaultImage: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=',
+      // Modal state
+      showImageModal: false,
+      modalImages: [],
+      currentImageIndex: 0
     };
   },
   computed: {
     searchQuery() {
       return eventBus.searchQuery;
+    },
+    sortedInventory() {
+      if (!this.sortColumn) return this.inventory;
+      return [...this.inventory].sort((a, b) => {
+        const valueA = a[this.sortColumn];
+        const valueB = b[this.sortColumn];
+
+        if (typeof valueA === 'number' && typeof valueB === 'number') {
+          return this.sortOrder === 'asc' ? valueA - valueB : valueB - valueA;
+        }
+
+        return this.sortOrder === 'asc'
+          ? String(valueA).localeCompare(String(valueB))
+          : String(valueB).localeCompare(String(valueA));
+      });
     }
   },
   methods: {
+    handleImageError(event) {
+      // If image fails to load, use an inline SVG placeholder
+      event.target.src = this.defaultImage;
+      event.target.onerror = null; // Prevent infinite error loop
+    },
+    
+    // Count additional images based on the image fields (img2-img15)
+    countAdditionalImages(item) {
+      if (!item) return 0;
+      
+      let count = 0;
+      // Check fields img2 through img15
+      for (let i = 2; i <= 15; i++) {
+        const fieldName = `img${i}`;
+        if (item[fieldName] && item[fieldName] !== 'NULL' && item[fieldName].trim() !== '') {
+          count++;
+        }
+      }
+      
+      return count;
+    },
+    
+    // Open image modal with all available images from img1-img15 fields
+    openImageModal(item) {
+      if (!item) return;
+      
+      // Reset modal state
+      this.modalImages = [];
+      this.currentImageIndex = 0;
+      
+      // Image field names in your data (img1 through img15)
+      const imageFields = [
+        'img2', 'img3', 'img4', 'img5', 
+        'img6', 'img7', 'img8', 'img9', 'img10', 
+        'img11', 'img12', 'img13', 'img14', 'img15'
+      ];
+      
+      // Loop through all possible image fields and add non-empty ones
+      imageFields.forEach(field => {
+        if (item[field] && item[field] !== 'NULL' && item[field].trim() !== '') {
+          // Use the direct image field value as the path
+          const imagePath = `/images/thumbnails/${item[field]}`;
+          this.modalImages.push(imagePath);
+        }
+      });
+      
+      // If no images were found, add a default image
+      if (this.modalImages.length === 0) {
+        const defaultPath = `/images/thumbnails/${item.ProductID}.jpg`;
+        this.modalImages.push(defaultPath);
+      }
+      
+      // Show the modal
+      this.showImageModal = true;
+      
+      // Prevent scrolling when modal is open
+      document.body.style.overflow = 'hidden';
+    },
+    
+    closeImageModal() {
+      this.showImageModal = false;
+      this.modalImages = [];
+      
+      // Re-enable scrolling
+      document.body.style.overflow = 'auto';
+    },
+    
+    nextImage() {
+      if (this.currentImageIndex < this.modalImages.length - 1) {
+        this.currentImageIndex++;
+      } else {
+        this.currentImageIndex = 0; // Loop back to the first image
+      }
+    },
+    
+    prevImage() {
+      if (this.currentImageIndex > 0) {
+        this.currentImageIndex--;
+      } else {
+        this.currentImageIndex = this.modalImages.length - 1; // Loop to the last image
+      }
+    },
+    
+    // Fetch inventory data from the API
     async fetchInventory() {
       try {
         const response = await axios.get(`${API_BASE_URL}/products`, {
           params: { 
             search: this.searchQuery, 
             page: this.currentPage, 
-            location: 'Received'
+            location: 'Orders'
           },
         });
         
@@ -399,12 +629,12 @@ export default {
       if (!this.firstSerialNumber.trim()) {
         this.$refs.scanner.showScanError('Please enter a valid serial number');
         SoundService.error(); // Error sound for invalid input
-        this.$refs.firstSerialNumber.select();
+        this.$refs.firstSerialInput.select();
         return;
       }
       
       // Capture image for first serial
-     //await this.captureSerialImage();
+      //await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing image
       
       // Move to second serial number step
@@ -437,12 +667,12 @@ export default {
       if (!this.secondSerialNumber.trim()) {
         this.$refs.scanner.showScanError('Please enter a valid serial number');
         SoundService.error(); // Error sound for invalid input
-        this.$refs.secondSerialNumber.select();
+        this.$refs.secondSerialInput.select();
         return;
       }
       
       // Capture image for second serial
-    //  await this.captureSerialImage();
+      //await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing image
       
       // Move to PCN step
@@ -487,49 +717,48 @@ export default {
     },
     
     // Process PCN
-   async processPcnNumber() {
-  if (!this.validatePcnNumber()) {
-    this.$refs.scanner.showScanError('PCN must start with PCN followed by numbers (e.g. PCN12345)');
-    SoundService.error(); // Error sound for invalid PCN
-    this.$refs.pcnInput.select();
-    return;
-  }
-  
-  try {
-    // First validate PCN format locally
-    // Then check if PCN is already used in the database
-    const pcnResponse = await axios.post(`${API_BASE_URL}/api/received/validate-pcn`, {
-  pcn: this.pcnNumber
-});
-
-    
-    if (pcnResponse.data.alreadyUsed) {
-      // PCN already exists in the database
-      this.$refs.scanner.showScanWarning(`${this.pcnNumber} is already in use`);
-      SoundService.PCNalreadyUsed(); // Use the same sound as for already scanned items
-      this.$refs.pcnInput.select();
-      return;
-    }
-    
-    // Capture image for PCN
-    // await this.captureSerialImage();
-    SoundService.success(); // Success sound after capturing PCN image
-    
-    // Move to basket number step
-    this.currentStep = 6;
-    
-    // Focus on the basket number input
-    this.$nextTick(() => {
-      if (this.$refs.basketInput) {
-        this.$refs.basketInput.focus();
+    async processPcnNumber() {
+      if (!this.validatePcnNumber()) {
+        this.$refs.scanner.showScanError('PCN must start with PCN followed by numbers (e.g. PCN12345)');
+        SoundService.error(); // Error sound for invalid PCN
+        this.$refs.pcnInput.select();
+        return;
       }
-    });
-  } catch (error) {
-    console.error('Error validating PCN:', error);
-    this.$refs.scanner.showScanError('Error validating PCN');
-    SoundService.error();
-  }
-},
+      
+      try {
+        // First validate PCN format locally
+        // Then check if PCN is already used in the database
+        const pcnResponse = await axios.post(`${API_BASE_URL}/api/received/validate-pcn`, {
+          pcn: this.pcnNumber
+        });
+        
+        if (pcnResponse.data.alreadyUsed) {
+          // PCN already exists in the database
+          this.$refs.scanner.showScanWarning(`${this.pcnNumber} is already in use`);
+          SoundService.PCNalreadyUsed(); // Use the same sound as for already scanned items
+          this.$refs.pcnInput.select();
+          return;
+        }
+        
+        // Capture image for PCN
+        // await this.captureSerialImage();
+        SoundService.success(); // Success sound after capturing PCN image
+        
+        // Move to basket number step
+        this.currentStep = 6;
+        
+        // Focus on the basket number input
+        this.$nextTick(() => {
+          if (this.$refs.basketInput) {
+            this.$refs.basketInput.focus();
+          }
+        });
+      } catch (error) {
+        console.error('Error validating PCN:', error);
+        this.$refs.scanner.showScanError('Error validating PCN');
+        SoundService.error();
+      }
+    },
     
     // Handle basket number input
     handleBasketInput() {
@@ -580,231 +809,230 @@ export default {
     
     // Submit failed item data
     async submitFailedItem() {
-  try {
-    // Make sure we have a basket number
-    if (!this.validateBasketNumber()) {
-      this.$refs.scanner.showScanError('Basket number must start with BKT, SH, or ENV followed by numbers');
-      SoundService.error(); // Error vibration for invalid basket
-      return;
-    }
+      try {
+        // Make sure we have a basket number
+        if (!this.validateBasketNumber()) {
+          this.$refs.scanner.showScanError('Basket number must start with BKT, SH, or ENV followed by numbers');
+          SoundService.error(); // Error vibration for invalid basket
+          return;
+        }
 
-    if (!this.validatePcnNumber()) {
-      this.$refs.scanner.showScanError('PCN must start with PCN followed by numbers (e.g. PCN12345)');
-      SoundService.error(); // Error vibration for invalid PCN
-      return;
-    }
-    //loading animation
-    this.$refs.scanner.startLoading('Processing Data');
-    // Get images from scanner component
-    const images = this.$refs.scanner.capturedImages.map(img => img.data);
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        if (!this.validatePcnNumber()) {
+          this.$refs.scanner.showScanError('PCN must start with PCN followed by numbers (e.g. PCN12345)');
+          SoundService.error(); // Error vibration for invalid PCN
+          return;
+        }
+        //loading animation
+        this.$refs.scanner.startLoading('Processing Data');
+        // Get images from scanner component
+        const images = this.$refs.scanner.capturedImages.map(img => img.data);
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
 
-    const failData = {
-      _token: csrfToken,
-      trackingNumber: this.trackingNumber,
-      status: 'fail',
-      pcnNumber: this.pcnNumber, // Include PCN field
-      basketNumber: this.basketNumber,
-      productId: this.productId,
-      rtcounter: this.rtcounter, // Include rtcounter
-      Images: images
-    };
-    
-    const response = await axios.post(`${API_BASE_URL}/api/received/process-scan`, failData, {
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CSRF-TOKEN': csrfToken
-      }
-    });
-    
-    if (response.data.success) {
-       //clear fetch delivered item image
-       this.$refs.scanner.clearProductThumbnails();
-      //stop loading animation
-      this.$refs.scanner.stopLoading();
-      this.$refs.scanner.showScanSuccess('Item marked as failed');
-      SoundService.successScan(true); // Use successscan sound for final submission
-      
-      // Add to scan history
-      this.$refs.scanner.addSuccessScan({
-        trackingnumber: this.trackingNumber,
-        status: 'fail',
-        pcn: this.pcnNumber,
-        basket: this.basketNumber
-      });
-      
-      // Clear all captured images if requested by the server
-      if (response.data.clearImages) {
-        this.$refs.scanner.capturedImages = [];
-      }
-      
-      // Reset scanner state
-      this.resetScannerState();
-      
-      // Refresh inventory
-      this.fetchInventory();
-    } else {
-      this.$refs.scanner.stopLoading();
-      this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
-      SoundService.scanRejected(true); // Use scanrejected sound for submission error
-    }
-  } catch (error) {
-
-    console.error('Error submitting failed item:', error);
-    SoundService.scanRejected(true); // Use scanrejected sound for submission error
-    
-    // Enhanced error handling
-    if (error.response && error.response.status === 422) {
-      console.log('Validation errors:', error.response.data);
-      if (error.response.data.errors) {
-        const errorMessages = [];
-        Object.keys(error.response.data.errors).forEach(field => {
-          errorMessages.push(`${field}: ${error.response.data.errors[field].join(', ')}`);
+        const failData = {
+          _token: csrfToken,
+          trackingNumber: this.trackingNumber,
+          status: 'fail',
+          pcnNumber: this.pcnNumber, // Include PCN field
+          basketNumber: this.basketNumber,
+          productId: this.productId,
+          rtcounter: this.rtcounter, // Include rtcounter
+          Images: images
+        };
+        
+        const response = await axios.post(`${API_BASE_URL}/api/received/process-scan`, failData, {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+          }
         });
-        const errorMsg = errorMessages.join('\n');
-        this.$refs.scanner.showScanError(`Validation error: ${errorMsg}`);
-      } else {
-        this.$refs.scanner.showScanError('Validation failed. Please check your inputs.');
+        
+        if (response.data.success) {
+           //clear fetch delivered item image
+           this.$refs.scanner.clearProductThumbnails();
+          //stop loading animation
+          this.$refs.scanner.stopLoading();
+          this.$refs.scanner.showScanSuccess('Item marked as failed');
+          SoundService.successScan(true); // Use successscan sound for final submission
+          
+          // Add to scan history
+          this.$refs.scanner.addSuccessScan({
+            trackingnumber: this.trackingNumber,
+            status: 'fail',
+            pcn: this.pcnNumber,
+            basket: this.basketNumber
+          });
+          
+          // Clear all captured images if requested by the server
+          if (response.data.clearImages) {
+            this.$refs.scanner.capturedImages = [];
+          }
+          
+          // Reset scanner state
+          this.resetScannerState();
+          
+          // Refresh inventory
+          this.fetchInventory();
+        } else {
+          this.$refs.scanner.stopLoading();
+          this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
+          SoundService.scanRejected(true); // Use scanrejected sound for submission error
+        }
+      } catch (error) {
+        console.error('Error submitting failed item:', error);
+        SoundService.scanRejected(true); // Use scanrejected sound for submission error
+        
+        // Enhanced error handling
+        if (error.response && error.response.status === 422) {
+          console.log('Validation errors:', error.response.data);
+          if (error.response.data.errors) {
+            const errorMessages = [];
+            Object.keys(error.response.data.errors).forEach(field => {
+              errorMessages.push(`${field}: ${error.response.data.errors[field].join(', ')}`);
+            });
+            const errorMsg = errorMessages.join('\n');
+            this.$refs.scanner.showScanError(`Validation error: ${errorMsg}`);
+          } else {
+            this.$refs.scanner.showScanError('Validation failed. Please check your inputs.');
+          }
+        } else {
+          this.$refs.scanner.showScanError('Network or server error');
+        }
       }
-    } else {
-      this.$refs.scanner.showScanError('Network or server error');
-    }
-  }
-},
-
+    },
     
     // Submit complete scan data
     async submitScanData() {
-  try {
-    // Get CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-      //loading animation
-     this.$refs.scanner.startLoading('Processing Data...');
-    // Create data without images first
-    const scanData = {
-      _token: csrfToken,
-      trackingNumber: this.trackingNumber,
-      status: 'pass',
-      firstSerialNumber: this.firstSerialNumber,
-      secondSerialNumber: this.secondSerialNumber,
-      pcnNumber: this.pcnNumber,
-      basketNumber: this.basketNumber,
-      productId: this.productId,
-      rtcounter: this.rtcounter
-      // No images in this initial request
-    };
-    
-    // Debug: Log the data being sent
-    console.log('Submitting scan data (without images):', scanData);
-    
-    // Send data to API
-    const response = await axios.post(`${API_BASE_URL}/api/received/process-scan`, scanData, {
-      withCredentials: true,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CSRF-TOKEN': csrfToken
-      }
-    });
-    
-    if (response.data.success) {
-      // If basic data submission was successful, now upload images one by one
-      const images = this.$refs.scanner.capturedImages.map(img => img.data);
-      if (images.length > 0) {
-        const hasSerialTwo = this.secondSerialNumber !== 'N/A';
-        const hasPcn = this.pcnNumber !== 'N/A';
+      try {
+        // Get CSRF token
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        //loading animation
+        this.$refs.scanner.startLoading('Processing Data...');
+        // Create data without images first
+        const scanData = {
+          _token: csrfToken,
+          trackingNumber: this.trackingNumber,
+          status: 'pass',
+          firstSerialNumber: this.firstSerialNumber,
+          secondSerialNumber: this.secondSerialNumber,
+          pcnNumber: this.pcnNumber,
+          basketNumber: this.basketNumber,
+          productId: this.productId,
+          rtcounter: this.rtcounter
+          // No images in this initial request
+        };
         
-        // Upload each image separately
-        for (let i = 0; i < images.length; i++) {
-          try {
-           // Change this line in your submitScanData method:
-            const imageResponse = await axios.post(`${API_BASE_URL}/api/images/upload`, {
-                _token: csrfToken,
-                productId: this.productId,
-                imageIndex: i,
-                imageData: images[i],
-                hasSerialTwo: hasSerialTwo,
-                hasPcn: hasPcn
-            }, {
-                withCredentials: true,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
-                }
-            });
-            console.log(`Image ${i} uploaded:`, imageResponse.data);
-          } catch (imageError) {
-            console.error(`Error uploading image ${i}:`, imageError);
+        // Debug: Log the data being sent
+        console.log('Submitting scan data (without images):', scanData);
+        
+        // Send data to API
+        const response = await axios.post(`${API_BASE_URL}/api/received/process-scan`, scanData, {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
           }
+        });
+        
+        if (response.data.success) {
+          // If basic data submission was successful, now upload images one by one
+          const images = this.$refs.scanner.capturedImages.map(img => img.data);
+          if (images.length > 0) {
+            const hasSerialTwo = this.secondSerialNumber !== 'N/A';
+            const hasPcn = this.pcnNumber !== 'N/A';
+            
+            // Upload each image separately
+            for (let i = 0; i < images.length; i++) {
+              try {
+               // Change this line in your submitScanData method:
+                const imageResponse = await axios.post(`${API_BASE_URL}/api/images/upload`, {
+                    _token: csrfToken,
+                    productId: this.productId,
+                    imageIndex: i,
+                    imageData: images[i],
+                    hasSerialTwo: hasSerialTwo,
+                    hasPcn: hasPcn
+                }, {
+                    withCredentials: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    }
+                });
+                console.log(`Image ${i} uploaded:`, imageResponse.data);
+              } catch (imageError) {
+                console.error(`Error uploading image ${i}:`, imageError);
+              }
+            }
+          }
+          //clear fetch delivered item image
+          this.$refs.scanner.clearProductThumbnails();
+          //stop loading animation
+          this.$refs.scanner.stopLoading();
+          // Show success notification
+          this.$refs.scanner.showScanSuccess('Item received successfully');
+          SoundService.successScan(true);
+          
+          // Add to scan history
+          this.$refs.scanner.addSuccessScan({
+            Trackingnumber: this.trackingNumber,
+            FirstSN: this.firstSerialNumber,
+            SecondSN: this.secondSerialNumber,
+            PCN: this.pcnNumber,
+            Basket: this.basketNumber // Fixed property name
+          });
+          // Clear captured images
+          this.$refs.scanner.capturedImages = [];
+          
+          // Reset workflow
+          this.resetScannerState();
+          
+          // Refresh inventory
+          this.fetchInventory();
+        } else {
+          this.$refs.scanner.stopLoading();
+          // Show error notification
+          this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
+          SoundService.scanRejected(true);
+          
+          // Add to error scan history
+          this.$refs.scanner.addErrorScan({
+            Trackingnumber: this.trackingNumber,
+            FirstSN: this.firstSerialNumber,
+            SecondSN: this.secondSerialNumber,
+            PCN: this.pcnNumber,
+            Basket: this.basketNumber // Fixed property name
+          }, response.data.reason || 'error');
+        }
+      } catch (error) {
+        console.error('Error submitting scan:', error);
+        SoundService.scanRejected(true);
+        
+        // Enhanced error handling for validation errors
+        if (error.response && error.response.status === 422) {
+          console.log('Validation errors:', error.response.data);
+          if (error.response.data.errors) {
+            const errorMessages = [];
+            Object.keys(error.response.data.errors).forEach(field => {
+              errorMessages.push(`${field}: ${error.response.data.errors[field].join(', ')}`);
+            });
+            const errorMsg = errorMessages.join('\n');
+            this.$refs.scanner.showScanError(`Validation error: ${errorMsg}`);
+          } else {
+            this.$refs.scanner.showScanError('Validation failed. Please check your inputs.');
+          }
+        } else if (error.response && error.response.status === 403) {
+          this.$refs.scanner.showScanError('Permission denied. Please try again or contact support.');
+        } else {
+          this.$refs.scanner.showScanError('Network or server error');
         }
       }
-      //clear fetch delivered item image
-      this.$refs.scanner.clearProductThumbnails();
-      //stop loading animation
-      this.$refs.scanner.stopLoading();
-      // Show success notification
-      this.$refs.scanner.showScanSuccess('Item received successfully');
-      SoundService.successScan(true);
-      
-      // Add to scan history
-      this.$refs.scanner.addSuccessScan({
-        Trackingnumber: this.trackingNumber,
-        FirstSN: this.firstSerialNumber,
-        SecondSN: this.secondSerialNumber,
-        PCN: this.pcnNumber,
-        Basket: this.basketNumber // Fixed property name
-      });
-      // Clear captured images
-      this.$refs.scanner.capturedImages = [];
-      
-      // Reset workflow
-      this.resetScannerState();
-      
-      // Refresh inventory
-      this.fetchInventory();
-    } else {
-      this.$refs.scanner.stopLoading();
-      // Show error notification
-      this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
-      SoundService.scanRejected(true);
-      
-      // Add to error scan history
-      this.$refs.scanner.addErrorScan({
-        Trackingnumber: this.trackingNumber,
-        FirstSN: this.firstSerialNumber,
-        SecondSN: this.secondSerialNumber,
-        PCN: this.pcnNumber,
-        Basket: this.basketNumber // Fixed property name
-      }, response.data.reason || 'error');
-    }
-  } catch (error) {
-    console.error('Error submitting scan:', error);
-    SoundService.scanRejected(true);
+    },
     
-    // Enhanced error handling for validation errors
-    if (error.response && error.response.status === 422) {
-      console.log('Validation errors:', error.response.data);
-      if (error.response.data.errors) {
-        const errorMessages = [];
-        Object.keys(error.response.data.errors).forEach(field => {
-          errorMessages.push(`${field}: ${error.response.data.errors[field].join(', ')}`);
-        });
-        const errorMsg = errorMessages.join('\n');
-        this.$refs.scanner.showScanError(`Validation error: ${errorMsg}`);
-      } else {
-        this.$refs.scanner.showScanError('Validation failed. Please check your inputs.');
-      }
-    } else if (error.response && error.response.status === 403) {
-      this.$refs.scanner.showScanError('Permission denied. Please try again or contact support.');
-    } else {
-      this.$refs.scanner.showScanError('Network or server error');
-    }
-  }
-},    
     // Reset scanner state
     resetScannerState() {
       // Reset all data
@@ -821,9 +1049,9 @@ export default {
       this.status = '';
 
        // Clear the product thumbnails
-  if (this.$refs.scanner && this.$refs.scanner.clearProductThumbnails) {
-    this.$refs.scanner.clearProductThumbnails();
-  }
+      if (this.$refs.scanner && this.$refs.scanner.clearProductThumbnails) {
+        this.$refs.scanner.clearProductThumbnails();
+      }
       
       // Clear any pending auto-verify timeouts
       if (this.autoVerifyTimeout) {
@@ -935,17 +1163,38 @@ export default {
     toggleDetails(index) {
       this.$set(this.expandedRows, index, !this.expandedRows[index]);
     },
+    
+    // Sort column
+    sortBy(column) {
+      if (this.sortColumn === column) {
+        this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+      } else {
+        this.sortColumn = column;
+        this.sortOrder = 'asc';
+      }
+    },
+    
+    // Toggle details visibility
+    toggleDetailsVisibility() {
+      this.showDetails = !this.showDetails;
+    },
+    
+    // Change rows per page
+    changePerPage() {
+      this.currentPage = 1;
+      this.fetchInventory();
+    }
   },
   watch: {
     searchQuery() {
       this.currentPage = 1;
       this.fetchInventory();
-    },
+    }
   },
   mounted() {
     axios.defaults.baseURL = window.location.origin;
     this.fetchInventory();
-  },
+  }
 };
 </script>
 
