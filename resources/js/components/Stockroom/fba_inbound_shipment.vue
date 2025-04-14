@@ -264,8 +264,6 @@
                 <button @click="proceedToStep3PackingInfo" class="btn btn-primary" style="margin-top: 16px;">
                     Proceed to Step 3
                 </button>
-
-
             </div>
 
             <div v-if="listPlacementOptionsResponse">
@@ -281,6 +279,7 @@
                             <th>Warehouse ID</th>
                             <th>Destination Type</th>
                             <th>Status</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -293,9 +292,41 @@
                             <td>{{ option.warehouseId }}</td>
                             <td>{{ option.destinationType }}</td>
                             <td>{{ option.status }}</td>
+                            <td>
+                                <button :class="{
+                                    'selected-btn': selectedPlacementOptionId === option.placementOptionId
+                                }" @click="selectPlacement(option)">
+                                    {{ selectedPlacementOptionId === option.placementOptionId ? '✅ Selected' : 'Select'
+                                    }}
+                                </button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
+
+                <!-- Show shipDate and declaredValue if selection made -->
+                <div v-if="form.placementOptionId && form.shipmentidfromapi" class="shipment-extra-fields">
+                    <h3 style="margin-top: 16px;">📝 Shipment Details</h3>
+
+                    <label>Ship Date:</label>
+                    <input type="datetime-local" v-model="form.shipDate" />
+
+                    <label style="margin-left: 16px;">Total Declared Value (USD):</label>
+                    <input type="number" step="0.01" min="0" v-model="form.totalDeclaredValue"
+                        placeholder="e.g. 250.00" />
+
+                    <button class="btn btn-primary" style="margin-left: 16px;" @click="submitTransportationOptions">
+                        🚚 Submit Transportation Options
+                    </button>
+                </div>
+            </div>
+
+            <div v-if="deliveryOptionsResponse">
+                <p>{{ deliveryOptionsResponse.message }}</p>
+            </div>
+
+            <div v-if="generateDeliveryOptionsResponse">
+                <p>{{ generateDeliveryOptionsResponse.message }}</p>
             </div>
 
             <hr>
@@ -397,7 +428,12 @@ export default {
                 packageLength: '',
                 packageWidth: '',
                 packageHeight: '',
-                placementOptionId: ''
+                placementOptionId: '',
+                placementOptionId: '',
+                shipmentidfromapi: '',
+                shipmentId: '',
+                shipDate: new Date().toISOString().slice(0, 16), // datetime-local default
+                totalDeclaredValue: ''
             },
             stores: [],
             showStoreModal: false,
@@ -418,7 +454,11 @@ export default {
             step3PackingResponse: null,
             sheeshables: false,
             listPlacementOptionsResponse: null,
-            enrichedPlacementOptions: []
+            enrichedPlacementOptions: [],
+            selectedPlacementOptionId: '',
+            transportationOptionsResponse: null,
+            deliveryOptionsResponse: null,
+            generateDeliveryOptionsResponse: null,
         };
     },
     created() {
@@ -929,16 +969,15 @@ export default {
             const options = this.listPlacementOptionsResponse.placementOptions;
             const enriched = [];
 
-            console.log("PlacementOptions");
-            console.log(this.listPlacementOptionsResponse);
+            console.log("PlacementOptions", this.listPlacementOptionsResponse);
 
             for (const option of options) {
-                const shipmentId = option.shipmentIds[0];
+                const shipmentIdFromAPI = option.shipmentIds[0]; // clearer name
                 try {
                     const shipmentRes = await axios.get('/amzn/fba-shipment/step4/get_shipment', {
                         params: {
                             ...this.form,
-                            shipmentIdfromAPI: shipmentId
+                            shipmentidfromapi: shipmentIdFromAPI
                         }
                     });
 
@@ -948,7 +987,7 @@ export default {
 
                     enriched.push({
                         placementOptionId: option.placementOptionId,
-                        shipmentId: shipmentId,
+                        shipmentId: shipmentIdFromAPI,
                         description: option.fees[0]?.description || '-',
                         fee: option.fees[0]?.value.amount || '0.00',
                         warehouseId: shipmentData.destination?.warehouseId || '-',
@@ -957,14 +996,101 @@ export default {
                         status: shipmentData.status || '-'
                     });
                 } catch (e) {
-                    console.warn(`Failed to enrich shipment ${shipmentId}:`, e);
+                    console.warn(`❌ Failed to enrich shipment ${shipmentIdFromAPI}:`, e);
                 }
             }
 
             this.enrichedPlacementOptions = enriched;
+        },
+
+        selectShipmentOption(option) {
+            this.form.placementOptionId = option.placementOptionId;
+            this.form.shipmentidfromapi = option.shipmentId;
+            this.form.shipDate = new Date().toISOString().slice(0, 16); // reset to now
+        },
+
+        selectPlacement(option) {
+            this.selectedPlacementOptionId = option.placementOptionId;
+            this.form.placementOptionId = option.placementOptionId;
+            this.form.shipmentidfromapi = option.shipmentId;
+            this.form.shipDate = new Date().toISOString().slice(0, 16); // defaults to now
+        },
+
+        async submitTransportationOptions() {
+            try {
+                const response = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step5/transportation_options`, {
+                    params: { ...this.form }
+                });
+
+                if (response.data.success) {
+                    this.transportationOptionsResponse = {
+                        success: true,
+                        message: "✅ Transportation options submitted successfully!"
+                    };
+
+                    await this.generateDeliveryOptions();
+                } else {
+                    this.transportationOptionsResponse = {
+                        success: false,
+                        message: "❌ Failed to submit transportation options."
+                    };
+                }
+            } catch (error) {
+                console.error("Error submitting transport options:", error);
+                this.transportationOptionsResponse = {
+                    success: false,
+                    message: "❌ Something went wrong."
+                };
+            }
+        },
+
+        async generateDeliveryOptions() {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step5/generate_delivery_options`, {
+                    params: { ...this.form }
+                });
+
+                if (res.data.success) {
+                    res.data.message = "✅ Delivery options generated successfully!";
+                    this.deliveryOptionsResponse = res.data;
+                    await this.transportation_options_view();
+                } else {
+                    res.data.message = "❌ Failed to generate delivery options.";
+                    this.deliveryOptionsResponse = res.data;
+                }
+            } catch (error) {
+                this.deliveryOptionsResponse = {
+                    success: false,
+                    message: "❌ Error occurred while generating delivery options.",
+                    error: error.message
+                };
+                console.error("Error fetching delivery options:", error);
+            }
         }
+        ,
 
+        async transportation_options_view() {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step5/transportation_options_view`, {
+                    params: { ...this.form }
+                });
 
+                if (res.data.success) {
+                    res.data.message = "✅ Transportation options fetched successfully!";
+                    this.generateDeliveryOptionsResponse = res.data;
+                } else {
+                    res.data.message = "❌ Failed to fetch transportation options.";
+                    this.generateDeliveryOptionsResponse = res.data;
+                }
+            } catch (error) {
+                this.generateDeliveryOptionsResponse = {
+                    success: false,
+                    message: "❌ Error occurred while fetching transportation options.",
+                    error: error.message
+                };
+                console.error("Error fetching transportation options:", error);
+            }
+        },
 
     }
 };
@@ -1065,5 +1191,11 @@ button {
 
 .placement-table th {
     background-color: #f2f2f2;
+}
+
+.selected-btn {
+    background-color: #4CAF50;
+    color: white;
+    font-weight: bold;
 }
 </style>
