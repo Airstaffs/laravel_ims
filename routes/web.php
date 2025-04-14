@@ -257,6 +257,7 @@ Route::middleware(['web', \App\Http\Middleware\RefreshSession::class])->group(fu
 // Routes for Stockroom scanner
 Route::prefix('api/stockroom')->group(function () {
     Route::get('products', [StockroomController::class, 'index']);
+    Route::get('check-fnsku', [StockroomController::class, 'checkFnsku']);
     Route::post('process-scan', [StockroomController::class, 'processScan']);
     Route::post('print-label', [StockroomController::class, 'printLabel']);
 });
