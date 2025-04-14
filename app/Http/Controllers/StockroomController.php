@@ -38,6 +38,57 @@ class StockroomController extends Controller
         return response()->json($products);
     }
 
+    //check FNSKU
+    public function checkFnsku(Request $request)
+    {
+        $fnsku = $request->input('fnsku');
+        
+        if (empty($fnsku)) {
+            return response()->json([
+                'exists' => false,
+                'status' => 'invalid',
+                'message' => 'FNSKU is required'
+            ]);
+        }
+        
+        try {
+            // Check in tblffnsku table
+            $result = DB::table('tblfnsku')
+                ->where('FNSKU', $fnsku)
+                ->first();
+            
+            if ($result) {
+                // Found the FNSKU, now check its status
+                $isAvailable = strtolower($result->fnsku_status) === 'available';
+                
+                return response()->json([
+                    'exists' => true,
+                    'status' => $isAvailable ? 'available' : 'unavailable',
+                    'message' => $isAvailable ? 'FNSKU is available' : 'FNSKU exists but is not available'
+                ]);
+            } else {
+                // FNSKU not found
+                return response()->json([
+                    'exists' => false,
+                    'status' => 'not_found',
+                    'message' => 'FNSKU not found in the database'
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('Error checking FNSKU:', [
+                'fnsku' => $fnsku,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'exists' => false,
+                'status' => 'error',
+                'message' => 'Error checking FNSKU status'
+            ], 500);
+        }
+    }
+
+
     /**
      * Process scanner data
      */
