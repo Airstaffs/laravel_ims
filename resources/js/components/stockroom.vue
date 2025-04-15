@@ -668,7 +668,7 @@ export default {
     async processScan(scannedCode = null) {
       try {
         // Try to capture an image first
-        this.captureImageIfPossible();
+    //    this.captureImageIfPossible();
         
         // Use either the scanned code or input fields
         let scanSerial, scanFnsku, scanLocation;

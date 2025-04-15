@@ -9,7 +9,7 @@ use DateTime;
 use DateTimeZone;
 use Illuminate\Support\Facades\Log;
 
-class StockroomController extends BasetablesController
+class StockroomController extends Controller
 {
     /**
      * Display a listing of products in stockroom.
@@ -20,7 +20,7 @@ class StockroomController extends BasetablesController
         $search = $request->input('search', '');
         $location = $request->input('location', 'stockroom');
         
-        $products = DB::table($this->productTable)
+        $products = DB::table('tblproduct')
             ->where('ProductModuleLoc', $location)
             ->when($search, function($query) use ($search) {
                 return $query->where(function($q) use ($search) {
@@ -52,8 +52,8 @@ class StockroomController extends BasetablesController
         }
         
         try {
-            // Check in tblfnsku table with company suffix
-            $result = DB::table($this->fnskuTable)
+            // Check in tblffnsku table
+            $result = DB::table('tblfnsku')
                 ->where('FNSKU', $fnsku)
                 ->first();
             
@@ -75,7 +75,10 @@ class StockroomController extends BasetablesController
                 ]);
             }
         } catch (\Exception $e) {
-            $this->logError('Error checking FNSKU', $e, ['fnsku' => $fnsku]);
+            Log::error('Error checking FNSKU:', [
+                'fnsku' => $fnsku,
+                'error' => $e->getMessage()
+            ]);
             
             return response()->json([
                 'exists' => false,
@@ -84,6 +87,7 @@ class StockroomController extends BasetablesController
             ], 500);
         }
     }
+
 
     /**
      * Process scanner data
@@ -97,7 +101,7 @@ class StockroomController extends BasetablesController
                 'FNSKU' => 'required_without:SerialNumber',
                 'Location' => 'required',
             ]);
-    
+
             // Get data from request
             $User = Auth::id() ?? session('user_name', 'Unknown'); // Fallback to session or 'Unknown'
             $serial = trim($request->SerialNumber);
@@ -139,8 +143,8 @@ class StockroomController extends BasetablesController
                 ]);
             }
             
-            // Check if the serial exists in the stockroom list - using dynamic table name
-            $existingItem = DB::table($this->productTable)
+            // Check if the serial exists in the stockroom list
+            $existingItem = DB::table('tblproduct')
                 ->where(function($query) use ($serial) {
                     $query->where('serialnumber', $serial)
                           ->orWhere('serialnumberb', $serial);
@@ -165,8 +169,8 @@ class StockroomController extends BasetablesController
                     $existingItem->ProductModuleLoc === 'Shipment') {
                     
                     $table = '';
-                    // Find FNSKU in master tables - using dynamic table name
-                    $fnsku_data = DB::table($this->getTableName('masterfnsku'))
+                    // Find FNSKU in master tables
+                    $fnsku_data = DB::table('tblmasterfnsku')
                         ->where('FNSKU', $FNSKU)
                         ->first();
                     
@@ -175,21 +179,21 @@ class StockroomController extends BasetablesController
                         $getCondition1 = $fnsku_data->grading;
                         $getTitle1 = $fnsku_data->astitle;
                         $getMSKU1 = $fnsku_data->MSKU;
-                        $table = $this->getTableName('masterfnsku');
+                        $table = 'tblmasterfnsku';
                         $store = 'Renovar Tech';
                         
-                        $asinData = DB::table($this->masterAsinTable)
+                        $asinData = DB::table('tblmasterasin')
                         ->where('ASIN', $ASINmainFnsku)
                         ->first();
                         
                         $weightRetail = $asinData->lbs ?? 0;
                         $weightWhite = $asinData->white_lbs ?? 0;
                         $getmetaKeyword = $asinData->metakeyword ?? null;
-    
+
                         $Status = $fnsku_data->Status;
                         $SetID = $fnsku_data->productid;
                     } else {
-                        $fnsku_data = DB::table($this->fnskuAllRenewedTable)
+                        $fnsku_data = DB::table('tblmasterfnskuAllrenewed')
                             ->where('FNSKU', $FNSKU)
                             ->first();
                         
@@ -198,17 +202,17 @@ class StockroomController extends BasetablesController
                             $getCondition1 = $fnsku_data->grading;
                             $getTitle1 = $fnsku_data->astitle;
                             $getMSKU1 = $fnsku_data->MSKU;
-                            $table = $this->fnskuAllRenewedTable;
+                            $table = 'tblmasterfnskuAllrenewed';
                             $store = 'Allrenewed';
                                     
-                            $asinData = DB::table($this->masterAsinTable)
+                            $asinData = DB::table('tblmasterasin')
                             ->where('ASIN', $ASINmainFnsku)
                             ->first();
                             
                             $weightRetail = $asinData->lbs ?? 0;
                             $weightWhite = $asinData->white_lbs ?? 0;
                             $getmetaKeyword = $asinData->metakeyword ?? null;
-    
+
                             $Status = $fnsku_data->Status;
                             $SetID = $fnsku_data->productid;
                         } else {
@@ -251,7 +255,7 @@ class StockroomController extends BasetablesController
                             DB::beginTransaction();
                             
                             // Update existing item to returnlist
-                            DB::table($this->productTable)
+                            DB::table('tblproduct')
                                 ->where('ProductID', $id)
                                 ->update([
                                     'returnstatus' => 'Returned',
@@ -259,8 +263,8 @@ class StockroomController extends BasetablesController
                                     'ProductModuleLoc' => 'Returnlist'
                                 ]);
                             
-                            // Insert to LPN table - using dynamic table name
-                            $lpnId = DB::table($this->lpnTable)->insertGetId([
+                            // Insert to LPN table
+                            $lpnId = DB::table('tbllpn')->insertGetId([
                                 'SERIAL' => $serial,
                                 'LPN' => null,
                                 'LPNDATE' => $curentDatetimeString,
@@ -268,8 +272,8 @@ class StockroomController extends BasetablesController
                                 'BuyerName' => null
                             ]);
                             
-                            // Insert history - using dynamic table name
-                            DB::table($this->itemProcessHistoryTable)->insert([
+                            // Insert history
+                            DB::table('tblitemprocesshistory')->insert([
                                 'rtcounter' => $rt,
                                 'employeeName' => $User,
                                 'editDate' => $curentDatetimeString,
@@ -278,11 +282,11 @@ class StockroomController extends BasetablesController
                             ]);
                             
                             // Get next RT counter
-                            $maxxrt = DB::table($this->productTable)->max('rtcounter');
+                            $maxxrt = DB::table('tblproduct')->max('rtcounter');
                             $newrt = $maxxrt + 1;
                             
-                            // Insert new item - using dynamic table name
-                            $newItemId = DB::table($this->productTable)->insertGetId([
+                            // Insert new item
+                            $newItemId = DB::table('tblproduct')->insertGetId([
                                 'rtcounter' => $newrt,
                                 'rtid' => null,
                                 'itemnumber' => null,
@@ -308,8 +312,8 @@ class StockroomController extends BasetablesController
                                 'boxChoice' => $SelectedBox
                             ]);
                             
-                            // Insert history for new item - using dynamic table name
-                            DB::table($this->itemProcessHistoryTable)->insert([
+                            // Insert history for new item
+                            DB::table('tblitemprocesshistory')->insert([
                                 'rtcounter' => $newrt,
                                 'employeeName' => $User,
                                 'editDate' => $curentDatetimeString,
@@ -326,8 +330,8 @@ class StockroomController extends BasetablesController
                                     'productid' => $newItemId
                                 ]);
                             
-                            // Delete from shipping if needed - using dynamic table name
-                            DB::table($this->doneShippingTable)
+                            // Delete from shipping if needed
+                            DB::table('tbldoneshipping')
                                 ->where('Prodid', $id)
                                 ->delete();
                                 
@@ -340,7 +344,7 @@ class StockroomController extends BasetablesController
                             ]);
                         } catch (\Exception $e) {
                             DB::rollback();
-                            $this->logError('Error in processScan - move to returnlist', $e);
+                            Log::error('Error in processScan - move to returnlist: ' . $e->getMessage());
                             
                             return response()->json([
                                 'success' => false,
@@ -363,7 +367,7 @@ class StockroomController extends BasetablesController
                                 DB::beginTransaction();
                                 
                                 // Update existing item to returnlist
-                                DB::table($this->productTable)
+                                DB::table('tblproduct')
                                     ->where('ProductID', $id)
                                     ->update([
                                         'returnstatus' => 'Returned',
@@ -372,7 +376,7 @@ class StockroomController extends BasetablesController
                                     ]);
                                 
                                 // Insert to LPN table
-                                $lpnId = DB::table($this->lpnTable)->insertGetId([
+                                $lpnId = DB::table('tbllpn')->insertGetId([
                                     'SERIAL' => $serial,
                                     'LPN' => null,
                                     'LPNDATE' => $curentDatetimeString,
@@ -381,7 +385,7 @@ class StockroomController extends BasetablesController
                                 ]);
                                 
                                 // Insert history
-                                DB::table($this->itemProcessHistoryTable)->insert([
+                                DB::table('tblitemprocesshistory')->insert([
                                     'rtcounter' => $rt,
                                     'employeeName' => $User,
                                     'editDate' => $curentDatetimeString,
@@ -390,11 +394,11 @@ class StockroomController extends BasetablesController
                                 ]);
                                 
                                 // Get next RT counter
-                                $maxxrt = DB::table($this->productTable)->max('rtcounter');
+                                $maxxrt = DB::table('tblproduct')->max('rtcounter');
                                 $newrt = $maxxrt + 1;
                                 
                                 // Insert new item
-                                $newItemId = DB::table($this->productTable)->insertGetId([
+                                $newItemId = DB::table('tblproduct')->insertGetId([
                                     'rtcounter' => $newrt,
                                     'rtid' => null,
                                     'itemnumber' => null,
@@ -421,7 +425,7 @@ class StockroomController extends BasetablesController
                                 ]);
                                 
                                 // Insert history for new item
-                                DB::table($this->itemProcessHistoryTable)->insert([
+                                DB::table('tblitemprocesshistory')->insert([
                                     'rtcounter' => $newrt,
                                     'employeeName' => $User,
                                     'editDate' => $curentDatetimeString,
@@ -439,7 +443,7 @@ class StockroomController extends BasetablesController
                                     ]);
                                 
                                 // Delete from shipping if needed
-                                DB::table($this->doneShippingTable)
+                                DB::table('tbldoneshipping')
                                     ->where('Prodid', $id)
                                     ->delete();
                                     
@@ -452,7 +456,7 @@ class StockroomController extends BasetablesController
                                 ]);
                             } catch (\Exception $e) {
                                 DB::rollback();
-                                $this->logError('Error in processScan - available FNSKU', $e);
+                                Log::error('Error in processScan - available FNSKU: ' . $e->getMessage());
                                 
                                 return response()->json([
                                     'success' => false,
@@ -482,7 +486,7 @@ class StockroomController extends BasetablesController
                         }
                         
                         // Update the item
-                        DB::table($this->productTable)
+                        DB::table('tblproduct')
                             ->where('ProductID', $id)
                             ->update([
                                 'warehouselocation' => $location,
@@ -491,7 +495,7 @@ class StockroomController extends BasetablesController
                             ]);
                         
                         // Insert history
-                        DB::table($this->itemProcessHistoryTable)->insert([
+                        DB::table('tblitemprocesshistory')->insert([
                             'rtcounter' => $rt,
                             'employeeName' => $User,
                             'editDate' => $curentDatetimeString,
@@ -505,7 +509,7 @@ class StockroomController extends BasetablesController
                             'item' => $existingItem->AStitle
                         ]);
                     } catch (\Exception $e) {
-                        $this->logError('Error in processScan - Production Area update', $e);
+                        Log::error('Error in processScan - Production Area update: ' . $e->getMessage());
                         
                         return response()->json([
                             'success' => false,
@@ -518,7 +522,7 @@ class StockroomController extends BasetablesController
                 else if ($existingItem->warehouselocation === 'Floor') {
                     try {
                         // Just update the location
-                        DB::table($this->productTable)
+                        DB::table('tblproduct')
                             ->where('ProductID', $id)
                             ->update([
                                 'warehouselocation' => $location
@@ -530,7 +534,7 @@ class StockroomController extends BasetablesController
                             'item' => $existingItem->AStitle
                         ]);
                     } catch (\Exception $e) {
-                        $this->logError('Error in processScan - Floor update', $e);
+                        Log::error('Error in processScan - Floor update: ' . $e->getMessage());
                         
                         return response()->json([
                             'success' => false,
@@ -543,7 +547,7 @@ class StockroomController extends BasetablesController
                 else {
                     try {
                         // Log duplicate
-                        DB::table($this->addItemStockroomLogsTable)->insert([
+                        DB::table('tbladditemstockroomlogs')->insert([
                             'FNSKU' => $FNSKU,
                             'LOCATION' => $location,
                             'SERIALNUMBER' => $serial,
@@ -556,7 +560,7 @@ class StockroomController extends BasetablesController
                             'reason' => 'duplicate_serial'
                         ]);
                     } catch (\Exception $e) {
-                        $this->logError('Error in processScan - log duplicate', $e);
+                        Log::error('Error in processScan - log duplicate: ' . $e->getMessage());
                         
                         return response()->json([
                             'success' => false,
@@ -569,7 +573,7 @@ class StockroomController extends BasetablesController
             // Serial not found in main stockroom tables
             else {
                 // Check for item with different FNSKU
-                $existingWithDifferentFNSKU = DB::table($this->productTable)
+                $existingWithDifferentFNSKU = DB::table('tblproduct')
                     ->where(function($query) use ($serial) {
                         $query->where('serialnumber', $serial)
                               ->orWhere('serialnumberb', $serial);
@@ -596,20 +600,20 @@ class StockroomController extends BasetablesController
                         } else {
                             $mainFnsku = $trimmedFNSKU;
                         }
-    
+
                         if (preg_match('/^[B-W][0-9]/', $prefix2)) {
                             $inputFnsku = substr($trimmedFNSKU2, 2);
                         } else {
                             $inputFnsku = $trimmedFNSKU2;
                         }
-    
+
                         if (trim($mainFnsku) != trim($inputFnsku)) {
                             $needReprint = true;
                         }
                         
                         try {
                             // Update product to Stockroom
-                            DB::table($this->productTable)
+                            DB::table('tblproduct')
                                 ->where('ProductID', $id)
                                 ->update([
                                     'ProductModuleLoc' => 'Stockroom',
@@ -618,7 +622,7 @@ class StockroomController extends BasetablesController
                                 ]);
                             
                             // Insert history
-                            DB::table($this->itemProcessHistoryTable)->insert([
+                            DB::table('tblitemprocesshistory')->insert([
                                 'rtcounter' => $rtnumberofitem,
                                 'employeeName' => $User,
                                 'editDate' => $curentDatetimeString,
@@ -634,7 +638,7 @@ class StockroomController extends BasetablesController
                                 'productId' => $needReprint ? $id : null
                             ]);
                         } catch (\Exception $e) {
-                            $this->logError('Error in processScan - existing with different FNSKU', $e);
+                            Log::error('Error in processScan - existing with different FNSKU: ' . $e->getMessage());
                             
                             return response()->json([
                                 'success' => false,
@@ -652,7 +656,7 @@ class StockroomController extends BasetablesController
                 }
                 // Check for new FNSKU entry
                 else {
-                    $fnsku_data = DB::table($this->getTableName('masterfnsku'))
+                    $fnsku_data = DB::table('tblmasterfnsku')
                         ->where('FNSKU', $FNSKU)
                         ->first();
                     
@@ -664,9 +668,9 @@ class StockroomController extends BasetablesController
                         $getMSKU = $fnsku_data->MSKU;
                         $getFNSKU = $fnsku_data->FNSKU;
                         $store = 'Renovar Tech';
-    
+
                         
-                        $asinData = DB::table($this->masterAsinTable)
+                        $asinData = DB::table('tblmasterasin')
                         ->where('ASIN', $getASIN)
                         ->first();
                         
@@ -677,11 +681,11 @@ class StockroomController extends BasetablesController
                         if (($checkFNSKUstatus == "Available") || ($checkFNSKUstatus == null)) {
                             try {
                                 // Get next RT counter
-                                $maxxrt = DB::table($this->productTable)->max('rtcounter');
+                                $maxxrt = DB::table('tblproduct')->max('rtcounter');
                                 $newrt = $maxxrt + 1;
                                 
                                 // Insert new item
-                                $newItemId = DB::table($this->productTable)->insertGetId([
+                                $newItemId = DB::table('tblproduct')->insertGetId([
                                     'rtcounter' => $newrt,
                                     'serialnumber' => $serial,
                                     'ProductModuleLoc' => $Module,
@@ -700,7 +704,7 @@ class StockroomController extends BasetablesController
                                 ]);
                                 
                                 // Insert history
-                                DB::table($this->itemProcessHistoryTable)->insert([
+                                DB::table('tblitemprocesshistory')->insert([
                                     'rtcounter' => $newrt,
                                     'employeeName' => $User,
                                     'editDate' => $curentDatetimeString,
@@ -709,7 +713,7 @@ class StockroomController extends BasetablesController
                                 ]);
                                 
                                 // Update FNSKU status
-                                DB::table($this->getTableName('masterfnsku'))
+                                DB::table('tblmasterfnsku')
                                     ->where('FNSKU', $getFNSKU)
                                     ->update([
                                         'Status' => 'Unavailable',
@@ -722,7 +726,7 @@ class StockroomController extends BasetablesController
                                     'item' => $getTitle
                                 ]);
                             } catch (\Exception $e) {
-                                $this->logError('Error in processScan - new FNSKU insert', $e);
+                                Log::error('Error in processScan - new FNSKU insert: ' . $e->getMessage());
                                 
                                 return response()->json([
                                     'success' => false,
@@ -732,7 +736,7 @@ class StockroomController extends BasetablesController
                             }
                         } else {
                             // Try to find product with this FNSKU and serial
-                            $existingWithSameFNSKU = DB::table($this->productTable)
+                            $existingWithSameFNSKU = DB::table('tblproduct')
                                 ->where('FNSKUviewer', $getFNSKU)
                                 ->where('serialnumber', $serial)
                                 ->where('returnstatus', 'Not Returned')
@@ -745,7 +749,7 @@ class StockroomController extends BasetablesController
                                     $prodIDunique = $existingWithSameFNSKU->ProductID;
                                     
                                     // Update item to stockroom
-                                    DB::table($this->productTable)
+                                    DB::table('tblproduct')
                                         ->where('ProductID', $prodIDunique)
                                         ->update([
                                             'ProductModuleLoc' => 'Stockroom',
@@ -754,7 +758,7 @@ class StockroomController extends BasetablesController
                                         ]);
                                     
                                     // Insert history
-                                    DB::table($this->itemProcessHistoryTable)->insert([
+                                    DB::table('tblitemprocesshistory')->insert([
                                         'rtcounter' => $findInsertedrtcounter,
                                         'employeeName' => $User,
                                         'editDate' => $curentDatetimeString,
@@ -768,7 +772,7 @@ class StockroomController extends BasetablesController
                                         'item' => $existingWithSameFNSKU->AStitle
                                     ]);
                                 } catch (\Exception $e) {
-                                    $this->logError('Error in processScan - existing with same FNSKU', $e);
+                                    Log::error('Error in processScan - existing with same FNSKU: ' . $e->getMessage());
                                     
                                     return response()->json([
                                         'success' => false,
@@ -779,7 +783,7 @@ class StockroomController extends BasetablesController
                             } else {
                                 try {
                                     // Log that FNSKU is already used
-                                    DB::table($this->addItemStockroomLogsTable)->insert([
+                                    DB::table('tbladditemstockroomlogs')->insert([
                                         'ASIN' => $getASIN,
                                         'TITLE' => $getTitle,
                                         'FNSKU' => $getFNSKU,
@@ -795,7 +799,7 @@ class StockroomController extends BasetablesController
                                         'reason' => 'fnsku_in_use'
                                     ]);
                                 } catch (\Exception $e) {
-                                    $this->logError('Error in processScan - log FNSKU already used', $e);
+                                    Log::error('Error in processScan - log FNSKU already used: ' . $e->getMessage());
                                     
                                     return response()->json([
                                         'success' => false,
@@ -807,7 +811,7 @@ class StockroomController extends BasetablesController
                         }
                     } else {
                         // Try Allrenewed FNSKU
-                        $fnsku_data = DB::table($this->fnskuAllRenewedTable)
+                        $fnsku_data = DB::table('tblmasterfnskuAllrenewed')
                             ->where('FNSKU', $FNSKU)
                             ->first();
                             
@@ -819,9 +823,9 @@ class StockroomController extends BasetablesController
                             $getMSKU = $fnsku_data->MSKU;
                             $getFNSKU = $fnsku_data->FNSKU;
                             $store = 'Allrenewed';
-    
+
                             
-                            $asinData = DB::table($this->masterAsinTable)
+                            $asinData = DB::table('tblmasterasin')
                             ->where('ASIN', $getASIN)
                             ->first();
                             
@@ -832,11 +836,11 @@ class StockroomController extends BasetablesController
                             if (($checkFNSKUstatus == "Available") || ($checkFNSKUstatus == null)) {
                                 try {
                                     // Get next RT counter
-                                    $maxxrt = DB::table($this->productTable)->max('rtcounter');
+                                    $maxxrt = DB::table('tblproduct')->max('rtcounter');
                                     $newrt = $maxxrt + 1;
                                     
                                     // Insert new item
-                                    $newItemId = DB::table($this->productTable)->insertGetId([
+                                    $newItemId = DB::table('tblproduct')->insertGetId([
                                         'rtcounter' => $newrt,
                                         'serialnumber' => $serial,
                                         'ProductModuleLoc' => $Module,
@@ -855,7 +859,7 @@ class StockroomController extends BasetablesController
                                     ]);
                                     
                                     // Insert history
-                                    DB::table($this->itemProcessHistoryTable)->insert([
+                                    DB::table('tblitemprocesshistory')->insert([
                                         'rtcounter' => $newrt,
                                         'employeeName' => $User,
                                         'editDate' => $curentDatetimeString,
@@ -864,7 +868,7 @@ class StockroomController extends BasetablesController
                                     ]);
                                     
                                     // Update FNSKU status
-                                    DB::table($this->fnskuAllRenewedTable)
+                                    DB::table('tblmasterfnskuAllrenewed')
                                         ->where('FNSKU', $getFNSKU)
                                         ->update([
                                             'Status' => 'Unavailable',
@@ -877,7 +881,7 @@ class StockroomController extends BasetablesController
                                         'item' => $getTitle
                                     ]);
                                 } catch (\Exception $e) {
-                                    $this->logError('Error in processScan - new Allrenewed FNSKU insert', $e);
+                                    Log::error('Error in processScan - new Allrenewed FNSKU insert: ' . $e->getMessage());
                                     
                                     return response()->json([
                                         'success' => false,
@@ -887,7 +891,7 @@ class StockroomController extends BasetablesController
                                 }
                             } else {
                                 // Check for existing product with this FNSKU and serial
-                                $existingWithSameFNSKU = DB::table($this->productTable)
+                                $existingWithSameFNSKU = DB::table('tblproduct')
                                     ->where('FNSKUviewer', $getFNSKU)
                                     ->where('serialnumber', $serial)
                                     ->where('returnstatus', 'Not Returned')
@@ -900,7 +904,7 @@ class StockroomController extends BasetablesController
                                         $prodIDunique = $existingWithSameFNSKU->ProductID;
                                         
                                         // Update item to stockroom
-                                        DB::table($this->productTable)
+                                        DB::table('tblproduct')
                                             ->where('ProductID', $prodIDunique)
                                             ->update([
                                                 'ProductModuleLoc' => 'Stockroom',
@@ -909,7 +913,7 @@ class StockroomController extends BasetablesController
                                             ]);
                                         
                                         // Insert history
-                                        DB::table($this->itemProcessHistoryTable)->insert([
+                                        DB::table('tblitemprocesshistory')->insert([
                                             'rtcounter' => $findInsertedrtcounter,
                                             'employeeName' => $User,
                                             'editDate' => $curentDatetimeString,
@@ -923,7 +927,7 @@ class StockroomController extends BasetablesController
                                             'item' => $existingWithSameFNSKU->AStitle
                                         ]);
                                     } catch (\Exception $e) {
-                                        $this->logError('Error in processScan - existing with same Allrenewed FNSKU', $e);
+                                        Log::error('Error in processScan - existing with same Allrenewed FNSKU: ' . $e->getMessage());
                                         
                                         return response()->json([
                                             'success' => false,
@@ -934,7 +938,7 @@ class StockroomController extends BasetablesController
                                 } else {
                                     try {
                                         // Log that FNSKU is already used
-                                        DB::table($this->addItemStockroomLogsTable)->insert([
+                                        DB::table('tbladditemstockroomlogs')->insert([
                                             'ASIN' => $getASIN,
                                             'TITLE' => $getTitle,
                                             'FNSKU' => $getFNSKU,
@@ -950,7 +954,7 @@ class StockroomController extends BasetablesController
                                             'reason' => 'fnsku_in_use'
                                         ]);
                                     } catch (\Exception $e) {
-                                        $this->logError('Error in processScan - log Allrenewed FNSKU already used', $e);
+                                        Log::error('Error in processScan - log Allrenewed FNSKU already used: ' . $e->getMessage());
                                         
                                         return response()->json([
                                             'success' => false,
@@ -968,7 +972,7 @@ class StockroomController extends BasetablesController
                                 $mainFnsku = substr($FNSKU, 2);
                                 
                                 // Check in tblmasterfnsku
-                                $fnsku_data = DB::table($this->getTableName('masterfnsku'))
+                                $fnsku_data = DB::table('tblmasterfnsku')
                                     ->where('FNSKU', $mainFnsku)
                                     ->first();
                                     
@@ -978,13 +982,13 @@ class StockroomController extends BasetablesController
                                         $getCondition1 = $fnsku_data->grading;
                                         $getTitle1 = $fnsku_data->astitle;
                                         $getMSKU1 = $fnsku_data->MSKU;
-                                        $table = $this->getTableName('masterfnsku');
+                                        $table = 'tblmasterfnsku';
                                         $store = 'Renovar Tech';
                                         
                                         // Determine box type based on condition
                                         $skuCondition = $getCondition1;
-    
-                                        $asinData = DB::table($this->masterAsinTable)
+
+                                        $asinData = DB::table('tblmasterasin')
                                         ->where('ASIN', $getASIN)
                                         ->first();
                                         
@@ -1006,7 +1010,7 @@ class StockroomController extends BasetablesController
                                         }
                                         
                                         // Get next RT counter
-                                        $maxxrt = DB::table($this->productTable)->max('rtcounter');
+                                        $maxxrt = DB::table('tblproduct')->max('rtcounter');
                                         $newrt = $maxxrt + 1;
                                         
                                         // Get current date in different format
@@ -1015,7 +1019,7 @@ class StockroomController extends BasetablesController
                                         DB::beginTransaction();
                                         
                                         // Insert new item
-                                        $newItemId = DB::table($this->productTable)->insertGetId([
+                                        $newItemId = DB::table('tblproduct')->insertGetId([
                                             'metakeyword' => $getmetaKeyword,
                                             'rtcounter' => $newrt,
                                             'serialnumber' => $serial,
@@ -1037,7 +1041,7 @@ class StockroomController extends BasetablesController
                                         ]);
                                         
                                         // Insert history
-                                        DB::table($this->itemProcessHistoryTable)->insert([
+                                        DB::table('tblitemprocesshistory')->insert([
                                             'rtcounter' => $newrt,
                                             'employeeName' => $User,
                                             'editDate' => $curentDatetimeString,
@@ -1066,10 +1070,10 @@ class StockroomController extends BasetablesController
                                         ]);
                                     } catch (\Exception $e) {
                                         DB::rollback();
-                                        $this->logError('Error in processScan - prefixed FNSKU', $e);
+                                        Log::error('Error in processScan - prefixed FNSKU: ' . $e->getMessage());
                                         
                                         // Log the error
-                                        DB::table($this->addItemStockroomLogsTable)->insert([
+                                        DB::table('tbladditemstockroomlogs')->insert([
                                             'FNSKU' => $FNSKU,
                                             'LOCATION' => $location,
                                             'SERIALNUMBER' => $serial,
@@ -1085,7 +1089,7 @@ class StockroomController extends BasetablesController
                                 } 
                                 // Check in Allrenewed
                                 else {
-                                    $fnsku_data = DB::table($this->fnskuAllRenewedTable)
+                                    $fnsku_data = DB::table('tblmasterfnskuAllrenewed')
                                         ->where('FNSKU', $mainFnsku)
                                         ->first();
                                     
@@ -1095,10 +1099,10 @@ class StockroomController extends BasetablesController
                                             $getCondition1 = $fnsku_data->grading;
                                             $getTitle1 = $fnsku_data->astitle;
                                             $getMSKU1 = $fnsku_data->MSKU;
-                                            $table = $this->fnskuAllRenewedTable;
+                                            $table = 'tblmasterfnskuAllrenewed';
                                             $store = 'Allrenewed';
-    
-                                            $asinData = DB::table($this->masterAsinTable)
+
+                                            $asinData = DB::table('tblmasterasin')
                                             ->where('ASIN', $getASIN)
                                             ->first();
                                             
@@ -1123,7 +1127,7 @@ class StockroomController extends BasetablesController
                                             }
                                             
                                             // Get next RT counter
-                                            $maxxrt = DB::table($this->productTable)->max('rtcounter');
+                                            $maxxrt = DB::table('tblproduct')->max('rtcounter');
                                             $newrt = $maxxrt + 1;
                                             
                                             // Get current date in different format
@@ -1132,7 +1136,7 @@ class StockroomController extends BasetablesController
                                             DB::beginTransaction();
                                             
                                             // Insert new item
-                                            $newItemId = DB::table($this->productTable)->insertGetId([
+                                            $newItemId = DB::table('tblproduct')->insertGetId([
                                                 'metakeyword' => $getmetaKeyword,
                                                 'rtcounter' => $newrt,
                                                 'serialnumber' => $serial,
@@ -1154,7 +1158,7 @@ class StockroomController extends BasetablesController
                                             ]);
                                             
                                             // Insert history
-                                            DB::table($this->itemProcessHistoryTable)->insert([
+                                            DB::table('tblitemprocesshistory')->insert([
                                                 'rtcounter' => $newrt,
                                                 'employeeName' => $User,
                                                 'editDate' => $curentDatetimeString,
@@ -1183,10 +1187,10 @@ class StockroomController extends BasetablesController
                                             ]);
                                         } catch (\Exception $e) {
                                             DB::rollback();
-                                            $this->logError('Error in processScan - prefixed Allrenewed FNSKU', $e);
+                                            Log::error('Error in processScan - prefixed Allrenewed FNSKU: ' . $e->getMessage());
                                             
                                             // Log the error
-                                            DB::table($this->addItemStockroomLogsTable)->insert([
+                                            DB::table('tbladditemstockroomlogs')->insert([
                                                 'FNSKU' => $FNSKU,
                                                 'LOCATION' => $location,
                                                 'SERIALNUMBER' => $serial,
@@ -1219,7 +1223,7 @@ class StockroomController extends BasetablesController
                 }
             }
         } catch (\Exception $e) {
-            $this->logError('Unhandled error in processScan', $e);
+            Log::error('Unhandled error in processScan: ' . $e->getMessage());
             
             return response()->json([
                 'success' => false,
@@ -1227,13 +1231,6 @@ class StockroomController extends BasetablesController
                 'reason' => 'server_error'
             ], 500);
         }
-        
-        // This default return is a fallback in case any code path was missed
-        return response()->json([
-            'success' => false,
-            'message' => 'Unknown error occurred',
-            'reason' => 'unknown_error'
-        ], 500);
     }
 
     /**
@@ -1248,7 +1245,7 @@ class StockroomController extends BasetablesController
         $productId = $request->productId;
         
         try {
-            $product = DB::table($this->productTable)
+            $product = DB::table('tblproduct')
                 ->where('ProductID', $productId)
                 ->first();
             
@@ -1269,7 +1266,7 @@ class StockroomController extends BasetablesController
                 'message' => 'Label printing started'
             ]);
         } catch (\Exception $e) {
-            $this->logError('Error in printLabel', $e, ['productId' => $productId]);
+            Log::error('Error in printLabel: ' . $e->getMessage());
             
             return response()->json([
                 'status' => 'error',
