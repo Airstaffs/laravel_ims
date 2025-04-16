@@ -7,36 +7,148 @@ use App\Models\Product;
 use App\Models\Rpn;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth; // Add this for Auth dependency
-use DateTime;                        // Add this for DateTime
-use DateTimeZone;  
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use DateTime;
+use DateTimeZone;
 
-class LabelingController extends Controller
-{   
-
-
+class LabelingController extends BasetablesController
+{
     public function index(Request $request)
     {
-        $perPage = $request->input('per_page', 10);
-        $search = $request->input('search', '');
-        $location = $request->input('location', 'Labeling');
-        
-        $products = DB::table('tblproduct')
-            ->where('ProductModuleLoc', $location)
-            ->when($search, function($query) use ($search) {
-                return $query->where(function($q) use ($search) {
-                    $q->where('AStitle', 'like', "%{$search}%")
-                      ->orWhere('serialnumber', 'like', "%{$search}%")
-                      ->orWhere('FNSKUviewer', 'like', "%{$search}%")
-                      ->orWhere('MSKUviewer', 'like', "%{$search}%")
-                      ->orWhere('ASINviewer', 'like', "%{$search}%")
-                      ->orWhere('rtcounter', 'like', "%{$search}%");
-                });
-            })
-            ->orderBy('lastDateUpdate', 'desc')
-            ->paginate($perPage);
-        
-        return response()->json($products);
+        try {
+            // Log tables being used for debugging
+            Log::info('Tables being used:', [
+                'productTable' => $this->productTable,
+                'capturedImagesTable' => $this->capturedImagesTable,
+                'company' => $this->company
+            ]);
+            
+            $perPage = $request->input('per_page', 10);
+            $search = $request->input('search', '');
+            $location = $request->input('location', 'Labeling');
+            $includeImages = $request->boolean('include_images', false);
+            
+            // Query base products
+            $query = DB::table($this->productTable)
+                ->where('ProductModuleLoc', $location)
+                ->when($search, function($query) use ($search) {
+                    return $query->where(function($q) use ($search) {
+                        $q->where('AStitle', 'like', "%{$search}%")
+                          ->orWhere('serialnumber', 'like', "%{$search}%")
+                          ->orWhere('FNSKUviewer', 'like', "%{$search}%")
+                          ->orWhere('MSKUviewer', 'like', "%{$search}%")
+                          ->orWhere('ASINviewer', 'like', "%{$search}%")
+                          ->orWhere('rtcounter', 'like', "%{$search}%");
+                    });
+                })
+                ->orderBy('lastDateUpdate', 'desc');
+            
+            // Get paginated products
+            $products = $query->paginate($perPage);
+            Log::info('Products fetched successfully', ['count' => $products->count()]);
+            
+            // If images are requested, fetch them for each product
+            if ($includeImages) {
+                try {
+                    $productIds = $products->pluck('ProductID')->toArray();
+                    Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
+                    
+                    // IMPORTANT FIX: Use the original table name with 'tbl' prefix
+                    $capturedImagesTableName = $this->capturedImagesTable;
+                    
+                    // Log the actual table name we're checking
+                    Log::info('Checking table existence', [
+                        'table' => $capturedImagesTableName
+                    ]);
+                    
+                    if (!Schema::hasTable($capturedImagesTableName)) {
+                        Log::warning('Captured images table does not exist', [
+                            'table' => $capturedImagesTableName
+                        ]);
+                        // Add company but skip image fetching
+                        $products->getCollection()->transform(function ($product) {
+                            $product->company = $this->company;
+                            return $product;
+                        });
+                    } else {
+                        Log::info('Captured images table exists', ['table' => $capturedImagesTableName]);
+                        
+                        // Fetch all captured images for these products
+                        $capturedImages = DB::table($capturedImagesTableName)
+                            ->whereIn('ProductID', $productIds)
+                            ->get();
+                        
+                        Log::info('Captured images fetched', [
+                            'count' => $capturedImages->count(),
+                            'sample' => $capturedImages->take(1)
+                        ]);
+                        
+                        // Create a lookup by ProductID for efficient access
+                        $imagesByProductId = [];
+                        foreach ($capturedImages as $img) {
+                            $imagesByProductId[$img->ProductID] = $img;
+                        }
+                        
+                        // Add capturedImages data to each product
+                        $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
+                            // Always add the company for proper image path construction
+                            $product->company = $this->company;
+                            
+                            // Check if we have image data for this product
+                            if (isset($imagesByProductId[$product->ProductID])) {
+                                // Set capturedImages as a proper object
+                                $product->capturedImages = $imagesByProductId[$product->ProductID];
+                                
+                                // Set img1 directly for the main thumbnail display if not already set
+                                if (empty($product->img1) && !empty($product->capturedImages->capturedimg1)) {
+                                    $product->img1 = $product->capturedImages->capturedimg1;
+                                }
+                                
+                                // Log success for debugging
+                                Log::info('Added captured images to product', [
+                                    'ProductID' => $product->ProductID,
+                                    'capturedImages' => json_encode($product->capturedImages)
+                                ]);
+                            } else {
+                                // Log failure for debugging
+                                Log::info('No captured images found for product', [
+                                    'ProductID' => $product->ProductID
+                                ]);
+                                
+                                // Initialize empty capturedImages object to prevent JS errors
+                                $product->capturedImages = (object)[];
+                            }
+                            
+                            return $product;
+                        });
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error fetching images', [
+                        'message' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
+                    
+                    // Continue without images but with company
+                    $products->getCollection()->transform(function ($product) {
+                        $product->company = $this->company;
+                        $product->capturedImages = (object)[]; // Initialize empty object to prevent JS errors
+                        return $product;
+                    });
+                }
+            }
+            
+            return response()->json($products);
+        } catch (\Exception $e) {
+            Log::error('Error in LabelingController index', [
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'An error occurred while fetching products',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
-
 }

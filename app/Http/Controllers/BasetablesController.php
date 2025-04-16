@@ -5,51 +5,56 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Routing\Controller; // Make sure we're extending the right class
+use Illuminate\Routing\Controller;
 
 class BasetablesController extends Controller
 {
     protected $company;
     protected $tablePrefix = 'tbl';
     
-    // Common table names
+    // Common table names - simplified to use just single tables
     protected $productTable;
-    protected $fnskuTable;
-    protected $fnskuAllRenewedTable;
-    protected $masterAsinTable; // Make sure this matches what StockroomController expects
+    protected $fnskuTable;       // Single FNSKU table for all stores with storename column
+    protected $asinTable;        // Single ASIN table
     protected $lpnTable;
     protected $itemProcessHistoryTable;
     protected $addItemStockroomLogsTable;
     protected $doneShippingTable;
-    
+    protected $capturedImagesTable;   // Added for image management
+    protected $rpnStickerTable;   // Added for image management
     /**
      * Constructor to set up company from the authenticated user
      */
     public function __construct()
     {
-        // Use this instead of $this->middleware to avoid IDE warnings
+        // Use parent::middleware to avoid IDE warnings
         parent::middleware(function ($request, $next) {
             try {
                 // Get the company from the logged-in user
                 $this->company = $this->getCompanyFromUser();
                 
-                // Debug log the company to find any issues
+                // Log the company for debugging
                 Log::debug('Company from user: ' . $this->company);
                 
-                // Initialize common table names - Make sure these match what's expected in StockroomController
+                // Initialize common table names - simplified table structure
                 $this->productTable = $this->getTableName('product');
-                $this->fnskuTable = $this->getTableName('fnsku');
-                $this->fnskuAllRenewedTable = $this->getTableName('masterfnskuAllrenewed');
-                $this->masterAsinTable = $this->getTableName('masterasin'); // This was 'asin' before, changing to match usage
+                $this->fnskuTable = $this->getTableName('fnsku');        // Single FNSKU table
+                $this->asinTable = $this->getTableName('asin');
                 $this->lpnTable = $this->getTableName('lpn');
                 $this->itemProcessHistoryTable = $this->getTableName('itemprocesshistory');
                 $this->addItemStockroomLogsTable = $this->getTableName('additemstockroomlogs');
                 $this->doneShippingTable = $this->getTableName('doneshipping');
+                $this->capturedImagesTable = $this->getTableName('capturedimages'); // Initialize captured images table
                 
-                // Debug log the generated table names
+                $this->rpnStickerTable = $this->getTableName('rpnsticker');
+                
+                // Log table names for debugging
                 Log::debug('Table names: ', [
-                    'fnskuTable' => $this->fnskuTable, 
-                    'masterAsinTable' => $this->masterAsinTable
+                    'productTable' => $this->productTable,
+                    'fnskuTable' => $this->fnskuTable,
+                    'asinTable' => $this->asinTable,
+                    'capturedImagesTable' => $this->capturedImagesTable,
+                    'rpnStickerTable' => $this->rpnStickerTable
                 ]);
                 
                 return $next($request);

@@ -7,19 +7,20 @@ use App\Models\Product;
 use App\Models\Rpn;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth; // Add this for Auth dependency
-use DateTime;                        // Add this for DateTime
+use Illuminate\Support\Facades\Auth;
+use DateTime;
 use DateTimeZone;  
 
-class UnreceivedController extends Controller
+class UnreceivedController extends BasetablesController
 {   
+    
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 10);
         $search = $request->input('search', '');
         $location = $request->input('location', 'Orders');
         
-        $products = DB::table('tblproduct')
+        $products = DB::table($this->productTable)
             ->where('ProductModuleLoc', $location)
             ->when($search, function($query) use ($search) {
                 return $query->where(function($q) use ($search) {
@@ -45,7 +46,7 @@ class UnreceivedController extends Controller
         $last12Digits = substr($tracking, -12);
         
         // First, check if the product exists in Received status (already scanned)
-        $receivedProduct = DB::table('tblproduct')
+        $receivedProduct = DB::table($this->productTable)
             ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
             ->whereIn('ProductModuleLoc', ['Received', 'Labeling'])
             ->first();
@@ -62,7 +63,7 @@ class UnreceivedController extends Controller
         }
         
         // If not found in Received, check in Orders
-        $ordersProduct = DB::table('tblproduct')
+        $ordersProduct = DB::table($this->productTable)
             ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
             ->where('ProductModuleLoc', 'Orders')
             ->first();
@@ -85,20 +86,25 @@ class UnreceivedController extends Controller
             
     public function getNextRpn()
     {
-        // Get the current RPN from tblrpnsticker
-        $currentRpn = DB::table('tblrpnsticker')
-            ->where('RPNid', 1)
-            ->first();
+        try {
+            // Get the current RPN from RPN sticker table
+            $currentRpn = DB::table($this->rpnStickerTable)
+                ->where('RPNid', 1)
+                ->first();
+                
+            if (!$currentRpn) {
+                return response()->json(['error' => 'RPN record not found'], 404);
+            }
             
-        if (!$currentRpn) {
-            return response()->json(['error' => 'RPN record not found'], 404);
+            // Calculate the next RPN value
+            $nextRpnValue = $currentRpn->RPNstart + 1;
+            $formattedRpn = 'RPN' . str_pad($nextRpnValue, 5, '0', STR_PAD_LEFT);
+            
+            return response()->json(['rpn' => $formattedRpn, 'rawValue' => $nextRpnValue]);
+        } catch (\Exception $e) {
+            $this->logError('Error getting next RPN', $e);
+            return response()->json(['error' => 'Could not retrieve next RPN'], 500);
         }
-        
-        // Calculate the next RPN value
-        $nextRpnValue = $currentRpn->RPNstart + 1;
-        $formattedRpn = 'RPN' . str_pad($nextRpnValue, 5, '0', STR_PAD_LEFT);
-        
-        return response()->json(['rpn' => $formattedRpn, 'rawValue' => $nextRpnValue]);
     }
 
     
@@ -145,7 +151,7 @@ class UnreceivedController extends Controller
             }
             
             // Check if the product exists before updating
-            $productExists = DB::table('tblproduct')
+            $productExists = DB::table($this->productTable)
                 ->where('ProductID', $request->productId)
                 ->where('ProductModuleLoc', 'Orders')
                 ->exists();
@@ -159,7 +165,7 @@ class UnreceivedController extends Controller
             }
             
             // Update the specific product using its ID
-            $updateResult = DB::table('tblproduct')
+            $updateResult = DB::table($this->productTable)
                 ->where('ProductID', $request->productId)
                 ->where('ProductModuleLoc', 'Orders')
                 ->update([
@@ -182,8 +188,8 @@ class UnreceivedController extends Controller
             // Get the next RPN value
             $nextRpnValue = $rpnValue + 1;
             
-            // Update the RPN in tblrpnsticker with ID 1
-            DB::table('tblrpnsticker')
+            // Update the RPN in rpnsticker table with ID 1
+            DB::table($this->rpnStickerTable)
                 ->where('RPNid', 1)
                 ->update([
                     'RPNstart' => $nextRpnValue,
@@ -192,7 +198,7 @@ class UnreceivedController extends Controller
                 ]);
             
             // Record history with rtcounter
-            DB::table('tblitemprocesshistory')->insert([
+            DB::table($this->itemProcessHistoryTable)->insert([
                 'employeeName' => $User,
                 'editDate' => $formattedDatetime,
                 'Module' => 'Unreceived Module',
@@ -228,10 +234,7 @@ class UnreceivedController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error processing scan:', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            $this->logError('Error processing scan', $e, $request->all());
             
             return response()->json([
                 'success' => false,
