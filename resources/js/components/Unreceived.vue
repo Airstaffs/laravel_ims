@@ -412,7 +412,7 @@ export default {
     
     async fetchInventory() {
       try {
-        const response = await axios.get(`${API_BASE_URL}/products`, {
+        const response = await axios.get(`${API_BASE_URL}/api/unreceived/products`, {
           params: { 
             search: this.searchQuery, 
             page: this.currentPage, 

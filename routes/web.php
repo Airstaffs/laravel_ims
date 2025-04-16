@@ -239,6 +239,7 @@ use App\Http\Controllers\tblproductController;
 
 Route::get('/products', [tblproductController::class, 'index']);
 
+
 Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPrivileges'])->middleware('auth');
 
 // In routes/web.php

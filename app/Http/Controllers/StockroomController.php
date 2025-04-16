@@ -164,9 +164,8 @@ class StockroomController extends BasetablesController
                     ($existingItem->Fulfilledby === 'FBM' || $existingItem->Fulfilledby === 'FBA')) || 
                     $existingItem->ProductModuleLoc === 'Shipment') {
                     
-                    $table = '';
-                    // Find FNSKU in master tables - using dynamic table name
-                    $fnsku_data = DB::table($this->getTableName('masterfnsku'))
+                    // Find FNSKU in main fnsku table - using dynamic table name
+                    $fnsku_data = DB::table($this->fnskuTable)
                         ->where('FNSKU', $FNSKU)
                         ->first();
                     
@@ -175,12 +174,12 @@ class StockroomController extends BasetablesController
                         $getCondition1 = $fnsku_data->grading;
                         $getTitle1 = $fnsku_data->astitle;
                         $getMSKU1 = $fnsku_data->MSKU;
-                        $table = $this->getTableName('masterfnsku');
-                        $store = 'Renovar Tech';
+                        $table = $this->fnskuTable;
+                        $store = $fnsku_data->StoreName ?? 'Renovar Tech';
                         
-                        $asinData = DB::table($this->masterAsinTable)
-                        ->where('ASIN', $ASINmainFnsku)
-                        ->first();
+                        $asinData = DB::table($this->asinTable)
+                            ->where('ASIN', $ASINmainFnsku)
+                            ->first();
                         
                         $weightRetail = $asinData->lbs ?? 0;
                         $weightWhite = $asinData->white_lbs ?? 0;
@@ -189,35 +188,11 @@ class StockroomController extends BasetablesController
                         $Status = $fnsku_data->Status;
                         $SetID = $fnsku_data->productid;
                     } else {
-                        $fnsku_data = DB::table($this->fnskuAllRenewedTable)
-                            ->where('FNSKU', $FNSKU)
-                            ->first();
-                        
-                        if ($fnsku_data) {
-                            $ASINmainFnsku = $fnsku_data->ASIN;
-                            $getCondition1 = $fnsku_data->grading;
-                            $getTitle1 = $fnsku_data->astitle;
-                            $getMSKU1 = $fnsku_data->MSKU;
-                            $table = $this->fnskuAllRenewedTable;
-                            $store = 'Allrenewed';
-                                    
-                            $asinData = DB::table($this->masterAsinTable)
-                            ->where('ASIN', $ASINmainFnsku)
-                            ->first();
-                            
-                            $weightRetail = $asinData->lbs ?? 0;
-                            $weightWhite = $asinData->white_lbs ?? 0;
-                            $getmetaKeyword = $asinData->metakeyword ?? null;
-    
-                            $Status = $fnsku_data->Status;
-                            $SetID = $fnsku_data->productid;
-                        } else {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'FNSKU not found in database',
-                                'reason' => 'fnsku_not_found'
-                            ]);
-                        }
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'FNSKU not found in database',
+                            'reason' => 'fnsku_not_found'
+                        ]);
                     }
                     
                     // Determine SKU condition and box type
@@ -652,7 +627,7 @@ class StockroomController extends BasetablesController
                 }
                 // Check for new FNSKU entry
                 else {
-                    $fnsku_data = DB::table($this->getTableName('masterfnsku'))
+                    $fnsku_data = DB::table($this->fnskuTable)
                         ->where('FNSKU', $FNSKU)
                         ->first();
                     
@@ -663,12 +638,11 @@ class StockroomController extends BasetablesController
                         $getTitle = $fnsku_data->astitle;
                         $getMSKU = $fnsku_data->MSKU;
                         $getFNSKU = $fnsku_data->FNSKU;
-                        $store = 'Renovar Tech';
+                        $store = $fnsku_data->StoreName ?? 'Renovar Tech';
     
-                        
-                        $asinData = DB::table($this->masterAsinTable)
-                        ->where('ASIN', $getASIN)
-                        ->first();
+                        $asinData = DB::table($this->asinTable)
+                            ->where('ASIN', $getASIN)
+                            ->first();
                         
                         $weightRetail = $asinData->lbs ?? 0;
                         $weightWhite = $asinData->white_lbs ?? 0;
@@ -696,7 +670,8 @@ class StockroomController extends BasetablesController
                                     'quantity' => 1,
                                     'DateCreated' => $curentDatetimeString,
                                     'stockroom_insert_date' => $curentDatetimeString,
-                                    'StoreName' => $store
+                                    'StoreName' => $store,
+                                    'metakeyword' => $getmetaKeyword
                                 ]);
                                 
                                 // Insert history
@@ -709,7 +684,7 @@ class StockroomController extends BasetablesController
                                 ]);
                                 
                                 // Update FNSKU status
-                                DB::table($this->getTableName('masterfnsku'))
+                                DB::table($this->fnskuTable)
                                     ->where('FNSKU', $getFNSKU)
                                     ->update([
                                         'Status' => 'Unavailable',
@@ -806,52 +781,78 @@ class StockroomController extends BasetablesController
                             }
                         }
                     } else {
-                        // Try Allrenewed FNSKU
-                        $fnsku_data = DB::table($this->fnskuAllRenewedTable)
-                            ->where('FNSKU', $FNSKU)
-                            ->first();
+                        // Handle possible different FNSKU format (with prefix)
+                        $prefix = substr($FNSKU, 0, 2);
+                        
+                        if (preg_match('/^[B-W][0-9]/', $prefix)) {
+                            $mainFnsku = substr($FNSKU, 2);
                             
-                        if ($fnsku_data) {
-                            $checkFNSKUstatus = $fnsku_data->Status;
-                            $getASIN = $fnsku_data->ASIN;
-                            $getCondition = $fnsku_data->grading;
-                            $getTitle = $fnsku_data->astitle;
-                            $getMSKU = $fnsku_data->MSKU;
-                            $getFNSKU = $fnsku_data->FNSKU;
-                            $store = 'Allrenewed';
-    
-                            
-                            $asinData = DB::table($this->masterAsinTable)
-                            ->where('ASIN', $getASIN)
-                            ->first();
-                            
-                            $weightRetail = $asinData->lbs ?? 0;
-                            $weightWhite = $asinData->white_lbs ?? 0;
-                            $getmetaKeyword = $asinData->metakeyword ?? null;
-                            
-                            if (($checkFNSKUstatus == "Available") || ($checkFNSKUstatus == null)) {
+                            // Check in fnsku table
+                            $fnsku_data = DB::table($this->fnskuTable)
+                                ->where('FNSKU', $mainFnsku)
+                                ->first();
+                                
+                            if ($fnsku_data) {
                                 try {
+                                    $getASIN = $fnsku_data->ASIN;
+                                    $getCondition1 = $fnsku_data->grading;
+                                    $getTitle1 = $fnsku_data->astitle;
+                                    $getMSKU1 = $fnsku_data->MSKU;
+                                    $store = $fnsku_data->StoreName ?? 'Renovar Tech';
+                                    
+                                    // Determine box type based on condition
+                                    $skuCondition = $getCondition1;
+    
+                                    $asinData = DB::table($this->asinTable)
+                                        ->where('ASIN', $getASIN)
+                                        ->first();
+                                    
+                                    $weightRetail = $asinData->lbs ?? 0;
+                                    $weightWhite = $asinData->white_lbs ?? 0;
+                                    $getmetaKeyword = $asinData->metakeyword ?? null;
+                                    
+                                    if (($skuCondition === 'UsedLikeNew') || ($skuCondition === 'New')) {
+                                        $weight = $weightRetail;
+                                        $SelectedBox = 'Retailbox';
+                                    } else {
+                                        if ($weightWhite > 0) {
+                                            $weight = $weightWhite;
+                                            $SelectedBox = 'Whitebox';
+                                        } else {
+                                            $weight = $weightRetail;
+                                            $SelectedBox = 'Retailbox';
+                                        }
+                                    }
+                                    
                                     // Get next RT counter
                                     $maxxrt = DB::table($this->productTable)->max('rtcounter');
                                     $newrt = $maxxrt + 1;
                                     
+                                    // Get current date in different format
+                                    $curentDatet2 = $currentDatetime->format('Y-m-d');
+                                    
+                                    DB::beginTransaction();
+                                    
                                     // Insert new item
                                     $newItemId = DB::table($this->productTable)->insertGetId([
+                                        'metakeyword' => $getmetaKeyword,
                                         'rtcounter' => $newrt,
                                         'serialnumber' => $serial,
                                         'ProductModuleLoc' => $Module,
                                         'warehouselocation' => $location,
                                         'ASiNviewer' => $getASIN,
-                                        'FNSKUviewer' => $getFNSKU,
-                                        'gradingviewer' => $getCondition,
-                                        'AStitle' => $getTitle,
-                                        'MSKUviewer' => $getMSKU,
+                                        'FNSKUviewer' => $FNSKU,
+                                        'gradingviewer' => $getCondition1,
+                                        'AStitle' => $getTitle1,
+                                        'MSKUviewer' => $getMSKU1,
                                         'FbmAvailable' => 1,
                                         'Fulfilledby' => 'FBM',
                                         'quantity' => 1,
                                         'DateCreated' => $curentDatetimeString,
                                         'stockroom_insert_date' => $curentDatetimeString,
-                                        'StoreName' => $store
+                                        'StoreName' => $store,
+                                        'BoxWeight' => $weight,
+                                        'boxChoice' => $SelectedBox
                                     ]);
                                     
                                     // Insert history
@@ -863,357 +864,57 @@ class StockroomController extends BasetablesController
                                         'Action' => $Action
                                     ]);
                                     
-                                    // Update FNSKU status
-                                    DB::table($this->fnskuAllRenewedTable)
-                                        ->where('FNSKU', $getFNSKU)
-                                        ->update([
-                                            'Status' => 'Unavailable',
-                                            'productid' => $newItemId
-                                        ]);
+                                    // Insert FNSKU to master list
+                                    DB::table($this->fnskuTable)->insert([
+                                        'ASIN' => $getASIN,
+                                        'grading' => $getCondition1,
+                                        'astitle' => $getTitle1,
+                                        'MSKU' => $getMSKU1,
+                                        'FNSKU' => $FNSKU,
+                                        'Status' => 'Unavailable',
+                                        'productid' => $newItemId,
+                                        'dateFreeUp' => $curentDatet2,
+                                        'StoreName' => $store
+                                    ]);
+                                    
+                                    DB::commit();
                                     
                                     return response()->json([
                                         'success' => true,
                                         'message' => "Scanned and Inserted Successfully",
-                                        'item' => $getTitle
+                                        'item' => $getTitle1
                                     ]);
                                 } catch (\Exception $e) {
-                                    $this->logError('Error in processScan - new Allrenewed FNSKU insert', $e);
+                                    DB::rollback();
+                                    $this->logError('Error in processScan - prefixed FNSKU', $e);
+                                    
+                                    // Log the error
+                                    DB::table($this->addItemStockroomLogsTable)->insert([
+                                        'FNSKU' => $FNSKU,
+                                        'LOCATION' => $location,
+                                        'SERIALNUMBER' => $serial,
+                                        'NOTE' => 'Cannot find Main FNSKU in database'
+                                    ]);
                                     
                                     return response()->json([
                                         'success' => false,
-                                        'message' => 'Error processing scan: ' . $e->getMessage(),
-                                        'reason' => 'database_error'
-                                    ], 500);
-                                }
-                            } else {
-                                // Check for existing product with this FNSKU and serial
-                                $existingWithSameFNSKU = DB::table($this->productTable)
-                                    ->where('FNSKUviewer', $getFNSKU)
-                                    ->where('serialnumber', $serial)
-                                    ->where('returnstatus', 'Not Returned')
-                                    ->whereNotIn('ProductModuleLoc', ['Stockroom', 'Soldlist', 'Migrated'])
-                                    ->first();
-                                
-                                if ($existingWithSameFNSKU) {
-                                    try {
-                                        $findInsertedrtcounter = $existingWithSameFNSKU->rtcounter;
-                                        $prodIDunique = $existingWithSameFNSKU->ProductID;
-                                        
-                                        // Update item to stockroom
-                                        DB::table($this->productTable)
-                                            ->where('ProductID', $prodIDunique)
-                                            ->update([
-                                                'ProductModuleLoc' => 'Stockroom',
-                                                'stockroom_insert_date' => $curentDatetimeString,
-                                                'warehouselocation' => $location
-                                            ]);
-                                        
-                                        // Insert history
-                                        DB::table($this->itemProcessHistoryTable)->insert([
-                                            'rtcounter' => $findInsertedrtcounter,
-                                            'employeeName' => $User,
-                                            'editDate' => $curentDatetimeString,
-                                            'Module' => $Module,
-                                            'Action' => $Action
-                                        ]);
-                                        
-                                        return response()->json([
-                                            'success' => true,
-                                            'message' => "Scanned and Inserted Successfully",
-                                            'item' => $existingWithSameFNSKU->AStitle
-                                        ]);
-                                    } catch (\Exception $e) {
-                                        $this->logError('Error in processScan - existing with same Allrenewed FNSKU', $e);
-                                        
-                                        return response()->json([
-                                            'success' => false,
-                                            'message' => 'Error processing scan: ' . $e->getMessage(),
-                                            'reason' => 'database_error'
-                                        ], 500);
-                                    }
-                                } else {
-                                    try {
-                                        // Log that FNSKU is already used
-                                        DB::table($this->addItemStockroomLogsTable)->insert([
-                                            'ASIN' => $getASIN,
-                                            'TITLE' => $getTitle,
-                                            'FNSKU' => $getFNSKU,
-                                            'MSKU' => $getMSKU,
-                                            'CONDITIONS' => $getCondition,
-                                            'LOCATION' => $location,
-                                            'SERIALNUMBER' => $serial
-                                        ]);
-                                        
-                                        return response()->json([
-                                            'success' => false,
-                                            'message' => "FNSKU is Already Used",
-                                            'reason' => 'fnsku_in_use'
-                                        ]);
-                                    } catch (\Exception $e) {
-                                        $this->logError('Error in processScan - log Allrenewed FNSKU already used', $e);
-                                        
-                                        return response()->json([
-                                            'success' => false,
-                                            'message' => 'Failed Error inserting to logs',
-                                            'reason' => 'database_error'
-                                        ], 500);
-                                    }
-                                }
-                            }
-                        } else {
-                            // Handle possible different FNSKU format (with prefix)
-                            $prefix = substr($FNSKU, 0, 2);
-                            
-                            if (preg_match('/^[B-W][0-9]/', $prefix)) {
-                                $mainFnsku = substr($FNSKU, 2);
-                                
-                                // Check in tblmasterfnsku
-                                $fnsku_data = DB::table($this->getTableName('masterfnsku'))
-                                    ->where('FNSKU', $mainFnsku)
-                                    ->first();
-                                    
-                                if ($fnsku_data) {
-                                    try {
-                                        $getASIN = $fnsku_data->ASIN;
-                                        $getCondition1 = $fnsku_data->grading;
-                                        $getTitle1 = $fnsku_data->astitle;
-                                        $getMSKU1 = $fnsku_data->MSKU;
-                                        $table = $this->getTableName('masterfnsku');
-                                        $store = 'Renovar Tech';
-                                        
-                                        // Determine box type based on condition
-                                        $skuCondition = $getCondition1;
-    
-                                        $asinData = DB::table($this->masterAsinTable)
-                                        ->where('ASIN', $getASIN)
-                                        ->first();
-                                        
-                                        $weightRetail = $asinData->lbs ?? 0;
-                                        $weightWhite = $asinData->white_lbs ?? 0;
-                                        $getmetaKeyword = $asinData->metakeyword ?? null;
-                                        
-                                        if (($skuCondition === 'UsedLikeNew') || ($skuCondition === 'New')) {
-                                            $weight = $weightRetail;
-                                            $SelectedBox = 'Retailbox';
-                                        } else {
-                                            if ($weightWhite > 0) {
-                                                $weight = $weightWhite;
-                                                $SelectedBox = 'Whitebox';
-                                            } else {
-                                                $weight = $weightRetail;
-                                                $SelectedBox = 'Retailbox';
-                                            }
-                                        }
-                                        
-                                        // Get next RT counter
-                                        $maxxrt = DB::table($this->productTable)->max('rtcounter');
-                                        $newrt = $maxxrt + 1;
-                                        
-                                        // Get current date in different format
-                                        $curentDatet2 = $currentDatetime->format('Y-m-d');
-                                        
-                                        DB::beginTransaction();
-                                        
-                                        // Insert new item
-                                        $newItemId = DB::table($this->productTable)->insertGetId([
-                                            'metakeyword' => $getmetaKeyword,
-                                            'rtcounter' => $newrt,
-                                            'serialnumber' => $serial,
-                                            'ProductModuleLoc' => $Module,
-                                            'warehouselocation' => $location,
-                                            'ASiNviewer' => $getASIN,
-                                            'FNSKUviewer' => $FNSKU,
-                                            'gradingviewer' => $getCondition1,
-                                            'AStitle' => $getTitle1,
-                                            'MSKUviewer' => $getMSKU1,
-                                            'FbmAvailable' => 1,
-                                            'Fulfilledby' => 'FBM',
-                                            'quantity' => 1,
-                                            'DateCreated' => $curentDatetimeString,
-                                            'stockroom_insert_date' => $curentDatetimeString,
-                                            'StoreName' => $store,
-                                            'BoxWeight' => $weight,
-                                            'boxChoice' => $SelectedBox
-                                        ]);
-                                        
-                                        // Insert history
-                                        DB::table($this->itemProcessHistoryTable)->insert([
-                                            'rtcounter' => $newrt,
-                                            'employeeName' => $User,
-                                            'editDate' => $curentDatetimeString,
-                                            'Module' => $Module,
-                                            'Action' => $Action
-                                        ]);
-                                        
-                                        // Insert FNSKU to master list
-                                        DB::table($table)->insert([
-                                            'ASIN' => $getASIN,
-                                            'grading' => $getCondition1,
-                                            'astitle' => $getTitle1,
-                                            'MSKU' => $getMSKU1,
-                                            'FNSKU' => $FNSKU,
-                                            'Status' => 'Unavailable',
-                                            'productid' => $newItemId,
-                                            'dateFreeUp' => $curentDatet2
-                                        ]);
-                                        
-                                        DB::commit();
-                                        
-                                        return response()->json([
-                                            'success' => true,
-                                            'message' => "Scanned and Inserted Successfully",
-                                            'item' => $getTitle1
-                                        ]);
-                                    } catch (\Exception $e) {
-                                        DB::rollback();
-                                        $this->logError('Error in processScan - prefixed FNSKU', $e);
-                                        
-                                        // Log the error
-                                        DB::table($this->addItemStockroomLogsTable)->insert([
-                                            'FNSKU' => $FNSKU,
-                                            'LOCATION' => $location,
-                                            'SERIALNUMBER' => $serial,
-                                            'NOTE' => 'Cannot find Main FNSKU in database'
-                                        ]);
-                                        
-                                        return response()->json([
-                                            'success' => false,
-                                            'message' => 'Cannot find Main FNSKU in database',
-                                            'reason' => 'main_fnsku_not_found'
-                                        ]);
-                                    }
-                                } 
-                                // Check in Allrenewed
-                                else {
-                                    $fnsku_data = DB::table($this->fnskuAllRenewedTable)
-                                        ->where('FNSKU', $mainFnsku)
-                                        ->first();
-                                    
-                                    if ($fnsku_data) {
-                                        try {
-                                            $getASIN = $fnsku_data->ASIN;
-                                            $getCondition1 = $fnsku_data->grading;
-                                            $getTitle1 = $fnsku_data->astitle;
-                                            $getMSKU1 = $fnsku_data->MSKU;
-                                            $table = $this->fnskuAllRenewedTable;
-                                            $store = 'Allrenewed';
-    
-                                            $asinData = DB::table($this->masterAsinTable)
-                                            ->where('ASIN', $getASIN)
-                                            ->first();
-                                            
-                                            $weightRetail = $asinData->lbs ?? 0;
-                                            $weightWhite = $asinData->white_lbs ?? 0;
-                                            $getmetaKeyword = $asinData->metakeyword ?? null;
-                                            
-                                            // Determine box type based on condition
-                                            $skuCondition = $getCondition1;
-                                            
-                                            if (($skuCondition === 'UsedLikeNew') || ($skuCondition === 'New')) {
-                                                $weight = $weightRetail;
-                                                $SelectedBox = 'Retailbox';
-                                            } else {
-                                                if ($weightWhite > 0) {
-                                                    $weight = $weightWhite;
-                                                    $SelectedBox = 'Whitebox';
-                                                } else {
-                                                    $weight = $weightRetail;
-                                                    $SelectedBox = 'Retailbox';
-                                                }
-                                            }
-                                            
-                                            // Get next RT counter
-                                            $maxxrt = DB::table($this->productTable)->max('rtcounter');
-                                            $newrt = $maxxrt + 1;
-                                            
-                                            // Get current date in different format
-                                            $curentDatet2 = $currentDatetime->format('Y-m-d');
-                                            
-                                            DB::beginTransaction();
-                                            
-                                            // Insert new item
-                                            $newItemId = DB::table($this->productTable)->insertGetId([
-                                                'metakeyword' => $getmetaKeyword,
-                                                'rtcounter' => $newrt,
-                                                'serialnumber' => $serial,
-                                                'ProductModuleLoc' => $Module,
-                                                'warehouselocation' => $location,
-                                                'ASiNviewer' => $getASIN,
-                                                'FNSKUviewer' => $FNSKU,
-                                                'gradingviewer' => $getCondition1,
-                                                'AStitle' => $getTitle1,
-                                                'MSKUviewer' => $getMSKU1,
-                                                'FbmAvailable' => 1,
-                                                'Fulfilledby' => 'FBM',
-                                                'quantity' => 1,
-                                                'DateCreated' => $curentDatetimeString,
-                                                'stockroom_insert_date' => $curentDatetimeString,
-                                                'StoreName' => $store,
-                                                'BoxWeight' => $weight,
-                                                'boxChoice' => $SelectedBox
-                                            ]);
-                                            
-                                            // Insert history
-                                            DB::table($this->itemProcessHistoryTable)->insert([
-                                                'rtcounter' => $newrt,
-                                                'employeeName' => $User,
-                                                'editDate' => $curentDatetimeString,
-                                                'Module' => $Module,
-                                                'Action' => $Action
-                                            ]);
-                                            
-                                            // Insert FNSKU to master list
-                                            DB::table($table)->insert([
-                                                'ASIN' => $getASIN,
-                                                'grading' => $getCondition1,
-                                                'astitle' => $getTitle1,
-                                                'MSKU' => $getMSKU1,
-                                                'FNSKU' => $FNSKU,
-                                                'Status' => 'Unavailable',
-                                                'productid' => $newItemId,
-                                                'dateFreeUp' => $curentDatet2
-                                            ]);
-                                            
-                                            DB::commit();
-                                            
-                                            return response()->json([
-                                                'success' => true,
-                                                'message' => "Scanned and Inserted Successfully",
-                                                'item' => $getTitle1
-                                            ]);
-                                        } catch (\Exception $e) {
-                                            DB::rollback();
-                                            $this->logError('Error in processScan - prefixed Allrenewed FNSKU', $e);
-                                            
-                                            // Log the error
-                                            DB::table($this->addItemStockroomLogsTable)->insert([
-                                                'FNSKU' => $FNSKU,
-                                                'LOCATION' => $location,
-                                                'SERIALNUMBER' => $serial,
-                                                'NOTE' => 'Cannot find Main FNSKU in database'
-                                            ]);
-                                            
-                                            return response()->json([
-                                                'success' => false,
-                                                'message' => 'Cannot find Main FNSKU in database',
-                                                'reason' => 'main_fnsku_not_found'
-                                            ]);
-                                        }
-                                    } else {
-                                        return response()->json([
-                                            'success' => false,
-                                            'message' => "FNSKU not found in database",
-                                            'reason' => 'fnsku_not_found'
-                                        ]);
-                                    }
+                                        'message' => 'Cannot find Main FNSKU in database',
+                                        'reason' => 'main_fnsku_not_found'
+                                    ]);
                                 }
                             } else {
                                 return response()->json([
                                     'success' => false,
-                                    'message' => "Invalid FNSKU",
-                                    'reason' => 'invalid_fnsku_format'
+                                    'message' => "FNSKU not found in database",
+                                    'reason' => 'fnsku_not_found'
                                 ]);
                             }
+                        } else {
+                            return response()->json([
+                                'success' => false,
+                                'message' => "Invalid FNSKU",
+                                'reason' => 'invalid_fnsku_format'
+                            ]);
                         }
                     }
                 }

@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\File;
 use DateTime;
 use DateTimeZone;
 
-class ReceivedController extends Controller
+class ReceivedController extends BasetablesController
 {   
     public function index(Request $request)
     {
@@ -21,7 +21,7 @@ class ReceivedController extends Controller
         $search = $request->input('search', '');
         $location = $request->input('location', 'Received');
         
-        $products = DB::table('tblproduct')
+        $products = DB::table($this->productTable)
             ->where('ProductModuleLoc', $location)
             ->when($search, function($query) use ($search) {
                 return $query->where(function($q) use ($search) {
@@ -37,7 +37,9 @@ class ReceivedController extends Controller
             ->paginate($perPage);
         
         return response()->json($products);
-    }public function verifyTracking(Request $request)
+    }
+    
+    public function verifyTracking(Request $request)
     {
         $tracking = $request->input('tracking');
         
@@ -45,7 +47,7 @@ class ReceivedController extends Controller
         $last12Digits = substr($tracking, -12);
         
         // First, check if tracking exists in Labeling (already scanned)
-        $labelingProduct = DB::table('tblproduct')
+        $labelingProduct = DB::table($this->productTable)
             ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
             ->whereIn('ProductModuleLoc', ['Labeling', 'Validation'])
             ->first();
@@ -62,7 +64,7 @@ class ReceivedController extends Controller
         }
         
         // Then check if it exists in Received (valid for processing)
-        $receivedProduct = DB::table('tblproduct')
+        $receivedProduct = DB::table($this->productTable)
             ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
             ->where('ProductModuleLoc', 'Received')
             ->first();
@@ -112,7 +114,7 @@ class ReceivedController extends Controller
             }
             
             // Check if PCN exists in the database
-            $pcnExists = DB::table('tblproduct')
+            $pcnExists = DB::table($this->productTable)
                 ->where('PCN', $pcn)
                 ->exists();
                 
@@ -123,10 +125,7 @@ class ReceivedController extends Controller
             ]);
         } catch (\Exception $e) {
             // Log the error
-            Log::error('Error validating PCN:', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            $this->logError('Error validating PCN', $e, ['pcn' => $pcn]);
             
             return response()->json([
                 'valid' => false,
@@ -182,7 +181,7 @@ class ReceivedController extends Controller
             $formattedDatetime = $currentDatetime->format('Y-m-d H:i:s');
             
             // Check if the product exists before updating
-            $productExists = DB::table('tblproduct')
+            $productExists = DB::table($this->productTable)
                 ->where('ProductID', $request->productId)
                 ->exists();
                 
@@ -205,12 +204,12 @@ class ReceivedController extends Controller
                 ];
     
                 // Update product status for failed item
-                $updateResult = DB::table('tblproduct')
+                $updateResult = DB::table($this->productTable)
                     ->where('ProductID', $request->productId)
                     ->update($updateData);
                     
                 // Record history
-                DB::table('tblitemprocesshistory')->insert([
+                DB::table($this->itemProcessHistoryTable)->insert([
                     'employeeName' => $user,
                     'editDate' => $formattedDatetime,
                     'Module' => 'Received Module',
@@ -243,7 +242,7 @@ class ReceivedController extends Controller
                 ];
                 
                 // Update the product
-                $updateResult = DB::table('tblproduct')
+                $updateResult = DB::table($this->productTable)
                     ->where('ProductID', $request->productId)
                     ->update($updateData);
                 
@@ -258,7 +257,7 @@ class ReceivedController extends Controller
                 }
                 
                 // Record history
-                DB::table('tblitemprocesshistory')->insert([
+                DB::table($this->itemProcessHistoryTable)->insert([
                     'employeeName' => $user,
                     'editDate' => $formattedDatetime,
                     'Module' => 'Received Module',
@@ -289,10 +288,7 @@ class ReceivedController extends Controller
             
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error processing scan:', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+            $this->logError('Error processing scan', $e, $request->all());
             
             return response()->json([
                 'success' => false,
@@ -301,140 +297,4 @@ class ReceivedController extends Controller
             ], 500);
         }
     }
-    public function uploadImage(Request $request)
-{
-    Log::info('Received image upload request:', [
-        'productId' => $request->input('productId'),
-        'imageIndex' => $request->input('imageIndex'),
-        'hasImage' => $request->has('imageData')
-    ]);
-    
-    try {
-        $request->validate([
-            'productId' => 'required',
-            'imageIndex' => 'required|integer',
-            'imageData' => 'required|string',
-            'hasSerialTwo' => 'required|boolean',
-            'hasPcn' => 'required|boolean'
-        ]);
-        
-        $productId = $request->input('productId');
-        $imageIndex = $request->input('imageIndex');
-        $imageData = $request->input('imageData');
-        $hasSerialTwo = $request->input('hasSerialTwo');
-        $hasPcn = $request->input('hasPcn');
-        
-        // Check if product exists
-        $productExists = DB::table('tblproduct')
-            ->where('ProductID', $productId)
-            ->exists();
-            
-        if (!$productExists) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found with ID: ' . $productId
-            ], 404);
-        }
-        
-        // Process the image
-        if (strpos($imageData, 'data:image') === 0) {
-            // Extract the image data from base64 string
-            list($type, $data) = explode(';', $imageData);
-            list(, $data) = explode(',', $data);
-            $imageData = base64_decode($data);
-            
-            // Use absolute path for image directory
-            $directory = public_path('images/product_images');
-            
-            // Make sure the directory exists
-            if (!File::exists($directory)) {
-                File::makeDirectory($directory, 0755, true);
-            }
-            
-            // Generate filename based on index and product ID
-            $filename = '';
-            
-            // First two images are special - serial captures + PCN
-            if ($imageIndex === 0) {
-                // First serial image
-                $filename = $productId . '.jpg';
-                $columnName = 'Serial1capturedimg';
-            } else if ($imageIndex === 1 && $hasSerialTwo) {
-                // Second serial image
-                $filename = $productId . '_1.jpg';
-                $columnName = 'Serial2capturedimg';
-            } else if (($imageIndex === 1 && !$hasSerialTwo && $hasPcn) || 
-                      ($imageIndex === 2 && $hasSerialTwo && $hasPcn)) {
-                // PCN image - depends on whether we have a second serial
-                $filename = $productId . '_2.jpg';
-                $columnName = 'PCNcapturedimg';
-            } else {
-                // Additional images - calculate correct index
-                $startingIndex = 0;
-                if ($hasSerialTwo) $startingIndex++;
-                if ($hasPcn) $startingIndex++;
-                
-                $suffix = $imageIndex + 1;
-                if ($imageIndex > $startingIndex) {
-                    $suffix = $imageIndex + (3 - $startingIndex);
-                }
-                
-                $filename = $productId . '_' . $suffix . '.jpg';
-                
-                // Calculate which captured image column to use
-                $columnIndex = $imageIndex - $startingIndex - 1;
-                if ($columnIndex < 0) $columnIndex = 0;
-                
-                $capturedImgColumns = [
-                    'capturedimg1', 'capturedimg2', 'capturedimg3', 'capturedimg4',
-                    'capturedimg5', 'capturedimg6', 'capturedimg7', 'capturedimg8'
-                ];
-                
-                if ($columnIndex < count($capturedImgColumns)) {
-                    $columnName = $capturedImgColumns[$columnIndex];
-                } else {
-                    $columnName = $capturedImgColumns[0]; // Default to first column if out of range
-                }
-            }
-            
-            $path = $directory . '/' . $filename;
-            
-            // Store the image directly using File
-            File::put($path, $imageData);
-            
-            // Update the database with the image filename
-            DB::table('tblproduct')
-                ->where('ProductID', $productId)
-                ->update([$columnName => $filename]);
-            
-            Log::info('Image saved:', [
-                'path' => $path, 
-                'filename' => $filename, 
-                'column' => $columnName
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'filename' => $filename,
-                'column' => $columnName
-            ]);
-        } else {
-            return response()->json([
-                'success' => false,
-                'message' => 'Invalid image data format'
-            ], 400);
-        }
-    } catch (\Exception $e) {
-        Log::error('Error uploading image:', [
-            'message' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
-        
-        return response()->json([
-            'success' => false,
-            'message' => 'Error uploading image: ' . $e->getMessage()
-        ], 500);
-    }
-}
-
 }
