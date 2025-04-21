@@ -296,3 +296,10 @@ Route::prefix('api/labeling')->group(function () {
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
+
+
+use App\Http\Controllers\FnskuController;
+Route::get('/fnsku-list', [FnskuController::class, 'getFnskuList']);
+Route::post('/update-fnsku', [FnskuController::class, 'updateFnsku']);
+Route::get('/fnsku', [FnskuController::class, 'index']);
+Route::post('/insert-fnsku', [FnskuController::class, 'insertFnsku']);
