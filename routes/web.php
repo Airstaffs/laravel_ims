@@ -265,6 +265,7 @@ Route::prefix('api/stockroom')->group(function () {
     Route::get('check-fnsku', [StockroomController::class, 'checkFnsku']);
     Route::post('process-scan', [StockroomController::class, 'processScan']);
     Route::post('print-label', [StockroomController::class, 'printLabel']);
+    Route::get('stores', [StockroomController::class, 'getStores']);
 });
 
 // Routes for Unreceived scanner

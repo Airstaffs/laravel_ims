@@ -66,7 +66,7 @@ class ImageUploadController extends BasetablesController
                 $imageData = base64_decode($data);
                 
                 // Ensure directory exists, create company-specific subfolder
-                $companyFolder = $this->company ?: 'default';
+                $companyFolder = $this->company ?: 'airstaffs';
                 $directory = public_path("images/product_images/{$companyFolder}");
                 if (!File::exists($directory)) {
                     File::makeDirectory($directory, 0755, true);

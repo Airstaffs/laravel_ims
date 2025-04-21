@@ -1,7 +1,7 @@
 <template>
   <div class="scanner-wrapper">
-    <!-- Scanner Button -->
-    <div class="scanner-container">
+    <!-- Scanner Button - only show if hideButton is false -->
+    <div v-if="!hideButton" class="scanner-container">
       <button @click="openScannerModal" class="scanner-button">
         <i class="fas fa-barcode"></i>
       </button>
@@ -316,6 +316,13 @@ import ScannerMixin from './ScannerMixin.js';
 export default {
   name: 'ScannerComponent',
   mixins: [ScannerMixin],
+  props: {
+    // Add a new prop to control whether the scanner button should be shown
+    hideButton: {
+      type: Boolean,
+      default: false
+    }
+  },
   data() {
     return {
       isProcessing: false,
@@ -323,11 +330,11 @@ export default {
       // Add image preview data
       showImagePreviewModal: false,
       currentImageIndex: 0,
-
-    productThumbnails: [],
-    showThumbnailsPanel: false,
-    showProductImageModal: false,
-    currentProductImageIndex: 0,
+      
+      productThumbnails: [],
+      showThumbnailsPanel: false,
+      showProductImageModal: false,
+      currentProductImageIndex: 0,
     };
   },
   computed: {
@@ -354,17 +361,23 @@ export default {
       return { data: '', timestamp: '' };
     },
 
-      // Get the current product image being previewed
-  currentProductImage() {
-    if (this.productThumbnails.length > 0 && 
-        this.currentProductImageIndex >= 0 && 
-        this.currentProductImageIndex < this.productThumbnails.length) {
-      return this.productThumbnails[this.currentProductImageIndex];
+    // Get the current product image being previewed
+    currentProductImage() {
+      if (this.productThumbnails.length > 0 && 
+          this.currentProductImageIndex >= 0 && 
+          this.currentProductImageIndex < this.productThumbnails.length) {
+        return this.productThumbnails[this.currentProductImageIndex];
+      }
+      return { src: '', label: '' };
     }
-    return { src: '', label: '' };
-  }
   },
   methods: {
+    // Open scanner modal - made available for parent components
+    openScannerModal() {
+      this.showScannerModal = true;
+      this.$emit('scanner-opened');
+    },
+    
     // Open the image preview modal
     openImagePreview(index) {
       this.currentImageIndex = index;
@@ -396,25 +409,25 @@ export default {
       }
     },
 
-  showLoadingState(message = 'Processing scan...') {
-    this.isProcessing = true;
-    this.loadingMessage = message;
-  },
-  
-  // Method to hide loading state
-  hideLoadingState() {
-    this.isProcessing = false;
-  },
-  
-  // Exposing loading methods to parent components
-  startLoading(message) {
-    this.showLoadingState(message);
-  },
-  
-  stopLoading() {
-    this.hideLoadingState();
-  },
+    showLoadingState(message = 'Processing scan...') {
+      this.isProcessing = true;
+      this.loadingMessage = message;
+    },
     
+    // Method to hide loading state
+    hideLoadingState() {
+      this.isProcessing = false;
+    },
+    
+    // Exposing loading methods to parent components
+    startLoading(message) {
+      this.showLoadingState(message);
+    },
+    
+    stopLoading() {
+      this.hideLoadingState();
+    },
+      
     // Delete the current image from preview
     deleteCurrentImage() {
       if (this.capturedImages.length > 0) {
@@ -431,6 +444,8 @@ export default {
         }
       }
     },
+
+    // Load product,
 
   // Load product thumbnails based on product data
   loadProductThumbnails(productData) {
