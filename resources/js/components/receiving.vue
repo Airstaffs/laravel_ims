@@ -452,11 +452,11 @@ export default {
     // Fetch inventory data from the API
     async fetchInventory() {
       try {
-        const response = await axios.get(`${API_BASE_URL}/products`, {
+        const response = await axios.get(`${API_BASE_URL}/api/received/products`, {
           params: { 
             search: this.searchQuery, 
             page: this.currentPage, 
-            location: 'Orders'
+            location: 'Received'
           },
         });
         

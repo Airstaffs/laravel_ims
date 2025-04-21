@@ -6,14 +6,18 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Auth;
 
-class ImageUploadController extends Controller
+class ImageUploadController extends BasetablesController
 {
+
     public function upload(Request $request)
     {
         Log::info('Received image upload request:', [
             'productId' => $request->input('productId'),
-            'imageIndex' => $request->input('imageIndex')
+            'imageIndex' => $request->input('imageIndex'),
+            'company' => $this->company,
+            'capturedImagesTable' => $this->capturedImagesTable
         ]);
         
         try {
@@ -31,7 +35,7 @@ class ImageUploadController extends Controller
             }
             
             // Check if product exists and continue if it does
-            if (!DB::table('tblproduct')->where('ProductID', $productId)->exists()) {
+            if (!DB::table($this->productTable)->where('ProductID', $productId)->exists()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Product not found with ID: ' . $productId
@@ -45,41 +49,77 @@ class ImageUploadController extends Controller
                 list(, $data) = explode(',', $data);
                 $imageData = base64_decode($data);
                 
-                // Ensure directory exists
-                $directory = public_path('images/product_images');
+                // Ensure directory exists, create company-specific subfolder
+                $companyFolder = $this->company ?: 'Airstaffs';
+                $directory = public_path("images/product_images/{$companyFolder}");
                 if (!File::exists($directory)) {
                     File::makeDirectory($directory, 0755, true);
                 }
                 
-                // Simplified filename and column name calculation
-                // Just use a sequential numbering system for all images
+                // Simplified filename calculation
                 $imageNumber = $imageIndex + 1;
                 $filename = $productId . '_img' . $imageNumber . '.jpg';
                 
-                // Use capturedimg1-12 columns
-                $columnName = 'capturedimg' . min($imageNumber, 12); // Limit to 12 columns
+                // Column name for the capturedimages table
+                $capturedImgColumn = 'capturedimg' . min($imageNumber, 12); // Limit to 12 columns
                 
                 $path = $directory . '/' . $filename;
                 
                 // Store the image
                 File::put($path, $imageData);
                 
-                // Update database
-                DB::table('tblproduct')
-                    ->where('ProductID', $productId)
-                    ->update([$columnName => $filename]);
+                // Begin transaction
+                DB::beginTransaction();
                 
-                Log::info('Image saved:', [
-                    'path' => $path, 
-                    'filename' => $filename, 
-                    'column' => $columnName
-                ]);
-                
-                return response()->json([
-                    'success' => true,
-                    'filename' => $filename,
-                    'column' => $columnName
-                ]);
+                try {
+                    // Check if a record exists for this product
+                    $existingRecord = DB::table($this->capturedImagesTable)
+                        ->where('ProductID', $productId)
+                        ->first();
+                    
+                    if ($existingRecord) {
+                        // Update existing record with the new image
+                        DB::table($this->capturedImagesTable)
+                            ->where('id', $existingRecord->id)
+                            ->update([
+                                $capturedImgColumn => $filename,
+                                'UpdatedAt' => now()
+                            ]);
+                        
+                        $imageRecordId = $existingRecord->id;
+                    } else {
+                        // Insert new record
+                        $imageRecordId = DB::table($this->capturedImagesTable)->insertGetId([
+                            'ProductID' => $productId,
+                            $capturedImgColumn => $filename,
+                            'CreatedAt' => now(),
+                            'UpdatedAt' => now()
+                        ]);
+                    }
+                    
+                    // No longer need to update the product table since columns have been removed
+                    
+                    DB::commit();
+                    
+                    Log::info('Image saved:', [
+                        'path' => $path, 
+                        'filename' => $filename, 
+                        'column' => $capturedImgColumn,
+                        'imageRecordId' => $imageRecordId,
+                        'company' => $this->company,
+                        'capturedImagesTable' => $this->capturedImagesTable
+                    ]);
+                    
+                    return response()->json([
+                        'success' => true,
+                        'filename' => $filename,
+                        'column' => $capturedImgColumn,
+                        'imageRecordId' => $imageRecordId
+                    ]);
+                } catch (\Exception $e) {
+                    DB::rollBack();
+                    throw $e;
+                }
             } else {
                 return response()->json([
                     'success' => false,
@@ -87,9 +127,11 @@ class ImageUploadController extends Controller
                 ], 400);
             }
         } catch (\Exception $e) {
-            Log::error('Error uploading image:', [
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+            $this->logError('Error uploading image', $e, [
+                'productId' => $request->input('productId'),
+                'imageIndex' => $request->input('imageIndex'),
+                'company' => $this->company,
+                'capturedImagesTable' => $this->capturedImagesTable
             ]);
             
             return response()->json([

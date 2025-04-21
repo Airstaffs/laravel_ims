@@ -247,6 +247,7 @@ use App\Http\Controllers\tblproductController;
 
 Route::get('/products', [tblproductController::class, 'index']);
 
+
 Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPrivileges'])->middleware('auth');
 
 // In routes/web.php
@@ -272,6 +273,7 @@ Route::prefix('api/stockroom')->group(function () {
     Route::get('check-fnsku', [StockroomController::class, 'checkFnsku']);
     Route::post('process-scan', [StockroomController::class, 'processScan']);
     Route::post('print-label', [StockroomController::class, 'printLabel']);
+    Route::get('stores', [StockroomController::class, 'getStores']);
 });
 
 // Routes for Unreceived scanner
@@ -303,3 +305,10 @@ Route::prefix('api/labeling')->group(function () {
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
+
+
+use App\Http\Controllers\FnskuController;
+Route::get('/fnsku-list', [FnskuController::class, 'getFnskuList']);
+Route::post('/update-fnsku', [FnskuController::class, 'updateFnsku']);
+Route::get('/fnsku', [FnskuController::class, 'index']);
+Route::post('/insert-fnsku', [FnskuController::class, 'insertFnsku']);
