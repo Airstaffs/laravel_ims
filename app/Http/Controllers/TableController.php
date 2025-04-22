@@ -56,6 +56,9 @@ class TableController extends Controller
             // Second table
             $sourceTable2 = 'tblapistemp';
             $targetTable2 = $sourceTable2 . $suffix;
+
+            $sourceTable3 = 'tblfnskutemp';
+            $targetTable3 = $sourceTable3 . $suffix;
             
             // Clone the first table structure and data
             DB::statement("CREATE TABLE {$targetTable1} LIKE {$sourceTable1}");
@@ -64,6 +67,9 @@ class TableController extends Controller
             // Clone the second table structure and data
             DB::statement("CREATE TABLE {$targetTable2} LIKE {$sourceTable2}");
             DB::statement("INSERT INTO {$targetTable2} SELECT * FROM {$sourceTable2}");
+
+            DB::statement("CREATE TABLE {$targetTable3} LIKE {$sourceTable3}");
+            DB::statement("INSERT INTO {$targetTable3} SELECT * FROM {$sourceTable3}");
             
             return redirect()->back()->with('success', "Registration successful. User created and tables cloned.");
         } catch (\Exception $e) {

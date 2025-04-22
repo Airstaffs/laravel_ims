@@ -58,11 +58,17 @@ class UserController extends Controller
                 'password' => 'required|min:6|confirmed',
                 'role' => 'required|in:SuperAdmin,SubAdmin,User',
             ]);
+
+            $user = Auth::user();
+        
+            // Get company data - assuming user has a company relation or attribute
+            $companyColumn = $user ? $user->company : '';
     
             User::create([
                 'username' => $validated['username'],
                 'password' => Hash::make($validated['password']),
                 'role' => $validated['role'],
+                'company' => $companyColumn,
             ]);
 
             // Log using service
@@ -458,4 +464,5 @@ public function saveUserPrivileges(Request $request)
                 ]);
             }
         }
+        
 }    
