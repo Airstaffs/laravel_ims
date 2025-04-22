@@ -144,6 +144,7 @@
               <td class="Desktop">
                 <span><strong></strong> {{ item.serialnumber }}</span>
               </td>
+
           
              <!-- Button for more details -->
               <td class="Desktop">
@@ -152,6 +153,12 @@
                   {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
                 </button>
                 <br>
+
+                <span><strong></strong> {{ item.actions }}</span>   
+                <button @click="showFnskuModal(item)" class="test-btn mt-2">
+                  <i class="bi bi-clipboard-check"></i> SET FNSKU
+                </button>
+
                 <button class="btn-moredetails">example</button><br>
                 <button class="btn-moredetails">example</button><br>
                 <button class="btn-moredetails">example</button><br>
@@ -162,10 +169,17 @@
               <td colspan="11">
                 <div class="expanded-content p-3 border rounded">
                   <div class="Mobile">
-                  <button class="btn-moredetails">sample button</button>
+                <br>
+
+                  <span><strong></strong> {{ item.actions }}</span>   
+                  <button @click="showFnskuModal(item)" class="test-btn mt-2">
+                    <i class="bi bi-clipboard-check"></i> SET FNSKU
+                  </button>
                   <button class="btn-moredetails">sample button</button>
                   <button class="btn-moredetails">sample button</button>
                   </div>
+                  <strong>External Title provided by Supplier:</strong> {{ item.ProductTitle }}
+                  <br>
                   <strong>Product Name:</strong> {{ item.AStitle }}
                 </div>
               </td>
@@ -243,6 +257,66 @@
         </div>
       </div>
     </div>
+
+    <!-- FNSKU Selection Modal - Moved outside image modal and now has proper styling -->
+    <div class="fnsku-modal" v-if="isFnskuModalVisible">
+      <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
+      <div class="fnsku-modal-content">
+        <div class="fnsku-modal-header">
+          <h2>Select FNSKU</h2>
+          <span class="fnsku-close" @click="hideFnskuModal">&times;</span>
+        </div>
+        <div class="fnsku-modal-body">
+          <div class="fnsku-product-info">
+            <h4>{{ currentItem?.AStitle }}</h4>
+            <p><strong>ID:</strong> {{ currentItem?.ProductID }}</p>
+            <p><strong>ASIN:</strong> {{ currentItem?.ASINviewer }}</p>
+            <p><strong>FNSKU:</strong> {{ currentItem?.FNSKUviewer || 'None' }}</p>
+          </div>
+          
+          <div class="fnsku-search-container">
+            <input 
+              type="text" 
+              v-model="fnskuSearch" 
+              placeholder="Search FNSKU or title..." 
+              class="fnsku-search-input"
+              @input="filterFnskuList"
+            />
+          </div>
+          
+          <div class="fnsku-list">
+            <div class="fnsku-list-header">
+              <div class="fnsku-details-column">Details</div>
+              <div class="fnsku-title-column">Title</div>
+              <div class="fnsku-action-column">Action</div>
+            </div>
+            <div v-if="filteredFnskuList.length === 0" class="fnsku-no-results">
+              No matching FNSKUs found
+            </div>
+            <div 
+              v-for="fnsku in filteredFnskuList" 
+              :key="fnsku.FNSKU" 
+              class="fnsku-item"
+              :class="{'fnsku-highlighted': fnsku.ASIN === currentItem?.ASIN}"
+            >
+              <div class="fnsku-column">{{ fnsku.FNSKU }}<br><br>
+              {{ fnsku.ASIN }}<br><br>
+              {{ fnsku.grading }}</div>
+              <div class="fnsku-title-column">{{ fnsku.astitle }}</div>
+              <div class="fnsku-action-column">
+                <button 
+                  @click="selectFnsku(fnsku)" 
+                  class="fnsku-select-btn"
+                  :class="{'fnsku-recommended': fnsku.ASIN === currentItem?.ASIN}"
+                >
+                  Select
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -272,7 +346,14 @@ export default {
       capturedImages: [],   // For captured images
       activeTab: 'regular', // Track which tab is active
       currentImageIndex: 0,
-      currentImageSet: []   // The currently displayed image set based on active tab
+      currentImageSet: [],   // The currently displayed image set based on active tab
+      
+      // FNSKU Modal properties
+      isFnskuModalVisible: false,
+      currentItem: null,
+      fnskuList: [],
+      filteredFnskuList: [],
+      fnskuSearch: ''
     };
   },
   computed: {
@@ -536,6 +617,94 @@ export default {
         this.sortColumn = column;
         this.sortOrder = 'asc';
       }
+    },
+    
+    // FNSKU Modal methods - Fixed and improved
+    async showFnskuModal(item) {
+      console.log("Opening FNSKU modal for item:", item);
+      this.currentItem = item;
+      this.isFnskuModalVisible = true;
+      this.fnskuSearch = item.ASINviewer || ''; // Pre-fill with current ASIN for easier search
+      
+      try {
+        console.log("Fetching FNSKU list...");
+        const response = await axios.get(`${API_BASE_URL}/fnsku-list`);
+        console.log("FNSKU list response:", response.data);
+        this.fnskuList = response.data;
+        this.filterFnskuList(); // Apply initial filter
+      } catch (error) {
+        console.error('Error fetching FNSKU list:', error);
+        alert('Error fetching FNSKU list. Please try again.');
+      }
+    },
+    
+    hideFnskuModal() {
+      console.log("Hiding FNSKU modal");
+      this.isFnskuModalVisible = false;
+      this.currentItem = null;
+      this.fnskuList = [];
+      this.filteredFnskuList = [];
+      this.fnskuSearch = '';
+    },
+    
+    filterFnskuList() {
+      console.log("Filtering FNSKU list with search:", this.fnskuSearch);
+      if (!this.fnskuSearch) {
+        // If empty search, show matching ASIN first, then everything else
+        this.filteredFnskuList = [...this.fnskuList].sort((a, b) => {
+          if (a.ASIN === this.currentItem?.ASINviewer && b.ASIN !== this.currentItem?.ASINviewer) {
+            return -1;
+          } else if (a.ASIN !== this.currentItem?.ASINviewer && b.ASIN === this.currentItem?.ASINviewer) {
+            return 1;
+          }
+          return 0;
+        });
+        return;
+      }
+      
+      const search = this.fnskuSearch.toLowerCase();
+      this.filteredFnskuList = this.fnskuList.filter(fnsku => 
+        fnsku.FNSKU?.toLowerCase().includes(search) || 
+        fnsku.ASIN?.toLowerCase().includes(search) || 
+        fnsku.astitle?.toLowerCase().includes(search)
+      );
+    },
+    
+    async selectFnsku(fnsku) {
+      console.log("Selecting FNSKU:", fnsku);
+      if (!this.currentItem || !fnsku) return;
+      
+      try {
+    // Get the CSRF token from the meta tag
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    // Make the request with proper data format and headers
+    const response = await axios.post(`${API_BASE_URL}/update-fnsku`, {
+      product_id: this.currentItem.ProductID,
+      fnsku: fnsku.FNSKU,
+      msku: fnsku.MSKU,
+      asin: fnsku.ASIN,
+      grading: fnsku.grading,
+      astitle: fnsku.astitle
+    }, {
+      headers: {
+        'X-CSRF-TOKEN': csrfToken
+      }
+    });
+        
+        console.log("Update FNSKU response:", response.data);
+        
+        if (response.data.success) {
+          alert(`FNSKU updated to ${fnsku.FNSKU}`);
+          this.hideFnskuModal();
+          this.fetchInventory(); // Refresh the data
+        } else {
+          alert(response.data.message || 'Failed to update FNSKU');
+        }
+      } catch (error) {
+        console.error('Error updating FNSKU:', error);
+        alert('Failed to update FNSKU. Please try again.');
+      }
     }
   },
   
@@ -632,7 +801,7 @@ export default {
   font-weight: bold;
 }
 
-/* Modal Styles */
+/* Image Modal Styles */
 .image-modal {
   position: fixed;
   top: 0;
@@ -796,9 +965,160 @@ export default {
   font-style: italic;
 }
 
+/* FNSKU Modal Styles */
+.fnsku-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2000; /* Higher than image modal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fnsku-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+}
+
+.fnsku-modal-content {
+  position: relative;
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow: auto;
+  z-index: 2001;
+}
+
+.fnsku-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.fnsku-close {
+  font-size: 30px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #333;
+}
+
+.fnsku-product-info {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f8f8;
+  border-radius: 4px;
+}
+
+.fnsku-search-container {
+  margin-bottom: 20px;
+}
+
+.fnsku-search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.fnsku-list {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fnsku-list-header {
+  display: flex;
+  background-color: #f0f0f0;
+  padding: 10px;
+  font-weight: bold;
+  border-bottom: 1px solid #ddd;
+}
+
+.fnsku-details-column {
+  flex: 1;
+}
+
+.fnsku-title-column {
+  flex: 2;
+}
+
+.fnsku-action-column {
+  flex: 0.5;
+  text-align: center;
+}
+
+.fnsku-no-results {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+}
+
+.fnsku-item {
+  display: flex;
+  padding: 15px 10px;
+  border-bottom: 1px solid #eee;
+  align-items: center;
+}
+
+.fnsku-item:last-child {
+  border-bottom: none;
+}
+
+.fnsku-highlighted {
+  background-color: #f0f8ff;
+}
+
+.fnsku-column {
+  flex: 1;
+  padding-right: 10px;
+}
+
+.fnsku-title-column {
+  flex: 2;
+  padding-right: 10px;
+}
+
+.fnsku-action-column {
+  flex: 0.5;
+  text-align: center;
+}
+
+.fnsku-select-btn {
+  padding: 6px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.fnsku-recommended {
+  background-color: #28a745;
+}
+
+.fnsku-select-btn:hover {
+  opacity: 0.9;
+}
+
 /* For mobile */
 @media (max-width: 768px) {
-  .modal-content {
+  .modal-content,
+  .fnsku-modal-content {
     padding: 10px;
     width: 95%;
   }
@@ -812,6 +1132,22 @@ export default {
   .modal-thumbnail {
     width: 50px;
     height: 50px;
+  }
+  
+  .fnsku-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .fnsku-column,
+  .fnsku-title-column,
+  .fnsku-action-column {
+    width: 100%;
+    padding: 5px 0;
+  }
+  
+  .fnsku-action-column {
+    text-align: left;
   }
 }
 </style>

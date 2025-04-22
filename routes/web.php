@@ -217,6 +217,14 @@ Route::get('/amzn/fba-shipment/step4/get_shipment', [FBAShipmentController::clas
 Route::get('/amzn/fba-shipment/step5/transportation_options', [FBAShipmentController::class, 'step5a_transportation_options']);
 Route::get('/amzn/fba-shipment/step5/generate_delivery_options', [FBAShipmentController::class, 'step5b_generate_delivery_options']);
 Route::get('/amzn/fba-shipment/step5/transportation_options_view', [FBAShipmentController::class, 'step5c_transportation_options_view']);
+Route::get('/amzn/fba-shipment/step6/list_delivery_window_options', [FBAShipmentController::class, 'step6a_list_delivery_window_options']);
+
+Route::get('/amzn/fba-shipment/step6/confirm_placement_option', [FBAShipmentController::class, 'step6b_confirm_placement_option']);
+Route::get('/amzn/fba-shipment/step7/confirm_delivery_window_options', [FBAShipmentController::class, 'step7a_confirm_delivery_window_options']);
+Route::get('/amzn/fba-shipment/step8/confirm_transportation_options', [FBAShipmentController::class, 'step8a_confirm_transportation_options']);
+
+Route::get('/amzn/fba-shipment/step9/get_shipment', [FBAShipmentController::class, 'step9a_get_shipment']); // medyo sheeshables
+Route::get('/amzn/fba-shipment/step10/print_label', [FBAShipmentController::class, 'step10a_print_label']);
 
 
 Route::get('/apis/ebay-login', action: function () {
@@ -297,3 +305,10 @@ Route::prefix('api/labeling')->group(function () {
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
+
+
+use App\Http\Controllers\FnskuController;
+Route::get('/fnsku-list', [FnskuController::class, 'getFnskuList']);
+Route::post('/update-fnsku', [FnskuController::class, 'updateFnsku']);
+Route::get('/fnsku', [FnskuController::class, 'index']);
+Route::post('/insert-fnsku', [FnskuController::class, 'insertFnsku']);
