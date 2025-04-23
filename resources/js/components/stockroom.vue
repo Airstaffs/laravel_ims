@@ -7,8 +7,8 @@
         <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
           <option value="">All Stores</option>
           <option v-for="store in stores" :key="store" :value="store">
-            {{ store }}
-          </option>
+          {{ store }}
+        </option>
         </select>
       </div>
 
@@ -184,11 +184,16 @@
                     <input type="checkbox" v-model="item.checked" />
                   </div>
                   <div class="product-container">
-                    <div class="product-image">
-                      <img src="" alt="" class="product-thumbnail" />
+                    <div class="product-image clickable" @click="viewProductImage(item)">
+                      <img 
+                        :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)" 
+                        :alt="item.AStitle" 
+                        class="product-thumbnail" 
+                        @error="handleImageError($event, item)" 
+                      />
                     </div>
                     <div class="product-info">
-                      <p class="product-name">
+                      <p class="product-name clickable" @click="viewProductDetails(item)">
                         {{ item.AStitle }}
                       </p>
                     </div>
@@ -212,22 +217,27 @@
               </td>
               <td>{{ item.FBMAvailable }}</td>
               <td>{{ item.FbaAvailable }}</td>
-              <td>{{ item.item_count }}</td>
+              <td :class="{'item-count-cell': true, 'item-count-warning': !item.countValid}">
+                {{ item.item_count }}
+                <i v-if="!item.countValid" class="fas fa-exclamation-circle" title="Item count doesn't match serial numbers"></i>
+              </td>
               <td>
                 <div class="action-buttons">
                   <button class="btn-print" @click="printLabel(item.ProductID)">
                     <i class="fas fa-print"></i> Print
                   </button>
-                  <button class="btn-details" @click="toggleDetails(index)">
-                    {{ expandedRows[index] ? 'Hide' : 'Show' }}
+                  <button class="btn-expand" @click="toggleDetails(index)">
+                    {{ expandedRows[index] ? 'Hide Serials' : 'Show Serials' }}
                   </button>
-                  <button class="btn-move" @click="openMoveModal(item)">
-                    <i class="fas fa-exchange-alt"></i> Move
+                  <button class="btn-details" @click="viewProductDetails(item)">
+                    <i class="fas fa-info-circle"></i> More Details
+                  </button>
+                  <button class="btn-process" @click="openProcessModal(item)">
+                    <i class="fas fa-cogs"></i> Process
                   </button>
                 </div>
               </td>
             </tr>
-            
             <!-- Expanded Details Row -->
             <tr v-if="expandedRows[index]" class="expanded-row">
               <td colspan="10">
@@ -287,8 +297,16 @@
             <div class="mobile-checkbox">
               <input type="checkbox" v-model="item.checked" />
             </div>
+            <div class="mobile-product-image clickable" @click="viewProductImage(item)">
+              <img 
+                :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)" 
+                :alt="item.AStitle" 
+                class="product-thumbnail-mobile" 
+                @error="handleImageError($event, item)" 
+              />
+            </div>
             <div class="mobile-product-info">
-              <h3 class="mobile-product-name">{{ item.AStitle }}</h3>
+              <h3 class="mobile-product-name clickable" @click="viewProductDetails(item)">{{ item.AStitle }}</h3>
             </div>
           </div>
           
@@ -311,7 +329,10 @@
             </div>
             <div class="mobile-detail-row">
               <span class="mobile-detail-label">Item Count:</span>
-              <span class="mobile-detail-value">{{ item.item_count }}</span>
+              <span :class="{'mobile-detail-value': true, 'item-count-warning': !item.countValid}">
+                {{ item.item_count }}
+                <i v-if="!item.countValid" class="fas fa-exclamation-circle" title="Item count doesn't match serial numbers"></i>
+              </span>
             </div>
             <div class="mobile-detail-row">
               <span class="mobile-detail-label">FBM/FBA:</span>
@@ -323,11 +344,14 @@
             <button class="mobile-btn" @click="printLabel(item.ProductID)">
               <i class="fas fa-print"></i> Print
             </button>
-            <button class="mobile-btn mobile-btn-details" @click="toggleDetails(index)">
-              <i class="fas fa-info-circle"></i> {{ expandedRows[index] ? 'Hide' : 'Details' }}
+            <button class="mobile-btn mobile-btn-expand" @click="toggleDetails(index)">
+              <i class="fas fa-list"></i> {{ expandedRows[index] ? 'Hide' : 'Serials' }}
             </button>
-            <button class="mobile-btn mobile-btn-move" @click="openMoveModal(item)">
-              <i class="fas fa-exchange-alt"></i> Move
+            <button class="mobile-btn mobile-btn-details" @click="viewProductDetails(item)">
+              <i class="fas fa-info-circle"></i> Details
+            </button>
+            <button class="mobile-btn mobile-btn-process" @click="openProcessModal(item)">
+              <i class="fas fa-cogs"></i> Process
             </button>
           </div>
           
@@ -386,44 +410,177 @@
       </div>
     </div>
     
-    <!-- Move Items Modal -->
-    <div v-if="showMoveModal" class="move-modal">
-      <div class="move-modal-content">
-        <div class="move-modal-header">
-          <h2>Move Items</h2>
-          <button class="move-modal-close" @click="closeMoveModal">&times;</button>
+    <!-- Process Items Modal (Replaces Move Items Modal) -->
+    <div v-if="showProcessModal" class="process-modal">
+      <div class="process-modal-content">
+        <div class="process-modal-header">
+          <h2>Process Items</h2>
+          <button class="process-modal-close" @click="closeProcessModal">&times;</button>
         </div>
-        <div class="move-modal-body">
-          <div class="move-form">
+        <div class="process-modal-body">
+          <div class="process-form">
             <div class="form-group">
-              <label>Destination:</label>
-              <select v-model="moveDestination" class="form-control">
-                <option value="Production">Production Area</option>
-                <option value="Shipping">Shipping</option>
-                <option value="QA">Quality Assurance</option>
+              <label>Shipment Type:</label>
+              <select v-model="processShipmentType" class="form-control">
+                <option value="For Dispense">For Dispense</option>
+                <option value="For Replacement">For Replacement</option>
               </select>
             </div>
             <div class="form-group">
-              <label>New Location (optional):</label>
-              <input type="text" v-model="moveLocation" class="form-control" placeholder="e.g., L123A or Floor">
+              <label>Tracking Number:</label>
+              <input type="text" v-model="processTrackingNumber" class="form-control" placeholder="Enter tracking number...">
             </div>
             <div class="form-group">
               <label>Notes (optional):</label>
-              <textarea v-model="moveNotes" class="form-control" placeholder="Add notes about this move..."></textarea>
+              <textarea v-model="processNotes" class="form-control" placeholder="Add notes about this process..."></textarea>
+            </div>
+            <div class="form-group" v-if="singleItemSelected">
+              <label>New Location (optional):</label>
+              <input type="text" v-model="processLocation" class="form-control" placeholder="e.g., L123A or Floor">
             </div>
           </div>
-          <div class="move-item-list">
-            <h3>Items to Move</h3>
-            <ul>
-              <li v-for="serial in selectedItemSerials" :key="serial.ProductID">
-                {{ formatRTNumber(serial.rtcounter, currentMoveItem.storename) }} - {{ serial.serialnumber }}
-              </li>
-            </ul>
+          <div class="process-item-list">
+            <h3>Items to Process</h3>
+            <div class="process-item-selector">
+              <label class="select-all-checkbox">
+                <input type="checkbox" v-model="selectAllItems" @change="toggleAllItems">
+                <span>Select All</span>
+              </label>
+              <div class="process-items-container">
+                <div v-for="serial in currentProcessItem.serials" :key="serial.ProductID" class="process-item-row">
+                  <label class="process-item-checkbox">
+                    <input type="checkbox" v-model="selectedItems" :value="serial.ProductID">
+                    <span>{{ formatRTNumber(serial.rtcounter, currentProcessItem.storename) }} - {{ serial.serialnumber }}</span>
+                  </label>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="move-modal-footer">
-          <button class="btn-cancel" @click="closeMoveModal">Cancel</button>
-          <button class="btn-confirm" @click="confirmMove">Confirm Move</button>
+        <div class="process-modal-footer">
+          <button class="btn-cancel" @click="closeProcessModal">Cancel</button>
+          <button class="btn-print-selected" @click="printSelectedItems" :disabled="!hasSelectedItems">
+            <i class="fas fa-print"></i> Print Selected
+          </button>
+          <button class="btn-update-location" @click="updateSelectedLocation" :disabled="!singleItemSelected || !processLocation">
+            <i class="fas fa-map-marker-alt"></i> Update Location
+          </button>
+          <button class="btn-merge" @click="mergeSelectedItems" :disabled="selectedItems.length < 2">
+            <i class="fas fa-object-group"></i> Merge Items
+          </button>
+          <button class="btn-process-submit" @click="submitProcess" :disabled="!isProcessFormValid">
+            <i class="fas fa-check"></i> Submit Process
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- Product Details Modal -->
+    <div v-if="showProductDetailsModal" class="product-details-modal">
+      <div class="product-details-content">
+        <div class="product-details-header">
+          <h2>Product Details</h2>
+          <button class="product-details-close" @click="closeProductDetailsModal">&times;</button>
+        </div>
+        
+        <!-- Product details body with improved layout -->
+        <div class="product-details-body" v-if="selectedProduct">
+          <div class="product-details-layout">
+            <!-- Left Column: Image and Basic Info -->
+            <div class="product-details-left">
+              <div class="product-details-image clickable" @click="enlargeImage = !enlargeImage">
+                <img 
+                  :src="selectedProduct.useDefaultImage ? defaultImagePath : getImagePath(selectedProduct.ASIN)" 
+                  :alt="selectedProduct.AStitle" 
+                  :class="['product-details-thumbnail', enlargeImage ? 'enlarged' : '']" 
+                  @error="handleImageError($event, selectedProduct)" 
+                />
+              </div>
+              <div class="product-details-info">
+                <h3 class="product-details-title">{{ selectedProduct.AStitle }}</h3>
+                <div class="product-details-row">
+                  <span class="product-details-label">ASIN:</span>
+                  <span class="product-details-value">{{ selectedProduct.ASIN }}</span>
+                </div>
+                <div class="product-details-row">
+                  <span class="product-details-label">MSKU/SKU:</span>
+                  <span class="product-details-value">{{ selectedProduct.MSKUviewer }}</span>
+                </div>
+                <div class="product-details-row">
+                  <span class="product-details-label">Store:</span>
+                  <span class="product-details-value">{{ selectedProduct.storename }}</span>
+                </div>
+                <div class="product-details-row">
+                  <span class="product-details-label">Grading:</span>
+                  <span class="product-details-value">{{ selectedProduct.grading }}</span>
+                </div>
+                <div class="product-details-row">
+                  <span class="product-details-label">FBM Available:</span>
+                  <span class="product-details-value">{{ selectedProduct.FBMAvailable }}</span>
+                </div>
+                <div class="product-details-row">
+                  <span class="product-details-label">FBA Available:</span>
+                  <span class="product-details-value">{{ selectedProduct.FbaAvailable }}</span>
+                </div>
+                <div class="product-details-row">
+                  <span class="product-details-label">Item Count:</span>
+                  <span :class="{'product-details-value': true, 'item-count-warning': !selectedProduct.countValid}">
+                    {{ selectedProduct.item_count }}
+                    <i v-if="!selectedProduct.countValid" class="fas fa-exclamation-circle" title="Item count doesn't match serial numbers"></i>
+                  </span>
+                </div>
+                
+                <div class="product-details-fnskus-section">
+                  <h4>FNSKUs</h4>
+                  <div class="product-details-fnskus">
+                    <span v-for="fnsku in selectedProduct.fnskus" :key="fnsku.FNSKU || fnsku" class="product-details-fnsku">
+                      {{ fnsku.FNSKU || fnsku }}
+                    </span>
+                    <span v-if="!selectedProduct.fnskus || selectedProduct.fnskus.length === 0" class="product-details-empty">
+                      No FNSKUs found
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Right Column: Serial Numbers & Locations -->
+            <div class="product-details-right">
+              <div class="product-details-section serial-section">
+                <h4>Serial Numbers & Locations</h4>
+                <div class="product-details-serials">
+                  <table class="product-details-table">
+                    <thead>
+                      <tr>
+                        <th>RT#</th>
+                        <th>Serial Number</th>
+                        <th>Location</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="serial in selectedProduct.serials" :key="serial.ProductID">
+                        <td>{{ formatRTNumber(serial.rtcounter, selectedProduct.storename) }}</td>
+                        <td>{{ serial.serialnumber }}</td>
+                        <td>{{ serial.warehouselocation }}</td>
+                      </tr>
+                      <tr v-if="!selectedProduct.serials || selectedProduct.serials.length === 0">
+                        <td colspan="3" class="text-center">No serial numbers found</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="product-details-footer">
+          <button class="btn-print-details" @click="printLabel(selectedProduct.ProductID)">
+            <i class="fas fa-print"></i> Print Label
+          </button>
+          <button class="btn-process-details" @click="openProcessModalFromDetails(selectedProduct)">
+            <i class="fas fa-cogs"></i> Process Items
+          </button>
+          <button class="btn-close-details" @click="closeProductDetailsModal">Close</button>
         </div>
       </div>
     </div>
@@ -474,13 +631,24 @@ export default {
       fnskuChecking: false,
       fnskuStatus: '',
       
-      // For move modal
-      showMoveModal: false,
-      moveDestination: 'Production',
-      moveLocation: '',
-      moveNotes: '',
-      currentMoveItem: null,
-      selectedItemSerials: []
+      // For process modal (replaces move modal)
+      showProcessModal: false,
+      processShipmentType: 'For Dispense',
+      processTrackingNumber: '',
+      processNotes: '',
+      processLocation: '',
+      currentProcessItem: null,
+      selectedItems: [],
+      selectAllItems: false,
+      isProcessing: false,
+      
+      // For product details modal
+      showProductDetailsModal: false,
+      selectedProduct: null,
+      enlargeImage: false, // For toggling enlarged image view
+      
+      // For image handling
+      defaultImagePath: '/images/default-product.png'
     };
   },
   computed: {
@@ -507,9 +675,70 @@ export default {
     // Add a computed property to detect mobile
     isMobile() {
       return window.innerWidth <= 768;
+    },
+    // Check if only one item is selected
+    singleItemSelected() {
+      return this.selectedItems.length === 1;
+    },
+    // Check if any items are selected
+    hasSelectedItems() {
+      return this.selectedItems.length > 0;
+    },
+    // Check if process form is valid for submission
+    isProcessFormValid() {
+      // Basic validation for processing - require shipment type and tracking number
+      return this.processShipmentType && 
+             this.processTrackingNumber && 
+             this.selectedItems.length > 0;
     }
   },
   methods: {
+    // Function to get the image path based on ASIN
+    getImagePath(asin) {
+      // Direct path return without checks to prevent blinking
+      return asin ? `/images/asinimg/${asin}_0.png` : this.defaultImagePath;
+    },
+    
+    // Simplified image error handling that just swaps to default image
+    handleImageError(event, item) {
+      // Immediately set the source to default image
+      event.target.src = this.defaultImagePath;
+      
+      // Mark this item to use default image from now on
+      if (item) item.useDefaultImage = true;
+    },
+    
+    // Add this method to create an SVG placeholder
+    createDefaultImageSVG() {
+      return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Cpath d='M35,30L65,30L65,70L35,70Z' fill='%23e0e0e0' stroke='%23bbbbbb' stroke-width='2'/%3E%3Cpath d='M45,40L55,40L55,60L45,60Z' fill='%23d0d0d0' stroke='%23bbbbbb'/%3E%3Cpath d='M35,80L65,80L65,85L35,85Z' fill='%23e0e0e0'/%3E%3C/svg%3E`;
+    },
+    
+    // Add a separate method for viewing product image
+    viewProductImage(item) {
+      // Set the selected product and open the modal directly
+      this.selectedProduct = item;
+      this.showProductDetailsModal = true;
+    },
+    
+    // Regular product details modal
+    viewProductDetails(item) {
+      this.selectedProduct = item;
+      this.showProductDetailsModal = true;
+    },
+    
+    // Close product details modal
+    closeProductDetailsModal() {
+      this.showProductDetailsModal = false;
+      this.selectedProduct = null;
+      this.enlargeImage = false; // Reset enlarged state
+    },
+    
+    // Open process modal from product details
+    openProcessModalFromDetails(item) {
+      this.closeProductDetailsModal();
+      this.openProcessModal(item);
+    },
+    
     // Open scanner modal method - this will call the scanner component's method
     openScannerModal() {
       this.$refs.scanner.openScannerModal();
@@ -554,7 +783,21 @@ export default {
       this.fetchInventory();
     },
     
-    // Modified fetchInventory 
+    // Add this method to validate the item count against serials
+    validateItemCount(item) {
+      if (!item) return true;
+      
+      // If no serials, just use the item_count value
+      if (!item.serials || item.serials.length === 0) {
+        return true;
+      }
+      
+      // Compare the actual serials count with the reported item_count
+      const serialCount = item.serials.length;
+      return serialCount === item.item_count;
+    },
+    
+    // Modified fetchInventory with count validation
     async fetchInventory() {
       try {
         const response = await axios.get(`${API_BASE_URL}/api/stockroom/products`, {
@@ -567,14 +810,21 @@ export default {
           withCredentials: true
         });
 
-        // Initialize items with checked property
+        // Initialize items with checked property and useDefaultImage flag
         this.inventory = (response.data.data || []).map(item => {
-          return {
+          const itemWithFlags = {
             ...item,
             checked: false,
             serials: item.serials || [],
-            fnskus: item.fnskus || []
+            fnskus: item.fnskus || [],
+            useDefaultImage: false, // Add this flag
+            countValid: true // Add a flag for item count validation
           };
+          
+          // Validate the item count
+          itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
+          
+          return itemWithFlags;
         });
         
         this.totalPages = response.data.last_page || 1;
@@ -630,28 +880,184 @@ export default {
       }
     },
     
-    // Move modal functions
-    openMoveModal(item) {
-      this.currentMoveItem = item;
-      this.selectedItemSerials = item.serials || [];
-      this.showMoveModal = true;
-      this.moveDestination = 'Production';
-      this.moveLocation = '';
-      this.moveNotes = '';
+    // Process modal functions
+    openProcessModal(item) {
+      this.currentProcessItem = item;
+      this.showProcessModal = true;
+      this.processShipmentType = 'For Dispense';
+      this.processTrackingNumber = '';
+      this.processNotes = '';
+      this.processLocation = '';
+      this.selectedItems = [];
+      this.selectAllItems = false;
     },
     
-    closeMoveModal() {
-      this.showMoveModal = false;
-      this.currentMoveItem = null;
-      this.selectedItemSerials = [];
+    closeProcessModal() {
+      this.showProcessModal = false;
+      this.currentProcessItem = null;
+      this.selectedItems = [];
     },
     
-    confirmMove() {
-      // Here you would implement the actual move functionality
-      alert(`Moving ${this.selectedItemSerials.length} items to ${this.moveDestination}`);
-      this.closeMoveModal();
-      // Refresh inventory after move
-      this.fetchInventory();
+    // Toggle selection of all items
+    toggleAllItems() {
+      if (this.selectAllItems) {
+        // Select all items
+        this.selectedItems = this.currentProcessItem.serials.map(serial => serial.ProductID);
+      } else {
+        // Deselect all items
+        this.selectedItems = [];
+      }
+    },
+    
+    // Submit the process
+    async submitProcess() {
+      if (!this.isProcessFormValid) return;
+      
+      try {
+        // Start loading state
+        this.isProcessing = true;
+        
+        // Prepare data for API
+        const processData = {
+          shipmentType: this.processShipmentType,
+          trackingNumber: this.processTrackingNumber,
+          notes: this.processNotes,
+          items: this.selectedItems
+        };
+        
+        // Send to API
+        const response = await axios.post('/api/stockroom/process-items', processData, {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+          }
+        });
+        
+        if (response.data.success) {
+          // Show success message
+          alert(`Successfully processed ${this.selectedItems.length} items`);
+          this.closeProcessModal();
+          // Refresh inventory
+          this.fetchInventory();
+        } else {
+          // Show error message
+          alert(`Error: ${response.data.message || 'Failed to process items'}`);
+        }
+      } catch (error) {
+        console.error('Error processing items:', error);
+        alert('Failed to process items. Please try again.');
+      } finally {
+        this.isProcessing = false;
+      }
+    },
+    
+    // Merge selected items
+    async mergeSelectedItems() {
+      if (this.selectedItems.length < 2) {
+        alert('Please select at least two items to merge.');
+        return;
+      }
+      
+      if (confirm(`Are you sure you want to merge ${this.selectedItems.length} items?`)) {
+        try {
+          // Prepare merge data
+          const mergeData = {
+            items: this.selectedItems
+          };
+          
+          // Send to API
+          const response = await axios.post('/api/stockroom/merge-items', mergeData, {
+            withCredentials: true,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+            }
+          });
+          
+          if (response.data.success) {
+            alert('Items merged successfully');
+            this.closeProcessModal();
+            // Refresh inventory
+            this.fetchInventory();
+          } else {
+            alert(`Error: ${response.data.message || 'Failed to merge items'}`);
+          }
+        } catch (error) {
+          console.error('Error merging items:', error);
+          alert('Failed to merge items. Please try again.');
+        }
+      }
+    },
+    
+    // Update location for a single selected item
+    async updateSelectedLocation() {
+      if (!this.singleItemSelected) {
+        alert('Please select exactly one item to update location.');
+        return;
+      }
+      
+      if (!this.processLocation) {
+        alert('Please enter a new location.');
+        return;
+      }
+      
+      // Validate location format
+      const locationRegex = /^L\d{3}[A-G]$/i;
+      const isValid = locationRegex.test(this.processLocation.trim()) || 
+                    this.processLocation.trim() === 'Floor' || 
+                    this.processLocation.trim() === 'L800G';
+                    
+      if (!isValid) {
+        alert('Invalid Location Format (use L###X, Floor, or L800G)');
+        return;
+      }
+      
+      try {
+        // Prepare update data
+        const updateData = {
+          itemId: this.selectedItems[0],
+          newLocation: this.processLocation
+        };
+        
+        // Send to API
+        const response = await axios.post('/api/stockroom/update-location', updateData, {
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+          }
+        });
+        
+        if (response.data.success) {
+          alert('Location updated successfully');
+          this.closeProcessModal();
+          // Refresh inventory
+          this.fetchInventory();
+        } else {
+          alert(`Error: ${response.data.message || 'Failed to update location'}`);
+        }
+      } catch (error) {
+        console.error('Error updating location:', error);
+        alert('Failed to update location. Please try again.');
+      }
+    },
+    
+    // Print selected items
+    printSelectedItems() {
+      if (!this.hasSelectedItems) {
+        alert('Please select at least one item to print.');
+        return;
+      }
+      
+      this.selectedItems.forEach(itemId => {
+        this.printLabel(itemId);
+      });
+      
+      alert(`Printing ${this.selectedItems.length} labels...`);
     },
     
     // Validate serial number
@@ -803,33 +1209,37 @@ export default {
       }
     },
     
+    // Fixed handleLocationInput method
     handleLocationInput() {
-      // Validate location format
-      const locationRegex = /^L\d{3}[A-G]$/i;
-      const isValid = locationRegex.test(this.locationInput.trim()) || 
-                     this.locationInput.trim() === 'Floor' || 
-                     this.locationInput.trim() === 'L800G';
-      
-      if (!isValid && this.locationInput.trim() !== '') {
-        this.$refs.scanner.showScanError("Invalid Location Format (use L###X, Floor, or L800G)");
-        this.$refs.locationInput.select();
-        SoundService.error();
-        return;
-      }
-      
-      // In auto mode, process scan after valid location input
-      if (!this.showManualInput && isValid && this.locationInput.trim().length > 0) {
-        if (this.autoVerifyTimeout) {
-          clearTimeout(this.autoVerifyTimeout);
+      // Only perform validation in auto mode
+      if (!this.showManualInput) {
+        // Validate location format
+        const locationRegex = /^L\d{3}[A-G]$/i;
+        const isValid = locationRegex.test(this.locationInput.trim()) || 
+                      this.locationInput.trim() === 'Floor' || 
+                      this.locationInput.trim() === 'L800G';
+        
+        if (!isValid && this.locationInput.trim() !== '') {
+          this.$refs.scanner.showScanError("Invalid Location Format (use L###X, Floor, or L800G)");
+          this.$refs.locationInput.select();
+          SoundService.error();
+          return;
         }
         
-        this.autoVerifyTimeout = setTimeout(() => {
-          // Play success sound for valid location
-          SoundService.success();
+        // Only in auto mode, process scan after valid location input
+        if (isValid && this.locationInput.trim().length > 0) {
+          if (this.autoVerifyTimeout) {
+            clearTimeout(this.autoVerifyTimeout);
+          }
           
-          // Process the scan
-          this.processScan();
-        }, 500);
+          this.autoVerifyTimeout = setTimeout(() => {
+            // Play success sound for valid location
+            SoundService.success();
+            
+            // Process the scan
+            this.processScan();
+          }, 500);
+        }
       }
     },
     
@@ -883,7 +1293,7 @@ export default {
           return;
         }
         
-        // Validate location format
+        // Validate location format - this should happen for both auto and manual mode at submission time
         const locationRegex = /^L\d{3}[A-G]$/i;
         if (scanLocation && !locationRegex.test(scanLocation) && scanLocation !== 'Floor' && scanLocation !== 'L800G') {
           this.$refs.scanner.showScanError("Invalid Location Format (use L###X, Floor, or L800G)");
@@ -1053,7 +1463,7 @@ export default {
       this.fnskuStatus = '';
     },
     
-    // New methods for handling responsiveness
+    // Methods for handling responsiveness
     handleResize() {
       // If we're on mobile and dropdowns are open, we might want to close them
       if (this.isMobile) {
@@ -1097,6 +1507,9 @@ export default {
       document.head.appendChild(fontAwesome);
     }
     
+    // Set the default image to our SVG
+    this.defaultImagePath = this.createDefaultImageSVG();
+    
     // Fetch stores for dropdown
     this.fetchStores();
     
@@ -1114,7 +1527,7 @@ export default {
     // Close dropdowns when clicking outside
     document.addEventListener('click', this.closeDropdownsOnClickOutside);
   },
-  beforeDestroy() {
+  beforeUnmount() {
     // Clean up any timeouts
     if (this.autoVerifyTimeout) {
       clearTimeout(this.autoVerifyTimeout);
@@ -1127,7 +1540,455 @@ export default {
 </script>
 
 <style scoped>
-/* Top header bar */
+/* Process button styling */
+.btn-process {
+  background-color: #6c5ce7; /* Purple color for process button */
+  color: white;
+  border: 1px solid #5741d9;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 5px;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.btn-process:hover {
+  background-color: #5741d9;
+}
+
+.mobile-btn-process {
+  background-color: #6c5ce7;
+  color: white;
+  border: none;
+}
+
+/* Process Modal Styling */
+.process-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.process-modal-content {
+  background-color: white;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 700px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.process-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #ddd;
+}
+
+.process-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.process-modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+}
+.process-modal-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.process-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group label {
+  font-weight: 500;
+  color: #444;
+}
+
+.form-control {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+textarea.form-control {
+  min-height: 80px;
+}
+
+.process-item-list {
+  background-color: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  border: 1px solid #eee;
+}
+
+.process-item-list h3 {
+  margin-top: 0;
+  font-size: 16px;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+  padding-bottom: 8px;
+  color: #444;
+}
+
+.process-item-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.select-all-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  padding: 5px 0;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 5px;
+}
+
+.process-items-container {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #eee;
+  border-radius: 4px;
+  padding: 5px;
+}
+
+.process-item-row {
+  padding: 6px 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.process-item-row:last-child {
+  border-bottom: none;
+}
+
+.process-item-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.process-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Footer Buttons */
+.btn-cancel,
+.btn-print-selected,
+.btn-update-location,
+.btn-merge,
+.btn-process-submit {
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.btn-cancel {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+}
+
+.btn-print-selected {
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+}
+
+.btn-update-location {
+  background-color: #fd7e14;
+  color: white;
+  border: none;
+}
+
+.btn-merge {
+  background-color: #20c997;
+  color: white;
+  border: none;
+}
+
+.btn-process-submit {
+  background-color: #28a745;
+  color: white;
+  border: none;
+}
+
+.btn-process-details {
+  background-color: #6c5ce7;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Disabled button styles */
+.btn-print-selected:disabled,
+.btn-update-location:disabled,
+.btn-merge:disabled,
+.btn-process-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+  .process-modal-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .btn-cancel,
+  .btn-print-selected,
+  .btn-update-location,
+  .btn-merge,
+  .btn-process-submit {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .process-modal-content {
+    width: 95%;
+    max-height: 95vh;
+  }
+}
+
+.vue-container {
+  font-family: Arial, sans-serif;
+  background-color: #ffffffec;
+}
+
+.vue-title {
+  text-align: left;
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+  background-color: #578FCA;
+  padding: 5px;
+  color: #111111;
+  font-weight: bold;
+}
+
+.table-container {
+  overflow-x: auto;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+thead {
+  background-color: #f7f7f7;
+  border-bottom: 2px solid #ddd;
+}
+
+th {
+  text-align: left;
+  padding: 10px 12px;
+  font-weight: bold;
+  color: #333;
+  white-space: nowrap;
+}
+
+tbody tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+tbody tr:hover {
+  background-color: #f1f1f1;
+}
+
+td {
+  padding: 12px;
+  vertical-align: middle;
+  color: #333;
+  text-align: left;
+  white-space: normal;
+}
+
+.checkbox-container {
+  width: 10px;
+  
+}
+
+.placeholder-date {
+  font-size: 0.85rem;
+  color: #666;
+}
+
+.product-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.product-thumbnail {
+  width: 200px;
+  height: 200px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+}
+
+.product-name {
+  color: #0073bb;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.product-name:hover {
+  text-decoration: underline;
+}
+
+.more-details-btn {
+  background-color: #0073bb;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  margin-left: 10px;
+}
+
+.more-details-btn:hover {
+  background-color: #0056a3;
+}
+
+.expanded-row {
+  background-color: #eef7ff;
+}
+
+.expanded-content {
+  padding: 10px;
+  font-size: 0.9rem;
+  color: #333;
+  border-top: 1px solid #ddd;
+}
+
+.pagination {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.pagination-info {
+  font-size: 1rem;
+  color: #555;
+}
+
+.pagination-button {
+  padding: 5px 10px;
+  font-size: 0.9rem;
+  color: #fff;
+  background-color: #578FCA;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.pagination-button:disabled {
+  background-color: #ddd;
+  cursor: not-allowed;
+}
+
+.pagination-button:not(:disabled):hover {
+  background-color: #0056a3;
+}
+.Mobile{
+  display: none;
+}
+.btn-moredetails{
+  background-color: rgb(255, 255, 255);
+  border: 1px solid rgb(122, 122, 122);
+  font-weight: bold;
+  font-size: 12px;
+  border-radius: 2px;
+  margin-bottom: 5px;
+
+}
+@media (max-width: 768px) {
+  .Desktop{
+    display: none;
+  }
+  .Mobile{
+    display: block;
+  }
+  .vue-title {
+    font-size: 1.2rem;
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+
+  th, td {
+    padding: 8px;
+    font-size: 0.85rem;
+  }
+  .product-thumbnail {
+ 
+    margin-top: 150px;
+    right: 10px;
+    position: absolute;
+  }
+}
 .top-header {
   display: flex;
   align-items: center;
@@ -1351,11 +2212,16 @@ export default {
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
 }
 
-.product-thumbnail {
-  max-width: 100%;
-  max-height: 100%;
+.product-thumbnail, .product-thumbnail-mobile {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  transition: transform 0.2s ease;
 }
 
 .product-info {
@@ -1372,6 +2238,27 @@ export default {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+
+/* Clickable elements */
+.clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.product-image.clickable:hover img, 
+.mobile-product-image.clickable:hover img {
+  transform: scale(1.1); /* Slight zoom on hover */
+}
+
+.product-image.clickable:hover,
+.mobile-product-image.clickable:hover {
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.product-name.clickable:hover {
+  color: #4a90e2;
+  text-decoration: underline;
 }
 
 /* FNSKU selector */
@@ -1401,7 +2288,7 @@ export default {
   gap: 5px;
 }
 
-.btn-print, .btn-details, .btn-move {
+.btn-print, .btn-details, .btn-expand {
   padding: 5px;
   border: 1px solid #ddd;
   border-radius: 3px;
@@ -1415,18 +2302,18 @@ export default {
   white-space: nowrap;
 }
 
-.btn-print:hover, .btn-details:hover {
+.btn-print:hover, .btn-details:hover, .btn-expand:hover {
   background-color: #e0e0e0;
 }
 
-.btn-move {
-  background-color: #ffc107;
-  color: #212529;
-  border: 1px solid #e0a800;
+.btn-details {
+  background-color: #007bff; /* Blue color for details button */
+  color: white;
+  border: 1px solid #0069d9;
 }
 
-.btn-move:hover {
-  background-color: #e0a800;
+.btn-details:hover {
+  background-color: #0069d9;
 }
 
 /* Expanded content */
@@ -1490,8 +2377,8 @@ export default {
   text-align: center;
 }
 
-/* Move Modal */
-.move-modal {
+/* Product Details Modal */
+.product-details-modal {
   position: fixed;
   top: 0;
   left: 0;
@@ -1504,17 +2391,19 @@ export default {
   z-index: 1000;
 }
 
-.move-modal-content {
+.product-details-content {
   background-color: white;
   border-radius: 8px;
-  width: 90%;
-  max-width: 600px;
+  width: 95%;
+  max-width: 1000px; /* Increased from 800px */
   max-height: 90vh;
   overflow-y: auto;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
 }
 
-.move-modal-header {
+.product-details-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1522,12 +2411,13 @@ export default {
   border-bottom: 1px solid #ddd;
 }
 
-.move-modal-header h2 {
+.product-details-header h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 20px;
+  color: #333;
 }
 
-.move-modal-close {
+.product-details-close {
   background: none;
   border: none;
   font-size: 24px;
@@ -1535,56 +2425,165 @@ export default {
   color: #666;
 }
 
-.move-modal-body {
+.product-details-body {
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overflow-y: auto;
 }
 
-.move-form {
+/* Product details layout */
+.product-details-layout {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  width: 100%;
+}
+
+.product-details-left {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 15px;
 }
 
-.form-group {
+.product-details-right {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5px;
 }
 
-.form-group label {
-  font-weight: 500;
-}
-
-.form-control {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-}
-
-.move-item-list {
+.product-details-image {
+  width: 100%;
+  height: auto;
+  min-height: 300px;
+  max-height: 400px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: #f8f9fa;
   padding: 10px;
   border-radius: 4px;
+  overflow: hidden;
+  cursor: pointer;
+  margin-bottom: 15px;
 }
 
-.move-item-list h3 {
+.product-details-thumbnail {
+  max-width: 100%;
+  max-height: 380px;
+  object-fit: contain;
+  transition: transform 0.3s ease;
+}
+
+.product-details-thumbnail.enlarged {
+  transform: scale(1.8);
+  max-height: none;
+  z-index: 10;
+}
+
+.product-details-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.product-details-title {
+  font-size: 18px;
+  margin: 0 0 10px 0;
+  color: #333;
+  line-height: 1.4;
+  font-weight: bold;
+}
+
+.product-details-row {
+  display: flex;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #eee;
+}
+
+.product-details-label {
+  width: 120px;
+  font-weight: 500;
+  color: #666;
+}
+
+.product-details-value {
+  flex: 1;
+  color: #333;
+}
+
+.product-details-fnskus-section {
+  margin-top: 15px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  padding: 12px;
+  border: 1px solid #eee;
+}
+
+.product-details-fnskus-section h4 {
   margin-top: 0;
+  margin-bottom: 10px;
   font-size: 16px;
+  color: #444;
   border-bottom: 1px solid #ddd;
-  padding-bottom: 8px;
+  padding-bottom: 6px;
 }
 
-.move-item-list ul {
-  margin: 0;
-  padding-left: 20px;
-  max-height: 150px;
+.product-details-fnskus {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.product-details-fnsku {
+  background-color: #e9ecef;
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 14px;
+  display: inline-block;
+}
+
+.serial-section {
+  height: 100%;
+}
+
+.product-details-serials {
+  height: calc(100% - 40px);
+  max-height: 500px;
   overflow-y: auto;
 }
 
-.move-modal-footer {
+.product-details-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.product-details-table th, .product-details-table td {
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.product-details-table th {
+  background-color: #f1f3f5;
+  position: sticky;
+  top: 0;
+  font-weight: 500;
+}
+
+.product-details-empty {
+  color: #6c757d;
+  font-style: italic;
+  padding: 10px 0;
+  display: block;
+  text-align: center;
+}
+
+.product-details-footer {
   padding: 15px 20px;
   border-top: 1px solid #ddd;
   display: flex;
@@ -1592,64 +2591,33 @@ export default {
   gap: 10px;
 }
 
-.btn-cancel {
-  padding: 8px 16px;
+.btn-print-details, .btn-close-details {
+  padding: 10px 15px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-print-details {
+  background-color: #007bff;
+  color: white;
+  border: none;
+}
+
+.btn-close-details {
   background-color: #6c757d;
   color: white;
   border: none;
-  border-radius: 4px;
-  cursor: pointer;
 }
 
-.btn-confirm {
-  padding: 8px 16px;
-  background-color: #28a745;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-/* Scanner component styling */
-.submit-button {
-  background-color: #4CAF50;
-  color: white;
-  border: none;
-  padding: 8px;
-  border-radius: 3px;
-  cursor: pointer;
-  margin-top: 10px;
-}
-
-.input-group {
-  margin-bottom: 10px;
-}
-
-.input-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: 500;
-}
-
-.input-group input {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
-  border-radius: 3px;
-}
-
-.container-type-hint {
-  font-size: 12px;
-  color: #666;
-  margin-top: 4px;
-}
-
-/* Mobile view */
+/* Mobile Cards View */
 .mobile-view {
   display: none;
 }
 
-/* Mobile Card Styling */
 .mobile-cards {
   padding: 0 10px;
 }
@@ -1664,27 +2632,48 @@ export default {
 }
 
 .mobile-card-header {
+  display: flex;
   padding: 12px;
   border-bottom: 1px solid #eee;
-  display: flex;
-  align-items: flex-start;
+  position: relative;
 }
 
 .mobile-checkbox {
-  margin-right: 10px;
-  padding-top: 2px;
+  position: absolute;
+  top: 12px;
+  left: 12px;
+}
+
+.mobile-product-image {
+  width: 60px;
+  height: 60px;
+  margin-left: 30px; /* Space for checkbox */
+  flex-shrink: 0;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
 }
 
 .mobile-product-info {
   flex: 1;
+  padding-left: 12px;
+  min-width: 0;
 }
 
 .mobile-product-name {
-  margin: 0;
+  margin: 0 0 5px 0;
   font-size: 16px;
   line-height: 1.3;
   font-weight: 600;
   color: #333;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .mobile-card-details {
@@ -1699,7 +2688,7 @@ export default {
 }
 
 .mobile-detail-label {
-  min-width: 70px;
+  min-width: 80px;
   font-weight: 500;
   color: #666;
 }
@@ -1707,6 +2696,7 @@ export default {
 .mobile-detail-value {
   flex: 1;
   color: #333;
+  word-break: break-word;
 }
 
 .mobile-card-actions {
@@ -1717,7 +2707,7 @@ export default {
 
 .mobile-btn {
   flex: 1;
-  padding: 10px 5px;
+  padding: 12px 5px;
   border: none;
   background-color: #f1f1f1;
   color: #333;
@@ -1733,18 +2723,15 @@ export default {
 }
 
 .mobile-btn-details {
-  background-color: #e0e0e0;
-}
-
-.mobile-btn-move {
-  background-color: #ffc107;
-  color: #212529;
+  background-color: #007bff;
+  color: white;
 }
 
 .mobile-expanded-content {
   padding: 12px;
   background-color: #f5f5f5;
   border-top: 1px solid #e0e0e0;
+  overflow: hidden; /* Fix overflow issues */
 }
 
 .mobile-section {
@@ -1767,6 +2754,7 @@ export default {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  overflow-x: hidden; /* Prevent horizontal scroll */
 }
 
 .mobile-fnsku-item {
@@ -1774,12 +2762,20 @@ export default {
   padding: 6px 10px;
   border-radius: 15px;
   font-size: 13px;
+  display: inline-block;
+  margin-bottom: 5px;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mobile-serial-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-serial-item {
@@ -1788,6 +2784,8 @@ export default {
   border-radius: 4px;
   box-shadow: 0 1px 2px rgba(0,0,0,0.05);
   border: 1px solid #e0e0e0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .mobile-serial-detail {
@@ -1803,6 +2801,8 @@ export default {
 
 .mobile-serial-value {
   flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .mobile-empty {
@@ -1812,7 +2812,12 @@ export default {
   text-align: center;
 }
 
-/* Responsive styles */
+/* Item count warning */
+.item-count-warning {
+  color: #dc3545 !important;
+}
+
+/* Responsive layouts */
 @media (max-width: 768px) {
   .desktop-view {
     display: none;
@@ -1860,53 +2865,76 @@ export default {
     padding: 8px 5px;
   }
   
-  .pagination-container {
-    padding: 0 10px;
-  }
-  
-  .pagination-wrapper {
+  .product-details-layout {
     flex-direction: column;
-    gap: 10px;
-    width: 100%;
   }
   
-  .pagination {
-    width: 100%;
-    justify-content: space-between;
+  .product-details-image {
+    min-height: 200px;
+    max-height: 250px;
   }
   
-  .pagination-button {
-    flex: 1;
-    justify-content: center;
-    padding: 8px 5px;
+  .product-details-thumbnail {
+    max-height: 230px;
   }
   
-  .per-page-selector {
-    width: 100%;
-    justify-content: center;
+  .product-details-thumbnail.enlarged {
+    transform: scale(1.5);
   }
   
-  .per-page-select {
-    width: 100%;
-    max-width: 200px;
-  }
-  
-  .move-modal-content {
-    width: 95%;
-    max-height: 90vh;
+  .product-details-serials {
+    max-height: 300px;
   }
 }
 
-@media (min-width: 769px) and (max-width: 1024px) {
-  .action-buttons {
-    flex-direction: row;
-    flex-wrap: wrap;
+@media (max-width: 480px) {
+  .mobile-card-header {
+    flex-direction: column;
+    align-items: flex-start;
   }
   
-  .btn-print, .btn-details, .btn-move {
-    flex-basis: calc(33.33% - 5px);
-    font-size: 12px;
-    padding: 6px 3px;
+  .mobile-checkbox {
+    position: relative;
+    top: 0;
+    left: 0;
+    margin-bottom: 10px;
+  }
+  
+  .mobile-product-image {
+    margin-left: 0;
+    margin-bottom: 10px;
+  }
+  
+  .mobile-product-info {
+    padding-left: 0;
+    width: 100%;
+  }
+  
+  .mobile-detail-row {
+    flex-direction: column;
+    margin-bottom: 10px;
+  }
+  
+  .mobile-detail-label {
+    margin-bottom: 2px;
+  }
+  
+  .mobile-detail-value {
+    padding-left: 10px;
+  }
+  
+  .mobile-btn {
+    padding: 8px 5px;
+  }
+  
+  .product-details-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .btn-print-details, .btn-process-details, .btn-close-details {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>
