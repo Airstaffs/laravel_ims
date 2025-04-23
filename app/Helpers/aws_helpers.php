@@ -159,11 +159,6 @@ if (!function_exists('buildQueryString')) {
         // Build the base query string with RFC3986 encoding
         $query = http_build_query($customParams, '', '&', PHP_QUERY_RFC3986);
 
-        // Add the nextToken if provided
-        if (!empty($nextToken)) {
-            $query .= ($query ? '&' : '') . 'nextToken=' . rawurlencode($nextToken);
-        }
-
         return $query;
     }
 }

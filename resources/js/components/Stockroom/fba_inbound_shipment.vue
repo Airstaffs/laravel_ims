@@ -327,7 +327,91 @@
 
             <div v-if="generateDeliveryOptionsResponse">
                 <p>{{ generateDeliveryOptionsResponse.message }}</p>
+
+                <table v-if="generateDeliveryOptionsResponse.data?.transportationOptions?.length">
+                    <thead>
+                        <tr>
+                            <th>AlphaCode</th>
+                            <th>Carrier</th>
+                            <th>Shipping Mode</th>
+                            <th>Solution</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(option, i) in generateDeliveryOptionsResponse.data.transportationOptions" :key="i">
+                            <td>{{ option.carrier.alphaCode }}</td>
+                            <td>{{ option.carrier.name }}</td>
+                            <td>{{ option.shippingMode }}</td>
+                            <td>{{ option.shippingSolution }}</td>
+                            <td>
+                                <button @click="selectTransportationOption(option)">
+                                    🚚 Choose
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+
             </div>
+
+            <div v-if="generateDeliveryOptionsResponse?.data?.transportationOptions?.length">
+                <button @click="showPreviousDeliveryOptionsPage" :disabled="!canGoBack" class="btn btn-secondary">
+                    ⬅️ Previous Page
+                </button>
+
+                <button @click="showNextDeliveryOptionsPage" :disabled="!canGoForward" class="btn btn-primary"
+                    style="margin-left: 8px;">
+                    Next Page ➡️
+                </button>
+
+                <p style="margin-top: 8px;">
+                    Page {{ deliveryOptionsPages.length }}
+                </p>
+            </div>
+
+            <div v-if="deliveryWindowOptionsResponse?.data?.deliveryWindowOptions?.length">
+                <h3>📆 Choose Delivery Window</h3>
+                <table class="delivery-window-table">
+                    <thead>
+                        <tr>
+                            <th>Availability</th>
+                            <th>Start Date</th>
+                            <th>End Date</th>
+                            <th>Valid Until</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="(option, index) in deliveryWindowOptionsResponse.data.deliveryWindowOptions"
+                            :key="index">
+                            <td>{{ option.availabilityType }}</td>
+                            <td>{{ formatDate(option.startDate) }}</td>
+                            <td>{{ formatDate(option.endDate) }}</td>
+                            <td>{{ formatDate(option.validUntil) }}</td>
+                            <td>
+                                <button @click="selectDeliveryWindow(option)">
+                                    {{ form.deliveryWindowOptionId === option.deliveryWindowOptionId ? '✅ Selected' :
+                                        'Select' }}
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div v-if="confirmPlacementOptionResponse?.message">
+                <p>{{ confirmPlacementOptionResponse.message }}</p>
+            </div>
+
+            <div v-if="confirmDeliveryWindowResponse?.message">
+                <p>{{ confirmDeliveryWindowResponse.message }}</p>
+            </div>
+
+            <div v-if="confirmTransportationOptionResponse?.message">
+                <p>{{ confirmTransportationOptionResponse.message }}</p>
+            </div>
+
 
             <hr>
             <h2>Step 3: Destination & Transportation</h2>
@@ -429,11 +513,12 @@ export default {
                 packageWidth: '',
                 packageHeight: '',
                 placementOptionId: '',
-                placementOptionId: '',
                 shipmentidfromapi: '',
                 shipmentId: '',
                 shipDate: new Date().toISOString().slice(0, 16), // datetime-local default
-                totalDeclaredValue: ''
+                totalDeclaredValue: '',
+                transportationOptionId: '',
+                deliveryWindowOptionId: '',
             },
             stores: [],
             showStoreModal: false,
@@ -459,6 +544,11 @@ export default {
             transportationOptionsResponse: null,
             deliveryOptionsResponse: null,
             generateDeliveryOptionsResponse: null,
+            nextToken: null,
+            deliveryWindowOptionsResponse: null,
+            confirmPlacementOptionResponse: null,
+            confirmDeliveryWindowResponse: null,
+            confirmTransportationOptionResponse: null,
         };
     },
     created() {
@@ -1066,18 +1156,28 @@ export default {
                 };
                 console.error("Error fetching delivery options:", error);
             }
-        }
-        ,
+        },
 
-        async transportation_options_view() {
+        async transportation_options_view(nextToken = null) {
             try {
+                const params = {
+                    ...this.form
+                };
+                if (nextToken) {
+                    params.nextToken = nextToken;
+                }
+
                 const res = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step5/transportation_options_view`, {
-                    params: { ...this.form }
+                    params
                 });
 
                 if (res.data.success) {
                     res.data.message = "✅ Transportation options fetched successfully!";
                     this.generateDeliveryOptionsResponse = res.data;
+
+                    // Track all pages
+                    if (!this.deliveryOptionsPages) this.deliveryOptionsPages = [];
+                    this.deliveryOptionsPages.push(res.data);
                 } else {
                     res.data.message = "❌ Failed to fetch transportation options.";
                     this.generateDeliveryOptionsResponse = res.data;
@@ -1092,6 +1192,102 @@ export default {
             }
         },
 
+        async showNextDeliveryOptionsPage() {
+            const nextToken = this.generateDeliveryOptionsResponse?.data?.pagination?.nextToken;
+            if (nextToken) {
+                await this.transportation_options_view(nextToken);
+            }
+        },
+
+        async showPreviousDeliveryOptionsPage() {
+            if (this.deliveryOptionsPages?.length > 1) {
+                this.deliveryOptionsPages.pop();
+                this.generateDeliveryOptionsResponse = this.deliveryOptionsPages[this.deliveryOptionsPages.length - 1];
+            }
+        },
+
+        async selectTransportationOption(option) {
+            try {
+                this.form.transportationOptionId = option.transportationOptionId;
+                const res = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step6/list_delivery_window_options`, {
+                    params: { ...this.form }
+                });
+
+                if (res.data.success) {
+                    res.data.message = "✅ Delivery window options listed successfully.";
+                } else {
+                    res.data.message = "❌ Failed to list delivery window options.";
+                }
+
+                this.deliveryWindowOptionsResponse = res.data;
+            } catch (error) {
+                this.deliveryWindowOptionsResponse = {
+                    success: false,
+                    message: "❌ Error occurred while listing delivery window options.",
+                    error: error.message
+                };
+                console.error("Error listing delivery window options:", error);
+            }
+        },
+
+        formatDate(isoDate) {
+            const d = new Date(isoDate);
+            return d.toLocaleDateString(undefined, {
+                weekday: 'short',  // shows Mon, Tue, etc. (use 'long' for full name)
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        },
+
+        async selectDeliveryWindow(option) {
+            this.form.deliveryWindowOptionId = option.deliveryWindowOptionId;
+            await this.confirmAllSteps();
+        },
+
+        async confirmAllSteps() {
+            try {
+                // Step 6b - Confirm Placement Option
+                const res1 = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step6/confirm_placement_option`, {
+                    params: { ...this.form }
+                });
+                this.confirmPlacementOptionResponse = res1.data;
+                this.confirmPlacementOptionResponse.message = res1.data.success ? "✅ Placement option confirmed." : "❌ Failed to confirm placement option.";
+
+                if (!res1.data.success) return;
+
+                // Step 7a - Confirm Delivery Window Option
+                const res2 = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step7/confirm_delivery_window_options`, {
+                    params: { ...this.form }
+                });
+                this.confirmDeliveryWindowResponse = res2.data;
+                this.confirmDeliveryWindowResponse.message = res2.data.success ? "✅ Delivery window confirmed." : "❌ Failed to confirm delivery window.";
+
+                if (!res2.data.success) return;
+
+                // Step 8a - Confirm Transportation Option
+                const res3 = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/step8/confirm_transportation_options`, {
+                    params: { ...this.form }
+                });
+                this.confirmTransportationOptionResponse = res3.data;
+                this.confirmTransportationOptionResponse.message = res3.data.success ? "✅ Transportation option confirmed." : "❌ Failed to confirm transportation option.";
+
+            } catch (error) {
+                console.error("❌ Error in confirming steps:", error);
+            }
+        }
+
+    },
+    computed: {
+        canGoBack() {
+            return this.deliveryOptionsPages && this.deliveryOptionsPages.length > 1;
+        },
+        canGoForward() {
+            return (
+                this.generateDeliveryOptionsResponse?.data?.pagination?.nextToken &&
+                this.generateDeliveryOptionsResponse?.data?.pagination?.nextToken.length > 0
+            );
+        }
     }
 };
 </script>
@@ -1197,5 +1393,22 @@ button {
     background-color: #4CAF50;
     color: white;
     font-weight: bold;
+}
+
+.delivery-window-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+.delivery-window-table th,
+.delivery-window-table td {
+    padding: 8px;
+    border: 1px solid #ccc;
+    text-align: left;
+}
+
+.delivery-window-table th {
+    background-color: #f9f9f9;
 }
 </style>

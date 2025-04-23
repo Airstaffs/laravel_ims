@@ -624,7 +624,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <!-- Password -->
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
-                            <div class="input-group">
+                            <div class="">
                                 <input type="password" class="form-control" id="password" name="password" placeholder="Enter password" required>
                                 <button type="button" class="btn btn-outline-secondary toggle-password" data-target="#password">
                                     <i class="bi bi-eye"></i>
@@ -635,7 +635,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <!-- Confirm Password -->
                         <div class="mb-3">
                             <label for="password_confirmation" class="form-label">Confirm Password</label>
-                            <div class="input-group">
+                            <div class="">
                                 <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" placeholder="Confirm password" required>
                                 <button type="button" class="btn btn-outline-secondary toggle-password" data-target="#password_confirmation">
                                     <i class="bi bi-eye"></i>
@@ -3131,55 +3131,62 @@ document.addEventListener('DOMContentLoaded', function() {
         fetchUsers();
     });
 
-    // Add User Form handler
-    if (addUserForm) {
-        addUserForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            
-            fetch('{{ route("add-user") }}', {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+   // Add User Form handler
+if (addUserForm) {
+    addUserForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch('{{ route("add-user") }}', {
+            method: 'POST',
+            body: formData,
+            // Don't manually set Content-Type when using FormData
+            // Let the browser handle it automatically
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(data => Promise.reject(data));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if(data.success) {
+                const settingsModalInstance = bootstrap.Modal.getInstance(settingsModal);
+                if (settingsModalInstance) {
+                    settingsModalInstance.hide();
                 }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(data => Promise.reject(data));
-                }
-                return response.json();
-            })
-            .then(data => {
-                if(data.success) {
-                    const settingsModalInstance = bootstrap.Modal.getInstance(settingsModal);
-                    if (settingsModalInstance) {
-                        settingsModalInstance.hide();
-                    }
 
-                    const backdrop = document.querySelector('.modal-backdrop');
-                    if (backdrop) {
-                        backdrop.remove();
-                    }
-                    
-                    this.reset();
-                    alert('User added successfully!');
-                    
-                    const userListModalInstance = new bootstrap.Modal(userListModal);
-                    userListModalInstance.show();
-                    fetchUsers();
-                } else {
-                    throw new Error(data.message || 'Failed to add user');
+                const backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) {
+                    backdrop.remove();
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert(error.message || 'Error adding user. Please try again.');
-            });
+                
+                this.reset();
+                alert('User added successfully!');
+                
+                const userListModalInstance = new bootstrap.Modal(userListModal);
+                userListModalInstance.show();
+                fetchUsers();
+            } else {
+                throw new Error(data.message || 'Failed to add user');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Improve error display
+            let errorMessage = 'Error adding user. Please try again.';
+            
+            if (error.message) {
+                errorMessage = error.message;
+            } else if (error.detailed_errors && error.detailed_errors.length > 0) {
+                errorMessage = error.detailed_errors.join('\n');
+            }
+            
+            alert(errorMessage);
         });
-    }
-
+    });
+}
     // Edit User Functions
     window.editUser = function(userId, username, role) {
         // Get modal instances
