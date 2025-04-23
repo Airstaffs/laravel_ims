@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Carbon\Carbon; // Make sure this is imported
 use App\Models\tblproduct;
@@ -42,8 +43,9 @@ class FnskuController extends BasetablesController
     {
         try {
             $fnskuList = DB::table($this->fnskuTable)
-                ->select('FNSKU', 'grading', 'MSKU', 'ASIN', 'astitle', 'fnsku_status')
+                ->select('*')
                 ->where('fnsku_status', 'available')
+                ->where('Units', '>', 0)
                 ->orderBy('FNSKU')
                 ->get();
 
@@ -94,51 +96,88 @@ class FnskuController extends BasetablesController
         }
     }
 
-
     public function updateFnsku(Request $request) {
         \Log::info('Received update request:', $request->all());
+        
         try {
             $request->validate([
                 'product_id' => 'required|integer',
                 'fnsku' => 'required|string',
+                // Only include fields you actually use in validation
+                // If these fields are for future use, consider making them optional
                 'msku' => 'required|string',
                 'asin' => 'required|string',
                 'grading' => 'required|string',
                 'astitle' => 'required|string',
             ]);
-
+            
             // Begin transaction
             DB::beginTransaction();
-
-            // Update the product
-            $product = DB::table($this->productTable)->where('ProductID', $request->product_id)->first();
+            
+            // Check if product exists
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
+                ->lockForUpdate() // Lock row to prevent race conditions
+                ->first();
+                
             if (!$product) {
                 throw new \Exception('Product not found');
             }
             
-            // Update the product using update method since we're using Query Builder
+            // Update the product
             DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->update([
                     'FNSKUviewer' => $request->fnsku,
-                    //'MSKUviewer' => $request->msku,
-                    //'ASINviewer' => $request->asin,
-                    //'gradingviewer' => $request->grading,
-                    //'AStitle' => $request->astitle,
+                    // Uncomment these if you actually need to update them
+                    // 'MSKUviewer' => $request->msku,
+                    // 'ASINviewer' => $request->asin,
+                    // 'gradingviewer' => $request->grading,
+                    // 'AStitle' => $request->astitle,
                 ]);
-
-            // Update the FNSKU status in tblfnsku to 'Unavailable'
-            DB::table('tblfnsku')
+            
+            // Find an available FNSKU record
+            $fnsku = DB::table($this->fnskuTable)
                 ->where('FNSKU', $request->fnsku)
-                ->update(['fnsku_status' => 'unavailable']);
-
+                ->where('Units', '>', 0)
+                ->lockForUpdate() // Lock the row
+                ->first();
+                
+            if ($fnsku) {
+                // Decrement the units
+                DB::table($this->fnskuTable)
+                ->where('FNSKU', $request->fnsku) // Use primary key for precise update
+                    ->update([
+                        'Units' => DB::raw('Units - 1')
+                    ]);
+                    
+                // Mark as unavailable if units reach zero
+                if ($fnsku->Units == 1) {
+                    DB::table($this->fnskuTable)
+                    ->where('FNSKU', $request->fnsku)
+                        ->update([
+                            'fnsku_status' => 'unavailable'
+                        ]);
+                }
+            } else {
+                \Log::warning('No available units found for FNSKU: ' . $request->fnsku);
+            }
+            
             // Commit the transaction
             DB::commit();
-
+            
             return response()->json([
                 'success' => true,
                 'message' => 'FNSKU updated successfully'
             ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            DB::rollBack();
+            \Log::error('Validation error: ' . json_encode($e->errors()));
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             // Rollback the transaction in case of error
             DB::rollBack();
@@ -146,7 +185,7 @@ class FnskuController extends BasetablesController
             \Log::error('Error updating FNSKU: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update FNSKU: ' . $e->getMessage()
+                'message' => 'Failed to update FNSKU. Please try again later.'
             ], 500);
         }
     }

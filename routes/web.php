@@ -21,6 +21,7 @@ use App\Http\Controllers\StockroomController;
 use App\Http\Controllers\UnreceivedController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\LabelingController;
+use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\EbayAuthController;
 
 
@@ -291,16 +292,23 @@ Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::cl
 
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {
-    Route::get('products', [LabelingController::class, 'index']);
-});
+Route::get('products', [LabelingController::class, 'index']);});
+Route::post('api/labeling/move-to-validation', [LabelingController::class, 'moveToValidation']);
+Route::post('api/labeling/move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
 
+// Routes for Validation Function 
+Route::prefix('api/validation')->group(function () {
+    Route::get('products', [ValidationController::class, 'index']);});
+Route::post('api/validation/move-to-stockroom', [ValidationController::class, 'moveToStockroom']);
+Route::post('api/validation/move-to-labeling', [ValidationController::class, 'moveToLabeling']);
+Route::post('api/validation/validate', [ValidationController::class, 'validate']);
 
-Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
-Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
-
-
+// Routes for FNSKU Function 
 use App\Http\Controllers\FnskuController;
 Route::get('/fnsku-list', [FnskuController::class, 'getFnskuList']);
 Route::post('/update-fnsku', [FnskuController::class, 'updateFnsku']);
 Route::get('/fnsku', [FnskuController::class, 'index']);
 Route::post('/insert-fnsku', [FnskuController::class, 'insertFnsku']);
+
+Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
+Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');

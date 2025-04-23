@@ -340,6 +340,7 @@
         'packing' => 'Packing',
         'fnsku' => 'Fnsku',
         'stockroom' => 'Stockroom',
+        'fnsku' => 'FNSKU',
         'fbashipmentinbound' => 'FBA Inbound Shipment'
     ];
     ?>
@@ -1167,7 +1168,7 @@ function initializePrivilegeForm() {
                         'testing': 'Testing',
                         'cleaning': 'Cleaning',
                         'packing': 'Packing',
-                        'fnsku': 'Fnsku',
+                        'fnsku': 'FNSKU',
                         'stockroom': 'Stockroom'
                     }
                 });
@@ -1291,7 +1292,7 @@ function updateForm(data) {
 }
 
 function updateMainModule(data) {
-    const mainModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom','Fnsku'];
+    const mainModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom', 'Validation','FNSKU'];
     const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
@@ -1308,7 +1309,7 @@ function updateMainModule(data) {
 }
 
 function updateSubModules(data) {
-    const subModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom','Fnsku'];
+    const subModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom', 'Validation','FNSKU'];
     const subModulesHTML = `
         <h6>Sub-Modules</h6>
         <div class="row mb-3">
@@ -1911,6 +1912,12 @@ document.addEventListener('DOMContentLoaded', function () {
                                         Labeling
                                     </label>
                                 </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="fnsku" name="fnsku" value="1" disabled>
+                                    <label class="" for="fnsku" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        FNSKU
+                                    </label>
+                                </div>
                             </div>
 
                             <!-- Second Column -->
@@ -1937,6 +1944,12 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <input class="form-check-input" type="checkbox" id="stockroom" name="stockroom" value="1" disabled>
                                     <label class="" for="stockroom" style="font-size: 16px; font-weight: 500; color: #000;">
                                         Stockroom
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="validation" name="validation" value="1" disabled>
+                                    <label class="" for="validation" style="font-size: 16px; font-weight: 500; color: #000;">
+                                        Validation
                                     </label>
                                 </div>
                             </div>
@@ -2832,22 +2845,26 @@ $(document).ready(function () {
     updateAllComputedHours();
 
     function updateHours() {
-            $.ajax({
-                url: "{{ route('attendance.update.hours') }}",
-                type: "POST",
-                data: {
-                    _token: "{{ csrf_token() }}"
-                },
-                success: function (response) {
-                    // Update Today's Hours and This Week's Hours
-                    $('#today-hours').text(response.todayHours);
-                    $('#week-hours').text(response.weekHours);
-                },
-                error: function (error) {
-                    console.error("Error updating hours:", error);
-                }
-            });
-        }
+        // Make sure the CSRF token is set up globally first
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
+        
+        $.ajax({
+            url: "{{ route('attendance.update.hours') }}",
+            type: "POST",
+            success: function (response) {
+                // Update Today's Hours and This Week's Hours
+                $('#today-hours').text(response.todayHours);
+                $('#week-hours').text(response.weekHours);
+            },
+            error: function (error) {
+                console.error("Error updating hours:", error);
+            }
+        });
+    }
 
         // Call updateHours every 30 seconds
         setInterval(updateHours, 30000); // 30,000 milliseconds = 30 seconds
@@ -3018,6 +3035,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         document.getElementById('cleaning').checked = privileges.cleaning === 1;
                         document.getElementById('packing').checked = privileges.packing === 1;
                         document.getElementById('stockroom').checked = privileges.stockroom === 1;
+                        document.getElementById('validation').checked = privileges.validation === 1;
+                        document.getElementById('fnsku').checked = privileges.fnsku === 1;
 
                         // Store the new data as the last fetched data
                         lastPrivileges = privileges;

@@ -159,8 +159,20 @@
                   <i class="bi bi-clipboard-check"></i> SET FNSKU
                 </button>
 
-                <button class="btn-moredetails">example</button><br>
-                <button class="btn-moredetails">example</button><br>
+                <button 
+                  @click="confirmMoveToValidation(item)" 
+                  class="action-btn btn-validation"
+                  :disabled="isProcessing">
+                  <i class="bi bi-check-circle"></i> Move to Validation
+                </button><br>
+
+                <button 
+                  @click="confirmMoveToStockroom(item)" 
+                  class="action-btn btn-stockroom" 
+                  :disabled="isProcessing">
+                  <i class="bi bi-box-seam"></i> Move to Stockroom
+                </button><br>
+
                 <button class="btn-moredetails">example</button><br>
               </td>
             </tr>
@@ -175,8 +187,21 @@
                   <button @click="showFnskuModal(item)" class="test-btn mt-2">
                     <i class="bi bi-clipboard-check"></i> SET FNSKU
                   </button>
-                  <button class="btn-moredetails">sample button</button>
-                  <button class="btn-moredetails">sample button</button>
+                  
+                  <button 
+                    @click="confirmMoveToValidation(item)" 
+                    class="action-btn btn-validation" 
+                    :disabled="isProcessing">
+                    <i class="bi bi-check-circle"></i> Move to Validation
+                  </button>
+
+                  <button 
+                    @click="confirmMoveToStockroom(item)" 
+                    class="action-btn btn-stockroom" 
+                    :disabled="isProcessing">
+                    <i class="bi bi-box-seam"></i> Move to Stockroom
+                  </button>
+
                   </div>
                   <strong>External Title provided by Supplier:</strong> {{ item.ProductTitle }}
                   <br>
@@ -259,57 +284,86 @@
     </div>
 
     <!-- FNSKU Selection Modal - Moved outside image modal and now has proper styling -->
-    <div class="fnsku-modal" v-if="isFnskuModalVisible">
-      <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
-      <div class="fnsku-modal-content">
-        <div class="fnsku-modal-header">
-          <h2>Select FNSKU</h2>
-          <span class="fnsku-close" @click="hideFnskuModal">&times;</span>
-        </div>
-        <div class="fnsku-modal-body">
-          <div class="fnsku-product-info">
-            <h4>{{ currentItem?.AStitle }}</h4>
+  <div class="fnsku-modal-container" v-if="isFnskuModalVisible">
+    <!-- Overlay -->
+    <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
+    
+    <!-- Modal Content -->
+    <div class="fnsku-modal-content">
+      <!-- Header -->
+      <div class="fnsku-modal-header">
+        <h2>Select FNSKU</h2>
+        <button class="fnsku-close" @click="hideFnskuModal">&times;</button>
+      </div>
+      
+      <!-- Body -->
+      <div class="fnsku-modal-body">
+        <!-- Product Info -->
+        <div class="fnsku-product-info">
+          <h4>{{ currentItem?.ProductTitle }}</h4>
+          <div class="fnsku-product-details">
             <p><strong>ID:</strong> {{ currentItem?.ProductID }}</p>
-            <p><strong>ASIN:</strong> {{ currentItem?.ASINviewer }}</p>
+            <p><strong>Serial#:</strong> {{ currentItem?.serialnumber }}</p>
             <p><strong>FNSKU:</strong> {{ currentItem?.FNSKUviewer || 'None' }}</p>
           </div>
-          
-          <div class="fnsku-search-container">
-            <input 
-              type="text" 
-              v-model="fnskuSearch" 
-              placeholder="Search FNSKU or title..." 
-              class="fnsku-search-input"
-              @input="filterFnskuList"
-            />
+        </div>
+        
+        <!-- Search -->
+        <div class="fnsku-search-container">
+          <input
+            type="text"
+            v-model="fnskuSearch"
+            placeholder="Search FNSKU, ASIN, title, or grading..."
+            class="fnsku-search-input"
+            @input="filterFnskuList"
+          />
+        </div>
+        
+        <!-- FNSKU List -->
+        <div class="fnsku-list-container">
+          <!-- List Header -->
+          <div class="fnsku-list-header">
+            <div class="fnsku-details-column">FNSKU Details</div>
+            <div class="fnsku-title-column">Title & Inventory</div>
+            <div class="fnsku-action-column">Action</div>
           </div>
           
+          <!-- No Results -->
+          <div v-if="filteredFnskuList.length === 0" class="fnsku-no-results">
+            No matching FNSKUs found
+          </div>
+          
+          <!-- List Items -->
           <div class="fnsku-list">
-            <div class="fnsku-list-header">
-              <div class="fnsku-details-column">Details</div>
-              <div class="fnsku-title-column">Title</div>
-              <div class="fnsku-action-column">Action</div>
-            </div>
-            <div v-if="filteredFnskuList.length === 0" class="fnsku-no-results">
-              No matching FNSKUs found
-            </div>
-            <div 
-              v-for="fnsku in filteredFnskuList" 
-              :key="fnsku.FNSKU" 
+            <div
+              v-for="(fnsku, index) in filteredFnskuList"
+              :key="fnsku.FNSKU"
               class="fnsku-item"
-              :class="{'fnsku-highlighted': fnsku.ASIN === currentItem?.ASIN}"
+              :class="{
+                'fnsku-highlighted': fnsku.ASIN === currentItem?.ASIN,
+                'fnsku-even': index % 2 === 0
+              }"
             >
-              <div class="fnsku-column">{{ fnsku.FNSKU }}<br><br>
-              {{ fnsku.ASIN }}<br><br>
-              {{ fnsku.grading }}</div>
-              <div class="fnsku-title-column">{{ fnsku.astitle }}</div>
+              <div class="fnsku-details-column">
+                <div class="fnsku-code">{{ fnsku.FNSKU }}</div>
+                <div class="fnsku-asin">ASIN: {{ fnsku.ASIN }}</div>
+                <div class="fnsku-badge" :class="{'fnsku-new': fnsku.grading.includes('New')}">
+                  {{ fnsku.grading }}
+                </div>
+              </div>
+              
+              <div class="fnsku-title-column">
+                <div class="fnsku-title">{{ fnsku.astitle }}</div>
+                <div class="fnsku-units">{{ fnsku.Units }} in inventory</div>
+              </div>
+              
               <div class="fnsku-action-column">
-                <button 
-                  @click="selectFnsku(fnsku)" 
+                <button
+                  @click="selectFnsku(fnsku)"
                   class="fnsku-select-btn"
                   :class="{'fnsku-recommended': fnsku.ASIN === currentItem?.ASIN}"
                 >
-                  Select
+                  {{ fnsku.ASIN === currentItem?.ASIN ? 'Recommended' : 'Select' }}
                 </button>
               </div>
             </div>
@@ -317,6 +371,36 @@
         </div>
       </div>
     </div>
+  </div>
+
+    <!-- Add this confirmation modal HTML to your template section -->
+    <!-- Confirmation Modal -->
+    <div class="confirmation-modal" v-if="showConfirmationModal">
+      <div class="modal-overlay" @click="cancelConfirmation"></div>
+      <div class="confirmation-modal-content">
+        <div class="confirmation-modal-header">
+          <h3>{{ confirmationTitle }}</h3>
+          <button class="close-button" @click="cancelConfirmation">&times;</button>
+        </div>
+        <div class="confirmation-modal-body">
+          <p>{{ confirmationMessage }}</p>
+        </div>
+        <div class="confirmation-modal-footer">
+          <button 
+            class="btn-cancel" 
+            @click="cancelConfirmation">
+            Cancel
+          </button>
+          <button 
+            class="btn-confirm" 
+            @click="confirmAction"
+            :class="{'btn-validation': confirmationActionType === 'validation', 'btn-stockroom': confirmationActionType === 'stockroom'}">
+            Yes, Proceed
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
@@ -353,7 +437,13 @@ export default {
       currentItem: null,
       fnskuList: [],
       filteredFnskuList: [],
-      fnskuSearch: ''
+      fnskuSearch: '',
+
+      showConfirmationModal: false,
+      confirmationTitle: '',
+      confirmationMessage: '',
+      confirmationActionType: '', // 'validation' or 'stockroom'
+      currentItemForAction: null // Store the item to be processed
     };
   },
   computed: {
@@ -705,6 +795,135 @@ export default {
         console.error('Error updating FNSKU:', error);
         alert('Failed to update FNSKU. Please try again.');
       }
+    },
+
+    // Add these methods to the methods object in your component
+    async moveToValidation(item) {
+      if (!item || !item.ProductID) {
+        console.error('Invalid item data for moving to Validation');
+        return;
+      }
+      
+      try {
+        // Get the CSRF token from the meta tag
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        // Make the request with proper data format and headers
+        const response = await axios.post(`${API_BASE_URL}/api/labeling/move-to-validation`, {
+          product_id: item.ProductID,
+          rt_counter: item.rtcounter,
+          current_location: 'Labeling',
+          new_location: 'Validation'
+        }, {
+          headers: {
+            'X-CSRF-TOKEN': csrfToken
+          }
+        });
+        
+        console.log("Move to Validation response:", response.data);
+        
+        if (response.data.success) {
+          // Show success message
+          alert(`Item ${item.rtcounter} successfully moved to Validation`);
+          // Refresh the inventory list
+          this.fetchInventory();
+        } else {
+          alert(response.data.message || 'Failed to move item to Validation');
+        }
+      } catch (error) {
+        console.error('Error moving item to Validation:', error);
+        alert('Failed to move item to Validation. Please try again.');
+      }
+    },
+
+    async moveToStockroom(item) {
+      if (!item || !item.ProductID) {
+        console.error('Invalid item data for moving to Stockroom');
+        return;
+      }
+      
+      try {
+        // Get the CSRF token from the meta tag
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        
+        // Make the request with proper data format and headers
+        const response = await axios.post(`${API_BASE_URL}/api/labeling/move-to-stockroom`, {
+          product_id: item.ProductID,
+          rt_counter: item.rtcounter,
+          current_location: 'Labeling',
+          new_location: 'Stockroom'
+        }, {
+          headers: {
+            'X-CSRF-TOKEN': csrfToken
+          }
+        });
+        
+        console.log("Move to Stockroom response:", response.data);
+        
+        if (response.data.success) {
+          // Show success message
+          alert(`Item ${item.rtcounter} successfully moved to Stockroom`);
+          // Refresh the inventory list
+          this.fetchInventory();
+        } else {
+          alert(response.data.message || 'Failed to move item to Stockroom');
+        }
+      } catch (error) {
+        console.error('Error moving item to Stockroom:', error);
+        alert('Failed to move item to Stockroom. Please try again.');
+      }
+    },
+
+    
+    // Method to show the validation confirmation
+    confirmMoveToValidation(item) {
+      this.showConfirmationModal = true;
+      this.confirmationTitle = 'Move to Validation';
+      this.confirmationMessage = `Are you sure you want to move item #${item.rtcounter} from Labeling to Validation?`;
+      this.confirmationActionType = 'validation';
+      this.currentItemForAction = item;
+      
+      // Prevent scrolling when modal is open
+      document.body.style.overflow = 'hidden';
+    },
+    
+    // Method to show the stockroom confirmation
+    confirmMoveToStockroom(item) {
+      this.showConfirmationModal = true;
+      this.confirmationTitle = 'Move to Stockroom';
+      this.confirmationMessage = `Are you sure you want to move item #${item.rtcounter} from Labeling to Stockroom?`;
+      this.confirmationActionType = 'stockroom';
+      this.currentItemForAction = item;
+      
+      // Prevent scrolling when modal is open
+      document.body.style.overflow = 'hidden';
+    },
+    
+    // Method to handle the cancellation
+    cancelConfirmation() {
+      this.showConfirmationModal = false;
+      this.currentItemForAction = null;
+      
+      // Re-enable scrolling
+      document.body.style.overflow = 'auto';
+    },
+    
+    // Method to confirm and execute the action
+    confirmAction() {
+      if (!this.currentItemForAction) return;
+      
+      if (this.confirmationActionType === 'validation') {
+        this.moveToValidation(this.currentItemForAction);
+      } else if (this.confirmationActionType === 'stockroom') {
+        this.moveToStockroom(this.currentItemForAction);
+      }
+      
+      // Close the modal
+      this.showConfirmationModal = false;
+      this.currentItemForAction = null;
+      
+      // Re-enable scrolling
+      document.body.style.overflow = 'auto';
     }
   },
   
@@ -966,13 +1185,14 @@ export default {
 }
 
 /* FNSKU Modal Styles */
-.fnsku-modal {
+
+.fnsku-modal-container {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2000; /* Higher than image modal */
+  right: 0;
+  bottom: 0;
+  z-index: 1050;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -982,45 +1202,88 @@ export default {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
 }
 
 .fnsku-modal-content {
   position: relative;
-  background-color: white;
-  padding: 20px;
+  background-color: #fff;
   border-radius: 8px;
-  width: 90%;
-  max-width: 800px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 95%;
+  max-width: 900px;
   max-height: 90vh;
-  overflow: auto;
-  z-index: 2001;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .fnsku-modal-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #ddd;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.fnsku-modal-header h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
 }
 
 .fnsku-close {
-  font-size: 30px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #6b7280;
   background: none;
   border: none;
   cursor: pointer;
-  color: #333;
+  padding: 0 4px;
+  transition: color 0.2s;
+}
+
+.fnsku-close:hover {
+  color: #1f2937;
+}
+
+.fnsku-modal-body {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .fnsku-product-info {
   margin-bottom: 20px;
-  padding: 15px;
-  background-color: #f8f8f8;
-  border-radius: 4px;
+  padding: 16px;
+  background-color: #eff6ff;
+  border-left: 4px solid #3b82f6;
+  border-radius: 6px;
+}
+
+.fnsku-product-info h4 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: #1f2937;
+}
+
+.fnsku-product-details {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.fnsku-product-details p {
+  margin: 0;
 }
 
 .fnsku-search-container {
@@ -1029,96 +1292,163 @@ export default {
 
 .fnsku-search-input {
   width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.2s;
 }
 
-.fnsku-list {
-  border: 1px solid #ddd;
-  border-radius: 4px;
+.fnsku-search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.fnsku-list-container {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
   overflow: hidden;
 }
 
 .fnsku-list-header {
-  display: flex;
-  background-color: #f0f0f0;
-  padding: 10px;
-  font-weight: bold;
-  border-bottom: 1px solid #ddd;
-}
-
-.fnsku-details-column {
-  flex: 1;
-}
-
-.fnsku-title-column {
-  flex: 2;
-}
-
-.fnsku-action-column {
-  flex: 0.5;
-  text-align: center;
+  display: grid;
+  grid-template-columns: 3fr 6fr 3fr;
+  padding: 12px 16px;
+  background-color: #f3f4f6;
+  font-weight: 500;
+  color: #4b5563;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .fnsku-no-results {
-  padding: 20px;
+  padding: 24px;
   text-align: center;
-  color: #666;
+  color: #6b7280;
+}
+
+.fnsku-list {
+  max-height: 380px;
+  overflow-y: auto;
 }
 
 .fnsku-item {
-  display: flex;
-  padding: 15px 10px;
-  border-bottom: 1px solid #eee;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 3fr 6fr 3fr;
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  transition: background-color 0.15s;
 }
 
 .fnsku-item:last-child {
   border-bottom: none;
 }
 
+.fnsku-even {
+  background-color: #f9fafb;
+}
+
 .fnsku-highlighted {
-  background-color: #f0f8ff;
+  background-color: #fffbeb;
 }
 
-.fnsku-column {
-  flex: 1;
-  padding-right: 10px;
+.fnsku-item:hover {
+  background-color: #f3f4f6;
 }
 
-.fnsku-title-column {
-  flex: 2;
-  padding-right: 10px;
+.fnsku-code {
+  font-family: monospace;
+  background-color: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+}
+
+.fnsku-asin {
+  font-size: 0.85rem;
+  color: #4b5563;
+  margin-bottom: 6px;
+}
+
+.fnsku-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.fnsku-badge.fnsku-new {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.fnsku-title {
+  font-weight: 500;
+  color: #1f2937;
+  margin-bottom: 6px;
+}
+
+.fnsku-units {
+  font-size: 0.85rem;
+  color: #6b7280;
 }
 
 .fnsku-action-column {
-  flex: 0.5;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .fnsku-select-btn {
-  padding: 6px 12px;
-  background-color: #007bff;
-  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
   border: none;
-  border-radius: 4px;
   cursor: pointer;
-}
-
-.fnsku-recommended {
-  background-color: #28a745;
+  transition: all 0.2s;
+  background-color: #e5e7eb;
+  color: #4b5563;
 }
 
 .fnsku-select-btn:hover {
-  opacity: 0.9;
+  background-color: #d1d5db;
+}
+
+.fnsku-select-btn.fnsku-recommended {
+  background-color: #2563eb;
+  color: #fff;
+}
+
+.fnsku-select-btn.fnsku-recommended:hover {
+  background-color: #1d4ed8;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .fnsku-product-details {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .fnsku-list-header, .fnsku-item {
+    grid-template-columns: 2fr 4fr 2fr;
+  }
+  
+  .fnsku-select-btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
 }
 
 /* For mobile */
 @media (max-width: 768px) {
-  .modal-content,
-  .fnsku-modal-content {
+  .modal-content{
     padding: 10px;
     width: 95%;
   }
@@ -1133,21 +1463,130 @@ export default {
     width: 50px;
     height: 50px;
   }
-  
-  .fnsku-item {
-    flex-direction: column;
-    align-items: flex-start;
+}
+
+/* Add these styles for the confirmation modal */
+.confirmation-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirmation-modal-content {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  width: 90%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 1101;
+  animation: modal-fade-in 0.2s ease-out;
+}
+
+@keyframes modal-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
   }
-  
-  .fnsku-column,
-  .fnsku-title-column,
-  .fnsku-action-column {
-    width: 100%;
-    padding: 5px 0;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
-  
-  .fnsku-action-column {
-    text-align: left;
-  }
+}
+
+.confirmation-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.confirmation-modal-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 0;
+}
+
+.confirmation-modal-body {
+  padding: 20px;
+  flex-grow: 1;
+  overflow-y: auto;
+}
+
+.confirmation-modal-body p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.confirmation-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f9fafb;
+}
+
+.btn-cancel {
+  padding: 8px 16px;
+  background-color: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+  background-color: #e5e7eb;
+}
+
+.btn-confirm {
+  padding: 8px 16px;
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-confirm:hover {
+  background-color: #b91c1c;
+}
+
+.btn-confirm.btn-validation {
+  background-color: #1976d2;
+}
+
+.btn-confirm.btn-validation:hover {
+  background-color: #0d47a1;
+}
+
+.btn-confirm.btn-stockroom {
+  background-color: #9c27b0;
+}
+
+.btn-confirm.btn-stockroom:hover {
+  background-color: #6a1b9a;
 }
 </style>
