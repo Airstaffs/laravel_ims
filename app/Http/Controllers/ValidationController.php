@@ -33,7 +33,7 @@ class ValidationController extends BasetablesController
             // Query base products
             $query = DB::table($this->productTable)
             ->leftJoin($this->fnskuTable, $this->productTable.'.FNSKUviewer', '=', $this->fnskuTable.'.fnsku')
-            ->select($this->productTable.'.*', $this->fnskuTable.'.asin', $this->fnskuTable.'.astitle') // Select all from product table plus asin from fnsku table
+            ->select($this->productTable.'.*', $this->fnskuTable.'.asin', $this->fnskuTable.'.astitle', $this->fnskuTable.'.storename') // Select all from product table plus asin from fnsku table
             ->where('ProductModuleLoc', $location)
             ->when($search, function($query) use ($search) {
                 return $query->where(function($q) use ($search) {

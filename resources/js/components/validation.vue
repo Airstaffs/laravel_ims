@@ -74,7 +74,12 @@
                   </div>
                
                   <div class="product-info">
-                    <p class="product-name">RT# : {{ item.rtcounter }}</p>
+                    <p class="product-name">
+                      ID#: 
+                      <span v-if="item.storename === 'Allrenewed'">AR {{ item.rtcounter }}</span>
+                      <span v-else-if="item.storename === 'Renovartech'">RT {{ item.rtcounter }}</span>
+                      <span v-else>{{ item.rtcounter }}</span>
+                    </p>
                     <p class="product-name">{{ item.astitle }}</p>
                     <p class="product-name" :style="{ color: item.validation_status === 'validated' ? 'green' : 'orange' }">
                       ({{ item.validation_status }})
@@ -196,6 +201,8 @@
                   <strong>External Title provided by Supplier:</strong> {{ item.ProductTitle }}
                   <br>
                   <strong>Product Name:</strong> {{ item.astitle }}
+                  <br>
+                  <strong>Store Name:</strong> {{ item.storename }}
                 </div>
               </td>
             </tr>
@@ -314,7 +321,13 @@
       <div class="modal-overlay" @click="closeValidationModal"></div>
       <div class="validation-modal-content">
         <div class="validation-modal-header">
-          <h3>Validate Item #{{ currentValidationItem.rtcounter }}</h3>
+          <h3>Validate Item #
+            
+            <span v-if="currentValidationItem.storename === 'Allrenewed'">AR {{ currentValidationItem.rtcounter }}</span>
+            <span v-else-if="currentValidationItem.storename === 'Renovartech'">RT {{ currentValidationItem.rtcounter }}</span>
+            <span v-else>{{ currentValidationItem.rtcounter }}</span>
+
+          </h3>
           <button class="close-button" @click="closeValidationModal">&times;</button>
         </div>
         
@@ -323,8 +336,12 @@
           <div class="validation-product-details">
             <h4>Product Details</h4>
             <div class="validation-detail-row">
-              <strong>RT Number:</strong> 
-              <span>{{ currentValidationItem.rtcounter }}</span>
+              <strong>ID Number:</strong> 
+              <span>
+                <span v-if="currentValidationItem.storename === 'Allrenewed'">AR {{ currentValidationItem.rtcounter }}</span>
+                <span v-else-if="currentValidationItem.storename === 'Renovartech'">RT {{ currentValidationItem.rtcounter }}</span>
+                <span v-else>{{ currentValidationItem.rtcounter }}</span>
+              </span>
             </div>
             <div class="validation-detail-row">
               <strong>Product Name:</strong> 
@@ -502,13 +519,13 @@
           
           <!-- Validation notes -->
           <div class="validation-notes-section">
-            <h4>Validation Notes</h4>
+            <!--<h4>Validation Notes</h4>
             <textarea 
               v-model="validationNotes" 
               placeholder="Enter notes about this item (required for invalid items)"
               rows="4"
               class="validation-notes-textarea"
-            ></textarea>
+            ></textarea>-->
             
             <!-- Error message display -->
             <div class="validation-error" v-if="validationErrors">
