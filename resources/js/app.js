@@ -18,6 +18,7 @@ import Stockroom from './components/stockroom.vue';
 import Testing from './components/testing.vue';
 import Validation from './components/validation.vue';
 import Searching from './components/searching.vue';
+import FNSKU from './components/fnsku.vue';
 import FbaInboundShipment from './components/Stockroom/fba_inbound_shipment.vue';
 
 // Include CSRF token in all requests
@@ -100,6 +101,7 @@ const app = createApp({
         'stockroom': Stockroom,
         'testing': Testing,
         'validation': Validation,
+        'fnsku': FNSKU,
         'fbashipmentinbound': FbaInboundShipment,
     }
 });

@@ -20,9 +20,9 @@
           <tr>
             <th>
               <input type="checkbox" @click="toggleAll" v-model="selectAll" />
-              <a style="color:black" @click="sortBy('AStitle')" class="sortable">
+              <a style="color:black" @click="sortBy('astitle')" class="sortable">
                 Product Name
-                <span v-if="sortColumn === 'AStitle'">
+                <span v-if="sortColumn === 'astitle'">
                   {{ sortOrder === 'asc' ? '▲' : '▼' }}
                 </span>
               </a>
@@ -75,7 +75,7 @@
                
                   <div class="product-info">
                     <p class="product-name">RT# : {{ item.rtcounter }}</p>
-                    <p class="product-name">{{ item.AStitle }}</p>
+                    <p class="product-name">{{ item.astitle }}</p>
                     <p class="product-name" :style="{ color: item.validation_status === 'validated' ? 'green' : 'orange' }">
                       ({{ item.validation_status }})
                     </p>
@@ -100,7 +100,7 @@
               </td>
               
               <td class="Desktop">           
-                <span><strong></strong> {{ item.FNSKUviewer }}</span>
+                <span><strong></strong> {{ item.FNSKUviewer }}<br>{{ item.asin }}</span>
               </td>
               
               
@@ -195,7 +195,7 @@
                   </div>
                   <strong>External Title provided by Supplier:</strong> {{ item.ProductTitle }}
                   <br>
-                  <strong>Product Name:</strong> {{ item.AStitle }}
+                  <strong>Product Name:</strong> {{ item.astitle }}
                 </div>
               </td>
             </tr>
@@ -224,7 +224,7 @@
       <div class="modal-content">
         <button class="close-button" @click="closeImageModal">&times;</button>
         
-        <!-- Tabs for switching between regular and captured images -->
+        <!-- Tabs for switching between regular, captured, and ASIN images -->
         <div class="image-tabs">
           <button 
             class="tab-button" 
@@ -241,6 +241,14 @@
             :disabled="capturedImages.length === 0"
           >
             Captured Images ({{ capturedImages.length }})
+          </button>
+          <button 
+            class="tab-button" 
+            :class="{ active: activeTab === 'asin' }"
+            @click="switchTab('asin')"
+            :disabled="asinImages.length === 0"
+          >
+            ASIN Images ({{ asinImages.length }})
           </button>
         </div>
         
@@ -320,7 +328,7 @@
             </div>
             <div class="validation-detail-row">
               <strong>Product Name:</strong> 
-              <span>{{ currentValidationItem.AStitle }}</span>
+              <span>{{ currentValidationItem.astitle }}</span>
             </div>
             <div class="validation-detail-row">
               <strong>External Title:</strong> 
@@ -328,7 +336,12 @@
             </div>
             <div class="validation-detail-row">
               <strong>FNSKU:</strong> 
-              <span>{{ currentValidationItem.FNSKUviewer }}</span>
+              <span>
+                {{ currentValidationItem.FNSKUviewer }}
+                <template v-if="currentValidationItem.asin">
+                  <br>[ASIN: {{ currentValidationItem.asin }}]
+                </template>
+              </span>
             </div>
             <div class="validation-detail-row">
               <strong>Serial Number:</strong> 
@@ -346,15 +359,77 @@
             </div>
           </div>
           
-          <!-- Product images section -->
+          <!-- Product images section with ASIN images tab -->
           <div class="validation-images-section">
             <h4>Product Images</h4>
-            <div class="validation-images-grid">
+            
+            <!-- New Compare Gallery Section -->
+            <div class="compare-gallery">
+              <h5>Image Comparison</h5>
+              <div class="compare-container">
+                <div class="compare-item">
+                  <div class="compare-title">Supplier Image</div>
+                  <div class="compare-subtitle">{{ currentValidationItem.ProductTitle }}</div>
+                  <div class="compare-image-container">
+                    <img 
+                      :src="'/images/thumbnails/' + currentValidationItem.img1" 
+                      :alt="currentValidationItem.ProductTitle || 'Supplier Image'" 
+                      @error="handleImageError($event)"
+                      class="compare-image"
+                    />
+                  </div>
+                </div>
+                <div class="compare-item">
+                  <div class="compare-title">From IMS fetch from Amazon</div>
+                  <div class="compare-subtitle">{{ currentValidationItem.astitle }}</div>
+                  <div class="compare-image-container">
+                    <img 
+                      v-if="currentValidationItem.asin"
+                      :src="`/images/asinimg/${currentValidationItem.asin}.png`" 
+                      :alt="currentValidationItem.astitle || 'Amazon Image'" 
+                      @error="handleImageError($event)"
+                      class="compare-image"
+                    />
+                    <div v-else class="no-asin-image">
+                      No ASIN image available
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+
+            <div class="validation-image-tabs">
+              <button 
+                class="validation-tab-button" 
+                :class="{ active: validationActiveTab === 'product' }"
+                @click="switchValidationTab('product')"
+              >
+                Product Images
+              </button>
+              <button 
+                class="validation-tab-button" 
+                :class="{ active: validationActiveTab === 'captured' }"
+                @click="switchValidationTab('captured')"
+              >
+                Captured Images
+              </button>
+              <button 
+                class="validation-tab-button" 
+                :class="{ active: validationActiveTab === 'asin' }"
+                @click="switchValidationTab('asin')"
+              >
+                ASIN Images
+              </button>
+            </div>
+            
+            <!-- Product Images Tab Content -->
+            <div v-if="validationActiveTab === 'product'" class="validation-images-grid">
               <!-- Main image display -->
               <div class="validation-main-image">
                 <img 
                   :src="'/images/thumbnails/' + currentValidationItem.img1" 
-                  :alt="currentValidationItem.AStitle" 
+                  :alt="currentValidationItem.astitle" 
                   @error="handleImageError($event)"
                 />
               </div>
@@ -374,8 +449,15 @@
                     />
                   </div>
                 </template>
-                
-                <!-- Captured images thumbnails -->
+              </div>
+            </div>
+            
+            <!-- Captured Images Tab Content -->
+            <div v-if="validationActiveTab === 'captured'" class="validation-images-grid">
+              <div class="validation-no-images" v-if="!hasValidationCapturedImages">
+                No captured images available
+              </div>
+              <div v-else class="validation-thumbnails-full">
                 <template v-if="currentValidationItem.capturedImages">
                   <template v-for="i in 12" :key="`captured-${i}`">
                     <div 
@@ -390,6 +472,30 @@
                     </div>
                   </template>
                 </template>
+              </div>
+            </div>
+            
+            <!-- ASIN Images Tab Content -->
+            <div v-if="validationActiveTab === 'asin'" class="validation-images-grid">
+              <div class="validation-no-images" v-if="!currentValidationItem.asin">
+                No ASIN information available
+              </div>
+              <div v-else-if="!currentValidationItemAsinLoaded" class="validation-loading">
+                Loading ASIN images...
+              </div>
+              <div v-else-if="currentValidationItemAsinImages.length === 0" class="validation-no-images">
+                No ASIN images available
+              </div>
+              <div v-else class="validation-thumbnails-full">
+                <div v-for="(image, index) in currentValidationItemAsinImages" 
+                    :key="`asin-${index}`" 
+                    class="validation-thumbnail asin">
+                  <img 
+                    :src="image"
+                    :alt="`ASIN Image ${index + 1}`" 
+                    @error="handleImageError($event)"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -438,31 +544,50 @@
     </div>
 
       <!-- Validation Confirmation Modal -->
+        
     <div class="validation-confirmation-modal" v-if="showConfirmationModal && confirmationActionType">
       <div class="validation-confirmation-overlay" @click="cancelConfirmation"></div>
       <div class="validation-confirmation-content">
-        <div class="validation-confirmation-header">
+        <div class="validation-confirmation-header" :class="{
+          'header-valid': confirmationActionType === 'valid',
+          'header-invalid': confirmationActionType === 'invalid',
+          'header-default': !['valid', 'invalid'].includes(confirmationActionType)
+        }">
+          <div class="header-icon-container">
+            <i class="header-icon" :class="{
+              'bi bi-check-circle-fill': confirmationActionType === 'valid',
+              'bi bi-x-circle-fill': confirmationActionType === 'invalid',
+              'bi bi-question-circle-fill': !['valid', 'invalid'].includes(confirmationActionType)
+            }"></i>
+          </div>
           <h3>{{ confirmationTitle }}</h3>
           <button class="close-button" @click="cancelConfirmation">&times;</button>
         </div>
+        
         <div class="validation-confirmation-body">
           <p>{{ confirmationMessage }}</p>
         </div>
+        
         <div class="validation-confirmation-footer">
           <button 
             class="btn-no" 
             @click="cancelConfirmation">
-            No
+            <i class="bi bi-x"></i> No
           </button>
           <button 
-            class="btn-yes" 
+            class="btn-yes"
             @click="confirmationActionType === 'valid' ? markAsValid() : markAsInvalid()"
-            :class="{'btn-valid-confirm': confirmationActionType === 'valid', 'btn-invalid-confirm': confirmationActionType === 'invalid'}">
-            Yes
+            :class="{
+              'btn-valid-confirm': confirmationActionType === 'valid', 
+              'btn-invalid-confirm': confirmationActionType === 'invalid',
+              'btn-default-confirm': !['valid', 'invalid'].includes(confirmationActionType)
+            }">
+            <i class="bi bi-check-lg"></i> Yes
           </button>
         </div>
       </div>
     </div>
+    <!-- End of Validation Confirmation Modal -->
 
   </div>
 </template>
@@ -490,11 +615,12 @@ export default {
       
       // Modal state
       showImageModal: false,
-      regularImages: [],    // For regular product images
-      capturedImages: [],   // For captured images
-      activeTab: 'regular', // Track which tab is active
+      regularImages: [],      // For regular product images
+      capturedImages: [],     // For captured images
+      asinImages: [],         // For ASIN images
+      activeTab: 'regular',   // Track which tab is active
       currentImageIndex: 0,
-      currentImageSet: [],   // The currently displayed image set based on active tab
+      currentImageSet: [],    // The currently displayed image set based on active tab
 
       showConfirmationModal: false,
       confirmationTitle: '',
@@ -508,12 +634,21 @@ export default {
       validationNotes: '',
       isProcessingValidation: false,
       validationErrors: null,
+      
+      // ASIN related properties
+      currentValidationItemAsinImages: [],
+      currentValidationItemAsinLoaded: false,
+      
+      // Validation tabs
+      validationActiveTab: 'product',
     
       // Validation confirmation properties
       validationConfirmationTitle: '',
       validationConfirmationMessage: '',
       validationConfirmationType: '', // 'valid' or 'invalid'
-      showValidationConfirmationModal: false
+      showValidationConfirmationModal: false,
+      
+      isProcessing: false
 
     };
   },
@@ -535,6 +670,20 @@ export default {
           ? String(valueA).localeCompare(String(valueB))
           : String(valueB).localeCompare(String(valueA));
       });
+    },
+    hasValidationCapturedImages() {
+      if (!this.currentValidationItem || !this.currentValidationItem.capturedImages) return false;
+      
+      for (let i = 1; i <= 12; i++) {
+        const fieldName = `capturedimg${i}`;
+        if (this.currentValidationItem.capturedImages[fieldName] && 
+            this.currentValidationItem.capturedImages[fieldName] !== 'NULL' && 
+            this.currentValidationItem.capturedImages[fieldName].trim() !== '') {
+          return true;
+        }
+      }
+      
+      return false;
     }
   },
   methods: {
@@ -581,13 +730,13 @@ export default {
       return count;
     },
     
-    // Count all images (regular + captured)
+    // Count all images (regular + captured + ASIN)
     countAllImages(item) {
-      return this.countRegularImages(item) + this.countCapturedImages(item);
+      return this.countRegularImages(item) + this.countCapturedImages(item) + (item.asin ? 1 : 0);
     },
     
     // Open image modal with all available images in separate categories
-    openImageModal(item) {
+    async openImageModal(item) {
       if (!item) return;
       
       console.log("Opening modal for item:", item);
@@ -595,6 +744,7 @@ export default {
       // Reset modal state
       this.regularImages = [];
       this.capturedImages = [];
+      this.asinImages = [];
       this.currentImageIndex = 0;
       
       // First collect regular images (img1-img15)
@@ -644,8 +794,8 @@ export default {
         console.log("No captured images data found for item:", item);
       }
       
-      // If no images were found in either category, add a default image to regularImages
-      if (this.regularImages.length === 0 && this.capturedImages.length === 0) {
+      // If no images were found in any category, add a default image to regularImages
+      if (this.regularImages.length === 0 && this.capturedImages.length === 0 && this.asinImages.length === 0) {
         const defaultPath = this.defaultImage;
         this.regularImages.push(defaultPath);
         console.log("No images found, using default:", defaultPath);
@@ -658,6 +808,9 @@ export default {
       } else if (this.capturedImages.length > 0) {
         this.activeTab = 'captured';
         this.currentImageSet = this.capturedImages;
+      } else if (this.asinImages.length > 0) {
+        this.activeTab = 'asin';
+        this.currentImageSet = this.asinImages;
       }
       
       // Show the modal
@@ -671,7 +824,43 @@ export default {
     switchTab(tab) {
       this.activeTab = tab;
       this.currentImageIndex = 0;
-      this.currentImageSet = tab === 'regular' ? this.regularImages : this.capturedImages;
+      
+      if (tab === 'regular') {
+        this.currentImageSet = this.regularImages;
+      } else if (tab === 'captured') {
+        this.currentImageSet = this.capturedImages;
+      } else if (tab === 'asin') {
+        this.currentImageSet = this.asinImages;
+      }
+    },
+    
+    // Method to switch tabs in validation modal
+    switchValidationTab(tab) {
+      this.validationActiveTab = tab;
+      
+      // If switching to ASIN tab, load ASIN images if not loaded already
+      if (tab === 'asin' && !this.currentValidationItemAsinLoaded && this.currentValidationItem) {
+        this.loadAsinImagesForValidation();
+      }
+    },
+    
+    // Load ASIN images for validation modal
+    async loadAsinImagesForValidation() {
+      if (!this.currentValidationItem || !this.currentValidationItem.FNSKUviewer) return;
+      
+      this.currentValidationItemAsinLoaded = false;
+      this.currentValidationItemAsinImages = [];
+      
+      try {
+        // Add the ASIN image
+        const asinImagePath = `/images/asinimg/${this.currentValidationItem.asin}.png`;
+        this.currentValidationItemAsinImages.push(asinImagePath);
+        
+      } catch (error) {
+        console.error('Error loading ASIN images for validation:', error);
+      } finally {
+        this.currentValidationItemAsinLoaded = true;
+      }
     },
     
     closeImageModal() {
@@ -679,6 +868,7 @@ export default {
       this.currentImageSet = [];
       this.regularImages = [];
       this.capturedImages = [];
+      this.asinImages = [];
       
       // Re-enable scrolling
       document.body.style.overflow = 'auto';
@@ -788,6 +978,7 @@ export default {
       }
       
       try {
+        this.isProcessing = true;
         // Get the CSRF token from the meta tag
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         
@@ -816,6 +1007,8 @@ export default {
       } catch (error) {
         console.error('Error moving item to Validation:', error);
         alert('Failed to move item to Validation. Please try again.');
+      } finally {
+        this.isProcessing = false;
       }
     },
 
@@ -826,6 +1019,7 @@ export default {
       }
       
       try {
+        this.isProcessing = true;
         // Get the CSRF token from the meta tag
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
         
@@ -854,6 +1048,8 @@ export default {
       } catch (error) {
         console.error('Error moving item to Stockroom:', error);
         alert('Failed to move item to Stockroom. Please try again.');
+      } finally {
+        this.isProcessing = false;
       }
     },
 
@@ -912,14 +1108,18 @@ export default {
    
       
     // Open the validation modal
-    openValidationModal(item) {
+    async openValidationModal(item) {
       this.currentValidationItem = item;
       this.validationNotes = '';
       this.validationErrors = null;
+      this.validationActiveTab = 'product';
+      this.currentValidationItemAsinLoaded = false;
+      this.currentValidationItemAsinImages = [];
       this.showValidationModal = true;
       
       // Prevent scrolling when modal is open
       document.body.style.overflow = 'hidden';
+      
     },
     
     // Close the validation modal
@@ -928,6 +1128,8 @@ export default {
       this.currentValidationItem = null;
       this.validationNotes = '';
       this.validationErrors = null;
+      this.currentValidationItemAsinImages = [];
+      this.currentValidationItemAsinLoaded = false;
       
       // Re-enable scrolling
       document.body.style.overflow = 'auto';
@@ -951,10 +1153,10 @@ export default {
       if (!this.currentValidationItem) return;
       
       // Check if notes are provided for invalid items
-      if (!this.validationNotes.trim()) {
+      /*if (!this.validationNotes.trim()) {
         this.validationErrors = 'Please provide notes explaining why this item is invalid';
         return;
-      }
+      }*/
       
       this.showConfirmationModal = true;
       this.confirmationTitle = 'Confirm Invalidation';
@@ -1464,137 +1666,6 @@ export default {
 }
 
 /* Validation Modal Styles */
-/* Validation Confirmation Modal Styles */
-.validation-confirmation-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1300; /* Higher than validation modal */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.validation-confirmation-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-}
-
-.validation-confirmation-content {
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
-  width: 90%;
-  max-width: 450px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  z-index: 1301;
-  position: relative;
-  animation: confirmation-pop 0.2s ease-out;
-}
-
-@keyframes confirmation-pop {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.validation-confirmation-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e5e7eb;
-  background-color: #f3f4f6;
-}
-
-.validation-confirmation-header h3 {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin: 0;
-}
-
-.validation-confirmation-body {
-  padding: 24px 20px;
-}
-
-.validation-confirmation-body p {
-  margin: 0;
-  color: #4b5563;
-  font-size: 1rem;
-  line-height: 1.5;
-}
-
-.validation-confirmation-footer {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 20px;
-  border-top: 1px solid #e5e7eb;
-  background-color: #f9fafb;
-}
-
-.btn-no {
-  padding: 8px 20px;
-  background-color: #f3f4f6;
-  color: #4b5563;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-no:hover {
-  background-color: #e5e7eb;
-}
-
-.btn-yes {
-  padding: 8px 20px;
-  background-color: #3b82f6;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-yes:hover {
-  background-color: #2563eb;
-}
-
-.btn-yes.btn-valid-confirm {
-  background-color: #10b981;
-}
-
-.btn-yes.btn-valid-confirm:hover {
-  background-color: #059669;
-}
-
-.btn-yes.btn-invalid-confirm {
-  background-color: #ef4444;
-}
-
-.btn-yes.btn-invalid-confirm:hover {
-  background-color: #dc2626;
-}
 .validation-modal {
   position: fixed;
   top: 0;
@@ -1691,6 +1762,37 @@ export default {
   font-size: 1.1rem;
 }
 
+/* Validation Image Tabs */
+.validation-image-tabs {
+  display: flex;
+  margin-bottom: 15px;
+  border-bottom: 1px solid #ddd;
+}
+
+.validation-tab-button {
+  padding: 8px 15px;
+  background-color: #f8f8f8;
+  border: 1px solid #ddd;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  margin-right: 5px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.9rem;
+}
+
+.validation-tab-button:hover {
+  background-color: #e9e9e9;
+}
+
+.validation-tab-button.active {
+  background-color: #fff;
+  border-bottom: 1px solid #fff;
+  margin-bottom: -1px;
+  font-weight: bold;
+  color: #1e40af;
+}
+
 .validation-images-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -1718,8 +1820,34 @@ export default {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  max-height: 200px;
+  max-height: 300px;
   overflow-y: auto;
+}
+
+.validation-thumbnails-full {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+}
+
+.validation-no-images {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 20px;
+  background-color: #f9fafb;
+  border-radius: 6px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.validation-loading {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 20px;
+  background-color: #f0f7ff;
+  border-radius: 6px;
+  color: #1e40af;
 }
 
 .validation-thumbnail {
@@ -1733,6 +1861,10 @@ export default {
 
 .validation-thumbnail.captured {
   border-color: #9c27b0;
+}
+
+.validation-thumbnail.asin {
+  border-color: #f59e0b;
 }
 
 .validation-thumbnail img {
@@ -1822,36 +1954,315 @@ export default {
   cursor: not-allowed;
 }
 
-/* Media queries for responsive design */
+/* Validation Confirmation Modal Styles */
+
+/* Enhanced Validation Confirmation Modal Styles */
+@keyframes confirmation-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.validation-confirmation-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1300; /* Higher than validation modal */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.validation-confirmation-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.4);
+}
+
+.validation-confirmation-content {
+  background-color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.08);
+  width: 90%;
+  max-width: 480px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  z-index: 1301;
+  position: relative;
+  animation: confirmation-pop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.validation-confirmation-header {
+  display: flex;
+  align-items: center;
+  padding: 20px 24px;
+  position: relative;
+  color: white;
+}
+
+.header-valid {
+  background-color: #10b981;
+  background-image: linear-gradient(135deg, #10b981, #059669);
+}
+
+.header-invalid {
+  background-color: #ef4444;
+  background-image: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.header-default {
+  background-color: #3b82f6;
+  background-image: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.header-icon-container {
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-icon {
+  font-size: 24px;
+  color: white;
+}
+
+.validation-confirmation-header h3 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+  color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  flex-grow: 1;
+}
+
+.validation-confirmation-header .close-button {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 26px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.8);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.validation-confirmation-header .close-button:hover {
+  color: white;
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.validation-confirmation-body {
+  padding: 24px;
+  flex-grow: 1;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.validation-confirmation-body p {
+  margin: 0;
+  color: #374151;
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.validation-confirmation-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px;
+  background-color: #f9fafb;
+}
+
+.btn-no, .btn-yes {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-no {
+  background-color: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.btn-no:hover {
+  background-color: #e5e7eb;
+}
+
+.btn-yes {
+  border: none;
+  color: white;
+}
+
+.btn-valid-confirm {
+  background-color: #10b981;
+}
+
+.btn-valid-confirm:hover {
+  background-color: #059669;
+}
+
+.btn-invalid-confirm {
+  background-color: #ef4444;
+}
+
+.btn-invalid-confirm:hover {
+  background-color: #dc2626;
+}
+
+.btn-default-confirm {
+  background-color: #3b82f6;
+}
+
+.btn-default-confirm:hover {
+  background-color: #2563eb;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .validation-confirmation-content {
+    width: 95%;
+    max-width: none;
+  }
+  
+  .validation-confirmation-header {
+    padding: 16px 20px;
+  }
+  
+  .validation-confirmation-body {
+    padding: 20px;
+  }
+  
+  .validation-confirmation-footer {
+    padding: 14px 20px;
+  }
+  
+  .btn-no, .btn-yes {
+    padding: 10px 16px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Compare Gallery Styles */
+.compare-gallery {
+  margin-bottom: 24px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  overflow: hidden;
+  background-color: #f9fafb;
+}
+
+.compare-gallery h5 {
+  margin: 0;
+  padding: 12px 15px;
+  background-color: #edf2f7;
+  color: #2d3748;
+  font-size: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.compare-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+}
+
+.compare-item {
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.compare-item:first-child {
+  border-right: 1px solid #e5e7eb;
+}
+
+.compare-title {
+  font-weight: 600;
+  color: #2d3748;
+  margin-bottom: 4px;
+  font-size: 0.95rem;
+}
+
+.compare-subtitle {
+  color: #4a5568;
+  margin-bottom: 12px;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.compare-image-container {
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.compare-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.no-asin-image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  background-color: #f1f5f9;
+  color: #64748b;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+/* Mobile responsive adjustments for compare gallery */
 @media (max-width: 768px) {
-  .validation-images-grid {
+  .compare-container {
     grid-template-columns: 1fr;
   }
   
-  .validation-thumbnails {
-    grid-template-columns: repeat(3, 1fr);
-    max-height: none;
+  .compare-item:first-child {
+    border-right: none;
+    border-bottom: 1px solid #e5e7eb;
   }
   
-  .validation-detail-row {
-    flex-direction: column;
-  }
-  
-  .validation-detail-row strong {
-    min-width: 0;
-    margin-bottom: 2px;
-  }
-  
-  .validation-modal-footer {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .btn-valid,
-  .btn-invalid,
-  .btn-cancel {
-    width: 100%;
-    justify-content: center;
+  .compare-image-container {
+    height: 180px;
   }
 }
 </style>

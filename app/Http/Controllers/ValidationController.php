@@ -32,15 +32,17 @@ class ValidationController extends BasetablesController
             
             // Query base products
             $query = DB::table($this->productTable)
-                ->where('ProductModuleLoc', $location)
-                ->when($search, function($query) use ($search) {
-                    return $query->where(function($q) use ($search) {
-                        $q->where('serialnumber', 'like', "%{$search}%")
-                          ->orWhere('FNSKUviewer', 'like', "%{$search}%")
-                          ->orWhere('rtcounter', 'like', "%{$search}%");
-                    });
-                })
-                ->orderBy('lastDateUpdate', 'desc');
+            ->leftJoin($this->fnskuTable, $this->productTable.'.FNSKUviewer', '=', $this->fnskuTable.'.fnsku')
+            ->select($this->productTable.'.*', $this->fnskuTable.'.asin', $this->fnskuTable.'.astitle') // Select all from product table plus asin from fnsku table
+            ->where('ProductModuleLoc', $location)
+            ->when($search, function($query) use ($search) {
+                return $query->where(function($q) use ($search) {
+                    $q->where($this->productTable.'.serialnumber', 'like', "%{$search}%")
+                    ->orWhere($this->productTable.'.FNSKUviewer', 'like', "%{$search}%")
+                    ->orWhere($this->productTable.'.rtcounter', 'like', "%{$search}%");
+                });
+            })
+            ->orderBy($this->productTable.'.lastDateUpdate', 'desc');
             
             // Get paginated products
             $products = $query->paginate($perPage);

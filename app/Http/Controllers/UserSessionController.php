@@ -35,6 +35,8 @@ class UserSessionController extends Controller
             if ($user->cleaning) $subModules[] = 'cleaning';
             if ($user->packing) $subModules[] = 'packing';
             if ($user->stockroom) $subModules[] = 'stockroom';
+            if ($user->validation) $subModules[] = 'validation';
+            if ($user->fnsku) $subModules[] = 'fnsku';
     
             // Update session with fresh data
             Session::forget('main_module');
@@ -66,7 +68,9 @@ class UserSessionController extends Controller
                     'testing' => 'Testing',
                     'cleaning' => 'Cleaning',
                     'packing' => 'Packing',
-                    'stockroom' => 'Stockroom'
+                    'stockroom' => 'Stockroom',
+                    'validation' => 'Validation',
+                    'fnsku' => 'FNSKU'
                 ]
             ]);
     
