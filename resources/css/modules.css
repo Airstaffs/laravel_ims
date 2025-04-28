@@ -1,9 +1,11 @@
+@import url("../js/components/Stockroom//stockroom.css");
+
 .vue-container {
     font-family: Arial, sans-serif;
     background-color: #ffffffec;
-  }
-  
-  .vue-title {
+}
+
+.vue-title {
     text-align: left;
     font-size: 1.5rem;
     margin-bottom: 10px;
@@ -11,86 +13,86 @@
     padding: 5px;
     color: #111111;
     font-weight: bold;
-  }
-  
-  .table-container {
+}
+
+.table-container {
     overflow-x: auto;
     border: 1px solid #ddd;
     border-radius: 6px;
     background: #fff;
-  }
-  
-  table {
+}
+
+table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
-  }
-  
-  thead {
+}
+
+thead {
     background-color: #f7f7f7;
     border-bottom: 2px solid #ddd;
-  }
-  
-  th {
+}
+
+th {
     text-align: left;
     padding: 10px 12px;
     font-weight: bold;
     color: #333;
     white-space: nowrap;
-  }
-  
-  tbody tr:nth-child(even) {
+}
+
+tbody tr:nth-child(even) {
     background-color: #f9f9f9;
-  }
-  
-  tbody tr:hover {
+}
+
+tbody tr:hover {
     background-color: #f1f1f1;
-  }
-  
-  td {
+}
+
+td {
     padding: 12px;
     vertical-align: middle;
     color: #333;
     text-align: left;
     white-space: normal;
-  }
-  
-  .checkbox-container {
+}
+
+.checkbox-container {
     width: 10px;
-    
-  }
-  
-  .placeholder-date {
+
+}
+
+.placeholder-date {
     font-size: 0.85rem;
     color: #666;
-  }
-  
-  .product-cell {
+}
+
+.product-cell {
     display: flex;
     align-items: center;
     gap: 10px;
-  }
-  
-  .product-thumbnail {
+}
+
+.product-thumbnail {
     width: 200px;
     height: 200px;
     object-fit: cover;
     border-radius: 4px;
     border: 1px solid #ddd;
-  }
-  
-  .product-name {
+}
+
+.product-name {
     color: #0073bb;
     font-weight: 600;
     text-decoration: none;
     cursor: pointer;
-  }
-  
-  .product-name:hover {
+}
+
+.product-name:hover {
     text-decoration: underline;
-  }
-  
-  .more-details-btn {
+}
+
+.more-details-btn {
     background-color: #0073bb;
     color: white;
     border: none;
@@ -99,38 +101,38 @@
     font-size: 0.85rem;
     border-radius: 4px;
     margin-left: 10px;
-  }
-  
-  .more-details-btn:hover {
+}
+
+.more-details-btn:hover {
     background-color: #0056a3;
-  }
-  
-  .expanded-row {
+}
+
+.expanded-row {
     background-color: #eef7ff;
-  }
-  
-  .expanded-content {
+}
+
+.expanded-content {
     padding: 10px;
     font-size: 0.9rem;
     color: #333;
     border-top: 1px solid #ddd;
-  }
-  
-  .pagination {
+}
+
+.pagination {
     margin-top: 20px;
     margin-bottom: 20px;
     display: flex;
     justify-content: center;
     align-items: center;
     gap: 10px;
-  }
-  
-  .pagination-info {
+}
+
+.pagination-info {
     font-size: 1rem;
     color: #555;
-  }
-  
-  .pagination-button {
+}
+
+.pagination-button {
     padding: 5px 10px;
     font-size: 0.9rem;
     color: #fff;
@@ -138,20 +140,22 @@
     border: none;
     border-radius: 2px;
     cursor: pointer;
-  }
-  
-  .pagination-button:disabled {
+}
+
+.pagination-button:disabled {
     background-color: #ddd;
     cursor: not-allowed;
-  }
-  
-  .pagination-button:not(:disabled):hover {
+}
+
+.pagination-button:not(:disabled):hover {
     background-color: #0056a3;
-  }
-  .Mobile{
+}
+
+.Mobile {
     display: none;
-  }
-  .btn-moredetails{
+}
+
+.btn-moredetails {
     background-color: rgb(255, 255, 255);
     border: 1px solid rgb(122, 122, 122);
     font-weight: bold;
@@ -159,30 +163,35 @@
     border-radius: 2px;
     margin-bottom: 5px;
 
-  }
-  @media (max-width: 768px) {
-    .Desktop{
-      display: none;
+}
+
+@media (max-width: 768px) {
+    .Desktop {
+        display: none;
     }
-    .Mobile{
-      display: block;
+
+    .Mobile {
+        display: block;
     }
+
     .vue-title {
-      font-size: 1.2rem;
+        font-size: 1.2rem;
     }
-  
+
     .table-container {
-      overflow-x: auto;
+        overflow-x: auto;
     }
-  
-    th, td {
-      padding: 8px;
-      font-size: 0.85rem;
+
+    th,
+    td {
+        padding: 8px;
+        font-size: 0.85rem;
     }
+
     .product-thumbnail {
-   
-      margin-top: 150px;
-      right: 10px;
-      position: absolute;
+
+        margin-top: 150px;
+        right: 10px;
+        position: absolute;
     }
-  }
+}
