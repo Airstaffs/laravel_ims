@@ -462,9 +462,9 @@
           <button class="btn-print-selected" @click="printSelectedItems" :disabled="!hasSelectedItems">
             <i class="fas fa-print"></i> Print Selected
           </button>
-          <button class="btn-update-location" @click="updateSelectedLocation" :disabled="!singleItemSelected || !processLocation">
-            <i class="fas fa-map-marker-alt"></i> Update Location
-          </button>
+          <button class="btn-update-location" @click="updateSelectedLocation" :disabled="!hasSelectedItems || !processLocation">
+          <i class="fas fa-map-marker-alt"></i> Update Location
+        </button>
           <button class="btn-merge" @click="mergeSelectedItems" :disabled="selectedItems.length < 2">
             <i class="fas fa-object-group"></i> Merge Items
           </button>
@@ -636,8 +636,11 @@ export default {
       processShipmentType: 'For Dispense',
       processTrackingNumber: '',
       processNotes: '',
-      processLocation: '',
+      processLocation: '',    
       currentProcessItem: null,
+      currentProductId: null, // Added to store the product ID
+      currentProductAsin: null, // Added to store the ASIN
+      currentProductTitle: '', // Added to store the product title
       selectedItems: [],
       selectAllItems: false,
       isProcessing: false,
@@ -882,15 +885,37 @@ export default {
     
     // Process modal functions
     openProcessModal(item) {
-      this.currentProcessItem = item;
-      this.showProcessModal = true;
-      this.processShipmentType = 'For Dispense';
-      this.processTrackingNumber = '';
-      this.processNotes = '';
-      this.processLocation = '';
-      this.selectedItems = [];
-      this.selectAllItems = false;
-    },
+    this.currentProcessItem = item;
+    this.showProcessModal = true;
+    this.processShipmentType = 'For Dispense';
+    this.processTrackingNumber = '';
+    this.processNotes = '';
+    this.processLocation = '';
+    this.selectedItems = [];
+    this.selectAllItems = false;
+    
+    // Store the parent product ID (ASIN level) - hidden from UI
+    this.currentProductId = item.ProductID || null;
+    this.currentProductAsin = item.ASIN || null;
+    this.currentProductTitle = item.AStitle || '';
+    
+    // If the item has just one serial number, pre-select it and show its location
+    if (item.serials && item.serials.length === 1) {
+      const singleSerial = item.serials[0];
+      this.selectedItems = [singleSerial.ProductID];
+      this.processLocation = singleSerial.warehouselocation || '';
+      
+      // Use nextTick to ensure the input is rendered before focusing
+      this.$nextTick(() => {
+        // Focus and select all text in the location field for easy editing
+        const locationInput = document.querySelector('.process-modal .form-control[placeholder="e.g., L123A or Floor"]');
+        if (locationInput) {
+          locationInput.focus();
+          locationInput.select();
+        }
+      });
+    }
+  },
     
     closeProcessModal() {
       this.showProcessModal = false;
@@ -903,9 +928,15 @@ export default {
       if (this.selectAllItems) {
         // Select all items
         this.selectedItems = this.currentProcessItem.serials.map(serial => serial.ProductID);
+        
+        // Clear location field when multiple items are selected
+        if (this.selectedItems.length > 1) {
+          this.processLocation = '';
+        }
       } else {
         // Deselect all items
         this.selectedItems = [];
+        this.processLocation = '';
       }
     },
     
@@ -953,49 +984,11 @@ export default {
       }
     },
     
-    // Merge selected items
-    async mergeSelectedItems() {
-      if (this.selectedItems.length < 2) {
-        alert('Please select at least two items to merge.');
-        return;
-      }
-      
-      if (confirm(`Are you sure you want to merge ${this.selectedItems.length} items?`)) {
-        try {
-          // Prepare merge data
-          const mergeData = {
-            items: this.selectedItems
-          };
-          
-          // Send to API
-          const response = await axios.post('/api/stockroom/merge-items', mergeData, {
-            withCredentials: true,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
-            }
-          });
-          
-          if (response.data.success) {
-            alert('Items merged successfully');
-            this.closeProcessModal();
-            // Refresh inventory
-            this.fetchInventory();
-          } else {
-            alert(`Error: ${response.data.message || 'Failed to merge items'}`);
-          }
-        } catch (error) {
-          console.error('Error merging items:', error);
-          alert('Failed to merge items. Please try again.');
-        }
-      }
-    },
     
     // Update location for a single selected item
     async updateSelectedLocation() {
-      if (!this.singleItemSelected) {
-        alert('Please select exactly one item to update location.');
+      if (!this.hasSelectedItems) {
+        alert('Please select at least one item to update location.');
         return;
       }
       
@@ -1016,14 +1009,20 @@ export default {
       }
       
       try {
+        // Show loading state
+        this.isProcessing = true;
+        
         // Prepare update data
         const updateData = {
-          itemId: this.selectedItems[0],
+          itemId: this.singleItemSelected ? this.selectedItems[0] : null, // For backward compatibility
+          itemIds: this.selectedItems,
           newLocation: this.processLocation
         };
         
+        console.log('Sending update data:', updateData); // Add this for debugging
+        
         // Send to API
-        const response = await axios.post('/api/stockroom/update-location', updateData, {
+        const response = await axios.post(`${API_BASE_URL}/api/stockroom/update-location`, updateData, {
           withCredentials: true,
           headers: {
             'Content-Type': 'application/json',
@@ -1033,7 +1032,11 @@ export default {
         });
         
         if (response.data.success) {
-          alert('Location updated successfully');
+          // Show success message with item count
+          const itemCount = this.selectedItems.length;
+          const itemText = itemCount === 1 ? 'item' : 'items';
+          alert(`Location updated successfully for ${itemCount} ${itemText}`);
+          
           this.closeProcessModal();
           // Refresh inventory
           this.fetchInventory();
@@ -1042,7 +1045,14 @@ export default {
         }
       } catch (error) {
         console.error('Error updating location:', error);
-        alert('Failed to update location. Please try again.');
+        if (error.response && error.response.data) {
+          console.error('Server response:', error.response.data);
+          alert(`Failed to update location: ${error.response.data.message || 'Unknown error'}`);
+        } else {
+          alert('Failed to update location. Please try again.');
+        }
+      } finally {
+        this.isProcessing = false;
       }
     },
     
@@ -1390,6 +1400,144 @@ export default {
         }, 'network_error');
       }
     },
+
+
+ // Updated mergeSelectedItems function with correct API URL format
+ async mergeSelectedItems() {
+  if (this.selectedItems.length < 2) {
+    alert('Please select at least two items to merge.');
+    return;
+  }
+  
+  // When merging from process modal, we know all items belong to the same product
+  // Make sure to get the title directly from the modal item
+  let productTitle = '';
+  let productAsin = '';
+  let productStore = '';
+  let selectedSerials = [];
+  let selectedFnsku = ''; // Add variable for FNSKU
+  
+  if (this.currentProcessItem) {
+    // We're in the process modal, so use the title from the current process item
+    productTitle = this.currentProcessItem.AStitle || '';
+    productAsin = this.currentProcessItem.ASIN || '';
+    productStore = this.currentProcessItem.storename || '';
+    
+    console.log("Using process modal title:", productTitle);
+    
+    // Get just the serial numbers of selected items
+    selectedSerials = this.currentProcessItem.serials
+      .filter(serial => this.selectedItems.includes(serial.ProductID))
+      .map(serial => serial.serialnumber);
+      
+    // Get the first available FNSKU for this product if any
+    if (this.currentProcessItem.fnskus && this.currentProcessItem.fnskus.length > 0) {
+      selectedFnsku = this.currentProcessItem.fnskus[0].FNSKU || this.currentProcessItem.fnskus[0];
+      console.log("Using FNSKU from current process item:", selectedFnsku);
+    }
+  } else {
+    // If not in process modal, find the product information
+    const firstSelectedId = this.selectedItems[0];
+    for (const item of this.inventory) {
+      if (item.serials && item.serials.some(serial => serial.ProductID === firstSelectedId)) {
+        productTitle = item.AStitle || '';
+        productAsin = item.ASIN || '';
+        productStore = item.storename || '';
+        
+        // Get the first available FNSKU for this product if any
+        if (item.fnskus && item.fnskus.length > 0) {
+          selectedFnsku = item.fnskus[0].FNSKU || item.fnskus[0];
+          console.log("Found FNSKU from inventory:", selectedFnsku);
+        }
+        
+        console.log("Found title from inventory:", productTitle);
+        break;
+      }
+    }
+    
+    // Get serial numbers from the inventory
+    for (const id of this.selectedItems) {
+      for (const item of this.inventory) {
+        if (item.serials) {
+          const serial = item.serials.find(s => s.ProductID === id);
+          if (serial) {
+            selectedSerials.push(serial.serialnumber);
+          }
+        }
+      }
+    }
+  }
+  
+  if (!productTitle) {
+    alert('Could not determine product title for merging.');
+    return;
+  }
+
+  console.log("Final title being sent:", productTitle);
+  console.log("Number of items being merged:", this.selectedItems.length);
+  console.log("FNSKU being sent:", selectedFnsku);
+  
+  if (confirm(`Are you sure you want to merge ${this.selectedItems.length} items of "${productTitle}"?`)) {
+    try {
+      // Start loading state
+      this.isProcessing = true;
+      
+      // Prepare merge data with all required information
+      const mergeData = {
+        items: this.selectedItems,
+        title: productTitle,
+        asin: productAsin,
+        store: productStore,
+        serialNumbers: selectedSerials,
+        fnsku: selectedFnsku // Add FNSKU to merge data
+      };
+      
+      console.log("Sending merge data:", mergeData);
+      
+      // Send to API using the correct API_BASE_URL format
+      const response = await axios.post(`${API_BASE_URL}/api/stockroom/merge-items`, mergeData, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+        }
+      });
+      
+      if (response.data.success) {
+        // Show success message with new RT number
+        const newRtNumber = response.data.newrt;
+        const productId = response.data.productid;
+        const mergedTitle = response.data.title || productTitle;
+        const mergedFnsku = response.data.fnsku || selectedFnsku;
+        
+        // Format the RT number based on the store
+        let storeNameForRt = response.data.store || productStore;
+        const formattedRt = this.formatRTNumber(newRtNumber, storeNameForRt);
+        
+        // Show success alert with details
+        alert(`Items successfully merged into new item ${formattedRt}: ${mergedTitle}${mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ''}`);
+        
+        // Ask if user wants to print the new label
+        if (confirm('Do you want to print a label for the newly created item?')) {
+          await this.printLabel(productId);
+        }
+        
+        this.closeProcessModal();
+        // Refresh inventory
+        this.fetchInventory();
+      } else {
+        alert(`Error: ${response.data.message || 'Failed to merge items'}`);
+      }
+    } catch (error) {
+      console.error('Error merging items:', error);
+      alert('Failed to merge items. Please try again.');
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+},
+
     
     // Print label method
     async printLabel(productId) {
@@ -1483,11 +1631,24 @@ export default {
     }
   },
   watch: {
-    searchQuery() {
-      this.currentPage = 1;
-      this.fetchInventory();
-    }
+  searchQuery() {
+    this.currentPage = 1;
+    this.fetchInventory();
   },
+  // Watch for changes to selectedItems to update location field
+  selectedItems(newValue) {
+    // If exactly one item is selected, try to get its current location
+    if (newValue.length === 1 && this.currentProcessItem && this.currentProcessItem.serials) {
+      const selectedSerial = this.currentProcessItem.serials.find(serial => serial.ProductID === newValue[0]);
+      if (selectedSerial) {
+        this.processLocation = selectedSerial.warehouselocation || '';
+      }
+    } else if (newValue.length > 1) {
+      // Clear location when multiple items are selected
+      this.processLocation = '';
+    }
+  }
+},
   mounted() {
     // Configure axios
     axios.defaults.baseURL = window.location.origin;

@@ -275,6 +275,11 @@ Route::prefix('api/stockroom')->group(function () {
     Route::post('process-scan', [StockroomController::class, 'processScan']);
     Route::post('print-label', [StockroomController::class, 'printLabel']);
     Route::get('stores', [StockroomController::class, 'getStores']);
+
+       // New routes for Process functionality
+       Route::post('/process-items', [StockroomController::class, 'processItems']);
+       Route::post('merge-items', [StockroomController::class, 'mergeItems']);
+       Route::post('update-location', [StockroomController::class, 'updateLocation']);
 });
 
 // Routes for Unreceived scanner

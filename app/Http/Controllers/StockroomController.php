@@ -402,7 +402,7 @@ public function processScan(Request $request)
                 $checkFNSKUviewer = $existingInValidation->FNSKUviewer;
                 $needReprint = false;
                 $validationSTATUS = $existingInValidation->validation_status;
-              if($validationSTATUS === 'validated'){
+
                 // Handle validation to stockroom transfer
                 // Check and process FNSKU
                 $fnsku_data = DB::table($this->fnskuTable)
@@ -502,20 +502,20 @@ public function processScan(Request $request)
                 ]);
                 
                 DB::commit();
+                if($validationSTATUS === 'validated'){
                 return response()->json([
                     'success' => true,
                     'message' => "Scanned and Forwarded to {$modulelocation} Successfully",
                     'needReprint' => $needReprint,
                     'productId' => $needReprint ? $id : null
                 ]);
-            }else{
-                return response()->json([
-                    'success' => false,
-                    'message' => "Data is in Validation Module but not validated", 
-                    'reason' => "Data not validated", 
-                ]);
-
-            }
+                }else{
+                    return response()->json([
+                        'success' => true,
+                        'message' => "Data not validated but forwarded to Stockroom", 
+                        'reason' => "Data not validated", 
+                    ]);
+                }
          } 
             // No existing record, create new entry
             else {
@@ -654,6 +654,429 @@ public function processScan(Request $request)
     }
 }
 
+
+public function mergeItems(Request $request)
+{
+    // Validate request data - add fnsku to validation
+    $validated = $request->validate([
+        'items' => 'required|array|min:1',
+        'title' => 'sometimes|string',
+        'productId' => 'sometimes|integer',
+        'asin' => 'sometimes|string',
+        'store' => 'sometimes|string',
+        'serialNumbers' => 'sometimes|array',
+        'fnsku' => 'sometimes|string' // Add FNSKU parameter
+    ]);
+
+    $selectedIds = $request->items;
+    $numOfSerial = count($selectedIds);
+
+    if (empty($selectedIds)) {
+        return response()->json([
+            'success' => false, 
+            'message' => 'No selected items to merge.'
+        ]);
+    }
+
+    try {
+        // Start database transaction
+        DB::beginTransaction();
+
+        // Get the serial numbers from selected products
+        $serialNumberResults = DB::table($this->productTable)
+            ->whereIn('ProductID', $selectedIds)
+            ->get();
+
+        if ($serialNumberResults->isEmpty()) {
+            return response()->json([
+                'success' => false, 
+                'message' => 'No records found for selected IDs.'
+            ]);
+        }
+
+        $serialNumberA = null;
+        $serialNumberB = null;
+        $serialNumberC = null;
+        $serialNumberD = null;
+        $totalPrice = 0;
+        $index = 0;
+        
+        // Get data directly from the request if provided
+        $title = $request->title ?? '';
+        $productAsin = $request->asin ?? '';
+        $firstStore = $request->store ?? '';
+        $providedFnsku = $request->fnsku ?? '';
+        
+        // Process each selected item
+        foreach ($serialNumberResults as $row) {
+            $serialNumber = $row->serialnumber;
+            $price = $row->price ?? 0;
+            
+            // If title wasn't provided from the frontend, get it from the first product
+            if (empty($title) && $index === 0) {
+                $title = $row->AStitle ?? '';
+                $firstStore = $row->StoreName ?? '';
+            }
+
+            // Assign serial numbers to the appropriate slots
+            switch ($index) {
+                case 0:
+                    $serialNumberA = $serialNumber;
+                    break;
+                case 1:
+                    $serialNumberB = $serialNumber;
+                    break;
+                case 2:
+                    $serialNumberC = $serialNumber;
+                    break;
+                case 3:
+                    $serialNumberD = $serialNumber;
+                    break;
+            }
+            
+            $index++;
+            $totalPrice += $price;
+        }
+
+        // Extract color from the product title
+        preg_match('/\((.*?)\)/', $title, $matches);
+        $color = isset($matches[1]) ? $matches[1] : '';
+        
+        // Get the base title without the color and without any existing pack information
+        $baseTitle = trim(preg_replace('/\s*\(.*?\)\s*/', '', $title)); // Remove color
+        $baseTitle = trim(preg_replace('/\s+\d+-Pack\s*/', ' ', $baseTitle)); // Remove existing pack info
+        
+        // Create exact title pattern to search for with the correct pack size
+        $exactTitlePattern = $baseTitle;
+        if ($numOfSerial > 1) {
+            $exactTitlePattern .= ' ' . $numOfSerial . '-Pack';
+        }
+        $exactTitlePattern .= ' (' . $color . ')';
+        
+        // For logging
+        $exactTitlePatternForLike = '%' . $exactTitlePattern . '%';
+        
+        // Get base title for like query - used in less strict searches
+        $baseTitleForLike = '%' . $baseTitle . '%';
+        $colorForLike = '%(' . $color . ')%';
+        $packTextForLike = $numOfSerial > 1 ? '%' . $numOfSerial . '-Pack%' : '';
+        
+        // Log search parameters for debugging
+        Log::info('Searching for ASIN with parameters:', [
+            'originalTitle' => $title,
+            'baseTitle' => $baseTitle,
+            'color' => $color,
+            'numOfSerial' => $numOfSerial,
+            'exactTitlePattern' => $exactTitlePattern,
+            'exactTitlePatternForLike' => $exactTitlePatternForLike,
+            'providedAsin' => $productAsin,
+            'providedFnsku' => $providedFnsku
+        ]);
+
+        // If ASIN was provided directly, use it
+        $getAsin = null;
+    
+            // If no ASIN found by direct lookup, try searching for exact match first
+            $asinResult = null;
+            
+            // Try to match the exact title pattern with pack size and color
+            $asinResult = DB::table($this->asinTable)
+                ->where('internal', 'like', $exactTitlePatternForLike)
+                ->first();
+                
+            if ($asinResult) {
+                Log::info('Found ASIN by exact title pattern', [
+                    'ASIN' => $asinResult->ASIN,
+                    'internal' => $asinResult->internal
+                ]);
+            }
+
+            // If still no ASIN found, try more specific searches
+            if (!$asinResult && $numOfSerial > 1) {
+                // Try to find by base title, specific pack size and color
+                $asinResult = DB::table($this->asinTable)
+                    ->where('internal', 'like', $baseTitleForLike)
+                    ->where('internal', 'like', $packTextForLike)
+                    ->where('internal', 'like', $colorForLike)
+                    ->first();
+                    
+                if ($asinResult) {
+                    Log::info('Found ASIN by base title, pack size and color', [
+                        'ASIN' => $asinResult->ASIN,
+                        'internal' => $asinResult->internal
+                    ]);
+                }
+            }
+
+            // If still no ASIN found, try less specific search
+            if (!$asinResult) {
+                // Try to find by base title and color without pack size constraint
+                $asinResult = DB::table($this->asinTable)
+                    ->where('internal', 'like', $baseTitleForLike)
+                    ->where('internal', 'like', $colorForLike)
+                    ->first();
+                    
+                if ($asinResult) {
+                    Log::info('Found ASIN by base title and color', [
+                        'ASIN' => $asinResult->ASIN,
+                        'internal' => $asinResult->internal
+                    ]);
+                }
+            }
+
+            // Last resort - just find by base title
+            if (!$asinResult) {
+                $asinResult = DB::table($this->asinTable)
+                    ->where('internal', 'like', $baseTitleForLike)
+                    ->first();
+                    
+                if ($asinResult) {
+                    Log::info('Found ASIN by base title only', [
+                        'ASIN' => $asinResult->ASIN,
+                        'internal' => $asinResult->internal
+                    ]);
+                } else {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'No matching ASIN records found for "' . $baseTitle . '" with pack size "' . $numOfSerial . '" and color "' . $color . '".'
+                    ]);
+                }
+            }
+
+            // Verify that the found ASIN is a reasonable match for our product
+            $asinTitle = $asinResult->internal;
+            $containsBaseTitle = stripos($asinTitle, $baseTitle) !== false;
+            $containsColor = stripos($asinTitle, $color) !== false;
+            
+            if (!$containsBaseTitle || !$containsColor) {
+                Log::warning('Found ASIN may not be a good match', [
+                    'searchTitle' => $baseTitle,
+                    'searchColor' => $color,
+                    'foundTitle' => $asinTitle,
+                    'containsBaseTitle' => $containsBaseTitle,
+                    'containsColor' => $containsColor
+                ]);
+                
+                // If we really can't find a good match, construct our own title
+                if (!$containsBaseTitle || !$containsColor) {
+                    $constructedTitle = $baseTitle;
+                    if ($numOfSerial > 1) {
+                        $constructedTitle .= ' ' . $numOfSerial . '-Pack';
+                    }
+                    $constructedTitle .= ' (' . $color . ')';
+                    
+                    Log::info('Using constructed title instead', [
+                        'constructedTitle' => $constructedTitle
+                    ]);
+                    
+                    $asinTitle = $constructedTitle;
+                }
+            }
+
+            $getAsin = $asinResult->ASIN;
+        
+        
+        $store = $firstStore;
+
+        // Handle FNSKU assignment
+        $getfnsku = null;
+        $getFNSKUID = null;
+        
+            // Look up an available FNSKU based on the ASIN
+            $fnskuResult = DB::table($this->fnskuTable)
+                ->where('ASIN', $getAsin)
+                ->where('fnsku_status', 'available')
+            //    ->orderBy('dateFreeUp', 'asc')
+                ->first();
+
+            if (!$fnskuResult) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No available FNSKU found for ASIN: ' . $getAsin
+                ]);
+            }
+            
+            $getfnsku = $fnskuResult->FNSKU;
+            $getFNSKUID = $fnskuResult->FNSKUID;
+
+        // Get current date time in LA timezone
+        $california_timezone = new DateTimeZone('America/Los_Angeles');
+        $currentDatetime = new DateTime('now', $california_timezone);
+        $currentDate = $currentDatetime->format('Y-m-d');
+        $currentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
+
+        // Insert migration record
+        $mergeId = DB::table('tblmigrateditem')->insertGetId([
+            'migratedDate' => $currentDate
+        ]);
+
+        // Get max RT counter and increment
+        $maxRt = DB::table($this->productTable)->max('rtcounter') ?? 0;
+        $newRt = $maxRt + 1;
+
+        // Create product data array with all needed fields
+        $productData = [
+            'rtcounter' => $newRt,
+            'mergeID' => $mergeId,
+            'price' => $totalPrice,
+            'quantity' => $numOfSerial,
+            'stockroom_insert_date' => $currentDatetimeString,
+            'ProductModuleLoc' => 'Stockroom',
+            'serialnumber' => $serialNumberA,
+            'serialnumberb' => $serialNumberB,
+            'serialnumberc' => $serialNumberC,
+            'serialnumberd' => $serialNumberD,
+            'FNSKUviewer' => $getfnsku
+        ];
+
+        // Insert new product record
+        $productId = DB::table($this->productTable)->insertGetId($productData);
+
+        // Update FNSKU status and increment Units by numOfSerial
+        // First get current Units value
+        $currentUnits = $fnskuResult->Units ?? 0;
+        $newUnits = $currentUnits + $numOfSerial;
+        $newUnits = $currentUnits - 1;
+        if($newUnits === 0){
+        // Update FNSKU with new Units count
+        DB::table($this->fnskuTable)
+            ->where('FNSKU', $getfnsku)
+            ->update([
+                'fnsku_status' => 'unavailable',
+                'productid' => $productId,
+                'Units' => $newUnits // Update the Units count
+            ]);
+        }else{
+            DB::table($this->fnskuTable)
+            ->where('FNSKU', $getfnsku)
+            ->update([
+                'fnsku_status' => 'available',
+                'productid' => $productId,
+                'Units' => $newUnits // Update the Units count
+            ]);
+        }
+        // Log the Units update
+        Log::info('Updated FNSKU Units count', [
+            'FNSKU' => $getfnsku,
+            'previousUnits' => $currentUnits,
+            'addedUnits' => $numOfSerial,
+            'newUnits' => $newUnits
+        ]);
+
+        // Update original products
+        DB::table($this->productTable)
+            ->whereIn('ProductID', $selectedIds)
+            ->update([
+                'ProductModuleLoc' => 'Merged',
+                'mergedTO' => $newRt
+            ]);
+
+
+         // If FNSKU was directly provided, use it
+        if (!empty($providedFnsku)) {
+            // Check if the provided FNSKU exists and is available
+            $fnskuResult1 = DB::table($this->fnskuTable)
+                ->where('FNSKU', $providedFnsku)
+                ->first();
+                
+            $oldfnsku = $fnskuResult1->FNSKU;
+            $oldfnsku = $fnskuResult1->FNSKU;
+            $oldunit = $fnskuResult1 -> Units ?? 0;
+            $returnOldUNIT = $oldunit + $numOfSerial ;
+        }   
+        DB::table($this->fnskuTable)
+        ->where('FNSKU', $providedFnsku)
+        ->update([
+            'fnsku_status' => 'available',
+            'Units' => $returnOldUNIT
+        ]);
+
+        // Commit transaction
+        DB::commit();
+
+        // Get final title from either ASIN search or constructed title
+        $finalTitle = isset($asinTitle) ? $asinTitle : $title;
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'Items merged successfully.',
+            'newrt' => $newRt,
+            'SERIAL' => $serialNumberA,
+            'productid' => $productId,
+            'store' => $store,
+            'title' => $finalTitle,
+            'fnsku' => $getfnsku,
+            'units' => $newUnits // Include the updated units count in the response
+        ]);
+
+    } catch (\Exception $e) {
+        // Rollback in case of error
+        DB::rollBack();
+        Log::error('Error in mergeItems: ' . $e->getMessage());
+        Log::error($e->getTraceAsString());
+        
+        return response()->json([
+            'success' => false, 
+            'message' => 'Error during merge operation: ' . $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+    }
+}
+
+public function updateLocation(Request $request)
+{
+    // Validate request data with more flexible validation
+    $validated = $request->validate([
+        'itemIds' => 'required_without:itemId|array',
+        'itemId' => 'required_without:itemIds|integer',
+        'newLocation' => 'required|string',
+    ]);
+
+    try {
+        // Start database transaction
+        DB::beginTransaction();
+        
+        // Determine which IDs to update
+        $idsToUpdate = [];
+        
+        if ($request->has('itemIds') && is_array($request->itemIds)) {
+            $idsToUpdate = $request->itemIds;
+        } elseif ($request->has('itemId')) {
+            $idsToUpdate = [$request->itemId];
+        }
+        
+        if (empty($idsToUpdate)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No valid item IDs provided.'
+            ]);
+        }
+        
+        // Update location for all selected items
+        DB::table($this->productTable)
+            ->whereIn('ProductID', $idsToUpdate)
+            ->update([
+                'warehouselocation' => $request->newLocation
+            ]);
+            
+        // Commit transaction
+        DB::commit();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Location updated successfully.',
+            'count' => count($idsToUpdate)
+        ]);
+    } catch (\Exception $e) {
+        // Rollback in case of error
+        DB::rollBack();
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error updating location: ' . $e->getMessage()
+        ]);
+    }
+}
     /**
      * Print a label for a product
      */
