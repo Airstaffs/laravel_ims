@@ -341,6 +341,7 @@
         'fnsku' => 'Fnsku',
         'stockroom' => 'Stockroom',
         'fnsku' => 'FNSKU',
+        'productionarea' => 'Production Area',
         'fbashipmentinbound' => 'FBA Inbound Shipment'
     ];
     ?>
@@ -1169,7 +1170,8 @@ function initializePrivilegeForm() {
                         'cleaning': 'Cleaning',
                         'packing': 'Packing',
                         'fnsku': 'FNSKU',
-                        'stockroom': 'Stockroom'
+                        'stockroom': 'Stockroom',
+                        'productionarea': 'Production Area'
                     }
                 });
 
@@ -1292,7 +1294,7 @@ function updateForm(data) {
 }
 
 function updateMainModule(data) {
-    const mainModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom', 'Validation','FNSKU'];
+    const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom', 'Validation','FNSKU','Production Area'];
     const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
@@ -1309,15 +1311,28 @@ function updateMainModule(data) {
 }
 
 function updateSubModules(data) {
-    const subModules = ['Order', 'Unreceived', 'Receiving', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom', 'Validation','FNSKU'];
+    const subModules = [
+        {db: 'order', display: 'Order'},
+        {db: 'unreceived', display: 'Unreceived'},
+        {db: 'receiving', display: 'Received'},
+        {db: 'labeling', display: 'Labeling'},
+        {db: 'testing', display: 'Testing'},
+        {db: 'cleaning', display: 'Cleaning'},
+        {db: 'packing', display: 'Packing'},
+        {db: 'stockroom', display: 'Stockroom'},
+        {db: 'validation', display: 'Validation'},
+        {db: 'fnsku', display: 'FNSKU'},
+        {db: 'productionarea', display: 'Production Area'}
+    ];
+    
     const subModulesHTML = `
         <h6>Sub-Modules</h6>
         <div class="row mb-3">
             ${subModules.map(module => `
                 <div class="col-4 form-check mb-2 px-10">
                     <input class="form-check-input" type="checkbox" name="sub_modules[]" 
-                           value="${module}" ${data.sub_modules && data.sub_modules[module] ? 'checked' : ''}>
-                    <label class="form-check-label">${module}</label>
+                           value="${module.display}" ${data.sub_modules && data.sub_modules[module.db] ? 'checked' : ''}>
+                    <label class="form-check-label">${module.display}</label>
                 </div>
             `).join('')}
         </div>

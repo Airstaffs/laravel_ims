@@ -38,7 +38,8 @@ class UserController extends Controller
                 'packing',
                 'fnsku',
                 'stockroom',
-                'validation'
+                'validation',
+                'productionarea'
             )
             ->where('id', $currentUserId)
             ->first();
@@ -146,48 +147,49 @@ class UserController extends Controller
         
     // Controller method to get user privileges
     public function getUserPrivileges($userId)
-    {
-        $selectedUser = User::find($userId);
-        $userPrivileges = null;
-    
-        if ($selectedUser) {
-            // Fetch all columns in the 'tbluser' table starting with 'store_'
-            $storeColumns = Schema::getColumnListing('tbluser');
-            $storePrivileges = collect($storeColumns)
-                ->filter(function ($column) {
-                    return str_starts_with($column, 'store_');
-                })
-                ->map(function ($store) use ($selectedUser) {
-                    $storeName = str_replace('store_', '', $store); // Remove 'store_' prefix
-                    $storeName = str_replace('_', ' ', $storeName); // Replace underscores with spaces
-                    return [
-                        'store_column' => $store, // Original column name
-                        'store_name' => $storeName, // User-friendly name
-                        'is_checked' => (bool) $selectedUser->{$store}, // Check if the privilege is enabled
-                    ];
-                })
-                ->values();
-    
-            $userPrivileges = [
-                'main_module' => $selectedUser->main_module,
-                'sub_modules' => [
-                    'Order' => (bool) $selectedUser->order,
-                    'Unreceived' => (bool) $selectedUser->unreceived,
-                    'Receiving' => (bool) $selectedUser->receiving,
-                    'Labeling' => (bool) $selectedUser->labeling,
-                    'Testing' => (bool) $selectedUser->testing,
-                    'Cleaning' => (bool) $selectedUser->cleaning,
-                    'Packing' => (bool) $selectedUser->packing,
-                    'FNSKU' => (bool) $selectedUser->fnsku,
-                    'Stockroom' => (bool) $selectedUser->stockroom,
-                    'Validation' => (bool) $selectedUser->validation,
-                ],
-                'privileges_stores' => $storePrivileges, // Pass the processed store privileges
-            ];
-        }
-    
-        return response()->json($userPrivileges);
+{
+    $selectedUser = User::find($userId);
+    $userPrivileges = null;
+
+    if ($selectedUser) {
+        // Fetch all columns in the 'tbluser' table starting with 'store_'
+        $storeColumns = Schema::getColumnListing('tbluser');
+        $storePrivileges = collect($storeColumns)
+            ->filter(function ($column) {
+                return str_starts_with($column, 'store_');
+            })
+            ->map(function ($store) use ($selectedUser) {
+                $storeName = str_replace('store_', '', $store); // Remove 'store_' prefix
+                $storeName = str_replace('_', ' ', $storeName); // Replace underscores with spaces
+                return [
+                    'store_column' => $store, // Original column name
+                    'store_name' => $storeName, // User-friendly name
+                    'is_checked' => (bool) $selectedUser->{$store}, // Check if the privilege is enabled
+                ];
+            })
+            ->values();
+
+        $userPrivileges = [
+            'main_module' => $selectedUser->main_module,
+            'sub_modules' => [
+                'order' => (bool) $selectedUser->order,
+                'unreceived' => (bool) $selectedUser->unreceived,
+                'receiving' => (bool) $selectedUser->receiving,
+                'labeling' => (bool) $selectedUser->labeling,
+                'testing' => (bool) $selectedUser->testing,
+                'cleaning' => (bool) $selectedUser->cleaning,
+                'packing' => (bool) $selectedUser->packing,
+                'fnsku' => (bool) $selectedUser->fnsku,
+                'stockroom' => (bool) $selectedUser->stockroom,
+                'validation' => (bool) $selectedUser->validation,
+                'productionarea' => (bool) $selectedUser->productionarea,
+            ],
+            'privileges_stores' => $storePrivileges, // Pass the processed store privileges
+        ];
     }
+
+    return response()->json($userPrivileges);
+}
     
     public function fetchNewlyAddedStoreCol(Request $request)
     {
@@ -280,113 +282,207 @@ class UserController extends Controller
         }
     }
 
-public function saveUserPrivileges(Request $request)
-        {
-            try {
-                // Typecast user_id to integer before validation
-                $request->merge(['user_id' => (int) $request->input('user_id')]);
-        
-                // Validate the request
-                $data = $request->validate([
-                    'user_id' => 'required|numeric|exists:tbluser,id',
-                    'main_module' => 'required|string',
-                    'sub_modules' => 'array|nullable',
-                    'privileges_stores' => 'array|nullable',
-                ]);
-        
-                // Log the request data for debugging
-                Log::info('Request Data:', $data);
-        
-                // Fetch the user
-                $user = User::find($data['user_id']);
-                $username = $user->username; // Store username for logging
-
-                if (!$user) {
-                    return response()->json(['success' => false, 'message' => 'User not found']);
-                }
-                Log::info('Fetched User:', ['user' => $user]);
-        
-                // Update main module
-                $user->main_module = $data['main_module'];
-        
-                // Update sub-modules dynamically
-                $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom','validation','fnsku']; // Ensure these modules are valid
-                foreach ($subModules as $module) {
-                    $user->{$module} = in_array(ucfirst($module), $data['sub_modules'] ?? []) ? 1 : 0;
-                }
-        
-                // Fetch all store columns dynamically
-                $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
-                $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
-        
-                // Log store columns
-                Log::info('Store Columns:', $storeColumns);
-        
-                // Reset all store columns to 0
-                foreach ($storeColumns as $storeColumn) {
-                    $user->{$storeColumn} = 0;
-                }
-        
-                // Enable selected stores
-                if (!empty($data['privileges_stores'])) {
-                    foreach ($data['privileges_stores'] as $store) {
-                        if (in_array($store, $storeColumns)) {
-                            $user->{$store} = 1;
-                        } else {
-                            Log::warning("Store column '{$store}' does not exist in tbluser.");
+    public function saveUserPrivileges(Request $request)
+    {
+        try {
+            // Typecast user_id to integer before validation
+            $request->merge(['user_id' => (int) $request->input('user_id')]);
+    
+            // Validate the request
+            $data = $request->validate([
+                'user_id' => 'required|numeric|exists:tbluser,id',
+                'main_module' => 'required|string',
+                'sub_modules' => 'array|nullable',
+                'privileges_stores' => 'array|nullable',
+            ]);
+    
+            // Log the request data for debugging
+            Log::info('Request Data:', $data);
+    
+            // Fetch the user
+            $user = User::find($data['user_id']);
+            $username = $user->username; // Store username for logging
+    
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'User not found']);
+            }
+            Log::info('Fetched User:', ['user' => $user]);
+    
+            // Update main module
+            $user->main_module = $data['main_module'];
+    
+            // Define module mapping (display name to database column)
+            $moduleMapping = [
+                'Order' => 'order',
+                'Unreceived' => 'unreceived',
+                'Receiving' => 'receiving',
+                'Labeling' => 'labeling',
+                'Testing' => 'testing',
+                'Cleaning' => 'cleaning',
+                'Packing' => 'packing',
+                'Stockroom' => 'stockroom',
+                'Validation' => 'validation',
+                'FNSKU' => 'fnsku',
+                'Production Area' => 'productionarea'
+            ];
+    
+            // Update sub-modules with proper mapping
+            $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
+                          'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea'];
+            
+            // First reset all modules to 0
+            foreach ($subModules as $module) {
+                $user->{$module} = 0;
+            }
+            
+            // Then set the selected ones to 1
+            if (!empty($data['sub_modules'])) {
+                foreach ($data['sub_modules'] as $selectedModule) {
+                    // Find the database column for this module
+                    $dbColumn = null;
+                    foreach ($moduleMapping as $displayName => $columnName) {
+                        // Case-insensitive comparison and handle both with/without spaces
+                        if (strcasecmp($selectedModule, $displayName) === 0 || 
+                            strcasecmp($selectedModule, str_replace(' ', '', $displayName)) === 0) {
+                            $dbColumn = $columnName;
+                            break;
                         }
                     }
-                }
-        
-                // Collect different types of modules
-                $mainModule = $data['main_module'];
-                $enabledSubModules = [];
-                $enabledStores = [];
-
-                // Collect enabled sub-modules
-                foreach ($subModules as $module) {
-                    if ($user->{$module} == 1) {
-                        $enabledSubModules[] = ucfirst($module);
+                    
+                    // If we found a match, set it to 1
+                    if ($dbColumn && in_array($dbColumn, $subModules)) {
+                        $user->{$dbColumn} = 1;
                     }
                 }
-
-                // Collect enabled stores
-                foreach ($storeColumns as $storeColumn) {
-                    if ($user->{$storeColumn} == 1) {
-                        $storeName = str_replace('store_', '', $storeColumn);
-                        $storeName = str_replace('_', ' ', $storeName);
-                        $enabledStores[] = ucfirst($storeName);
-                    }
-                }
-
-                // Format the log message
-                $logMessage = sprintf(
-                    'Update Privileges for User %s - Main: %s | Sub-Modules: %s | Stores: %s',
-                    $username,
-                    $mainModule,
-                    $enabledSubModules ? implode(', ', $enabledSubModules) : 'None',
-                    $enabledStores ? implode(', ', $enabledStores) : 'None'
-                );
-
-                // Save the user privileges
-                $user->save();
-
-                // Log using service
-                $this->userLogService->log($logMessage);
-        
-                return response()->json(['success' => true, 'message' => 'User privileges updated successfully!']);
-            } catch (\Illuminate\Validation\ValidationException $e) {
-                Log::error('Validation Error:', ['errors' => $e->errors()]);
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed.',
-                    'errors' => $e->errors(),
-                ]);
-            } catch (\Exception $e) {
-                Log::error('Error saving user privileges:', ['error' => $e->getMessage()]);
-                return response()->json(['success' => false, 'message' => $e->getMessage()]);
             }
-        }        
+    
+            // Fetch all store columns dynamically
+            $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
+            $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
+    
+            // Reset all store columns to 0
+            foreach ($storeColumns as $storeColumn) {
+                $user->{$storeColumn} = 0;
+            }
+    
+            // Enable selected stores
+            if (!empty($data['privileges_stores'])) {
+                foreach ($data['privileges_stores'] as $store) {
+                    if (in_array($store, $storeColumns)) {
+                        $user->{$store} = 1;
+                    } else {
+                        Log::warning("Store column '{$store}' does not exist in tbluser.");
+                    }
+                }
+            }
+    
+            // Collect different types of modules
+            $mainModule = $data['main_module'];
+            $enabledSubModules = [];
+            $enabledStores = [];
+    
+            // Collect enabled sub-modules
+            foreach ($subModules as $module) {
+                if ($user->{$module} == 1) {
+                    // Convert database column to display name
+                    $displayName = array_search($module, $moduleMapping) ?: ucfirst($module);
+                    $enabledSubModules[] = $displayName;
+                }
+            }
+    
+            // Collect enabled stores
+            foreach ($storeColumns as $storeColumn) {
+                if ($user->{$storeColumn} == 1) {
+                    $storeName = str_replace('store_', '', $storeColumn);
+                    $storeName = str_replace('_', ' ', $storeName);
+                    $enabledStores[] = ucfirst($storeName);
+                }
+            }
+    
+            // Format the log message
+            $logMessage = sprintf(
+                'Update Privileges for User %s - Main: %s | Sub-Modules: %s | Stores: %s',
+                $username,
+                $mainModule,
+                $enabledSubModules ? implode(', ', $enabledSubModules) : 'None',
+                $enabledStores ? implode(', ', $enabledStores) : 'None'
+            );
+    
+            // Save the user privileges
+            $user->save();
+    
+            // Log using service
+            $this->userLogService->log($logMessage);
+    
+            return response()->json(['success' => true, 'message' => 'User privileges updated successfully!']);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation Error:', ['errors' => $e->errors()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error saving user privileges:', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        }
+    }      
+
+
+
+    public function refreshUserSession(Request $request)
+{
+    try {
+        $user = Auth::user();
+        
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not authenticated']);
+        }
+        
+        // Define all possible modules as stored in the database
+        $modules = [
+            'order', 'unreceived', 'receiving', 'labeling', 'testing', 
+            'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
+            'productionarea', 'fbashipmentinbound'
+        ];
+        
+        // Get active modules
+        $activeModules = [];
+        foreach ($modules as $module) {
+            if ($user->{$module} == 1) {
+                $activeModules[] = $module;
+            }
+        }
+        
+        // Save to session
+        session(['main_module' => $user->main_module]);
+        session(['sub_modules' => $activeModules]);
+        
+        // Debug log
+        Log::info('Session refreshed for user', [
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'main_module' => $user->main_module,
+            'sub_modules' => $activeModules
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'User session refreshed successfully',
+            'main_module' => $user->main_module,
+            'sub_modules' => $activeModules
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Failed to refresh user session: ' . $e->getMessage(), [
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ]);
+        return response()->json([
+            'success' => false, 
+            'message' => 'Failed to refresh user session: ' . $e->getMessage()
+        ]);
+    }
+}
 
         
     public function createdusers()

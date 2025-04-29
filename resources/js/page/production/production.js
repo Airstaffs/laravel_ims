@@ -1,4 +1,4 @@
-import { eventBus } from "../../components/eventbus";
+import { eventBus } from '../../components/eventBus';
 import "../../../css/modules.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -151,12 +151,12 @@ export default {
         // Fetch inventory data from the API
         async fetchInventory() {
             try {
-                const response = await axios.get(`${API_BASE_URL}/products`, {
+                const response = await axios.get(`${API_BASE_URL}/api/productionArea/products`, {
                     params: {
                         search: this.searchQuery,
                         page: this.currentPage,
                         per_page: this.perPage,
-                        location: "Orders",
+                        location: "Production Area",
                     },
                 });
 

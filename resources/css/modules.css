@@ -1,14 +1,14 @@
-@import url("../js/page/cleaning/cleaning.css");
+/* @import url("../js/page/cleaning/cleaning.css");
 @import url("../js/page/fnsku/fnsku.css");
 @import url("../js/page/labeling/labeling.css");
 @import url("../js/page/orders/orders.css");
 @import url("../js/page/packing/packing.css");
 @import url("../js/page/production/production.css");
 @import url("../js/page/receiving/receiving.css");
-@import url("../js/page/searching/searching.css");
+@import url("../js/page/searching/searching.css"); */
 @import url("../js/page/stockroom/stockroom.css");
-@import url("../js/page/testing/testing.css");
-@import url("../js/page/unreceived/unreceived.css");
+/* @import url("../js/page/testing/testing.css");
+@import url("../js/page/unreceived/unreceived.css"); */
 @import url("../js/page/validation/validation.css");
 
 .vue-container {

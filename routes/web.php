@@ -23,6 +23,9 @@ use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\LabelingController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\EbayAuthController;
+use App\Http\Controllers\OrdersController;
+use App\Http\Controllers\ProductionAreaController;
+
 
 
 Route::get('/', function () {
@@ -55,6 +58,7 @@ Route::post('/login', [LoginController::class, 'authenticate'])->name('login');
 Route::get('/dashboard/Systemdashboard', [LoginController::class, 'showSystemDashboard'])->middleware('auth');
 Route::get('/get-user-privileges/{userId}', [UserController::class, 'getUserPrivileges']);
 Route::post('/save-user-privileges', [UserController::class, 'saveUserPrivileges'])->name('saveUserPrivileges');
+Route::post('/refresh-user-session', [UserController::class, 'refreshUserSession'])->name('refresh.user.session');
 
 
 Route::get('/fetchNewlyAddedStoreCol', [UserController::class, 'fetchNewlyAddedStoreCol']);
@@ -302,6 +306,17 @@ Route::prefix('api/received')->group(function () {
 
 Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::class, 'upload']);
 
+
+// Routes Orders
+Route::prefix('api/orders')->group(function () {
+    Route::get('products', [OrdersController::class, 'index']);
+});
+
+
+// Routes Production Area
+Route::prefix('api/productionArea')->group(function () {
+    Route::get('products', [ProductionAreaController::class, 'index']);
+});
 
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {
