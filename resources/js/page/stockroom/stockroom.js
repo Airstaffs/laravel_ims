@@ -1,6 +1,6 @@
-import { eventBus } from "./eventBus";
-import ScannerComponent from "../Scanner.vue";
-import { SoundService } from "../Sound_service";
+import { eventBus } from "../../components/eventbus";
+import ScannerComponent from "../../components/Scanner.vue";
+import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 

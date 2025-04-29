@@ -1,7 +1,7 @@
 <template>
   <div class="vue-container">
     <h1 class="vue-title">Received Module</h1>
-    
+
     <!-- Scanner Component -->
     <scanner-component
       scanner-title="Received Scanner"
@@ -22,10 +22,10 @@
         <!-- Step 1: Tracking Number Input -->
         <div class="input-group" v-if="currentStep === 1">
           <label>Tracking Number:</label>
-          <input 
-            type="text" 
-            v-model="trackingNumber" 
-            placeholder="Enter Tracking Number..." 
+          <input
+            type="text"
+            v-model="trackingNumber"
+            placeholder="Enter Tracking Number..."
             @input="handleTrackingInput"
             @keyup.enter="verifyTrackingNumber"
             ref="trackingInput"
@@ -33,7 +33,7 @@
           <!-- Only show Verify Tracking button in Manual mode -->
           <button v-if="showManualInput" @click="verifyTrackingNumber" class="verify-button">Verify Tracking</button>
         </div>
-        
+
         <!-- Step 2: Pass/Fail Buttons (shown after tracking verification) -->
         <div class="input-group" v-if="currentStep === 2">
           <div class="tracking-verified">
@@ -48,13 +48,13 @@
             </button>
           </div>
         </div>
-        
+
         <!-- Step 3: First Serial Number Input -->
         <div class="input-group" v-if="currentStep === 3">
           <label>First Serial Number:</label>
-          <input 
-            type="text" 
-            v-model="firstSerialNumber" 
+          <input
+            type="text"
+            v-model="firstSerialNumber"
             placeholder="Scan First Serial Number..."
             @input="handleFirstSerialInput"
             @keyup.enter="processFirstSerial"
@@ -62,13 +62,13 @@
           />
           <button v-if="showManualInput" @click="processFirstSerial" class="scan-button">Scan</button>
         </div>
-        
+
         <!-- Step 4: Second Serial Number Input (with Skip option) -->
         <div class="input-group" v-if="currentStep === 4">
           <label>Second Serial Number:</label>
-          <input 
-            type="text" 
-            v-model="secondSerialNumber" 
+          <input
+            type="text"
+            v-model="secondSerialNumber"
             placeholder="Scan Second Serial Number (or Skip)..."
             @input="handleSecondSerialInput"
             @keyup.enter="processSecondSerial"
@@ -79,13 +79,13 @@
             <button @click="skipSecondSerial" class="skip-button">Skip</button>
           </div>
         </div>
-        
+
         <!-- Step 5: PCN Input  -->
       <div class="input-group" v-if="currentStep === 5">
         <label>PCN (Product Control Number):</label>
-        <input 
-          type="text" 
-          v-model="pcnNumber" 
+        <input
+          type="text"
+          v-model="pcnNumber"
           placeholder="Scan PCN Number..."
           @input="handlePcnInput"
           @keyup.enter="processPcnNumber"
@@ -94,13 +94,13 @@
         <div class="container-type-hint">Enter PCN format: PCN followed by numbers (e.g., PCN12345)</div>
         <button v-if="showManualInput" @click="processPcnNumber" class="scan-button">Scan</button>
       </div>
-        
+
         <!-- Step 6: Basket Number Input (now step 6) -->
         <div class="input-group" v-if="currentStep === 6">
           <label>Basket/Container Number:</label>
-          <input 
-            type="text" 
-            v-model="basketNumber" 
+          <input
+            type="text"
+            v-model="basketNumber"
             placeholder="Enter BKT/SH/ENV + numbers..."
             @input="handleBasketInput"
             @keyup.enter="processBasketNumber"
@@ -111,7 +111,7 @@
         </div>
       </template>
     </scanner-component>
-    
+
     <!-- Table Container -->
     <div class="table-container">
       <table class="table table-bordered">
@@ -165,15 +165,15 @@
                 <div class="product-container">
                   <div class="product-image-container" @click="openImageModal(item)">
                     <!-- Use the actual file path for the main image -->
-                    <img :src="'/images/thumbnails/' + item.img1" 
-                         :alt="item.ProductTitle || 'Product'" 
-                         class="product-thumbnail clickable-image" 
+                    <img :src="'/images/thumbnails/' + item.img1"
+                         :alt="item.ProductTitle || 'Product'"
+                         class="product-thumbnail clickable-image"
                          @error="handleImageError($event)" />
                     <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
                       +{{ countAdditionalImages(item) }}
                     </div>
                   </div>
-               
+
                   <div class="product-info">
                     <p class="product-name">RT# : {{ item.rtcounter }}</p>
                     <p class="product-name">{{ item.ProductTitle }}</p>
@@ -190,27 +190,27 @@
               <td class="Desktop">
                 <span><strong></strong> {{ item.warehouselocation }}</span>
               </td>
-        
+
               <td class="Desktop">
                 <span><strong></strong> {{ item.datedelivered }}</span>
               </td>
-              
+
               <td class="Desktop">
                 <span><strong></strong> {{ item.lastDateUpdate }}</span>
               </td>
-              
-              <td class="Desktop">           
+
+              <td class="Desktop">
                 <span><strong></strong> {{ item.FNSKUviewer }}</span>
               </td>
-              
-              <td class="Desktop">        
+
+              <td class="Desktop">
                 <span><strong></strong> {{ item.MSKUviewer }}</span>
               </td>
-              
-              <td class="Desktop">              
+
+              <td class="Desktop">
                <span><strong></strong> {{ item.ASINviewer }}</span>
               </td>
-              
+
              <!-- Hidden -->  <!-- Hidden -->  <!-- Hidden -->
               <td v-if="showDetails">
                 <span><strong></strong> {{ item.FBMAvailable }}</span>
@@ -243,7 +243,7 @@
               <td class="Desktop">
                 <span><strong></strong> {{ item.serialnumber }}</span>
               </td>
-          
+
              <!-- Button for more details -->
               <td class="Desktop">
                 {{ item.totalquantity }}
@@ -311,7 +311,7 @@ export default {
       totalPages: 1,
       selectAll: false,
       expandedRows: {},
-      
+
       // Scanner workflow data
       currentStep: 1, // 1: Tracking, 2: Pass/Fail, 3: First SN, 4: Second SN, 5: PCN, 6: Basket
       trackingNumber: '',
@@ -324,19 +324,19 @@ export default {
       productId: '',
       rtcounter: '', // Added rtcounter field
       status: '', // 'pass' or 'fail'
-      
+
       // For validation
       trackingNumberValid: true,
       basketNumberValid: true,
       pcnNumberValid: true,  // New validation field
-      
+
       // For auto verification
       autoVerifyTimeout: null,
       showManualInput: false, // Track manual mode state
-      
+
       perPage: 10, // Default rows per page
       sortColumn: '',
-      sortOrder: 'asc',   
+      sortOrder: 'asc',
       showDetails: false,
       defaultImage: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=',
       // Modal state
@@ -371,11 +371,11 @@ export default {
       event.target.src = this.defaultImage;
       event.target.onerror = null; // Prevent infinite error loop
     },
-    
+
     // Count additional images based on the image fields (img2-img15)
     countAdditionalImages(item) {
       if (!item) return 0;
-      
+
       let count = 0;
       // Check fields img2 through img15
       for (let i = 2; i <= 15; i++) {
@@ -384,25 +384,25 @@ export default {
           count++;
         }
       }
-      
+
       return count;
     },
-    
+
     // Open image modal with all available images from img1-img15 fields
     openImageModal(item) {
       if (!item) return;
-      
+
       // Reset modal state
       this.modalImages = [];
       this.currentImageIndex = 0;
-      
+
       // Image field names in your data (img1 through img15)
       const imageFields = [
-        'img2', 'img3', 'img4', 'img5', 
-        'img6', 'img7', 'img8', 'img9', 'img10', 
+        'img2', 'img3', 'img4', 'img5',
+        'img6', 'img7', 'img8', 'img9', 'img10',
         'img11', 'img12', 'img13', 'img14', 'img15'
       ];
-      
+
       // Loop through all possible image fields and add non-empty ones
       imageFields.forEach(field => {
         if (item[field] && item[field] !== 'NULL' && item[field].trim() !== '') {
@@ -411,28 +411,28 @@ export default {
           this.modalImages.push(imagePath);
         }
       });
-      
+
       // If no images were found, add a default image
       if (this.modalImages.length === 0) {
         const defaultPath = `/images/thumbnails/${item.ProductID}.jpg`;
         this.modalImages.push(defaultPath);
       }
-      
+
       // Show the modal
       this.showImageModal = true;
-      
+
       // Prevent scrolling when modal is open
       document.body.style.overflow = 'hidden';
     },
-    
+
     closeImageModal() {
       this.showImageModal = false;
       this.modalImages = [];
-      
+
       // Re-enable scrolling
       document.body.style.overflow = 'auto';
     },
-    
+
     nextImage() {
       if (this.currentImageIndex < this.modalImages.length - 1) {
         this.currentImageIndex++;
@@ -440,7 +440,7 @@ export default {
         this.currentImageIndex = 0; // Loop back to the first image
       }
     },
-    
+
     prevImage() {
       if (this.currentImageIndex > 0) {
         this.currentImageIndex--;
@@ -448,18 +448,18 @@ export default {
         this.currentImageIndex = this.modalImages.length - 1; // Loop to the last image
       }
     },
-    
+
     // Fetch inventory data from the API
     async fetchInventory() {
       try {
         const response = await axios.get(`${API_BASE_URL}/api/received/products`, {
-          params: { 
-            search: this.searchQuery, 
-            page: this.currentPage, 
+          params: {
+            search: this.searchQuery,
+            page: this.currentPage,
             location: 'Received'
           },
         });
-        
+
         this.inventory = response.data.data;
         this.totalPages = response.data.last_page;
       } catch (error) {
@@ -467,25 +467,25 @@ export default {
         SoundService.error(); // Error sound for fetch failure
       }
     },
-    
+
     // Handle tracking input with auto verification in auto mode
     handleTrackingInput(event) {
       this.validateTrackingNumber();
-      
+
       // In auto mode, automatically verify after short delay when typing
       if (!this.showManualInput && this.trackingNumberValid && this.trackingNumber.length >= 5) {
         // Clear any existing timeout to avoid multiple calls
         if (this.autoVerifyTimeout) {
           clearTimeout(this.autoVerifyTimeout);
         }
-        
+
         // Set new timeout for auto verification
         this.autoVerifyTimeout = setTimeout(() => {
           this.verifyTrackingNumber();
         }, 500); // 500ms delay to let user finish typing
       }
     },
-    
+
     // Validation method for tracking number
     validateTrackingNumber() {
       // Basic validation - can be enhanced as needed
@@ -495,7 +495,7 @@ export default {
       }
       return this.trackingNumberValid;
     },
-    
+
     // Validation method for basket number
     validateBasketNumber() {
       // Updated regex to support BKT, SH, or ENV prefixes
@@ -506,14 +506,14 @@ export default {
       }
       return this.basketNumberValid;
     },
-    
+
     // Validation method for PCN
     validatePcnNumber() {
       if (this.pcnNumber.trim() === 'N/A') {
         this.pcnNumberValid = true;
         return true;
       }
-      
+
       const pcnRegex = /^PCN\d+$/i;
       this.pcnNumberValid = pcnRegex.test(this.pcnNumber.trim());
       if (!this.pcnNumberValid) {
@@ -521,23 +521,23 @@ export default {
       }
       return this.pcnNumberValid;
     },
-    
+
     // Step 1: Verify tracking number
     async verifyTrackingNumber() {
       this.validateTrackingNumber();
-      
+
       if (!this.trackingNumberValid) {
         this.$refs.scanner.showScanError('Please enter a valid tracking number');
         SoundService.error(); // Play error sound for invalid input
         return;
       }
-      
+
       try {
         // Check if tracking exists in database
         const response = await axios.get(`${API_BASE_URL}/api/received/verify-tracking`, {
           params: { tracking: this.trackingNumber }
         });
-        
+
         if (response.data.found) {
           // Tracking found in the database
           this.trackingFound = true;
@@ -545,15 +545,15 @@ export default {
           if (response.data.alreadyScanned) {
             // Item has already been scanned
             SoundService.alreadyScanned(); // Play already scanned sound
-          
+
             // Show warning notification for already scanned item (using our new method)
             this.$refs.scanner.showScanWarning(`Item already scanned`);
-            
+
             // Focus back on tracking input for next scan
             this.$refs.trackingInput.select();
             return;
           }
-          
+
           // Store the product ID and rtcounter received from the backend
           this.productId = response.data.productId;
           this.rtcounter = response.data.rtcounter; // Store rtcounter
@@ -565,9 +565,9 @@ export default {
           // Tracking not found
           this.$refs.scanner.showScanError('Tracking number not found');
           this.trackingFound = false;
-          SoundService.notFound(); // Play not found sound for missing 
+          SoundService.notFound(); // Play not found sound for missing
           this.$refs.trackingInput.select();
-          
+
         }
       } catch (error) {
         console.error('Error verifying tracking:', error);
@@ -576,13 +576,13 @@ export default {
         this.$refs.trackingInput.select();
       }
     },
-    
+
     // Step 2: Pass or fail the item
     passItem() {
       this.status = 'pass';
       this.currentStep = 3; // Move to First Serial Number step
       SoundService.success(); // Success sound for pass action
-      
+
       // Focus on the first serial number input
       this.$nextTick(() => {
         if (this.$refs.firstSerialInput) {
@@ -590,18 +590,18 @@ export default {
         }
       });
     },
-    
+
     // For failed items - move to basket number entry but allow image capture
     failItem() {
       this.status = 'fail';
-      
+
       // Add a camera button for failed items
       this.$refs.scanner.showScanSuccess('Item marked for failure - capture images if needed');
       SoundService.error(true); // Error sound with vibration for fail action
-      
+
       // Go to PCN step first instead of directly to basket
       this.currentStep = 5;
-      
+
       // Focus on the PCN input
       this.$nextTick(() => {
         if (this.$refs.pcnInput) {
@@ -617,13 +617,13 @@ export default {
         if (this.autoVerifyTimeout) {
           clearTimeout(this.autoVerifyTimeout);
         }
-        
+
         this.autoVerifyTimeout = setTimeout(() => {
           this.processFirstSerial();
         }, 500);
       }
     },
-    
+
     // Process first serial number
     async processFirstSerial() {
       if (!this.firstSerialNumber.trim()) {
@@ -632,14 +632,14 @@ export default {
         this.$refs.firstSerialInput.select();
         return;
       }
-      
+
       // Capture image for first serial
       //await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing image
-      
+
       // Move to second serial number step
       this.currentStep = 4;
-      
+
       // Focus on the second serial number input
       this.$nextTick(() => {
         if (this.$refs.secondSerialInput) {
@@ -647,7 +647,7 @@ export default {
         }
       });
     },
-    
+
     // Handle second serial number input
     handleSecondSerialInput() {
       // Auto-process in auto mode when input is valid
@@ -655,13 +655,13 @@ export default {
         if (this.autoVerifyTimeout) {
           clearTimeout(this.autoVerifyTimeout);
         }
-        
+
         this.autoVerifyTimeout = setTimeout(() => {
           this.processSecondSerial();
         }, 500);
       }
     },
-    
+
     // Process second serial number
     async processSecondSerial() {
       if (!this.secondSerialNumber.trim()) {
@@ -670,14 +670,14 @@ export default {
         this.$refs.secondSerialInput.select();
         return;
       }
-      
+
       // Capture image for second serial
       //await this.captureSerialImage();
       SoundService.success(); // Success sound after capturing image
-      
+
       // Move to PCN step
       this.currentStep = 5;
-      
+
       // Focus on the PCN input
       this.$nextTick(() => {
         if (this.$refs.pcnInput) {
@@ -685,15 +685,15 @@ export default {
         }
       });
     },
-    
+
     // Skip second serial number
     skipSecondSerial() {
       this.secondSerialNumber = 'N/A'; // Mark as not applicable
       SoundService.success(); // Success sound for skip action
-      
+
       // Move to PCN step
       this.currentStep = 5;
-      
+
       // Focus on the PCN input
       this.$nextTick(() => {
         if (this.$refs.pcnInput) {
@@ -701,7 +701,7 @@ export default {
         }
       });
     },
-    
+
     // Handle PCN input
     handlePcnInput() {
       // Auto-process in auto mode when input is valid
@@ -709,13 +709,13 @@ export default {
         if (this.autoVerifyTimeout) {
           clearTimeout(this.autoVerifyTimeout);
         }
-        
+
         this.autoVerifyTimeout = setTimeout(() => {
           this.processPcnNumber();
         }, 500);
       }
     },
-    
+
     // Process PCN
     async processPcnNumber() {
       if (!this.validatePcnNumber()) {
@@ -724,14 +724,14 @@ export default {
         this.$refs.pcnInput.select();
         return;
       }
-      
+
       try {
         // First validate PCN format locally
         // Then check if PCN is already used in the database
         const pcnResponse = await axios.post(`${API_BASE_URL}/api/received/validate-pcn`, {
           pcn: this.pcnNumber
         });
-        
+
         if (pcnResponse.data.alreadyUsed) {
           // PCN already exists in the database
           this.$refs.scanner.showScanWarning(`${this.pcnNumber} is already in use`);
@@ -739,14 +739,14 @@ export default {
           this.$refs.pcnInput.select();
           return;
         }
-        
+
         // Capture image for PCN
         // await this.captureSerialImage();
         SoundService.success(); // Success sound after capturing PCN image
-        
+
         // Move to basket number step
         this.currentStep = 6;
-        
+
         // Focus on the basket number input
         this.$nextTick(() => {
           if (this.$refs.basketInput) {
@@ -759,7 +759,7 @@ export default {
         SoundService.error();
       }
     },
-    
+
     // Handle basket number input
     handleBasketInput() {
       // Auto-process in auto mode when input is valid
@@ -767,13 +767,13 @@ export default {
         if (this.autoVerifyTimeout) {
           clearTimeout(this.autoVerifyTimeout);
         }
-        
+
         this.autoVerifyTimeout = setTimeout(() => {
           this.processBasketNumber();
         }, 500);
       }
     },
-    
+
     // Process basket number
     processBasketNumber() {
       if (!this.validateBasketNumber()) {
@@ -782,7 +782,7 @@ export default {
         this.$refs.basketInput.select();
         return;
       }
-      
+
       // Submit data based on status (pass or fail)
       if (this.status === 'fail') {
         this.submitFailedItem();
@@ -790,7 +790,7 @@ export default {
         this.submitScanData();
       }
     },
-    
+
     // Capture image of serial number
     async captureSerialImage() {
       // Use scanner component to capture image
@@ -806,7 +806,7 @@ export default {
       }
       return false;
     },
-    
+
     // Submit failed item data
     async submitFailedItem() {
       try {
@@ -839,7 +839,7 @@ export default {
           rtcounter: this.rtcounter, // Include rtcounter
           Images: images
         };
-        
+
         const response = await axios.post(`${API_BASE_URL}/api/received/process-scan`, failData, {
           withCredentials: true,
           headers: {
@@ -848,7 +848,7 @@ export default {
             'X-CSRF-TOKEN': csrfToken
           }
         });
-        
+
         if (response.data.success) {
            //clear fetch delivered item image
            this.$refs.scanner.clearProductThumbnails();
@@ -856,7 +856,7 @@ export default {
           this.$refs.scanner.stopLoading();
           this.$refs.scanner.showScanSuccess('Item marked as failed');
           SoundService.successScan(true); // Use successscan sound for final submission
-          
+
           // Add to scan history
           this.$refs.scanner.addSuccessScan({
             trackingnumber: this.trackingNumber,
@@ -864,15 +864,15 @@ export default {
             pcn: this.pcnNumber,
             basket: this.basketNumber
           });
-          
+
           // Clear all captured images if requested by the server
           if (response.data.clearImages) {
             this.$refs.scanner.capturedImages = [];
           }
-          
+
           // Reset scanner state
           this.resetScannerState();
-          
+
           // Refresh inventory
           this.fetchInventory();
         } else {
@@ -883,7 +883,7 @@ export default {
       } catch (error) {
         console.error('Error submitting failed item:', error);
         SoundService.scanRejected(true); // Use scanrejected sound for submission error
-        
+
         // Enhanced error handling
         if (error.response && error.response.status === 422) {
           console.log('Validation errors:', error.response.data);
@@ -902,7 +902,7 @@ export default {
         }
       }
     },
-    
+
     // Submit complete scan data
     async submitScanData() {
       try {
@@ -923,10 +923,10 @@ export default {
           rtcounter: this.rtcounter
           // No images in this initial request
         };
-        
+
         // Debug: Log the data being sent
         console.log('Submitting scan data (without images):', scanData);
-        
+
         // Send data to API
         const response = await axios.post(`${API_BASE_URL}/api/received/process-scan`, scanData, {
           withCredentials: true,
@@ -936,14 +936,14 @@ export default {
             'X-CSRF-TOKEN': csrfToken
           }
         });
-        
+
         if (response.data.success) {
           // If basic data submission was successful, now upload images one by one
           const images = this.$refs.scanner.capturedImages.map(img => img.data);
           if (images.length > 0) {
             const hasSerialTwo = this.secondSerialNumber !== 'N/A';
             const hasPcn = this.pcnNumber !== 'N/A';
-            
+
             // Upload each image separately
             for (let i = 0; i < images.length; i++) {
               try {
@@ -976,7 +976,7 @@ export default {
           // Show success notification
           this.$refs.scanner.showScanSuccess('Item received successfully');
           SoundService.successScan(true);
-          
+
           // Add to scan history
           this.$refs.scanner.addSuccessScan({
             Trackingnumber: this.trackingNumber,
@@ -987,10 +987,10 @@ export default {
           });
           // Clear captured images
           this.$refs.scanner.capturedImages = [];
-          
+
           // Reset workflow
           this.resetScannerState();
-          
+
           // Refresh inventory
           this.fetchInventory();
         } else {
@@ -998,7 +998,7 @@ export default {
           // Show error notification
           this.$refs.scanner.showScanError(response.data.message || 'Error processing scan');
           SoundService.scanRejected(true);
-          
+
           // Add to error scan history
           this.$refs.scanner.addErrorScan({
             Trackingnumber: this.trackingNumber,
@@ -1011,7 +1011,7 @@ export default {
       } catch (error) {
         console.error('Error submitting scan:', error);
         SoundService.scanRejected(true);
-        
+
         // Enhanced error handling for validation errors
         if (error.response && error.response.status === 422) {
           console.log('Validation errors:', error.response.data);
@@ -1032,7 +1032,7 @@ export default {
         }
       }
     },
-    
+
     // Reset scanner state
     resetScannerState() {
       // Reset all data
@@ -1052,13 +1052,13 @@ export default {
       if (this.$refs.scanner && this.$refs.scanner.clearProductThumbnails) {
         this.$refs.scanner.clearProductThumbnails();
       }
-      
+
       // Clear any pending auto-verify timeouts
       if (this.autoVerifyTimeout) {
         clearTimeout(this.autoVerifyTimeout);
         this.autoVerifyTimeout = null;
       }
-      
+
       // Focus back on tracking input
       this.$nextTick(() => {
         if (this.$refs.trackingInput) {
@@ -1066,7 +1066,7 @@ export default {
         }
       });
     },
-    
+
     // Scanner event handlers
     handleScanProcess() {
       // Process based on current step
@@ -1088,7 +1088,7 @@ export default {
           break;
       }
     },
-    
+
     // Handle hardware scanner input
     handleHardwareScan(scannedCode) {
       // Determine which step we're on and handle the scan accordingly
@@ -1115,12 +1115,12 @@ export default {
           break;
       }
     },
-    
+
     // Handle mode changes
     handleModeChange(event) {
       this.showManualInput = event.manual;
     },
-    
+
     // Scanner opened event
     handleScannerOpened() {
       console.log('Scanner opened');
@@ -1128,19 +1128,19 @@ export default {
       this.showManualInput = this.$refs.scanner.showManualInput;
       this.resetScannerState();
     },
-    
+
     // Scanner closed event
     handleScannerClosed() {
       console.log('Scanner closed');
       this.fetchInventory();
     },
-    
+
     // Scanner reset event
     handleScannerReset() {
       console.log('Scanner reset');
       this.resetScannerState();
     },
-    
+
     // Pagination methods
     prevPage() {
       if (this.currentPage > 1) {
@@ -1148,22 +1148,22 @@ export default {
         this.fetchInventory();
       }
     },
-    
+
     nextPage() {
       if (this.currentPage < this.totalPages) {
         this.currentPage++;
         this.fetchInventory();
       }
     },
-    
+
     toggleAll() {
       this.inventory.forEach((item) => (item.checked = this.selectAll));
     },
-    
+
     toggleDetails(index) {
       this.$set(this.expandedRows, index, !this.expandedRows[index]);
     },
-    
+
     // Sort column
     sortBy(column) {
       if (this.sortColumn === column) {
@@ -1173,12 +1173,12 @@ export default {
         this.sortOrder = 'asc';
       }
     },
-    
+
     // Toggle details visibility
     toggleDetailsVisibility() {
       this.showDetails = !this.showDetails;
     },
-    
+
     // Change rows per page
     changePerPage() {
       this.currentPage = 1;

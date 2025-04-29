@@ -1,0 +1,55 @@
+/* Styles specific to the Unreceived Module */
+.success-banner {
+    background-color: #4CAF50;
+    color: white;
+    padding: 10px;
+    text-align: center;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    font-weight: bold;
+}
+
+.readonly-input {
+    background-color: #f5f5f5;
+}
+
+.next-button,
+.today-button,
+.verify-button,
+.submit-scan-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    margin-top: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.date-input-container {
+    position: relative;
+    width: 100%;
+}
+
+.date-input {
+    width: 100%;
+    padding: 8px 30px 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.calendar-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+}
+
+/* Your existing styles */
+.table-container {
+    margin-top: 20px;
+}

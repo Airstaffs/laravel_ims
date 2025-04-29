@@ -1,0 +1,16 @@
+input {
+    margin-bottom: 5px;
+    padding: 10px;
+    width: 400px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+@media (max-width: 768px) {
+    input {
+
+        width: 160%;
+
+    }
+
+}

@@ -7,18 +7,18 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 import axios from "axios";
 
 // Import components
-import Stockroom from "./components/Stockroom/stockroom.vue";
+import Stockroom from "./page/stockroom/stockroom.vue";
+import Cleaning from "./page/cleaning/cleaning.vue";
+import FNSKU from "./page/fnsku/fnsku.vue";
+import Labeling from "./page/labeling/labeling.vue";
+import Order from "./page/orders/orders.vue";
+import Packing from "./page/packing/packing.vue";
+import Receiving from "./page/receiving/receiving.vue";
+import Testing from "./page/testing/testing.vue";
+import Searching from "./page/searching/searching.vue";
+import Unreceived from "./page/unreceived/unreceived.vue";
+import Validation from "./page/validation/validation.vue";
 
-import Order from "./components/orders.vue";
-import Labeling from "./components/labeling.vue";
-import Unreceived from "./components/unreceived.vue";
-import Cleaning from "./components/cleaning.vue";
-import Packing from "./components/packing.vue";
-import Receiving from "./components/receiving.vue";
-import Testing from "./components/testing.vue";
-import Validation from "./components/validation.vue";
-import Searching from "./components/searching.vue";
-import FNSKU from "./components/fnsku.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound_shipment.vue";
 
 // Include CSRF token in all requests
