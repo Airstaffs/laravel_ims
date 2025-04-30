@@ -1,17 +1,86 @@
 <template>
-    <div class="vue-container">
-        <h1 class="vue-title">Packing Module</h1>
-        <!-- Pagination -->
-        <div class="pagination">
-            <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Back</button>
-            <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-            <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
+    <div class="vue-container packing-module">
+        <div class="top-header">
+            <h1 class="module-title">Packing Module</h1>
+        </div>
 
-            <select v-model="perPage" @change="changePerPage">
-                <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                    {{ option }}
-                </option>
-            </select>
+        <!-- Pagination with centered layout -->
+        <div class="pagination-container">
+            <div class="pagination-wrapper">
+                <div class="pagination">
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+                        <i class="fas fa-chevron-left"></i> Back
+                    </button>
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="per-page-selector">
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+                            {{ option }} per page
+                        </option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-container desktop-view">
+            <button class="btn-showDetails"
+                @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
+            </button>
+            <table class="table table-bordered">
+                <thead>
+                    <tr>
+                        <th class="check-column">
+                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
+                        </th>
+                        <th class="product-name">
+                            <div class="th-content">
+                                <span class="sortable" @click="sortBy('AStitle')">
+                                    Product Name
+                                    <i v-if="sortColumn === 'AStitle'"
+                                        :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
+                                </span>
+                            </div>
+                        </th>
+                        <th class="">Location</th>
+                        <th class="">Added date</th>
+                        <th class="">Updated date</th>
+                        <th class="">Fnsku</th>
+                        <th class="">Msku</th>
+                        <th class="">Asin</th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">FBM
+                        </th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">FBA
+                        </th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
+                            Outbound</th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">Inbound
+                        </th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
+                            Unfulfillable</th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
+                            Reserved</th>
+                        <th class="">Fulfillment</th>
+                        <th class="">Status</th>
+                        <th class="">Serialnumber</th>
+                        <th class="">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template v-for="(item, index) in sortedInventory" :key="item.id">
+                        <tr>
+                            <td>
+                                <input type="checkbox" v-model="item.checked" />
+                                <span class="placeholder-date">{{ item.shipBy || '' }}</span>
+                            </td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
         </div>
 
         <div class="table-container">

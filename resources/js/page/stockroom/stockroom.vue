@@ -1,5 +1,5 @@
 <template>
-    <div class="vue-container stockroom">
+    <div class="vue-container">
         <!-- Top header bar with blue background -->
         <div class="top-header">
             <div class="store-filter">
@@ -87,9 +87,11 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th class="width-30">
+                        <th class="width-2">
+                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
+                        </th>
+                        <th class="width-28">
                             <div class="th-content">
-                                <input type="checkbox" @click="toggleAll" v-model="selectAll" />
                                 <span class="sortable" @click="sortBy('AStitle')">
                                     Product Name
                                     <i v-if="sortColumn === 'AStitle'"
@@ -162,10 +164,12 @@
                     <template v-for="(item, index) in sortedInventory" :key="item.ASIN">
                         <tr>
                             <td>
+                                <div class="checkbox-container">
+                                    <input type="checkbox" v-model="item.checked" />
+                                </div>
+                            </td>
+                            <td>
                                 <div class="product-cell">
-                                    <div class="checkbox-container">
-                                        <input type="checkbox" v-model="item.checked" />
-                                    </div>
                                     <div class="product-container">
                                         <div class="product-image clickable" @click="viewProductImage(item)">
                                             <img :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)"
