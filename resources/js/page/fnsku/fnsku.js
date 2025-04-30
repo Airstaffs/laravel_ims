@@ -9,6 +9,7 @@ export default {
             inventory: [],
             currentPage: 1,
             totalPages: 1,
+            perPage: 10, // Default rows per page
             selectAll: false,
             fnsku: "",
             msku: "",
