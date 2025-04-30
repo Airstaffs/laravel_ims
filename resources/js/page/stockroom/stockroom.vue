@@ -15,10 +15,10 @@
             <h1 class="module-title">Stockroom Module</h1>
 
             <div class="header-buttons">
-                <button class="scan-button" @click="openScannerModal">
+                <button class="btn scan-button" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
                 </button>
-                <button class="shipment-button" @click="loadFBAInboundShipment">
+                <button class="btn shipment-button" @click="loadFBAInboundShipment">
                     <i class="fas fa-truck"></i> FBA Inbound Shipment
                 </button>
             </div>
@@ -87,7 +87,7 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th width="30%">
+                        <th class="width-30">
                             <div class="th-content">
                                 <input type="checkbox" @click="toggleAll" v-model="selectAll" />
                                 <span class="sortable" @click="sortBy('AStitle')">
@@ -97,61 +97,61 @@
                                 </span>
                             </div>
                         </th>
-                        <th width="8%">
+                        <th class="width-8">
                             <div class="th-content sortable" @click="sortBy('ASIN')">
                                 ASIN
                                 <i v-if="sortColumn === 'ASIN'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th width="8%">
+                        <th class="width-8">
                             <div class="th-content sortable" @click="sortBy('MSKUviewer')">
                                 MSKU/SKU
                                 <i v-if="sortColumn === 'MSKUviewer'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th width="8%">
+                        <th class="width-8">
                             <div class="th-content sortable" @click="sortBy('storename')">
                                 Store
                                 <i v-if="sortColumn === 'storename'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th width="8%">
+                        <th class="width-8">
                             <div class="th-content sortable" @click="sortBy('grading')">
                                 Grading
                                 <i v-if="sortColumn === 'grading'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th width="8%">
+                        <th class="width-8">
                             <div class="th-content">
                                 FNSKUs
                             </div>
                         </th>
-                        <th width="5%">
+                        <th class="width-5">
                             <div class="th-content sortable" @click="sortBy('FBMAvailable')">
                                 FBM
                                 <i v-if="sortColumn === 'FBMAvailable'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th width="5%">
+                        <th class="width-5">
                             <div class="th-content sortable" @click="sortBy('FbaAvailable')">
                                 FBA
                                 <i v-if="sortColumn === 'FbaAvailable'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th width="5%">
+                        <th class="width-8">
                             <div class="th-content sortable" @click="sortBy('item_count')">
                                 Item Count
                                 <i v-if="sortColumn === 'item_count'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th width="15%">
+                        <th class="width-15">
                             <div class="th-content">
                                 Actions
                             </div>

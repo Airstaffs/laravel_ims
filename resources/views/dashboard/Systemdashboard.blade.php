@@ -13,7 +13,7 @@
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-    
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
@@ -39,7 +39,7 @@
             color: #fff !important;
         }
 
-  
+
 
         .sidebar {
             height: 100vh;
@@ -104,11 +104,11 @@
             transition: margin-left 0.3s ease-in-out;
         }
 
-        footer {
+        /* footer {
             text-align: center;
             margin-top: 2rem;
             color: #6c757d;
-        }
+        } */
 
         @media (max-width: 768px) {
             .sidebar {
@@ -189,7 +189,7 @@
 
 #storeList .edit-store-btn:hover {
     background-color: #0056b3;
-}          
+}
 
 .d-flex button {
     margin-left: 5px; /* Adjust spacing between buttons */
@@ -225,7 +225,7 @@
             @endif
             {{ session('site_title', 'IMS') }}
         </a>
-        
+
 
         <!-- Icons Always Visible on Mobile -->
         <div class="d-flex align-items-center ms-auto d-lg-none">
@@ -263,9 +263,9 @@
 
                     <!-- Settings -->
                     <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center" 
-                            href="#" 
-                            data-bs-toggle="modal" 
+                    <a class="nav-link d-flex align-items-center justify-content-center"
+                            href="#"
+                            data-bs-toggle="modal"
                             data-bs-target="#settingsModal">
                                 <i class="bi bi-gear me-2"></i>
                                 <span class="d-none d-lg-inline">Settings</span>
@@ -274,7 +274,7 @@
 
                     <!-- Logout -->
                     <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center justify-content-center" href="#" 
+                        <a class="nav-link d-flex align-items-center justify-content-center" href="#"
                         onclick="event.preventDefault(); showLogoutModal();">
                             <i class="bi bi-box-arrow-right me-2"></i>
                             <span class="d-none d-lg-inline">Logout</span>
@@ -298,37 +298,37 @@
 
     <!-- User Info Section -->
     <div class="user-info">
-        <img 
-            src="{{ session('profile_picture', 'default-profile.jpg') }}" 
-            alt="User Profile" 
-            class="rounded-circle mb-2" 
+        <img
+            src="{{ session('profile_picture', 'default-profile.jpg') }}"
+            alt="User Profile"
+            class="rounded-circle mb-2"
             style="width: 80px; height: 80px; object-fit: cover;">
-        
+
         <h5>{{ session('user_name', 'User Name') }}</h5>
     </div>
 
     <h5 class="text-center">Navigation</h5>
-    
+
     <?php
     // In your blade template
-    $mainModule = strtolower(session('main_module', '')); 
-    $subModules = array_map('strtolower', session('sub_modules', [])); 
-    
+    $mainModule = strtolower(session('main_module', ''));
+    $subModules = array_map('strtolower', session('sub_modules', []));
+
     // Fallback for main module
     $defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
-    
+
     function checkPermission($module, $mainModule, $subModules) {
         // Convert to lowercase for comparison
         $module = strtolower($module);
         $mainModule = strtolower($mainModule);
         $subModules = array_map('strtolower', (array)$subModules);
-        
+
         if ($module === 'dashboard') {
             return true;
         }
         return $module === $mainModule || in_array($module, $subModules);
     }
-    
+
     $modules = [
         'order' => 'Order',
         'unreceived' => 'Unreceived',
@@ -355,17 +355,17 @@
     <nav class="nav flex-column sidebar-nav">
         <?php if ($mainModule): ?>
             <!-- If we have a main module, show it first -->
-            <a class="nav-link <?= (request()->segment(1) == $mainModule) ? 'active' : '' ?>" 
-               href="/<?= $mainModule ?>" 
+            <a class="nav-link <?= (request()->segment(1) == $mainModule) ? 'active' : '' ?>"
+               href="/<?= $mainModule ?>"
                onclick="highlightNavLink(this); document.getElementById('<?= $mainModule ?>Link').click(); closeSidebar(); return false;">
                 <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
             </a>
         <?php endif; ?>
-        
+
         <?php foreach ($modules as $module => $label): ?>
             <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
-                <a class="nav-link <?= (request()->segment(1) == $module) ? 'active' : '' ?>" 
-                   href="/<?= $module ?>" 
+                <a class="nav-link <?= (request()->segment(1) == $module) ? 'active' : '' ?>"
+                   href="/<?= $module ?>"
                    onclick="highlightNavLink(this); document.getElementById('<?= $module ?>Link').click(); closeSidebar(); return false;">
                     <?= $label ?>
                 </a>
@@ -383,12 +383,12 @@
         border-radius: 5px;
         transition: all 0.2s ease;
     }
-    
+
     .sidebar-nav .nav-link:hover {
         background-color: #495057;
         color: #fff;
     }
-    
+
     .sidebar-nav .nav-link.active {
         color: #fff;
         background-color: {{ session('theme_color', '#007bff') }};
@@ -404,54 +404,54 @@
         function setActiveNavLink() {
             const currentPath = window.location.pathname;
             const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
-            
+
             navLinks.forEach(link => {
                 // Remove active class from all links
                 link.classList.remove('active');
-                
+
                 // Check if link href matches current path
                 if (link.getAttribute('href') === currentPath) {
                     link.classList.add('active');
                 }
             });
         }
-        
+
         // Initialize active link on page load
         setActiveNavLink();
-        
+
         // Set up close button functionality
         const closeBtn = document.getElementById('close-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', closeSidebar);
         }
     });
-    
+
     // Function to highlight clicked nav link
     function highlightNavLink(element) {
         // Remove active class from all nav links
         const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
         navLinks.forEach(link => link.classList.remove('active'));
-        
+
         // Add active class to clicked link
         element.classList.add('active');
     }
-    
+
     // Function to close the sidebar
     function closeSidebar() {
         const sidebar = document.getElementById('sidebar');
         const content = document.getElementById('main-content');
         const burgerMenu = document.getElementById('burger-menu');
         const navbarBrand = document.querySelector('.navbar-brand');
-        
+
         // Remove visible class from sidebar
         if (sidebar) sidebar.classList.remove('visible');
-        
+
         // Remove sidebar-visible class from content
         if (content) content.classList.remove('sidebar-visible');
-        
+
         // Show burger menu again
         if (burgerMenu) burgerMenu.classList.remove('hidden');
-        
+
         // Reset navbar brand position
         if (navbarBrand) navbarBrand.classList.remove('shifted');
     }
@@ -469,14 +469,14 @@
     <div id="app">
     <!-- Hidden component triggers -->
     <?php foreach ($modules as $module => $label): ?>
-        <a id="<?= $module ?>Link" 
-           style="display:none" 
-           href="#" 
+        <a id="<?= $module ?>Link"
+           style="display:none"
+           href="#"
            @click.prevent="loadContent('<?= $module ?>')">
             <?= $label ?>
         </a>
     <?php endforeach; ?>
-    
+
     <!-- Vue component with main module as default -->
     <component :is="currentComponent"></component>
 </div>
@@ -577,7 +577,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             <span class="d-none d-sm-inline"> User Logs</span>
                         </button>
                     </li>
-                    
+
                 </ul>
          <!-- Combined Tab for Title & Design -->
                 <div class="tab-content mt-3" id="settingsTabContent">
@@ -620,7 +620,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             <label for="username" class="form-label">Username</label>
                             <input type="text" class="form-control" id="username" name="username" placeholder="Enter username" required>
                         </div>
-                        
+
                         <!-- Password -->
                         <div class="mb-3">
                             <label for="password" class="form-label">Password</label>
@@ -631,7 +631,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </button>
                             </div>
                         </div>
-                        
+
                         <!-- Confirm Password -->
                         <div class="mb-3">
                             <label for="password_confirmation" class="form-label">Confirm Password</label>
@@ -642,7 +642,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </button>
                             </div>
                         </div>
-                        
+
                         <!-- User Role -->
                         <div class="mb-3">
                             <label for="userRole" class="form-label">User Role</label>
@@ -652,7 +652,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 <option value="User">User</option>
                             </select>
                         </div>
-                            
+
                             <div class="d-flex justify-content-between align-items-center">
                                 <button type="submit" class="btn btn-primary">Add User</button>
                                 <button type="button" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#userListModal">
@@ -661,7 +661,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             </div>
                     </form>
                 </div>
-         
+
                 <!-- Store List Tab Content -->
                 <div class="tab-pane fade" id="store" role="tabpanel" aria-labelledby="store-tab">
                     <h5>Store List</h5>
@@ -675,12 +675,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     <!-- Add Store Button -->
                     <button class="btn btn-primary" id="addStoreButton">Add Store</button>
                 </div>
-            <!-- Store List Tab Content END-->  
-             
-          
-            
-             
-          
+            <!-- Store List Tab Content END-->
+
+
+
+
+
             <div class="tab-pane fade" id="privilege" role="tabpanel" aria-labelledby="privilege-tab">
                 <h5>User Privileges</h5>
                 <form id="privilegeForm">
@@ -720,7 +720,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             <div class="tab-pane fade" id="usertimerecord" role="tabpanel" aria-labelledby="usertimerecord-tab">
                 <h5>USER TIME RECORD</h5>
-                
+
                 <!-- User Selection Form -->
                 <form id="usertimerecord" class="mb-4">
                     @csrf
@@ -735,7 +735,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 @endforeach
                             </select>
                         </div>
-                        
+
                         <div class="col-auto">
                             <input type="date" class="form-control" id="start_date" name="start_date" placeholder="Start Date">
                         </div>
@@ -769,7 +769,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             <div class="tab-pane fade" id="userlogs" role="tabpanel" aria-labelledby="userlogs-tab">
                 <h5>USER LOGS</h5>
-                
+
                 <!-- User Selection Form -->
                 <form id="userlogs" class="mb-4">
                     @csrf
@@ -784,7 +784,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 @endforeach
                             </select>
                         </div>
-                        
+
                         <div class="col-auto">
                             <input type="date" class="form-control" id="start_date_logs" name="start_date_logs" placeholder="Start Date">
                         </div>
@@ -826,20 +826,20 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Function to format date
                 function formatDate(date) {
-                    const options = { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        year: 'numeric' 
+                    const options = {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
                     };
                     return new Date(date).toLocaleDateString('en-US', options);
                 }
 
                 // Function to format time
                 function formatTime(date) {
-                    const options = { 
-                        hour: '2-digit', 
+                    const options = {
+                        hour: '2-digit',
                         minute: '2-digit',
-                        hour12: true 
+                        hour12: true
                     };
                     return new Date(date).toLocaleTimeString('en-US', options);
                 }
@@ -870,13 +870,13 @@ document.addEventListener('DOMContentLoaded', function () {
                                         <small class="text-muted-notes">OUT: ${timeOut ? formatTime(timeOut) : 'Not clocked out'}</small>
                                     </td>
                                     <td class="td-notes">${totalHours}</td>
-                                    ${isMobile ? 
+                                    ${isMobile ?
                                         `<td class="td-notes">
-                                            ${record.Notes ? 
+                                            ${record.Notes ?
                                                 `<div class="notes-icon">
                                                     <i class="bi bi-sticky"></i>
                                                     <span class="tooltip-notes">${record.Notes}</span>
-                                                </div>` : 
+                                                </div>` :
                                                 '-'
                                             }
                                         </td>` :
@@ -931,9 +931,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Function to format date only
                 function formatDate(dateTime) {
                     const date = new Date(dateTime);
-                    const options = { 
-                        month: 'short', 
-                        day: 'numeric', 
+                    const options = {
+                        month: 'short',
+                        day: 'numeric',
                         year: 'numeric'
                     };
                     return date.toLocaleDateString('en-US', options);
@@ -944,7 +944,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const params = new URLSearchParams({
                         user_id: selectUser.value,
                         start_date_logs: startDate_logs.value,    // Changed from start_date
-                        end_date_logs: endDate_logs.value  
+                        end_date_logs: endDate_logs.value
                     });
 
                     fetch(`/get-user-logs?${params}`)
@@ -957,14 +957,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                 const row = `
                                     <tr class="tr-notes">
                                         <td class="td-notes">${log.username}</td>
-                                        
-                                        ${isMobile ? 
+
+                                        ${isMobile ?
                                             `<td class="td-notes">
-                                                ${log.actions ? 
+                                                ${log.actions ?
                                                     `<div class="notes-icon">
                                                         <i class="bi bi-sticky"></i>
                                                         <span class="tooltip-notes">${log.actions}</span>
-                                                    </div>` : 
+                                                    </div>` :
                                                     '-'
                                                 }
                                             </td>` :
@@ -1096,7 +1096,7 @@ document.addEventListener('DOMContentLoaded', function () {
     .td-notes {
         white-space: normal;
     }
-    
+
     .text-muted-notes {
         font-size: 0.85rem;
     }
@@ -1117,14 +1117,14 @@ document.addEventListener("DOMContentLoaded", function() {
 // Admin Functions
 function initializeUserSelect() {
     const selectUser = document.getElementById('selectUser');
-    
+
     selectUser.addEventListener('change', function() {
         const selectedValue = this.value;
-        
+
         Array.from(this.options).forEach(option => {
             option.style.display = option.value === selectedValue ? 'none' : 'block';
         });
-        
+
         if (selectedValue !== "") {
             const defaultOption = selectUser.querySelector('option[value=""]');
             if (defaultOption) {
@@ -1140,22 +1140,22 @@ function initializeUserSelect() {
 
 function initializePrivilegeForm() {
     const form = document.getElementById('privilegeForm');
-    
+
     form.addEventListener('submit', async function(e) {
         e.preventDefault();
-        
+
         try {
             // Refresh CSRF token before submitting
             await refreshCsrfToken();
-            
+
             const formData = collectFormData();
             const response = await saveUserPrivileges(formData);
-            
+
             if (response.success) {
                 showNotification('Success', 'User privileges saved successfully!', 'success');
-                
+
                 await fetchUserPrivileges(formData.user_id);
-                
+
                 updateUserNavigation({
                     main_module: formData.main_module,
                     sub_modules: formData.sub_modules,
@@ -1184,7 +1184,7 @@ function initializePrivilegeForm() {
                 document.body.classList.remove('modal-open');
                 document.body.style.removeProperty('padding-right');
                 modalEl.classList.remove('show');
-                
+
                 // Re-bind modal trigger
                 const settingsButton = document.querySelector('[data-bs-toggle="modal"][data-bs-target="#settingsModal"]');
                 if (settingsButton) {
@@ -1220,7 +1220,7 @@ async function refreshCsrfToken() {
 
 function collectFormData() {
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    
+
     return {
         user_id: parseInt(document.getElementById('selectUser').value, 10),
         main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
@@ -1232,7 +1232,7 @@ function collectFormData() {
 
 async function saveUserPrivileges(formData) {
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    
+
     try {
         // First save the privileges
         const response = await fetch('/save-user-privileges', {
@@ -1243,9 +1243,9 @@ async function saveUserPrivileges(formData) {
             },
             body: JSON.stringify(formData)
         });
-        
+
         const result = await response.json();
-        
+
         if (result.success) {
             // Force session refresh
             const refreshResponse = await fetch('/refresh-user-session', {
@@ -1255,13 +1255,13 @@ async function saveUserPrivileges(formData) {
                     'X-CSRF-TOKEN': csrfToken
                 }
             });
-            
+
             const refreshResult = await refreshResponse.json();
             if (refreshResult.success) {
                 return result;
             }
         }
-        
+
         return result;
     } catch (error) {
         console.error('Error in save process:', error);
@@ -1298,7 +1298,7 @@ function updateMainModule(data) {
         <div class="row mb-3">
             ${mainModules.map(module => `
                 <div class="col-4 form-check mb-2 px-10">
-                    <input class="form-check-input" type="radio" name="main_module" 
+                    <input class="form-check-input" type="radio" name="main_module"
                            value="${module}" ${data.main_module === module ? 'checked' : ''} required>
                     <label class="form-check-label">${module}</label>
                 </div>
@@ -1315,7 +1315,7 @@ function updateSubModules(data) {
         <div class="row mb-3">
             ${subModules.map(module => `
                 <div class="col-4 form-check mb-2 px-10">
-                    <input class="form-check-input" type="checkbox" name="sub_modules[]" 
+                    <input class="form-check-input" type="checkbox" name="sub_modules[]"
                            value="${module}" ${data.sub_modules && data.sub_modules[module] ? 'checked' : ''}>
                     <label class="form-check-label">${module}</label>
                 </div>
@@ -1329,10 +1329,10 @@ function updateStores(data) {
     const storeHTML = `
         <h6>Stores</h6>
         <div class="row mb-3">
-            ${data.privileges_stores && data.privileges_stores.length > 0 
+            ${data.privileges_stores && data.privileges_stores.length > 0
                 ? data.privileges_stores.map(store => `
                     <div class="col-4 form-check mb-2">
-                        <input class="form-check-input" type="checkbox" name="privileges_stores[]" 
+                        <input class="form-check-input" type="checkbox" name="privileges_stores[]"
                                value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
                         <label class="form-check-label">${store.store_name}</label>
                     </div>
@@ -1353,10 +1353,10 @@ async function checkForUpdates() {
     try {
         const response = await fetch('/check-user-privileges');
         const data = await response.json();
-        
+
         if (data.success) {
             console.log('Checking for updates:', data);
-            
+
             window.defaultComponent = data.main_module;
             window.allowedModules = data.sub_modules;
             window.mainModule = data.main_module;
@@ -1379,7 +1379,7 @@ function updateUserNavigation(data) {
     // Add main module if it exists
     if (data.main_module) {
         navHTML += `
-            <a class="nav-link active" href="#" 
+            <a class="nav-link active" href="#"
                data-module="${data.main_module}"
                onclick="document.getElementById('${data.main_module}Link').click()">
                 ${data.modules[data.main_module] || capitalizeFirst(data.main_module)}
@@ -1391,7 +1391,7 @@ function updateUserNavigation(data) {
         data.sub_modules.forEach(module => {
             if (module !== data.main_module) {
                 navHTML += `
-                    <a class="nav-link" href="#" 
+                    <a class="nav-link" href="#"
                        data-module="${module}"
                        onclick="document.getElementById('${module}Link').click()">
                         ${data.modules[module] || capitalizeFirst(module)}
@@ -1410,10 +1410,10 @@ function updateUserNavigation(data) {
 
 function forceComponentUpdate(moduleName) {
     if (!window.appInstance) return;
-    
+
     console.log('Forcing update to component:', moduleName);
     window.appInstance.currentComponent = null;
-    
+
     setTimeout(() => {
         window.appInstance.currentComponent = moduleName;
         console.log('Component updated to:', moduleName);
@@ -1563,13 +1563,13 @@ window.onload = function() {
                 <form id="editUserForm">
                     @csrf
                     <input type="hidden" id="edit_user_id" name="user_id">
-                    
+
                     <!-- Username -->
                     <div class="mb-3">
                         <label for="edit_username" class="form-label">Username</label>
                         <input type="text" class="form-control" id="edit_username" name="username" required>
                     </div>
-                    
+
                     <!-- Password (Optional) -->
                     <div class="mb-3">
                         <label for="edit_password" class="form-label">New Password (leave blank to keep current)</label>
@@ -1580,7 +1580,7 @@ window.onload = function() {
                             </button>
                         </div>
                     </div>
-                    
+
                     <!-- User Role -->
                     <div class="mb-3">
                         <label for="edit_role" class="form-label">User Role</label>
@@ -1590,7 +1590,7 @@ window.onload = function() {
                             <option value="User">User</option>
                         </select>
                     </div>
-                    
+
                     <button type="submit" class="btn btn-primary">Update User</button>
                 </form>
             </div>
@@ -1707,10 +1707,10 @@ document.addEventListener('DOMContentLoaded', function () {
                             <!-- Clock In Button -->
                             <form action="{{ route('attendance.clockin') }}" method="POST" id="clockin-form">
                                 @csrf
-                                <button type="button" 
-                                        class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-primary' : 'btn-secondary' }} px-4 py-3 fs-5" 
+                                <button type="button"
+                                        class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-primary' : 'btn-secondary' }} px-4 py-3 fs-5"
                                         style="min-width: 15%;"
-                                        onclick="confirmClockIn()" 
+                                        onclick="confirmClockIn()"
                                         {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
                                     Clock In
                                 </button>
@@ -1719,10 +1719,10 @@ document.addEventListener('DOMContentLoaded', function () {
                             <!-- Clock Out Button -->
                             <form action="{{ route('attendance.clockout') }}" method="POST" id="clockout-form">
                                 @csrf
-                                <button type="button" 
-                                        class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-primary' : 'btn-secondary' }} px-4 py-3 fs-5" 
+                                <button type="button"
+                                        class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-primary' : 'btn-secondary' }} px-4 py-3 fs-5"
                                         style="min-width: 15%;"
-                                        onclick="confirmClockOut()" 
+                                        onclick="confirmClockOut()"
                                         {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
                                     Clock Out
                                 </button>
@@ -1733,7 +1733,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="mt-4 p-3 bg-light border rounded">
                             <p><strong>Today's Hours:</strong> <span id="today-hours">{{ $todayHoursFormatted ?? '0:00' }}</span></p>
                             <p><strong>This Week's Hours:</strong> <span id="week-hours">{{ $weekHoursFormatted ?? '0:00' }}</span></p>
-                        </div>              
+                        </div>
 
                         <!-- Attendance Table -->
                         <div class="table-responsive mt-4">
@@ -1785,7 +1785,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         </button>
                                     </td>
                                     <td>
-                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editNotesModal" 
+                                        <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#editNotesModal"
                                                 onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
                                             <i class="bi bi-pencil-square"></i>
                                         </button>
@@ -1833,13 +1833,13 @@ document.addEventListener('DOMContentLoaded', function () {
                             <button type="submit" class="btn btn-primary">UPDATE</button>
                         </form>
                     </div>
-					
-                    
+
+
                     <!--  Tab -->
                     <div class="tab-pane fade show text-center" id="timerecord" role="tabpanel" aria-labelledby="timerecord-tab">
 
                         <div class="container">
-                            <!-- Date Range Filter --> 
+                            <!-- Date Range Filter -->
                                 <form id="filter-form" class="mb-3">
                                     <!-- Start Date -->
                                     <div class="form-group">
@@ -1885,7 +1885,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div class="tab-pane fade show" id="myprivileges" role="tabpanel" aria-labelledby="myprivileges-tab">
                         <h5 style="font-weight: bold; color: #333;">Account Privileges</h5>
                         <div class="row">
-						
+
                             <!-- First Column -->
                             <div class="col-md-6">
                                 <div class="form-check">
@@ -1953,7 +1953,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     </label>
                                 </div>
                             </div>
-							
+
                         </div>
                     </div>
 
@@ -2026,7 +2026,7 @@ document.addEventListener('DOMContentLoaded', function () {
 function populateNotesModal(recordId, notes) {
     // Get modal instance
     const editNotesModal = new bootstrap.Modal(document.getElementById('editNotesModal'));
-    
+
     // Set the values
     document.getElementById('recordId').value = recordId;
     document.getElementById('notes').value = notes;
@@ -2104,14 +2104,14 @@ document.getElementById('addStoreForm').addEventListener('submit', function (e) 
                 const newStoreItem = document.createElement('li');
                 newStoreItem.classList.add('list-group-item');
                 newStoreItem.innerHTML = `
-                    ${response.data.store.storename} 
+                    ${response.data.store.storename}
                     <div class="d-flex justify-content-end">
-                        <button class="btn btn-secondary btn-sm edit-store-btn" 
-                                data-id="${response.data.store.store_id}" 
+                        <button class="btn btn-secondary btn-sm edit-store-btn"
+                                data-id="${response.data.store.store_id}"
                                 data-name="${response.data.store.storename}">
                             Edit
                         </button>
-                        <button class="btn btn-danger btn-sm delete-store-btn" 
+                        <button class="btn btn-danger btn-sm delete-store-btn"
                                 data-id="${response.data.store.store_id}">
                             Delete
                         </button>
@@ -2162,14 +2162,14 @@ function fetchStoreList() {
                 const listItem = document.createElement('li');
                 listItem.classList.add('list-group-item');
                 listItem.innerHTML = `
-                    ${store.storename} 
+                    ${store.storename}
                     <div class="d-flex justify-content-end">
-                        <button class="btn btn-secondary btn-sm edit-store-btn" 
-                                data-id="${store.store_id}" 
+                        <button class="btn btn-secondary btn-sm edit-store-btn"
+                                data-id="${store.store_id}"
                                 data-name="${store.storename}">
                             Edit
                         </button>
-                        <button class="btn btn-danger btn-sm delete-store-btn" 
+                        <button class="btn btn-danger btn-sm delete-store-btn"
                                 data-id="${store.store_id}">
                             Delete
                         </button>
@@ -2196,7 +2196,7 @@ function refreshStoreList() {
     }
 
     showLoadingIndicator();
-    
+
     fetch(`/fetchNewlyAddedStoreCol?user_id=${userId}`)
         .then(response => {
             if (!response.ok) {
@@ -2220,7 +2220,7 @@ function refreshStoreList() {
 
 function updateStoreList(stores) {
     const storeContainer = document.getElementById('storeContainer');
-    
+
     // Save current checkbox states
     const currentStates = new Map();
     document.querySelectorAll('input[name="privileges_stores[]"]').forEach(input => {
@@ -2228,16 +2228,16 @@ function updateStoreList(stores) {
     });
 
     let storeListHTML = '<h6>Stores</h6><div class="row mb-3">';
-    
+
     stores.forEach(store => {
         // Check if we have a saved state, otherwise use the server state
-        const isChecked = currentStates.has(store.store_column) 
+        const isChecked = currentStates.has(store.store_column)
             ? currentStates.get(store.store_column)
             : store.is_checked;
-            
+
         storeListHTML += `
             <div class="col-4 form-check mb-2">
-                <input class="form-check-input" 
+                <input class="form-check-input"
                        type="checkbox"
                        name="privileges_stores[]"
                        value="${store.store_column}"
@@ -2245,7 +2245,7 @@ function updateStoreList(stores) {
                 <label class="form-check-label">${store.store_name}</label>
             </div>`;
     });
-    
+
     storeListHTML += '</div>';
     storeContainer.innerHTML = storeListHTML;
 }
@@ -2263,7 +2263,7 @@ function hideLoadingIndicator() {
 }
 
 function showErrorMessage(message) {
-    document.getElementById('storeContainer').innerHTML = 
+    document.getElementById('storeContainer').innerHTML =
         `<div class="alert alert-danger">${message}</div>`;
 }
 
@@ -2441,7 +2441,7 @@ function updateMarketplaceFields() {
 document.getElementById('editStoreModal').addEventListener('show.bs.modal', fetchMarketplaces);
 document.getElementById('selectMarketplace').addEventListener('change', updateMarketplaceFields);
 
-</script>   
+</script>
 <!-- Success Notification for adding user-->
 @if (session('success'))
 <div class="toast-container position-fixed bottom-0 end-0 p-3">
@@ -2497,14 +2497,14 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
             new bootstrap.Toast(toastEl).show();
         });
     });
-    
+
     document.addEventListener('DOMContentLoaded', () => {
         // Add click event listeners to all toggle-password buttons
         document.querySelectorAll('.toggle-password').forEach(button => {
             button.addEventListener('click', () => {
                 const targetInput = document.querySelector(button.getAttribute('data-target'));
                 const icon = button.querySelector('i');
-                
+
                 if (targetInput.type === 'password') {
                     targetInput.type = 'text'; // Show password
                     icon.classList.remove('bi-eye');
@@ -2650,9 +2650,7 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
 </script>
 
     <!-- Footer -->
-    <footer>
-        &copy; 2025 IMS (Inventory Management System). All rights reserved.
-    </footer>
+    <x-footer></x-footer>
 
     <script>
 const sidebar = document.getElementById('sidebar');
@@ -2781,12 +2779,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
   </script>
-  
-  
+
+
 
 <script>
 const clockin_question_Sound = document.getElementById('clockin-question-sound');
-const clockout_question_Sound = document.getElementById('clockout-question-sound'); 
+const clockout_question_Sound = document.getElementById('clockout-question-sound');
 
     function confirmClockIn() {
         clockin_question_Sound.play();
@@ -2851,7 +2849,7 @@ $(document).ready(function () {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
-        
+
         $.ajax({
             url: "{{ route('attendance.update.hours') }}",
             type: "POST",
@@ -2955,7 +2953,7 @@ $(document).ready(function () {
             const endDate = $('#end-date').val();
             fetchAttendanceData(startDate, endDate);
         });
-        
+
     });
 
     document.addEventListener('DOMContentLoaded', function () {
@@ -3025,7 +3023,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Compare with last fetched data to detect changes
                     if (JSON.stringify(lastPrivileges) !== JSON.stringify(privileges)) {
                         console.log("Privileges updated, applying changes...");
-                        
+
                         // Update checkboxes dynamically
                         document.getElementById('order').checked = privileges.order === 1;
                         document.getElementById('unreceived').checked = privileges.unreceived === 1;
@@ -3075,7 +3073,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                     data.data.forEach(user => {
                         const createdAt = new Date(user.created_at).toLocaleString();
-                        const badgeClass = user.role === 'SuperAdmin' ? 'bg-danger' : 
+                        const badgeClass = user.role === 'SuperAdmin' ? 'bg-danger' :
                                          (user.role === 'SubAdmin' ? 'bg-warning' : 'bg-info');
 
                         html += `
@@ -3085,7 +3083,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <td>${createdAt}</td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary" 
+                                        <button type="button" class="btn btn-sm btn-outline-primary"
                                                 onclick="editUser(${user.id}, '${user.username}', '${user.role}')">
                                             <i class="bi bi-pencil"></i>
                                         </button>
@@ -3104,7 +3102,7 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => {
                 console.error('Error:', error);
-                document.getElementById('userTableBody').innerHTML = 
+                document.getElementById('userTableBody').innerHTML =
                     '<tr><td colspan="4" class="text-center text-danger">Error loading users</td></tr>';
             });
     }
@@ -3116,7 +3114,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (editModalElement.classList.contains('show')) {
             return; // Don't do anything if edit modal is being shown
         }
-        
+
         const backdrop = document.querySelector('.modal-backdrop');
         if (backdrop) {
             backdrop.remove();
@@ -3135,9 +3133,9 @@ document.addEventListener('DOMContentLoaded', function() {
 if (addUserForm) {
     addUserForm.addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         const formData = new FormData(this);
-        
+
         fetch('{{ route("add-user") }}', {
             method: 'POST',
             body: formData,
@@ -3161,10 +3159,10 @@ if (addUserForm) {
                 if (backdrop) {
                     backdrop.remove();
                 }
-                
+
                 this.reset();
                 alert('User added successfully!');
-                
+
                 const userListModalInstance = new bootstrap.Modal(userListModal);
                 userListModalInstance.show();
                 fetchUsers();
@@ -3176,13 +3174,13 @@ if (addUserForm) {
             console.error('Error:', error);
             // Improve error display
             let errorMessage = 'Error adding user. Please try again.';
-            
+
             if (error.message) {
                 errorMessage = error.message;
             } else if (error.detailed_errors && error.detailed_errors.length > 0) {
                 errorMessage = error.detailed_errors.join('\n');
             }
-            
+
             alert(errorMessage);
         });
     });
@@ -3238,7 +3236,7 @@ if (addUserForm) {
                 alert('User updated successfully!');
                 const editModal = bootstrap.Modal.getInstance(document.getElementById('editUserModal'));
                 editModal.hide();
-                
+
                 const userListModal = new bootstrap.Modal(document.getElementById('userListModal'));
                 userListModal.show();
                 fetchUsers();
@@ -3255,12 +3253,12 @@ if (addUserForm) {
     // Edit modal hidden event handler
     document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function (event) {
         event.stopPropagation();
-        
+
         const backdrop = document.querySelector('.modal-backdrop');
         if (backdrop) {
             backdrop.remove();
         }
-        
+
         setTimeout(() => {
             const userListModalInstance = new bootstrap.Modal(document.getElementById('userListModal'));
             userListModalInstance.show();
