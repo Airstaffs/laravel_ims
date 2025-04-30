@@ -25,7 +25,7 @@ use App\Http\Controllers\ValidationController;
 use App\Http\Controllers\EbayAuthController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ProductionAreaController;
-
+use App\Http\Controllers\PackagingController;
 
 
 Route::get('/', function () {
@@ -316,6 +316,11 @@ Route::prefix('api/orders')->group(function () {
 // Routes Production Area
 Route::prefix('api/productionArea')->group(function () {
     Route::get('products', [ProductionAreaController::class, 'index']);
+});
+
+// Routes Packaging
+Route::prefix('api/packaging')->group(function () {
+    Route::get('products', [PackagingController::class, 'index']);
 });
 
 // Routes for Labeling Function 
