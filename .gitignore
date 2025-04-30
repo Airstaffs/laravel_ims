@@ -21,6 +21,14 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+<<<<<<< HEAD
 /vendor/
 /node_modules/
 /public/build/
+=======
+vendor/
+node_modules/
+public/build/
+
+
+>>>>>>> 474ab898e9f786bf6bac00730a40c893c414ac47
