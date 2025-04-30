@@ -36,6 +36,7 @@ class UserSessionController extends Controller
             if ($user->packing) $subModules[] = 'packing';
             if ($user->stockroom) $subModules[] = 'stockroom';
             if ($user->validation) $subModules[] = 'validation';
+            if ($user->productionarea) $subModules[] = 'productionarea';
             if ($user->fnsku) $subModules[] = 'fnsku';
     
             // Update session with fresh data
@@ -70,7 +71,8 @@ class UserSessionController extends Controller
                     'packing' => 'Packing',
                     'stockroom' => 'Stockroom',
                     'validation' => 'Validation',
-                    'fnsku' => 'FNSKU'
+                    'fnsku' => 'FNSKU',
+                    'productionarea'=>'Production Area'
                 ]
             ]);
     

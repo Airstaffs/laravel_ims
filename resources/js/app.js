@@ -18,6 +18,7 @@ import Testing from "./page/testing/testing.vue";
 import Searching from "./page/searching/searching.vue";
 import Unreceived from "./page/unreceived/unreceived.vue";
 import Validation from "./page/validation/validation.vue";
+import ProductionArea from "./page/production/production.vue";
 
 import FbaInboundShipment from "./components/Stockroom/fba_inbound_shipment.vue";
 
@@ -105,6 +106,7 @@ const app = createApp({
         stockroom: Stockroom,
         testing: Testing,
         validation: Validation,
+        productionarea: ProductionArea,
         fnsku: FNSKU,
         fbashipmentinbound: FbaInboundShipment,
     },

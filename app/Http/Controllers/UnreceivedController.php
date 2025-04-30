@@ -32,7 +32,6 @@ class UnreceivedController extends BasetablesController
                       ->orWhere('rtcounter', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('lastDateUpdate', 'desc')
             ->paginate($perPage);
         
         return response()->json($products);

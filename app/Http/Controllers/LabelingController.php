@@ -39,8 +39,7 @@ class LabelingController extends BasetablesController
                           ->orWhere('FNSKUviewer', 'like', "%{$search}%")
                           ->orWhere('rtcounter', 'like', "%{$search}%");
                     });
-                })
-                ->orderBy('lastDateUpdate', 'desc');
+                });
             
             // Get paginated products
             $products = $query->paginate($perPage);
@@ -193,7 +192,7 @@ class LabelingController extends BasetablesController
             ]);
         } catch (\Exception $e) {
             // Log the error
-            \Log::error('Error moving product to Validation: ' . $e->getMessage());
+            Log::error('Error moving product to Validation: ' . $e->getMessage());
             
             return response()->json([
                 'success' => false,
@@ -248,7 +247,7 @@ class LabelingController extends BasetablesController
             ]);
         } catch (\Exception $e) {
             // Log the error
-            \Log::error('Error moving product to Stockroom: ' . $e->getMessage());
+            Log::error('Error moving product to Stockroom: ' . $e->getMessage());
             
             return response()->json([
                 'success' => false,
