@@ -182,6 +182,69 @@
                 </div>
             </div>
         </div>
+
+        <div class="mobile-view">
+            <div class="mobile-cards">
+                <div class="mobile-card" v-for="(item, index) in inventory" :key="item.FNSKUID">
+                    <div class="mobile-card-header">
+                        <div class="mobile-checkbox">
+                            <input type="checkbox" v-model="item.checked" />
+                        </div>
+                        <div class="mobile-product-image clickable">
+                            <img :src="item.imageUrl" alt="Product Image" class="product-thumbnail" />
+                        </div>
+                        <div class="mobile-product-info">
+                            <h3 class="mobile-product-name clickable">
+                                {{ item.astitle }}
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div class="mobile-card-details">
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">ID:</span>
+                            <span class="mobile-detail-value">{{ item.FNSKUID }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">ASIN:</span>
+                            <span class="mobile-detail-value">{{ item.ASIN }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">FNSKU:</span>
+                            <span class="mobile-detail-value">{{ item.FNSKU }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Condition:</span>
+                            <span class="mobile-detail-value">{{ item.Grading }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Status:</span>
+                            <span class="mobile-detail-value">{{ item.fnsku_status }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Store:</span>
+                            <span class="mobile-detail-value">{{ item.storename }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Units:</span>
+                            <span class="mobile-detail-value">{{ item.Units }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mobile-card-actions">
+                        <button @click="toggleDetails(index)" class="mobile-btn mobile-btn-details">
+                            {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                        </button>
+                    </div>
+
+                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
+                        <div class="mobile-section">
+                            <strong>Product Name:</strong> {{ item.astitle }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 

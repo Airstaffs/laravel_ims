@@ -696,7 +696,6 @@ textarea.form-control {
 
 .btn-details {
     background-color: #007bff;
-    /* Blue color for details button */
     color: white;
     border: 1px solid #0069d9;
 }
@@ -1122,4 +1121,8 @@ footer {
 .btn-showDetails {
     border: solid 1px black;
     background-color: aliceblue;
+}
+
+p {
+    margin: 0;
 }

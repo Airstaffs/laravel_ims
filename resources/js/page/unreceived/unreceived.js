@@ -1,4 +1,4 @@
-import { eventBus } from "../../components/eventbus";
+import { eventBus } from "../../components/eventBus";
 import ScannerComponent from "../../components/Scanner.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";

@@ -1,7 +1,7 @@
 /* Responsive layouts */
 @media (max-width: 768px) {
     .desktop-view {
-        display: none;
+        display: none !important;
     }
 
     .mobile-view {
