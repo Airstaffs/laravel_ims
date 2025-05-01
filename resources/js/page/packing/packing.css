@@ -16,3 +16,14 @@
 .packing-module .product-name .th-content {
     display: flex;
 }
+
+.packing-module .product-info {
+    color: #0073bb;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.packing-module .product-info:hover {
+    text-decoration: underline;
+}

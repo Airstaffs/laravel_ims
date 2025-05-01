@@ -1,4 +1,4 @@
-import { eventBus } from "../../components/eventbus";
+import { eventBus } from "../../components/eventBus";
 
 export default {
     name: "searching",

@@ -1,5 +1,5 @@
 /* @import url("../js/page/cleaning/cleaning.css"); */
-/* @import url("../js/page/fnsku/fnsku.css"); */
+@import url("../js/page/fnsku/fnsku.css");
 /* @import url("../js/page/labeling/labeling.css"); */
 /* @import url("../js/page/orders/orders.css"); */
 @import url("../js/page/packing/packing.css");
@@ -57,15 +57,19 @@
     gap: 10px;
 }
 
-.scan-button {
+.btn {
     display: flex;
     align-items: center;
     gap: 5px;
-    background-color: #f0f0f0;
-    border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 14px;
     transition: background-color 0.2s;
+    color: #212529;
+}
+
+.scan-button {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
 }
 
 .scan-button:hover {
@@ -73,15 +77,9 @@
 }
 
 .shipment-button {
-    display: flex;
-    align-items: center;
-    gap: 5px;
     background-color: #4CAF50;
     color: white;
     border: 1px solid #43a047;
-    border-radius: 4px;
-    font-size: 14px;
-    transition: background-color 0.2s;
 }
 
 .shipment-button:hover {
@@ -698,7 +696,6 @@ textarea.form-control {
 
 .btn-details {
     background-color: #007bff;
-    /* Blue color for details button */
     color: white;
     border: 1px solid #0069d9;
 }
@@ -1124,4 +1121,8 @@ footer {
 .btn-showDetails {
     border: solid 1px black;
     background-color: aliceblue;
+}
+
+p {
+    margin: 0;
 }
