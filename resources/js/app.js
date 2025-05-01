@@ -19,6 +19,7 @@ import Searching from "./page/searching/searching.vue";
 import Unreceived from "./page/unreceived/unreceived.vue";
 import Validation from "./page/validation/validation.vue";
 import ProductionArea from "./page/production/production.vue";
+import ReturnScanner from "./page/returnScanner/returnscanner.vue";
 
 import FbaInboundShipment from "./components/Stockroom/fba_inbound_shipment.vue";
 
@@ -107,6 +108,7 @@ const app = createApp({
         testing: Testing,
         validation: Validation,
         productionarea: ProductionArea,
+        returnscanner: ReturnScanner,
         fnsku: FNSKU,
         fbashipmentinbound: FbaInboundShipment,
     },
