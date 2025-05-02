@@ -14,8 +14,12 @@ export default {
             inventory: [],
             currentPage: 1,
             totalPages: 1,
+            perPage: 10, // Default rows per page
             selectAll: false,
             expandedRows: {},
+            sortColumn: "",
+            sortOrder: "asc",
+            showDetails: false,
 
             // Scanner workflow data
             currentStep: 1, // 1: Tracking, 2: Pass/Fail, 3: First SN, 4: Second SN, 5: PCN, 6: Basket
@@ -39,10 +43,6 @@ export default {
             autoVerifyTimeout: null,
             showManualInput: false, // Track manual mode state
 
-            perPage: 10, // Default rows per page
-            sortColumn: "",
-            sortOrder: "asc",
-            showDetails: false,
             defaultImage:
                 "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=",
             // Modal state
@@ -78,6 +78,11 @@ export default {
             // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;
             event.target.onerror = null; // Prevent infinite error loop
+        },
+
+        // Open scanner modal method - this will call the scanner component's method
+        openScannerModal() {
+            this.$refs.scanner.openScannerModal();
         },
 
         // Count additional images based on the image fields (img2-img15)
@@ -1004,7 +1009,7 @@ export default {
             }
         },
 
-        // Toggle details visibility
+        // Add the missing method for toggleDetailsVisibility
         toggleDetailsVisibility() {
             this.showDetails = !this.showDetails;
         },

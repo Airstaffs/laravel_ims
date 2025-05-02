@@ -1,94 +1,30 @@
-/* Styles for the Received Module */
-.success-banner {
-    background-color: #4CAF50;
-    color: white;
-    padding: 10px;
-    text-align: center;
-    border-radius: 4px;
-    margin-bottom: 15px;
-    font-weight: bold;
+.receiving-module .check-column {
+    min-width: 40px;
 }
 
-.pass-fail-buttons {
+.receiving-module .product-name {
+    width: 590px;
     display: flex;
-    gap: 10px;
-    margin-top: 15px;
-}
-
-.pass-button,
-.fail-button {
-    flex: 1;
-    padding: 12px;
-    border: none;
-    border-radius: 4px;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     align-items: center;
-    gap: 8px;
-}
-
-.pass-button {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.fail-button {
-    background-color: #f44336;
-    color: white;
-}
-
-.button-group {
-    display: flex;
     gap: 10px;
-    margin-top: 10px;
 }
 
-.scan-button,
-.skip-button,
-.verify-button {
-    padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
+.receiving-module .product-details {
+    width: 590px;
 }
 
-.scan-button,
-.verify-button {
-    background-color: #4CAF50;
-    color: white;
+.receiving-module .product-name .th-content {
+    display: flex;
 }
 
-.skip-button {
-    background-color: #FF9800;
-    color: white;
-}
-
-.container-type-hint {
-    font-size: 12px;
-    color: #666;
-    margin-top: 4px;
-    font-style: italic;
-}
-
-.date-input-container {
-    position: relative;
-    width: 100%;
-}
-
-.calendar-icon {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
+.receiving-module .product-info {
+    color: #0073bb;
+    font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
 }
 
-/* Your existing table styles */
-.table-container {
-    margin-top: 20px;
+.receiving-module .product-info:hover {
+    text-decoration: underline;
 }

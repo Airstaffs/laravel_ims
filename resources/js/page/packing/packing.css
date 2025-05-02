@@ -1,16 +1,17 @@
-.packing-module .table-container {
-    display: flex;
-    flex-direction: column;
-    align-items: start;
-    gap: 10px;
-}
-
 .packing-module .check-column {
-    width: 40px;
+    min-width: 40px;
 }
 
 .packing-module .product-name {
-    width: 200px;
+    width: 590px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.packing-module .product-details {
+    width: 590px;
 }
 
 .packing-module .product-name .th-content {

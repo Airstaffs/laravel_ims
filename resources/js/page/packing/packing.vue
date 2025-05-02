@@ -29,14 +29,13 @@
 
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">
-            <button class="btn-showDetails"
-                @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
-            </button>
             <table class="table table-bordered">
                 <thead>
                     <tr>
                         <th class="check-column">
-                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
+                            <div class="th-content">
+                                <input type="checkbox" @click="toggleAll" v-model="selectAll" />
+                            </div>
                         </th>
                         <th class="product-name">
                             <div class="th-content">
@@ -46,6 +45,9 @@
                                         :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                                 </span>
                             </div>
+                            <button class="btn-showDetails"
+                                @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
+                            </button>
                         </th>
                         <th class="">Location</th>
                         <th class="">Added date</th>
@@ -78,7 +80,7 @@
                                 <input type="checkbox" v-model="item.checked" />
                                 <span class="placeholder-date">{{ item.shipBy || '' }}</span>
                             </td>
-                            <td>
+                            <td class="product-details">
                                 <div class="product-container">
                                     <div class="product-image-container" @click="openImageModal(item)">
                                         <!-- Use the actual file path for the main image -->
