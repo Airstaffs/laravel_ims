@@ -2009,7 +2009,6 @@ document.addEventListener('DOMContentLoaded', function () {
 </div>
 
 
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const editNotesModal = document.getElementById('editNotesModal');
