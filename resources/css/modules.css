@@ -1,14 +1,14 @@
 /* @import url("../js/page/cleaning/cleaning.css"); */
 @import url("../js/page/fnsku/fnsku.css");
 /* @import url("../js/page/labeling/labeling.css"); */
-/* @import url("../js/page/orders/orders.css"); */
+@import url("../js/page/orders/orders.css");
 @import url("../js/page/packing/packing.css");
 /* @import url("../js/page/production/production.css"); */
-/* @import url("../js/page/receiving/receiving.css"); */
+@import url("../js/page/receiving/receiving.css");
 /* @import url("../js/page/searching/searching.css"); */
 @import url("../js/page/stockroom/stockroom.css");
 /* @import url("../js/page/testing/testing.css"); */
-/* @import url("../js/page/unreceived/unreceived.css"); */
+@import url("../js/page/unreceived/unreceived.css");
 @import url("../js/page/validation/validation.css");
 @import url("./module-mobile.css");
 @import url("./responsive-layout.css");
@@ -159,38 +159,42 @@
 
 /* Table Layout */
 .table-container {
+    width: 1440px;
+    margin: 0 auto;
     overflow-x: auto;
     border-radius: 4px;
     background: #fff;
 }
 
 .table {
-    width: 100%;
+    width: auto;
     border-collapse: collapse;
     table-layout: fixed;
-    border: 2px solid #ddd;
     font-size: 0.9rem;
-    margin: 0;
+    border: 1px solid #ddd !important;
 }
 
 thead {
     background-color: #f7f7f7;
-    border-bottom: 2px solid #ddd;
 }
 
 th {
     background-color: #f5f5f5;
-    border-bottom: 2px solid #ddd;
-    padding: 8px 10px;
-
+    /* border: 1px solid #ddd !important; */
     padding: 10px 12px;
     font-weight: bold;
     color: #333;
     white-space: nowrap;
 }
 
+th:last-child,
+td:last-child {
+    border-right: 0;
+}
+
 .th-content {
     display: flex;
+    justify-content: center;
     align-items: center;
     gap: 5px;
     white-space: nowrap;
@@ -198,7 +202,6 @@ th {
 
 .table td {
     padding: 8px 10px;
-    border-top: 1px solid #ddd;
     vertical-align: middle;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -257,6 +260,24 @@ td {
 .product-name:hover {
     text-decoration: underline;
 }
+
+/* Sticky positioning */
+/* table th:nth-child(-n+2),
+table td:nth-child(-n+2) {
+    position: sticky;
+    background: #fff;
+    z-index: 3;
+}
+
+table th:first-child,
+table td:first-child {
+    left: 1px;
+}
+
+table th:nth-child(2),
+table td:nth-child(2) {
+    left: 41px;
+} */
 
 /* End of Table Layout */
 

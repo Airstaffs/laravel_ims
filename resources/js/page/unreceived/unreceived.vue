@@ -1,13 +1,21 @@
 <template>
-    <div class="vue-container">
-        <h1 class="vue-title">Unreceived Module</h1>
+    <div class="vue-container unreceived-module">
+        <div class="top-header">
+            <h1 class="module-title">Unreceived Module</h1>
+
+            <div class="header-buttons">
+                <button class="btn scan-button" @click="openScannerModal">
+                    <i class="fas fa-barcode"></i> Scan Items
+                </button>
+            </div>
+        </div>
 
         <!-- Scanner Component Here -->
         <scanner-component scanner-title="Unreceived Scanner" storage-prefix="unreceived" :enable-camera="true"
             :display-fields="['Trackingnumber', 'RPN', 'PRD']" :api-endpoint="'/api/unreceived/process-scan'"
-            @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan" @scanner-opened="handleScannerOpened"
-            @scanner-closed="handleScannerClosed" @scanner-reset="handleScannerReset" @mode-changed="handleModeChange"
-            ref="scanner">
+            :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
+            @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
+            @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
             <!-- Define custom input fields for Unreceived module -->
             <template #input-fields>
                 <!-- Step 1: Tracking Number Input -->
@@ -47,58 +55,84 @@
             </template>
         </scanner-component>
 
-        <!-- table display -->
-        <div class="table-container">
+        <!-- Pagination with centered layout -->
+        <div class="pagination-container">
+            <div class="pagination-wrapper">
+                <div class="pagination">
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+                        <i class="fas fa-chevron-left"></i> Back
+                    </button>
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="per-page-selector">
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+                            {{ option }} per page
+                        </option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Desktop Table Container -->
+        <div class="table-container desktop-view">
             <table class="table table-bordered">
                 <thead>
                     <tr>
-                        <th>
-                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
-                            <a style="color:black" @click="sortBy('AStitle')" class="sortable">
-                                Product Name
-                                <span v-if="sortColumn === 'AStitle'">
-                                    {{ sortOrder === 'asc' ? '▲' : '▼' }}
+                        <th class="check-column">
+                            <div class="th-content">
+                                <input type="checkbox" @click="toggleAll" v-model="selectAll" />
+                            </div>
+                        </th>
+                        <th class="product-name">
+                            <div class="th-content">
+                                <span class="sortable" @click="sortBy('AStitle')">
+                                    Product Name
+                                    <i v-if="sortColumn === 'AStitle'"
+                                        :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                                 </span>
-                            </a>
-                            <span style="margin-right: 20px;"></span>
-                            <a style="color:black" @click="sortBy('rtcounter')" class="sortable">
-                                RT counter
-                                <span v-if="sortColumn === 'rtcounter'">
-                                    {{ sortOrder === 'asc' ? '▲' : '▼' }}
-                                </span> </a>
 
-                            <span style="margin-right: 20px;"></span>
-
-                            <button class="Desktop" style="border: solid 1px black; background-color: aliceblue;"
-                                @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}</button>
+                                <button class="btn-showDetails"
+                                    @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
+                                </button>
+                            </div>
                         </th>
-                        <th class="Desktop">Location</th>
-                        <th class="Desktop">Added date</th>
-                        <th class="Desktop">Updated date</th>
-                        <th class="Desktop">Fnsku</th>
-                        <th class="Desktop">Msku</th>
-                        <th class="Desktop">Asin</th>
-                        <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">FBM</th>
-                        <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">FBA</th>
-                        <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Outbound</th>
-                        <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Inbound</th>
-                        <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Unfulfillable
+                        <th class="">Location</th>
+                        <th class="">Added date</th>
+                        <th class="">Updated date</th>
+                        <th class="">Fnsku</th>
+                        <th class="">Msku</th>
+                        <th class="">Asin</th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">FBM
                         </th>
-                        <th class="Desktop" style="background-color: antiquewhite;" v-if="showDetails">Reserved</th>
-                        <th class="Desktop">Fulfillment</th>
-                        <th class="Desktop">Status</th>
-                        <th class="Desktop">Serialnumber</th>
-                        <th class="Desktop">Actions</th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">FBA
+                        </th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
+                            Outbound</th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">Inbound
+                        </th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
+                            Unfulfillable</th>
+                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
+                            Reserved</th>
+                        <th class="">Fulfillment</th>
+                        <th class="">Status</th>
+                        <th class="">Serialnumber</th>
+                        <th class="">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <template v-for="(item, index) in sortedInventory" :key="item.id">
                         <tr>
-                            <td class="vue-details">
-                                <div class="checkbox-container">
-                                    <input type="checkbox" v-model="item.checked" />
-                                    <span class="placeholder-date">{{ item.shipBy || '' }}</span>
-                                </div>
+                            <td>
+                                <input type="checkbox" v-model="item.checked" />
+                                <span class="placeholder-date">{{ item.shipBy || '' }}</span>
+                            </td>
+                            <td class="product-details">
                                 <div class="product-container">
                                     <div class="product-image-container" @click="openImageModal(item)">
                                         <!-- Use the actual file path for the main image -->
@@ -110,45 +144,35 @@
                                             +{{ countAdditionalImages(item) }}
                                         </div>
                                     </div>
-
                                     <div class="product-info">
-                                        <p class="product-name">RT# : {{ item.rtcounter }}</p>
-                                        <p class="product-name">{{ item.ProductTitle }}</p>
-
-                                        <p class="Mobile">Location : {{ item.warehouselocation }}</p>
-                                        <p class="Mobile">Added date : {{ item.datedelivered }}</p>
-                                        <p class="Mobile">Updated date : {{ item.lastDateUpdate }}</p>
-                                        <p class="Mobile">Fnsku : {{ item.FNSKUviewer }}</p>
-                                        <p class="Mobile">Msku : {{ item.MSKUviewer }}</p>
-                                        <p class="Mobile">Asin : {{ item.ASINviewer }}</p>
+                                        <p>RT# : {{ item.rtcounter }}</p>
+                                        <p>{{ item.ProductTitle }}</p>
                                     </div>
                                 </div>
                             </td>
-                            <td class="Desktop">
+                            <td>
                                 <span><strong></strong> {{ item.warehouselocation }}</span>
                             </td>
 
-                            <td class="Desktop">
+                            <td>
                                 <span><strong></strong> {{ item.datedelivered }}</span>
                             </td>
 
-                            <td class="Desktop">
+                            <td>
                                 <span><strong></strong> {{ item.lastDateUpdate }}</span>
                             </td>
 
-                            <td class="Desktop">
+                            <td>
                                 <span><strong></strong> {{ item.FNSKUviewer }}</span>
                             </td>
 
-                            <td class="Desktop">
+                            <td>
                                 <span><strong></strong> {{ item.MSKUviewer }}</span>
                             </td>
-
-                            <td class="Desktop">
+                            <td>
                                 <span><strong></strong> {{ item.ASINviewer }}</span>
                             </td>
-
-                            <!-- Hidden --> <!-- Hidden --> <!-- Hidden -->
+                            <!-- Hidden -->
                             <td v-if="showDetails">
                                 <span><strong></strong> {{ item.FBMAvailable }}</span>
                             </td>
@@ -167,62 +191,173 @@
                             <td v-if="showDetails">
                                 <span><strong></strong> {{ item.Unfulfillable }}</span>
                             </td>
-                            <!-- Hidden --> <!-- Hidden --> <!-- Hidden -->
-
-                            <td class="Desktop">
+                            <!-- End Hidden -->
+                            <td>
                                 <span><strong></strong> {{ item.Fulfilledby }}</span>
                             </td>
 
-                            <td class="Desktop">
+                            <td>
                                 <span><strong></strong> {{ item.Status }}</span>
                             </td>
 
-                            <td class="Desktop">
+                            <td>
                                 <span><strong></strong> {{ item.serialnumber }}</span>
                             </td>
 
                             <!-- Button for more details -->
-                            <td class="Desktop">
-                                {{ item.totalquantity }}
-                                <button class="btn-moredetails" @click="toggleDetails(index)">
-                                    {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
-                                </button>
-                                <br>
-                                <button class="btn-moredetails">example</button><br>
-                                <button class="btn-moredetails">example</button><br>
-                                <button class="btn-moredetails">example</button><br>
-                            </td>
-                        </tr>
-                        <!-- More details results -->
-                        <tr v-if="expandedRows[index]">
-                            <td colspan="11">
-                                <div class="expanded-content p-3 border rounded">
-                                    <div class="Mobile">
-                                        <button class="btn-moredetails">sample button</button>
-                                        <button class="btn-moredetails">sample button</button>
-                                        <button class="btn-moredetails">sample button</button>
-                                    </div>
-                                    <strong>Product Name:</strong> {{ item.AStitle }}
+                            <td>
+                                <div class="action-buttons">
+                                    {{ item.totalquantity }}
+                                    <button class="btn-expand" @click="toggleDetails(index)">
+                                        {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                                    </button>
+                                    <button class="btn-details">example</button>
+                                    <button class="btn-details">example</button>
+                                    <button class="btn-details">example</button>
                                 </div>
                             </td>
                         </tr>
-
-                        <!-- Button for more details (Mobile) -->
-                        <td class="Mobile">
-                            {{ item.totalquantity }}
-                            <button style="width: 100%; border-bottom: 2px solid black; padding:0px"
-                                @click="toggleDetails(index)">
-                                {{ expandedRows[index] ? 'Less Details ▲ ' : 'More Details ▼ ' }}
-                            </button>
-                        </td>
+                        <tr v-if="expandedRows[index]">
+                            <td :colspan="showDetails ? 18 : 12">
+                                <div class="expanded-content p-3 border rounded">
+                                    <p><strong>Expanded Rows Here</strong></p>
+                                    <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
+                                </div>
+                            </td>
+                        </tr>
                     </template>
                 </tbody>
             </table>
-            <!-- Pagination -->
-            <div class="pagination">
-                <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">Previous</button>
-                <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">Next</button>
+        </div>
+
+        <!-- Mobile Cards View -->
+        <div class="mobile-view">
+            <div class="mobile-showDetails-container">
+                <button class="btn-showDetailsM"
+                    @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
+                </button>
+            </div>
+            <div class="mobile-cards">
+                <div class="mobile-card" v-for="(item, index) in sortedInventory" :key="item.id">
+                    <div class="mobile-card-header">
+                        <div class="mobile-checkbox">
+                            <input type="checkbox" v-model="item.checked" />
+                        </div>
+                        <div class="mobile-product-image clickable">
+                            <img :src="'/images/thumbnails/' + item.img1" :alt="item.ProductTitle || 'Product'"
+                                class="product-thumbnail clickable-image" @error="handleImageError($event)" />
+                            <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
+                                +{{ countAdditionalImages(item) }}
+                            </div>
+                        </div>
+                        <div class="mobile-product-info">
+                            <h3 class="mobile-product-name clickable">
+                                <p>RT# : {{ item.rtcounter }}</p>
+                                <p>{{ item.ProductTitle }}</p>
+                            </h3>
+                        </div>
+                    </div>
+
+                    <div class="mobile-card-details">
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Location:</span>
+                            <span class="mobile-detal-value"> {{ item.warehouselocation }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Added date:</span>
+                            <span class="mobile-detal-value"> {{ item.datedelivered }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Updated date:</span>
+                            <span class="mobile-detal-value"> {{ item.lastDateUpdate }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">FNSKU:</span>
+                            <span class="mobile-detal-value"> {{ item.FNSKUviewer }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">MSKU:</span>
+                            <span class="mobile-detal-value"> {{ item.MSKUviewer }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">ASIN:</span>
+                            <span class="mobile-detal-value"> {{ item.ASINviewer }}</span>
+                        </div>
+                        <!-- Insert Hidden Here -->
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">FBM:</span>
+                            <span class="mobile-detal-value"> {{ item.FBMAvailable }}</span>
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">FBA:</span>
+                            <span class="mobile-detal-value"> {{ item.FbaAvailable }}</span>
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Outbound:</span>
+                            <span class="mobile-detal-value"> {{ item.Outbound }}</span>
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Inbound:</span>
+                            <span class="mobile-detal-value"> {{ item.Inbound }}</span>
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Unfulfillable:</span>
+                            <span class="mobile-detal-value"> {{ item.Unfulfillable }}</span>
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Reserved:</span>
+                            <span class="mobile-detal-value"> {{ item.Reserved }}</span>
+                        </div>
+                        <!--  -->
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Fullfilment:</span>
+                            <span class="mobile-detal-value"> {{ item.Fulfilledby }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Status:</span>
+                            <span class="mobile-detal-value"> {{ item.status }}</span>
+                        </div>
+                        <div class="mobile-detail-row">
+                            <span class="mobile-detail-label">Serial Number:</span>
+                            <span class="mobile-detal-value"> {{ item.serialnumber }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mobile-card-actions">
+                        <button class="mobile-btn mobile-btn-details" @click="toggleDetails(index)">
+                            {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                        </button>
+                        <button class="mobile-btn">
+                            Example
+                        </button>
+                        <button class="mobile-btn">
+                            Example
+                        </button>
+                        <button class="mobile-btn">
+                            Example
+                        </button>
+                    </div>
+
+                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
+                        <p><strong>Expanded Rows Here</strong></p>
+                        <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom pagination (also centered) -->
+        <div class="pagination-container">
+            <div class="pagination-wrapper">
+                <div class="pagination">
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+                        <i class="fas fa-chevron-left"></i> Back
+                    </button>
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

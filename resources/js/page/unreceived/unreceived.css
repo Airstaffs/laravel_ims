@@ -1,55 +1,30 @@
-/* Styles specific to the Unreceived Module */
-.success-banner {
-    background-color: #4CAF50;
-    color: white;
-    padding: 10px;
-    text-align: center;
-    border-radius: 4px;
-    margin-bottom: 15px;
-    font-weight: bold;
+.unreceived-module .check-column {
+    min-width: 40px;
 }
 
-.readonly-input {
-    background-color: #f5f5f5;
+.unreceived-module .product-name {
+    width: 590px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
 }
 
-.next-button,
-.today-button,
-.verify-button,
-.submit-scan-button {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    padding: 8px 16px;
-    margin-top: 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
+.unreceived-module .product-details {
+    width: 590px;
 }
 
-.date-input-container {
-    position: relative;
-    width: 100%;
+.unreceived-module .product-name .th-content {
+    display: flex;
 }
 
-.date-input {
-    width: 100%;
-    padding: 8px 30px 8px 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-.calendar-icon {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
+.unreceived-module .product-info {
+    color: #0073bb;
+    font-weight: 600;
+    text-decoration: none;
     cursor: pointer;
 }
 
-/* Your existing styles */
-.table-container {
-    margin-top: 20px;
+.unreceived-module .product-info:hover {
+    text-decoration: underline;
 }

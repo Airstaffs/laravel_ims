@@ -468,6 +468,7 @@
                 </div>
             </div>
         </div>
+
         <!-- Product Details Modal -->
         <div v-if="showProductDetailsModal" class="product-details-modal">
             <div class="product-details-content">
