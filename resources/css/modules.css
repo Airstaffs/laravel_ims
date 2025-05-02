@@ -1,13 +1,13 @@
-/* @import url("../js/page/cleaning/cleaning.css"); */
+@import url("../js/page/cleaning/cleaning.css");
 @import url("../js/page/fnsku/fnsku.css");
-/* @import url("../js/page/labeling/labeling.css"); */
+@import url("../js/page/labeling/labeling.css");
 @import url("../js/page/orders/orders.css");
 @import url("../js/page/packing/packing.css");
 /* @import url("../js/page/production/production.css"); */
 @import url("../js/page/receiving/receiving.css");
 /* @import url("../js/page/searching/searching.css"); */
 @import url("../js/page/stockroom/stockroom.css");
-/* @import url("../js/page/testing/testing.css"); */
+@import url("../js/page/testing/testing.css");
 @import url("../js/page/unreceived/unreceived.css");
 @import url("../js/page/validation/validation.css");
 @import url("./module-mobile.css");
@@ -262,7 +262,7 @@ td {
 }
 
 /* Sticky positioning */
-/* table th:nth-child(-n+2),
+table th:nth-child(-n+2),
 table td:nth-child(-n+2) {
     position: sticky;
     background: #fff;
@@ -277,7 +277,7 @@ table td:first-child {
 table th:nth-child(2),
 table td:nth-child(2) {
     left: 41px;
-} */
+}
 
 /* End of Table Layout */
 
