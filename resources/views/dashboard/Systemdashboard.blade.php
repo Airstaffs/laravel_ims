@@ -340,9 +340,9 @@
         'packing' => 'Packing',
         'fnsku' => 'Fnsku',
         'stockroom' => 'Stockroom',
-        'fnsku' => 'FNSKU',
         'productionarea' => 'Production Area',
-        'fbashipmentinbound' => 'FBA Inbound Shipment'
+        'fbashipmentinbound' => 'FBA Inbound Shipment',
+        'returnscanner' => 'Return Scanner' // Add this line
     ];
     ?>
 
@@ -1171,7 +1171,8 @@ function initializePrivilegeForm() {
                         'packing': 'Packing',
                         'fnsku': 'FNSKU',
                         'stockroom': 'Stockroom',
-                        'productionarea': 'Production Area'
+                        'productionarea': 'Production Area',
+                        'returnscanner' : 'Return Scanner' // Add this line
                     }
                 });
 
@@ -1294,7 +1295,7 @@ function updateForm(data) {
 }
 
 function updateMainModule(data) {
-    const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom', 'Validation','FNSKU','Production Area'];
+    const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing', 'Stockroom', 'Validation','FNSKU','Production Area','Return Scanner'];
     const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
@@ -1322,7 +1323,8 @@ function updateSubModules(data) {
         {db: 'stockroom', display: 'Stockroom'},
         {db: 'validation', display: 'Validation'},
         {db: 'fnsku', display: 'FNSKU'},
-        {db: 'productionarea', display: 'Production Area'}
+        {db: 'productionarea', display: 'Production Area'},
+        {db: 'returnscanner', display: 'Return Scanner'}
     ];
 
     const subModulesHTML = `
@@ -2006,6 +2008,7 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 </div>
 
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const editNotesModal = document.getElementById('editNotesModal');
@@ -2579,6 +2582,11 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
         </div>
     </div>
 </div>
+
+
+
+
+
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Get the audio elements

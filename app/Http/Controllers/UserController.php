@@ -39,7 +39,8 @@ class UserController extends Controller
                 'fnsku',
                 'stockroom',
                 'validation',
-                'productionarea'
+                'productionarea',
+                'returnscanner' 
             )
             ->where('id', $currentUserId)
             ->first();
@@ -183,6 +184,7 @@ class UserController extends Controller
                 'stockroom' => (bool) $selectedUser->stockroom,
                 'validation' => (bool) $selectedUser->validation,
                 'productionarea' => (bool) $selectedUser->productionarea,
+                'returnscanner' => (bool) $selectedUser->returnscanner,
             ],
             'privileges_stores' => $storePrivileges, // Pass the processed store privileges
         ];
@@ -323,12 +325,13 @@ class UserController extends Controller
                 'Stockroom' => 'stockroom',
                 'Validation' => 'validation',
                 'FNSKU' => 'fnsku',
-                'Production Area' => 'productionarea'
+                'Production Area' => 'productionarea',
+                'Return Scanner' => 'returnscanner' 
             ];
     
             // Update sub-modules with proper mapping
             $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                          'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea'];
+                          'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea','returnscanner'];
             
             // First reset all modules to 0
             foreach ($subModules as $module) {
@@ -443,7 +446,7 @@ class UserController extends Controller
         $modules = [
             'order', 'unreceived', 'receiving', 'labeling', 'testing', 
             'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-            'productionarea', 'fbashipmentinbound'
+            'productionarea', 'returnscanner', 'fbashipmentinbound'
         ];
         
         // Get active modules

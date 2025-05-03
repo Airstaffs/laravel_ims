@@ -15,7 +15,7 @@ class PackagingController extends BasetablesController
     {
         $perPage = $request->input('per_page', 10);
         $search = $request->input('search', '');
-        $location = $request->input('location', 'Orders');
+        $location = $request->input('location', 'Packaging');
         
         $products = DB::table($this->productTable)
             ->where('ProductModuleLoc', $location)
