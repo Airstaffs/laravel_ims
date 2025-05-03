@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
-
 require base_path('app/Helpers/aws_helpers.php');
 
 class FBAShipmentController extends Controller
@@ -436,6 +435,20 @@ class FBAShipmentController extends Controller
             if ($response->successful()) {
                 $data = $response->json(); // Parse JSON response
 
+                $inboundplanid = $data['inboundPlanId'] ?? null;
+
+                // ✅ Insert into tblfbainboundplans if inboundPlanId exists
+                if ($inboundplanid) {
+                    DB::table('tblfbainboundplans')->insert([
+                        'shipmentID' => $shipmentID,
+                        'inboundplanid' => $inboundplanid,
+                        'store' => $store,
+                        'destinationMarketplaceID' => $destinationmarketplace,
+                        'created_time' => now(),
+                        'updated_time' => now()
+                    ]);
+                }
+
                 // Extract operationId
                 $operationId = $data['operationId'] ?? null;
 
@@ -782,6 +795,15 @@ class FBAShipmentController extends Controller
         $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1');
         $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');
         $packingOptionId = $request->input('packingOptionId', 'poe99bf0d7-171b-414b-a350-02d4ed88c348'); // from process 2b
+
+        DB::table('tblfbainboundplans')
+            ->where('inboundplanid', $inboundplanid)
+            ->where('shipmentID', $shipmentID)
+            ->update([
+                'packingGroupId' => $packingGroupId,
+                'packingOptionId' => $packingOptionId,
+                'updated_time' => now() // update timestamp
+            ]);
 
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
@@ -1496,6 +1518,14 @@ class FBAShipmentController extends Controller
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
         $shipmentIdfromAPI = $request->input('shipmentidfromapi', 'sh82013eed-8bd2-4642-aaae-80e7177e4d31');
 
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'shipmentidfromapi' => $shipmentIdfromAPI,
+            'updated_time' => now() // update timestamp
+        ]);
+
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
@@ -1664,6 +1694,13 @@ class FBAShipmentController extends Controller
         $data_additionale['totalDeclaredValue'] = $totalDeclaredValue;
         $data_additionale['shipmentidfromapi'] = $shipmentidfromapi;
 
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'placementOptionId' => $placementOptionId,
+            'updated_time' => now() // update timestamp
+        ]);
 
         $companydetails = $this->fetchCompanyDetails();
 
@@ -1807,6 +1844,15 @@ class FBAShipmentController extends Controller
         $packageHeight = $request->input('packageHeight', null);
         $totalDeclaredValue = $request->input('totalDeclaredValue', null);
         $shipmentidfromapi = $request->input('shipmentidfromapi', null);
+
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'totalDeclaredValue' => $totalDeclaredValue,
+            'updated_time' => now()
+        ]);
+
 
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
@@ -1972,7 +2018,6 @@ class FBAShipmentController extends Controller
             $customParams['paginationToken'] = $nextToken;
         }
 
-
         $companydetails = $this->fetchCompanyDetails();
 
         if (!$companydetails) {
@@ -2091,7 +2136,6 @@ class FBAShipmentController extends Controller
             ], 500);
         }
     }
-
     public function step6a_list_delivery_window_options(Request $request)
     {
         $request->validate([
@@ -2276,6 +2320,14 @@ class FBAShipmentController extends Controller
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
         $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/placementOptions/' . $placementOptionId . '/confirmation';
 
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'placementOptionId' => $placementOptionId,
+            'updated_time' => now() // update timestamp
+        ]);
+
 
         if (isset($nextToken) && !empty($nextToken)) {
             $data_additionale['nextToken'] = $nextToken;
@@ -2437,6 +2489,14 @@ class FBAShipmentController extends Controller
 
         $companydetails = $this->fetchCompanyDetails();
 
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'deliveryWindowOptionId' => $deliveryWindowOptionId,
+            'updated_time' => now() // update timestamp
+        ]);
+
         if (!$companydetails) {
             return response()->json(['error' => 'Company not found'], 404);
         }
@@ -2585,6 +2645,14 @@ class FBAShipmentController extends Controller
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
         $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/transportationOptions/confirmation';
+
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'transportationOptionId' => $transportationOptionId,
+            'updated_time' => now() // update timestamp
+        ]);
 
         if (isset($nextToken) && !empty($nextToken)) {
             $data_additionale['nextToken'] = $nextToken;
@@ -2888,7 +2956,7 @@ class FBAShipmentController extends Controller
         $placementOptionId = $request->input('placementOptionId', null);
         $shipmentconfirmationid = $request->input('shipmentconfirmationid', null);
         $transportationOptionId = $request->input('transportationOptionId', null);
-        $transportationOptionId = $request->input('transportationOptionId', null);
+        $transportationOptionId = $request->input('shipmentconfirmationid', null);
 
 
 

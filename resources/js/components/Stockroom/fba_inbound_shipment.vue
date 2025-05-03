@@ -418,7 +418,7 @@
             <hr>
             <h2>Step 4: Print Label</h2>
             <hr>
-            <h2>Step 5: Verification</h2>
+            <h2>Step 5: Shipment Details</h2>
         </div>
 
 
