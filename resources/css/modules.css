@@ -3,7 +3,7 @@
 @import url("../js/page/labeling/labeling.css");
 @import url("../js/page/orders/orders.css");
 @import url("../js/page/packing/packing.css");
-/* @import url("../js/page/production/production.css"); */
+@import url("../js/page/production/production.css");
 @import url("../js/page/receiving/receiving.css");
 /* @import url("../js/page/searching/searching.css"); */
 @import url("../js/page/stockroom/stockroom.css");
@@ -167,9 +167,9 @@
 }
 
 .table {
-    width: auto;
+    width: 100%;
     border-collapse: collapse;
-    table-layout: fixed;
+    table-layout: auto;
     font-size: 0.9rem;
     border: 1px solid #ddd !important;
 }

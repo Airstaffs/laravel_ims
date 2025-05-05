@@ -309,14 +309,18 @@
                         <button class="mobile-btn mobile-btn-details" @click="toggleDetails(index)">
                             {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
                         </button>
-                        <button class="mobile-btn">
-                            Example
+                        <button @click="confirmMoveToLabeling(item)" class="mobile-btn"
+                            :disabled="isProcessing">
+                            <i class="bi bi-check-circle"></i> Move to Labeling
                         </button>
-                        <button class="mobile-btn">
-                            Example
+
+                        <button @click="confirmMoveToStockroom(item)" class="mobile-btn"
+                            :disabled="isProcessing">
+                            <i class="bi bi-box-seam"></i> Move to Stockroom
                         </button>
-                        <button class="mobile-btn">
-                            Example
+
+                        <button class="mobile-btn" @click="openValidationModal(item)">
+                            Open Validation
                         </button>
                     </div>
 
