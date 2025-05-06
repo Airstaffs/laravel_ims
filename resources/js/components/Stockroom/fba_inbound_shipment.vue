@@ -416,12 +416,10 @@
             <hr>
             <h2>Step 3: Destination & Transportation</h2>
             <hr>
-            <h2>Step 4: Print Label</h2>
+            <h2>Step 4: Shipment Details</h2>
             <hr>
-            <h2>Step 5: Shipment Details</h2>
+            <h2>Step 5: Print Label</h2>
         </div>
-
-
     </div>
 
     <!-- Add Item Modal -->
