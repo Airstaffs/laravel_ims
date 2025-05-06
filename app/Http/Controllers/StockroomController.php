@@ -16,6 +16,62 @@ class StockroomController extends BasetablesController
  * Display a listing of products in stockroom with joins to tblasin and tblfnsku.
  * Groups by ASIN and aggregates data.
  */
+private function findRelatedAsins($searchTerm)
+{
+    $related = [];
+    $checked = [];
+
+    // Initial fetch based on direct match to any relationship field
+    $initialResults = DB::table($this->asinTable)
+        ->select('ASIN')
+        ->distinct()
+        ->where('ASIN', $searchTerm)
+        ->orWhere('ParentAsin', $searchTerm)
+        ->orWhere('CousinASIN', $searchTerm)
+        ->orWhere('UpgradeASIN', $searchTerm)
+        ->orWhere('GrandASIN', $searchTerm)
+        ->get();
+
+    foreach ($initialResults as $row) {
+        if (!in_array($row->ASIN, $related)) {
+            $related[] = $row->ASIN;
+        }
+    }
+
+    // Recursively find all connected ASINs
+    while (!empty($related)) {
+        $asinToCheck = array_pop($related);
+        if (in_array($asinToCheck, $checked)) continue;
+        $checked[] = $asinToCheck;
+
+        $results = DB::table($this->asinTable)
+            ->select('ASIN', 'ParentAsin', 'CousinASIN', 'UpgradeASIN', 'GrandASIN')
+            ->distinct()
+            ->where('ASIN', $asinToCheck)
+            ->orWhere('ParentAsin', $asinToCheck)
+            ->orWhere('CousinASIN', $asinToCheck)
+            ->orWhere('UpgradeASIN', $asinToCheck)
+            ->orWhere('GrandASIN', $asinToCheck)
+            ->get();
+
+        foreach ($results as $row) {
+            $fields = ['ASIN', 'ParentAsin', 'CousinASIN', 'UpgradeASIN', 'GrandASIN'];
+            foreach ($fields as $field) {
+                $val = isset($row->$field) ? trim((string) $row->$field) : '';
+                if (!empty($val) && !in_array($val, $checked) && !in_array($val, $related)) {
+                    $related[] = $val;
+                }
+            }
+        }
+    }
+
+    return $checked;
+}
+
+/**
+ * Display a listing of products in stockroom with joins to tblasin and tblfnsku.
+ * Groups by ASIN and aggregates data.
+ */
 public function index(Request $request)
 {
     try {
@@ -23,7 +79,7 @@ public function index(Request $request)
         $search = $request->input('search', '');
         $store = $request->input('store', ''); // Add store filter parameter
         
-        // Get all ASINs with their details, even those without stockroom items
+        // Initialize query builder
         $asinQuery = DB::table($this->asinTable)
             ->select([
                 $this->asinTable.'.ASIN',
@@ -42,27 +98,64 @@ public function index(Request $request)
             ->leftJoin($this->fnskuTable, $this->asinTable.'.ASIN', '=', $this->fnskuTable.'.ASIN')
             ->leftJoin($this->productTable, function ($join) {
                 $join->on($this->fnskuTable.'.FNSKU', '=', $this->productTable.'.FNSKUviewer');
-            })
-            ->when($search, function ($query) use ($search) {
-                return $query->where(function ($q) use ($search) {
-                    $q->where($this->asinTable.'.internal', 'like', "%{$search}%")
+            });
+        
+        // Filter out null or empty ASINs
+        $asinQuery->where($this->asinTable.'.ASIN', '!=', '')
+                  ->whereNotNull($this->asinTable.'.ASIN');
+        
+        // Apply search filter with related ASIN support
+        if (!empty($search)) {
+            $asinQuery->where(function ($query) use ($search) {
+                $query->where($this->asinTable.'.internal', 'like', "%{$search}%")
                       ->orWhere($this->fnskuTable.'.FNSKU', 'like', "%{$search}%")
                       ->orWhere($this->productTable.'.serialnumber', 'like', "%{$search}%")
-                      ->orWhere($this->asinTable.'.metakeyword', 'like', "%{$search}%")
-                      ->orWhere($this->asinTable.'.ASIN', 'like', "%{$search}%");
-                      
-                });
-            })
-            ->when($store, function ($query) use ($store) {
-                return $query->where($this->fnskuTable.'.storename', $store);
-            })
-            ->groupBy($this->asinTable.'.ASIN', $this->fnskuTable.'.MSKU', $this->asinTable.'.internal', $this->fnskuTable.'.storename');
+                      ->orWhere($this->asinTable.'.metakeyword', 'like', "%{$search}%");
+                
+                // Check if search term matches ASIN pattern (e.g., B0XXXXXXXX)
+                if (preg_match('/^B0[A-Z0-9]{8}$/i', $search)) {
+                    // Get all related ASINs
+                    $relatedAsins = $this->findRelatedAsins($search);
+                    
+                    // Filter out empty or null ASINs from related ASINs
+                    $relatedAsins = array_filter($relatedAsins, function($asin) {
+                        return !empty($asin) && $asin !== null;
+                    });
+                    
+                    // Include related ASINs in the search
+                    if (!empty($relatedAsins)) {
+                        $query->orWhereIn($this->asinTable.'.ASIN', $relatedAsins)
+                              ->orWhereIn($this->asinTable.'.ParentAsin', $relatedAsins)
+                              ->orWhereIn($this->asinTable.'.CousinASIN', $relatedAsins)
+                              ->orWhereIn($this->asinTable.'.UpgradeASIN', $relatedAsins)
+                              ->orWhereIn($this->asinTable.'.GrandASIN', $relatedAsins);
+                    } else {
+                        // If no related ASINs, just search for the exact ASIN
+                        $query->orWhere($this->asinTable.'.ASIN', $search);
+                    }
+                } else {
+                    // If not ASIN pattern, just do direct search
+                    $query->orWhere($this->asinTable.'.ASIN', 'like', "%{$search}%");
+                }
+            });
+        }
         
-        // Execute the paginated query
-        $asins = $asinQuery->paginate($perPage);
+        // Apply store filter
+        if (!empty($store)) {
+            $asinQuery->where($this->fnskuTable.'.storename', $store);
+        }
+        
+        // Group by and paginate
+        $asins = $asinQuery->groupBy($this->asinTable.'.ASIN', $this->fnskuTable.'.MSKU', $this->asinTable.'.internal', $this->fnskuTable.'.storename')
+                          ->paginate($perPage);
         
         // For each ASIN, get all the FNSKUs and serial numbers with warehouselocation
         $results = $asins->getCollection()->map(function($item) {
+            // Filter out items with null or empty ASINs
+            if (empty($item->ASIN)) {
+                return null;
+            }
+            
             // Get all FNSKUs for this ASIN
             $fnskus = DB::table($this->fnskuTable)
                 ->select($this->fnskuTable.'.FNSKU', $this->fnskuTable.'.storename')
@@ -97,6 +190,11 @@ public function index(Request $request)
             return $item;
         });
         
+        // Filter out null values (from empty ASINs) in the collection
+        $results = $results->filter(function ($item) {
+            return $item !== null;
+        });
+        
         // Replace the collection in the paginator
         $asins->setCollection($results);
         
@@ -112,6 +210,7 @@ public function index(Request $request)
         ], 500);
     }
 }
+
 
 /**
  * Get list of store names for the dropdown

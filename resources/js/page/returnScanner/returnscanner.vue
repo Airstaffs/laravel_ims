@@ -1,5 +1,5 @@
 <template>
-    <div class="vue-container">
+    <div class="vue-container return-module">
         <!-- Top header bar with blue background -->
         <div class="top-header">
             <div class="store-filter">
@@ -35,7 +35,7 @@
                         {{ showReturnIdField ? 'Hide Return ID' : 'Show Return ID' }}
                     </button>
                 </div>
-                
+
                 <!-- ReturnID field (optional) -->
                 <div class="input-group" v-if="showReturnIdField">
                     <label>Return ID:</label>
@@ -74,10 +74,33 @@
             </template>
         </scanner-component>
 
+        <!-- Pagination with centered layout -->
+        <div class="pagination-container">
+            <div class="pagination-wrapper">
+                <div class="pagination">
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+                        <i class="fas fa-chevron-left"></i> Back
+                    </button>
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+
+                <div class="per-page-selector">
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+                            {{ option }} per page
+                        </option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <!-- Returns History Table -->
         <div class="table-container desktop-view">
             <h2>Recent Returns</h2>
-            <table class="table">
+            <table class="table table-bordered">
                 <thead>
                     <tr>
                         <th>Date</th>
@@ -113,7 +136,7 @@
                 </tbody>
             </table>
         </div>
-        
+
         <!-- Mobile Cards View -->
         <div class="mobile-view">
             <div class="mobile-cards">
@@ -152,7 +175,7 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <div v-if="returnHistory.length === 0" class="mobile-card">
                     <div class="mobile-card-details">
                         <div class="mobile-detail-row text-center">
@@ -169,128 +192,3 @@
     import returnsScanner from "./returnscanner.js";
     export default returnsScanner;
 </script>
-
-<style>
-/* Return Scanner specific styles */
-.toggle-container {
-    margin-bottom: 10px;
-    text-align: right;
-}
-
-.toggle-return-id {
-    background-color: #f0f0f0;
-    border: 1px solid #ccc;
-    padding: 5px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 0.9rem;
-}
-
-.toggle-return-id:hover {
-    background-color: #e0e0e0;
-}
-
-.container-type-hint {
-    font-size: 0.8rem;
-    color: #6c757d;
-    margin-top: 2px;
-}
-
-.status-badge {
-    display: inline-block;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-size: 0.85rem;
-    font-weight: bold;
-}
-
-.status-pending {
-    background-color: #ffc107;
-    color: #212529;
-}
-
-.status-processed {
-    background-color: #28a745;
-    color: #ffffff;
-}
-
-.status-rejected {
-    background-color: #dc3545;
-    color: #ffffff;
-}
-
-.status-missing {
-    background-color: #6c757d;
-    color: #ffffff;
-}
-
-/* Mobile view styles */
-@media (max-width: 768px) {
-    .desktop-view {
-        display: none;
-    }
-    
-    .mobile-view {
-        display: block;
-    }
-    
-    .mobile-card {
-        background-color: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        margin-bottom: 15px;
-        padding: 15px;
-    }
-    
-    .mobile-return-title {
-        font-size: 1.1rem;
-        margin: 0;
-    }
-    
-    .mobile-return-date {
-        font-size: 0.8rem;
-        color: #6c757d;
-    }
-    
-    .mobile-detail-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 8px 0;
-        border-bottom: 1px solid #eee;
-    }
-    
-    .mobile-detail-label {
-        font-weight: bold;
-        color: #495057;
-    }
-    
-    .mobile-card-actions {
-        margin-top: 15px;
-        display: flex;
-        justify-content: flex-end;
-    }
-    
-    .mobile-btn {
-        padding: 6px 12px;
-        border-radius: 4px;
-        border: none;
-        font-size: 0.9rem;
-        cursor: pointer;
-    }
-    
-    .mobile-btn-details {
-        background-color: #17a2b8;
-        color: white;
-    }
-}
-
-@media (min-width: 769px) {
-    .mobile-view {
-        display: none;
-    }
-    
-    .desktop-view {
-        display: block;
-    }
-}
-</style>

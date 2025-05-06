@@ -1163,7 +1163,7 @@ function initializePrivilegeForm() {
                     modules: {
                         'order': 'Order',
                         'unreceived': 'Unreceived',
-                        'receiving': 'Receiving',
+                        'receiving': 'Received',
                         'labeling': 'Labeling',
                         'validation': 'Validation',
                         'testing': 'Testing',
@@ -1172,7 +1172,7 @@ function initializePrivilegeForm() {
                         'fnsku': 'FNSKU',
                         'stockroom': 'Stockroom',
                         'productionarea': 'Production Area',
-                        'returnscanner' : 'Return Scanner' // Add this line
+                        'returnscanner': 'Return Scanner'
                     }
                 });
 
@@ -1385,33 +1385,133 @@ async function checkForUpdates() {
     }
 }
 
+// ==================== UPDATED NAVIGATION FUNCTIONS ====================
+
+// This function safely navigates to a module by ensuring the link exists first
+function navigateToModule(module) {
+    // First normalize the module name to lowercase
+    const moduleLower = module.toLowerCase();
+    
+    // Highlight the nav link
+    highlightNavLink(document.querySelector(`.nav-link[data-module="${moduleLower}"]`));
+    
+    // Ensure the hidden link exists
+    const linkId = `${moduleLower}Link`;
+    let hiddenLink = document.getElementById(linkId);
+    
+    // If the link doesn't exist, create it
+    if (!hiddenLink) {
+        hiddenLink = createHiddenLink(moduleLower);
+    }
+    
+    // Now safely click it
+    if (hiddenLink) {
+        hiddenLink.click();
+    } else {
+        console.error(`Failed to create or find link for module: ${moduleLower}`);
+    }
+    
+    // Close the sidebar
+    closeSidebar();
+}
+
+// Create a hidden link for a module if it doesn't exist
+function createHiddenLink(module) {
+    const linkId = `${module}Link`;
+    let link = document.getElementById(linkId);
+    
+    // If link already exists, return it
+    if (link) return link;
+    
+    // Otherwise create a new one
+    link = document.createElement('a');
+    link.id = linkId;
+    link.style.display = 'none';
+    link.href = '#';
+    
+    // Add a regular onclick handler instead of Vue attribute
+    link.onclick = function(e) {
+        e.preventDefault();
+        // Check if window.appInstance exists and has loadContent method
+        if (window.appInstance && typeof window.appInstance.loadContent === 'function') {
+            window.appInstance.loadContent(module);
+        } else {
+            console.log(`Would load content for: ${module}`);
+        }
+    };
+    
+    // Add it to the app div or body if app div doesn't exist
+    const appDiv = document.getElementById('app') || document.body;
+    appDiv.appendChild(link);
+    console.log(`Created hidden link for module: ${module}`);
+    
+    return link;
+}
+
+// Ensure all hidden links exist
+function ensureHiddenLinks(data) {
+    // Define all possible modules
+    const allModules = {
+        'order': 'Order',
+        'unreceived': 'Unreceived',
+        'receiving': 'Received', 
+        'labeling': 'Labeling',
+        'validation': 'Validation',
+        'testing': 'Testing',
+        'cleaning': 'Cleaning',
+        'packing': 'Packing',
+        'fnsku': 'Fnsku',
+        'stockroom': 'Stockroom',
+        'productionarea': 'Production Area',
+        'returnscanner': 'Return Scanner'
+    };
+    
+    // Ensure main module link exists
+    if (data.main_module) {
+        createHiddenLink(data.main_module.toLowerCase());
+    }
+    
+    // Ensure all sub module links exist
+    if (Array.isArray(data.sub_modules)) {
+        data.sub_modules.forEach(module => {
+            createHiddenLink(module.toLowerCase());
+        });
+    }
+}
+
+// Updated function to update user navigation
 function updateUserNavigation(data) {
     const nav = document.querySelector('nav.nav.flex-column');
     if (!nav) return;
 
     console.log('Updating navigation with:', data);
 
+    // First ensure all hidden links exist
+    ensureHiddenLinks(data);
+
     let navHTML = '';
 
     // Add main module if it exists
     if (data.main_module) {
+        const mainModule = data.main_module.toLowerCase();
         navHTML += `
-            <a class="nav-link active" href="#"
-               data-module="${data.main_module}"
-               onclick="document.getElementById('${data.main_module}Link').click()">
-                ${data.modules[data.main_module] || capitalizeFirst(data.main_module)}
+            <a class="nav-link active" href="#" 
+               data-module="${mainModule}"
+               onclick="navigateToModule('${mainModule}'); return false;">
+                ${data.modules[mainModule] || capitalizeFirst(mainModule)}
             </a>`;
     }
 
     // Add sub modules
     if (Array.isArray(data.sub_modules)) {
         data.sub_modules.forEach(module => {
-            if (module !== data.main_module) {
+            if (module.toLowerCase() !== data.main_module?.toLowerCase()) {
+                const moduleLower = module.toLowerCase();
                 navHTML += `
-                    <a class="nav-link" href="#"
-                       data-module="${module}"
-                       onclick="document.getElementById('${module}Link').click()">
-                        ${data.modules[module] || capitalizeFirst(module)}
+                    <a class="nav-link" href="#" 
+                       data-module="${moduleLower}"
+                       onclick="navigateToModule('${moduleLower}'); return false;">
+                        ${data.modules[moduleLower] || capitalizeFirst(module)}
                     </a>`;
             }
         });
@@ -1424,6 +1524,8 @@ function updateUserNavigation(data) {
         forceComponentUpdate(data.main_module);
     }
 }
+
+// ==================== END OF UPDATED NAVIGATION FUNCTIONS ====================
 
 function forceComponentUpdate(moduleName) {
     if (!window.appInstance) return;
