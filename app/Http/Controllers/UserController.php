@@ -317,7 +317,7 @@ class UserController extends Controller
             $moduleMapping = [
                 'Order' => 'order',
                 'Unreceived' => 'unreceived',
-                'Receiving' => 'receiving',
+                'Received' => 'receiving',
                 'Labeling' => 'labeling',
                 'Testing' => 'testing',
                 'Cleaning' => 'cleaning',

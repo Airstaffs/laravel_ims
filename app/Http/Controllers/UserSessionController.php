@@ -65,7 +65,7 @@ class UserSessionController extends Controller
                 'modules' => [
                     'order' => 'Order',
                     'unreceived' => 'Unreceived',
-                    'receiving' => 'Receiving',
+                    'receiving' => 'Received',
                     'labeling' => 'Labeling',
                     'testing' => 'Testing',
                     'cleaning' => 'Cleaning',
