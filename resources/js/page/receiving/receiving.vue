@@ -13,9 +13,10 @@
         <!-- Scanner Component -->
         <scanner-component scanner-title="Received Scanner" storage-prefix="received" :enable-camera="true"
             :display-fields="['Trackingnumber', 'FirstSN', 'SecondSN', 'PCN', 'Basket']"
-            :api-endpoint="'/api/received/process-scan'" :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
-            @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
-            @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
+            :api-endpoint="'/api/received/process-scan'" :hide-button="true" @process-scan="handleScanProcess"
+            @hardware-scan="handleHardwareScan" @scanner-opened="handleScannerOpened"
+            @scanner-closed="handleScannerClosed" @scanner-reset="handleScannerReset" @mode-changed="handleModeChange"
+            ref="scanner">
             <!-- Define custom input fields for Received module -->
             <template #input-fields>
                 <!-- Step 1: Tracking Number Input -->
@@ -390,4 +391,3 @@
         </div>
     </div>
 </template>
-

@@ -109,6 +109,26 @@ export default {
         },
 
         // Count additional images based on the image fields (img2-img15)
+        countAdditionalImages(item) {
+            if (!item) return 0;
+
+            let count = 0;
+            // Check fields img2 through img15
+            for (let i = 2; i <= 15; i++) {
+                const fieldName = `img${i}`;
+                if (
+                    item[fieldName] &&
+                    item[fieldName] !== "NULL" &&
+                    item[fieldName].trim() !== ""
+                ) {
+                    count++;
+                }
+            }
+
+            return count;
+        },
+
+        // Count additional images based on the image fields (img2-img15)
         countRegularImages(item) {
             if (!item) return 0;
 
