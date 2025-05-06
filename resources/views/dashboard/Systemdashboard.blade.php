@@ -1391,26 +1391,26 @@ async function checkForUpdates() {
 function navigateToModule(module) {
     // First normalize the module name to lowercase
     const moduleLower = module.toLowerCase();
-    
+
     // Highlight the nav link
     highlightNavLink(document.querySelector(`.nav-link[data-module="${moduleLower}"]`));
-    
+
     // Ensure the hidden link exists
     const linkId = `${moduleLower}Link`;
     let hiddenLink = document.getElementById(linkId);
-    
+
     // If the link doesn't exist, create it
     if (!hiddenLink) {
         hiddenLink = createHiddenLink(moduleLower);
     }
-    
+
     // Now safely click it
     if (hiddenLink) {
         hiddenLink.click();
     } else {
         console.error(`Failed to create or find link for module: ${moduleLower}`);
     }
-    
+
     // Close the sidebar
     closeSidebar();
 }
@@ -1419,16 +1419,16 @@ function navigateToModule(module) {
 function createHiddenLink(module) {
     const linkId = `${module}Link`;
     let link = document.getElementById(linkId);
-    
+
     // If link already exists, return it
     if (link) return link;
-    
+
     // Otherwise create a new one
     link = document.createElement('a');
     link.id = linkId;
     link.style.display = 'none';
     link.href = '#';
-    
+
     // Add a regular onclick handler instead of Vue attribute
     link.onclick = function(e) {
         e.preventDefault();
@@ -1439,12 +1439,12 @@ function createHiddenLink(module) {
             console.log(`Would load content for: ${module}`);
         }
     };
-    
+
     // Add it to the app div or body if app div doesn't exist
     const appDiv = document.getElementById('app') || document.body;
     appDiv.appendChild(link);
     console.log(`Created hidden link for module: ${module}`);
-    
+
     return link;
 }
 
@@ -1454,7 +1454,7 @@ function ensureHiddenLinks(data) {
     const allModules = {
         'order': 'Order',
         'unreceived': 'Unreceived',
-        'receiving': 'Received', 
+        'receiving': 'Received',
         'labeling': 'Labeling',
         'validation': 'Validation',
         'testing': 'Testing',
@@ -1465,12 +1465,12 @@ function ensureHiddenLinks(data) {
         'productionarea': 'Production Area',
         'returnscanner': 'Return Scanner'
     };
-    
+
     // Ensure main module link exists
     if (data.main_module) {
         createHiddenLink(data.main_module.toLowerCase());
     }
-    
+
     // Ensure all sub module links exist
     if (Array.isArray(data.sub_modules)) {
         data.sub_modules.forEach(module => {
@@ -1495,7 +1495,7 @@ function updateUserNavigation(data) {
     if (data.main_module) {
         const mainModule = data.main_module.toLowerCase();
         navHTML += `
-            <a class="nav-link active" href="#" 
+            <a class="nav-link active" href="#"
                data-module="${mainModule}"
                onclick="navigateToModule('${mainModule}'); return false;">
                 ${data.modules[mainModule] || capitalizeFirst(mainModule)}
@@ -1508,7 +1508,7 @@ function updateUserNavigation(data) {
             if (module.toLowerCase() !== data.main_module?.toLowerCase()) {
                 const moduleLower = module.toLowerCase();
                 navHTML += `
-                    <a class="nav-link" href="#" 
+                    <a class="nav-link" href="#"
                        data-module="${moduleLower}"
                        onclick="navigateToModule('${moduleLower}'); return false;">
                         ${data.modules[moduleLower] || capitalizeFirst(module)}
