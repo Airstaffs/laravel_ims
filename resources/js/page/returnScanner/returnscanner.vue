@@ -39,8 +39,7 @@
                 <!-- ReturnID field (optional) -->
                 <div class="input-group" v-if="showReturnIdField">
                     <label>Return ID:</label>
-                    <input type="text" v-model="returnId" placeholder="Enter Return ID..."
-                        @input="handleReturnIdInput"
+                    <input type="text" v-model="returnId" placeholder="Enter Return ID..." @input="handleReturnIdInput"
                         @keyup.enter="showManualInput ? focusNextField('serialNumberInput') : processScan()"
                         ref="returnIdInput" />
                 </div>
@@ -61,7 +60,8 @@
                             @input="handleSecondSerialInput"
                             @keyup.enter="showManualInput ? focusNextField('locationInput') : processScan()"
                             ref="secondSerialInput" />
-                        <button type="button" class="clear-input-btn" @click="hideSecondSerial" title="Remove second serial">
+                        <button type="button" class="clear-input-btn" @click="hideSecondSerial"
+                            title="Remove second serial">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -123,9 +123,8 @@
                         <td class="product-image-cell">
                             <div class="product-image-container" @click="openImageModal(item)">
                                 <!-- Use direct image path like in Production module -->
-                                <img :src="'/images/thumbnails/' + (item.img1 || 'default.jpg')" 
-                                    :alt="item.ProductTitle || 'Product'" 
-                                    class="product-thumbnail clickable-image"
+                                <img :src="'/images/thumbnails/' + (item.img1 || 'default.jpg')"
+                                    :alt="item.ProductTitle || 'Product'" class="product-thumbnail clickable-image"
                                     @error="handleImageError($event)" />
                                 <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
                                     +{{ countAdditionalImages(item) }}
@@ -163,9 +162,8 @@
                     <div class="mobile-card-header">
                         <div class="mobile-product-image clickable" @click="openImageModal(item)">
                             <!-- Use direct image path like in Production module -->
-                            <img :src="'/images/thumbnails/' + (item.img1 || 'default.jpg')" 
-                                :alt="item.ProductTitle || 'Product'"
-                                class="product-thumbnail clickable-image" 
+                            <img :src="'/images/thumbnails/' + (item.img1 || 'default.jpg')"
+                                :alt="item.ProductTitle || 'Product'" class="product-thumbnail clickable-image"
                                 @error="handleImageError($event)" />
                             <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
                                 +{{ countAdditionalImages(item) }}
@@ -180,7 +178,8 @@
                     <div class="mobile-card-details">
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">RT#:</span>
-                            <span class="mobile-detail-value">{{ formatRTNumber(item.rtcounter, item.storename) }}</span>
+                            <span
+                                class="mobile-detail-value">{{ formatRTNumber(item.rtcounter, item.storename) }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Serial:</span>
@@ -202,7 +201,8 @@
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Buyer:</span>
-                            <span class="mobile-detail-value">{{ item.BuyerName || item.costumer_name || 'Unknown' }}</span>
+                            <span
+                                class="mobile-detail-value">{{ item.BuyerName || item.costumer_name || 'Unknown' }}</span>
                         </div>
                     </div>
 
@@ -219,6 +219,21 @@
                             No return history found
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom pagination (also centered) -->
+        <div class="pagination-container">
+            <div class="pagination-wrapper">
+                <div class="pagination">
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+                        <i class="fas fa-chevron-left"></i> Back
+                    </button>
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </button>
                 </div>
             </div>
         </div>
@@ -254,222 +269,234 @@
 </script>
 
 <style scoped>
-/* CSS for input with clear button */
-.input-with-clear {
-    position: relative;
-    display: flex;
-    flex: 1;
-}
 
-.input-with-clear input {
-    flex: 1;
-    padding-right: 30px; /* Make room for the clear button */
-}
+    /* CSS for input with clear button */
+    .input-with-clear {
+        position: relative;
+        display: flex;
+        flex: 1;
+    }
 
-.clear-input-btn {
-    position: absolute;
-    right: 5px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
-    border: none;
-    color: #666;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    transition: all 0.2s ease;
-}
+    .input-with-clear input {
+        flex: 1;
+        padding-right: 30px;
+        /* Make room for the clear button */
+    }
 
-.clear-input-btn:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-    color: #333;
-}
+    .clear-input-btn {
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #666;
+        cursor: pointer;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        transition: all 0.2s ease;
+    }
 
-/* Image styles */
-.product-image-cell {
-    width: 80px;
-    height: 80px;
-    padding: 5px;
-}
+    .clear-input-btn:hover {
+        background-color: rgba(0, 0, 0, 0.1);
+        color: #333;
+    }
 
-.product-image-container {
-    position: relative;
-    width: 70px;
-    height: 70px;
-    overflow: hidden;
-    border-radius: 4px;
-    cursor: pointer;
-    background-color: #f5f5f5; /* Light background for image container */
-}
+    /* Image styles */
+    .product-image-cell {
+        width: 80px;
+        height: 80px;
+        padding: 5px;
+    }
 
-.product-thumbnail {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 0.2s;
-}
+    .product-image-container {
+        position: relative;
+        width: 70px;
+        height: 70px;
+        overflow: hidden;
+        border-radius: 4px;
+        cursor: pointer;
+        background-color: #f5f5f5;
+        /* Light background for image container */
+    }
 
-.product-thumbnail:hover {
-    transform: scale(1.05);
-}
+    .product-thumbnail {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        transition: transform 0.2s;
+    }
 
-.image-count-badge {
-    position: absolute;
-    bottom: 5px;
-    right: 5px;
-    background-color: rgba(0, 0, 0, 0.6);
-    color: white;
-    font-size: 11px;
-    padding: 1px 5px;
-    border-radius: 8px;
-}
+    .product-thumbnail:hover {
+        transform: scale(1.05);
+    }
 
-/* Mobile image styles */
-.mobile-product-image {
-    width: 60px;
-    height: 60px;
-    overflow: hidden;
-    border-radius: 4px;
-    position: relative;
-    margin-right: 10px;
-    background-color: #f5f5f5; /* Light background for image container */
-}
+    .image-count-badge {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        background-color: rgba(0, 0, 0, 0.6);
+        color: white;
+        font-size: 11px;
+        padding: 1px 5px;
+        border-radius: 8px;
+    }
 
-/* Image modal styles */
-.image-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 1000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    /* Mobile image styles */
+    .mobile-product-image {
+        width: 60px;
+        height: 60px;
+        overflow: hidden;
+        border-radius: 4px;
+        position: relative;
+        margin-right: 10px;
+        background-color: #f5f5f5;
+        /* Light background for image container */
+    }
 
-.modal-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.8);
-}
+    /* Image modal styles */
+    .image-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-.modal-content {
-    position: relative;
-    max-width: 90%;
-    max-height: 90vh;
-    z-index: 1001;
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
+    .modal-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+    }
 
-.close-button {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 24px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    z-index: 1002;
-}
+    .modal-content {
+        position: relative;
+        max-width: 90%;
+        max-height: 90vh;
+        z-index: 1001;
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
 
-.main-image-container {
-    position: relative;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    .close-button {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 24px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        z-index: 1002;
+    }
 
-.modal-main-image {
-    max-width: 100%;
-    max-height: 60vh;
-    object-fit: contain;
-}
+    .main-image-container {
+        position: relative;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-.nav-button {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    background-color: rgba(255, 255, 255, 0.5);
-    border: none;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+    .modal-main-image {
+        max-width: 100%;
+        max-height: 60vh;
+        object-fit: contain;
+    }
 
-.nav-button.prev {
-    left: 10px;
-}
+    .nav-button {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: rgba(255, 255, 255, 0.5);
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-.nav-button.next {
-    right: 10px;
-}
+    .nav-button.prev {
+        left: 10px;
+    }
 
-.image-counter {
-    margin: 10px 0;
-    font-size: 14px;
-}
+    .nav-button.next {
+        right: 10px;
+    }
 
-.thumbnails-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 15px;
-    max-width: 100%;
-    justify-content: center;
-}
+    .image-counter {
+        margin: 10px 0;
+        font-size: 14px;
+    }
 
-.modal-thumbnail {
-    width: 60px;
-    height: 60px;
-    border-radius: 4px;
-    overflow: hidden;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
+    .thumbnails-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 15px;
+        max-width: 100%;
+        justify-content: center;
+    }
 
-.modal-thumbnail.active {
-    opacity: 1;
-    border: 2px solid #0066cc;
-}
+    .modal-thumbnail {
+        width: 60px;
+        height: 60px;
+        border-radius: 4px;
+        overflow: hidden;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
 
-.modal-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
+    .modal-thumbnail.active {
+        opacity: 1;
+        border: 2px solid #0066cc;
+    }
 
-/* Highlight effect for the second serial input when populated automatically */
-.highlight-input {
-    background-color: #fff3cd !important;
-    border-color: #ffecb5 !important;
-    animation: pulse-highlight 1s ease-in-out;
-}
+    .modal-thumbnail img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
 
-@keyframes pulse-highlight {
-    0% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
-    70% { box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); }
-}
+    /* Highlight effect for the second serial input when populated automatically */
+    .highlight-input {
+        background-color: #fff3cd !important;
+        border-color: #ffecb5 !important;
+        animation: pulse-highlight 1s ease-in-out;
+    }
+
+    @keyframes pulse-highlight {
+        0% {
+            box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7);
+        }
+
+        70% {
+            box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
+        }
+    }
 </style>
