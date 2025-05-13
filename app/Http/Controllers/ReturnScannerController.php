@@ -457,6 +457,7 @@ public function checkSerial(Request $request)
                         $asinToUse = $fnskuInfo->ASIN;
                         $condition = $fnskuInfo->grading;
                         $title = $fnskuInfo->astitle;
+                        $OriginalFnskuUnitCount = $fnskuInfo->Units;
                         
                         // Check if the title indicates this is a pack
                         $hasPack = preg_match('/\b(?:pack|Pack|PACK|(\d+)(?:-|\s)?(?:pack|Pack|PACK))\b/', $title);
@@ -605,7 +606,7 @@ public function checkSerial(Request $request)
                             }
                         } else {
                             // Not a pack item - check if the original FNSKU is available with units
-                            if (strtolower($fnskuInfo->fnsku_status) == 'available' && ($fnskuInfo->units > 0)) {
+                            if (strtolower($fnskuInfo->fnsku_status) == 'available' && ($fnskuInfo->Units > 0)) {
                                 $fnskuToUse = $fnskuInfo->FNSKU;
                                 $status = $fnskuInfo->fnsku_status;
                                 Log::info("Using original FNSKU {$fnskuToUse} with {$fnskuInfo->units} units remaining");
@@ -782,8 +783,7 @@ public function checkSerial(Request $request)
                             ->where('FNSKU', $fnskuToUse)
                             ->update([
                                 'fnsku_status' => $newStatus,
-                                'Units' => $newUnits,
-                                'productid' => $newItemId
+                                'Units' => $newUnits
                             ]);
                         
                         Log::info("Updated FNSKU {$fnskuToUse} units from {$currentUnits} to {$newUnits}, status: {$newStatus}");
@@ -868,6 +868,7 @@ public function checkSerial(Request $request)
                     'Module' => 'Scanner Return Module',
                     'Action' => 'Return Item'
                 ]);
+
     
                 // Update original item status
                 DB::table($this->productTable)
@@ -876,6 +877,16 @@ public function checkSerial(Request $request)
                         'ProductModuleLoc' => 'Returnlist',
                         'returnstatus' => 'returned'
                     ]);
+
+
+                  // Update Originak FNSKU with new unit count and status
+                        DB::table($this->fnskuTable)
+                            ->where('FNSKU', $fnskuToUse)
+                            ->update([
+                                'fnsku_status' => 'available',
+                                'Units' => $OriginalFnskuUnitCount + $successCount
+                        ]);
+                        
                 
                 // Delete any shipping records
                 DB::table('tbldoneshipping')
