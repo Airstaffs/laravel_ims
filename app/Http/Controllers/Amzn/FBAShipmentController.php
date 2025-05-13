@@ -235,6 +235,21 @@ class FBAShipmentController extends Controller
         }
     */
 
+    public function fetchinboundplans(Request $request)
+    {
+        $shipmentID = $request->input('shipmentID');
+    
+        $plans = DB::table('tblfbainboundplans')
+            ->where('shipmentID', $shipmentID)
+            ->get();
+    
+        return response()->json([
+            'success' => true,
+            'message' => '✅ Fetched inbound plans.',
+            'data' => $plans
+        ]);
+    }
+    
     public function amazon_catalog_asin($asin, $store, $destinationmarketplace)
     {
 
