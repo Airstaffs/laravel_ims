@@ -26,6 +26,7 @@ use App\Http\Controllers\EbayAuthController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\PackagingController;
+use App\Http\Controllers\ReturnScannerController;
 
 
 Route::get('/', function () {
@@ -259,7 +260,7 @@ Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPr
 // In routes/web.php
 Route::post('/refresh-user-session', [UserSessionController::class, 'refreshSession']);
 
-Route::get('/keep-alive', function () {
+/*Route::get('/keep-alive', function () {
     // Refresh the session
     request()->session()->regenerate();
     return response()->json(['status' => 'ok']);
@@ -267,7 +268,14 @@ Route::get('/keep-alive', function () {
 
 Route::get('/csrf-token', function () {
     return response()->json(['token' => csrf_token()]);
-})->middleware('web');
+})->middleware('web'); */
+
+// Session management routes
+Route::get('/keep-alive', [App\Http\Controllers\UserSessionController::class, 'keepAlive'])
+    ->middleware('web');
+    
+Route::get('/csrf-token', [App\Http\Controllers\UserSessionController::class, 'csrfToken'])
+    ->middleware('web');
 
 Route::middleware(['web', \App\Http\Middleware\RefreshSession::class])->group(function () {
     // Your existing routes go here
@@ -323,6 +331,19 @@ Route::prefix('api/productionArea')->group(function () {
 Route::prefix('api/packaging')->group(function () {
     Route::get('products', [PackagingController::class, 'index']);
 });
+
+
+// Routes Returns
+Route::prefix('api/returns')->group(function () {
+    // GET routes
+    Route::get('products', [ReturnScannerController::class, 'index']);
+    Route::get('stores', [ReturnScannerController::class, 'getStores']);
+    Route::get('check-serial', [ReturnScannerController::class, 'checkSerial']);
+    
+    // POST routes - REMOVE the withoutMiddleware call to make it consistent with Stockroom
+    Route::post('process-scan', [ReturnScannerController::class, 'processScan']);
+});
+
 
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {

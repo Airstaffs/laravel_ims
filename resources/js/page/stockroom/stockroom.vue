@@ -87,10 +87,10 @@
             <table class="table">
                 <thead>
                     <tr>
-                        <th class="width-2">
+                        <th class="check-column">
                             <input type="checkbox" @click="toggleAll" v-model="selectAll" />
                         </th>
-                        <th class="width-28">
+                        <th class="product-name">
                             <div class="th-content">
                                 <span class="sortable" @click="sortBy('AStitle')">
                                     Product Name
@@ -99,61 +99,61 @@
                                 </span>
                             </div>
                         </th>
-                        <th class="width-8">
+                        <th>
                             <div class="th-content sortable" @click="sortBy('ASIN')">
                                 ASIN
                                 <i v-if="sortColumn === 'ASIN'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th class="width-8">
+                        <th>
                             <div class="th-content sortable" @click="sortBy('MSKUviewer')">
                                 MSKU/SKU
                                 <i v-if="sortColumn === 'MSKUviewer'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th class="width-8">
+                        <th>
                             <div class="th-content sortable" @click="sortBy('storename')">
                                 Store
                                 <i v-if="sortColumn === 'storename'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th class="width-8">
+                        <th>
                             <div class="th-content sortable" @click="sortBy('grading')">
                                 Grading
                                 <i v-if="sortColumn === 'grading'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th class="width-8">
+                        <th>
                             <div class="th-content">
                                 FNSKUs
                             </div>
                         </th>
-                        <th class="width-5">
+                        <th>
                             <div class="th-content sortable" @click="sortBy('FBMAvailable')">
                                 FBM
                                 <i v-if="sortColumn === 'FBMAvailable'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th class="width-5">
+                        <th>
                             <div class="th-content sortable" @click="sortBy('FbaAvailable')">
                                 FBA
                                 <i v-if="sortColumn === 'FbaAvailable'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th class="width-8">
+                        <th>
                             <div class="th-content sortable" @click="sortBy('item_count')">
                                 Item Count
                                 <i v-if="sortColumn === 'item_count'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
-                        <th class="width-15">
+                        <th>
                             <div class="th-content">
                                 Actions
                             </div>

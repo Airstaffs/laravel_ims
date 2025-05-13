@@ -9,6 +9,11 @@ use Illuminate\Support\Facades\Auth;
 
 class UserSessionController extends Controller
 {
+    /**
+     * Check and return current user privileges
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function checkUserPrivileges()
     {
         try {
@@ -37,8 +42,16 @@ class UserSessionController extends Controller
             if ($user->stockroom) $subModules[] = 'stockroom';
             if ($user->validation) $subModules[] = 'validation';
             if ($user->productionarea) $subModules[] = 'productionarea';
-            if ($user->returnscanner) $subModules[] = 'returnscanner';
             if ($user->fnsku) $subModules[] = 'fnsku';
+            
+            // Important: Make explicit check for returnscanner and log for debugging
+            if ($user->returnscanner) {
+                $subModules[] = 'returnscanner';
+                Log::info('Return Scanner added to user privileges', [
+                    'user_id' => $user->id, 
+                    'returnscanner_value' => $user->returnscanner
+                ]);
+            }
     
             // Update session with fresh data
             Session::forget('main_module');
@@ -74,7 +87,7 @@ class UserSessionController extends Controller
                     'validation' => 'Validation',
                     'fnsku' => 'FNSKU',
                     'productionarea'=>'Production Area',
-                    'returnscanner' => 'Return Scanner' // Add this line
+                    'returnscanner' => 'Return Scanner'
                 ]
             ]);
     
@@ -91,29 +104,113 @@ class UserSessionController extends Controller
         }
     }
 
+    /**
+     * Refresh user session
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
     public function refreshSession(Request $request)
-{
-    try {
-        $user = Auth::user();
-        if (!$user) {
-            return response()->json(['error' => 'Not authenticated'], 401);
+    {
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json(['error' => 'Not authenticated'], 401);
+            }
+
+            // Force session regenerate
+            $request->session()->regenerate();
+            
+            // Update last activity timestamps
+            $request->session()->put('last_activity', time());
+            $request->session()->put('session_regenerated', time());
+            
+            // Re-fetch privileges
+            return $this->checkUserPrivileges();
+        } catch (\Exception $e) {
+            Log::error('Error refreshing session', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to refresh session',
+                'message' => $e->getMessage()
+            ], 500);
         }
-
-        // Force session regenerate
-        $request->session()->regenerate();
-        
-        // Re-fetch privileges
-        return $this->checkUserPrivileges();
-    } catch (\Exception $e) {
-        Log::error('Error refreshing session', [
-            'error' => $e->getMessage(),
-            'user_id' => Auth::id()
-        ]);
-
-        return response()->json([
-            'error' => 'Failed to refresh session',
-            'message' => $e->getMessage()
-        ], 500);
     }
-}
+
+    /**
+     * Keep user session alive
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function keepAlive(Request $request)
+    {
+        if (!Auth::check()) {
+            return response()->json(['status' => 'error', 'message' => 'Not authenticated'], 401);
+        }
+        
+        try {
+            // Update last activity timestamp
+            $request->session()->put('last_activity', time());
+            
+            // Get session info for debugging
+            $sessionInfo = [
+                'id' => session()->getId(),
+                'last_activity' => session('last_activity'),
+                'user' => Auth::user()->username,
+                'expires_in' => (config('session.lifetime') * 60) - (time() - session('last_activity', time())),
+                'main_module' => Session::get('main_module'),
+                'sub_modules' => Session::get('sub_modules')
+            ];
+            
+            // Only regenerate session after half the lifetime has passed to prevent excessive regeneration
+            $halfLifetime = (config('session.lifetime') * 60) / 2; // Half lifetime in seconds
+            $lastRegenerated = session('session_regenerated', 0);
+            
+            if ((time() - $lastRegenerated) > $halfLifetime) {
+                $request->session()->regenerate();
+                $request->session()->put('session_regenerated', time());
+                $sessionInfo['regenerated'] = true;
+                
+                // Log regeneration
+                Log::info('Session regenerated during keep-alive', [
+                    'user_id' => Auth::id(),
+                    'new_session_id' => session()->getId()
+                ]);
+            } else {
+                $sessionInfo['regenerated'] = false;
+            }
+            
+            return response()->json([
+                'status' => 'ok', 
+                'message' => 'Session extended',
+                'debug' => $sessionInfo
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error in keepAlive: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
+            
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Failed to extend session: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get a fresh CSRF token
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function csrfToken(Request $request)
+    {
+        return response()->json([
+            'token' => csrf_token()
+        ]);
+    }
 }

@@ -40,7 +40,7 @@ class UserController extends Controller
                 'stockroom',
                 'validation',
                 'productionarea',
-                'returnscanner' 
+                'returnscanner',
             )
             ->where('id', $currentUserId)
             ->first();
@@ -434,58 +434,61 @@ class UserController extends Controller
 
 
     public function refreshUserSession(Request $request)
-{
-    try {
-        $user = Auth::user();
-        
-        if (!$user) {
-            return response()->json(['success' => false, 'message' => 'User not authenticated']);
-        }
-        
-        // Define all possible modules as stored in the database
-        $modules = [
-            'order', 'unreceived', 'receiving', 'labeling', 'testing', 
-            'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-            'productionarea', 'returnscanner', 'fbashipmentinbound'
-        ];
-        
-        // Get active modules
-        $activeModules = [];
-        foreach ($modules as $module) {
-            if ($user->{$module} == 1) {
-                $activeModules[] = $module;
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'User not authenticated']);
             }
+            
+            // Define all possible modules as stored in the database
+            $modules = [
+                'order', 'unreceived', 'receiving', 'labeling', 'testing', 
+                'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
+                'productionarea', 'returnscanner', 'fbashipmentinbound'
+            ];
+            
+            // Get active modules - ensure all are lowercase for consistency
+            $activeModules = [];
+            foreach ($modules as $module) {
+                if ($user->{$module} == 1) {
+                    $activeModules[] = strtolower($module);
+                }
+            }
+            
+            // Get main module and ensure it's lowercase
+            $mainModule = strtolower($user->main_module);
+            
+            // Save to session
+            session(['main_module' => $mainModule]);
+            session(['sub_modules' => $activeModules]);
+            
+            // Debug log
+            Log::info('Session refreshed for user', [
+                'user_id' => $user->id,
+                'username' => $user->username,
+                'main_module' => $mainModule,
+                'sub_modules' => $activeModules
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'User session refreshed successfully',
+                'main_module' => $mainModule,
+                'sub_modules' => $activeModules
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to refresh user session: ' . $e->getMessage(), [
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            return response()->json([
+                'success' => false, 
+                'message' => 'Failed to refresh user session: ' . $e->getMessage()
+            ]);
         }
-        
-        // Save to session
-        session(['main_module' => $user->main_module]);
-        session(['sub_modules' => $activeModules]);
-        
-        // Debug log
-        Log::info('Session refreshed for user', [
-            'user_id' => $user->id,
-            'username' => $user->username,
-            'main_module' => $user->main_module,
-            'sub_modules' => $activeModules
-        ]);
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'User session refreshed successfully',
-            'main_module' => $user->main_module,
-            'sub_modules' => $activeModules
-        ]);
-    } catch (\Exception $e) {
-        Log::error('Failed to refresh user session: ' . $e->getMessage(), [
-            'file' => $e->getFile(),
-            'line' => $e->getLine()
-        ]);
-        return response()->json([
-            'success' => false, 
-            'message' => 'Failed to refresh user session: ' . $e->getMessage()
-        ]);
     }
-}
 
         
     public function createdusers()

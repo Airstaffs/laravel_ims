@@ -347,32 +347,42 @@
     ?>
 
     <script>
-        window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-        window.allowedModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
-        window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+         // Make sure these are set properly
+    window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+    window.allowedModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
+    window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+    
+    // Add this for debugging
+    console.log('Session Modules:', {
+        defaultComponent: window.defaultComponent,
+        allowedModules: window.allowedModules,
+        mainModule: window.mainModule,
+        hasReturnScanner: window.allowedModules.includes('returnscanner')
+    });
     </script>
 
     <!-- Updated Navigation structure with improved highlighting -->
     <nav class="nav flex-column sidebar-nav">
-        <?php if ($mainModule): ?>
-            <!-- If we have a main module, show it first -->
-            <a class="nav-link <?= (request()->segment(1) == $mainModule) ? 'active' : '' ?>"
-               href="/<?= $mainModule ?>"
-               onclick="highlightNavLink(this); document.getElementById('<?= $mainModule ?>Link').click(); closeSidebar(); return false;">
-                <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
+    <?php if ($mainModule): ?>
+        <a class="nav-link <?= (request()->segment(1) == $mainModule) ? 'active' : '' ?>"
+           href="/<?= $mainModule ?>"
+           onclick="window.loadContent('<?= $mainModule ?>'); highlightNavLink(this); closeSidebar(); return false;">
+            <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
+        </a>
+    <?php endif; ?>
+
+    <?php foreach ($modules as $module => $label): ?>
+        <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
+            <a class="nav-link <?= (request()->segment(1) == $module) ? 'active' : '' ?>"
+               href="/<?= $module ?>"
+               onclick="window.loadContent('<?= $module ?>'); highlightNavLink(this); closeSidebar(); return false;">
+                <?= $label ?>
             </a>
         <?php endif; ?>
+    <?php endforeach; ?>
+</nav>
 
-        <?php foreach ($modules as $module => $label): ?>
-            <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
-                <a class="nav-link <?= (request()->segment(1) == $module) ? 'active' : '' ?>"
-                   href="/<?= $module ?>"
-                   onclick="highlightNavLink(this); document.getElementById('<?= $module ?>Link').click(); closeSidebar(); return false;">
-                    <?= $label ?>
-                </a>
-            <?php endif; ?>
-        <?php endforeach; ?>
-    </nav>
+
 </div>
 
 <style>
@@ -479,7 +489,10 @@
     <?php endforeach; ?>
 
     <!-- Vue component with main module as default -->
-    <component :is="currentComponent"></component>
+    <component 
+  :is="currentComponent" 
+  :key="currentComponent">
+</component>
 </div>
 
     <div id="dynamic-content">
@@ -1385,133 +1398,33 @@ async function checkForUpdates() {
     }
 }
 
-// ==================== UPDATED NAVIGATION FUNCTIONS ====================
-
-// This function safely navigates to a module by ensuring the link exists first
-function navigateToModule(module) {
-    // First normalize the module name to lowercase
-    const moduleLower = module.toLowerCase();
-    
-    // Highlight the nav link
-    highlightNavLink(document.querySelector(`.nav-link[data-module="${moduleLower}"]`));
-    
-    // Ensure the hidden link exists
-    const linkId = `${moduleLower}Link`;
-    let hiddenLink = document.getElementById(linkId);
-    
-    // If the link doesn't exist, create it
-    if (!hiddenLink) {
-        hiddenLink = createHiddenLink(moduleLower);
-    }
-    
-    // Now safely click it
-    if (hiddenLink) {
-        hiddenLink.click();
-    } else {
-        console.error(`Failed to create or find link for module: ${moduleLower}`);
-    }
-    
-    // Close the sidebar
-    closeSidebar();
-}
-
-// Create a hidden link for a module if it doesn't exist
-function createHiddenLink(module) {
-    const linkId = `${module}Link`;
-    let link = document.getElementById(linkId);
-    
-    // If link already exists, return it
-    if (link) return link;
-    
-    // Otherwise create a new one
-    link = document.createElement('a');
-    link.id = linkId;
-    link.style.display = 'none';
-    link.href = '#';
-    
-    // Add a regular onclick handler instead of Vue attribute
-    link.onclick = function(e) {
-        e.preventDefault();
-        // Check if window.appInstance exists and has loadContent method
-        if (window.appInstance && typeof window.appInstance.loadContent === 'function') {
-            window.appInstance.loadContent(module);
-        } else {
-            console.log(`Would load content for: ${module}`);
-        }
-    };
-    
-    // Add it to the app div or body if app div doesn't exist
-    const appDiv = document.getElementById('app') || document.body;
-    appDiv.appendChild(link);
-    console.log(`Created hidden link for module: ${module}`);
-    
-    return link;
-}
-
-// Ensure all hidden links exist
-function ensureHiddenLinks(data) {
-    // Define all possible modules
-    const allModules = {
-        'order': 'Order',
-        'unreceived': 'Unreceived',
-        'receiving': 'Received', 
-        'labeling': 'Labeling',
-        'validation': 'Validation',
-        'testing': 'Testing',
-        'cleaning': 'Cleaning',
-        'packing': 'Packing',
-        'fnsku': 'Fnsku',
-        'stockroom': 'Stockroom',
-        'productionarea': 'Production Area',
-        'returnscanner': 'Return Scanner'
-    };
-    
-    // Ensure main module link exists
-    if (data.main_module) {
-        createHiddenLink(data.main_module.toLowerCase());
-    }
-    
-    // Ensure all sub module links exist
-    if (Array.isArray(data.sub_modules)) {
-        data.sub_modules.forEach(module => {
-            createHiddenLink(module.toLowerCase());
-        });
-    }
-}
-
-// Updated function to update user navigation
 function updateUserNavigation(data) {
     const nav = document.querySelector('nav.nav.flex-column');
     if (!nav) return;
 
     console.log('Updating navigation with:', data);
 
-    // First ensure all hidden links exist
-    ensureHiddenLinks(data);
-
     let navHTML = '';
 
     // Add main module if it exists
     if (data.main_module) {
-        const mainModule = data.main_module.toLowerCase();
         navHTML += `
-            <a class="nav-link active" href="#" 
-               data-module="${mainModule}"
-               onclick="navigateToModule('${mainModule}'); return false;">
-                ${data.modules[mainModule] || capitalizeFirst(mainModule)}
+            <a class="nav-link active" href="#"
+               data-module="${data.main_module}"
+               onclick="window.loadContent('${data.main_module}'); highlightNavLink(this); closeSidebar(); return false;">
+                ${data.modules[data.main_module] || capitalizeFirst(data.main_module)}
             </a>`;
     }
 
     // Add sub modules
     if (Array.isArray(data.sub_modules)) {
         data.sub_modules.forEach(module => {
-            if (module.toLowerCase() !== data.main_module?.toLowerCase()) {
-                const moduleLower = module.toLowerCase();
+            if (module !== data.main_module) {
                 navHTML += `
-                    <a class="nav-link" href="#" 
-                       data-module="${moduleLower}"
-                       onclick="navigateToModule('${moduleLower}'); return false;">
-                        ${data.modules[moduleLower] || capitalizeFirst(module)}
+                    <a class="nav-link" href="#"
+                       data-module="${module}"
+                       onclick="window.loadContent('${module}'); highlightNavLink(this); closeSidebar(); return false;">
+                        ${data.modules[module] || capitalizeFirst(module)}
                     </a>`;
             }
         });
@@ -1519,13 +1432,15 @@ function updateUserNavigation(data) {
 
     nav.innerHTML = navHTML;
 
+    // Ensure window variables are updated
+    window.mainModule = data.main_module;
+    window.allowedModules = data.sub_modules;
+
     // Update Vue component if needed
     if (data.main_module && window.appInstance) {
-        forceComponentUpdate(data.main_module);
+        window.appInstance.forceUpdate(data.main_module);
     }
 }
-
-// ==================== END OF UPDATED NAVIGATION FUNCTIONS ====================
 
 function forceComponentUpdate(moduleName) {
     if (!window.appInstance) return;
@@ -2110,7 +2025,6 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 </div>
 
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const editNotesModal = document.getElementById('editNotesModal');
@@ -2684,11 +2598,6 @@ document.getElementById('selectMarketplace').addEventListener('change', updateMa
         </div>
     </div>
 </div>
-
-
-
-
-
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         // Get the audio elements
