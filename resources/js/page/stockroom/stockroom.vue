@@ -57,18 +57,18 @@
             </template>
         </scanner-component>
 
+        <h2 class="module-title">Stockroom Module</h2>
+
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">
-            <h2 class="module-title">Stockroom Module</h2>
-
-            <table class="table">
+            <table>
                 <thead>
                     <tr>
-                        <th>
+                        <th class="sticky-header first-col">
                             <input type="checkbox" @click="toggleAll" v-model="selectAll" />
                         </th>
-                        <th>
-                            <div class="th-content">
+                        <th class="sticky-header second-sticky">
+                            <div class="product-name">
                                 <span class="sortable" @click="sortBy('AStitle')">
                                     Product Name
                                     <i v-if="sortColumn === 'AStitle'"
@@ -77,54 +77,54 @@
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('ASIN')">
+                            <div class="sortable" @click="sortBy('ASIN')">
                                 ASIN
                                 <i v-if="sortColumn === 'ASIN'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('MSKUviewer')">
+                            <div class="sortable" @click="sortBy('MSKUviewer')">
                                 MSKU/SKU
                                 <i v-if="sortColumn === 'MSKUviewer'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('storename')">
+                            <div class="sortable" @click="sortBy('storename')">
                                 Store
                                 <i v-if="sortColumn === 'storename'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('grading')">
+                            <div class="sortable" @click="sortBy('grading')">
                                 Grading
                                 <i v-if="sortColumn === 'grading'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content">
+                            <div class="">
                                 FNSKUs
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('FBMAvailable')">
+                            <div class="sortable" @click="sortBy('FBMAvailable')">
                                 FBM
                                 <i v-if="sortColumn === 'FBMAvailable'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('FbaAvailable')">
+                            <div class="sortable" @click="sortBy('FbaAvailable')">
                                 FBA
                                 <i v-if="sortColumn === 'FbaAvailable'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('item_count')">
+                            <div class="sortable" @click="sortBy('item_count')">
                                 Item Count
                                 <i v-if="sortColumn === 'item_count'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
@@ -140,24 +140,20 @@
                 <tbody>
                     <template v-for="(item, index) in sortedInventory" :key="item.ASIN">
                         <tr>
-                            <td>
-                                <div class="checkbox-container">
-                                    <input type="checkbox" v-model="item.checked" />
-                                </div>
+                            <td class="sticky-col first-col">
+                                <input type="checkbox" v-model="item.checked" />
                             </td>
-                            <td>
-                                <div class="product-cell">
-                                    <div class="product-container">
-                                        <div class="product-image clickable" @click="viewProductImage(item)">
-                                            <img :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)"
-                                                :alt="item.AStitle" class="product-thumbnail"
-                                                @error="handleImageError($event, item)" />
-                                        </div>
-                                        <div class="product-info">
-                                            <p class="product-name clickable" @click="viewProductDetails(item)">
-                                                {{ item.AStitle }}
-                                            </p>
-                                        </div>
+                            <td class="sticky-col second-sticky">
+                                <div class="product-container">
+                                    <div class="product-image-container clickable" @click="viewProductImage(item)">
+                                        <img :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)"
+                                            :alt="item.AStitle" class="product-thumbnail"
+                                            @error="handleImageError($event, item)" />
+                                    </div>
+                                    <div class="product-info">
+                                        <p class="product-name clickable" @click="viewProductDetails(item)">
+                                            {{ item.AStitle }}
+                                        </p>
                                     </div>
                                 </div>
                             </td>
@@ -255,8 +251,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <h2 class="module-title">Stockroom Module</h2>
-
             <div class="mobile-cards">
                 <div v-for="(item, index) in sortedInventory" :key="item.ASIN" class="mobile-card">
                     <div class="mobile-card-header">
@@ -274,6 +268,8 @@
                             </h3>
                         </div>
                     </div>
+
+                    <hr>
 
                     <div class="mobile-card-details">
                         <div class="mobile-detail-row">
@@ -306,20 +302,24 @@
                         </div>
                     </div>
 
+                    <hr>
+
                     <div class="mobile-card-actions">
-                        <button class="mobile-btn" @click="printLabel(item.ProductID)">
+                        <button class="btn" @click="printLabel(item.ProductID)">
                             <i class="fas fa-print"></i> Print
                         </button>
-                        <button class="mobile-btn mobile-btn-expand" @click="toggleDetails(index)">
+                        <button class="btn btn-expand" @click="toggleDetails(index)">
                             <i class="fas fa-list"></i> {{ expandedRows[index] ? 'Hide' : 'Serials' }}
                         </button>
-                        <button class="mobile-btn mobile-btn-details" @click="viewProductDetails(item)">
+                        <button class="btn btn-details" @click="viewProductDetails(item)">
                             <i class="fas fa-info-circle"></i> Details
                         </button>
-                        <button class="mobile-btn mobile-btn-process" @click="openProcessModal(item)">
+                        <button class="btn btn-process" @click="openProcessModal(item)">
                             <i class="fas fa-cogs"></i> Process
                         </button>
                     </div>
+
+                    <hr v-if="expandedRows[index]">
 
                     <div v-if="expandedRows[index]" class="mobile-expanded-content">
                         <div class="mobile-section">

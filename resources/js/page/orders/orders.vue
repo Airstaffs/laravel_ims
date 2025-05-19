@@ -134,12 +134,12 @@
                             <td>
                                 <div class="action-buttons">
                                     {{ item.totalquantity }}
-                                    <button class="btn-expand" @click="toggleDetails(index)">
-                                        {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                                    <button class="btn-details" @click="toggleDetails(index)">
+                                        <i class="fas fa-info-circle"></i> More Details
                                     </button>
-                                    <button class="btn-details">example</button>
-                                    <button class="btn-details">example</button>
-                                    <button class="btn-details">example</button>
+                                    <button class="btn-expand">example</button>
+                                    <button class="btn-expand">example</button>
+                                    <button class="btn-expand">example</button>
                                 </div>
                             </td>
                         </tr>
@@ -254,7 +254,7 @@
 
                     <div class="mobile-card-actions">
                         <button class="btn btn-details" @click="toggleDetails(index)">
-                            {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                            <i class="fas fa-info-circle"></i> Details
                         </button>
                         <button class="btn btn-example">
                             Example

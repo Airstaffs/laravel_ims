@@ -5,6 +5,7 @@
 /* Table Layout */
 .table-container {
     overflow: auto;
+    scroll-snap-type: x mandatory;
     border: 1px solid #ccc;
 }
 
@@ -137,7 +138,7 @@ thead .second-sticky {
     background-color: #5741d9;
 }
 
-.mobile-btn-process {
+.btn-process {
     background-color: #6c5ce7;
     color: white;
     border: none;
@@ -519,7 +520,10 @@ textarea.form-control {
 
 .btn-print,
 .btn-details,
-.btn-expand {
+.btn-expand,
+.btn-validation,
+.btn-stockroom,
+.btn-fnsku {
     padding: 5px;
     border: 1px solid #ddd;
     border-radius: 3px;
@@ -535,7 +539,10 @@ textarea.form-control {
 
 .btn-print:hover,
 .btn-details:hover,
-.btn-expand:hover {
+.btn-expand:hover,
+.btn-validation:hover,
+.btn-stockroom:hover,
+.btn-fnsku:hover {
     background-color: #e0e0e0;
 }
 
