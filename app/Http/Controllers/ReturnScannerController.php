@@ -178,7 +178,7 @@ public function checkSerial(Request $request)
     /**
      * Process a return scan
      */
-    public function processScan(Request $request)
+public function processScan(Request $request)
 {
     // Start the database transaction at the very beginning
     DB::beginTransaction();
@@ -224,6 +224,7 @@ public function checkSerial(Request $request)
         Log::info("Processing return scan with params:", [
             'serial' => $serial,
             'secondSerial' => $secondSerial,
+            'location' => $location,
             'singleSerialMode' => $singleSerialMode,
             'scannedSerialPosition' => $scannedSerialPosition
         ]);
@@ -236,22 +237,6 @@ public function checkSerial(Request $request)
                 'message' => 'Serial Number must be provided',
                 'reason' => 'missing_identifiers'
             ], 422);
-        }
-
-        // Time handling with error checking
-        try {
-            $california_timezone = new DateTimeZone('America/Los_Angeles');
-            $currentDatetime = new DateTime('now', $california_timezone);
-            $formatted_datetime = $currentDatetime->format('Y-m-d h:i A');
-            $currentDate = date('Y-m-d', strtotime($formatted_datetime));
-            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
-        } catch (\Exception $e) {
-            // Use fallback timezone if there's an issue
-            Log::warning('Error with timezone, using default', ['error' => $e->getMessage()]);
-            $currentDatetime = new DateTime();
-            $formatted_datetime = $currentDatetime->format('Y-m-d h:i A');
-            $currentDate = date('Y-m-d');
-            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
         }
 
         // Validate serial number
@@ -282,6 +267,79 @@ public function checkSerial(Request $request)
                 'message' => 'Invalid Location Format',
                 'reason' => 'invalid_location'
             ]);
+        }
+
+        // NEW CODE: Check if the serial(s) already exist in Production Area or Stockroom
+        $serialsToCheck = [$serial];
+        if (!empty($secondSerial) && !$singleSerialMode) {
+            $serialsToCheck[] = $secondSerial;
+        }
+        
+        foreach ($serialsToCheck as $serialToCheck) {
+            $existingSerialCheck = DB::table($this->productTable)
+                ->where(function ($query) use ($serialToCheck) {
+                    $query->where('serialnumber', $serialToCheck)
+                        ->orWhere('serialnumberb', $serialToCheck);
+                })
+                ->whereIn('ProductModuleLoc', ['Production Area', 'Stockroom'])
+                ->first();
+            
+            if ($existingSerialCheck) {
+                // Serial already exists in Production Area or Stockroom
+                $existingLocation = $existingSerialCheck->ProductModuleLoc;
+                $existingWarehouseLocation = $existingSerialCheck->warehouselocation ?? 'Unknown';
+                
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => "Serial {$serialToCheck} already exists in {$existingLocation} at location {$existingWarehouseLocation}",
+                    'reason' => 'serial_already_exists',
+                    'existingLocation' => $existingLocation,
+                    'productId' => $existingSerialCheck->ProductID
+                ]);
+            }
+        }
+
+        // Additional check specifically for Production Area if location starts with L800
+        if (substr($location, 0, 4) === 'L800') {
+            foreach ($serialsToCheck as $serialToCheck) {
+                $existingProductionItem = DB::table($this->productTable)
+                    ->where(function ($query) use ($serialToCheck) {
+                        $query->where('serialnumber', $serialToCheck)
+                            ->orWhere('serialnumberb', $serialToCheck);
+                    })
+                    ->where('ProductModuleLoc', 'Production Area')
+                    ->first();
+                
+                if ($existingProductionItem) {
+                    // Serial already exists in Production Area
+                    $existingWarehouseLocation = $existingProductionItem->warehouselocation ?? 'Unknown';
+                    
+                    DB::rollBack();
+                    return response()->json([
+                        'success' => false,
+                        'message' => "Serial {$serialToCheck} already exists in Production Area at location {$existingWarehouseLocation}",
+                        'reason' => 'serial_already_in_production',
+                        'productId' => $existingProductionItem->ProductID
+                    ]);
+                }
+            }
+        }
+
+        // Time handling with error checking
+        try {
+            $california_timezone = new DateTimeZone('America/Los_Angeles');
+            $currentDatetime = new DateTime('now', $california_timezone);
+            $formatted_datetime = $currentDatetime->format('Y-m-d h:i A');
+            $currentDate = date('Y-m-d', strtotime($formatted_datetime));
+            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
+        } catch (\Exception $e) {
+            // Use fallback timezone if there's an issue
+            Log::warning('Error with timezone, using default', ['error' => $e->getMessage()]);
+            $currentDatetime = new DateTime();
+            $formatted_datetime = $currentDatetime->format('Y-m-d h:i A');
+            $currentDate = date('Y-m-d');
+            $curentDatetimeString = $currentDatetime->format('Y-m-d H:i:s');
         }
 
         // Track if the serial is found in the database
@@ -609,7 +667,7 @@ public function checkSerial(Request $request)
                             if (strtolower($fnskuInfo->fnsku_status) == 'available' && ($fnskuInfo->Units > 0)) {
                                 $fnskuToUse = $fnskuInfo->FNSKU;
                                 $status = $fnskuInfo->fnsku_status;
-                                Log::info("Using original FNSKU {$fnskuToUse} with {$fnskuInfo->units} units remaining");
+                                Log::info("Using original FNSKU {$fnskuToUse} with {$fnskuInfo->Units} units remaining");
                             } else {
                                 // Original FNSKU is unavailable or has 0 units, look for alternative with same ASIN and condition
                                 Log::info("Original FNSKU {$originalFnsku} unavailable or has 0 units, looking for alternative");
@@ -704,7 +762,7 @@ public function checkSerial(Request $request)
                         $condition = $alternativeFnsku->grading;
                         $status = $alternativeFnsku->fnsku_status;
                         
-                        Log::info("Found alternative FNSKU {$fnskuToUse} for ASIN {$asinToUse} with {$alternativeFnsku->units} units and title: {$alternativeFnsku->astitle}");
+                        Log::info("Found alternative FNSKU {$fnskuToUse} for ASIN {$asinToUse} with {$alternativeFnsku->Units} units and title: {$alternativeFnsku->astitle}");
                     } else {
                         Log::warning("No available FNSKU found for ASIN {$asinToUse}" . ($condition ? " with condition {$condition}" : ""));
                     }
@@ -772,8 +830,8 @@ public function checkSerial(Request $request)
                     
                     if ($fnskuData) {
                         // Get current units (with a default of 0 if null)
-                        $currentUnits = $fnskuData->Units ?? 0;
-                        $newUnits = max(0, $currentUnits - 1); // Subtract 1 but never go below 0
+                        $currentUnits = $fnskuData->Units;
+                        $newUnits = $currentUnits - 1; // Subtract 1 but never go below 0
                         
                         // Update FNSKU status based on units
                         $newStatus = ($newUnits <= 0) ? 'Unavailable' : 'available';
@@ -857,7 +915,7 @@ public function checkSerial(Request $request)
         // This is NOT a switcheru, it's a valid return scenario for just one serial
         
         // If we were able to successfully process all serials
-        if ($successCount == count($serialsToProcess)) {
+        if ($successCount == count($serialsToProcess) && $switcheruFound === false) {
             // For known items, update original item status and add history
             if ($isSerialKnown && $originalItem->ProductID) {
                 // Insert item process history
@@ -879,14 +937,30 @@ public function checkSerial(Request $request)
                     ]);
 
 
-                  // Update Originak FNSKU with new unit count and status
-                        DB::table($this->fnskuTable)
-                            ->where('FNSKU', $fnskuToUse)
-                            ->update([
-                                'fnsku_status' => 'available',
-                                'Units' => $OriginalFnskuUnitCount + $successCount
-                        ]);
+                 $oldFNSKU = DB::table($this->fnskuTable)
+                        ->where('FNSKU', $originalFnsku)
+                        ->first();
+                    
+                    if ($oldFNSKU) {
+                        // Get current units (with a default of 0 if null)
+                        $currentUnitsOLD = $oldFNSKU->Units;
+                        $newUnitsOLD = $currentUnitsOLD + $successCount; // Subtract 1 but never go below 0
                         
+                        // Update FNSKU status based on units
+                        $newStatusOLD = 'available';
+                        
+                        // Update FNSKU with new unit count and status
+                        DB::table($this->fnskuTable)
+                            ->where('FNSKU', $originalFnsku)
+                            ->update([
+                                'fnsku_status' => $newStatusOLD,
+                                'Units' => $newUnitsOLD
+                            ]);
+                        
+                        Log::info("Updated OLD FNSKU {$originalFnsku} units from {$currentUnitsOLD} to {$newUnitsOLD}, status: {$newStatusOLD}");
+                    } else {
+                        Log::error("Could not find OLD FNSKU {$originalFnsku} with ASIN {$originalAsin} in the database for unit update");
+                    }   
                 
                 // Delete any shipping records
                 DB::table('tbldoneshipping')
@@ -947,6 +1021,15 @@ public function checkSerial(Request $request)
         } else {
             // Not all serials were processed successfully
             DB::rollBack();
+            if($switcheruFound === true){
+            return response()->json([
+                'success' => false,
+                'message' => 'Switcheru Found in this serial',
+                'reason' => 'Switcheru',
+                'items_processed' => $successCount,
+                'total_items' => count($serialsToProcess)
+            ]);
+           }else{
             return response()->json([
                 'success' => false,
                 'message' => 'Error processing some items. Only ' . $successCount . ' out of ' . count($serialsToProcess) . ' serials processed.',
@@ -954,6 +1037,7 @@ public function checkSerial(Request $request)
                 'items_processed' => $successCount,
                 'total_items' => count($serialsToProcess)
             ]);
+           }
         }
         
     } catch (\Exception $e) {

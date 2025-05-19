@@ -124,8 +124,8 @@
                             </div>
                         </th>
                         <th>
-                            <div class="sortable" @click="sortBy('item_count')">
-                                Item Count
+                            <div class="th-content sortable" @click="sortBy('item_count')">
+                                Quantity Inside
                                 <i v-if="sortColumn === 'item_count'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
@@ -289,7 +289,7 @@
                             <span class="mobile-detail-value">{{ item.grading }}</span>
                         </div>
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Item Count:</span>
+                            <span class="mobile-detail-label">Quantity Inside:</span>
                             <span :class="{ 'mobile-detail-value': true, 'item-count-warning': !item.countValid }">
                                 {{ item.item_count }}
                                 <i v-if="!item.countValid" class="fas fa-exclamation-circle"
@@ -503,7 +503,7 @@
                                     <span class="product-details-value">{{ selectedProduct.FbaAvailable }}</span>
                                 </div>
                                 <div class="product-details-row">
-                                    <span class="product-details-label">Item Count:</span>
+                                    <span class="product-details-label">Quantity Inside:</span>
                                     <span
                                         :class="{ 'product-details-value': true, 'item-count-warning': !selectedProduct.countValid }">
                                         {{ selectedProduct.item_count }}

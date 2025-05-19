@@ -187,6 +187,23 @@ public function index(Request $request)
             $item->fnskus = $fnskus;
             $item->serials = $serials;
             
+            // Extract pack size from title and adjust item count accordingly
+            $packSize = $this->extractPackSizeFromTitle($item->AStitle);
+            
+            // If we have a pack size greater than 1, adjust the item count
+            if ($packSize > 1) {
+                // Original item count is the number of physical boxes
+                $item->box_count = $item->item_count;
+                // Adjusted item count is the number of actual units (box count * pack size)
+                $item->item_count = $item->item_count * $packSize;
+                // Store the pack size for reference
+                $item->pack_size = $packSize;
+            } else {
+                // For non-pack items, box count equals item count
+                $item->box_count = $item->item_count;
+                $item->pack_size = 1;
+            }
+            
             return $item;
         });
         
@@ -211,6 +228,26 @@ public function index(Request $request)
     }
 }
 
+/**
+ * Helper function to extract pack size from product title
+ * 
+ * @param string $title The product title to analyze
+ * @return int The pack size (defaults to 1 if no pack information found)
+ */
+private function extractPackSizeFromTitle($title)
+{
+    // Default pack size is 1 (not a pack)
+    $packSize = 1;
+    
+    // Match pattern like "2-Pack", "3-Pack", "4-Pack", etc.
+    if (preg_match('/(\d+)-Pack/i', $title, $matches)) {
+        if (isset($matches[1]) && is_numeric($matches[1])) {
+            $packSize = (int)$matches[1];
+        }
+    }
+    
+    return $packSize;
+}
 
 /**
  * Get list of store names for the dropdown

@@ -1,4 +1,3 @@
-
 import { eventBus } from '../../components/eventBus';
 import ScannerComponent from '../../components/Scanner.vue';
 import { SoundService } from '../../components/Sound_service';
@@ -126,6 +125,33 @@ export default {
       return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Cpath d='M35,30L65,30L65,70L35,70Z' fill='%23e0e0e0' stroke='%23bbbbbb' stroke-width='2'/%3E%3Cpath d='M45,40L55,40L55,60L45,60Z' fill='%23d0d0d0' stroke='%23bbbbbb'/%3E%3Cpath d='M35,80L65,80L65,85L35,85Z' fill='%23e0e0e0'/%3E%3C/svg%3E`;
     },
     
+    // Format the item count to show pack information
+    formatItemCount(item) {
+      if (!item) return '0';
+      
+      // Check if this is a pack item
+      if (item.pack_size && item.pack_size > 1) {
+        // For pack items, show both the box count and the total units
+        return `${item.box_count} boxes (${item.item_count} units)`;
+      }
+      
+      // For regular items, just show the count
+      return item.item_count.toString();
+    },
+    
+    // Extract and display pack information
+    getPackInfo(item) {
+      if (!item || !item.AStitle) return '';
+      
+      // Check for pack information in the title
+      const packMatch = item.AStitle.match(/(\d+)-Pack/i);
+      if (packMatch && packMatch[1]) {
+        return `${packMatch[1]}-Pack`;
+      }
+      
+      return '';
+    },
+    
     // Add a separate method for viewing product image
     viewProductImage(item) {
       // Set the selected product and open the modal directly
@@ -196,16 +222,23 @@ export default {
       this.fetchInventory();
     },
     
-    // Add this method to validate the item count against serials
+    // Validate the item count against serials
     validateItemCount(item) {
       if (!item) return true;
       
-      // If no serials, just use the item_count value
+      // If no serials, just return true
       if (!item.serials || item.serials.length === 0) {
         return true;
       }
       
-      // Compare the actual serials count with the reported item_count
+      // For pack items, we need to check if the actual serial count matches the box count
+      // rather than the total item count (which includes the multiplication by pack size)
+      if (item.pack_size && item.pack_size > 1) {
+        const serialCount = item.serials.length;
+        return serialCount === item.box_count;
+      }
+      
+      // For regular items, compare serials count with item_count directly
       const serialCount = item.serials.length;
       return serialCount === item.item_count;
     },
@@ -231,7 +264,13 @@ export default {
             serials: item.serials || [],
             fnskus: item.fnskus || [],
             useDefaultImage: false, // Add this flag
-            countValid: true // Add a flag for item count validation
+            countValid: true, // Add a flag for item count validation
+            
+            // Ensure pack_size is set
+            pack_size: item.pack_size || 1,
+            
+            // Ensure box_count is set (for non-pack items, this equals item_count)
+            box_count: item.box_count || item.item_count
           };
           
           // Validate the item count
