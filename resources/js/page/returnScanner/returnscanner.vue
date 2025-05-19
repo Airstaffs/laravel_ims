@@ -31,10 +31,16 @@
             <template #input-fields>
                 <!-- ReturnID toggle button -->
                 <div class="toggle-container">
-                    <button type="button" class="toggle-return-id" @click="toggleReturnIdField">
-                        {{ showReturnIdField ? 'Hide Return ID' : 'Show Return ID' }}
-                    </button>
-                </div>
+                <button 
+                type="button" 
+                class="toggle-return-id" 
+                @click="toggleReturnIdField"
+                :class="{ 'return-id-active': showReturnIdField }"
+                >
+                <i :class="['fas', showReturnIdField ? 'fa-eye-slash' : 'fa-eye']"></i>
+                {{ showReturnIdField ? 'Hide Return ID' : 'Show Return ID' }}
+                </button>
+            </div>
 
                 <!-- ReturnID field (optional) -->
                 <div class="input-group" v-if="showReturnIdField">
@@ -499,4 +505,44 @@
             box-shadow: 0 0 0 0 rgba(255, 193, 7, 0);
         }
     }
+
+    .toggle-container {
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.toggle-return-id {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #f0f0f0;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  font-weight: 500;
+  color: #505050;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.toggle-return-id:hover {
+  background-color: #e8e8e8;
+  border-color: #c0c0c0;
+}
+
+.toggle-return-id:active {
+  transform: scale(0.98);
+}
+
+.return-id-active {
+  background-color: #e6f7ff;
+  border-color: #91d5ff;
+  color: #1890ff;
+}
+
+.return-id-active:hover {
+  background-color: #d6f0ff;
+  border-color: #69c0ff;
+}
 </style>
