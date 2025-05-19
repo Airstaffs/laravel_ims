@@ -1,7 +1,16 @@
 <template>
-    <div class="vue-container">
+    <div class="vue-container stockroom-module">
         <!-- Top header bar with blue background -->
         <div class="top-header">
+            <div class="header-buttons">
+                <button class="btn" @click="openScannerModal">
+                    <i class="fas fa-barcode"></i> Scan Items
+                </button>
+                <button class="btn" @click="loadFBAInboundShipment">
+                    <i class="fas fa-truck"></i> FBA Inbound Shipment
+                </button>
+            </div>
+
             <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
@@ -10,17 +19,6 @@
                         {{ store }}
                     </option>
                 </select>
-            </div>
-
-            <h1 class="module-title">Stockroom Module</h1>
-
-            <div class="header-buttons">
-                <button class="btn scan-button" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
-                </button>
-                <button class="btn shipment-button" @click="loadFBAInboundShipment">
-                    <i class="fas fa-truck"></i> FBA Inbound Shipment
-                </button>
             </div>
         </div>
 
@@ -59,39 +57,18 @@
             </template>
         </scanner-component>
 
-        <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-
-                <div class="per-page-selector">
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }} per page
-                        </option>
-                    </select>
-                </div>
-            </div>
-        </div>
+        <h2 class="module-title">Stockroom Module</h2>
 
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">
-            <table class="table">
+            <table>
                 <thead>
                     <tr>
-                        <th class="check-column">
+                        <th class="sticky-header first-col">
                             <input type="checkbox" @click="toggleAll" v-model="selectAll" />
                         </th>
-                        <th class="product-name">
-                            <div class="th-content">
+                        <th class="sticky-header second-sticky">
+                            <div class="product-name">
                                 <span class="sortable" @click="sortBy('AStitle')">
                                     Product Name
                                     <i v-if="sortColumn === 'AStitle'"
@@ -100,47 +77,47 @@
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('ASIN')">
+                            <div class="sortable" @click="sortBy('ASIN')">
                                 ASIN
                                 <i v-if="sortColumn === 'ASIN'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('MSKUviewer')">
+                            <div class="sortable" @click="sortBy('MSKUviewer')">
                                 MSKU/SKU
                                 <i v-if="sortColumn === 'MSKUviewer'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('storename')">
+                            <div class="sortable" @click="sortBy('storename')">
                                 Store
                                 <i v-if="sortColumn === 'storename'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('grading')">
+                            <div class="sortable" @click="sortBy('grading')">
                                 Grading
                                 <i v-if="sortColumn === 'grading'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content">
+                            <div class="">
                                 FNSKUs
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('FBMAvailable')">
+                            <div class="sortable" @click="sortBy('FBMAvailable')">
                                 FBM
                                 <i v-if="sortColumn === 'FBMAvailable'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
                         </th>
                         <th>
-                            <div class="th-content sortable" @click="sortBy('FbaAvailable')">
+                            <div class="sortable" @click="sortBy('FbaAvailable')">
                                 FBA
                                 <i v-if="sortColumn === 'FbaAvailable'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
@@ -148,7 +125,7 @@
                         </th>
                         <th>
                             <div class="th-content sortable" @click="sortBy('item_count')">
-                                Item Count
+                                Quantity Inside
                                 <i v-if="sortColumn === 'item_count'"
                                     :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
                             </div>
@@ -163,24 +140,20 @@
                 <tbody>
                     <template v-for="(item, index) in sortedInventory" :key="item.ASIN">
                         <tr>
-                            <td>
-                                <div class="checkbox-container">
-                                    <input type="checkbox" v-model="item.checked" />
-                                </div>
+                            <td class="sticky-col first-col">
+                                <input type="checkbox" v-model="item.checked" />
                             </td>
-                            <td>
-                                <div class="product-cell">
-                                    <div class="product-container">
-                                        <div class="product-image clickable" @click="viewProductImage(item)">
-                                            <img :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)"
-                                                :alt="item.AStitle" class="product-thumbnail"
-                                                @error="handleImageError($event, item)" />
-                                        </div>
-                                        <div class="product-info">
-                                            <p class="product-name clickable" @click="viewProductDetails(item)">
-                                                {{ item.AStitle }}
-                                            </p>
-                                        </div>
+                            <td class="sticky-col second-sticky">
+                                <div class="product-container">
+                                    <div class="product-image-container clickable" @click="viewProductImage(item)">
+                                        <img :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)"
+                                            :alt="item.AStitle" class="product-thumbnail"
+                                            @error="handleImageError($event, item)" />
+                                    </div>
+                                    <div class="product-info">
+                                        <p class="product-name clickable" @click="viewProductDetails(item)">
+                                            {{ item.AStitle }}
+                                        </p>
                                     </div>
                                 </div>
                             </td>
@@ -296,6 +269,8 @@
                         </div>
                     </div>
 
+                    <hr>
+
                     <div class="mobile-card-details">
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">ASIN:</span>
@@ -314,7 +289,7 @@
                             <span class="mobile-detail-value">{{ item.grading }}</span>
                         </div>
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Item Count:</span>
+                            <span class="mobile-detail-label">Quantity Inside:</span>
                             <span :class="{ 'mobile-detail-value': true, 'item-count-warning': !item.countValid }">
                                 {{ item.item_count }}
                                 <i v-if="!item.countValid" class="fas fa-exclamation-circle"
@@ -327,20 +302,24 @@
                         </div>
                     </div>
 
+                    <hr>
+
                     <div class="mobile-card-actions">
-                        <button class="mobile-btn" @click="printLabel(item.ProductID)">
+                        <button class="btn" @click="printLabel(item.ProductID)">
                             <i class="fas fa-print"></i> Print
                         </button>
-                        <button class="mobile-btn mobile-btn-expand" @click="toggleDetails(index)">
+                        <button class="btn btn-expand" @click="toggleDetails(index)">
                             <i class="fas fa-list"></i> {{ expandedRows[index] ? 'Hide' : 'Serials' }}
                         </button>
-                        <button class="mobile-btn mobile-btn-details" @click="viewProductDetails(item)">
+                        <button class="btn btn-details" @click="viewProductDetails(item)">
                             <i class="fas fa-info-circle"></i> Details
                         </button>
-                        <button class="mobile-btn mobile-btn-process" @click="openProcessModal(item)">
+                        <button class="btn btn-process" @click="openProcessModal(item)">
                             <i class="fas fa-cogs"></i> Process
                         </button>
                     </div>
+
+                    <hr v-if="expandedRows[index]">
 
                     <div v-if="expandedRows[index]" class="mobile-expanded-content">
                         <div class="mobile-section">
@@ -383,9 +362,18 @@
             </div>
         </div>
 
-        <!-- Bottom pagination (also centered) -->
+        <!-- Pagination with centered layout -->
         <div class="pagination-container">
             <div class="pagination-wrapper">
+                <div class="per-page-selector">
+                    <span>Rows per page</span>
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+                            {{ option }}
+                        </option>
+                    </select>
+                </div>
+
                 <div class="pagination">
                     <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
                         <i class="fas fa-chevron-left"></i> Back
@@ -515,7 +503,7 @@
                                     <span class="product-details-value">{{ selectedProduct.FbaAvailable }}</span>
                                 </div>
                                 <div class="product-details-row">
-                                    <span class="product-details-label">Item Count:</span>
+                                    <span class="product-details-label">Quantity Inside:</span>
                                     <span
                                         :class="{ 'product-details-value': true, 'item-count-warning': !selectedProduct.countValid }">
                                         {{ selectedProduct.item_count }}

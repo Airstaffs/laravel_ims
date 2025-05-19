@@ -354,10 +354,12 @@ Route::post('api/labeling/move-to-stockroom', [LabelingController::class, 'moveT
 
 // Routes for Validation Function 
 Route::prefix('api/validation')->group(function () {
-    Route::get('products', [ValidationController::class, 'index']);});
-Route::post('api/validation/move-to-stockroom', [ValidationController::class, 'moveToStockroom']);
-Route::post('api/validation/move-to-labeling', [ValidationController::class, 'moveToLabeling']);
-Route::post('api/validation/validate', [ValidationController::class, 'validate']);
+Route::get('products', [ValidationController::class, 'index']);
+Route::post('move-to-stockroom', [ValidationController::class, 'moveToStockroom']);
+Route::post('move-to-labeling', [ValidationController::class, 'moveToLabeling']);
+Route::post('validate', [ValidationController::class, 'validate']);
+
+});
 
 // Routes for FNSKU Function 
 use App\Http\Controllers\FnskuController;

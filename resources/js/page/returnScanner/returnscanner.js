@@ -182,18 +182,34 @@ export default {
         },
 
         // Toggle ReturnID field
-        toggleReturnIdField() {
-            this.showReturnIdField = !this.showReturnIdField;
+       toggleReturnIdField() {
+        this.showReturnIdField = !this.showReturnIdField;
 
+        // If we're hiding the ReturnID field, also clear its value
+        if (!this.showReturnIdField) {
+            this.returnId = ""; // Clear the ReturnID value when hiding
+            console.log("ReturnID field hidden and value cleared");
+        } else {
             // If shown, focus on the field
-            if (this.showReturnIdField) {
-                this.$nextTick(() => {
-                    if (this.$refs.returnIdInput) {
-                        this.$refs.returnIdInput.focus();
-                    }
-                });
-            }
-        },
+            this.$nextTick(() => {
+                if (this.$refs.returnIdInput) {
+                    this.$refs.returnIdInput.focus();
+                }
+            });
+        }
+    },
+
+     clearReturnId() {
+      this.returnId = "";
+      this.$refs.returnIdInput.focus();
+      
+      // Play a click sound if available
+      if (SoundService && SoundService.click) {
+        SoundService.click();
+      } else if (SoundService && SoundService.success) {
+        SoundService.success();
+      }
+    },
 
         // Hide the second serial input and focus on location field
         hideSecondSerial() {
@@ -405,6 +421,8 @@ export default {
                 }
             }
         },
+
+        
 
         // Check for dual serial based on serial number
         async checkDualSerial() {
@@ -699,11 +717,13 @@ export default {
         },
 
         // Process scan with validation
-        async processScan(scannedCode = null) {
+  
+async processScan(scannedCode = null) {
     try {
         // Use either the scanned code or input fields
         let scanSerial, scanSecondSerial, scanLocation, scanReturnId;
-
+        scanReturnId = this.showReturnIdField ? this.returnId : null;
+        
         if (scannedCode) {
             // External code passed (from hardware scanner)
             // Determine if it's a return ID, serial, or location based on format
@@ -857,10 +877,10 @@ export default {
                 SoundService.successScan(true);
             }
 
-            // Add to scan history if method exists
+            // Add to scan history if method exists - FIX: Use ReturnID instead of ReturnId
             if (this.$refs.scanner && typeof this.$refs.scanner.addSuccessScan === 'function') {
                 this.$refs.scanner.addSuccessScan({
-                    ReturnId: scanReturnId || "N/A",
+                    ReturnID: scanReturnId || "N/A", // CHANGED: ReturnId → ReturnID
                     Serial: scanSerial,
                     SecondSerial: scanSecondSerial || "N/A",
                     Location: scanLocation || "Floor",
@@ -886,11 +906,11 @@ export default {
                 SoundService.scanRejected(true);
             }
 
-            // Add to error scan history if method exists
+            // Add to error scan history if method exists - FIX: Use ReturnID instead of ReturnId
             if (this.$refs.scanner && typeof this.$refs.scanner.addErrorScan === 'function') {
                 this.$refs.scanner.addErrorScan(
                     {
-                        ReturnId: scanReturnId || "N/A",
+                        ReturnID: scanReturnId || "N/A", // CHANGED: ReturnId → ReturnID
                         Serial: scanSerial,
                         SecondSerial: scanSecondSerial || "N/A",
                         Location: scanLocation || "N/A",
@@ -935,11 +955,11 @@ export default {
             SoundService.scanRejected(true);
         }
 
-        // Add failed scan to history if method exists
+        // Add failed scan to history if method exists - FIX: Use ReturnID instead of ReturnId
         if (this.$refs.scanner && typeof this.$refs.scanner.addErrorScan === 'function') {
             this.$refs.scanner.addErrorScan(
                 {
-                    ReturnId: this.returnId || "N/A",
+                    ReturnID: this.returnId || "N/A", // CHANGED: ReturnId → ReturnID
                     Serial: this.serialNumber || "",
                     SecondSerial: this.secondSerialNumber || "N/A",
                     Location: this.locationInput || "N/A",
