@@ -519,7 +519,7 @@
                         <td>{{ formatDateTime(plan.updated_time) }}</td>
                         <td>
                             <button @click="selectInboundPlan(plan)">📦 Choose Inbound Plan</button>
-                            <button @click="cancelInboundPlan(plan.inboundplanid)">📦 Cancel Inbound Plan</button>
+                            <button @click="cancelInboundPlan(plan)">📦 Cancel Inbound Plan</button>
                         </td>
                     </tr>
                 </tbody>
@@ -1354,7 +1354,27 @@ export default {
 
             console.log("Selected Inbound Plan:", plan);
             console.log("Updated Form:", this.form);
-        }
+        },
+        async cancelInboundPlan(plan) {
+            try {
+                const response = await fetch(`/amzn/fba-shipment/step1/cancel-shipment?inboundplanid=${encodeURIComponent(plan.inboundplanid)}`);
+                const data = await response.json();
+
+                this.cancelInboundResponse = data;
+
+                if (data.success) {
+                    // Optional: remove the plan from the list
+                    this.inboundPlansResponse = this.inboundPlansResponse.filter(p => p.inboundplanid !== plan.inboundplanid);
+                    alert("Inbound plan cancelled successfully.");
+                } else {
+                    alert("Failed to cancel inbound plan.");
+                }
+
+            } catch (error) {
+                console.error('Error cancelling inbound plan:', error);
+                alert("An error occurred while cancelling the plan.");
+            }
+        },
 
 
 
