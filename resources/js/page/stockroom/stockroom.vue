@@ -1,7 +1,16 @@
 <template>
-    <div class="vue-container">
+    <div class="vue-container stockroom-module">
         <!-- Top header bar with blue background -->
         <div class="top-header">
+            <div class="header-buttons">
+                <button class="btn" @click="openScannerModal">
+                    <i class="fas fa-barcode"></i> Scan Items
+                </button>
+                <button class="btn" @click="loadFBAInboundShipment">
+                    <i class="fas fa-truck"></i> FBA Inbound Shipment
+                </button>
+            </div>
+
             <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
@@ -10,17 +19,6 @@
                         {{ store }}
                     </option>
                 </select>
-            </div>
-
-            <h1 class="module-title">Stockroom Module</h1>
-
-            <div class="header-buttons">
-                <button class="btn scan-button" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
-                </button>
-                <button class="btn shipment-button" @click="loadFBAInboundShipment">
-                    <i class="fas fa-truck"></i> FBA Inbound Shipment
-                </button>
             </div>
         </div>
 
@@ -59,38 +57,17 @@
             </template>
         </scanner-component>
 
-        <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-
-                <div class="per-page-selector">
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }} per page
-                        </option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">
+            <h2 class="module-title">Stockroom Module</h2>
+
             <table class="table">
                 <thead>
                     <tr>
-                        <th class="check-column">
+                        <th>
                             <input type="checkbox" @click="toggleAll" v-model="selectAll" />
                         </th>
-                        <th class="product-name">
+                        <th>
                             <div class="th-content">
                                 <span class="sortable" @click="sortBy('AStitle')">
                                     Product Name
@@ -278,6 +255,8 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
+            <h2 class="module-title">Stockroom Module</h2>
+
             <div class="mobile-cards">
                 <div v-for="(item, index) in sortedInventory" :key="item.ASIN" class="mobile-card">
                     <div class="mobile-card-header">
@@ -383,9 +362,18 @@
             </div>
         </div>
 
-        <!-- Bottom pagination (also centered) -->
+        <!-- Pagination with centered layout -->
         <div class="pagination-container">
             <div class="pagination-wrapper">
+                <div class="per-page-selector">
+                    <span>Rows per page</span>
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+                            {{ option }}
+                        </option>
+                    </select>
+                </div>
+
                 <div class="pagination">
                     <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
                         <i class="fas fa-chevron-left"></i> Back

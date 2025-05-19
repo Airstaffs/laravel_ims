@@ -1,257 +1,95 @@
-@import url("../js/page/cleaning/cleaning.css");
-@import url("../js/page/fnsku/fnsku.css");
-@import url("../js/page/labeling/labeling.css");
-@import url("../js/page/orders/orders.css");
-@import url("../js/page/packing/packing.css");
-@import url("../js/page/production/production.css");
-@import url("../js/page/receiving/receiving.css");
-/* @import url("../js/page/searching/searching.css"); */
-@import url("../js/page/stockroom/stockroom.css");
-@import url("../js/page/testing/testing.css");
-@import url("../js/page/unreceived/unreceived.css");
-@import url("../js/page/validation/validation.css"); 
 @import url("./module-mobile.css");
 @import url("./responsive-layout.css");
+@import url("./pagination.css");
 
-/* Header */
-.top-header {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 8px 15px;
-    background: #4a90e2;
-    color: white;
-}
-
-.store-filter {
-    width: 200px;
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-}
-
-.store-filter label {
-    font-weight: bold;
-}
-
-.store-select {
-    padding: 4px 8px;
-    border-radius: 4px;
+/* Table Layout */
+.table-container {
+    overflow: auto;
     border: 1px solid #ccc;
+}
+
+table {
+    border-collapse: collapse;
     width: 100%;
+    min-width: 1200px;
+    /* adjust as needed */
 }
 
-.module-title {
-    flex-grow: 1;
-    text-align: center;
-    margin: 0;
-    font-size: 20px;
-    font-weight: bold;
-}
-
-.header-buttons {
-    display: flex;
-    justify-content: end;
-    align-items: center;
-    gap: 10px;
-}
-
-.btn {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    border-radius: 4px;
-    font-size: 14px;
-    transition: background-color 0.2s;
-    color: #212529;
-}
-
-.scan-button {
-    background-color: #f0f0f0;
+th,
+td {
+    min-width: 150px;
+    padding: 12px 10px;
     border: 1px solid #ddd;
+    background-color: white;
+    white-space: nowrap;
 }
 
-.scan-button:hover {
-    background-color: #e0e0e0;
+th:nth-child(2),
+td:nth-child(2) {
+    width: 600px;
+    min-width: 600px;
+    max-width: 600px;
 }
 
-.shipment-button {
-    background-color: #4CAF50;
-    color: white;
-    border: 1px solid #43a047;
+.sticky-header {
+    min-width: 40px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
-.shipment-button:hover {
-    background-color: #43a047;
+.first-col {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    background-color: #f1f1f1;
 }
 
-/* End of Header */
+.sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 5;
+}
 
-/* Pagination layout */
-.pagination-container {
+.second-sticky {
+    position: sticky;
+    left: 40px;
+    /* width of the first sticky column (adjust as needed) */
+    z-index: 5;
+}
+
+thead .sticky-col {
+    z-index: 15;
+}
+
+thead .second-sticky {
+    z-index: 14;
+}
+
+/* End of Table Layout */
+
+.product-name,
+.product-container {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    margin: 15px 0;
-    padding: 0 15px;
-}
-
-.pagination-wrapper {
-    display: flex;
+    justify-content: flex-start;
     align-items: center;
     gap: 15px;
 }
 
-.pagination {
-    margin-top: 20px;
-    margin-bottom: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-}
-
-.pagination-button {
-    padding: 5px 10px;
-    font-size: 0.9rem;
-    color: #fff;
-    background-color: #578FCA;
-    border: none;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.pagination-button:disabled {
-    background-color: #ddd;
-    cursor: not-allowed;
-}
-
-.pagination-button:not(:disabled):hover {
-    background-color: #0056a3;
-}
-
-.pagination-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.pagination-info {
-    font-size: 1rem;
-    color: #555;
-}
-
-.per-page-selector {
-    display: flex;
-    align-items: center;
-}
-
-.per-page-select {
-    padding: 5px 8px;
-    border: 1px solid #ddd;
-    border-radius: 3px;
-    background-color: white;
-}
-
-/* End of Pagination Layout */
-
-/* Table Layout */
-.table-container {
-    width: 100%;
-    margin: 0 auto;
-    overflow-x: auto;
-    border-radius: 4px;
-    background: #fff;
-}
-
-.table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: auto;
-    font-size: 0.9rem;
-    border: 1px solid #ddd !important;
-}
-
-thead {
-    background-color: #f7f7f7;
-}
-
-th {
-    background-color: #f5f5f5;
-    /* border: 1px solid #ddd !important; */
-    padding: 10px 12px;
-    font-weight: bold;
-    color: #333;
-    white-space: nowrap;
-}
-
-th:last-child,
-td:last-child {
-    border-right: 0;
-}
-
-.th-content {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 5px;
-    white-space: nowrap;
-}
-
-.table td {
-    padding: 8px 10px;
-    vertical-align: middle;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-.table tr:hover {
-    background-color: #f1f1f1;
-}
-
-.expanded-row td {
-    padding: 0;
-}
-
-td {
-    padding: 12px;
-    vertical-align: middle;
-    color: #333;
-    text-align: left;
-    white-space: normal;
-}
-
-.checkbox-container {
-    width: 10px;
-}
-
-.placeholder-date {
-    font-size: 0.85rem;
-    color: #666;
-}
-
-.product-cell {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
 .product-image-container {
-    width: 60px;
-    height: 60px;
     position: relative;
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
 }
 
 .image-count-badge {
     position: absolute;
     bottom: -10px;
-    right: -5px;
+    right: -10px;
     background-color: #007bff;
     color: #fff;
     border-radius: 50%;
@@ -264,44 +102,19 @@ td {
     font-weight: 700;
 }
 
-.product-thumbnail {
-    width: 200px;
-    height: 200px;
-    object-fit: cover;
-    border-radius: 4px;
-    border: 1px solid #ddd;
-}
-
-.product-name {
+.product-info {
     color: #0073bb;
     font-weight: 600;
     text-decoration: none;
-    cursor: pointer;
 }
 
-.product-name:hover {
-    text-decoration: underline;
+.product-info p:last-child {
+    white-space: pre-wrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Sticky positioning */
-table th:nth-child(-n+2),
-table td:nth-child(-n+2) {
-    position: sticky;
-    background: #fff;
-    z-index: 3;
-}
-
-table th:first-child,
-table td:first-child {
-    left: 1px;
-}
-
-table th:nth-child(2),
-table td:nth-child(2) {
-    left: 41px;
-}
-
-/* End of Table Layout */
+/* ----- */
 
 .btn-process {
     background-color: #6c5ce7;
@@ -544,7 +357,6 @@ textarea.form-control {
 }
 
 .vue-container {
-    font-family: Arial, sans-serif;
     background-color: #ffffffec;
 }
 
@@ -578,6 +390,8 @@ textarea.form-control {
 }
 
 .expanded-content {
+    max-width: 1200px;
+    margin: 0 auto;
     padding: 10px;
     font-size: 0.9rem;
     color: #333;
@@ -621,14 +435,6 @@ textarea.form-control {
     flex-shrink: 0;
 }
 
-.product-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    min-width: 0;
-}
-
 .product-image {
     width: 50px;
     height: 50px;
@@ -648,11 +454,6 @@ textarea.form-control {
     height: 100%;
     object-fit: contain;
     transition: transform 0.2s ease;
-}
-
-.product-info {
-    flex: 1;
-    min-width: 0;
 }
 
 .product-info .product-name {
@@ -683,6 +484,7 @@ textarea.form-control {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
+.product-info.clickable:hover,
 .product-name.clickable:hover {
     color: #4a90e2;
     text-decoration: underline;
@@ -1467,4 +1269,10 @@ footer {
 
 p {
     margin: 0;
+}
+
+/* ----- */
+
+.mobile-view {
+    display: none;
 }

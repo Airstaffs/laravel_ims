@@ -3,7 +3,7 @@
 }
 
 .stockroom-module .product-name {
-    width: 590px;
+    min-width: 300px;
     display: flex;
     justify-content: flex-start;
     align-items: center;
@@ -11,7 +11,7 @@
 }
 
 .stockroom-module .product-details {
-    width: 590px;
+    min-width: 300px;
 }
 
 .stockroom-module .product-name .th-content {

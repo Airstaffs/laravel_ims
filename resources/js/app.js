@@ -6,6 +6,8 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 import axios from "axios";
 
+import "../css/app.css";
+
 // Import components
 import Stockroom from "./page/stockroom/stockroom.vue";
 import Cleaning from "./page/cleaning/cleaning.vue";
@@ -68,7 +70,7 @@ axios.interceptors.response.use(
         // Check if error is due to CSRF token mismatch or session expiration
         if (error.response && (error.response.status === 419 || error.response.status === 401)) {
             logSession('Session token issue detected:', error.response.status);
-            
+
             try {
                 // Try to refresh the CSRF token
                 const response = await axios.get('/csrf-token');
@@ -77,20 +79,20 @@ axios.interceptors.response.use(
                     const newToken = response.data.token;
                     document.querySelector('meta[name="csrf-token"]').setAttribute('content', newToken);
                     axios.defaults.headers.common["X-CSRF-TOKEN"] = newToken;
-                    
+
                     // Store in localStorage as backup
                     localStorage.setItem('csrf_token_backup', newToken);
                     localStorage.setItem('last_token_refresh', Date.now().toString());
-                    
+
                     logSession('Token refreshed successfully, retrying request');
-                    
+
                     // Retry the original request with new token
                     const originalRequest = error.config;
                     return axios(originalRequest);
                 }
             } catch (refreshError) {
                 logSession('Failed to refresh token:', refreshError);
-                
+
                 // If we couldn't refresh the token, the session is likely expired
                 if (window.sessionManager && typeof window.sessionManager.handleExpiry === 'function') {
                     window.sessionManager.handleExpiry();
@@ -98,10 +100,10 @@ axios.interceptors.response.use(
                     // Check if we've tried refreshing recently to avoid reload loops
                     const lastRefresh = localStorage.getItem('last_refresh_attempt');
                     const now = Date.now();
-                    
+
                     if (!lastRefresh || (now - parseInt(lastRefresh)) > 30000) { // 30 seconds
                         localStorage.setItem('last_refresh_attempt', now.toString());
-                        
+
                         // Fallback if session manager not initialized
                         if (confirm('Your session has expired. Click OK to reload and login again.')) {
                             window.location.href = '/login';
@@ -110,7 +112,7 @@ axios.interceptors.response.use(
                 }
             }
         }
-        
+
         return Promise.reject(error);
     }
 );
@@ -142,11 +144,11 @@ const sessionMixin = {
                         keepSessionAlive();
                     }
                 };
-                
+
                 // Add activity listeners to component element
                 this.$el.addEventListener('click', activityHandler);
                 this.$el.addEventListener('keydown', activityHandler);
-                
+
                 // Store for cleanup
                 this._sessionActivityHandler = activityHandler;
                 this._sessionElement = this.$el;
@@ -175,7 +177,7 @@ const sessionMixin = {
 // Enhanced keep-alive function with token refresh and robust error handling
 function keepSessionAlive() {
     logSession('Keeping session alive via manual ping');
-    
+
     // First try to refresh the CSRF token
     axios.get('/csrf-token')
         .then(tokenResponse => {
@@ -184,13 +186,13 @@ function keepSessionAlive() {
                 const newToken = tokenResponse.data.token;
                 document.querySelector('meta[name="csrf-token"]').setAttribute('content', newToken);
                 axios.defaults.headers.common["X-CSRF-TOKEN"] = newToken;
-                
+
                 // Store in localStorage as backup
                 localStorage.setItem('csrf_token_backup', newToken);
                 localStorage.setItem('last_token_refresh', Date.now().toString());
-                
+
                 logSession('Token refreshed, sending keep-alive request');
-                
+
                 // Now send the keep-alive request with the fresh token
                 return axios.get('/keep-alive', {
                     headers: {
@@ -198,34 +200,34 @@ function keepSessionAlive() {
                     }
                 });
             }
-            
+
             logSession('No token in response, falling back to regular keep-alive');
             return axios.get('/keep-alive');
         })
         .then(response => {
             logSession('Session kept alive successfully', response.data);
-            
+
             // Update session status indicators
             updateSessionStatus('active');
-            
+
             // Update session timestamp in localStorage
             localStorage.setItem('last_session_ping', Date.now().toString());
         })
         .catch(error => {
             console.error('Session keep-alive failed:', error);
             updateSessionStatus('warning');
-            
+
             // If this is a token error, try one more approach
             if (error.response && (error.response.status === 401 || error.response.status === 419)) {
                 // Check if we've already tried refreshing recently to avoid reload loops
                 const lastRefresh = localStorage.getItem('last_refresh_attempt');
                 const now = Date.now();
-                
+
                 if (!lastRefresh || (now - parseInt(lastRefresh)) > 30000) { // 30 seconds
                     localStorage.setItem('last_refresh_attempt', now.toString());
-                    
+
                     logSession('Session expired despite refresh attempt, will try page reload');
-                    
+
                     // Only reload if confirmed or page is not visible (background tab)
                     if (document.visibilityState !== 'visible' || confirm('Session expired. Reload page to refresh?')) {
                         window.location.reload();
@@ -260,10 +262,10 @@ const app = createApp({
             this.safeComponentUpdate(this.currentComponent);
             logSession('App mounted with component:', this.currentComponent);
         }
-        
+
         // Setup session heartbeat
         this.startSessionHeartbeat();
-        
+
         // Listen for visibility changes (tab switching)
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
@@ -299,34 +301,34 @@ const app = createApp({
                     }
                 }
             }, SESSION_HEARTBEAT_INTERVAL);
-            
+
             // Initial heartbeat
             keepSessionAlive();
         },
-        
+
         // Map a navigation name to its component name
         mapToComponentName(navName) {
             // Record activity
             this.lastActivityTime = Date.now();
-            
+
             // First check our explicit mappings
             if (componentMapping[navName]) {
                 return componentMapping[navName];
             }
-            
+
             // Handle common transformations automatically
             // E.g., "production area" → "productionarea"
             const transformed = navName.replace(/\s+/g, '').toLowerCase();
-            
+
             // Check if we've got a registered component with this name
             if (this.$options.components[transformed]) {
                 return transformed;
             }
-            
+
             // If nothing else works, return the original name
             return navName;
         },
-        
+
         // Get navigation name from component name (for active state)
         getNavigationName(componentName) {
             // Look through our mapping and find the navigation name
@@ -335,34 +337,34 @@ const app = createApp({
                     return navName;
                 }
             }
-            
+
             // If no mapping found, return the component name
             return componentName;
         },
-        
+
         loadContent(module) {
             // Record activity and extend session when navigating
             this.lastActivityTime = Date.now();
             this.extendSession();
-            
+
             // Convert to lowercase for consistent comparison
             const navName = String(module).toLowerCase();
-            
+
             // Get permissions from window variables
-            const allowedModules = window.allowedModules ? 
+            const allowedModules = window.allowedModules ?
                 window.allowedModules.map(m => m.toLowerCase()) : [];
-            const mainModule = window.mainModule ? 
+            const mainModule = window.mainModule ?
                 window.mainModule.toLowerCase() : '';
-                
+
             logSession('Checking permissions:', {
                 requested: navName,
                 main: mainModule,
                 allowed: allowedModules,
-                hasAccess: navName === 'fbashipmentinbound' || 
-                          navName === mainModule || 
+                hasAccess: navName === 'fbashipmentinbound' ||
+                          navName === mainModule ||
                           allowedModules.includes(navName)
             });
-        
+
             // Allow access if user has permission
             if (
                 navName === "fbashipmentinbound" ||
@@ -377,33 +379,33 @@ const app = createApp({
                 alert("You do not have permission to access this module.");
             }
         },
-        
+
         // A safer component update method
         safeComponentUpdate(componentName, originalNavName = null) {
             try {
                 // Record activity when switching components
                 this.lastActivityTime = Date.now();
-                
+
                 // Make sure componentName is a string and lowercase
                 const name = String(componentName).toLowerCase();
-                
+
                 // Check if we've got a registered component with this name
                 if (!this.$options.components[name]) {
                     console.warn(`Component "${name}" not registered!`);
                     return;
                 }
-                
+
                 // Check if we're already on this component
                 if (this.currentComponent === name) {
                     logSession(`Already on component: ${name}`);
                     return;
                 }
-                
+
                 logSession(`Switching to component: ${name}`);
-                
+
                 // Set the component name
                 this.currentComponent = name;
-                
+
                 // Update active state in the UI
                 this.$nextTick(() => {
                     // Use the original navigation name if provided, otherwise find it
@@ -415,14 +417,14 @@ const app = createApp({
                 console.error('Error switching component:', err);
             }
         },
-        
+
         // For backward compatibility
         forceUpdate(moduleName) {
             const navName = String(moduleName).toLowerCase();
             const componentName = this.mapToComponentName(navName);
             this.safeComponentUpdate(componentName, navName);
         },
-        
+
         updateActiveState(moduleName) {
             document.querySelectorAll(".nav .nav-link").forEach((link) => {
                 const linkModule = link.getAttribute("data-module");
@@ -438,7 +440,7 @@ const app = createApp({
         toggleCollapse(id) {
             // Record user activity
             this.lastActivityTime = Date.now();
-            
+
             const element = document.getElementById(id);
             if (!element) return;
 
@@ -456,7 +458,7 @@ const app = createApp({
         unreceived: Unreceived,
         cleaning: Cleaning,
         packing: Packing,
-        receiving: Receiving,  
+        receiving: Receiving,
         stockroom: Stockroom,
         testing: Testing,
         validation: Validation,
@@ -479,13 +481,13 @@ app.mixin({
                     window.appInstance.lastActivityTime = Date.now();
                 }
             };
-            
+
             // Only add listeners if we have an actual DOM element
             if (this.$el && this.$el.addEventListener) {
                 eventHandlers.forEach(event => {
                     this.$el.addEventListener(event, activityHandler, { passive: true });
                 });
-                
+
                 // Store handlers for cleanup
                 this._sessionEvents = eventHandlers;
                 this._sessionHandler = activityHandler;
@@ -550,50 +552,50 @@ searchApp.mount("#appsearch");
 document.addEventListener('DOMContentLoaded', function() {
     // Create session status indicator in footer if needed
     createSessionIndicator();
-    
+
     // Global activity monitoring for the entire page
     const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-    
+
     function globalActivityHandler() {
         if (window.appInstance && window.appInstance.lastActivityTime) {
             window.appInstance.lastActivityTime = Date.now();
         }
     }
-    
+
     // Add listeners to document
     activityEvents.forEach(event => {
         document.addEventListener(event, globalActivityHandler, { passive: true });
     });
-    
+
     // Session warning mechanism
     let sessionWarningTimeout = null;
     const sessionLifetime = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
     const warningTime = 30 * 60 * 1000; // 30 minutes before expiry
-    
+
     function scheduleSessionWarning() {
         if (sessionWarningTimeout) {
             clearTimeout(sessionWarningTimeout);
         }
-        
+
         sessionWarningTimeout = setTimeout(() => {
             showSessionWarning();
         }, sessionLifetime - warningTime);
     }
-    
+
     function showSessionWarning() {
         // If user is still active, just reschedule the warning
-        if (window.appInstance && 
-            window.appInstance.lastActivityTime && 
+        if (window.appInstance &&
+            window.appInstance.lastActivityTime &&
             (Date.now() - window.appInstance.lastActivityTime) < warningTime) {
             keepSessionAlive();
             scheduleSessionWarning();
             return;
         }
-        
+
         // Check if Bootstrap is available for modal
         if (typeof bootstrap !== 'undefined' && typeof bootstrap.Modal !== 'undefined') {
             let warningModal = document.getElementById('session-warning-modal');
-            
+
             if (!warningModal) {
                 // Create modal element if it doesn't exist
                 const modalHTML = `
@@ -615,25 +617,25 @@ document.addEventListener('DOMContentLoaded', function() {
                         </div>
                     </div>
                 </div>`;
-                
+
                 const modalContainer = document.createElement('div');
                 modalContainer.innerHTML = modalHTML;
                 document.body.appendChild(modalContainer.firstChild);
-                
+
                 warningModal = document.getElementById('session-warning-modal');
-                
+
                 // Add event listener for continue button
                 document.getElementById('extend-session-btn').addEventListener('click', () => {
                     keepSessionAlive();
                     scheduleSessionWarning();
-                    
+
                     const modalInstance = bootstrap.Modal.getInstance(warningModal);
                     if (modalInstance) {
                         modalInstance.hide();
                     }
                 });
             }
-            
+
             // Show the modal
             const modal = new bootstrap.Modal(warningModal);
             modal.show();
@@ -646,7 +648,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
-    
+
     // Create optional session indicator
     function createSessionIndicator() {
         if (SESSION_DEBUG) {
@@ -673,7 +675,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 text-shadow: 0 0 0 #fff;
                 background-color: #aaa;
             `;
-            
+
             // Add styles for different states
             const style = document.createElement('style');
             style.textContent = `
@@ -682,7 +684,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .session-indicator.session-error { background-color: #dc3545; }
             `;
             document.head.appendChild(style);
-            
+
             // Add click handler to force session refresh
             indicator.addEventListener('click', () => {
                 keepSessionAlive();
@@ -691,31 +693,31 @@ document.addEventListener('DOMContentLoaded', function() {
                     indicator.classList.remove('session-active');
                 }, 1000);
             });
-            
+
             document.body.appendChild(indicator);
         }
     }
-    
+
     // Initial scheduling
     scheduleSessionWarning();
-    
+
     // Initial session keep-alive
     keepSessionAlive();
-    
+
     // Expose for external access by components
     window.keepSessionAlive = keepSessionAlive;
-    
+
     // Start background periodic token refresh for very long idle periods
     // This is in addition to the main heartbeat and ensures tokens stay fresh even during long inactivity
     if (SESSION_ALWAYS_REFRESH) {
         setInterval(() => {
             logSession('Background token refresh running');
-            
+
             // Try to silently refresh the token
             fetch('/csrf-token', {
                 method: 'GET',
                 credentials: 'same-origin',
-                headers: { 
+                headers: {
                     'X-Requested-With': 'XMLHttpRequest',
                     'Cache-Control': 'no-cache'
                 }
@@ -728,14 +730,14 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (metaToken) {
                         metaToken.setAttribute('content', data.token);
                     }
-                    
+
                     // Update axios headers
                     axios.defaults.headers.common["X-CSRF-TOKEN"] = data.token;
-                    
+
                     // Store in localStorage
                     localStorage.setItem('csrf_token_backup', data.token);
                     localStorage.setItem('last_background_refresh', Date.now().toString());
-                    
+
                     logSession('Background token refresh successful');
                 }
             })
