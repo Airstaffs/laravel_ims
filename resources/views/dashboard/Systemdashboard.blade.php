@@ -270,6 +270,7 @@
         window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
         window.allowedModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
         window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+        window.customModules = ['printcustominvoice' , 'fbashipmentinbound'];
     </script>
 
     <div id="main-content" class="content">

@@ -370,3 +370,16 @@ Route::post('/insert-fnsku', [FnskuController::class, 'insertFnsku']);
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
+
+
+// FBM Orders Shipping Label
+use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
+Route::post('/amzn/fbm-orders/purchase-label/rates', [ShippingLabelController::class, 'get_rates']);
+Route::post('/amzn/fbm-orders/purchase-label/createshipment', [ShippingLabelController::class, 'create_shipment']);
+Route::post('/amzn/fbm-orders/purchase-label/manualshipment', [ShippingLabelController::class, 'manual_shipment']);
+
+
+// Automations
+Route::get('/postmaster', function () {
+    return include base_path('app/automations/postmaster.php');
+});

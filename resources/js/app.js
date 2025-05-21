@@ -29,6 +29,11 @@ const SESSION_DEBUG = true; // Set to false in production
 const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const SESSION_ALWAYS_REFRESH = true; // Always refresh even during inactivity
 
+// manual routing
+const asyncComponentMap = {
+    'printcustominvoice': () => import('./page/stockroom/print_invoice/print_custom_invoice.vue')
+};
+
 // Session logging helper
 function logSession(message, data) {
     if (SESSION_DEBUG) {
@@ -343,35 +348,29 @@ const app = createApp({
         },
 
         loadContent(module) {
-            // Record activity and extend session when navigating
             this.lastActivityTime = Date.now();
             this.extendSession();
 
-            // Convert to lowercase for consistent comparison
             const navName = String(module).toLowerCase();
+            const allowedModules = window.allowedModules ? window.allowedModules.map(m => m.toLowerCase()) : [];
+            const mainModule = window.mainModule ? window.mainModule.toLowerCase() : '';
+            const customModules = window.customModules ? window.customModules.map(m => m.toLowerCase()) : [];
 
-            // Get permissions from window variables
-            const allowedModules = window.allowedModules ?
-                window.allowedModules.map(m => m.toLowerCase()) : [];
-            const mainModule = window.mainModule ?
-                window.mainModule.toLowerCase() : '';
+            const hasAccess = 
+                navName === "fbashipmentinbound" ||
+                allowedModules.includes(navName) ||
+                navName === mainModule ||
+                customModules.includes(navName); // ✅ NEW check
 
             logSession('Checking permissions:', {
                 requested: navName,
                 main: mainModule,
                 allowed: allowedModules,
-                hasAccess: navName === 'fbashipmentinbound' ||
-                          navName === mainModule ||
-                          allowedModules.includes(navName)
+                custom: customModules,
+                hasAccess
             });
 
-            // Allow access if user has permission
-            if (
-                navName === "fbashipmentinbound" ||
-                allowedModules.includes(navName) ||
-                navName === mainModule
-            ) {
-                // Map the navigation name to component name
+            if (hasAccess) {
                 const componentName = this.mapToComponentName(navName);
                 logSession(`Mapping from nav "${navName}" to component "${componentName}"`);
                 this.safeComponentUpdate(componentName, navName);
@@ -390,8 +389,26 @@ const app = createApp({
                 const name = String(componentName).toLowerCase();
 
                 // Check if we've got a registered component with this name
+                /*
                 if (!this.$options.components[name]) {
                     console.warn(`Component "${name}" not registered!`);
+                    return;
+                }
+                */
+
+                if (!this.$options.components[name]) {
+                    if (asyncComponentMap[name]) {
+                        logSession(`Loading async component: ${name}`);
+                        asyncComponentMap[name]().then(module => {
+                            this.$options.components[name] = module.default;
+                            this.safeComponentUpdate(name); // Try again after registering
+                        }).catch(err => {
+                            console.error(`Failed to load async component "${name}":`, err);
+                        });
+                        return;
+                    }
+
+                    console.warn(`Component "${name}" not registered and no async loader found.`);
                     return;
                 }
 
