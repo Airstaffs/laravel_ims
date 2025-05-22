@@ -149,51 +149,58 @@ class UserController extends Controller
         
     // Controller method to get user privileges
     public function getUserPrivileges($userId)
-{
-    $selectedUser = User::find($userId);
-    $userPrivileges = null;
+    {
+        $selectedUser = User::find($userId);
+        $userPrivileges = null;
 
-    if ($selectedUser) {
-        // Fetch all columns in the 'tbluser' table starting with 'store_'
-        $storeColumns = Schema::getColumnListing('tbluser');
-        $storePrivileges = collect($storeColumns)
-            ->filter(function ($column) {
-                return str_starts_with($column, 'store_');
-            })
-            ->map(function ($store) use ($selectedUser) {
-                $storeName = str_replace('store_', '', $store); // Remove 'store_' prefix
-                $storeName = str_replace('_', ' ', $storeName); // Replace underscores with spaces
-                return [
-                    'store_column' => $store, // Original column name
-                    'store_name' => $storeName, // User-friendly name
-                    'is_checked' => (bool) $selectedUser->{$store}, // Check if the privilege is enabled
-                ];
-            })
-            ->values();
+        if ($selectedUser) {
+            // Fetch all columns in the 'tbluser' table starting with 'store_'
+            $storeColumns = Schema::getColumnListing('tbluser');
+            $storePrivileges = collect($storeColumns)
+                ->filter(function ($column) {
+                    return str_starts_with($column, 'store_');
+                })
+                ->map(function ($store) use ($selectedUser) {
+                    $storeName = str_replace('store_', '', $store); // Remove 'store_' prefix
+                    $storeName = str_replace('_', ' ', $storeName); // Replace underscores with spaces
+                    return [
+                        'store_column' => $store, // Original column name
+                        'store_name' => $storeName, // User-friendly name
+                        'is_checked' => (bool) $selectedUser->{$store}, // Check if the privilege is enabled
+                    ];
+                })
+                ->values();
 
-        $userPrivileges = [
-            'main_module' => $selectedUser->main_module,
-            'sub_modules' => [
-                'order' => (bool) $selectedUser->order,
-                'unreceived' => (bool) $selectedUser->unreceived,
-                'receiving' => (bool) $selectedUser->receiving,
-                'labeling' => (bool) $selectedUser->labeling,
-                'testing' => (bool) $selectedUser->testing,
-                'cleaning' => (bool) $selectedUser->cleaning,
-                'packing' => (bool) $selectedUser->packing,
-                'fnsku' => (bool) $selectedUser->fnsku,
-                'stockroom' => (bool) $selectedUser->stockroom,
-                'validation' => (bool) $selectedUser->validation,
-                'productionarea' => (bool) $selectedUser->productionarea,
-                'returnscanner' => (bool) $selectedUser->returnscanner,
-                'fbmorder' => (bool) $selectedUser->fbmorder,
-            ],
-            'privileges_stores' => $storePrivileges, // Pass the processed store privileges
-        ];
+            // Ensure main_module is always in the correct format (lowercase, no spaces)
+            $mainModule = $selectedUser->main_module;
+            if ($mainModule) {
+                // Remove any spaces and convert to lowercase
+                $mainModule = strtolower(str_replace(' ', '', $mainModule));
+            }
+
+            $userPrivileges = [
+                'main_module' => $mainModule,
+                'sub_modules' => [
+                    'order' => (bool) $selectedUser->order,
+                    'unreceived' => (bool) $selectedUser->unreceived,
+                    'receiving' => (bool) $selectedUser->receiving,
+                    'labeling' => (bool) $selectedUser->labeling,
+                    'testing' => (bool) $selectedUser->testing,
+                    'cleaning' => (bool) $selectedUser->cleaning,
+                    'packing' => (bool) $selectedUser->packing,
+                    'fnsku' => (bool) $selectedUser->fnsku,
+                    'stockroom' => (bool) $selectedUser->stockroom,
+                    'validation' => (bool) $selectedUser->validation,
+                    'productionarea' => (bool) $selectedUser->productionarea,
+                    'returnscanner' => (bool) $selectedUser->returnscanner,
+                    'fbmorder' => (bool) $selectedUser->fbmorder,
+                ],
+                'privileges_stores' => $storePrivileges, // Pass the processed store privileges
+            ];
+        }
+
+        return response()->json($userPrivileges);
     }
-
-    return response()->json($userPrivileges);
-}
     
     public function fetchNewlyAddedStoreCol(Request $request)
     {
@@ -286,168 +293,186 @@ class UserController extends Controller
         }
     }
 
-   public function saveUserPrivileges(Request $request)
-{
-    try {
-        // Typecast user_id to integer before validation
-        $request->merge(['user_id' => (int) $request->input('user_id')]);
+    public function saveUserPrivileges(Request $request)
+    {
+        try {
+            // Typecast user_id to integer before validation
+            $request->merge(['user_id' => (int) $request->input('user_id')]);
 
-        // Validate the request
-        $data = $request->validate([
-            'user_id' => 'required|numeric|exists:tbluser,id',
-            'main_module' => 'required|string',
-            'sub_modules' => 'array|nullable',
-            'privileges_stores' => 'array|nullable',
-        ]);
+            // Validate the request
+            $data = $request->validate([
+                'user_id' => 'required|numeric|exists:tbluser,id',
+                'main_module' => 'required|string',
+                'sub_modules' => 'array|nullable',
+                'privileges_stores' => 'array|nullable',
+            ]);
 
-        // Log the request data for debugging
-        Log::info('Request Data:', $data);
+            // Log the request data for debugging
+            Log::info('Request Data:', $data);
 
-        // Fetch the user
-        $user = User::find($data['user_id']);
-        $username = $user->username; // Store username for logging
+            // Fetch the user
+            $user = User::find($data['user_id']);
+            $username = $user->username; // Store username for logging
 
-        if (!$user) {
-            return response()->json(['success' => false, 'message' => 'User not found']);
-        }
-        Log::info('Fetched User:', ['user' => $user]);
-
-        // Define module mapping (display name to database column)
-        $moduleMapping = [
-            'Order' => 'order',
-            'Unreceived' => 'unreceived',
-            'Received' => 'receiving',
-            'Labeling' => 'labeling',
-            'Testing' => 'testing',
-            'Cleaning' => 'cleaning',
-            'Packing' => 'packing',
-            'Stockroom' => 'stockroom',
-            'Validation' => 'validation',
-            'FNSKU' => 'fnsku',
-            'Production Area' => 'productionarea',
-            'Return Scanner' => 'returnscanner',
-            'FBM Order' => 'fbmorder'
-        ];
-
-        // Convert main module from display name to database column name
-        $mainModuleDb = null;
-        foreach ($moduleMapping as $displayName => $columnName) {
-            if (strcasecmp($data['main_module'], $displayName) === 0 || 
-                strcasecmp($data['main_module'], str_replace(' ', '', $displayName)) === 0) {
-                $mainModuleDb = $columnName;
-                break;
+            if (!$user) {
+                return response()->json(['success' => false, 'message' => 'User not found']);
             }
-        }
+            Log::info('Fetched User:', ['user' => $user]);
 
-        // If no mapping found, try to convert it directly (lowercase, no spaces)
-        if (!$mainModuleDb) {
-            $mainModuleDb = strtolower(str_replace(' ', '', $data['main_module']));
-        }
+            // Define module mapping (display name to database column)
+            $moduleMapping = [
+                'Order' => 'order',
+                'Unreceived' => 'unreceived',
+                'Received' => 'receiving',
+                'Labeling' => 'labeling',
+                'Testing' => 'testing',
+                'Cleaning' => 'cleaning',
+                'Packing' => 'packing',
+                'Stockroom' => 'stockroom',
+                'Validation' => 'validation',
+                'FNSKU' => 'fnsku',
+                'Production Area' => 'productionarea',
+                'Return Scanner' => 'returnscanner',
+                'FBM Order' => 'fbmorder'
+            ];
 
-        // Update main module with the database column name
-        $user->main_module = $mainModuleDb;
+            // Convert main module from display name to database column name
+            $mainModuleDb = null;
+            foreach ($moduleMapping as $displayName => $columnName) {
+                if (strcasecmp($data['main_module'], $displayName) === 0 || 
+                    strcasecmp($data['main_module'], str_replace(' ', '', $displayName)) === 0) {
+                    $mainModuleDb = $columnName;
+                    break;
+                }
+            }
 
-        // Update sub-modules with proper mapping
-        $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea','returnscanner','fbmorder'];
-        
-        // First reset all modules to 0
-        foreach ($subModules as $module) {
-            $user->{$module} = 0;
-        }
-        
-        // Then set the selected ones to 1
-        if (!empty($data['sub_modules'])) {
-            foreach ($data['sub_modules'] as $selectedModule) {
-                // Find the database column for this module
-                $dbColumn = null;
-                foreach ($moduleMapping as $displayName => $columnName) {
-                    // Case-insensitive comparison and handle both with/without spaces
-                    if (strcasecmp($selectedModule, $displayName) === 0 || 
-                        strcasecmp($selectedModule, str_replace(' ', '', $displayName)) === 0) {
-                        $dbColumn = $columnName;
-                        break;
+            // If no mapping found, try to convert it directly (lowercase, no spaces)
+            if (!$mainModuleDb) {
+                $mainModuleDb = strtolower(str_replace(' ', '', $data['main_module']));
+            }
+
+            // Update main module with the database column name
+            $user->main_module = $mainModuleDb;
+
+            // Update sub-modules with proper mapping
+            $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
+                          'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea','returnscanner','fbmorder'];
+            
+            // First reset all modules to 0
+            foreach ($subModules as $module) {
+                $user->{$module} = 0;
+            }
+            
+            // Then set the selected ones to 1, but exclude the main module
+            if (!empty($data['sub_modules'])) {
+                foreach ($data['sub_modules'] as $selectedModule) {
+                    // Find the database column for this module
+                    $dbColumn = null;
+                    foreach ($moduleMapping as $displayName => $columnName) {
+                        // Case-insensitive comparison and handle both with/without spaces
+                        if (strcasecmp($selectedModule, $displayName) === 0 || 
+                            strcasecmp($selectedModule, str_replace(' ', '', $displayName)) === 0) {
+                            $dbColumn = $columnName;
+                            break;
+                        }
+                    }
+                    
+                    // If we found a match and it's not the main module, set it to 1
+                    if ($dbColumn && in_array($dbColumn, $subModules) && $dbColumn !== $mainModuleDb) {
+                        $user->{$dbColumn} = 1;
                     }
                 }
-                
-                // If we found a match, set it to 1
-                if ($dbColumn && in_array($dbColumn, $subModules)) {
-                    $user->{$dbColumn} = 1;
+            }
+
+            // Always ensure the main module is enabled in its column
+            if ($mainModuleDb && in_array($mainModuleDb, $subModules)) {
+                $user->{$mainModuleDb} = 1;
+            }
+
+            // Fetch all store columns dynamically
+            $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
+            $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
+
+            // Reset all store columns to 0
+            foreach ($storeColumns as $storeColumn) {
+                $user->{$storeColumn} = 0;
+            }
+
+            // Enable selected stores
+            if (!empty($data['privileges_stores'])) {
+                foreach ($data['privileges_stores'] as $store) {
+                    if (in_array($store, $storeColumns)) {
+                        $user->{$store} = 1;
+                    } else {
+                        Log::warning("Store column '{$store}' does not exist in tbluser.");
+                    }
                 }
             }
-        }
 
-        // Fetch all store columns dynamically
-        $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
-        $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
+            // Collect different types of modules for logging
+            $mainModuleDisplay = $data['main_module']; // Keep original for display
+            $enabledSubModules = [];
+            $enabledStores = [];
 
-        // Reset all store columns to 0
-        foreach ($storeColumns as $storeColumn) {
-            $user->{$storeColumn} = 0;
-        }
-
-        // Enable selected stores
-        if (!empty($data['privileges_stores'])) {
-            foreach ($data['privileges_stores'] as $store) {
-                if (in_array($store, $storeColumns)) {
-                    $user->{$store} = 1;
-                } else {
-                    Log::warning("Store column '{$store}' does not exist in tbluser.");
+            // Collect enabled sub-modules (excluding main module)
+            foreach ($subModules as $module) {
+                if ($user->{$module} == 1 && $module !== $mainModuleDb) {
+                    // Convert database column to display name
+                    $displayName = array_search($module, $moduleMapping) ?: ucfirst($module);
+                    $enabledSubModules[] = $displayName;
                 }
             }
-        }
 
-        // Collect different types of modules for logging
-        $mainModuleDisplay = $data['main_module']; // Keep original for display
-        $enabledSubModules = [];
-        $enabledStores = [];
-
-        // Collect enabled sub-modules
-        foreach ($subModules as $module) {
-            if ($user->{$module} == 1) {
-                // Convert database column to display name
-                $displayName = array_search($module, $moduleMapping) ?: ucfirst($module);
-                $enabledSubModules[] = $displayName;
+            // Collect enabled stores
+            foreach ($storeColumns as $storeColumn) {
+                if ($user->{$storeColumn} == 1) {
+                    $storeName = str_replace('store_', '', $storeColumn);
+                    $storeName = str_replace('_', ' ', $storeName);
+                    $enabledStores[] = ucfirst($storeName);
+                }
             }
-        }
 
-        // Collect enabled stores
-        foreach ($storeColumns as $storeColumn) {
-            if ($user->{$storeColumn} == 1) {
-                $storeName = str_replace('store_', '', $storeColumn);
-                $storeName = str_replace('_', ' ', $storeName);
-                $enabledStores[] = ucfirst($storeName);
+            // Format the log message
+            $logMessage = sprintf(
+                'Update Privileges for User %s - Main: %s | Sub-Modules: %s | Stores: %s',
+                $username,
+                $mainModuleDisplay,
+                $enabledSubModules ? implode(', ', $enabledSubModules) : 'None',
+                $enabledStores ? implode(', ', $enabledStores) : 'None'
+            );
+
+            // Save the user privileges
+            $user->save();
+
+            // Log using service
+            $this->userLogService->log($logMessage);
+
+            // Prepare the response with properly filtered sub_modules
+            $responseSubModules = [];
+            foreach ($subModules as $module) {
+                if ($user->{$module} == 1 && $module !== $mainModuleDb) {
+                    $responseSubModules[] = $module;
+                }
             }
+
+            return response()->json([
+                'success' => true, 
+                'message' => 'User privileges updated successfully!',
+                'main_module' => $mainModuleDb,
+                'sub_modules' => $responseSubModules
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation Error:', ['errors' => $e->errors()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $e->errors(),
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error saving user privileges:', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'message' => $e->getMessage()]);
         }
-
-        // Format the log message
-        $logMessage = sprintf(
-            'Update Privileges for User %s - Main: %s | Sub-Modules: %s | Stores: %s',
-            $username,
-            $mainModuleDisplay,
-            $enabledSubModules ? implode(', ', $enabledSubModules) : 'None',
-            $enabledStores ? implode(', ', $enabledStores) : 'None'
-        );
-
-        // Save the user privileges
-        $user->save();
-
-        // Log using service
-        $this->userLogService->log($logMessage);
-
-        return response()->json(['success' => true, 'message' => 'User privileges updated successfully!']);
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        Log::error('Validation Error:', ['errors' => $e->errors()]);
-        return response()->json([
-            'success' => false,
-            'message' => 'Validation failed.',
-            'errors' => $e->errors(),
-        ]);
-    } catch (\Exception $e) {
-        Log::error('Error saving user privileges:', ['error' => $e->getMessage()]);
-        return response()->json(['success' => false, 'message' => $e->getMessage()]);
-    }
-}      
+    }      
 
 
 
@@ -467,16 +492,21 @@ class UserController extends Controller
                 'productionarea', 'returnscanner', 'fbashipmentinbound','fbmorder'
             ];
             
-            // Get active modules - ensure all are lowercase for consistency
+            // Get main module and ensure it's lowercase with no spaces
+            $mainModule = $user->main_module;
+            if ($mainModule) {
+                // Remove any spaces and convert to lowercase
+                $mainModule = strtolower(str_replace(' ', '', $mainModule));
+            }
+            
+            // Get active modules - ensure all are lowercase for consistency and exclude main module
             $activeModules = [];
             foreach ($modules as $module) {
-                if ($user->{$module} == 1) {
+                // Only add to sub-modules if it's enabled AND not the main module
+                if ($user->{$module} == 1 && $module !== $mainModule) {
                     $activeModules[] = strtolower($module);
                 }
             }
-            
-            // Get main module and ensure it's lowercase
-            $mainModule = strtolower($user->main_module);
             
             // Save to session
             session(['main_module' => $mainModule]);
@@ -587,4 +617,4 @@ class UserController extends Controller
             }
         }
         
-}    
+}
