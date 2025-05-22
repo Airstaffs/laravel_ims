@@ -119,7 +119,9 @@
                 </div>
 
                 <button type="submit">🚀 Create Inbound Plan</button>
+
             </form>
+            <button @click="viewInboundPlans">📦 View Inbound Plans</button>
 
             <!-- API Response -->
             <div v-if="response">
@@ -416,13 +418,15 @@
             <hr>
             <h2>Step 3: Destination & Transportation</h2>
             <hr>
-            <h2>Step 4: Print Label</h2>
+            <h2>Step 4: Shipment Details</h2>
             <hr>
-            <h2>Step 5: Verification</h2>
+            <h2>Step 5: Print Label</h2>
         </div>
-
-
     </div>
+
+
+
+    <!-- Modals -->
 
     <!-- Add Item Modal -->
     <div v-if="showAddItemModal" class="modal-overlay">
@@ -488,6 +492,44 @@
             <button @click="showStoreModal = false">Cancel</button>
         </div>
     </div>
+
+    <!-- View Inboundplans Modal -->
+    <div v-if="showInboundPlansModal" class="modal-overlay inboundplans-modal">
+        <div class="modal-content inboundplans-modal-content">
+            <h3>📦 Inbound Plans for Shipment: {{ form.shipmentID }}</h3>
+            <p>{{ inboundPlansMessage }}</p>
+
+            <table class="placement-table">
+                <thead>
+                    <tr>
+                        <th>InboundPlanID</th>
+                        <th>PlacementOptionID</th>
+                        <th>PackingGroupID</th>
+                        <th>Created On</th>
+                        <th>Last Updated On</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(plan, index) in inboundPlansResponse" :key="index">
+                        <td>{{ plan.inboundplanid }}</td>
+                        <td>{{ plan.placementoptionid }}</td>
+                        <td>{{ plan.packinggroupid }}</td>
+                        <td>{{ formatDateTime(plan.created_time) }}</td>
+                        <td>{{ formatDateTime(plan.updated_time) }}</td>
+                        <td>
+                            <button @click="selectInboundPlan(plan)">📦 Choose Inbound Plan</button>
+                            <button @click="cancelInboundPlan(plan)">📦 Cancel Inbound Plan</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="modal-footer">
+                <button @click="showInboundPlansModal = false" class="btn btn-secondary">❌ Close</button>
+            </div>
+        </div>
+    </div>
 </template>
 
 <script>
@@ -549,6 +591,9 @@ export default {
             confirmPlacementOptionResponse: null,
             confirmDeliveryWindowResponse: null,
             confirmTransportationOptionResponse: null,
+            inboundPlansResponse: [],
+            inboundPlansMessage: '',
+            showInboundPlansModal: false
         };
     },
     created() {
@@ -1239,7 +1284,11 @@ export default {
                 day: 'numeric'
             });
         },
-
+        formatDateTime(datetime) {
+            const date = new Date(datetime);
+            const pad = (n) => n.toString().padStart(2, '0');
+            return `${pad(date.getMonth() + 1)}-${pad(date.getDate())}-${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+        },
         async selectDeliveryWindow(option) {
             this.form.deliveryWindowOptionId = option.deliveryWindowOptionId;
             await this.confirmAllSteps();
@@ -1275,7 +1324,59 @@ export default {
             } catch (error) {
                 console.error("❌ Error in confirming steps:", error);
             }
-        }
+        },
+        async viewInboundPlans() {
+            try {
+                const res = await axios.get(`${API_BASE_URL}/amzn/fba-shipment/get_inbound_plans`, {
+                    params: { shipmentID: this.form.shipmentID }
+                });
+
+                if (res.data.success) {
+                    this.inboundPlansResponse = res.data.data;
+                    this.inboundPlansMessage = res.data.message;
+                    this.showInboundPlansModal = true;
+                } else {
+                    this.inboundPlansMessage = "❌ Failed to fetch inbound plans.";
+                }
+            } catch (error) {
+                console.error("Error fetching inbound plans:", error);
+                this.inboundPlansMessage = "❌ Unexpected error fetching inbound plans.";
+            }
+        },
+        selectInboundPlan(plan) {
+            // Merge the plan data into the form, keeping existing values if not overwritten
+            this.form = {
+                ...this.form, // preserve existing values not in plan
+                ...plan,      // overwrite with values from selected plan
+                shipDate: this.form.shipDate || new Date().toISOString().slice(0, 16) // fallback for shipDate
+            };
+            this.showInboundPlansModal = false;
+
+            console.log("Selected Inbound Plan:", plan);
+            console.log("Updated Form:", this.form);
+        },
+        async cancelInboundPlan(plan) {
+            try {
+                const response = await fetch(`/amzn/fba-shipment/step1/cancel-shipment?inboundplanid=${encodeURIComponent(plan.inboundplanid)}`);
+                const data = await response.json();
+
+                this.cancelInboundResponse = data;
+
+                if (data.success) {
+                    // Optional: remove the plan from the list
+                    this.inboundPlansResponse = this.inboundPlansResponse.filter(p => p.inboundplanid !== plan.inboundplanid);
+                    alert("Inbound plan cancelled successfully.");
+                } else {
+                    alert("Failed to cancel inbound plan.");
+                }
+
+            } catch (error) {
+                console.error('Error cancelling inbound plan:', error);
+                alert("An error occurred while cancelling the plan.");
+            }
+        },
+
+
 
     },
     computed: {
@@ -1410,5 +1511,20 @@ button {
 
 .delivery-window-table th {
     background-color: #f9f9f9;
+}
+
+.inboundplans-modal {
+    /* Rawr */
+}
+
+.inboundplans-modal-content {
+    max-height: 80vh;
+    overflow-y: auto;
+    background-color: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    width: 100%;
+    max-width: 900px;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.25);
 }
 </style>

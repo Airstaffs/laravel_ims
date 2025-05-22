@@ -212,6 +212,8 @@ Route::post('/amzn/fba-shipment/add-item', [FBAShipmentController::class, 'addIt
 Route::get('/amzn/fba-shipment/fetch-shipments', [FBAShipmentController::class, 'fetch_shipment']);
 Route::post('/amzn/fba-shipment/delete-item', [FBAShipmentController::class, 'deleteShipmentItem']);
 Route::post('/amzn/fba-shipment/fetch_package_dimensions', [FBAShipmentController::class, 'package_dimension_fetcher']);
+Route::get('/amzn/fba-shipment/get_inbound_plans', [FBAShipmentController::class, 'fetchinboundplans']);
+Route::get('/amzn/fba-shipment/step1/cancel-shipment', [FBAShipmentController::class, 'cancel_inboundplan']);
 
 Route::get('/amzn/fba-shipment/step1/create-shipment', [FBAShipmentController::class, 'step1_createShipment']);
 Route::get('/amzn/fba-shipment/step2/generate-packing', [FBAShipmentController::class, 'step2a_generate_packing']);
@@ -387,3 +389,16 @@ Route::post('/insert-fnsku', [FnskuController::class, 'insertFnsku']);
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
+
+
+// FBM Orders Shipping Label
+use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
+Route::post('/amzn/fbm-orders/purchase-label/rates', [ShippingLabelController::class, 'get_rates']);
+Route::post('/amzn/fbm-orders/purchase-label/createshipment', [ShippingLabelController::class, 'create_shipment']);
+Route::post('/amzn/fbm-orders/purchase-label/manualshipment', [ShippingLabelController::class, 'manual_shipment']);
+
+
+// Automations
+Route::get('/postmaster', function () {
+    return include base_path('app/automations/postmaster.php');
+});

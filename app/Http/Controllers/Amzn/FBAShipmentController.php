@@ -13,7 +13,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 
-
 require base_path('app/Helpers/aws_helpers.php');
 
 class FBAShipmentController extends Controller
@@ -192,6 +191,159 @@ class FBAShipmentController extends Controller
         ]);
     }
 
+    public function cancel_inboundplan(Request $request)
+    {
+        $request->validate([
+            'store' => 'nullable|string',
+            'destinationMarketplace' => 'nullable|string',
+            'nextToken' => 'nullable|string',
+            'shipmentID' => 'nullable|string'
+        ]);
+        $data_additionale = []; // data that is to be passed to jsonCreation
+        $store = $request->input('store', 'Renovar Tech');
+        $nextToken = $request->input('nextToken', null);
+        $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
+        $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
+        $inboundplanid = $request->input ('inboundplanid', null);
+
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
+        $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/cancellation';
+        $customParams = [];
+
+        $companydetails = $this->fetchCompanyDetails();
+
+        if (!$companydetails) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        // Generate JSON payload
+        $jsonData = $this->JsonCreation('step1', $companydetails, 'ATVPDKIKX0DER', $shipmentID, $data_additionale);
+
+        // Check if JSON encoding failed
+        if ($jsonData === false) {
+            Log::error('JSON Encoding Failed:', ['error' => json_last_error_msg()]);
+            return response()->json(['success' => false, 'message' => 'JSON encoding error'], 500);
+        }
+
+
+        $credentials = AWSCredentials($store);
+        if (!$credentials) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No credentials found for the given store.',
+            ], 500);
+        }
+
+        $accessToken = fetchAccessToken($credentials, $returnRaw = false);
+        if (!$accessToken) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch access token.',
+            ], 500);
+        }
+
+        try {
+            // Build headers using the helper function
+            $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+            // Ensure Content-Type is set
+            $headers['Content-Type'] = 'application/json';
+            $headers['accept'] = 'application/json';
+
+            // Log the headers
+            Log::info('Request headers:', $headers);
+
+            // Build query string using the helper function
+            $queryString = buildQueryString($nextToken, $customParams);
+
+            // Construct the full URL
+            $url = "{$endpoint}{$path}{$queryString}";
+
+            // Log the request details (headers, body, etc.) for debugging
+            Log::info('Request details:', [
+                'url' => $url,
+                'headers' => $headers,
+                'queryString' => $queryString,
+                'body' => $jsonData
+            ]);
+
+            // Make the HTTP request (change GET to POST)
+            $response = Http::timeout(50)
+                ->withHeaders($headers)
+                ->withBody($jsonData, 'application/json') // Ensure JSON is properly sent
+                ->post($url);
+
+            // Log the curl information (response details)
+            $curlInfo = $response->handlerStats(); // This will give you cURL-like information
+
+            Log::info('Curl Info:', $curlInfo);
+
+            if ($response->successful()) {
+                $data = $response->json(); // Parse JSON response
+
+                $inboundplanid = $data['inboundPlanId'] ?? null;
+
+                // ✅ Insert into tblfbainboundplans if inboundPlanId exists
+                if ($inboundplanid) {
+                    DB::table('tblfbainboundplans')->insert([
+                        'shipmentID' => $shipmentID,
+                        'inboundplanid' => $inboundplanid,
+                        'store' => $store,
+                        'destinationMarketplaceID' => $destinationmarketplace,
+                        'created_time' => now(),
+                        'updated_time' => now()
+                    ]);
+                }
+
+                // Extract operationId
+                $operationId = $data['operationId'] ?? null;
+
+                // If operationId exists, call getOperationStatus()
+                if ($operationId) {
+                    Log::info("Tracking operation: {$operationId}");
+
+                    // Call the operation status function
+                    $operationStatusResponse = $this->getOperationStatus($store, $destinationmarketplace, $operationId);
+
+                    // Return the operation response
+                    return response()->json([
+                        'success' => true,
+                        'operationId' => $operationId,
+                        'data' => $data,
+                        'operationStatus' => $operationStatusResponse->getData(true), // Get operation tracking response
+                        'logs' => $curlInfo,
+                    ]);
+                }
+
+                // If no operationId, return success response but indicate missing operation tracking
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Operation initiated but no operationId returned.',
+                    'data' => $data,
+                    'logs' => $curlInfo,
+                ]);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Successfully sent but error.',
+                'headers' => $headers,
+                'error' => $response->json(),
+                'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
+                'logs' => $curlInfo,
+            ], $response->status());
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during the API request.',
+                'error' => $e->getMessage(),
+                'logs' => $curlInfo ?? null, // If logs exist, return them
+            ], 500);
+        }
+
+        // prodduces inboundplanid
+    }
+
     /*
         public function package_dimension_fetcher(Request $request)
         {
@@ -235,7 +387,21 @@ class FBAShipmentController extends Controller
             ]);
         }
     */
-
+    public function fetchinboundplans(Request $request)
+    {
+        $shipmentID = $request->input('shipmentID');
+    
+        $plans = DB::table('tblfbainboundplans')
+            ->where('shipmentID', $shipmentID)
+            ->get();
+    
+        return response()->json([
+            'success' => true,
+            'message' => '✅ Fetched inbound plans.',
+            'data' => $plans
+        ]);
+    }
+    
     public function amazon_catalog_asin($asin, $store, $destinationmarketplace)
     {
 
@@ -435,6 +601,20 @@ class FBAShipmentController extends Controller
 
             if ($response->successful()) {
                 $data = $response->json(); // Parse JSON response
+
+                $inboundplanid = $data['inboundPlanId'] ?? null;
+
+                // ✅ Insert into tblfbainboundplans if inboundPlanId exists
+                if ($inboundplanid) {
+                    DB::table('tblfbainboundplans')->insert([
+                        'shipmentID' => $shipmentID,
+                        'inboundplanid' => $inboundplanid,
+                        'store' => $store,
+                        'destinationMarketplaceID' => $destinationmarketplace,
+                        'created_time' => now(),
+                        'updated_time' => now()
+                    ]);
+                }
 
                 // Extract operationId
                 $operationId = $data['operationId'] ?? null;
@@ -782,6 +962,15 @@ class FBAShipmentController extends Controller
         $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1');
         $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');
         $packingOptionId = $request->input('packingOptionId', 'poe99bf0d7-171b-414b-a350-02d4ed88c348'); // from process 2b
+
+        DB::table('tblfbainboundplans')
+            ->where('inboundplanid', $inboundplanid)
+            ->where('shipmentID', $shipmentID)
+            ->update([
+                'packingGroupId' => $packingGroupId,
+                'packingOptionId' => $packingOptionId,
+                'updated_time' => now() // update timestamp
+            ]);
 
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
@@ -1496,6 +1685,14 @@ class FBAShipmentController extends Controller
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
         $shipmentIdfromAPI = $request->input('shipmentidfromapi', 'sh82013eed-8bd2-4642-aaae-80e7177e4d31');
 
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'shipmentidfromapi' => $shipmentIdfromAPI,
+            'updated_time' => now() // update timestamp
+        ]);
+
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
@@ -1664,6 +1861,13 @@ class FBAShipmentController extends Controller
         $data_additionale['totalDeclaredValue'] = $totalDeclaredValue;
         $data_additionale['shipmentidfromapi'] = $shipmentidfromapi;
 
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'placementOptionId' => $placementOptionId,
+            'updated_time' => now() // update timestamp
+        ]);
 
         $companydetails = $this->fetchCompanyDetails();
 
@@ -1807,6 +2011,15 @@ class FBAShipmentController extends Controller
         $packageHeight = $request->input('packageHeight', null);
         $totalDeclaredValue = $request->input('totalDeclaredValue', null);
         $shipmentidfromapi = $request->input('shipmentidfromapi', null);
+
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'totalDeclaredValue' => $totalDeclaredValue,
+            'updated_time' => now()
+        ]);
+
 
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
@@ -1972,7 +2185,6 @@ class FBAShipmentController extends Controller
             $customParams['paginationToken'] = $nextToken;
         }
 
-
         $companydetails = $this->fetchCompanyDetails();
 
         if (!$companydetails) {
@@ -2091,7 +2303,6 @@ class FBAShipmentController extends Controller
             ], 500);
         }
     }
-
     public function step6a_list_delivery_window_options(Request $request)
     {
         $request->validate([
@@ -2276,6 +2487,14 @@ class FBAShipmentController extends Controller
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
         $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/placementOptions/' . $placementOptionId . '/confirmation';
 
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'placementOptionId' => $placementOptionId,
+            'updated_time' => now() // update timestamp
+        ]);
+
 
         if (isset($nextToken) && !empty($nextToken)) {
             $data_additionale['nextToken'] = $nextToken;
@@ -2437,6 +2656,14 @@ class FBAShipmentController extends Controller
 
         $companydetails = $this->fetchCompanyDetails();
 
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'deliveryWindowOptionId' => $deliveryWindowOptionId,
+            'updated_time' => now() // update timestamp
+        ]);
+
         if (!$companydetails) {
             return response()->json(['error' => 'Company not found'], 404);
         }
@@ -2585,6 +2812,14 @@ class FBAShipmentController extends Controller
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
         $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/transportationOptions/confirmation';
+
+        DB::table('tblfbainboundplans')
+        ->where('inboundplanid', $inboundplanid)
+        ->where('shipmentID', $shipmentID)
+        ->update([
+            'transportationOptionId' => $transportationOptionId,
+            'updated_time' => now() // update timestamp
+        ]);
 
         if (isset($nextToken) && !empty($nextToken)) {
             $data_additionale['nextToken'] = $nextToken;
@@ -2888,7 +3123,7 @@ class FBAShipmentController extends Controller
         $placementOptionId = $request->input('placementOptionId', null);
         $shipmentconfirmationid = $request->input('shipmentconfirmationid', null);
         $transportationOptionId = $request->input('transportationOptionId', null);
-        $transportationOptionId = $request->input('transportationOptionId', null);
+        $transportationOptionId = $request->input('shipmentconfirmationid', null);
 
 
 

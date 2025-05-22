@@ -220,4 +220,10 @@ if (!function_exists('getSignatureKey')) {
     }
 }
 
+if (!function_exists('getMarketplace')) {
+    function getMarketplace()
+    {
+
+    }
+}
 
