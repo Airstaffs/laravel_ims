@@ -1,44 +1,21 @@
 <template>
     <div class="vue-container cleaning-module">
         <div class="top-header">
-            <h1 class="module-title">Cleaning Module</h1>
+            <span>Top Header</span>
         </div>
 
-        <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-
-                <div class="per-page-selector">
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }} per page
-                        </option>
-                    </select>
-                </div>
-            </div>
-        </div>
+        <h2 class="module-title">Cleaning Module</h2>
 
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">
-            <table class="table table-bordered">
+            <table>
                 <thead>
                     <tr>
-                        <th class="check-column">
-                            <div class="th-content">
-                                <input type="checkbox" @click="toggleAll" v-model="selectAll" />
-                            </div>
+                        <th class="sticky-header first-col">
+                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
                         </th>
-                        <th class="product-name">
-                            <div class="th-content">
+                        <th class="sticky-header second-sticky">
+                            <div class="product-name">
                                 <span class="sortable" @click="sortBy('AStitle')">
                                     Product Name
                                     <i v-if="sortColumn === 'AStitle'"
@@ -77,11 +54,11 @@
                 <tbody>
                     <template v-for="(item, index) in sortedInventory" :key="item.id">
                         <tr>
-                            <td>
+                            <td class="sticky-col first-col">
                                 <input type="checkbox" v-model="item.checked" />
                                 <span class="placeholder-date">{{ item.shipBy || '' }}</span>
                             </td>
-                            <td class="product-details">
+                            <td class="sticky-col second-sticky">
                                 <div class="product-container">
                                     <div class="product-image-container" @click="openImageModal(item)">
                                         <!-- Use the actual file path for the main image -->
@@ -157,12 +134,12 @@
                             <td>
                                 <div class="action-buttons">
                                     {{ item.totalquantity }}
-                                    <button class="btn-expand" @click="toggleDetails(index)">
-                                        {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                                    <button class="btn-details" @click="toggleDetails(index)">
+                                        <i class="fas fa-info-circle"></i> More Details
                                     </button>
-                                    <button class="btn-details">example</button>
-                                    <button class="btn-details">example</button>
-                                    <button class="btn-details">example</button>
+                                    <button class="btn-expand">example</button>
+                                    <button class="btn-expand">example</button>
+                                    <button class="btn-expand">example</button>
                                 </div>
                             </td>
                         </tr>
@@ -181,11 +158,10 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <div class="mobile-showDetails-container">
-                <button class="btn-showDetailsM"
-                    @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
-                </button>
-            </div>
+            <button class="btn-showDetailsM"
+                @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
+            </button>
+
             <div class="mobile-cards">
                 <div class="mobile-card" v-for="(item, index) in sortedInventory" :key="item.id">
                     <div class="mobile-card-header">
@@ -206,6 +182,8 @@
                             </h3>
                         </div>
                     </div>
+
+                    <hr>
 
                     <div class="mobile-card-details">
                         <div class="mobile-detail-row">
@@ -272,20 +250,24 @@
                         </div>
                     </div>
 
+                    <hr>
+
                     <div class="mobile-card-actions">
-                        <button class="mobile-btn mobile-btn-details" @click="toggleDetails(index)">
-                            {{ expandedRows[index] ? 'Less Details' : 'More Details' }}
+                        <button class="btn btn-details" @click="toggleDetails(index)">
+                            <i class="fas fa-info-circle"></i> Details
                         </button>
-                        <button class="mobile-btn">
+                        <button class="btn btn-example">
                             Example
                         </button>
-                        <button class="mobile-btn">
+                        <button class="btn btn-example">
                             Example
                         </button>
-                        <button class="mobile-btn">
+                        <button class="btn btn-example">
                             Example
                         </button>
                     </div>
+
+                    <hr v-if="expandedRows[index]">
 
                     <div v-if="expandedRows[index]" class="mobile-expanded-content">
                         <p><strong>Expanded Rows Here</strong></p>
@@ -295,9 +277,18 @@
             </div>
         </div>
 
-        <!-- Bottom pagination (also centered) -->
+        <!-- Pagination with centered layout -->
         <div class="pagination-container">
             <div class="pagination-wrapper">
+                <div class="per-page-selector">
+                    <span>Rows per page</span>
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+                            {{ option }}
+                        </option>
+                    </select>
+                </div>
+
                 <div class="pagination">
                     <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
                         <i class="fas fa-chevron-left"></i> Back

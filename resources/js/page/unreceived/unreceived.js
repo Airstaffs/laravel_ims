@@ -2,6 +2,7 @@ import { eventBus } from "../../components/eventBus";
 import ScannerComponent from "../../components/Scanner.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
+import "./unreceived.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {

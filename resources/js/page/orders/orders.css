@@ -1,0 +1,4 @@
+.order-module th:nth-child(2),
+.order-module td:nth-child(2) {
+    min-width: 375px;
+}

@@ -1,0 +1,4 @@
+.packaging-module th:nth-child(2),
+.packaging-module td:nth-child(2) {
+    min-width: 360px;
+}

@@ -1,5 +1,6 @@
 import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
+import "./testing.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
