@@ -286,153 +286,168 @@ class UserController extends Controller
         }
     }
 
-    public function saveUserPrivileges(Request $request)
-    {
-        try {
-            // Typecast user_id to integer before validation
-            $request->merge(['user_id' => (int) $request->input('user_id')]);
-    
-            // Validate the request
-            $data = $request->validate([
-                'user_id' => 'required|numeric|exists:tbluser,id',
-                'main_module' => 'required|string',
-                'sub_modules' => 'array|nullable',
-                'privileges_stores' => 'array|nullable',
-            ]);
-    
-            // Log the request data for debugging
-            Log::info('Request Data:', $data);
-    
-            // Fetch the user
-            $user = User::find($data['user_id']);
-            $username = $user->username; // Store username for logging
-    
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'User not found']);
-            }
-            Log::info('Fetched User:', ['user' => $user]);
-    
-            // Update main module
-            $user->main_module = $data['main_module'];
-    
-            // Define module mapping (display name to database column)
-            $moduleMapping = [
-                'Order' => 'order',
-                'Unreceived' => 'unreceived',
-                'Received' => 'receiving',
-                'Labeling' => 'labeling',
-                'Testing' => 'testing',
-                'Cleaning' => 'cleaning',
-                'Packing' => 'packing',
-                'Stockroom' => 'stockroom',
-                'Validation' => 'validation',
-                'FNSKU' => 'fnsku',
-                'Production Area' => 'productionarea',
-                'Return Scanner' => 'returnscanner',
-                'fbmorder' => 'fbmorder' 
-            ];
-    
-            // Update sub-modules with proper mapping
-            $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                          'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea','returnscanner','fbmorder'];
-            
-            // First reset all modules to 0
-            foreach ($subModules as $module) {
-                $user->{$module} = 0;
-            }
-            
-            // Then set the selected ones to 1
-            if (!empty($data['sub_modules'])) {
-                foreach ($data['sub_modules'] as $selectedModule) {
-                    // Find the database column for this module
-                    $dbColumn = null;
-                    foreach ($moduleMapping as $displayName => $columnName) {
-                        // Case-insensitive comparison and handle both with/without spaces
-                        if (strcasecmp($selectedModule, $displayName) === 0 || 
-                            strcasecmp($selectedModule, str_replace(' ', '', $displayName)) === 0) {
-                            $dbColumn = $columnName;
-                            break;
-                        }
-                    }
-                    
-                    // If we found a match, set it to 1
-                    if ($dbColumn && in_array($dbColumn, $subModules)) {
-                        $user->{$dbColumn} = 1;
-                    }
-                }
-            }
-    
-            // Fetch all store columns dynamically
-            $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
-            $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
-    
-            // Reset all store columns to 0
-            foreach ($storeColumns as $storeColumn) {
-                $user->{$storeColumn} = 0;
-            }
-    
-            // Enable selected stores
-            if (!empty($data['privileges_stores'])) {
-                foreach ($data['privileges_stores'] as $store) {
-                    if (in_array($store, $storeColumns)) {
-                        $user->{$store} = 1;
-                    } else {
-                        Log::warning("Store column '{$store}' does not exist in tbluser.");
-                    }
-                }
-            }
-    
-            // Collect different types of modules
-            $mainModule = $data['main_module'];
-            $enabledSubModules = [];
-            $enabledStores = [];
-    
-            // Collect enabled sub-modules
-            foreach ($subModules as $module) {
-                if ($user->{$module} == 1) {
-                    // Convert database column to display name
-                    $displayName = array_search($module, $moduleMapping) ?: ucfirst($module);
-                    $enabledSubModules[] = $displayName;
-                }
-            }
-    
-            // Collect enabled stores
-            foreach ($storeColumns as $storeColumn) {
-                if ($user->{$storeColumn} == 1) {
-                    $storeName = str_replace('store_', '', $storeColumn);
-                    $storeName = str_replace('_', ' ', $storeName);
-                    $enabledStores[] = ucfirst($storeName);
-                }
-            }
-    
-            // Format the log message
-            $logMessage = sprintf(
-                'Update Privileges for User %s - Main: %s | Sub-Modules: %s | Stores: %s',
-                $username,
-                $mainModule,
-                $enabledSubModules ? implode(', ', $enabledSubModules) : 'None',
-                $enabledStores ? implode(', ', $enabledStores) : 'None'
-            );
-    
-            // Save the user privileges
-            $user->save();
-    
-            // Log using service
-            $this->userLogService->log($logMessage);
-    
-            return response()->json(['success' => true, 'message' => 'User privileges updated successfully!']);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Validation Error:', ['errors' => $e->errors()]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed.',
-                'errors' => $e->errors(),
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error saving user privileges:', ['error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+   public function saveUserPrivileges(Request $request)
+{
+    try {
+        // Typecast user_id to integer before validation
+        $request->merge(['user_id' => (int) $request->input('user_id')]);
+
+        // Validate the request
+        $data = $request->validate([
+            'user_id' => 'required|numeric|exists:tbluser,id',
+            'main_module' => 'required|string',
+            'sub_modules' => 'array|nullable',
+            'privileges_stores' => 'array|nullable',
+        ]);
+
+        // Log the request data for debugging
+        Log::info('Request Data:', $data);
+
+        // Fetch the user
+        $user = User::find($data['user_id']);
+        $username = $user->username; // Store username for logging
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not found']);
         }
-    }      
+        Log::info('Fetched User:', ['user' => $user]);
+
+        // Define module mapping (display name to database column)
+        $moduleMapping = [
+            'Order' => 'order',
+            'Unreceived' => 'unreceived',
+            'Received' => 'receiving',
+            'Labeling' => 'labeling',
+            'Testing' => 'testing',
+            'Cleaning' => 'cleaning',
+            'Packing' => 'packing',
+            'Stockroom' => 'stockroom',
+            'Validation' => 'validation',
+            'FNSKU' => 'fnsku',
+            'Production Area' => 'productionarea',
+            'Return Scanner' => 'returnscanner',
+            'FBM Order' => 'fbmorder'
+        ];
+
+        // Convert main module from display name to database column name
+        $mainModuleDb = null;
+        foreach ($moduleMapping as $displayName => $columnName) {
+            if (strcasecmp($data['main_module'], $displayName) === 0 || 
+                strcasecmp($data['main_module'], str_replace(' ', '', $displayName)) === 0) {
+                $mainModuleDb = $columnName;
+                break;
+            }
+        }
+
+        // If no mapping found, try to convert it directly (lowercase, no spaces)
+        if (!$mainModuleDb) {
+            $mainModuleDb = strtolower(str_replace(' ', '', $data['main_module']));
+        }
+
+        // Update main module with the database column name
+        $user->main_module = $mainModuleDb;
+
+        // Update sub-modules with proper mapping
+        $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
+                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea','returnscanner','fbmorder'];
+        
+        // First reset all modules to 0
+        foreach ($subModules as $module) {
+            $user->{$module} = 0;
+        }
+        
+        // Then set the selected ones to 1
+        if (!empty($data['sub_modules'])) {
+            foreach ($data['sub_modules'] as $selectedModule) {
+                // Find the database column for this module
+                $dbColumn = null;
+                foreach ($moduleMapping as $displayName => $columnName) {
+                    // Case-insensitive comparison and handle both with/without spaces
+                    if (strcasecmp($selectedModule, $displayName) === 0 || 
+                        strcasecmp($selectedModule, str_replace(' ', '', $displayName)) === 0) {
+                        $dbColumn = $columnName;
+                        break;
+                    }
+                }
+                
+                // If we found a match, set it to 1
+                if ($dbColumn && in_array($dbColumn, $subModules)) {
+                    $user->{$dbColumn} = 1;
+                }
+            }
+        }
+
+        // Fetch all store columns dynamically
+        $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
+        $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
+
+        // Reset all store columns to 0
+        foreach ($storeColumns as $storeColumn) {
+            $user->{$storeColumn} = 0;
+        }
+
+        // Enable selected stores
+        if (!empty($data['privileges_stores'])) {
+            foreach ($data['privileges_stores'] as $store) {
+                if (in_array($store, $storeColumns)) {
+                    $user->{$store} = 1;
+                } else {
+                    Log::warning("Store column '{$store}' does not exist in tbluser.");
+                }
+            }
+        }
+
+        // Collect different types of modules for logging
+        $mainModuleDisplay = $data['main_module']; // Keep original for display
+        $enabledSubModules = [];
+        $enabledStores = [];
+
+        // Collect enabled sub-modules
+        foreach ($subModules as $module) {
+            if ($user->{$module} == 1) {
+                // Convert database column to display name
+                $displayName = array_search($module, $moduleMapping) ?: ucfirst($module);
+                $enabledSubModules[] = $displayName;
+            }
+        }
+
+        // Collect enabled stores
+        foreach ($storeColumns as $storeColumn) {
+            if ($user->{$storeColumn} == 1) {
+                $storeName = str_replace('store_', '', $storeColumn);
+                $storeName = str_replace('_', ' ', $storeName);
+                $enabledStores[] = ucfirst($storeName);
+            }
+        }
+
+        // Format the log message
+        $logMessage = sprintf(
+            'Update Privileges for User %s - Main: %s | Sub-Modules: %s | Stores: %s',
+            $username,
+            $mainModuleDisplay,
+            $enabledSubModules ? implode(', ', $enabledSubModules) : 'None',
+            $enabledStores ? implode(', ', $enabledStores) : 'None'
+        );
+
+        // Save the user privileges
+        $user->save();
+
+        // Log using service
+        $this->userLogService->log($logMessage);
+
+        return response()->json(['success' => true, 'message' => 'User privileges updated successfully!']);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        Log::error('Validation Error:', ['errors' => $e->errors()]);
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed.',
+            'errors' => $e->errors(),
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Error saving user privileges:', ['error' => $e->getMessage()]);
+        return response()->json(['success' => false, 'message' => $e->getMessage()]);
+    }
+}      
 
 
 

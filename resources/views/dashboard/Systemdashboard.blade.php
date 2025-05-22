@@ -1045,24 +1045,48 @@
             updateStores(data);
         }
 
-        function updateMainModule(data) {
-            const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
-            ];
-            const mainModuleHTML = `
+       function updateMainModule(data) {
+    // Define the mapping for consistent database column names
+    const moduleMapping = {
+        'Order': 'order',
+        'Unreceived': 'unreceived',
+        'Received': 'receiving',
+        'Labeling': 'labeling',
+        'Testing': 'testing',
+        'Cleaning': 'cleaning',
+        'Packing': 'packing',
+        'Stockroom': 'stockroom',
+        'Validation': 'validation',
+        'FNSKU': 'fnsku',
+        'Production Area': 'productionarea',
+        'Return Scanner': 'returnscanner',
+        'FBM Order': 'fbmorder'
+    };
+    
+    const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
+        'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
+    ];
+    
+    const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
-            ${mainModules.map(module => `
-                                                                                                            <div class="col-4 form-check mb-2 px-10">
-                                                                                                                <input class="form-check-input" type="radio" name="main_module"
-                                                                                                                       value="${module}" ${data.main_module === module ? 'checked' : ''} required>
-                                                                                                                <label class="form-check-label">${module}</label>
-                                                                                                            </div>
-                                                                                                        `).join('')}
+            ${mainModules.map(module => {
+                // Get the database column name for comparison
+                const dbColumnName = moduleMapping[module] || module.toLowerCase().replace(/\s+/g, '');
+                const isChecked = data.main_module === dbColumnName ? 'checked' : '';
+                
+                return `
+                    <div class="col-4 form-check mb-2 px-10">
+                        <input class="form-check-input" type="radio" name="main_module"
+                               value="${module}" ${isChecked} required>
+                        <label class="form-check-label">${module}</label>
+                    </div>
+                `;
+            }).join('')}
         </div>
     `;
-            document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
-        }
+    document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
+}
 
         function updateSubModules(data) {
             const subModules = [{
