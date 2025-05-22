@@ -41,6 +41,7 @@ class UserController extends Controller
                 'validation',
                 'productionarea',
                 'returnscanner',
+                'fbmorder',
             )
             ->where('id', $currentUserId)
             ->first();
@@ -185,6 +186,7 @@ class UserController extends Controller
                 'validation' => (bool) $selectedUser->validation,
                 'productionarea' => (bool) $selectedUser->productionarea,
                 'returnscanner' => (bool) $selectedUser->returnscanner,
+                'fbmorder' => (bool) $selectedUser->fbmorder,
             ],
             'privileges_stores' => $storePrivileges, // Pass the processed store privileges
         ];
@@ -326,12 +328,13 @@ class UserController extends Controller
                 'Validation' => 'validation',
                 'FNSKU' => 'fnsku',
                 'Production Area' => 'productionarea',
-                'Return Scanner' => 'returnscanner' 
+                'Return Scanner' => 'returnscanner',
+                'fbmorder' => 'fbmorder' 
             ];
     
             // Update sub-modules with proper mapping
             $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                          'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea','returnscanner'];
+                          'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea','returnscanner','fbmorder'];
             
             // First reset all modules to 0
             foreach ($subModules as $module) {
@@ -446,7 +449,7 @@ class UserController extends Controller
             $modules = [
                 'order', 'unreceived', 'receiving', 'labeling', 'testing', 
                 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                'productionarea', 'returnscanner', 'fbashipmentinbound'
+                'productionarea', 'returnscanner', 'fbashipmentinbound','fbmorder'
             ];
             
             // Get active modules - ensure all are lowercase for consistency
