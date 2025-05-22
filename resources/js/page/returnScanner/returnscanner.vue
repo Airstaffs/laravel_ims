@@ -1,7 +1,12 @@
 <template>
     <div class="vue-container return-module">
-        <!-- Top header bar with blue background -->
         <div class="top-header">
+            <div class="header-buttons">
+                <button class="btn btn-scan" @click="openScannerModal">
+                    <i class="fas fa-barcode"></i> Scan Items
+                </button>
+            </div>
+
             <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
@@ -11,15 +16,9 @@
                     </option>
                 </select>
             </div>
-
-            <h1 class="module-title">Return List</h1>
-
-            <div class="header-buttons">
-                <button class="btn scan-button" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
-                </button>
-            </div>
         </div>
+
+        <h2 class="module-title">Return List</h2>
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
         <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true"
@@ -31,16 +30,12 @@
             <template #input-fields>
                 <!-- ReturnID toggle button -->
                 <div class="toggle-container">
-                <button 
-                type="button" 
-                class="toggle-return-id" 
-                @click="toggleReturnIdField"
-                :class="{ 'return-id-active': showReturnIdField }"
-                >
-                <i :class="['fas', showReturnIdField ? 'fa-eye-slash' : 'fa-eye']"></i>
-                {{ showReturnIdField ? 'Hide Return ID' : 'Show Return ID' }}
-                </button>
-            </div>
+                    <button type="button" class="toggle-return-id" @click="toggleReturnIdField"
+                        :class="{ 'return-id-active': showReturnIdField }">
+                        <i :class="['fas', showReturnIdField ? 'fa-eye-slash' : 'fa-eye']"></i>
+                        {{ showReturnIdField ? 'Hide Return ID' : 'Show Return ID' }}
+                    </button>
+                </div>
 
                 <!-- ReturnID field (optional) -->
                 <div class="input-group" v-if="showReturnIdField">
@@ -85,36 +80,13 @@
             </template>
         </scanner-component>
 
-        <!-- Pagination with centered layout -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-
-                <div class="per-page-selector">
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }} per page
-                        </option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
         <!-- Returns History Table -->
         <div class="table-container desktop-view">
-            <table class="table table-bordered">
+            <table>
                 <thead>
                     <tr>
-                        <th>Image</th>
-                        <th @click="sortBy('LPNDATE')">Date</th>
+                        <th class="sticky-col first-sticky">Image</th>
+                        <th class="sticky-col second-sticky" @click="sortBy('LPNDATE')">Date</th>
                         <th @click="sortBy('LPN')">Return ID</th>
                         <th @click="sortBy('rtcounter')">RT#</th>
                         <th @click="sortBy('serialnumber')">Serial</th>
@@ -126,18 +98,20 @@
                 </thead>
                 <tbody>
                     <tr v-for="(item, index) in returnHistory" :key="index">
-                        <td class="product-image-cell">
-                            <div class="product-image-container" @click="openImageModal(item)">
-                                <!-- Use direct image path like in Production module -->
-                                <img :src="'/images/thumbnails/' + (item.img1 || 'default.jpg')"
-                                    :alt="item.ProductTitle || 'Product'" class="product-thumbnail clickable-image"
-                                    @error="handleImageError($event)" />
-                                <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
-                                    +{{ countAdditionalImages(item) }}
+                        <td class="sticky-col first-col">
+                            <div class="product-container">
+                                <div class="product-image-container" @click="openImageModal(item)">
+                                    <!-- Use direct image path like in Production module -->
+                                    <img :src="'/images/thumbnails/' + (item.img1 || 'default.jpg')"
+                                        :alt="item.ProductTitle || 'Product'" class="product-thumbnail clickable-image"
+                                        @error="handleImageError($event)" />
+                                    <div class="image-count-badge" v-if="countAdditionalImages(item) > 0">
+                                        +{{ countAdditionalImages(item) }}
+                                    </div>
                                 </div>
                             </div>
                         </td>
-                        <td>{{ formatDate(item.LPNDATE) }}</td>
+                        <td class="sticky-col second-sticky">{{ formatDate(item.LPNDATE) }}</td>
                         <td>{{ item.LPN || 'N/A' }}</td>
                         <td>{{ formatRTNumber(item.rtcounter, item.storename) }}</td>
                         <td>{{ item.serialnumber }}</td>
@@ -507,42 +481,42 @@
     }
 
     .toggle-container {
-  margin-bottom: 15px;
-  display: flex;
-  justify-content: flex-start;
-}
+        margin-bottom: 15px;
+        display: flex;
+        justify-content: flex-start;
+    }
 
-.toggle-return-id {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background-color: #f0f0f0;
-  border: 1px solid #d0d0d0;
-  border-radius: 4px;
-  font-weight: 500;
-  color: #505050;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
+    .toggle-return-id {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        background-color: #f0f0f0;
+        border: 1px solid #d0d0d0;
+        border-radius: 4px;
+        font-weight: 500;
+        color: #505050;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
 
-.toggle-return-id:hover {
-  background-color: #e8e8e8;
-  border-color: #c0c0c0;
-}
+    .toggle-return-id:hover {
+        background-color: #e8e8e8;
+        border-color: #c0c0c0;
+    }
 
-.toggle-return-id:active {
-  transform: scale(0.98);
-}
+    .toggle-return-id:active {
+        transform: scale(0.98);
+    }
 
-.return-id-active {
-  background-color: #e6f7ff;
-  border-color: #91d5ff;
-  color: #1890ff;
-}
+    .return-id-active {
+        background-color: #e6f7ff;
+        border-color: #91d5ff;
+        color: #1890ff;
+    }
 
-.return-id-active:hover {
-  background-color: #d6f0ff;
-  border-color: #69c0ff;
-}
+    .return-id-active:hover {
+        background-color: #d6f0ff;
+        border-color: #69c0ff;
+    }
 </style>

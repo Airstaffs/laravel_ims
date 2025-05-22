@@ -23,6 +23,7 @@ import Validation from "./page/validation/validation.vue";
 import ProductionArea from "./page/production/production.vue";
 import ReturnScanner from "./page/returnScanner/returnscanner.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound_shipment.vue";
+import FBMorders from "./page/fbmOrders/fbmOrders.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
@@ -132,7 +133,9 @@ const componentMapping = {
     "order": "order",
     "fbashipmentinbound": "fbashipmentinbound",
     "fbashipment": "fbashipmentinbound", // Just in case another name variant is used
-    "fba": "fbashipmentinbound", // Just in case another name variant is used
+    "fba": "fbashipmentinbound", 
+    "fbm order":"fbmorder",
+    "FBM Order":"fbmorder"// Just in case another name variant is used
     // Add more mappings as needed
 };
 
@@ -483,6 +486,7 @@ const app = createApp({
         returnscanner: ReturnScanner,
         fnsku: FNSKU,
         fbashipmentinbound: FbaInboundShipment,
+        fbmorder: FBMorders,
     },
 });
 

@@ -169,6 +169,7 @@
             'productionarea' => 'Production Area',
             'fbashipmentinbound' => 'FBA Inbound Shipment',
             'returnscanner' => 'Return Scanner', // Add this line
+            'fbmorder' => 'FBM Order',
         ];
         ?>
 
@@ -709,14 +710,14 @@
                                     <td class="td-notes">${totalHours}</td>
                                     ${isMobile ?
                                         `<td class="td-notes">
-                                                                                                                                                                    ${record.Notes ?
-                                                                                                                                                                        `<div class="notes-icon">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ${record.Notes ?
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        `<div class="notes-icon">
                                                     <i class="bi bi-sticky"></i>
                                                     <span class="tooltip-notes">${record.Notes}</span>
                                                 </div>` :
-                                                                                                                                                                        '-'
-                                                                                                                                                                    }
-                                                                                                                                                                </td>` :
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        '-'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                </td>` :
                                         `<td class="td-notes notes-column">${record.Notes || '-'}</td>`
                                     }
                                 </tr>
@@ -797,14 +798,14 @@
 
                                         ${isMobile ?
                                             `<td class="td-notes">
-                                                                                                                                                                        ${log.actions ?
-                                                                                                                                                                            `<div class="notes-icon">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ${log.actions ?
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            `<div class="notes-icon">
                                                         <i class="bi bi-sticky"></i>
                                                         <span class="tooltip-notes">${log.actions}</span>
                                                     </div>` :
-                                                                                                                                                                            '-'
-                                                                                                                                                                        }
-                                                                                                                                                                    </td>` :
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            '-'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    </td>` :
                                             `<td class="td-notes notes-column">${log.actions || '-'}</td>`
                                         }
                                         <td class="td-notes">${formatDate(log.datetimelogs)}</td>
@@ -919,7 +920,8 @@
                                 'fnsku': 'FNSKU',
                                 'stockroom': 'Stockroom',
                                 'productionarea': 'Production Area',
-                                'returnscanner': 'Return Scanner'
+                                'returnscanner': 'Return Scanner',
+                                'fbmorder':'FBM Order'
                             }
                         });
 
@@ -1044,24 +1046,48 @@
             updateStores(data);
         }
 
-        function updateMainModule(data) {
-            const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner'
-            ];
-            const mainModuleHTML = `
+       function updateMainModule(data) {
+    // Define the mapping for consistent database column names
+    const moduleMapping = {
+        'Order': 'order',
+        'Unreceived': 'unreceived',
+        'Received': 'receiving',
+        'Labeling': 'labeling',
+        'Testing': 'testing',
+        'Cleaning': 'cleaning',
+        'Packing': 'packing',
+        'Stockroom': 'stockroom',
+        'Validation': 'validation',
+        'FNSKU': 'fnsku',
+        'Production Area': 'productionarea',
+        'Return Scanner': 'returnscanner',
+        'FBM Order': 'fbmorder'
+    };
+    
+    const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
+        'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
+    ];
+    
+    const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
-            ${mainModules.map(module => `
-                                    <div class="col-4 form-check mb-2 px-10">
-                                        <input class="form-check-input" type="radio" name="main_module"
-                                               value="${module}" ${data.main_module === module ? 'checked' : ''} required>
-                                        <label class="form-check-label">${module}</label>
-                                    </div>
-                                `).join('')}
+            ${mainModules.map(module => {
+                // Get the database column name for comparison
+                const dbColumnName = moduleMapping[module] || module.toLowerCase().replace(/\s+/g, '');
+                const isChecked = data.main_module === dbColumnName ? 'checked' : '';
+                
+                return `
+                    <div class="col-4 form-check mb-2 px-10">
+                        <input class="form-check-input" type="radio" name="main_module"
+                               value="${module}" ${isChecked} required>
+                        <label class="form-check-label">${module}</label>
+                    </div>
+                `;
+            }).join('')}
         </div>
     `;
-            document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
-        }
+    document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
+}
 
         function updateSubModules(data) {
             const subModules = [{
@@ -1111,21 +1137,26 @@
                 {
                     db: 'returnscanner',
                     display: 'Return Scanner'
+                },
+                {
+                    db: 'fbmorder',
+                    display: 'FBM Order'
                 }
             ];
 
-            const subModulesHTML = `
-        <h6>Sub-Modules</h6>
-        <div class="row mb-3">
-            ${subModules.map(module => `
-                                    <div class="col-4 form-check mb-2 px-10">
-                                        <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                                               value="${module.display}" ${data.sub_modules && data.sub_modules[module.db] ? 'checked' : ''}>
-                                        <label class="form-check-label">${module.display}</label>
-                                    </div>
-                                `).join('')}
-        </div>
-    `;
+         const subModulesHTML = `
+    <h6>Sub-Modules</h6>
+    <div class="row mb-3">
+        ${subModules.map(module => `
+            <div class="col-4 form-check mb-2 px-10">
+                <input class="form-check-input" type="checkbox" name="sub_modules[]"
+                       value="${module.db}"
+                       ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
+                <label class="form-check-label">${module.display}</label>
+            </div>
+        `).join('')}
+    </div>
+`;
             document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
         }
 
@@ -1135,12 +1166,12 @@
         <div class="row mb-3">
             ${data.privileges_stores && data.privileges_stores.length > 0
                 ? data.privileges_stores.map(store => `
-                                        <div class="col-4 form-check mb-2">
-                                            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                                                   value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                                            <label class="form-check-label">${store.store_name}</label>
-                                        </div>
-                                    `).join('')
+                                                                                                                <div class="col-4 form-check mb-2">
+                                                                                                                    <input class="form-check-input" type="checkbox" name="privileges_stores[]"
+                                                                                                                           value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                                                                                                                    <label class="form-check-label">${store.store_name}</label>
+                                                                                                                </div>
+                                                                                                            `).join('')
                 : '<p>No stores available</p>'
             }
         </div>
@@ -1468,176 +1499,182 @@
     <!-- PROFILE Modal -->
     <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel"
         aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="profileModalLabel"><b>PROFILE</b></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h5 class="modal-title" id="profileModalLabel">Profile</h5>
+                    <button type="button" class="btn btn-close" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
                 </div>
+
                 <div class="modal-body">
                     <ul class="nav nav-tabs" id="profileTab" role="tablist">
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="attendance-tab" data-bs-toggle="tab"
-                                data-bs-target="#attendance" type="button" role="tab"
-                                aria-controls="attendance" aria-selected="true">
-                                <i class="bi bi-calendar-check"></i>
-                                <span class="d-none d-sm-inline"> Attendance</span>
-                            </button>
+                        <li class="nav-item active" id="attendance-tab" data-bs-toggle="tab"
+                            data-bs-target="#attendance" type="button" role="tab" aria-controls="attendance"
+                            aria-selected="true">
+                            <i class="bi bi-calendar-check"></i>
+                            <span>Attendance</span>
                         </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="userprofile-tab" data-bs-toggle="tab"
-                                data-bs-target="#userprofile" type="button" role="tab"
-                                aria-controls="userprofile" aria-selected="false">
-                                <i class="bi bi-person"></i>
-                                <span class="d-none d-sm-inline"> Account</span>
-                            </button>
+                        <li class="nav-item" id="userprofile-tab" data-bs-toggle="tab" data-bs-target="#userprofile"
+                            type="button" role="tab" aria-controls="userprofile" aria-selected="false">
+                            <i class="bi bi-person"></i>
+                            <span>Account</span>
                         </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="timerecord-tab" data-bs-toggle="tab"
-                                data-bs-target="#timerecord" type="button" role="tab"
-                                aria-controls="timerecord" aria-selected="false">
-                                <i class="bi bi-clock"></i>
-                                <span class="d-none d-sm-inline"> Record</span>
-                            </button>
+                        <li class="nav-item" class="nav-link" id="timerecord-tab" data-bs-toggle="tab"
+                            data-bs-target="#timerecord" type="button" role="tab" aria-controls="timerecord"
+                            aria-selected="false">
+                            <i class="bi bi-clock"></i>
+                            <span>Record</span>
                         </li>
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="myprivileges-tab" data-bs-toggle="tab"
-                                data-bs-target="#myprivileges" type="button" role="tab"
-                                aria-controls="myprivileges" aria-selected="false">
-                                <i class="bi bi-shield-lock"></i>
-                                <span class="d-none d-sm-inline"> My Privileges</span>
-                            </button>
+                        <li class="nav-item" class="nav-link" id="myprivileges-tab" data-bs-toggle="tab"
+                            data-bs-target="#myprivileges" type="button" role="tab"
+                            aria-controls="myprivileges" aria-selected="false">
+                            <i class="bi bi-shield-lock"></i>
+                            <span>My Privileges</span>
                         </li>
                     </ul>
 
-                    <div class="tab-content mt-3" id="settingsTabContent">
-
+                    <div class="tab-content" id="settingsTabContent">
                         <!-- Attendance Tab -->
                         <div class="tab-pane fade show active text-center" id="attendance" role="tabpanel"
                             aria-labelledby="attendance-tab">
-                            <h5>Attendance / Clock-in & Clock-out</h5>
+                            <h3>Attendance / Clock-in & Clock-out</h3>
 
                             <!-- Time, Day, and Date Display -->
-                            <div class="mb-3">
-                                <div id="current-time" style="font-size: 3rem; font-weight: bold;"></div>
-                                <div id="current-day" style="font-size: 1.2rem; margin-top: 10px;"></div>
-                                <div style="display:none;" id="current-date"
-                                    style="font-size: 1.2rem; margin-top: 5px; color: #6c757d;"></div>
-                            </div>
+                            <div
+                                class="attendance-info-container d-flex flex-column justify-content-start align-items-stretch">
+                                <div class="date-container">
+                                    <div id="current-time"></div>
+                                    <div id="current-day"></div>
+                                    <div style="display:none;" id="current-date"></div>
+                                </div>
 
-                            <!-- Clock In/Out Buttons -->
-                            <div class="d-flex justify-content-center gap-3 mt-3">
-                                <!-- Clock In Button -->
-                                <form action="{{ route('attendance.clockin') }}" method="POST" id="clockin-form">
-                                    @csrf
-                                    <button type="button"
-                                        class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-primary' : 'btn-secondary' }} px-4 py-3 fs-5"
-                                        style="min-width: 15%;" onclick="confirmClockIn()"
-                                        {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
-                                        Clock In
-                                    </button>
-                                </form>
+                                <!-- Clock In/Out Buttons -->
+                                <div class="d-flex justify-content-center gap-3">
+                                    <!-- Clock In Button -->
+                                    <form action="{{ route('attendance.clockin') }}" method="POST"
+                                        id="clockin-form">
+                                        @csrf
+                                        <button type="button"
+                                            class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-clockin' : 'btn-clockout' }}"
+                                            onclick="confirmClockIn()"
+                                            {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
+                                            Clock In
+                                        </button>
+                                    </form>
 
-                                <!-- Clock Out Button -->
-                                <form action="{{ route('attendance.clockout') }}" method="POST" id="clockout-form">
-                                    @csrf
-                                    <button type="button"
-                                        class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-primary' : 'btn-secondary' }} px-4 py-3 fs-5"
-                                        style="min-width: 15%;" onclick="confirmClockOut()"
-                                        {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
-                                        Clock Out
-                                    </button>
-                                </form>
-                            </div>
+                                    <!-- Clock Out Button -->
+                                    <form action="{{ route('attendance.clockout') }}" method="POST"
+                                        id="clockout-form">
+                                        @csrf
+                                        <button type="button"
+                                            class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-clockin' : 'btn-clockout' }}"
+                                            onclick="confirmClockOut()"
+                                            {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
+                                            Clock Out
+                                        </button>
+                                    </form>
+                                </div>
 
-                            <!-- Computations for Today's Hours and This Week's Hours -->
-                            <div class="mt-4 p-3 bg-light border rounded">
-                                <p><strong>Today's Hours:</strong> <span
-                                        id="today-hours">{{ $todayHoursFormatted ?? '0:00' }}</span></p>
-                                <p><strong>This Week's Hours:</strong> <span
-                                        id="week-hours">{{ $weekHoursFormatted ?? '0:00' }}</span></p>
+                                <!-- Computations for Today's Hours and This Week's Hours -->
+                                <div class="p-3 bg-light border rounded">
+                                    <p><strong>Today's Hours:</strong>
+                                        <span id="today-hours">{{ $todayHoursFormatted ?? '0:00' }}
+                                        </span>
+                                    </p>
+                                    <p><strong>This Week's Hours:</strong> <span
+                                            id="week-hours">{{ $weekHoursFormatted ?? '0:00' }}</span></p>
+                                </div>
                             </div>
 
                             <!-- Attendance Table -->
-                            <div class="table-responsive mt-4">
-                                <table class="table table-bordered table-hover">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th>Time In</th>
-                                            <th>Time Out</th>
-                                            <th>Computed Hours</th>
-                                            <th>Notes</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach ($employeeClocksThisweek as $clockwk)
-                                            <tr data-bs-toggle="tooltip" data-bs-placement="top"
-                                                title="{{ $clockwk->Notes }}">
+                            <table class="table table-bordered table-hover">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Time In</th>
+                                        <th>Time Out</th>
+                                        <th>Computed Hours</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($employeeClocksThisweek as $clockwk)
+                                        <tr data-bs-toggle="tooltip" data-bs-placement="top"
+                                            title="{{ $clockwk->Notes }}">
 
-                                                <!-- Time In -->
-                                                <td>
-                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}
-                                                    <div class="text-muted">
-                                                        {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}
-                                                    </div>
-                                                </td>
+                                            <!-- Time In -->
+                                            <td>
+                                                <div
+                                                    class="d-flex flex-column justify-content-start align-items-center gap-2">
+                                                    <span>{{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}</span>
+                                                    <sup><b> {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}
+                                                        </b></sup>
+                                                </div>
+                                            </td>
 
-                                                <!-- Time Out -->
-                                                <td>
+                                            <!-- Time Out -->
+                                            <td>
+                                                <div
+                                                    class="d-flex flex-column justify-content-start align-items-center gap-2">
                                                     @if ($clockwk->TimeOut)
-                                                        {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('h:i A') }}
-                                                        <div class="text-muted">
-                                                            {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('M d, Y') }}
-                                                        </div>
+                                                        <span>{{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('h:i A') }}</span>
+                                                        <sup><b> {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('M d, Y') }}
+                                                            </b></sup>
                                                     @else
-                                                        <span class="text-danger">Not yet timed out</span>
+                                                        <span class="badge badge-danger">Not yet timed out</span>
                                                     @endif
-                                                </td>
+                                                </div>
+                                            </td>
 
-                                                <!-- Computed Hours -->
-                                                <td id="computed-hours-{{ $clockwk->ID }}">
-                                                    <span class="text-muted">Not yet calculated</span>
-                                                </td>
+                                            <!-- Computed Hours -->
+                                            <td>
+                                                <div id="computed-hours-{{ $clockwk->ID }}"
+                                                    class="d-flex flex-column justify-content-start align-items-center gap-2">
+                                                    <sup><b> Not yet calculated </b></sup>
+                                                </div>
+                                            </td>
 
-                                                <!-- Update Button -->
-                                                <td style="display:none;">
-                                                    <button class="btn btn-primary update-computed-hours d-none"
-                                                        data-id="{{ $clockwk->ID }}"
-                                                        data-timein="{{ $clockwk->TimeIn }}"
-                                                        data-timeout="{{ $clockwk->TimeOut }}">
-                                                        Update
-                                                    </button>
-                                                </td>
-                                                <td>
-                                                    <button class="btn btn-sm btn-primary" data-bs-toggle="modal"
-                                                        data-bs-target="#editNotesModal"
+                                            <!-- Update Button -->
+                                            <td style="display:none;">
+                                                <button class="btn btn-primary update-computed-hours d-none"
+                                                    data-id="{{ $clockwk->ID }}"
+                                                    data-timein="{{ $clockwk->TimeIn }}"
+                                                    data-timeout="{{ $clockwk->TimeOut }}">
+                                                    Update
+                                                </button>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex justify-content-center align-items-center">
+                                                    <button class="btn btn-sm btn-primary m-0 text-white"
+                                                        data-bs-toggle="modal" data-bs-target="#editNotesModal"
                                                         onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
                                                         <i class="bi bi-pencil-square"></i>
                                                     </button>
-                                                </td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
                         </div>
 
                         <!-- Tab -->
                         <div class="tab-pane fade" id="userprofile" role="tabpanel"
                             aria-labelledby="userprofile-tab">
-                            <h5>Change Password</h5>
-                            <form action="{{ route('update-password') }}" method="POST">
+                            <h3 class="text-center">Change Password</h3>
+
+                            <form action="{{ route('update-password') }}" method="POST" class="changePwdForm">
                                 @csrf
                                 <!-- Username -->
-                                <div class="mb-3">
+                                <!-- <fieldset>
                                     <label for="username" class="form-label">Username</label>
                                     <input type="text" class="form-control" id="myusername" name="myusername"
                                         placeholder="Enter username" value="{{ session('user_name', 'User Name') }}"
                                         required>
-                                </div>
+                                </fieldset>
 
                                 <!-- Password -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="password" class="form-label">New Password</label>
                                     <div class="input-group">
                                         <input type="password" class="form-control" id="newpassword" name="password"
@@ -1647,10 +1684,12 @@
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     </div>
-                                </div>
+                                </fieldset>
+
+                                <hr class="dashed m-0">
 
                                 <!-- Confirm Password -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="password_confirmation" class="form-label">Confirm Password</label>
                                     <div class="input-group">
                                         <input type="password" class="form-control" id="newpassword_confirmation"
@@ -1660,64 +1699,59 @@
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     </div>
-                                </div>
+                                </fieldset>
 
-                                <button type="submit" class="btn btn-primary">UPDATE</button>
+                                <button type="submit" class="btn btn-primary btn-process text-white">Change
+                                    Password</button>
                             </form>
                         </div>
-
 
                         <!--  Tab -->
                         <div class="tab-pane fade show text-center" id="timerecord" role="tabpanel"
                             aria-labelledby="timerecord-tab">
 
-                            <div class="container">
-                                <!-- Date Range Filter -->
-                                <form id="filter-form" class="mb-3">
-                                    <!-- Start Date -->
-                                    <div class="form-group">
-                                        <label for="start-date" class="form-label visually-hidden">Start Date:</label>
-                                        <input type="date" class="form-control" id="start-date" name="start_date"
-                                            placeholder="Start Date">
-                                    </div>
-
-                                    <!-- End Date -->
-                                    <div class="form-group">
-                                        <label for="end-date" class="form-label visually-hidden">End Date:</label>
-                                        <input type="date" class="form-control" id="end-date" name="end_date"
-                                            placeholder="End Date">
-                                    </div>
-
-                                    <!-- Filter Button -->
-                                    <div class="form-group-button">
-                                        <button type="button" id="filter-button"
-                                            class="btn btn-primary w-100">Filter</button>
-                                    </div>
-                                </form>
-
-                                <!-- Computations -->
-                                <strong>
-                                    <p>Total Hours: <span id="total-hours">0:00</span></p>
-                                </strong>
-
-                                <!-- Attendance Table -->
-                                <div class="table-responsive mt-4">
-                                    <table class="table table-bordered table-hover">
-                                        <thead class="table-dark">
-                                            <tr>
-                                                <th>Time In</th>
-                                                <th>Time Out</th>
-                                                <th>Computed Hours</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="attendance-table-body">
-                                            <!-- Default Rows Will Be Loaded Dynamically -->
-                                        </tbody>
-                                    </table>
+                            <!-- Date Range Filter -->
+                            <form id="filter-form" class="filterForm">
+                                <!-- Start Date -->
+                                <div class="form-group">
+                                    <label for="start-date" class="form-label visually-hidden">Start Date:</label>
+                                    <input type="date" class="form-control" id="start-date" name="start_date"
+                                        placeholder="Start Date">
                                 </div>
+
+                                <!-- End Date -->
+                                <div class="form-group">
+                                    <label for="end-date" class="form-label visually-hidden">End Date:</label>
+                                    <input type="date" class="form-control" id="end-date" name="end_date"
+                                        placeholder="End Date">
+                                </div>
+
+                                <!-- Filter Button -->
+                                <button type="button" id="filter-button" class="btn btn-primary">Filter</button>
+                            </form>
+
+                            <!-- Computations -->
+                            <strong>
+                                <p>Total Hours: <span id="total-hours">0:00</span></p>
+                            </strong>
+
+                            <!-- Attendance Table -->
+                            <div class="table-responsive">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Time In</th>
+                                            <th>Time Out</th>
+                                            <th>Computed Hours</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="attendance-table-body">
+                                        <!-- Default Rows Will Be Loaded Dynamically -->
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
-
 
                         <!-- Tab -->
                         <div class="tab-pane fade show" id="myprivileges" role="tabpanel"
@@ -1815,13 +1849,7 @@
 
                             </div>
                         </div>
-
-
-
                     </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -2473,8 +2501,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     Are you sure you want to logout?
@@ -2775,17 +2802,12 @@
                                 // Append row
                                 tableBody.append(`
                                 <tr>
-                                    <td>
-                                        ${timeIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        <div class="text-muted">
-                                            ${timeIn.toLocaleDateString()}
-                                        </div>
-                                    </td>
+                                    <td><b>${timeIn.toLocaleDateString()}</b></td>
+                                    <td>${timeIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                                     <td>
                                         ${
                                             clock.time_out
-                                                ? `${timeOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                                                       <div class="text-muted">${timeOut.toLocaleDateString()}</div>`
+                                                ? `${timeOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                                                 : '<span class="text-danger">Not yet timed out</span>'
                                         }
                                     </td>

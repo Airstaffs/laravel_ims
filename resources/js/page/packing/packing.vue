@@ -1,5 +1,5 @@
 <template>
-    <div class="vue-container packing-module">
+    <div class="vue-container packaging-module">
         <div class="top-header">
             <span>Top Header</span>
         </div>
@@ -137,9 +137,9 @@
                                     <button class="btn btn-details" @click="toggleDetails(index)">
                                         <i class="fas fa-info-circle"></i> More Details
                                     </button>
-                                    <button class="btn btn-example">example</button>
-                                    <button class="btn btn-example">example</button>
-                                    <button class="btn btn-example">example</button>
+                                    <button class="btn btn-expand">example</button>
+                                    <button class="btn btn-expand">example</button>
+                                    <button class="btn btn-expand">example</button>
                                 </div>
                             </td>
                         </tr>

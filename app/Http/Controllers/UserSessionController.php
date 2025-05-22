@@ -52,6 +52,12 @@ class UserSessionController extends Controller
                     'returnscanner_value' => $user->returnscanner
                 ]);
             }
+
+             // Important: Make explicit check for fbmorder and log for debugging
+            if ($user->fbmorder) {
+                $subModules[] = 'fbmorder';
+            }
+    
     
             // Update session with fresh data
             Session::forget('main_module');
@@ -87,7 +93,8 @@ class UserSessionController extends Controller
                     'validation' => 'Validation',
                     'fnsku' => 'FNSKU',
                     'productionarea'=>'Production Area',
-                    'returnscanner' => 'Return Scanner'
+                    'returnscanner' => 'Return Scanner',
+                    'fbmorder' => 'FBM Order'
                 ]
             ]);
     

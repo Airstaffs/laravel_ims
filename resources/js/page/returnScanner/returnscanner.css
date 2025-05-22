@@ -1,0 +1,14 @@
+.return-module .sticky-col {
+    min-width: 80px;
+}
+
+.return-module .first-col {
+    background-color: white;
+    width: 80px;
+    min-width: 80px;
+    max-width: 80px;
+}
+
+.return-module .second-col {
+    left: 80px;
+}

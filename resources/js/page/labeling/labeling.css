@@ -1,0 +1,4 @@
+.labeling-module th:nth-child(2),
+.labeling-module td:nth-child(2) {
+    min-width: 360px;
+}
