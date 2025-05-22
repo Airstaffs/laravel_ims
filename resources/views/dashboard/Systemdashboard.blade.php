@@ -169,6 +169,7 @@
             'productionarea' => 'Production Area',
             'fbashipmentinbound' => 'FBA Inbound Shipment',
             'returnscanner' => 'Return Scanner', // Add this line
+            'fbmorder' => 'FBM Order',
         ];
         ?>
 
@@ -918,7 +919,8 @@
                                 'fnsku': 'FNSKU',
                                 'stockroom': 'Stockroom',
                                 'productionarea': 'Production Area',
-                                'returnscanner': 'Return Scanner'
+                                'returnscanner': 'Return Scanner',
+                                'fbmorder':'FBM Order'
                             }
                         });
 
@@ -1045,7 +1047,7 @@
 
         function updateMainModule(data) {
             const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner'
+                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
             ];
             const mainModuleHTML = `
         <h6>Main Module</h6>
@@ -1110,21 +1112,26 @@
                 {
                     db: 'returnscanner',
                     display: 'Return Scanner'
+                },
+                {
+                    db: 'fbmorder', 
+                    display: 'FBM Order'
                 }
             ];
 
-            const subModulesHTML = `
-        <h6>Sub-Modules</h6>
-        <div class="row mb-3">
-            ${subModules.map(module => `
-                                    <div class="col-4 form-check mb-2 px-10">
-                                        <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                                               value="${module.display}" ${data.sub_modules && data.sub_modules[module.db] ? 'checked' : ''}>
-                                        <label class="form-check-label">${module.display}</label>
-                                    </div>
-                                `).join('')}
-        </div>
-    `;
+         const subModulesHTML = `
+    <h6>Sub-Modules</h6>
+    <div class="row mb-3">
+        ${subModules.map(module => `
+            <div class="col-4 form-check mb-2 px-10">
+                <input class="form-check-input" type="checkbox" name="sub_modules[]"
+                       value="${module.db}" 
+                       ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
+                <label class="form-check-label">${module.display}</label>
+            </div>
+        `).join('')}
+    </div>
+`;
             document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
         }
 

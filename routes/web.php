@@ -27,6 +27,8 @@ use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\ReturnScannerController;
+use App\Http\Controllers\FbmOrderController;
+
 
 
 Route::get('/', function () {
@@ -358,6 +360,23 @@ Route::post('move-to-labeling', [ValidationController::class, 'moveToLabeling'])
 Route::post('validate', [ValidationController::class, 'validate']);
 
 });
+
+// Routes for Fbm Order Function 
+Route::prefix('api/fbm-orders')->group(function () {
+    Route::get('/', [FbmOrderController::class, 'index']);
+    Route::get('/stores', [FbmOrderController::class, 'getStores']);
+    Route::post('/process', [FbmOrderController::class, 'processOrder']);
+    Route::post('/packing-slip', [FbmOrderController::class, 'generatePackingSlip']);
+    Route::post('/shipping-label', [FbmOrderController::class, 'printShippingLabel']);
+    Route::post('/cancel', [FbmOrderController::class, 'cancelOrder']);
+    
+    // Add new routes for auto dispense functionality
+    Route::post('/find-dispense-products', [FbmOrderController::class, 'findDispenseProducts']);
+    Route::post('/dispense', [FbmOrderController::class, 'dispense']);
+    Route::post('/cancel-dispense', [FbmOrderController::class, 'cancelDispense']);
+    Route::get('/detail', [FbmOrderController::class, 'getOrderDetail']);
+});
+
 
 // Routes for FNSKU Function 
 use App\Http\Controllers\FnskuController;
