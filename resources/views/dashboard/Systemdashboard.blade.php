@@ -133,63 +133,70 @@
         </div>
 
         <h5 class="text-center">Navigation</h5>
+<?php
+// In your blade template
+$mainModule = strtolower(session('main_module', ''));
+$subModules = array_map('strtolower', session('sub_modules', []));
 
-        <?php
-        // In your blade template
-        $mainModule = strtolower(session('main_module', ''));
-        $subModules = array_map('strtolower', session('sub_modules', []));
+// Remove main module from sub modules if it exists
+$subModules = array_filter($subModules, function($module) use ($mainModule) {
+    return $module !== $mainModule;
+});
 
-        // Fallback for main module
-        $defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+// Fallback for main module
+$defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
 
-        function checkPermission($module, $mainModule, $subModules)
-        {
-            // Convert to lowercase for comparison
-            $module = strtolower($module);
-            $mainModule = strtolower($mainModule);
-            $subModules = array_map('strtolower', (array) $subModules);
+function checkPermission($module, $mainModule, $subModules)
+{
+    // Convert to lowercase for comparison
+    $module = strtolower($module);
+    $mainModule = strtolower($mainModule);
+    $subModules = array_map('strtolower', (array) $subModules);
 
-            if ($module === 'dashboard') {
-                return true;
-            }
-            return $module === $mainModule || in_array($module, $subModules);
-        }
+    if ($module === 'dashboard') {
+        return true;
+    }
+    // A module is permitted if it's the main module OR in sub modules (but not both)
+    return $module === $mainModule || in_array($module, $subModules);
+}
 
-        $modules = [
-            'order' => 'Order',
-            'unreceived' => 'Unreceived',
-            'receiving' => 'Received',
-            'labeling' => 'Labeling',
-            'validation' => 'Validation',
-            'testing' => 'Testing',
-            'cleaning' => 'Cleaning',
-            'packing' => 'Packing',
-            'fnsku' => 'Fnsku',
-            'stockroom' => 'Stockroom',
-            'productionarea' => 'Production Area',
-            'fbashipmentinbound' => 'FBA Inbound Shipment',
-            'returnscanner' => 'Return Scanner', // Add this line
-            'fbmorder' => 'FBM Order',
-        ];
-        ?>
+$modules = [
+    'order' => 'Order',
+    'unreceived' => 'Unreceived',
+    'receiving' => 'Received',
+    'labeling' => 'Labeling',
+    'validation' => 'Validation',
+    'testing' => 'Testing',
+    'cleaning' => 'Cleaning',
+    'packing' => 'Packing',
+    'fnsku' => 'Fnsku',
+    'stockroom' => 'Stockroom',
+    'productionarea' => 'Production Area',
+    'fbashipmentinbound' => 'FBA Inbound Shipment',
+    'returnscanner' => 'Return Scanner',
+    'fbmorder' => 'FBM Order',
+];
+?>
+    <script>
+    // Make sure these are set properly with filtering
+    window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+    window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+    
+    // Filter out main module from allowed modules
+    const rawSubModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
+    window.allowedModules = rawSubModules.filter(module => module !== window.mainModule);
 
-        <script>
-            // Make sure these are set properly
-            window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-            window.allowedModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
-            window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-
-            // Add this for debugging
-            console.log('Session Modules:', {
-                defaultComponent: window.defaultComponent,
-                allowedModules: window.allowedModules,
-                mainModule: window.mainModule,
-                hasReturnScanner: window.allowedModules.includes('returnscanner')
-            });
-        </script>
+    // Add this for debugging
+    console.log('Session Modules:', {
+        defaultComponent: window.defaultComponent,
+        allowedModules: window.allowedModules,
+        mainModule: window.mainModule,
+        hasReturnScanner: window.allowedModules.includes('returnscanner')
+    });
+</script>
 
         <!-- Updated Navigation structure with improved highlighting -->
-        <nav class="nav flex-column sidebar-nav">
+       <nav class="nav flex-column sidebar-nav">
             <?php if ($mainModule): ?>
             <a class="nav-link <?= request()->segment(1) == $mainModule ? 'active' : '' ?>" href="/<?= $mainModule ?>"
                 onclick="window.loadContent('<?= $mainModule ?>'); highlightNavLink(this); closeSidebar(); return false;">
@@ -198,7 +205,12 @@
             <?php endif; ?>
 
             <?php foreach ($modules as $module => $label): ?>
-            <?php if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): ?>
+            <?php 
+            // Only show in navigation if:
+            // 1. User has permission for this module
+            // 2. It's not the main module (avoid duplication)
+            if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): 
+            ?>
             <a class="nav-link <?= request()->segment(1) == $module ? 'active' : '' ?>" href="/<?= $module ?>"
                 onclick="window.loadContent('<?= $module ?>'); highlightNavLink(this); closeSidebar(); return false;">
                 <?= $label ?>
@@ -850,202 +862,247 @@
         </div>
     </div>
 
-    <script>
-        // Initialize when DOM is loaded
-        document.addEventListener("DOMContentLoaded", function() {
-            const privilegeForm = document.getElementById('privilegeForm');
-            if (privilegeForm) {
-                initializeUserSelect();
-                initializePrivilegeForm();
-            } else {
-                initializePrivilegeChecker();
-            }
+  <script>
+// Initialize when DOM is loaded
+document.addEventListener("DOMContentLoaded", function() {
+    const privilegeForm = document.getElementById('privilegeForm');
+    if (privilegeForm) {
+        initializeUserSelect();
+        initializePrivilegeForm();
+    } else {
+        initializePrivilegeChecker();
+    }
+});
+
+// Admin Functions
+function initializeUserSelect() {
+    const selectUser = document.getElementById('selectUser');
+
+    selectUser.addEventListener('change', function() {
+        const selectedValue = this.value;
+
+        Array.from(this.options).forEach(option => {
+            option.style.display = option.value === selectedValue ? 'none' : 'block';
         });
 
-        // Admin Functions
-        function initializeUserSelect() {
-            const selectUser = document.getElementById('selectUser');
-
-            selectUser.addEventListener('change', function() {
-                const selectedValue = this.value;
-
-                Array.from(this.options).forEach(option => {
-                    option.style.display = option.value === selectedValue ? 'none' : 'block';
-                });
-
-                if (selectedValue !== "") {
-                    const defaultOption = selectUser.querySelector('option[value=""]');
-                    if (defaultOption) {
-                        defaultOption.style.display = 'none';
-                    }
-                }
-
-                if (selectedValue) {
-                    fetchUserPrivileges(selectedValue);
-                }
-            });
-        }
-
-        function initializePrivilegeForm() {
-            const form = document.getElementById('privilegeForm');
-
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-
-                try {
-                    // Refresh CSRF token before submitting
-                    await refreshCsrfToken();
-
-                    const formData = collectFormData();
-                    const response = await saveUserPrivileges(formData);
-
-                    if (response.success) {
-                        showNotification('Success', 'User privileges saved successfully!', 'success');
-
-                        await fetchUserPrivileges(formData.user_id);
-
-                        updateUserNavigation({
-                            main_module: formData.main_module,
-                            sub_modules: formData.sub_modules,
-                            modules: {
-                                'order': 'Order',
-                                'unreceived': 'Unreceived',
-                                'receiving': 'Received',
-                                'labeling': 'Labeling',
-                                'validation': 'Validation',
-                                'testing': 'Testing',
-                                'cleaning': 'Cleaning',
-                                'packing': 'Packing',
-                                'fnsku': 'FNSKU',
-                                'stockroom': 'Stockroom',
-                                'productionarea': 'Production Area',
-                                'returnscanner': 'Return Scanner',
-                                'fbmorder':'FBM Order'
-                            }
-                        });
-
-                        if (window.appInstance) {
-                            forceComponentUpdate(formData.main_module);
-                        }
-
-                        // Get the modal element
-                        const modalEl = document.getElementById('settingsModal');
-                        modalEl.style.display = 'none';
-                        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-                        document.body.classList.remove('modal-open');
-                        document.body.style.removeProperty('padding-right');
-                        modalEl.classList.remove('show');
-
-                        // Re-bind modal trigger
-                        const settingsButton = document.querySelector(
-                            '[data-bs-toggle="modal"][data-bs-target="#settingsModal"]');
-                        if (settingsButton) {
-                            settingsButton.setAttribute('data-bs-toggle', 'modal');
-                            settingsButton.setAttribute('data-bs-target', '#settingsModal');
-                        }
-
-                        form.classList.remove('was-validated');
-                        initializeUserSelect();
-
-                    } else {
-                        showNotification('Error', response.message || 'Failed to save privileges', 'error');
-                    }
-                } catch (error) {
-                    console.error('Error in form submission:', error);
-                    showNotification('Error', 'An unexpected error occurred', 'error');
-                }
-            });
-        }
-
-        // Add this new function to refresh CSRF token
-        async function refreshCsrfToken() {
-            try {
-                const response = await fetch('/csrf-token');
-                const data = await response.json();
-                document.querySelector('meta[name="csrf-token"]').setAttribute('content', data.token);
-                return true;
-            } catch (error) {
-                console.error('Error refreshing CSRF token:', error);
-                return false;
+        if (selectedValue !== "") {
+            const defaultOption = selectUser.querySelector('option[value=""]');
+            if (defaultOption) {
+                defaultOption.style.display = 'none';
             }
         }
 
-        function collectFormData() {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        if (selectedValue) {
+            fetchUserPrivileges(selectedValue);
+        }
+    });
+}
 
-            return {
-                user_id: parseInt(document.getElementById('selectUser').value, 10),
-                main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
-                sub_modules: [...document.querySelectorAll('input[name="sub_modules[]"]:checked')].map(input => input
-                    .value),
-                privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
-                    input.value),
-                _token: csrfToken
+function initializePrivilegeForm() {
+    const form = document.getElementById('privilegeForm');
+
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        try {
+            // Refresh CSRF token before submitting
+            await refreshCsrfToken();
+
+            const formData = collectFormData();
+            const response = await saveUserPrivileges(formData);
+
+            if (response.success) {
+                showNotification('Success', 'User privileges saved successfully!', 'success');
+
+                // Fetch updated user privileges
+                await fetchUserPrivileges(formData.user_id);
+
+                // Create navigation data with proper filtering
+                const mainModuleDb = response.main_module || formData.main_module.toLowerCase().replace(/\s+/g, '');
+                const subModulesDb = response.sub_modules || [];
+                
+                // Ensure sub_modules doesn't contain main_module
+                const filteredSubModules = subModulesDb.filter(module => 
+                    module.toLowerCase().replace(/\s+/g, '') !== mainModuleDb
+                );
+
+                const navigationData = {
+                    main_module: mainModuleDb,
+                    sub_modules: filteredSubModules,
+                    modules: {
+                        'order': 'Order',
+                        'unreceived': 'Unreceived',
+                        'receiving': 'Received',
+                        'labeling': 'Labeling',
+                        'validation': 'Validation',
+                        'testing': 'Testing',
+                        'cleaning': 'Cleaning',
+                        'packing': 'Packing',
+                        'fnsku': 'FNSKU',
+                        'stockroom': 'Stockroom',
+                        'productionarea': 'Production Area',
+                        'returnscanner': 'Return Scanner',
+                        'fbmorder': 'FBM Order'
+                    }
+                };
+
+                // Update navigation immediately
+                updateUserNavigation(navigationData);
+
+                // Update Vue component if available
+                if (window.appInstance) {
+                    forceComponentUpdate(mainModuleDb);
+                }
+
+                // Close the modal
+                const modalEl = document.getElementById('settingsModal');
+                modalEl.style.display = 'none';
+                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.removeProperty('padding-right');
+                modalEl.classList.remove('show');
+
+                // Re-bind modal trigger
+                const settingsButton = document.querySelector(
+                    '[data-bs-toggle="modal"][data-bs-target="#settingsModal"]');
+                if (settingsButton) {
+                    settingsButton.setAttribute('data-bs-toggle', 'modal');
+                    settingsButton.setAttribute('data-bs-target', '#settingsModal');
+                }
+
+                form.classList.remove('was-validated');
+                initializeUserSelect();
+
+            } else {
+                showNotification('Error', response.message || 'Failed to save privileges', 'error');
+            }
+        } catch (error) {
+            console.error('Error in form submission:', error);
+            showNotification('Error', 'An unexpected error occurred', 'error');
+        }
+    });
+}
+
+// Add this new function to refresh CSRF token
+async function refreshCsrfToken() {
+    try {
+        const response = await fetch('/csrf-token');
+        const data = await response.json();
+        document.querySelector('meta[name="csrf-token"]').setAttribute('content', data.token);
+        return true;
+    } catch (error) {
+        console.error('Error refreshing CSRF token:', error);
+        return false;
+    }
+}
+
+function collectFormData() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    return {
+        user_id: parseInt(document.getElementById('selectUser').value, 10),
+        main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
+        sub_modules: [...document.querySelectorAll('input[name="sub_modules[]"]:checked')].map(input => input
+            .value),
+        privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
+            input.value),
+        _token: csrfToken
+    };
+}
+
+async function saveUserPrivileges(formData) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+    try {
+        // First save the privileges
+        const response = await fetch('/save-user-privileges', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            // Update the navigation immediately with the response data
+            const navigationData = {
+                main_module: result.main_module || formData.main_module,
+                sub_modules: result.sub_modules || [],
+                modules: {
+                    'order': 'Order',
+                    'unreceived': 'Unreceived',
+                    'receiving': 'Received',
+                    'labeling': 'Labeling',
+                    'validation': 'Validation',
+                    'testing': 'Testing',
+                    'cleaning': 'Cleaning',
+                    'packing': 'Packing',
+                    'fnsku': 'FNSKU',
+                    'stockroom': 'Stockroom',
+                    'productionarea': 'Production Area',
+                    'returnscanner': 'Return Scanner',
+                    'fbmorder': 'FBM Order'
+                }
             };
-        }
 
-        async function saveUserPrivileges(formData) {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            // Update navigation immediately
+            updateUserNavigation(navigationData);
 
-            try {
-                // First save the privileges
-                const response = await fetch('/save-user-privileges', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
-                    },
-                    body: JSON.stringify(formData)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Force session refresh
-                    const refreshResponse = await fetch('/refresh-user-session', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken
-                        }
-                    });
-
-                    const refreshResult = await refreshResponse.json();
-                    if (refreshResult.success) {
-                        return result;
-                    }
+            // Force session refresh
+            const refreshResponse = await fetch('/refresh-user-session', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken
                 }
+            });
 
-                return result;
-            } catch (error) {
-                console.error('Error in save process:', error);
-                throw error;
-            }
-        }
-
-        async function fetchUserPrivileges(userId) {
-            try {
-                const response = await fetch(`/get-user-privileges/${userId}`);
-                const data = await response.json();
-                updateForm(data);
-            } catch (error) {
-                console.error('Error fetching user privileges:', error);
-                showNotification('Error', 'Failed to fetch user privileges', 'error');
-            }
-        }
-
-        function updateForm(data) {
-            if (!data) {
-                console.error("No data received for user privileges");
-                return;
+            const refreshResult = await refreshResponse.json();
+            if (refreshResult.success) {
+                // Update with refreshed data
+                updateUserNavigation({
+                    main_module: refreshResult.main_module,
+                    sub_modules: refreshResult.sub_modules,
+                    modules: navigationData.modules
+                });
             }
 
-            updateMainModule(data);
-            updateSubModules(data);
-            updateStores(data);
+            return result;
         }
 
-       function updateMainModule(data) {
+        return result;
+    } catch (error) {
+        console.error('Error in save process:', error);
+        throw error;
+    }
+}
+
+async function fetchUserPrivileges(userId) {
+    try {
+        const response = await fetch(`/get-user-privileges/${userId}`);
+        const data = await response.json();
+        updateForm(data);
+    } catch (error) {
+        console.error('Error fetching user privileges:', error);
+        showNotification('Error', 'Failed to fetch user privileges', 'error');
+    }
+}
+
+function updateForm(data) {
+    if (!data) {
+        console.error("No data received for user privileges");
+        return;
+    }
+
+    updateMainModule(data);
+    updateSubModules(data);
+    updateStores(data);
+}
+
+function updateMainModule(data) {
     // Define the mapping for consistent database column names
     const moduleMapping = {
         'Order': 'order',
@@ -1088,192 +1145,254 @@
     document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
 }
 
-        function updateSubModules(data) {
-            const subModules = [{
-                    db: 'order',
-                    display: 'Order'
-                },
-                {
-                    db: 'unreceived',
-                    display: 'Unreceived'
-                },
-                {
-                    db: 'receiving',
-                    display: 'Received'
-                },
-                {
-                    db: 'labeling',
-                    display: 'Labeling'
-                },
-                {
-                    db: 'testing',
-                    display: 'Testing'
-                },
-                {
-                    db: 'cleaning',
-                    display: 'Cleaning'
-                },
-                {
-                    db: 'packing',
-                    display: 'Packing'
-                },
-                {
-                    db: 'stockroom',
-                    display: 'Stockroom'
-                },
-                {
-                    db: 'validation',
-                    display: 'Validation'
-                },
-                {
-                    db: 'fnsku',
-                    display: 'FNSKU'
-                },
-                {
-                    db: 'productionarea',
-                    display: 'Production Area'
-                },
-                {
-                    db: 'returnscanner',
-                    display: 'Return Scanner'
-                },
-                {
-                    db: 'fbmorder',
-                    display: 'FBM Order'
-                }
-            ];
+function updateSubModules(data) {
+    const subModules = [{
+            db: 'order',
+            display: 'Order'
+        },
+        {
+            db: 'unreceived',
+            display: 'Unreceived'
+        },
+        {
+            db: 'receiving',
+            display: 'Received'
+        },
+        {
+            db: 'labeling',
+            display: 'Labeling'
+        },
+        {
+            db: 'testing',
+            display: 'Testing'
+        },
+        {
+            db: 'cleaning',
+            display: 'Cleaning'
+        },
+        {
+            db: 'packing',
+            display: 'Packing'
+        },
+        {
+            db: 'stockroom',
+            display: 'Stockroom'
+        },
+        {
+            db: 'validation',
+            display: 'Validation'
+        },
+        {
+            db: 'fnsku',
+            display: 'FNSKU'
+        },
+        {
+            db: 'productionarea',
+            display: 'Production Area'
+        },
+        {
+            db: 'returnscanner',
+            display: 'Return Scanner'
+        },
+        {
+            db: 'fbmorder',
+            display: 'FBM Order'
+        }
+    ];
 
-         const subModulesHTML = `
-    <h6>Sub-Modules</h6>
+ const subModulesHTML = `
+<h6>Sub-Modules</h6>
+<div class="row mb-3">
+    ${subModules.map(module => `
+        <div class="col-4 form-check mb-2 px-10">
+            <input class="form-check-input" type="checkbox" name="sub_modules[]"
+                   value="${module.db}"
+                   ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
+            <label class="form-check-label">${module.display}</label>
+        </div>
+    `).join('')}
+</div>
+`;
+    document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
+}
+
+function updateStores(data) {
+    const storeHTML = `
+    <h6>Stores</h6>
     <div class="row mb-3">
-        ${subModules.map(module => `
-            <div class="col-4 form-check mb-2 px-10">
-                <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                       value="${module.db}"
-                       ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
-                <label class="form-check-label">${module.display}</label>
-            </div>
-        `).join('')}
+        ${data.privileges_stores && data.privileges_stores.length > 0
+            ? data.privileges_stores.map(store => `
+                                                                                            <div class="col-4 form-check mb-2">
+                                                                                                <input class="form-check-input" type="checkbox" name="privileges_stores[]"
+                                                                                                       value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                                                                                                <label class="form-check-label">${store.store_name}</label>
+                                                                                            </div>
+                                                                                        `).join('')
+            : '<p>No stores available</p>'
+        }
     </div>
 `;
-            document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
+    document.getElementById('storeContainer').innerHTML = storeHTML;
+}
+
+// Navigation Update Functions
+function initializePrivilegeChecker() {
+    setInterval(checkForUpdates, 5000);
+}
+
+async function checkForUpdates() {
+    try {
+        const response = await fetch('/check-user-privileges');
+        const data = await response.json();
+
+        if (data.success) {
+            console.log('Checking for updates:', data);
+
+            // Ensure all module names are lowercase without spaces
+            const mainModule = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
+            const subModules = data.sub_modules ? 
+                data.sub_modules
+                    .map(m => m.toLowerCase().replace(/\s+/g, ''))
+                    .filter(m => m !== mainModule) : // Ensure main module is not in sub modules
+                [];
+
+            window.defaultComponent = mainModule;
+            window.allowedModules = subModules;
+            window.mainModule = mainModule;
+
+            // Create proper modules object for display
+            const modules = {
+                'order': 'Order',
+                'unreceived': 'Unreceived',
+                'receiving': 'Received',
+                'labeling': 'Labeling',
+                'testing': 'Testing',
+                'cleaning': 'Cleaning',
+                'packing': 'Packing',
+                'stockroom': 'Stockroom',
+                'validation': 'Validation',
+                'fnsku': 'FNSKU',
+                'productionarea': 'Production Area',
+                'returnscanner': 'Return Scanner',
+                'fbashipmentinbound': 'FBA Inbound Shipment',
+                'fbmorder': 'FBM Order'
+            };
+
+            updateUserNavigation({
+                main_module: mainModule,
+                sub_modules: subModules,
+                modules: modules
+            });
         }
+    } catch (error) {
+        console.error('Error checking privileges:', error);
+    }
+}
 
-        function updateStores(data) {
-            const storeHTML = `
-        <h6>Stores</h6>
-        <div class="row mb-3">
-            ${data.privileges_stores && data.privileges_stores.length > 0
-                ? data.privileges_stores.map(store => `
-                                                                                                                <div class="col-4 form-check mb-2">
-                                                                                                                    <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                                                                                                                           value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                                                                                                                    <label class="form-check-label">${store.store_name}</label>
-                                                                                                                </div>
-                                                                                                            `).join('')
-                : '<p>No stores available</p>'
-            }
-        </div>
-    `;
-            document.getElementById('storeContainer').innerHTML = storeHTML;
-        }
+function updateUserNavigation(data) {
+    const nav = document.querySelector('nav.nav.flex-column');
+    if (!nav) return;
 
-        // Navigation Update Functions
-        function initializePrivilegeChecker() {
-            setInterval(checkForUpdates, 5000);
-        }
+    console.log('Updating navigation with:', data);
 
-        async function checkForUpdates() {
-            try {
-                const response = await fetch('/check-user-privileges');
-                const data = await response.json();
+    // Ensure modules mapping includes all lowercase keys
+    const defaultModules = {
+        'order': 'Order',
+        'unreceived': 'Unreceived',
+        'receiving': 'Received',
+        'labeling': 'Labeling',
+        'testing': 'Testing',
+        'cleaning': 'Cleaning',
+        'packing': 'Packing',
+        'stockroom': 'Stockroom',
+        'validation': 'Validation',
+        'fnsku': 'FNSKU',
+        'productionarea': 'Production Area',
+        'returnscanner': 'Return Scanner',
+        'fbashipmentinbound': 'FBA Inbound Shipment',
+        'fbmorder': 'FBM Order'
+    };
 
-                if (data.success) {
-                    console.log('Checking for updates:', data);
+    // Use provided modules or default modules
+    const modules = data.modules || defaultModules;
 
-                    window.defaultComponent = data.main_module;
-                    window.allowedModules = data.sub_modules;
-                    window.mainModule = data.main_module;
+    let navHTML = '';
 
-                    updateUserNavigation(data);
-                }
-            } catch (error) {
-                console.error('Error checking privileges:', error);
-            }
-        }
+    // Normalize main module
+    const mainModuleLower = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
 
-        function updateUserNavigation(data) {
-            const nav = document.querySelector('nav.nav.flex-column');
-            if (!nav) return;
-
-            console.log('Updating navigation with:', data);
-
-            let navHTML = '';
-
-            // Add main module if it exists
-            if (data.main_module) {
-                navHTML += `
+    // Add main module if it exists
+    if (mainModuleLower) {
+        navHTML += `
             <a class="nav-link active" href="#"
-               data-module="${data.main_module}"
-               onclick="window.loadContent('${data.main_module}'); highlightNavLink(this); closeSidebar(); return false;">
-                ${data.modules[data.main_module] || capitalizeFirst(data.main_module)}
+               data-module="${mainModuleLower}"
+               onclick="window.loadContent('${mainModuleLower}'); highlightNavLink(this); closeSidebar(); return false;">
+                ${modules[mainModuleLower] || capitalizeFirst(data.main_module)}
             </a>`;
-            }
+    }
 
-            // Add sub modules
-            if (Array.isArray(data.sub_modules)) {
-                data.sub_modules.forEach(module => {
-                    if (module !== data.main_module) {
-                        navHTML += `
-                    <a class="nav-link" href="#"
-                       data-module="${module}"
-                       onclick="window.loadContent('${module}'); highlightNavLink(this); closeSidebar(); return false;">
-                        ${data.modules[module] || capitalizeFirst(module)}
-                    </a>`;
-                    }
-                });
-            }
+    // Add sub modules, explicitly filtering out the main module
+    if (Array.isArray(data.sub_modules)) {
+        // Filter and normalize sub_modules
+        const filteredSubModules = data.sub_modules
+            .map(m => m.toLowerCase().replace(/\s+/g, ''))
+            .filter(moduleLower => moduleLower !== mainModuleLower);
 
-            nav.innerHTML = navHTML;
+        filteredSubModules.forEach(moduleLower => {
+            navHTML += `
+                <a class="nav-link" href="#"
+                   data-module="${moduleLower}"
+                   onclick="window.loadContent('${moduleLower}'); highlightNavLink(this); closeSidebar(); return false;">
+                    ${modules[moduleLower] || capitalizeFirst(moduleLower)}
+                </a>`;
+        });
+    }
 
-            // Ensure window variables are updated
-            window.mainModule = data.main_module;
-            window.allowedModules = data.sub_modules;
+    nav.innerHTML = navHTML;
 
-            // Update Vue component if needed
-            if (data.main_module && window.appInstance) {
-                window.appInstance.forceUpdate(data.main_module);
-            }
-        }
+    // Ensure window variables are updated with properly filtered data
+    window.mainModule = mainModuleLower;
+    window.allowedModules = data.sub_modules ? 
+        data.sub_modules.map(m => m.toLowerCase().replace(/\s+/g, '')).filter(m => m !== mainModuleLower) : 
+        [];
+    window.defaultComponent = mainModuleLower;
 
-        function forceComponentUpdate(moduleName) {
-            if (!window.appInstance) return;
+    // Update Vue component if needed
+    if (mainModuleLower && window.appInstance) {
+        window.appInstance.forceUpdate(mainModuleLower);
+    }
 
-            console.log('Forcing update to component:', moduleName);
-            window.appInstance.currentComponent = null;
+    console.log('Navigation updated. Main:', window.mainModule, 'Allowed:', window.allowedModules);
+}
 
-            setTimeout(() => {
-                window.appInstance.currentComponent = moduleName;
-                console.log('Component updated to:', moduleName);
-            }, 0);
-        }
+function forceComponentUpdate(moduleName) {
+    if (!window.appInstance) return;
 
-        function capitalizeFirst(string) {
-            return string.charAt(0).toUpperCase() + string.slice(1);
-        }
+    console.log('Forcing update to component:', moduleName);
+    window.appInstance.currentComponent = null;
 
-        function showNotification(title, message, type) {
-            alert(`${title}: ${message}`);
-        }
+    setTimeout(() => {
+        window.appInstance.currentComponent = moduleName;
+        console.log('Component updated to:', moduleName);
+    }, 0);
+}
 
-        // Initialize form when page loads
-        window.onload = function() {
-            const selectedUserId = document.getElementById('selectUser')?.value;
-            if (selectedUserId) {
-                fetchUserPrivileges(selectedUserId);
-            }
-        };
-    </script>
+function capitalizeFirst(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+function showNotification(title, message, type) {
+    alert(`${title}: ${message}`);
+}
+
+// Initialize form when page loads
+window.onload = function() {
+    const selectedUserId = document.getElementById('selectUser')?.value;
+    if (selectedUserId) {
+        fetchUserPrivileges(selectedUserId);
+    }
+};
+</script>
 
     <!-- Add Store Modal -->
     <div class="modal fade" id="addStoreModal" tabindex="-1" aria-labelledby="addStoreModalLabel"
