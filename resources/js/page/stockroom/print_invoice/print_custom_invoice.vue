@@ -8,15 +8,11 @@
         <div v-for="field in formFields" :key="field.id" class="mb-3">
           <div class="d-flex align-items-center mb-1">
             <label :for="field.id" class="form-label me-2" style="min-width: 150px;">{{ field.label }}</label>
-            <button type="button" class="btn btn-sm btn-outline-secondary" @click="toggleFieldVisibility(field.id)">👁️</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+              @click="toggleFieldVisibility(field.id)">👁️</button>
           </div>
-          <input
-            v-if="fieldVisibility[field.id]"
-            :type="field.type"
-            class="form-control"
-            :id="field.id"
-            v-model="form[field.id]"
-          />
+          <input v-if="fieldVisibility[field.id]" :type="field.type" class="form-control" :id="field.id"
+            v-model="form[field.id]" />
         </div>
 
         <h3>Items</h3>
@@ -26,12 +22,7 @@
           <h5>Item {{ index + 1 }}</h5>
           <div v-for="field in itemFields" :key="field.id">
             <label :for="`${field.id}_${index}`" class="form-label">{{ field.label }}</label>
-            <input
-              :id="`${field.id}_${index}`"
-              class="form-control mb-2"
-              :type="field.type"
-              v-model="item[field.id]"
-            />
+            <input :id="`${field.id}_${index}`" class="form-control mb-2" :type="field.type" v-model="item[field.id]" />
           </div>
           <button class="btn btn-sm btn-danger" @click="removeItem(index)">Remove</button>
         </div>
@@ -120,7 +111,22 @@ export default {
         invoicenumberid: "",
         labelcreator: ""
       },
-      fieldVisibility: {},
+      fieldVisibility: {
+        AmazonOrderId: true,
+        CustomerName: true,
+        AddressLine1: true,
+        City: true,
+        StateOrRegion: true,
+        PostalCode: true,
+        CountryCode: true,
+        OrderDate: true,
+        ShipByDateEarliest: true,
+        ShipByDateLatest: true,
+        DeliveryByDateEarliest: true,
+        DeliveryByDateLatest: true,
+        ShippingService: true,
+        SellerName: true,
+      },
       items: [],
       formFields: [
         { id: "AmazonOrderId", label: "Amazon Order ID", type: "text" },
@@ -174,7 +180,7 @@ export default {
             height: 40,
             displayValue: false
           });
-        } catch (_) {}
+        } catch (_) { }
       });
     },
     downloadAsPDF() {
