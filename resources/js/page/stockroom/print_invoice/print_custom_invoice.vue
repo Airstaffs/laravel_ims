@@ -41,7 +41,6 @@
       <div class="col-md-8">
         <div class="d-flex justify-content-between">
           <button class="btn btn-outline-primary" @click="downloadAsPDF">Export as PDF</button>
-          <button class="btn btn-success" @click="submitInvoice">Submit Invoice</button>
           <button class="btn btn-lightgreen" @click="sendToZebraPrinter">Send to Printer</button>
         </div>
 
@@ -278,7 +277,7 @@ export default {
       const pIp = this.form.printerIp || "192.168.1.240";
 
       try {
-        const res = await axios.post("http://99.0.87.190:1450/ims/Admin/modules/PRD-RPN-PCN/print.php", {
+        const res = await axios.post("https://tecniquality.com/laravel_ims/proxies/printcustominvoice_proxy.php", {
           zpl: zplFullCommand,
           printerSelect: pIp,
         });
