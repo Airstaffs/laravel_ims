@@ -42,7 +42,7 @@
         <div class="d-flex justify-content-between">
           <button class="btn btn-outline-primary" @click="downloadAsPDF">Export as PDF</button>
           <button class="btn btn-success" @click="submitInvoice">Submit Invoice</button>
-          <button class="btn btn-dark" @click="sendToZebraPrinter">Send to Printer</button>
+          <button class="btn btn-lightgreen" @click="sendToZebraPrinter">Send to Printer</button>
         </div>
 
         <div id="designPreview" class="mt-4 p-3 border bg-white">
@@ -302,5 +302,11 @@ export default {
   max-width: 200px;
   word-break: break-word;
   white-space: normal;
+}
+
+.btn-lightgreen {
+  background-color: #90ee90; /* Light green */
+  color: #fff;
+  border: none;
 }
 </style>
