@@ -1,4 +1,5 @@
 <?php
+file_put_contents('debug_log.txt', "Ran PHP at: " . date('c') . "\n", FILE_APPEND);
 
 $allowedOrigins = ['https://tecniquality.com', 'http://localhost:8000'];
 $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
