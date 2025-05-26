@@ -349,115 +349,103 @@
                     <h5 class="modal-title" id="settingsModalLabel">Admin Settings</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
+
                 <div class="modal-body">
                     <ul class="nav nav-tabs" id="settingsTab" role="tablist">
-                        <!-- Combined Tab for Title & Design -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="design-tab" data-bs-toggle="tab"
-                                data-bs-target="#design" type="button" role="tab" aria-controls="design"
-                                aria-selected="true">
-                                <i class="bi bi-palette"></i>
-                                <span class="d-none d-sm-inline"> Title & Design</span>
-                            </button>
+                        <li class="nav-item active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design"
+                            type="button" role="tab" aria-controls="design" aria-selected="true">
+                            <i class="bi bi-palette"></i>
+                            <span> Title & Design</span>
                         </li>
-                        <!-- Add User Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="user-tab" data-bs-toggle="tab" data-bs-target="#user"
-                                type="button" role="tab" aria-controls="user" aria-selected="false">
-                                <i class="bi bi-person-plus"></i>
-                                <span class="d-none d-sm-inline"> Add User</span>
-                            </button>
+                        <li class="nav-item" id="user-tab" data-bs-toggle="tab" data-bs-target="#user"
+                            type="button" role="tab" aria-controls="user" aria-selected="false">
+                            <i class="bi bi-person-plus"></i>
+                            <span> Add User</span>
                         </li>
-                        <!-- Add Store List Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="store-tab" data-bs-toggle="tab" data-bs-target="#store"
-                                type="button" role="tab" aria-controls="store" aria-selected="false">
-                                <i class="bi bi-shop"></i>
-                                <span class="d-none d-sm-inline"> Store List</span>
-                            </button>
+                        <li class="nav-item" id="store-tab" data-bs-toggle="tab" data-bs-target="#store"
+                            type="button" role="tab" aria-controls="store" aria-selected="false">
+                            <i class="bi bi-shop"></i>
+                            <span> Store List</span>
                         </li>
-                        <!-- Privileges Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="privilege-tab" data-bs-toggle="tab"
-                                data-bs-target="#privilege" type="button" role="tab" aria-controls="privilege"
-                                aria-selected="false">
-                                <i class="bi bi-shield-lock"></i>
-                                <span class="d-none d-sm-inline"> Privileges</span>
-                            </button>
+                        <li class="nav-item" id="privilege-tab" data-bs-toggle="tab" data-bs-target="#privilege"
+                            type="button" role="tab" aria-controls="privilege" aria-selected="false">
+                            <i class="bi bi-shield-lock"></i>
+                            <span> Privileges</span>
                         </li>
-                        <!-- usertimerecord Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="usertimerecord-tab" data-bs-toggle="tab"
-                                data-bs-target="#usertimerecord" type="button" role="tab"
-                                aria-controls="usertimerecord" aria-selected="false">
-                                <i class="bi bi-clock"></i>
-                                <span class="d-none d-sm-inline"> Time Record</span>
-                            </button>
+                        <li class="nav-item" id="usertimerecord-tab" data-bs-toggle="tab"
+                            data-bs-target="#usertimerecord" type="button" role="tab"
+                            aria-controls="usertimerecord" aria-selected="false">
+                            <i class="bi bi-clock"></i>
+                            <span> Time Record</span>
                         </li>
-                        <!-- userlogs Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="userlogs-tab" data-bs-toggle="tab"
-                                data-bs-target="#userlogs" type="button" role="tab" aria-controls="userlogs"
-                                aria-selected="false">
-                                <i class="bi bi-person-lines-fill"></i>
-                                <span class="d-none d-sm-inline"> User Logs</span>
-                            </button>
+                        <li class="nav-item" id="userlogs-tab" data-bs-toggle="tab" data-bs-target="#userlogs"
+                            type="button" role="tab" aria-controls="userlogs" aria-selected="false">
+                            <i class="bi bi-person-lines-fill"></i>
+                            <span> User Logs</span>
                         </li>
-
                     </ul>
+
                     <!-- Combined Tab for Title & Design -->
-                    <div class="tab-content mt-3" id="settingsTabContent">
+                    <div class="tab-content" id="settingsTabContent">
                         <!-- Title & Design Tab -->
                         <div class="tab-pane fade show active" id="design" role="tabpanel"
                             aria-labelledby="design-tab">
-                            <h5>Title & Design Settings</h5>
+                            <h3 class="text-center">Title & Design Settings</h3>
                             <!-- Title & Design Settings Form -->
-                            <form action="{{ route('update.system.design') }}" method="POST"
+                            <form action="{{ route('update.system.design') }}" method="POST" class="tblnDsgnForm"
                                 enctype="multipart/form-data">
                                 @csrf
                                 @method('POST')
                                 <!-- Site Title -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="siteTitle" class="form-label">Site Title</label>
                                     <input type="text" class="form-control" id="siteTitle" name="site_title"
                                         placeholder="Enter site title" value="{{ $systemDesign->site_title ?? '' }}"
                                         required>
-                                </div>
+                                </fieldset>
+
+                                <hr class="dashed m-0">
+
                                 <!-- Theme Color -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="themeColor" class="form-label">Theme Color</label>
                                     <input type="color" class="form-control" id="themeColor" name="theme_color"
                                         value="{{ $systemDesign->theme_color ?? '#007bff' }}" required>
-                                </div>
+                                </fieldset>
+
+                                <hr class="dashed m-0">
+
                                 <!-- Logo Upload -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="logoUpload" class="form-label">Upload Logo</label>
                                     <input type="file" class="form-control" id="logoUpload" name="logo">
                                     @if (!empty($systemDesign->logo))
                                         <p>Current Logo: <img src="{{ asset('storage/' . $systemDesign->logo) }}"
                                                 alt="Logo" width="100"></p>
                                     @endif
-                                </div>
-                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                                </fieldset>
+                                <button type="submit" class="btn btn-process">Save Changes</button>
                             </form>
                         </div>
 
                         <!-- Add User Tab -->
                         <div class="tab-pane fade" id="user" role="tabpanel" aria-labelledby="user-tab">
-                            <h5>Add User</h5>
-                            <form action="{{ route('add-user') }}" method="POST" id="addUserForm">
+                            <h3 class="text-center">Add User</h3>
+
+                            <form action="{{ route('add-user') }}" method="POST" class="addUserForm"
+                                id="addUserForm">
                                 @csrf
                                 <!-- Username -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="username" class="form-label">Username</label>
-                                    <input type="text" class="form-control" id="username" name="username"
+                                    <input type="text" class="form-control w-100" id="username" name="username"
                                         placeholder="Enter username" required>
-                                </div>
+                                </fieldset>
 
                                 <!-- Password -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="password" class="form-label">Password</label>
-                                    <div class="">
+                                    <div class="input-group">
                                         <input type="password" class="form-control" id="password" name="password"
                                             placeholder="Enter password" required>
                                         <button type="button" class="btn btn-outline-secondary toggle-password"
@@ -465,12 +453,12 @@
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     </div>
-                                </div>
+                                </fieldset>
 
                                 <!-- Confirm Password -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="password_confirmation" class="form-label">Confirm Password</label>
-                                    <div class="">
+                                    <div class="input-group">
                                         <input type="password" class="form-control" id="password_confirmation"
                                             name="password_confirmation" placeholder="Confirm password" required>
                                         <button type="button" class="btn btn-outline-secondary toggle-password"
@@ -478,22 +466,25 @@
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     </div>
-                                </div>
+                                </fieldset>
 
                                 <!-- User Role -->
-                                <div class="mb-3">
+                                <fieldset class="mb-3">
                                     <label for="userRole" class="form-label">User Role</label>
-                                    <select class="form-select" id="userRole" name="role">
+                                    <select class="form-select form-control w-100" id="userRole" name="role">
                                         <option value="SuperAdmin">Super-Admin</option>
                                         <option value="SubAdmin">Sub-Admin</option>
                                         <option value="User">User</option>
                                     </select>
-                                </div>
+                                </fieldset>
 
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <button type="submit" class="btn btn-primary">Add User</button>
-                                    <button type="button" class="btn btn-info" data-bs-toggle="modal"
-                                        data-bs-target="#userListModal">
+                                    <button type="submit"
+                                        class="btn btn-primary w-100 text-white justify-content-center fw-bold">Add
+                                        User</button>
+                                    <button type="button"
+                                        class="btn btn-info w-100 text-white justify-content-center fw-bold"
+                                        data-bs-toggle="modal" data-bs-target="#userListModal">
                                         <i class="bi bi-people me-2"></i>Show User List
                                     </button>
                                 </div>
@@ -502,22 +493,19 @@
 
                         <!-- Store List Tab Content -->
                         <div class="tab-pane fade" id="store" role="tabpanel" aria-labelledby="store-tab">
-                            <h5>Store List</h5>
+                            <h3 class="text-center">Store List</h3>
                             <!-- Store List Display -->
-                            <div id="storeListContainer">
-                                <ul id="storeList" class="list-group">
-                                    <!-- New stores will be appended here dynamically -->
-                                </ul>
-
+                            <div class="storeListContainer">
+                                <div id="storeListContainer">
+                                    <ul id="storeList" class="list-group">
+                                        <!-- New stores will be appended here dynamically -->
+                                    </ul>
+                                </div>
+                                <!-- Add Store Button -->
+                                <button class="btn btn-process" id="addStoreButton">Add Store</button>
                             </div>
-                            <!-- Add Store Button -->
-                            <button class="btn btn-primary" id="addStoreButton">Add Store</button>
                         </div>
                         <!-- Store List Tab Content END-->
-
-
-
-
 
                         <div class="tab-pane fade" id="privilege" role="tabpanel" aria-labelledby="privilege-tab">
                             <h5>User Privileges</h5>
@@ -722,14 +710,14 @@
                                     <td class="td-notes">${totalHours}</td>
                                     ${isMobile ?
                                         `<td class="td-notes">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ${record.Notes ?
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                `<div class="notes-icon">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ${record.Notes ?
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                `<div class="notes-icon">
                                                     <i class="bi bi-sticky"></i>
                                                     <span class="tooltip-notes">${record.Notes}</span>
                                                 </div>` :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                '-'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        </td>` :
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                '-'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        </td>` :
                                         `<td class="td-notes notes-column">${record.Notes || '-'}</td>`
                                     }
                                 </tr>
@@ -810,14 +798,14 @@
 
                                         ${isMobile ?
                                             `<td class="td-notes">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ${log.actions ?
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    `<div class="notes-icon">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ${log.actions ?
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    `<div class="notes-icon">
                                                         <i class="bi bi-sticky"></i>
                                                         <span class="tooltip-notes">${log.actions}</span>
                                                     </div>` :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    '-'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </td>` :
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    '-'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </td>` :
                                             `<td class="td-notes notes-column">${log.actions || '-'}</td>`
                                         }
                                         <td class="td-notes">${formatDate(log.datetimelogs)}</td>
@@ -1135,12 +1123,12 @@
                 const isChecked = data.main_module === dbColumnName ? 'checked' : '';
 
                 return `
-                                                <div class="col-4 form-check mb-2 px-10">
-                                                    <input class="form-check-input" type="radio" name="main_module"
-                                                           value="${module}" ${isChecked} required>
-                                                    <label class="form-check-label">${module}</label>
-                                                </div>
-                                            `;
+                                                                <div class="col-4 form-check mb-2 px-10">
+                                                                    <input class="form-check-input" type="radio" name="main_module"
+                                                                           value="${module}" ${isChecked} required>
+                                                                    <label class="form-check-label">${module}</label>
+                                                                </div>
+                                                            `;
             }).join('')}
         </div>
     `;
@@ -1206,13 +1194,13 @@
 <h6>Sub-Modules</h6>
 <div class="row mb-3">
     ${subModules.map(module => `
-                                    <div class="col-4 form-check mb-2 px-10">
-                                        <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                                               value="${module.db}"
-                                               ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
-                                        <label class="form-check-label">${module.display}</label>
-                                    </div>
-                                `).join('')}
+                                                    <div class="col-4 form-check mb-2 px-10">
+                                                        <input class="form-check-input" type="checkbox" name="sub_modules[]"
+                                                               value="${module.db}"
+                                                               ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
+                                                        <label class="form-check-label">${module.display}</label>
+                                                    </div>
+                                                `).join('')}
 </div>
 `;
             document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
@@ -1224,12 +1212,12 @@
     <div class="row mb-3">
         ${data.privileges_stores && data.privileges_stores.length > 0
             ? data.privileges_stores.map(store => `
-                                                                                                                        <div class="col-4 form-check mb-2">
-                                                                                                                            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                                                                                                                                   value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                                                                                                                            <label class="form-check-label">${store.store_name}</label>
-                                                                                                                        </div>
-                                                                                                                    `).join('')
+                                                                                                                                        <div class="col-4 form-check mb-2">
+                                                                                                                                            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
+                                                                                                                                                   value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                                                                                                                                            <label class="form-check-label">${store.store_name}</label>
+                                                                                                                                        </div>
+                                                                                                                                    `).join('')
             : '<p>No stores available</p>'
         }
     </div>
@@ -1842,7 +1830,7 @@
                                     <input type="text" class="form-control" id="myusername" name="myusername"
                                         placeholder="Enter username" value="{{ session('user_name', 'User Name') }}"
                                         required>
-                                </fieldset>
+                                </fieldset> -->
 
                                 <!-- Password -->
                                 <fieldset>
@@ -2677,8 +2665,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     Are you sure you want to logout?
