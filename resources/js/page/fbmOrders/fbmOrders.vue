@@ -164,10 +164,13 @@
                                         <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                             :key="'dp-' + dpIndex" class="dispensed-product-item">
                                             <div class="dispensed-detail">
-                                                <strong>Product ID:</strong> {{ dispensedProduct.product_id }}
+                                                <strong>Title:</strong> {{ dispensedProduct.title || 'N/A' }}
                                             </div>
-                                            <div v-if="dispensedProduct.warehouseLocation" class="dispensed-detail">
-                                                <strong>Location:</strong> {{ dispensedProduct.warehouseLocation }}
+                                            <div class="dispensed-detail">
+                                                <strong>ASIN:</strong> {{ dispensedProduct.asin || 'N/A' }}
+                                            </div>
+                                            <div class="dispensed-detail">
+                                                <strong>Location:</strong> {{ dispensedProduct.warehouseLocation || 'N/A' }}
                                             </div>
                                             <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
                                                 <strong>Serial #:</strong> {{ dispensedProduct.serialNumber }}
@@ -177,6 +180,12 @@
                                             </div>
                                             <div v-if="dispensedProduct.FNSKU" class="dispensed-detail">
                                                 <strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}
+                                            </div>
+                                            <div class="dispensed-actions">
+                                                <button class="btn-not-found" @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                                    title="Mark product as not found and auto-select replacement">
+                                                    <i class="fas fa-exclamation-triangle"></i> Not Found
+                                                </button>
                                             </div>
                                             <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
                                                 class="dispensed-separator">
@@ -313,10 +322,13 @@
                                 <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                     :key="'mobile-dp-' + dpIndex" class="mobile-dispensed-item">
                                     <div class="mobile-dispensed-detail">
-                                        <strong>ID:</strong> {{ dispensedProduct.product_id }}
+                                        <strong>Title:</strong> {{ dispensedProduct.title || 'N/A' }}
                                     </div>
-                                    <div v-if="dispensedProduct.warehouseLocation" class="mobile-dispensed-detail">
-                                        <strong>Loc:</strong> {{ dispensedProduct.warehouseLocation }}
+                                    <div class="mobile-dispensed-detail">
+                                        <strong>ASIN:</strong> {{ dispensedProduct.asin || 'N/A' }}
+                                    </div>
+                                    <div class="mobile-dispensed-detail">
+                                        <strong>Loc:</strong> {{ dispensedProduct.warehouseLocation || 'N/A' }}
                                     </div>
                                     <div v-if="dispensedProduct.serialNumber" class="mobile-dispensed-detail">
                                         <strong>Serial:</strong> {{ dispensedProduct.serialNumber }}
@@ -326,6 +338,12 @@
                                     </div>
                                     <div v-if="dispensedProduct.FNSKU" class="mobile-dispensed-detail">
                                         <strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}
+                                    </div>
+                                    <div class="mobile-dispensed-actions">
+                                        <button class="btn-not-found-mobile" @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                            title="Mark as not found">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -561,30 +579,35 @@
                                                 <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                                     :key="'modal-dp-' + dpIndex" class="dispensed-product-modal">
                                                     <div class="dispensed-row">
-                                                        <span class="dispensed-label">Product ID:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.product_id }}</span>
+                                                        <span class="dispensed-label">Title:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.title || 'N/A' }}</span>
                                                     </div>
-                                                    <div v-if="dispensedProduct.warehouseLocation"
-                                                        class="dispensed-row">
+                                                    <div class="dispensed-row">
+                                                        <span class="dispensed-label">ASIN:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A' }}</span>
+                                                    </div>
+                                                    <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.warehouseLocation }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.warehouseLocation || 'N/A' }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.serialNumber }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.serialNumber }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.rtCounter }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.rtCounter }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.FNSKU }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.FNSKU }}</span>
+                                                    </div>
+                                                    <div class="dispensed-row">
+                                                        <span class="dispensed-label">Action:</span>
+                                                        <button class="btn-not-found-modal" @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                                            title="Mark product as not found and auto-select replacement">
+                                                            <i class="fas fa-exclamation-triangle"></i> Not Found
+                                                        </button>
                                                     </div>
                                                     <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
                                                         class="dispensed-separator">
@@ -732,20 +755,23 @@
                                         <div v-if="isItemDispensed(item)" class="process-item-info product-id-info">
                                             <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                                 :key="'process-dp-' + dpIndex" class="process-dispensed-product">
-                                                <div><strong>Product ID:</strong> {{ dispensedProduct.product_id }}
+                                                <div><strong>Title:</strong> {{ dispensedProduct.title || 'N/A' }}</div>
+                                                <div><strong>ASIN:</strong> {{ dispensedProduct.asin || 'N/A' }}</div>
+                                                <div><strong>Location:</strong> {{ dispensedProduct.warehouseLocation || 'N/A' }}</div>
+                                                <div v-if="dispensedProduct.serialNumber">
+                                                    <strong>Serial #:</strong> {{ dispensedProduct.serialNumber }}
                                                 </div>
-                                                <div v-if="dispensedProduct.warehouseLocation">
-                                                    <strong>Location:</strong>
-                                                    {{ dispensedProduct.warehouseLocation }}
+                                                <div v-if="dispensedProduct.rtCounter">
+                                                    <strong>RT Counter:</strong> {{ dispensedProduct.rtCounter }}
                                                 </div>
-                                                <div v-if="dispensedProduct.serialNumber"><strong>Serial #:</strong>
-                                                    {{ dispensedProduct.serialNumber }}
+                                                <div v-if="dispensedProduct.FNSKU">
+                                                    <strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}
                                                 </div>
-                                                <div v-if="dispensedProduct.rtCounter"><strong>RT Counter:</strong>
-                                                    {{ dispensedProduct.rtCounter }}
-                                                </div>
-                                                <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong>
-                                                    {{ dispensedProduct.FNSKU }}
+                                                <div class="process-dispensed-actions">
+                                                    <button class="btn-not-found-process" @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                                        title="Mark product as not found and auto-select replacement">
+                                                        <i class="fas fa-exclamation-triangle"></i> Not Found
+                                                    </button>
                                                 </div>
                                                 <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
                                                     class="dispensed-separator">
@@ -2430,4 +2456,226 @@
         gap: 10px;
         background-color: #f8f9fa;
     }
+
+    .fbm-order-module .dispensed-actions {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e9ecef;
+    text-align: right;
+}
+
+.fbm-order-module .btn-not-found {
+    background-color: #ffc107;
+    color: #212529;
+    border: 1px solid #ffc107;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fbm-order-module .btn-not-found:hover {
+    background-color: #e0a800;
+    border-color: #e0a800;
+    color: #000;
+}
+
+.fbm-order-module .btn-not-found i {
+    font-size: 0.7rem;
+}
+
+/* Mobile Not Found Button */
+.fbm-order-module .mobile-dispensed-actions {
+    margin-top: 5px;
+    text-align: right;
+}
+
+.fbm-order-module .btn-not-found-mobile {
+    background-color: #ffc107;
+    color: #212529;
+    border: 1px solid #ffc107;
+    padding: 3px 6px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.fbm-order-module .btn-not-found-mobile:hover {
+    background-color: #e0a800;
+    border-color: #e0a800;
+    color: #000;
+}
+
+.fbm-order-module .btn-not-found-mobile i {
+    font-size: 0.6rem;
+}
+
+/* Modal Not Found Button */
+.fbm-order-module .btn-not-found-modal {
+    background-color: #ffc107;
+    color: #212529;
+    border: 1px solid #ffc107;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fbm-order-module .btn-not-found-modal:hover {
+    background-color: #e0a800;
+    border-color: #e0a800;
+    color: #000;
+}
+
+.fbm-order-module .btn-not-found-modal i {
+    font-size: 0.7rem;
+}
+
+/* Process Modal Not Found Button */
+.fbm-order-module .process-dispensed-actions {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #e9ecef;
+    text-align: right;
+}
+
+.fbm-order-module .btn-not-found-process {
+    background-color: #ffc107;
+    color: #212529;
+    border: 1px solid #ffc107;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fbm-order-module .btn-not-found-process:hover {
+    background-color: #e0a800;
+    border-color: #e0a800;
+    color: #000;
+}
+
+.fbm-order-module .btn-not-found-process i {
+    font-size: 0.7rem;
+}
+
+/* Enhanced Dispensed Product Display */
+.fbm-order-module .dispensed-product-item {
+    background-color: #ffffff;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 8px;
+    transition: box-shadow 0.2s ease;
+    position: relative;
+}
+
+.fbm-order-module .dispensed-product-item:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.fbm-order-module .dispensed-detail {
+    font-size: 0.8rem;
+    color: #495057;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.fbm-order-module .dispensed-detail strong {
+    color: #212529;
+    font-weight: 600;
+    min-width: 90px;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Mobile Dispensed Item Enhancements */
+.fbm-order-module .mobile-dispensed-item {
+    background-color: #ffffff;
+    border-radius: 3px;
+    padding: 6px;
+    margin-bottom: 6px;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    position: relative;
+}
+
+.fbm-order-module .mobile-dispensed-detail {
+    font-size: 0.75rem;
+    color: #6c757d;
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.fbm-order-module .mobile-dispensed-detail strong {
+    color: #495057;
+    font-weight: 600;
+    min-width: 50px;
+    margin-right: 4px;
+    flex-shrink: 0;
+}
+
+/* Process Modal Dispensed Product Enhancements */
+.fbm-order-module .process-dispensed-product {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.fbm-order-module .process-dispensed-product > div {
+    margin-bottom: 3px;
+    font-size: 0.85rem;
+}
+
+.fbm-order-module .process-dispensed-product > div:last-child {
+    margin-bottom: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .fbm-order-module .dispensed-detail,
+    .fbm-order-module .mobile-dispensed-detail {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+
+    .fbm-order-module .dispensed-detail strong,
+    .fbm-order-module .mobile-dispensed-detail strong {
+        min-width: auto;
+        margin-right: 0;
+    }
+
+    .fbm-order-module .dispensed-actions,
+    .fbm-order-module .mobile-dispensed-actions,
+    .fbm-order-module .process-dispensed-actions {
+        text-align: center;
+        margin-top: 6px;
+    }
+}
 </style>

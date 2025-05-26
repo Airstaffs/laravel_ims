@@ -309,15 +309,21 @@ private function getDispensedProductsForItem($orderItemId)
                 'p.warehouseLocation',
                 'p.serialNumber', 
                 'p.rtCounter',
-                'p.FNSKUviewer as FNSKU'
+                'p.FNSKUviewer as FNSKU',
+                'asin.ASIN as asin',
+                'asin.internal as title'
             )
             ->leftJoin('tblproduct as p', 'd.productid', '=', 'p.ProductID')
+            ->leftJoin('tblfnsku as fnsku', 'p.FNSKUviewer', '=', 'fnsku.FNSKU')
+            ->leftJoin('tblasin as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
             ->where('d.orderitemid', $orderItemId)
             ->get();
         
         return $dispensedProducts->map(function($item) {
             return [
                 'product_id' => $item->product_id,
+                'title' => $item->title ?? 'N/A',
+                'asin' => $item->asin ?? 'N/A',
                 'warehouseLocation' => $item->warehouseLocation ?? '',
                 'serialNumber' => $item->serialNumber ?? '',
                 'rtCounter' => $item->rtCounter ?? '',
@@ -330,6 +336,287 @@ private function getDispensedProductsForItem($orderItemId)
         return [];
     }
 }
+
+
+public function markProductNotFound(Request $request)
+{
+    try {
+        // Validate request
+        $request->validate([
+            'product_id' => 'required|integer',
+            'item_id' => 'required|integer',
+            'order_id' => 'required|integer'
+        ]);
+
+        $productId = $request->product_id;
+        $itemId = $request->item_id;
+        $orderId = $request->order_id;
+
+        Log::info("Marking product {$productId} as not found for item {$itemId}");
+
+        // Start transaction
+        DB::beginTransaction();
+
+        // 1. Update the product's location to 'Not Found'
+        $productUpdated = DB::table('tblproduct')
+            ->where('ProductID', $productId)
+            ->update([
+                'ProductModuleLoc' => 'Not Found',
+                'notfoundDate' => now()
+            ]);
+
+        if (!$productUpdated) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found in database'
+            ], 404);
+        }
+
+        // 2. Remove the dispense record for this product
+        $dispenseDeleted = DB::table('tblorderitemdispense')
+            ->where('productid', $productId)
+            ->where('orderitemid', $itemId)
+            ->delete();
+
+        if (!$dispenseDeleted) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Dispense record not found'
+            ], 404);
+        }
+
+        // 3. Increment FBMAvailable for the not found product (if column exists)
+        if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+            DB::table('tblproduct')
+                ->where('ProductID', $productId)
+                ->increment('FbmAvailable', 1);
+        }
+
+        // 4. Get the order item details to find a replacement
+        $orderItem = DB::table('tbloutboundordersitem')
+            ->select('platform_asin', 'ConditionId', 'ConditionSubtypeId', 'QuantityOrdered')
+            ->where('outboundorderitemid', $itemId)
+            ->first();
+
+        if (!$orderItem) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Order item not found'
+            ], 404);
+        }
+
+        // 5. Get the order's store name for condition matching
+        $order = DB::table('tbloutboundorders')
+            ->select('storename')
+            ->where('outboundorderid', $orderId)
+            ->first();
+
+        if (!$order) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found'
+            ], 404);
+        }
+
+        $storeName = $order->storename;
+        $normalizedStoreName = $this->normalizeStoreName($storeName);
+
+        // 6. Check how many products are still needed for this item
+        $currentDispensedCount = DB::table('tblorderitemdispense')
+            ->where('orderitemid', $itemId)
+            ->count();
+
+        $quantityNeeded = max(0, $orderItem->QuantityOrdered - $currentDispensedCount);
+
+        $replacementFound = false;
+        $replacementDetails = null;
+
+        // 7. If we still need products, try to find a replacement
+        if ($quantityNeeded > 0) {
+            // Get all already dispensed product IDs for this entire order to avoid conflicts
+            $allDispensedProductIds = DB::table('tblorderitemdispense as d')
+                ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
+                ->join('tbloutboundorders as o', 'oi.platform_order_id', '=', 'o.platform_order_id')
+                ->where('o.outboundorderid', $orderId)
+                ->pluck('d.productid')
+                ->toArray();
+
+            // Also exclude the product we just marked as not found
+            $allDispensedProductIds[] = $productId;
+
+            // Find a replacement product using the same logic as auto-dispense
+            $replacementProduct = $this->findReplacementProduct(
+                $orderItem->platform_asin,
+                $orderItem->ConditionId,
+                $orderItem->ConditionSubtypeId,
+                $storeName,
+                $normalizedStoreName,
+                $allDispensedProductIds
+            );
+
+            // 8. If we found a replacement, dispense it automatically
+            if ($replacementProduct) {
+                // Insert new dispense record
+                DB::table('tblorderitemdispense')->insert([
+                    'orderitemid' => $itemId,
+                    'productid' => $replacementProduct['ProductID'],
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ]);
+
+                // Decrement FBMAvailable for the replacement product
+                if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+                    DB::table('tblproduct')
+                        ->where('ProductID', $replacementProduct['ProductID'])
+                        ->decrement('FBMAvailable', 1);
+                }
+
+                $replacementFound = true;
+                $replacementDetails = [
+                    'product_id' => $replacementProduct['ProductID'],
+                    'title' => $replacementProduct['title'],
+                    'asin' => $replacementProduct['asin'],
+                    'warehouseLocation' => $replacementProduct['warehouseLocation'],
+                    'serialNumber' => $replacementProduct['serialNumber'],
+                    'rtCounter' => $replacementProduct['rtCounter'],
+                    'FNSKU' => $replacementProduct['fnsku']
+                ];
+            }
+        }
+
+        // 9. Add note to order
+        $currentNote = DB::table('tbloutboundorders')
+            ->where('outboundorderid', $orderId)
+            ->value('ordernote');
+
+        $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
+        $timestamp = $dateTime->format('Y-m-d H:i:s');
+
+        $notFoundNote = $timestamp . " - Product {$productId} marked as 'Not Found'";
+        if ($replacementFound) {
+            $notFoundNote .= ". Replacement product {$replacementDetails['product_id']} auto-selected.";
+        } else {
+            $notFoundNote .= ". No replacement product available.";
+        }
+
+        $newNote = $currentNote 
+            ? $currentNote . "\n\n" . $notFoundNote
+            : $notFoundNote;
+
+        DB::table('tbloutboundorders')
+            ->where('outboundorderid', $orderId)
+            ->update([
+                'ordernote' => $newNote,
+                'updated_at' => now()
+            ]);
+
+        DB::commit();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product marked as not found successfully',
+            'replacement_found' => $replacementFound,
+            'replacement_details' => $replacementDetails
+        ]);
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error marking product as not found: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+        return response()->json([
+            'success' => false, 
+            'message' => 'Error marking product as not found', 
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Find a replacement product for a specific ASIN and condition
+ */
+private function findReplacementProduct($asin, $conditionId, $conditionSubtypeId, $storeName, $normalizedStoreName, $excludeProductIds = [])
+{
+    try {
+        // Build the query to find replacement products
+        $query = DB::table('tblasin')
+            ->select([
+                'tblasin.ASIN',
+                'tblasin.internal as title',
+                'tblfnsku.MSKU as msku',
+                'tblfnsku.storename',
+                'tblfnsku.grading',
+                'tblfnsku.FNSKU',
+                'tblproduct.FBMAvailable',
+                'tblproduct.ProductID',
+                'tblproduct.warehouseLocation',
+                'tblproduct.serialNumber',
+                'tblproduct.rtCounter',
+                'tblproduct.stockroom_insert_date'
+            ])
+            ->leftJoin('tblfnsku', 'tblasin.ASIN', '=', 'tblfnsku.ASIN')
+            ->leftJoin('tblproduct', 'tblfnsku.FNSKU', '=', 'tblproduct.FNSKUviewer')
+            ->where('tblasin.ASIN', $asin);
+
+        // Add availability filter
+        if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+            $query->where('tblproduct.FBMAvailable', '>', 0);
+        }
+
+        // Add location filter - exclude Not Found products
+        if (Schema::hasColumn('tblproduct', 'ProductModuleLoc')) {
+            $query->where('tblproduct.ProductModuleLoc', 'Stockroom');
+        }
+
+        // Exclude already dispensed products
+        if (!empty($excludeProductIds)) {
+            $query->whereNotIn('tblproduct.ProductID', $excludeProductIds);
+        }
+
+        // Add store-specific filtering
+        if ($normalizedStoreName === 'allrenewed') {
+            $query->where(function($q) {
+                $q->where('tblfnsku.storename', 'All Renewed')
+                    ->orWhere('tblfnsku.storename', 'AllRenewed')
+                    ->orWhere('tblfnsku.storename', 'Allrenewed');
+            });
+            $query->where('tblfnsku.grading', 'New');
+        } else {
+            $query->where('tblfnsku.storename', $storeName);
+            $query->where('tblfnsku.grading', $conditionId);
+        }
+
+        // Order by stockroom date for FIFO
+        if (Schema::hasColumn('tblproduct', 'stockroom_insert_date')) {
+            $query->orderBy('tblproduct.stockroom_insert_date', 'asc');
+        }
+
+        // Get the first available product
+        $product = $query->first();
+
+        if (!$product) {
+            return null;
+        }
+
+        return [
+            'ProductID' => $product->ProductID,
+            'asin' => $product->ASIN,
+            'title' => $product->title ?? 'No title',
+            'msku' => $product->msku ?? '',
+            'warehouseLocation' => $product->warehouseLocation ?? '',
+            'serialNumber' => $product->serialNumber ?? '',
+            'rtCounter' => $product->rtCounter ?? '',
+            'fnsku' => $product->FNSKU ?? ''
+        ];
+
+    } catch (\Exception $e) {
+        Log::error('Error finding replacement product: ' . $e->getMessage());
+        return null;
+    }
+}
+
 
 
 

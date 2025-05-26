@@ -1670,6 +1670,165 @@ export default {
             }
         },
 
+    // Mark product as not found and auto-select replacement
+async markProductNotFound(productId, item) {
+    if (!confirm(`Mark this product as "Not Found" and automatically select a replacement?\n\nThis will:\n1. Mark the current product as not found\n2. Remove it from this order\n3. Automatically select a new product if available`)) {
+        return;
+    }
+
+    try {
+        let orderId = this.getCurrentOrderId();
+        
+        // If no order ID found in context, try to find it from the orders array
+        if (!orderId && item && item.outboundorderitemid) {
+            console.log('No order ID in context, searching in orders array...');
+            for (const order of this.orders) {
+                if (order.items && order.items.some(orderItem => orderItem.outboundorderitemid === item.outboundorderitemid)) {
+                    orderId = order.outboundorderid;
+                    console.log('Found order ID from orders array:', orderId);
+                    break;
+                }
+            }
+        }
+        
+        if (!orderId) {
+            alert('Unable to determine order ID. Please try again.');
+            return;
+        }
+
+        const requestData = {
+            product_id: productId,
+            item_id: item.outboundorderitemid,
+            order_id: orderId
+        };
+
+        console.log('Marking product as not found:', requestData);
+
+        const response = await axios.post(
+            `${API_BASE_URL}/api/fbm-orders/mark-not-found`,
+            requestData,
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
+            }
+        );
+
+        console.log('Mark not found response:', response);
+
+        if (response.data && response.data.success) {
+            let message = 'Product marked as "Not Found" successfully.';
+            
+            if (response.data.replacement_found) {
+                message += `\n\nReplacement product automatically selected:\n• ${response.data.replacement_details.title}\n• Location: ${response.data.replacement_details.warehouseLocation}`;
+            } else {
+                message += '\n\nNo replacement product was found in inventory.';
+            }
+
+            alert(message);
+
+            // Refresh the current context
+            await this.refreshCurrentContext();
+        } else {
+            alert(`Error: ${response.data.message || 'Failed to mark product as not found'}`);
+        }
+    } catch (error) {
+        console.error('Error marking product as not found:', error);
+        alert('Failed to mark product as not found. Please try again.');
+    }
+},
+// Get current order ID based on context
+getCurrentOrderId() {
+    console.log('Getting current order ID...');
+    console.log('currentProcessOrder:', this.currentProcessOrder);
+    console.log('selectedOrder:', this.selectedOrder);
+    console.log('autoDispenseOrder:', this.autoDispenseOrder);
+    
+    if (this.currentProcessOrder) {
+        console.log('Using currentProcessOrder ID:', this.currentProcessOrder.outboundorderid);
+        return this.currentProcessOrder.outboundorderid;
+    } else if (this.selectedOrder) {
+        console.log('Using selectedOrder ID:', this.selectedOrder.outboundorderid);
+        return this.selectedOrder.outboundorderid;
+    } else if (this.autoDispenseOrder) {
+        console.log('Using autoDispenseOrder ID:', this.autoDispenseOrder.outboundorderid);
+        return this.autoDispenseOrder.outboundorderid;
+    }
+    
+    console.log('No order context found, returning null');
+    return null;
+},
+
+// Refresh current context after marking product as not found
+async refreshCurrentContext() {
+    try {
+        // If we're in the process modal
+        if (this.currentProcessOrder) {
+            await this.refreshCurrentProcessOrderForModal();
+        }
+        // If we're in the details modal
+        else if (this.selectedOrder) {
+            const orderId = this.selectedOrder.outboundorderid;
+            await this.fetchOrders();
+            const updatedOrder = this.orders.find(o => o.outboundorderid === orderId);
+            if (updatedOrder) {
+                this.selectedOrder = { ...updatedOrder };
+            }
+        }
+        // If we're in auto dispense modal
+        else if (this.autoDispenseOrder) {
+            const orderId = this.autoDispenseOrder.outboundorderid;
+            await this.fetchOrders();
+            const updatedOrder = this.orders.find(o => o.outboundorderid === orderId);
+            if (updatedOrder) {
+                this.autoDispenseOrder = { ...updatedOrder };
+            }
+        }
+        // General refresh
+        else {
+            await this.fetchOrders();
+        }
+
+        // Update dispense items selection
+        this.initializeDispenseItems();
+    } catch (error) {
+        console.error('Error refreshing context:', error);
+    }
+},
+
+// Updated getDispensedProductsDisplay method to include title and asin
+getDispensedProductsDisplay(item) {
+    if (!this.isItemDispensed(item)) return [];
+
+    if (
+        item.dispensed_products &&
+        Array.isArray(item.dispensed_products)
+    ) {
+        return item.dispensed_products;
+    }
+
+    if (item.product_id) {
+        return [
+            {
+                product_id: item.product_id,
+                title: item.title || 'N/A',
+                asin: item.asin || 'N/A',
+                warehouseLocation: item.warehouseLocation || '',
+                serialNumber: item.serialNumber || '',
+                rtCounter: item.rtCounter || '',
+                FNSKU: item.FNSKU || '',
+            },
+        ];
+    }
+
+    return [];
+},
+
         // Print shipping labels for selected orders
         printShippingLabels() {
             const selectedOrderIds = this.persistentSelectedOrderIds;
