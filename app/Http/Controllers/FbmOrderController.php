@@ -17,7 +17,8 @@ class FbmOrderController extends BasetablesController
     /**
      * Main method for getting FBM orders data
      */
-   public function index(Request $request)
+  
+public function index(Request $request)
 {
     try {
         // Get pagination parameters
@@ -66,12 +67,80 @@ class FbmOrderController extends BasetablesController
         if (!empty($storeFilter)) {
             $query->where('storename', $storeFilter);
         }
+
+        // IMPROVED: Apply status filter at SQL level using EXISTS subqueries
+        if (!empty($statusFilter)) {
+            switch ($statusFilter) {
+                case 'Canceled':
+                    // Orders where ALL items are canceled
+                    $query->whereExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                                ->where('oi.order_status', 'Canceled');
+                    })
+                    ->whereNotExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                                ->where('oi.order_status', '!=', 'Canceled');
+                    });
+                    break;
+                    
+                case 'Shipped':
+                    // Orders where ALL items are shipped
+                    $query->whereExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                                ->where('oi.order_status', 'Shipped');
+                    })
+                    ->whereNotExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                                ->where('oi.order_status', '!=', 'Shipped');
+                    });
+                    break;
+                    
+                case 'Pending':
+                    // Orders with at least one pending item
+                    $query->whereExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                                ->where('oi.order_status', 'Pending');
+                    });
+                    break;
+                    
+                case 'Unshipped':
+                    // Orders with mixed statuses (not all shipped, not all canceled, not all pending)
+                    $query->whereExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id');
+                    })
+                    ->whereNotExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                                ->where('oi.order_status', 'Shipped');
+                    })
+                    ->whereNotExists(function($subQuery) {
+                        $subQuery->select(DB::raw(1))
+                                ->from('tbloutboundordersitem as oi')
+                                ->whereRaw('oi.platform_order_id = tbloutboundorders.platform_order_id')
+                                ->where('oi.order_status', 'Canceled');
+                    });
+                    break;
+            }
+        }
         
-        // Get total for pagination
+        // Get total for pagination AFTER applying all filters
         $totalCount = $query->count();
         $totalPages = ceil($totalCount / $perPage);
         
-        Log::info('Query built, total count: ' . $totalCount);
+        Log::info('Query built, total count after filtering: ' . $totalCount);
         
         // Get paginated orders
         $orders = $query->orderBy('PurchaseDate', 'desc')
@@ -88,6 +157,8 @@ class FbmOrderController extends BasetablesController
             
             try {
                 // Get items for this order
+                Log::info('Looking for items with platform_order_id: ' . $order->platform_order_id);
+
                 $items = DB::table('tbloutboundordersitem AS oi')
                     ->select(
                         'oi.outboundorderitemid',
@@ -104,13 +175,12 @@ class FbmOrderController extends BasetablesController
                         'oi.trackingnumber as tracking_number',
                         'oi.trackingstatus as tracking_status',
                         'oi.unit_price',
-                        'oi.unit_tax',
-                        'oi.ProductID as product_id' // Keep this for backward compatibility
+                        'oi.unit_tax'
                     )
                     ->where('oi.platform_order_id', $order->platform_order_id)
                     ->get();
-                
-                Log::info('Items fetched for order ' . $order->platform_order_id . ': ' . $items->count());
+
+                Log::info('Found ' . $items->count() . ' items for platform_order_id: ' . $order->platform_order_id);
                 
                 // Format items with condition and get dispensed product details
                 $formattedItems = [];
@@ -196,13 +266,8 @@ class FbmOrderController extends BasetablesController
             }
         }
         
-        // Additional status filtering if needed
-        if (!empty($statusFilter)) {
-            $formattedOrders = array_filter($formattedOrders, function($order) use ($statusFilter) {
-                return $order['order_status'] === $statusFilter;
-            });
-            $formattedOrders = array_values($formattedOrders);
-        }
+        // REMOVED: No longer need to filter here since we filter in SQL
+        // The status filtering is now handled at the database level
         
         Log::info('Formatted orders: ' . count($formattedOrders));
         
@@ -332,13 +397,12 @@ public function getOrderDetail(Request $request)
         // Remove individual address fields to clean up response
         unset($orderData['address_line1'], $orderData['city'], $orderData['StateOrRegion'], $orderData['postal_code']);
         
-        Log::info('Getting items for order ID: ' . $orderId);
+        Log::info('Getting items for order platform ID: ' . $order->platform_order_id);
         
-        // Get items for this order with better error handling
+        // FIXED: Get items using platform_order_id instead of outboundorderid
         $itemsQuery = DB::table('tbloutboundordersitem AS oi')
             ->select(
                 'oi.outboundorderitemid',
-                'oi.outboundorderid',
                 'oi.platform_order_id',
                 'oi.platform_order_item_id',
                 'oi.platform_sku',
@@ -352,14 +416,14 @@ public function getOrderDetail(Request $request)
                 'oi.trackingnumber as tracking_number',
                 'oi.trackingstatus as tracking_status',
                 'oi.unit_price',
-                'oi.unit_tax',
-                'oi.ProductID as product_id'
+                'oi.unit_tax'
             )
-            ->where('oi.outboundorderid', $orderId);
+            // CRITICAL FIX: Use platform_order_id for the join since outboundorderid doesn't exist in items table
+            ->where('oi.platform_order_id', $order->platform_order_id);
             
         $items = $itemsQuery->get();
         
-        Log::info('Found ' . $items->count() . ' items for order');
+        Log::info('Found ' . $items->count() . ' items for order platform ID: ' . $order->platform_order_id);
         
         // Format items with condition and dispensed product details
         $formattedItems = [];
@@ -478,7 +542,6 @@ public function getOrderDetail(Request $request)
         ], 500);
     }
 }
-
     /**
      * Get list of stores for filtering
      */
@@ -487,7 +550,7 @@ public function getOrderDetail(Request $request)
         try {
             $stores = DB::table('tbloutboundorders')
                 ->select('storename')
-                ->where('FulfillmentChannel', 'MFN')
+                ->where('FulfillmentChannel', 'FBM')
                 ->distinct()
                 ->pluck('storename')
                 ->toArray();
