@@ -1,0 +1,4 @@
+.fbm-order-module th:nth-child(2),
+.fbm-order-module td:nth-child(2) {
+    min-width: 360px;
+}
