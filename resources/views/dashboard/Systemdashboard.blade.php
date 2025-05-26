@@ -133,70 +133,70 @@
         </div>
 
         <h5 class="text-center">Navigation</h5>
-<?php
-// In your blade template
-$mainModule = strtolower(session('main_module', ''));
-$subModules = array_map('strtolower', session('sub_modules', []));
+        <?php
+        // In your blade template
+        $mainModule = strtolower(session('main_module', ''));
+        $subModules = array_map('strtolower', session('sub_modules', []));
 
-// Remove main module from sub modules if it exists
-$subModules = array_filter($subModules, function($module) use ($mainModule) {
-    return $module !== $mainModule;
-});
+        // Remove main module from sub modules if it exists
+        $subModules = array_filter($subModules, function ($module) use ($mainModule) {
+            return $module !== $mainModule;
+        });
 
-// Fallback for main module
-$defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+        // Fallback for main module
+        $defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
 
-function checkPermission($module, $mainModule, $subModules)
-{
-    // Convert to lowercase for comparison
-    $module = strtolower($module);
-    $mainModule = strtolower($mainModule);
-    $subModules = array_map('strtolower', (array) $subModules);
+        function checkPermission($module, $mainModule, $subModules)
+        {
+            // Convert to lowercase for comparison
+            $module = strtolower($module);
+            $mainModule = strtolower($mainModule);
+            $subModules = array_map('strtolower', (array) $subModules);
 
-    if ($module === 'dashboard') {
-        return true;
-    }
-    // A module is permitted if it's the main module OR in sub modules (but not both)
-    return $module === $mainModule || in_array($module, $subModules);
-}
+            if ($module === 'dashboard') {
+                return true;
+            }
+            // A module is permitted if it's the main module OR in sub modules (but not both)
+            return $module === $mainModule || in_array($module, $subModules);
+        }
 
-$modules = [
-    'order' => 'Order',
-    'unreceived' => 'Unreceived',
-    'receiving' => 'Received',
-    'labeling' => 'Labeling',
-    'validation' => 'Validation',
-    'testing' => 'Testing',
-    'cleaning' => 'Cleaning',
-    'packing' => 'Packing',
-    'fnsku' => 'Fnsku',
-    'stockroom' => 'Stockroom',
-    'productionarea' => 'Production Area',
-    'fbashipmentinbound' => 'FBA Inbound Shipment',
-    'returnscanner' => 'Return Scanner',
-    'fbmorder' => 'FBM Order',
-];
-?>
-    <script>
-    // Make sure these are set properly with filtering
-    window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-    window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-    
-    // Filter out main module from allowed modules
-    const rawSubModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
-    window.allowedModules = rawSubModules.filter(module => module !== window.mainModule);
+        $modules = [
+            'order' => 'Order',
+            'unreceived' => 'Unreceived',
+            'receiving' => 'Received',
+            'labeling' => 'Labeling',
+            'validation' => 'Validation',
+            'testing' => 'Testing',
+            'cleaning' => 'Cleaning',
+            'packing' => 'Packing',
+            'fnsku' => 'Fnsku',
+            'stockroom' => 'Stockroom',
+            'productionarea' => 'Production Area',
+            'fbashipmentinbound' => 'FBA Inbound Shipment',
+            'returnscanner' => 'Return Scanner',
+            'fbmorder' => 'FBM Order',
+        ];
+        ?>
+        <script>
+            // Make sure these are set properly with filtering
+            window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+            window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
 
-    // Add this for debugging
-    console.log('Session Modules:', {
-        defaultComponent: window.defaultComponent,
-        allowedModules: window.allowedModules,
-        mainModule: window.mainModule,
-        hasReturnScanner: window.allowedModules.includes('returnscanner')
-    });
-</script>
+            // Filter out main module from allowed modules
+            const rawSubModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
+            window.allowedModules = rawSubModules.filter(module => module !== window.mainModule);
+
+            // Add this for debugging
+            console.log('Session Modules:', {
+                defaultComponent: window.defaultComponent,
+                allowedModules: window.allowedModules,
+                mainModule: window.mainModule,
+                hasReturnScanner: window.allowedModules.includes('returnscanner')
+            });
+        </script>
 
         <!-- Updated Navigation structure with improved highlighting -->
-       <nav class="nav flex-column sidebar-nav">
+        <nav class="nav flex-column sidebar-nav">
             <?php if ($mainModule): ?>
             <a class="nav-link <?= request()->segment(1) == $mainModule ? 'active' : '' ?>" href="/<?= $mainModule ?>"
                 onclick="window.loadContent('<?= $mainModule ?>'); highlightNavLink(this); closeSidebar(); return false;">
@@ -205,11 +205,11 @@ $modules = [
             <?php endif; ?>
 
             <?php foreach ($modules as $module => $label): ?>
-            <?php 
+            <?php
             // Only show in navigation if:
             // 1. User has permission for this module
             // 2. It's not the main module (avoid duplication)
-            if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule): 
+            if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule):
             ?>
             <a class="nav-link <?= request()->segment(1) == $module ? 'active' : '' ?>" href="/<?= $module ?>"
                 onclick="window.loadContent('<?= $module ?>'); highlightNavLink(this); closeSidebar(); return false;">
@@ -283,7 +283,7 @@ $modules = [
         window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
         window.allowedModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
         window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-        window.customModules = ['printcustominvoice' , 'fbashipmentinbound'];
+        window.customModules = ['printcustominvoice', 'fbashipmentinbound'];
     </script>
 
     <div id="main-content" class="content">
@@ -349,115 +349,103 @@ $modules = [
                     <h5 class="modal-title" id="settingsModalLabel">Admin Settings</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
+
                 <div class="modal-body">
                     <ul class="nav nav-tabs" id="settingsTab" role="tablist">
-                        <!-- Combined Tab for Title & Design -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link active" id="design-tab" data-bs-toggle="tab"
-                                data-bs-target="#design" type="button" role="tab" aria-controls="design"
-                                aria-selected="true">
-                                <i class="bi bi-palette"></i>
-                                <span class="d-none d-sm-inline"> Title & Design</span>
-                            </button>
+                        <li class="nav-item active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design"
+                            type="button" role="tab" aria-controls="design" aria-selected="true">
+                            <i class="bi bi-palette"></i>
+                            <span> Title & Design</span>
                         </li>
-                        <!-- Add User Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="user-tab" data-bs-toggle="tab" data-bs-target="#user"
-                                type="button" role="tab" aria-controls="user" aria-selected="false">
-                                <i class="bi bi-person-plus"></i>
-                                <span class="d-none d-sm-inline"> Add User</span>
-                            </button>
+                        <li class="nav-item" id="user-tab" data-bs-toggle="tab" data-bs-target="#user"
+                            type="button" role="tab" aria-controls="user" aria-selected="false">
+                            <i class="bi bi-person-plus"></i>
+                            <span> Add User</span>
                         </li>
-                        <!-- Add Store List Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="store-tab" data-bs-toggle="tab" data-bs-target="#store"
-                                type="button" role="tab" aria-controls="store" aria-selected="false">
-                                <i class="bi bi-shop"></i>
-                                <span class="d-none d-sm-inline"> Store List</span>
-                            </button>
+                        <li class="nav-item" id="store-tab" data-bs-toggle="tab" data-bs-target="#store"
+                            type="button" role="tab" aria-controls="store" aria-selected="false">
+                            <i class="bi bi-shop"></i>
+                            <span> Store List</span>
                         </li>
-                        <!-- Privileges Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="privilege-tab" data-bs-toggle="tab"
-                                data-bs-target="#privilege" type="button" role="tab" aria-controls="privilege"
-                                aria-selected="false">
-                                <i class="bi bi-shield-lock"></i>
-                                <span class="d-none d-sm-inline"> Privileges</span>
-                            </button>
+                        <li class="nav-item" id="privilege-tab" data-bs-toggle="tab" data-bs-target="#privilege"
+                            type="button" role="tab" aria-controls="privilege" aria-selected="false">
+                            <i class="bi bi-shield-lock"></i>
+                            <span> Privileges</span>
                         </li>
-                        <!-- usertimerecord Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="usertimerecord-tab" data-bs-toggle="tab"
-                                data-bs-target="#usertimerecord" type="button" role="tab"
-                                aria-controls="usertimerecord" aria-selected="false">
-                                <i class="bi bi-clock"></i>
-                                <span class="d-none d-sm-inline"> Time Record</span>
-                            </button>
+                        <li class="nav-item" id="usertimerecord-tab" data-bs-toggle="tab"
+                            data-bs-target="#usertimerecord" type="button" role="tab"
+                            aria-controls="usertimerecord" aria-selected="false">
+                            <i class="bi bi-clock"></i>
+                            <span> Time Record</span>
                         </li>
-                        <!-- userlogs Tab -->
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link" id="userlogs-tab" data-bs-toggle="tab"
-                                data-bs-target="#userlogs" type="button" role="tab" aria-controls="userlogs"
-                                aria-selected="false">
-                                <i class="bi bi-person-lines-fill"></i>
-                                <span class="d-none d-sm-inline"> User Logs</span>
-                            </button>
+                        <li class="nav-item" id="userlogs-tab" data-bs-toggle="tab" data-bs-target="#userlogs"
+                            type="button" role="tab" aria-controls="userlogs" aria-selected="false">
+                            <i class="bi bi-person-lines-fill"></i>
+                            <span> User Logs</span>
                         </li>
-
                     </ul>
+
                     <!-- Combined Tab for Title & Design -->
-                    <div class="tab-content mt-3" id="settingsTabContent">
+                    <div class="tab-content" id="settingsTabContent">
                         <!-- Title & Design Tab -->
                         <div class="tab-pane fade show active" id="design" role="tabpanel"
                             aria-labelledby="design-tab">
-                            <h5>Title & Design Settings</h5>
+                            <h3 class="text-center">Title & Design Settings</h3>
                             <!-- Title & Design Settings Form -->
-                            <form action="{{ route('update.system.design') }}" method="POST"
+                            <form action="{{ route('update.system.design') }}" method="POST" class="tblnDsgnForm"
                                 enctype="multipart/form-data">
                                 @csrf
                                 @method('POST')
                                 <!-- Site Title -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="siteTitle" class="form-label">Site Title</label>
                                     <input type="text" class="form-control" id="siteTitle" name="site_title"
                                         placeholder="Enter site title" value="{{ $systemDesign->site_title ?? '' }}"
                                         required>
-                                </div>
+                                </fieldset>
+
+                                <hr class="dashed m-0">
+
                                 <!-- Theme Color -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="themeColor" class="form-label">Theme Color</label>
                                     <input type="color" class="form-control" id="themeColor" name="theme_color"
                                         value="{{ $systemDesign->theme_color ?? '#007bff' }}" required>
-                                </div>
+                                </fieldset>
+
+                                <hr class="dashed m-0">
+
                                 <!-- Logo Upload -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="logoUpload" class="form-label">Upload Logo</label>
                                     <input type="file" class="form-control" id="logoUpload" name="logo">
                                     @if (!empty($systemDesign->logo))
                                         <p>Current Logo: <img src="{{ asset('storage/' . $systemDesign->logo) }}"
                                                 alt="Logo" width="100"></p>
                                     @endif
-                                </div>
-                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                                </fieldset>
+                                <button type="submit" class="btn btn-process">Save Changes</button>
                             </form>
                         </div>
 
                         <!-- Add User Tab -->
                         <div class="tab-pane fade" id="user" role="tabpanel" aria-labelledby="user-tab">
-                            <h5>Add User</h5>
-                            <form action="{{ route('add-user') }}" method="POST" id="addUserForm">
+                            <h3 class="text-center">Add User</h3>
+
+                            <form action="{{ route('add-user') }}" method="POST" class="addUserForm"
+                                id="addUserForm">
                                 @csrf
                                 <!-- Username -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="username" class="form-label">Username</label>
-                                    <input type="text" class="form-control" id="username" name="username"
+                                    <input type="text" class="form-control w-100" id="username" name="username"
                                         placeholder="Enter username" required>
-                                </div>
+                                </fieldset>
 
                                 <!-- Password -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="password" class="form-label">Password</label>
-                                    <div class="">
+                                    <div class="input-group">
                                         <input type="password" class="form-control" id="password" name="password"
                                             placeholder="Enter password" required>
                                         <button type="button" class="btn btn-outline-secondary toggle-password"
@@ -465,12 +453,12 @@ $modules = [
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     </div>
-                                </div>
+                                </fieldset>
 
                                 <!-- Confirm Password -->
-                                <div class="mb-3">
+                                <fieldset>
                                     <label for="password_confirmation" class="form-label">Confirm Password</label>
-                                    <div class="">
+                                    <div class="input-group">
                                         <input type="password" class="form-control" id="password_confirmation"
                                             name="password_confirmation" placeholder="Confirm password" required>
                                         <button type="button" class="btn btn-outline-secondary toggle-password"
@@ -478,22 +466,25 @@ $modules = [
                                             <i class="bi bi-eye"></i>
                                         </button>
                                     </div>
-                                </div>
+                                </fieldset>
 
                                 <!-- User Role -->
-                                <div class="mb-3">
+                                <fieldset class="mb-3">
                                     <label for="userRole" class="form-label">User Role</label>
-                                    <select class="form-select" id="userRole" name="role">
+                                    <select class="form-select form-control w-100" id="userRole" name="role">
                                         <option value="SuperAdmin">Super-Admin</option>
                                         <option value="SubAdmin">Sub-Admin</option>
                                         <option value="User">User</option>
                                     </select>
-                                </div>
+                                </fieldset>
 
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <button type="submit" class="btn btn-primary">Add User</button>
-                                    <button type="button" class="btn btn-info" data-bs-toggle="modal"
-                                        data-bs-target="#userListModal">
+                                    <button type="submit"
+                                        class="btn btn-primary w-100 text-white justify-content-center fw-bold">Add
+                                        User</button>
+                                    <button type="button"
+                                        class="btn btn-info w-100 text-white justify-content-center fw-bold"
+                                        data-bs-toggle="modal" data-bs-target="#userListModal">
                                         <i class="bi bi-people me-2"></i>Show User List
                                     </button>
                                 </div>
@@ -502,22 +493,19 @@ $modules = [
 
                         <!-- Store List Tab Content -->
                         <div class="tab-pane fade" id="store" role="tabpanel" aria-labelledby="store-tab">
-                            <h5>Store List</h5>
+                            <h3 class="text-center">Store List</h3>
                             <!-- Store List Display -->
-                            <div id="storeListContainer">
-                                <ul id="storeList" class="list-group">
-                                    <!-- New stores will be appended here dynamically -->
-                                </ul>
-
+                            <div class="storeListContainer">
+                                <div id="storeListContainer">
+                                    <ul id="storeList" class="list-group">
+                                        <!-- New stores will be appended here dynamically -->
+                                    </ul>
+                                </div>
+                                <!-- Add Store Button -->
+                                <button class="btn btn-process" id="addStoreButton">Add Store</button>
                             </div>
-                            <!-- Add Store Button -->
-                            <button class="btn btn-primary" id="addStoreButton">Add Store</button>
                         </div>
                         <!-- Store List Tab Content END-->
-
-
-
-
 
                         <div class="tab-pane fade" id="privilege" role="tabpanel" aria-labelledby="privilege-tab">
                             <h5>User Privileges</h5>
@@ -722,14 +710,14 @@ $modules = [
                                     <td class="td-notes">${totalHours}</td>
                                     ${isMobile ?
                                         `<td class="td-notes">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    ${record.Notes ?
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        `<div class="notes-icon">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ${record.Notes ?
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                `<div class="notes-icon">
                                                     <i class="bi bi-sticky"></i>
                                                     <span class="tooltip-notes">${record.Notes}</span>
                                                 </div>` :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        '-'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                </td>` :
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                '-'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        </td>` :
                                         `<td class="td-notes notes-column">${record.Notes || '-'}</td>`
                                     }
                                 </tr>
@@ -810,14 +798,14 @@ $modules = [
 
                                         ${isMobile ?
                                             `<td class="td-notes">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ${log.actions ?
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            `<div class="notes-icon">
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ${log.actions ?
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    `<div class="notes-icon">
                                                         <i class="bi bi-sticky"></i>
                                                         <span class="tooltip-notes">${log.actions}</span>
                                                     </div>` :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            '-'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    </td>` :
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    '-'
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </td>` :
                                             `<td class="td-notes notes-column">${log.actions || '-'}</td>`
                                         }
                                         <td class="td-notes">${formatDate(log.datetimelogs)}</td>
@@ -863,406 +851,442 @@ $modules = [
         </div>
     </div>
 
-  <script>
-// Initialize when DOM is loaded
-document.addEventListener("DOMContentLoaded", function() {
-    const privilegeForm = document.getElementById('privilegeForm');
-    if (privilegeForm) {
-        initializeUserSelect();
-        initializePrivilegeForm();
-    } else {
-        initializePrivilegeChecker();
-    }
-});
-
-// Admin Functions
-function initializeUserSelect() {
-    const selectUser = document.getElementById('selectUser');
-
-    selectUser.addEventListener('change', function() {
-        const selectedValue = this.value;
-
-        Array.from(this.options).forEach(option => {
-            option.style.display = option.value === selectedValue ? 'none' : 'block';
-        });
-
-        if (selectedValue !== "") {
-            const defaultOption = selectUser.querySelector('option[value=""]');
-            if (defaultOption) {
-                defaultOption.style.display = 'none';
-            }
-        }
-
-        if (selectedValue) {
-            fetchUserPrivileges(selectedValue);
-        }
-    });
-}
-
-function initializePrivilegeForm() {
-    const form = document.getElementById('privilegeForm');
-
-    form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-
-        try {
-            // Refresh CSRF token before submitting
-            await refreshCsrfToken();
-
-            const formData = collectFormData();
-            const response = await saveUserPrivileges(formData);
-
-            if (response.success) {
-                showNotification('Success', 'User privileges saved successfully!', 'success');
-
-                // Fetch updated user privileges
-                await fetchUserPrivileges(formData.user_id);
-
-                // Create navigation data with proper filtering
-                const mainModuleDb = response.main_module || formData.main_module.toLowerCase().replace(/\s+/g, '');
-                const subModulesDb = response.sub_modules || [];
-                
-                // Ensure sub_modules doesn't contain main_module
-                const filteredSubModules = subModulesDb.filter(module => 
-                    module.toLowerCase().replace(/\s+/g, '') !== mainModuleDb
-                );
-
-                const navigationData = {
-                    main_module: mainModuleDb,
-                    sub_modules: filteredSubModules,
-                    modules: {
-                        'order': 'Order',
-                        'unreceived': 'Unreceived',
-                        'receiving': 'Received',
-                        'labeling': 'Labeling',
-                        'validation': 'Validation',
-                        'testing': 'Testing',
-                        'cleaning': 'Cleaning',
-                        'packing': 'Packing',
-                        'fnsku': 'FNSKU',
-                        'stockroom': 'Stockroom',
-                        'productionarea': 'Production Area',
-                        'returnscanner': 'Return Scanner',
-                        'fbmorder': 'FBM Order'
-                    }
-                };
-
-                // Update navigation immediately
-                updateUserNavigation(navigationData);
-
-                // Update Vue component if available
-                if (window.appInstance) {
-                    forceComponentUpdate(mainModuleDb);
-                }
-
-                // Close the modal
-                const modalEl = document.getElementById('settingsModal');
-                modalEl.style.display = 'none';
-                document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-                document.body.classList.remove('modal-open');
-                document.body.style.removeProperty('padding-right');
-                modalEl.classList.remove('show');
-
-                // Re-bind modal trigger
-                const settingsButton = document.querySelector(
-                    '[data-bs-toggle="modal"][data-bs-target="#settingsModal"]');
-                if (settingsButton) {
-                    settingsButton.setAttribute('data-bs-toggle', 'modal');
-                    settingsButton.setAttribute('data-bs-target', '#settingsModal');
-                }
-
-                form.classList.remove('was-validated');
+    <script>
+        // Initialize when DOM is loaded
+        document.addEventListener("DOMContentLoaded", function() {
+            const privilegeForm = document.getElementById('privilegeForm');
+            if (privilegeForm) {
                 initializeUserSelect();
-
+                initializePrivilegeForm();
             } else {
-                showNotification('Error', response.message || 'Failed to save privileges', 'error');
+                initializePrivilegeChecker();
             }
-        } catch (error) {
-            console.error('Error in form submission:', error);
-            showNotification('Error', 'An unexpected error occurred', 'error');
-        }
-    });
-}
-
-// Add this new function to refresh CSRF token
-async function refreshCsrfToken() {
-    try {
-        const response = await fetch('/csrf-token');
-        const data = await response.json();
-        document.querySelector('meta[name="csrf-token"]').setAttribute('content', data.token);
-        return true;
-    } catch (error) {
-        console.error('Error refreshing CSRF token:', error);
-        return false;
-    }
-}
-
-function collectFormData() {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
-    return {
-        user_id: parseInt(document.getElementById('selectUser').value, 10),
-        main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
-        sub_modules: [...document.querySelectorAll('input[name="sub_modules[]"]:checked')].map(input => input
-            .value),
-        privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
-            input.value),
-        _token: csrfToken
-    };
-}
-
-async function saveUserPrivileges(formData) {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
-    try {
-        // First save the privileges
-        const response = await fetch('/save-user-privileges', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
-            },
-            body: JSON.stringify(formData)
         });
 
-        const result = await response.json();
+        // Admin Functions
+        function initializeUserSelect() {
+            const selectUser = document.getElementById('selectUser');
 
-        if (result.success) {
-            // Update the navigation immediately with the response data
-            const navigationData = {
-                main_module: result.main_module || formData.main_module,
-                sub_modules: result.sub_modules || [],
-                modules: {
-                    'order': 'Order',
-                    'unreceived': 'Unreceived',
-                    'receiving': 'Received',
-                    'labeling': 'Labeling',
-                    'validation': 'Validation',
-                    'testing': 'Testing',
-                    'cleaning': 'Cleaning',
-                    'packing': 'Packing',
-                    'fnsku': 'FNSKU',
-                    'stockroom': 'Stockroom',
-                    'productionarea': 'Production Area',
-                    'returnscanner': 'Return Scanner',
-                    'fbmorder': 'FBM Order'
+            selectUser.addEventListener('change', function() {
+                const selectedValue = this.value;
+
+                Array.from(this.options).forEach(option => {
+                    option.style.display = option.value === selectedValue ? 'none' : 'block';
+                });
+
+                if (selectedValue !== "") {
+                    const defaultOption = selectUser.querySelector('option[value=""]');
+                    if (defaultOption) {
+                        defaultOption.style.display = 'none';
+                    }
                 }
-            };
 
-            // Update navigation immediately
-            updateUserNavigation(navigationData);
-
-            // Force session refresh
-            const refreshResponse = await fetch('/refresh-user-session', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': csrfToken
+                if (selectedValue) {
+                    fetchUserPrivileges(selectedValue);
                 }
             });
-
-            const refreshResult = await refreshResponse.json();
-            if (refreshResult.success) {
-                // Update with refreshed data
-                updateUserNavigation({
-                    main_module: refreshResult.main_module,
-                    sub_modules: refreshResult.sub_modules,
-                    modules: navigationData.modules
-                });
-            }
-
-            return result;
         }
 
-        return result;
-    } catch (error) {
-        console.error('Error in save process:', error);
-        throw error;
-    }
-}
+        function initializePrivilegeForm() {
+            const form = document.getElementById('privilegeForm');
 
-async function fetchUserPrivileges(userId) {
-    try {
-        const response = await fetch(`/get-user-privileges/${userId}`);
-        const data = await response.json();
-        updateForm(data);
-    } catch (error) {
-        console.error('Error fetching user privileges:', error);
-        showNotification('Error', 'Failed to fetch user privileges', 'error');
-    }
-}
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
 
-function updateForm(data) {
-    if (!data) {
-        console.error("No data received for user privileges");
-        return;
-    }
+                try {
+                    // Refresh CSRF token before submitting
+                    await refreshCsrfToken();
 
-    updateMainModule(data);
-    updateSubModules(data);
-    updateStores(data);
-}
+                    const formData = collectFormData();
+                    const response = await saveUserPrivileges(formData);
 
-function updateMainModule(data) {
-    // Define the mapping for consistent database column names
-    const moduleMapping = {
-        'Order': 'order',
-        'Unreceived': 'unreceived',
-        'Received': 'receiving',
-        'Labeling': 'labeling',
-        'Testing': 'testing',
-        'Cleaning': 'cleaning',
-        'Packing': 'packing',
-        'Stockroom': 'stockroom',
-        'Validation': 'validation',
-        'FNSKU': 'fnsku',
-        'Production Area': 'productionarea',
-        'Return Scanner': 'returnscanner',
-        'FBM Order': 'fbmorder'
-    };
-    
-    const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-        'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
-    ];
-    
-    const mainModuleHTML = `
+                    if (response.success) {
+                        showNotification('Success', 'User privileges saved successfully!', 'success');
+
+                        // Fetch updated user privileges
+                        await fetchUserPrivileges(formData.user_id);
+
+                        // Create navigation data with proper filtering
+                        const mainModuleDb = response.main_module || formData.main_module.toLowerCase().replace(
+                            /\s+/g, '');
+                        const subModulesDb = response.sub_modules || [];
+
+                        // Ensure sub_modules doesn't contain main_module
+                        const filteredSubModules = subModulesDb.filter(module =>
+                            module.toLowerCase().replace(/\s+/g, '') !== mainModuleDb
+                        );
+
+                        const navigationData = {
+                            main_module: mainModuleDb,
+                            sub_modules: filteredSubModules,
+                            modules: {
+                                'order': 'Order',
+                                'unreceived': 'Unreceived',
+                                'receiving': 'Received',
+                                'labeling': 'Labeling',
+                                'validation': 'Validation',
+                                'testing': 'Testing',
+                                'cleaning': 'Cleaning',
+                                'packing': 'Packing',
+                                'fnsku': 'FNSKU',
+                                'stockroom': 'Stockroom',
+                                'productionarea': 'Production Area',
+                                'returnscanner': 'Return Scanner',
+                                'fbmorder': 'FBM Order'
+                            }
+                        };
+
+                        // Update navigation immediately
+                        updateUserNavigation(navigationData);
+
+                        // Update Vue component if available
+                        if (window.appInstance) {
+                            forceComponentUpdate(mainModuleDb);
+                        }
+
+                        // Close the modal
+                        const modalEl = document.getElementById('settingsModal');
+                        modalEl.style.display = 'none';
+                        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
+                        document.body.classList.remove('modal-open');
+                        document.body.style.removeProperty('padding-right');
+                        modalEl.classList.remove('show');
+
+                        // Re-bind modal trigger
+                        const settingsButton = document.querySelector(
+                            '[data-bs-toggle="modal"][data-bs-target="#settingsModal"]');
+                        if (settingsButton) {
+                            settingsButton.setAttribute('data-bs-toggle', 'modal');
+                            settingsButton.setAttribute('data-bs-target', '#settingsModal');
+                        }
+
+                        form.classList.remove('was-validated');
+                        initializeUserSelect();
+
+                    } else {
+                        showNotification('Error', response.message || 'Failed to save privileges', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error in form submission:', error);
+                    showNotification('Error', 'An unexpected error occurred', 'error');
+                }
+            });
+        }
+
+        // Add this new function to refresh CSRF token
+        async function refreshCsrfToken() {
+            try {
+                const response = await fetch('/csrf-token');
+                const data = await response.json();
+                document.querySelector('meta[name="csrf-token"]').setAttribute('content', data.token);
+                return true;
+            } catch (error) {
+                console.error('Error refreshing CSRF token:', error);
+                return false;
+            }
+        }
+
+        function collectFormData() {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            return {
+                user_id: parseInt(document.getElementById('selectUser').value, 10),
+                main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
+                sub_modules: [...document.querySelectorAll('input[name="sub_modules[]"]:checked')].map(input => input
+                    .value),
+                privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
+                    input.value),
+                _token: csrfToken
+            };
+        }
+
+        async function saveUserPrivileges(formData) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            try {
+                // First save the privileges
+                const response = await fetch('/save-user-privileges', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Update the navigation immediately with the response data
+                    const navigationData = {
+                        main_module: result.main_module || formData.main_module,
+                        sub_modules: result.sub_modules || [],
+                        modules: {
+                            'order': 'Order',
+                            'unreceived': 'Unreceived',
+                            'receiving': 'Received',
+                            'labeling': 'Labeling',
+                            'validation': 'Validation',
+                            'testing': 'Testing',
+                            'cleaning': 'Cleaning',
+                            'packing': 'Packing',
+                            'fnsku': 'FNSKU',
+                            'stockroom': 'Stockroom',
+                            'productionarea': 'Production Area',
+                            'returnscanner': 'Return Scanner',
+                            'fbmorder': 'FBM Order'
+                        }
+                    };
+
+                    // Update navigation immediately
+                    updateUserNavigation(navigationData);
+
+                    // Force session refresh
+                    const refreshResponse = await fetch('/refresh-user-session', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': csrfToken
+                        }
+                    });
+
+                    const refreshResult = await refreshResponse.json();
+                    if (refreshResult.success) {
+                        // Update with refreshed data
+                        updateUserNavigation({
+                            main_module: refreshResult.main_module,
+                            sub_modules: refreshResult.sub_modules,
+                            modules: navigationData.modules
+                        });
+                    }
+
+                    return result;
+                }
+
+                return result;
+            } catch (error) {
+                console.error('Error in save process:', error);
+                throw error;
+            }
+        }
+
+        async function fetchUserPrivileges(userId) {
+            try {
+                const response = await fetch(`/get-user-privileges/${userId}`);
+                const data = await response.json();
+                updateForm(data);
+            } catch (error) {
+                console.error('Error fetching user privileges:', error);
+                showNotification('Error', 'Failed to fetch user privileges', 'error');
+            }
+        }
+
+        function updateForm(data) {
+            if (!data) {
+                console.error("No data received for user privileges");
+                return;
+            }
+
+            updateMainModule(data);
+            updateSubModules(data);
+            updateStores(data);
+        }
+
+        function updateMainModule(data) {
+            // Define the mapping for consistent database column names
+            const moduleMapping = {
+                'Order': 'order',
+                'Unreceived': 'unreceived',
+                'Received': 'receiving',
+                'Labeling': 'labeling',
+                'Testing': 'testing',
+                'Cleaning': 'cleaning',
+                'Packing': 'packing',
+                'Stockroom': 'stockroom',
+                'Validation': 'validation',
+                'FNSKU': 'fnsku',
+                'Production Area': 'productionarea',
+                'Return Scanner': 'returnscanner',
+                'FBM Order': 'fbmorder'
+            };
+
+            const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
+                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
+            ];
+
+            const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
             ${mainModules.map(module => {
                 // Get the database column name for comparison
                 const dbColumnName = moduleMapping[module] || module.toLowerCase().replace(/\s+/g, '');
                 const isChecked = data.main_module === dbColumnName ? 'checked' : '';
-                
+
                 return `
-                    <div class="col-4 form-check mb-2 px-10">
-                        <input class="form-check-input" type="radio" name="main_module"
-                               value="${module}" ${isChecked} required>
-                        <label class="form-check-label">${module}</label>
-                    </div>
-                `;
+                                                                <div class="col-4 form-check mb-2 px-10">
+                                                                    <input class="form-check-input" type="radio" name="main_module"
+                                                                           value="${module}" ${isChecked} required>
+                                                                    <label class="form-check-label">${module}</label>
+                                                                </div>
+                                                            `;
             }).join('')}
         </div>
     `;
-    document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
-}
-
-function updateSubModules(data) {
-    const subModules = [{
-            db: 'order',
-            display: 'Order'
-        },
-        {
-            db: 'unreceived',
-            display: 'Unreceived'
-        },
-        {
-            db: 'receiving',
-            display: 'Received'
-        },
-        {
-            db: 'labeling',
-            display: 'Labeling'
-        },
-        {
-            db: 'testing',
-            display: 'Testing'
-        },
-        {
-            db: 'cleaning',
-            display: 'Cleaning'
-        },
-        {
-            db: 'packing',
-            display: 'Packing'
-        },
-        {
-            db: 'stockroom',
-            display: 'Stockroom'
-        },
-        {
-            db: 'validation',
-            display: 'Validation'
-        },
-        {
-            db: 'fnsku',
-            display: 'FNSKU'
-        },
-        {
-            db: 'productionarea',
-            display: 'Production Area'
-        },
-        {
-            db: 'returnscanner',
-            display: 'Return Scanner'
-        },
-        {
-            db: 'fbmorder',
-            display: 'FBM Order'
+            document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
         }
-    ];
 
- const subModulesHTML = `
+        function updateSubModules(data) {
+            const subModules = [{
+                    db: 'order',
+                    display: 'Order'
+                },
+                {
+                    db: 'unreceived',
+                    display: 'Unreceived'
+                },
+                {
+                    db: 'receiving',
+                    display: 'Received'
+                },
+                {
+                    db: 'labeling',
+                    display: 'Labeling'
+                },
+                {
+                    db: 'testing',
+                    display: 'Testing'
+                },
+                {
+                    db: 'cleaning',
+                    display: 'Cleaning'
+                },
+                {
+                    db: 'packing',
+                    display: 'Packing'
+                },
+                {
+                    db: 'stockroom',
+                    display: 'Stockroom'
+                },
+                {
+                    db: 'validation',
+                    display: 'Validation'
+                },
+                {
+                    db: 'fnsku',
+                    display: 'FNSKU'
+                },
+                {
+                    db: 'productionarea',
+                    display: 'Production Area'
+                },
+                {
+                    db: 'returnscanner',
+                    display: 'Return Scanner'
+                },
+                {
+                    db: 'fbmorder',
+                    display: 'FBM Order'
+                }
+            ];
+
+            const subModulesHTML = `
 <h6>Sub-Modules</h6>
 <div class="row mb-3">
     ${subModules.map(module => `
-        <div class="col-4 form-check mb-2 px-10">
-            <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                   value="${module.db}"
-                   ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
-            <label class="form-check-label">${module.display}</label>
-        </div>
-    `).join('')}
+                                                    <div class="col-4 form-check mb-2 px-10">
+                                                        <input class="form-check-input" type="checkbox" name="sub_modules[]"
+                                                               value="${module.db}"
+                                                               ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
+                                                        <label class="form-check-label">${module.display}</label>
+                                                    </div>
+                                                `).join('')}
 </div>
 `;
-    document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
-}
+            document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
+        }
 
-function updateStores(data) {
-    const storeHTML = `
+        function updateStores(data) {
+            const storeHTML = `
     <h6>Stores</h6>
     <div class="row mb-3">
         ${data.privileges_stores && data.privileges_stores.length > 0
             ? data.privileges_stores.map(store => `
-                                                                                            <div class="col-4 form-check mb-2">
-                                                                                                <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                                                                                                       value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                                                                                                <label class="form-check-label">${store.store_name}</label>
-                                                                                            </div>
-                                                                                        `).join('')
+                                                                                                                                        <div class="col-4 form-check mb-2">
+                                                                                                                                            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
+                                                                                                                                                   value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                                                                                                                                            <label class="form-check-label">${store.store_name}</label>
+                                                                                                                                        </div>
+                                                                                                                                    `).join('')
             : '<p>No stores available</p>'
         }
     </div>
 `;
-    document.getElementById('storeContainer').innerHTML = storeHTML;
-}
+            document.getElementById('storeContainer').innerHTML = storeHTML;
+        }
 
-// Navigation Update Functions
-function initializePrivilegeChecker() {
-    setInterval(checkForUpdates, 5000);
-}
+        // Navigation Update Functions
+        function initializePrivilegeChecker() {
+            setInterval(checkForUpdates, 5000);
+        }
 
-async function checkForUpdates() {
-    try {
-        const response = await fetch('/check-user-privileges');
-        const data = await response.json();
+        async function checkForUpdates() {
+            try {
+                const response = await fetch('/check-user-privileges');
+                const data = await response.json();
 
-        if (data.success) {
-            console.log('Checking for updates:', data);
+                if (data.success) {
+                    console.log('Checking for updates:', data);
 
-            // Ensure all module names are lowercase without spaces
-            const mainModule = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
-            const subModules = data.sub_modules ? 
-                data.sub_modules
-                    .map(m => m.toLowerCase().replace(/\s+/g, ''))
-                    .filter(m => m !== mainModule) : // Ensure main module is not in sub modules
-                [];
+                    // Ensure all module names are lowercase without spaces
+                    const mainModule = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
+                    const subModules = data.sub_modules ?
+                        data.sub_modules
+                        .map(m => m.toLowerCase().replace(/\s+/g, ''))
+                        .filter(m => m !== mainModule) : // Ensure main module is not in sub modules
+                        [];
 
-            window.defaultComponent = mainModule;
-            window.allowedModules = subModules;
-            window.mainModule = mainModule;
+                    window.defaultComponent = mainModule;
+                    window.allowedModules = subModules;
+                    window.mainModule = mainModule;
 
-            // Create proper modules object for display
-            const modules = {
+                    // Create proper modules object for display
+                    const modules = {
+                        'order': 'Order',
+                        'unreceived': 'Unreceived',
+                        'receiving': 'Received',
+                        'labeling': 'Labeling',
+                        'testing': 'Testing',
+                        'cleaning': 'Cleaning',
+                        'packing': 'Packing',
+                        'stockroom': 'Stockroom',
+                        'validation': 'Validation',
+                        'fnsku': 'FNSKU',
+                        'productionarea': 'Production Area',
+                        'returnscanner': 'Return Scanner',
+                        'fbashipmentinbound': 'FBA Inbound Shipment',
+                        'fbmorder': 'FBM Order'
+                    };
+
+                    updateUserNavigation({
+                        main_module: mainModule,
+                        sub_modules: subModules,
+                        modules: modules
+                    });
+                }
+            } catch (error) {
+                console.error('Error checking privileges:', error);
+            }
+        }
+
+        function updateUserNavigation(data) {
+            const nav = document.querySelector('nav.nav.flex-column');
+            if (!nav) return;
+
+            console.log('Updating navigation with:', data);
+
+            // Ensure modules mapping includes all lowercase keys
+            const defaultModules = {
                 'order': 'Order',
                 'unreceived': 'Unreceived',
                 'receiving': 'Received',
@@ -1279,121 +1303,85 @@ async function checkForUpdates() {
                 'fbmorder': 'FBM Order'
             };
 
-            updateUserNavigation({
-                main_module: mainModule,
-                sub_modules: subModules,
-                modules: modules
-            });
-        }
-    } catch (error) {
-        console.error('Error checking privileges:', error);
-    }
-}
+            // Use provided modules or default modules
+            const modules = data.modules || defaultModules;
 
-function updateUserNavigation(data) {
-    const nav = document.querySelector('nav.nav.flex-column');
-    if (!nav) return;
+            let navHTML = '';
 
-    console.log('Updating navigation with:', data);
+            // Normalize main module
+            const mainModuleLower = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
 
-    // Ensure modules mapping includes all lowercase keys
-    const defaultModules = {
-        'order': 'Order',
-        'unreceived': 'Unreceived',
-        'receiving': 'Received',
-        'labeling': 'Labeling',
-        'testing': 'Testing',
-        'cleaning': 'Cleaning',
-        'packing': 'Packing',
-        'stockroom': 'Stockroom',
-        'validation': 'Validation',
-        'fnsku': 'FNSKU',
-        'productionarea': 'Production Area',
-        'returnscanner': 'Return Scanner',
-        'fbashipmentinbound': 'FBA Inbound Shipment',
-        'fbmorder': 'FBM Order'
-    };
-
-    // Use provided modules or default modules
-    const modules = data.modules || defaultModules;
-
-    let navHTML = '';
-
-    // Normalize main module
-    const mainModuleLower = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
-
-    // Add main module if it exists
-    if (mainModuleLower) {
-        navHTML += `
+            // Add main module if it exists
+            if (mainModuleLower) {
+                navHTML += `
             <a class="nav-link active" href="#"
                data-module="${mainModuleLower}"
                onclick="window.loadContent('${mainModuleLower}'); highlightNavLink(this); closeSidebar(); return false;">
                 ${modules[mainModuleLower] || capitalizeFirst(data.main_module)}
             </a>`;
-    }
+            }
 
-    // Add sub modules, explicitly filtering out the main module
-    if (Array.isArray(data.sub_modules)) {
-        // Filter and normalize sub_modules
-        const filteredSubModules = data.sub_modules
-            .map(m => m.toLowerCase().replace(/\s+/g, ''))
-            .filter(moduleLower => moduleLower !== mainModuleLower);
+            // Add sub modules, explicitly filtering out the main module
+            if (Array.isArray(data.sub_modules)) {
+                // Filter and normalize sub_modules
+                const filteredSubModules = data.sub_modules
+                    .map(m => m.toLowerCase().replace(/\s+/g, ''))
+                    .filter(moduleLower => moduleLower !== mainModuleLower);
 
-        filteredSubModules.forEach(moduleLower => {
-            navHTML += `
+                filteredSubModules.forEach(moduleLower => {
+                    navHTML += `
                 <a class="nav-link" href="#"
                    data-module="${moduleLower}"
                    onclick="window.loadContent('${moduleLower}'); highlightNavLink(this); closeSidebar(); return false;">
                     ${modules[moduleLower] || capitalizeFirst(moduleLower)}
                 </a>`;
-        });
-    }
+                });
+            }
 
-    nav.innerHTML = navHTML;
+            nav.innerHTML = navHTML;
 
-    // Ensure window variables are updated with properly filtered data
-    window.mainModule = mainModuleLower;
-    window.allowedModules = data.sub_modules ? 
-        data.sub_modules.map(m => m.toLowerCase().replace(/\s+/g, '')).filter(m => m !== mainModuleLower) : 
-        [];
-    window.defaultComponent = mainModuleLower;
+            // Ensure window variables are updated with properly filtered data
+            window.mainModule = mainModuleLower;
+            window.allowedModules = data.sub_modules ?
+                data.sub_modules.map(m => m.toLowerCase().replace(/\s+/g, '')).filter(m => m !== mainModuleLower) : [];
+            window.defaultComponent = mainModuleLower;
 
-    // Update Vue component if needed
-    if (mainModuleLower && window.appInstance) {
-        window.appInstance.forceUpdate(mainModuleLower);
-    }
+            // Update Vue component if needed
+            if (mainModuleLower && window.appInstance) {
+                window.appInstance.forceUpdate(mainModuleLower);
+            }
 
-    console.log('Navigation updated. Main:', window.mainModule, 'Allowed:', window.allowedModules);
-}
+            console.log('Navigation updated. Main:', window.mainModule, 'Allowed:', window.allowedModules);
+        }
 
-function forceComponentUpdate(moduleName) {
-    if (!window.appInstance) return;
+        function forceComponentUpdate(moduleName) {
+            if (!window.appInstance) return;
 
-    console.log('Forcing update to component:', moduleName);
-    window.appInstance.currentComponent = null;
+            console.log('Forcing update to component:', moduleName);
+            window.appInstance.currentComponent = null;
 
-    setTimeout(() => {
-        window.appInstance.currentComponent = moduleName;
-        console.log('Component updated to:', moduleName);
-    }, 0);
-}
+            setTimeout(() => {
+                window.appInstance.currentComponent = moduleName;
+                console.log('Component updated to:', moduleName);
+            }, 0);
+        }
 
-function capitalizeFirst(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
+        function capitalizeFirst(string) {
+            return string.charAt(0).toUpperCase() + string.slice(1);
+        }
 
-function showNotification(title, message, type) {
-    alert(`${title}: ${message}`);
-}
+        function showNotification(title, message, type) {
+            alert(`${title}: ${message}`);
+        }
 
-// Initialize form when page loads
-window.onload = function() {
-    const selectedUserId = document.getElementById('selectUser')?.value;
-    if (selectedUserId) {
-        fetchUserPrivileges(selectedUserId);
-    }
-};
-</script>
+        // Initialize form when page loads
+        window.onload = function() {
+            const selectedUserId = document.getElementById('selectUser')?.value;
+            if (selectedUserId) {
+                fetchUserPrivileges(selectedUserId);
+            }
+        };
+    </script>
 
     <!-- Add Store Modal -->
     <div class="modal fade" id="addStoreModal" tabindex="-1" aria-labelledby="addStoreModalLabel"
@@ -1639,13 +1627,12 @@ window.onload = function() {
                             <i class="bi bi-person"></i>
                             <span>Account</span>
                         </li>
-                        <li class="nav-item" class="nav-link" id="timerecord-tab" data-bs-toggle="tab"
-                            data-bs-target="#timerecord" type="button" role="tab" aria-controls="timerecord"
-                            aria-selected="false">
+                        <li class="nav-item" id="timerecord-tab" data-bs-toggle="tab" data-bs-target="#timerecord"
+                            type="button" role="tab" aria-controls="timerecord" aria-selected="false">
                             <i class="bi bi-clock"></i>
                             <span>Record</span>
                         </li>
-                        <li class="nav-item" class="nav-link" id="myprivileges-tab" data-bs-toggle="tab"
+                        <li class="nav-item" id="myprivileges-tab" data-bs-toggle="tab"
                             data-bs-target="#myprivileges" type="button" role="tab"
                             aria-controls="myprivileges" aria-selected="false">
                             <i class="bi bi-shield-lock"></i>
@@ -1707,7 +1694,7 @@ window.onload = function() {
                             </div>
 
                             <!-- Attendance Table -->
-                            <table class="table table-bordered table-hover">
+                            <table class="table table-bordered table-hover desktop">
                                 <thead class="table-dark">
                                     <tr>
                                         <th>Time In</th>
@@ -1775,6 +1762,59 @@ window.onload = function() {
                                     @endforeach
                                 </tbody>
                             </table>
+
+                            <!-- Mobile Attendance -->
+                            <div class="container mobile">
+                                @foreach ($employeeClocksThisweek as $index => $clockwk)
+                                    <div class="mobile-card mb-3 shadow-sm {{ $index % 2 == 0 ? 'bg-light' : 'bg-white' }}"
+                                        data-bs-toggle="tooltip" data-bs-placement="top"
+                                        title="{{ $clockwk->Notes }}">
+                                        <div class="card-body">
+                                            <div>
+                                                <h6 class="mb-0">Date :</h6>
+                                                <p class="mb-0">
+                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}</p>
+                                            </div>
+                                            <!-- Time In -->
+                                            <div>
+                                                <h6 class="mb-0">Time In :</h6>
+                                                <p class="mb-0">
+                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}</p>
+                                            </div>
+
+                                            <!-- Time Out -->
+                                            <div>
+                                                <h6 class="mb-0">Time Out :</h6>
+                                                @if ($clockwk->TimeOut)
+                                                    <p class="mb-0">
+                                                        {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('h:i A') }}
+                                                    </p>
+                                                @else
+                                                    <span class="badge bg-danger">Not yet timed out</span>
+                                                @endif
+                                            </div>
+
+                                            <!-- Computed Hours -->
+                                            <div>
+                                                <h6 class="mb-0">Computed Hours :</h6>
+                                                <div id="computed-hours-{{ $clockwk->ID }}">
+                                                    <small><strong>Not yet calculated</strong></small>
+                                                </div>
+                                            </div>
+
+                                            <!-- Notes Edit -->
+                                            <div class="notes-container">
+                                                <button class="btn btn-sm btn-primary text-white"
+                                                    data-bs-toggle="modal" data-bs-target="#editNotesModal"
+                                                    onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
                         </div>
 
                         <!-- Tab -->
@@ -1790,7 +1830,7 @@ window.onload = function() {
                                     <input type="text" class="form-control" id="myusername" name="myusername"
                                         placeholder="Enter username" value="{{ session('user_name', 'User Name') }}"
                                         required>
-                                </fieldset>
+                                </fieldset> -->
 
                                 <!-- Password -->
                                 <fieldset>
@@ -1855,7 +1895,7 @@ window.onload = function() {
                             </strong>
 
                             <!-- Attendance Table -->
-                            <div class="table-responsive">
+                            <div class="table-responsive d-none d-md-block">
                                 <table class="table table-bordered table-hover">
                                     <thead class="table-dark">
                                         <tr>
@@ -1869,6 +1909,11 @@ window.onload = function() {
                                         <!-- Default Rows Will Be Loaded Dynamically -->
                                     </tbody>
                                 </table>
+                            </div>
+
+                            <!-- Mobile Card View -->
+                            <div class="container d-block d-md-none" id="attendance-card-container">
+                                <!-- Cards will be injected dynamically -->
                             </div>
                         </div>
 
@@ -2901,50 +2946,87 @@ window.onload = function() {
                     },
                     success: function(response) {
                         const tableBody = $('#attendance-table-body');
+                        const cardContainer = $('#attendance-card-container');
                         const totalHoursSpan = $('#total-hours');
                         tableBody.empty(); // Clear the table body
+                        cardContainer.empty();
                         let totalMinutes = 0;
 
                         if (response.employeeClocks.length > 0) {
-                            response.employeeClocks.forEach(function(clock) {
+                            response.employeeClocks.forEach(function(clock, index) {
                                 const timeIn = new Date(clock.time_in);
                                 const timeOut = clock.time_out ?
                                     new Date(clock.time_out) :
                                     new Date(new Date().toLocaleString('en-US', {
                                         timeZone: 'America/Los_Angeles'
                                     }));
+
                                 const diffInMinutes = Math.round((timeOut - timeIn) / 60000);
                                 totalMinutes += diffInMinutes;
                                 const hours = Math.floor(diffInMinutes / 60);
                                 const minutes = diffInMinutes % 60;
+                                const timeInStr = timeIn.toLocaleTimeString([], {
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                });
+                                const timeOutStr = clock.time_out ?
+                                    timeOut.toLocaleTimeString([], {
+                                        hour: '2-digit',
+                                        minute: '2-digit'
+                                    }) :
+                                    '<span class="text-danger">Not yet timed out</span>';
+                                const cardBg = index % 2 === 0 ? 'bg-light' : 'bg-white';
 
-                                // Append row
+                                // Add to table (desktop)
                                 tableBody.append(`
-                                <tr>
-                                    <td><b>${timeIn.toLocaleDateString()}</b></td>
-                                    <td>${timeIn.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                                    <td>
-                                        ${
-                                            clock.time_out
-                                                ? `${timeOut.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-                                                : '<span class="text-danger">Not yet timed out</span>'
-                                        }
-                                    </td>
-                                    <td>${hours} hrs ${minutes} mins</td>
-                                </tr>
-                            `);
+                        <tr>
+                            <td><b>${timeIn.toLocaleDateString()}</b></td>
+                            <td>${timeInStr}</td>
+                            <td>${clock.time_out ? timeOutStr : '<span class="text-danger">Not yet timed out</span>'}</td>
+                            <td>${hours} hrs ${minutes} mins</td>
+                        </tr>
+                    `);
+
+                                // Add to card (mobile)
+                                cardContainer.append(`
+                        <div class="card mb-3 shadow-sm ${cardBg}">
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <h6 class="mb-0">Date</h6>
+                                    <p class="mb-0"><b>${timeIn.toLocaleDateString()}</b></p>
+                                </div>
+                                <div class="mb-2">
+                                    <h6 class="mb-0">Time In</h6>
+                                    <p class="mb-0">${timeInStr}</p>
+                                </div>
+                                <div class="mb-2">
+                                    <h6 class="mb-0">Time Out</h6>
+                                    ${clock.time_out ? `<p class="mb-0">${timeOutStr}</p>` : `<span class="badge bg-danger">Not yet timed out</span>`}
+                                </div>
+                                <div class="mb-2">
+                                    <h6 class="mb-0">Computed Hours</h6>
+                                    <p class="mb-0">${hours} hrs ${minutes} mins</p>
+                                </div>
+                            </div>
+                        </div>
+                    `);
                             });
 
-                            // Calculate total hours from totalMinutes
                             const totalHours = Math.floor(totalMinutes / 60);
                             const totalRemainingMinutes = totalMinutes % 60;
                             totalHoursSpan.text(`${totalHours} hrs ${totalRemainingMinutes} mins`);
+
                         } else {
                             tableBody.append(`
-                            <tr>
-                                <td colspan="3" class="text-center">No records found.</td>
-                            </tr>
-                        `);
+                    <tr>
+                        <td colspan="4" class="text-center">No records found.</td>
+                    </tr>
+                `);
+                            cardContainer.append(`
+                    <div class="alert alert-info text-center" role="alert">
+                        No records found.
+                    </div>
+                `);
                             totalHoursSpan.text('0:00');
                         }
                     },

@@ -5,7 +5,7 @@
         <!-- Top header bar with blue background -->
         <div class="top-header">
             <div class="header-buttons">
-                <button class="btn" @click="openScannerModal" v-if="$refs.scanner">
+                <button class="btn" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
                 </button>
             </div>
@@ -18,7 +18,7 @@
                         {{ store }}
                     </option>
                 </select>
-                
+
                 <label for="status-select">Status:</label>
                 <select id="status-select" v-model="statusFilter" @change="changeStatusFilter" class="status-select">
                     <option value="">All Status</option>
@@ -27,7 +27,7 @@
                     <option value="Canceled">Canceled</option>
                     <option value="Unshipped">Unshipped</option>
                 </select>
-                
+
                 <button class="btn-refresh" @click="refreshData">
                     <i class="fas fa-sync-alt"></i>
                 </button>
@@ -37,7 +37,7 @@
         <!-- Selection status bar - NEW COMPONENT -->
         <div class="selection-status-bar" v-if="persistentSelectedOrderIds.length > 0">
             <div class="selection-info">
-                <i class="fas fa-check-square"></i> 
+                <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{ persistentSelectedOrderIds.length > 1 ? 's' : '' }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
@@ -96,7 +96,7 @@
                         <tr :class="{'has-dispensed-items': hasDispensedItems(order)}">
                             <td class="sticky-col first-col">
                                 <div class="checkbox-disabled-tooltip">
-                                    <input type="checkbox" v-model="order.checked" @change="handleOrderCheckChange(order)" 
+                                    <input type="checkbox" v-model="order.checked" @change="handleOrderCheckChange(order)"
                                         :disabled="!canSelectOrder(order)" />
                                 </div>
                             </td>
@@ -202,7 +202,7 @@
                             <td class="order-status-cell">
                                 <div>Purchase label date:</div>
                                 <div>
-                                    Order Status: 
+                                    Order Status:
                                     <span :class="getStatusClass(order.order_status)">
                                         {{ order.order_status }}
                                     </span>
@@ -220,7 +220,7 @@
                                     <select class="action-select">
                                         <option value="NULL">NULL</option>
                                     </select>
-                                    
+
                                     <div class="action-buttons">
                                         <button class="btn-track">TRACK</button>
                                         <button class="btn-tracking-history">Tracking History</button>
@@ -229,9 +229,9 @@
                                         <button class="btn-edit-customer">Edit Customer Name</button>
                                         <button class="btn-edit-address">Edit Address</button>
                                         <button class="btn-edit-note">Edit Note</button>
-                                        
+
                                         <!-- Process Button (with integrated Auto Dispense) -->
-                                        <button class="btn-process" @click="openProcessModal(order)" 
+                                        <button class="btn-process" @click="openProcessModal(order)"
                                             :disabled="order.order_status === 'Shipped' || order.order_status === 'Canceled'">
                                             <i class="fas fa-shipping-fast"></i> Process
                                         </button>
@@ -257,7 +257,7 @@
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <div class="checkbox-disabled-tooltip">
-                                <input type="checkbox" v-model="order.checked" @change="handleOrderCheckChange(order)" 
+                                <input type="checkbox" v-model="order.checked" @change="handleOrderCheckChange(order)"
                                     :disabled="!canSelectOrder(order)" />
                             </div>
                         </div>
@@ -278,7 +278,7 @@
                             <!-- Mobile product title with checkbox -->
                             <div class="mobile-product-title-row">
                                 <div class="checkbox-disabled-tooltip">
-                                    <input type="checkbox" :value="item.outboundorderitemid" v-model="dispenseItemsSelected" 
+                                    <input type="checkbox" :value="item.outboundorderitemid" v-model="dispenseItemsSelected"
                                         class="mobile-item-dispense-checkbox" :disabled="!isItemDispensed(item)" />
                                 </div>
                                 <div class="mobile-product-title">
@@ -342,7 +342,7 @@
                         <button class="mobile-btn" @click="viewOrderDetails(order)">
                             <i class="fas fa-info-circle"></i> Details
                         </button>
-                        
+
                         <button class="mobile-btn" @click="openProcessModal(order)"
                             :disabled="order.order_status === 'Shipped' || order.order_status === 'Canceled'">
                             <i class="fas fa-shipping-fast"></i> Process
@@ -455,10 +455,10 @@
                             <h3 class="section-title">Actions</h3>
                             <div class="order-actions">
                                 <!-- Process Button -->
-                                <button 
-                                    v-if="selectedOrder.order_status !== 'Shipped' && 
+                                <button
+                                    v-if="selectedOrder.order_status !== 'Shipped' &&
                                          selectedOrder.order_status !== 'Canceled'"
-                                    class="action-button process-button" 
+                                    class="action-button process-button"
                                     @click="openProcessModalFromDetails(selectedOrder)">
                                     <i class="fas fa-shipping-fast"></i> Process Order
                                 </button>
@@ -485,9 +485,9 @@
                                 <button class="action-button label-button" @click="printShippingLabel(selectedOrder.outboundorderid)">
                                     <i class="fas fa-tag"></i> Print Shipping Label
                                 </button>
-                                <button 
+                                <button
                                     v-if="selectedOrder.order_status === 'Pending' || selectedOrder.order_status === 'Unshipped'"
-                                    class="action-button cancel-button" 
+                                    class="action-button cancel-button"
                                     @click="confirmCancelOrder(selectedOrder.outboundorderid)">
                                     <i class="fas fa-times-circle"></i> Cancel Order
                                 </button>
@@ -502,7 +502,7 @@
                             <div v-for="(item, idx) in (selectedOrder.items || [])" :key="idx" class="order-item">
                                 <div class="item-title-row">
                                     <div class="checkbox-disabled-tooltip">
-                                        <input type="checkbox" :value="item.outboundorderitemid" v-model="dispenseItemsSelected" 
+                                        <input type="checkbox" :value="item.outboundorderitemid" v-model="dispenseItemsSelected"
                                             class="item-dispense-checkbox" :disabled="!isItemDispensed(item)" />
                                     </div>
                                     <div class="item-title">{{ item.platform_title }}</div>
@@ -1175,7 +1175,7 @@
 
 .fbm-order-module .btn-process {
     background-color: #28a745 !important;
-    color: white !important; 
+    color: white !important;
     display: flex;
     align-items: center;
 }
@@ -1347,7 +1347,7 @@
         grid-template-columns: repeat(2, 1fr);
         gap: 5px;
     }
-    
+
     .fbm-order-module .mobile-btn {
         padding: 8px;
         font-size: 0.8rem;
@@ -1359,11 +1359,11 @@
         align-items: center;
         justify-content: center;
     }
-    
+
     .fbm-order-module .mobile-btn:nth-child(1) {
         background-color: #007bff;
     }
-    
+
     .fbm-order-module .mobile-btn:nth-child(2) {
         background-color: #28a745;
     }
@@ -1372,7 +1372,7 @@
         margin-right: 3px;
         font-size: 0.7rem;
     }
-    
+
     .fbm-order-module .mobile-btn:disabled {
         background-color: #6c757d;
         cursor: not-allowed;
@@ -1584,29 +1584,29 @@
   .fbm-order-module .desktop-view {
     display: none !important;
   }
-  
+
   .fbm-order-module .mobile-view {
     display: block !important;
   }
-  
+
   /* Better header layout on mobile */
   .fbm-order-module .top-header {
     flex-direction: column;
     padding: 10px;
   }
-  
+
   .fbm-order-module .store-filter {
     flex-direction: column;
     width: 100%;
     gap: 10px;
     margin-top: 10px;
   }
-  
+
   .fbm-order-module .store-filter label {
     margin-right: 5px;
     font-weight: 500;
   }
-  
+
   .fbm-order-module .store-select,
   .fbm-order-module .status-select {
     width: 100%;
@@ -1615,7 +1615,7 @@
     border-radius: 4px;
     border: 1px solid #ccc;
   }
-  
+
   .fbm-order-module .btn-refresh {
     width: 100%;
     justify-content: center;
@@ -1626,7 +1626,7 @@
     border: none;
     font-weight: 500;
   }
-  
+
   /* Improved mobile card design */
   .fbm-order-module .mobile-card {
     border: 1px solid #ddd;
@@ -1636,7 +1636,7 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     overflow: hidden;
   }
-  
+
   .fbm-order-module .mobile-card-header {
     display: flex;
     align-items: center;
@@ -1644,55 +1644,55 @@
     background-color: #f5f5f5;
     border-bottom: 1px solid #ddd;
   }
-  
+
   .fbm-order-module .mobile-order-id {
     font-weight: bold;
     flex-grow: 1;
     font-size: 1rem;
   }
-  
+
   .fbm-order-module .mobile-status {
     padding: 5px 8px;
     border-radius: 4px;
     font-size: 0.8rem;
     font-weight: 600;
   }
-  
+
   .fbm-order-module .mobile-customer {
     padding: 12px;
     border-bottom: 1px solid #eee;
   }
-  
+
   .fbm-order-module .mobile-customer-name {
     font-weight: 600;
     margin-bottom: 6px;
     font-size: 0.95rem;
   }
-  
+
   .fbm-order-module .mobile-customer-address {
     font-size: 0.85rem;
     color: #555;
     line-height: 1.4;
   }
-  
+
   /* Better mobile product display */
   .fbm-order-module .mobile-products {
     padding: 12px;
     border-bottom: 1px solid #eee;
   }
-  
+
   .fbm-order-module .mobile-product-item {
     padding-bottom: 10px;
     margin-bottom: 10px;
     border-bottom: 1px solid #eee;
   }
-  
+
   .fbm-order-module .mobile-product-item:last-child {
     margin-bottom: 0;
     padding-bottom: 0;
     border-bottom: none;
   }
-  
+
   .fbm-order-module .mobile-product-details {
     display: grid;
     grid-template-columns: 1fr;
@@ -1701,13 +1701,13 @@
     margin-bottom: 5px;
     margin-left: 24px; /* Align with text after checkbox */
   }
-  
+
   .fbm-order-module .mobile-product-condition {
     font-size: 0.85rem;
     color: #555;
     margin-left: 24px; /* Align with text after checkbox */
   }
-  
+
   /* Better order details display */
   .fbm-order-module .mobile-order-details {
     padding: 12px;
@@ -1716,23 +1716,23 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
-  
+
   .fbm-order-module .mobile-detail {
     margin-bottom: 5px;
   }
-  
+
   .fbm-order-module .mobile-detail-label {
     font-size: 0.75rem;
     color: #666;
     display: block;
     margin-bottom: 2px;
   }
-  
+
   .fbm-order-module .mobile-detail-value {
     font-size: 0.85rem;
     font-weight: 500;
   }
-  
+
   /* Improved action buttons */
   .fbm-order-module .mobile-actions {
     padding: 12px;
@@ -1740,7 +1740,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 8px;
   }
-  
+
   .fbm-order-module .mobile-btn {
     padding: 10px 8px;
     border-radius: 4px;
@@ -1755,35 +1755,35 @@
     cursor: pointer;
     transition: opacity 0.2s;
   }
-  
+
   .fbm-order-module .mobile-btn i {
     margin-right: 5px;
   }
-  
+
   /* Specific button colors */
   .fbm-order-module .mobile-btn:nth-child(1) {
     background-color: #17a2b8;
   }
-  
+
   .fbm-order-module .mobile-btn:nth-child(2) {
     background-color: #28a745;
   }
-  
+
   .fbm-order-module .mobile-btn:disabled {
     opacity: 0.65;
     cursor: not-allowed;
   }
-  
+
   /* Better pagination on mobile */
   .fbm-order-module .pagination-wrapper {
     flex-direction: column;
     align-items: center;
   }
-  
+
   .fbm-order-module .per-page-selector {
     margin-bottom: 10px;
   }
-  
+
   .fbm-order-module .pagination {
     width: 100%;
     justify-content: space-between;
@@ -2098,15 +2098,15 @@
     width: 95%;
     height: 95vh;
   }
-  
+
   .fbm-order-module .order-details-sections {
     grid-template-columns: 1fr;
   }
-  
+
   .fbm-order-module .order-actions {
     grid-template-columns: 1fr;
   }
-  
+
   .fbm-order-module .auto-dispense-button,
   .fbm-order-module .process-button,
   .fbm-order-module .cancel-dispense-button,
@@ -2115,11 +2115,11 @@
   .fbm-order-module .label-button {
     grid-column: span 1;
   }
-  
+
   .fbm-order-module .item-details-grid {
     flex-direction: column;
   }
-  
+
   .fbm-order-module .item-details-left {
     grid-template-columns: 1fr;
   }
@@ -2274,12 +2274,12 @@
     flex-direction: column;
     gap: 10px;
   }
-  
+
   .fbm-order-module .selection-actions {
     width: 100%;
     justify-content: space-between;
   }
-  
+
   .fbm-order-module .btn-action {
     flex: 1;
     justify-content: center;
