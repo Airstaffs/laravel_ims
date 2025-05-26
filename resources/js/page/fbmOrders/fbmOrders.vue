@@ -1,3 +1,5 @@
+<!--fbmoerders.vue -->
+<!--fbmoerders.vue -->
 <template>
     <div class="vue-container fbm-order-module">
         <!-- Top header bar with blue background -->
@@ -107,17 +109,27 @@
                                 <div>Amazon Order</div>
                                 <div>{{ formatDate(order.purchase_date) }}</div>
                             </td>
-                            <!-- Product Details column with checkboxes for each order item -->
+                            <!-- Enhanced Product Details column with multiple dispensed products support -->
                             <td class="product-details-cell">
                                 <div v-for="(item, itemIndex) in (order.items || [])" :key="itemIndex" class="product-item">
                                     <!-- Item title row with checkbox -->
                                     <div class="product-title-row">
-                                        <div class="checkbox-disabled-tooltip">
-                                            <input type="checkbox" :value="item.outboundorderitemid" v-model="dispenseItemsSelected" 
-                                                class="item-dispense-checkbox" :disabled="!isItemDispensed(item)" />
-                                        </div>
-                                        <div class="product-title">{{ item.platform_title }}</div>
-                                    </div>
+                                      <div class="checkbox-disabled-tooltip">
+                                          <input type="checkbox" :value="item.outboundorderitemid" v-model="dispenseItemsSelected" 
+                                              class="item-dispense-checkbox" :disabled="!isItemDispensed(item)" />
+                                      </div>
+                                      <div class="product-title">
+                                          {{ item.platform_title }}
+                                          <!-- Enhanced quantity badge with dispensed count -->
+                                          <span v-if="item.quantity_ordered > 1" class="quantity-badge">
+                                              Qty: {{ item.quantity_ordered }}
+                                              <span v-if="isItemDispensed(item)" class="dispensed-count">
+                                                  ({{ getDispensedProductCount(item) }} dispensed)
+                                              </span>
+                                          </span>
+                                      </div>
+                                  </div>
+
                                     <div class="product-detail">Order Item ID: {{ item.platform_order_item_id || 'N/A' }}</div>
                                     <div class="product-detail">
                                         Ordered ASIN: {{ item.platform_asin }}
@@ -136,22 +148,33 @@
                                         Item Tax: ${{ parseFloat(item.unit_tax || 0).toFixed(2) }}
                                     </div>
                                     
-                                    <!-- Enhanced product_id display with additional information -->
-                                    <div v-if="isItemDispensed(item)" class="product-detail dispensed-item-details">
+                                    <!-- Enhanced dispensed products display for multiple quantities -->
+                                    <div v-if="isItemDispensed(item)" class="dispensed-item-details">
                                         <div class="dispensed-header">
-                                            <span class="product-id-badge">Order Item ID: {{ item.platform_order_item_id }}</span>
+                                            <span class="product-id-badge">
+                                                Dispensed Products ({{ getDispensedProductCount(item) }}/{{ item.quantity_ordered }})
+                                            </span>
                                         </div>
-                                        <div v-if="item.warehouseLocation" class="dispensed-detail">
-                                            Warehouse Location: {{ item.warehouseLocation }}
-                                        </div>
-                                        <div v-if="item.serialNumber" class="dispensed-detail">
-                                            Serial Number: {{ item.serialNumber }}
-                                        </div>
-                                        <div v-if="item.rtCounter" class="dispensed-detail">
-                                            RT Counter: {{ item.rtCounter }}
-                                        </div>
-                                        <div v-if="item.FNSKU" class="dispensed-detail">
-                                            FNSKU: {{ item.FNSKU }}
+                                        
+                                        <!-- Display all dispensed products -->
+                                        <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)" 
+                                             :key="'dp-' + dpIndex" class="dispensed-product-item">
+                                            <div class="dispensed-detail">
+                                                <strong>Product ID:</strong> {{ dispensedProduct.product_id }}
+                                            </div>
+                                            <div v-if="dispensedProduct.warehouseLocation" class="dispensed-detail">
+                                                <strong>Location:</strong> {{ dispensedProduct.warehouseLocation }}
+                                            </div>
+                                            <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
+                                                <strong>Serial #:</strong> {{ dispensedProduct.serialNumber }}
+                                            </div>
+                                            <div v-if="dispensedProduct.rtCounter" class="dispensed-detail">
+                                                <strong>RT Counter:</strong> {{ dispensedProduct.rtCounter }}
+                                            </div>
+                                            <div v-if="dispensedProduct.FNSKU" class="dispensed-detail">
+                                                <strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}
+                                            </div>
+                                            <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1" class="dispensed-separator">
                                         </div>
                                     </div>
                                 </div>
@@ -191,7 +214,7 @@
                                     Store Name: {{ order.storename || 'N/A' }}
                                 </div>
                             </td>
-                            <!-- Action column - Removed Cancel Dispense button from here -->
+                            <!-- Action column -->
                             <td colspan="2">
                                 <div class="action-cell">
                                     <select class="action-select">
@@ -249,6 +272,7 @@
                         <div class="mobile-customer-address">{{ formatAddress(order.address) }}</div>
                     </div>
 
+                    <!-- Enhanced Mobile Products Display -->
                     <div class="mobile-products">
                         <div v-for="(item, itemIndex) in (order.items || [])" :key="itemIndex" class="mobile-product-item">
                             <!-- Mobile product title with checkbox -->
@@ -257,7 +281,13 @@
                                     <input type="checkbox" :value="item.outboundorderitemid" v-model="dispenseItemsSelected" 
                                         class="mobile-item-dispense-checkbox" :disabled="!isItemDispensed(item)" />
                                 </div>
-                                <div class="mobile-product-title">{{ item.platform_title }}</div>
+                                <div class="mobile-product-title">
+                                    {{ item.platform_title }}
+                                    <span v-if="item.quantity_ordered > 1" class="quantity-badge-mobile">
+                                        Qty: {{ item.quantity_ordered }}
+                                        <span v-if="isItemDispensed(item)"> ({{ getDispensedProductCount(item) }} dispensed)</span>
+                                    </span>
+                                </div>
                             </div>
                             <div class="mobile-product-details">
                                 ASIN: {{ item.platform_asin }} | SKU: {{ item.platform_sku }}
@@ -265,19 +295,29 @@
                             <div class="mobile-product-condition">
                                 Condition: {{ item.condition }} | Price: ${{ parseFloat(item.unit_price || 0).toFixed(2) }}
                             </div>
+                            
+                            <!-- Enhanced mobile dispensed products display -->
                             <div v-if="isItemDispensed(item)" class="mobile-product-dispense">
-                                Order Item ID: {{ item.platform_order_item_id }}
-                                <div v-if="item.warehouseLocation" class="mobile-dispensed-detail">
-                                    Loc: {{ item.warehouseLocation }}
+                                <div class="mobile-dispensed-header">
+                                    Dispensed Products ({{ getDispensedProductCount(item) }})
                                 </div>
-                                <div v-if="item.serialNumber" class="mobile-dispensed-detail">
-                                    Serial #: {{ item.serialNumber }}
-                                </div>
-                                <div v-if="item.rtCounter" class="mobile-dispensed-detail">
-                                    RT Counter: {{ item.rtCounter }}
-                                </div>
-                                <div v-if="item.FNSKU" class="mobile-dispensed-detail">
-                                    FNSKU: {{ item.FNSKU }}
+                                <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)" 
+                                     :key="'mobile-dp-' + dpIndex" class="mobile-dispensed-item">
+                                    <div class="mobile-dispensed-detail">
+                                        <strong>ID:</strong> {{ dispensedProduct.product_id }}
+                                    </div>
+                                    <div v-if="dispensedProduct.warehouseLocation" class="mobile-dispensed-detail">
+                                        <strong>Loc:</strong> {{ dispensedProduct.warehouseLocation }}
+                                    </div>
+                                    <div v-if="dispensedProduct.serialNumber" class="mobile-dispensed-detail">
+                                        <strong>Serial:</strong> {{ dispensedProduct.serialNumber }}
+                                    </div>
+                                    <div v-if="dispensedProduct.rtCounter" class="mobile-dispensed-detail">
+                                        <strong>RT:</strong> {{ dispensedProduct.rtCounter }}
+                                    </div>
+                                    <div v-if="dispensedProduct.FNSKU" class="mobile-dispensed-detail">
+                                        <strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -410,7 +450,7 @@
                             </div>
                         </div>
 
-                        <!-- Order Actions Section -->
+                        <!-- Enhanced Order Actions Section -->
                         <div class="order-details-section">
                             <h3 class="section-title">Actions</h3>
                             <div class="order-actions">
@@ -421,6 +461,22 @@
                                     class="action-button process-button" 
                                     @click="openProcessModalFromDetails(selectedOrder)">
                                     <i class="fas fa-shipping-fast"></i> Process Order
+                                </button>
+                                
+                                <!-- Auto Dispense Button - only show if there are unassigned items -->
+                                <button 
+                                    v-if="selectedOrder.items && selectedOrder.items.some(item => !isItemDispensed(item))"
+                                    class="action-button auto-dispense-button" 
+                                    @click="autoDispense(selectedOrder)">
+                                    <i class="fas fa-box-open"></i> Auto Dispense Items
+                                </button>
+                                
+                                <!-- Cancel Dispense Button - show if there are any dispensed items -->
+                                <button 
+                                    v-if="hasDispensedItems(selectedOrder)"
+                                    class="action-button cancel-dispense-button" 
+                                    @click="cancelDispense(selectedOrder)">
+                                    <i class="fas fa-undo"></i> Cancel Dispense
                                 </button>
                                 
                                 <button class="action-button packing-button" @click="generatePackingSlip(selectedOrder.outboundorderid)">
@@ -439,7 +495,7 @@
                         </div>
                     </div>
 
-                    <!-- Updated Order Items Section for Order Details Modal -->
+                    <!-- Enhanced Order Items Section for Order Details Modal -->
                     <div class="order-items-section">
                         <h3 class="section-title">Order Items</h3>
                         <div class="order-items">
@@ -467,7 +523,12 @@
                                         </div>
                                         <div class="item-info-row">
                                             <div class="item-label">Quantity:</div>
-                                            <div class="item-value">{{ item.quantity_ordered }}</div>
+                                            <div class="item-value">
+                                                {{ item.quantity_ordered }}
+                                                <span v-if="isItemDispensed(item)" class="dispensed-count">
+                                                    ({{ getDispensedProductCount(item) }} dispensed)
+                                                </span>
+                                            </div>
                                         </div>
                                         <div class="item-info-row">
                                             <div class="item-label">Price:</div>
@@ -478,29 +539,35 @@
                                             <div class="item-value">${{ parseFloat(item.unit_tax || 0).toFixed(2) }}</div>
                                         </div>
                                         
-                                        <!-- Dispensed item details section -->
+                                        <!-- Enhanced dispensed item details section for multiple products -->
                                         <div v-if="isItemDispensed(item)" class="item-details-dispensed">
-                                            <div class="item-dispensed-title">Dispensed Product Information</div>
+                                            <div class="item-dispensed-title">
+                                                Dispensed Products ({{ getDispensedProductCount(item) }})
+                                            </div>
                                             <div class="item-dispensed-detail">
-                                                <div class="dispensed-row">
-                                                    <span class="dispensed-label">Order Item ID:</span>
-                                                    <span class="dispensed-value">{{ item.platform_order_item_id }}</span>
-                                                </div>
-                                                <div v-if="item.warehouseLocation" class="dispensed-row">
-                                                    <span class="dispensed-label">Location:</span>
-                                                    <span class="dispensed-value">{{ item.warehouseLocation }}</span>
-                                                </div>
-                                                <div v-if="item.serialNumber" class="dispensed-row">
-                                                    <span class="dispensed-label">Serial #:</span>
-                                                    <span class="dispensed-value">{{ item.serialNumber }}</span>
-                                                </div>
-                                                <div v-if="item.rtCounter" class="dispensed-row">
-                                                    <span class="dispensed-label">RT Counter:</span>
-                                                    <span class="dispensed-value">{{ item.rtCounter }}</span>
-                                                </div>
-                                                <div v-if="item.FNSKU" class="dispensed-row">
-                                                    <span class="dispensed-label">FNSKU:</span>
-                                                    <span class="dispensed-value">{{ item.FNSKU }}</span>
+                                                <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)" 
+                                                     :key="'modal-dp-' + dpIndex" class="dispensed-product-modal">
+                                                    <div class="dispensed-row">
+                                                        <span class="dispensed-label">Product ID:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.product_id }}</span>
+                                                    </div>
+                                                    <div v-if="dispensedProduct.warehouseLocation" class="dispensed-row">
+                                                        <span class="dispensed-label">Location:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.warehouseLocation }}</span>
+                                                    </div>
+                                                    <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
+                                                        <span class="dispensed-label">Serial #:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.serialNumber }}</span>
+                                                    </div>
+                                                    <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
+                                                        <span class="dispensed-label">RT Counter:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.rtCounter }}</span>
+                                                    </div>
+                                                    <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
+                                                        <span class="dispensed-label">FNSKU:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.FNSKU }}</span>
+                                                    </div>
+                                                    <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1" class="dispensed-separator">
                                                 </div>
                                             </div>
                                         </div>
@@ -534,61 +601,89 @@
                 </div>
                 <div class="process-modal-body">
                     <!-- Auto Dispense Section - Show only when auto-dispensing within the process modal -->
-                    <div v-if="processingAutoDispense" class="process-auto-dispense-section">
-                        <div v-if="loadingDispenseProducts" class="loading-dispense">
-                            <i class="fas fa-spinner fa-spin"></i> Searching for matching products...
-                        </div>
-                        <div v-else-if="dispenseProducts.length === 0" class="no-matching-products">
-                            <i class="fas fa-exclamation-circle"></i> No matching products found in your inventory.
-                        </div>
-                        <div v-else class="matching-products">
-                            <h3>Matching Products</h3>
-                            
-                            <div v-for="(dispenseItem, index) in dispenseProducts" :key="'dispense-'+index" class="dispense-item">
-                                <div class="ordered-item-details">
-                                    <h4>Ordered Item</h4>
-                                    <div class="ordered-item-title">{{ dispenseItem.ordered_item.platform_title }}</div>
-                                    <div class="ordered-item-info">
-                                        ASIN: {{ dispenseItem.ordered_item.platform_asin }} | 
-                                        SKU: {{ dispenseItem.ordered_item.platform_sku }} | 
-                                        Condition: {{ getConditionDisplay(dispenseItem.ordered_item) }}
-                                    </div>
-                                    <div class="ordered-item-info">
-                                        Order Item ID: {{ dispenseItem.ordered_item.platform_order_item_id }}
-                                    </div>
-                                </div>
-                                
-                                <div class="matching-products-list">
-                                    <h4>Matching Products ({{ dispenseItem.matching_products.length }})</h4>
-                                    <div class="fifo-note"><i class="fas fa-info-circle"></i> Products are sorted by stockroom date (oldest first)</div>
-                                    
-                                    <div v-if="dispenseItem.matching_products.length === 0" class="no-matches-for-item">
-                                        No matching products for this item
-                                    </div>
-                                    
-                                    <div v-else class="matching-product-options">
-                                        <div v-for="(product, prodIndex) in dispenseItem.matching_products" 
-                                            :key="'product-'+prodIndex"
-                                            :class="['matching-product', selectedDispenseProducts[dispenseItem.item_id] && selectedDispenseProducts[dispenseItem.item_id].ProductID === product.ProductID ? 'selected' : '']"
-                                            @click="selectDispenseProduct(dispenseItem.item_id, product)">
-                                            <div class="matching-product-title">{{ product.title }}</div>
-                                            <div class="matching-product-info">
-                                                <div>ASIN: {{ product.asin }}</div>
-                                                <div>MSKU: {{ product.msku }}</div>
-                                                <div>Condition: {{ product.condition }}</div>
-                                                <div>Product ID: {{ product.ProductID }}</div>
-                                                <div>Available: {{ product.fbm_available }}</div>
-                                                <div>Location: {{ product.warehouseLocation || 'N/A' }}</div>
-                                                <div>Serial #: {{ product.serialNumber || 'N/A' }}</div>
-                                                <div>FNSKU: {{ product.fnsku || 'N/A' }}</div>
-                                                <div>Stock Date: {{ product.stockroom_insert_date || 'N/A' }}</div>
-                                            </div>
-                                        </div>
-                                    </div>
+                  <div v-if="processingAutoDispense" class="process-auto-dispense-section">
+    <div v-if="loadingDispenseProducts" class="loading-dispense">
+        <i class="fas fa-spinner fa-spin"></i> Searching for matching products...
+    </div>
+    <div v-else-if="dispenseProducts.length === 0" class="no-matching-products">
+        <i class="fas fa-exclamation-circle"></i> No matching products found in your inventory.
+    </div>
+    <div v-else class="matching-products">
+        <h3>Matching Products</h3>
+        
+        <div v-for="(dispenseItem, index) in dispenseProducts" :key="'dispense-'+index" class="dispense-item">
+            <div class="ordered-item-details">
+                <h4>Ordered Item</h4>
+                <div class="ordered-item-title">
+                    {{ dispenseItem.ordered_item.platform_title }}
+                    <!-- Add quantity information -->
+                    <span class="quantity-info">
+                        Quantity: {{ dispenseItem.quantity_ordered }} 
+                        ({{ dispenseItem.quantity_dispensed }} dispensed, {{ dispenseItem.quantity_remaining }} remaining)
+                    </span>
+                </div>
+                <div class="ordered-item-info">
+                    ASIN: {{ dispenseItem.ordered_item.platform_asin }} | 
+                    SKU: {{ dispenseItem.ordered_item.platform_sku }} | 
+                    Condition: {{ getConditionDisplay(dispenseItem.ordered_item) }}
+                </div>
+                <div class="ordered-item-info">
+                    Order Item ID: {{ dispenseItem.ordered_item.platform_order_item_id }}
+                </div>
+                
+                <!-- Show already dispensed products if any -->
+                <div v-if="dispenseItem.quantity_dispensed > 0" class="already-dispensed-section">
+                    <h5>Already Dispensed Products ({{ dispenseItem.quantity_dispensed }})</h5>
+                    <div class="already-dispensed-ids">
+                        <span v-for="(productId, idx) in dispenseItem.already_dispensed_products" :key="'dispensed-'+idx" 
+                              class="dispensed-id-tag">
+                            Product ID: {{ productId }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Only show product selection if more quantities are needed -->
+            <div v-if="dispenseItem.quantity_remaining > 0" class="matching-products-list">
+                <h4>Select {{ dispenseItem.quantity_remaining }} More Product{{ dispenseItem.quantity_remaining > 1 ? 's' : '' }}</h4>
+                <div class="fifo-note">
+                    <i class="fas fa-info-circle"></i> Products are sorted by stockroom date (oldest first)
+                </div>
+                
+                <div v-if="dispenseItem.matching_products.length === 0" class="no-matches-for-item">
+                    No matching products for this item
+                </div>
+                
+                <div v-else class="matching-product-options">
+                    <!-- Create a selection area for each needed quantity -->
+                    <div v-for="slot in dispenseItem.quantity_remaining" :key="'slot-'+slot" class="product-selection-slot">
+                        <h5>Selection {{ slot }}</h5>
+                        <div class="matching-product-options">
+                            <div v-for="(product, prodIndex) in dispenseItem.matching_products" 
+                                :key="'product-'+prodIndex"
+                                :class="['matching-product', 
+                                          selectedDispenseProducts[`${dispenseItem.item_id}-${slot-1}`] && 
+                                          selectedDispenseProducts[`${dispenseItem.item_id}-${slot-1}`].ProductID === product.ProductID 
+                                          ? 'selected' : '']"
+                                @click="selectDispenseProduct(dispenseItem.item_id, slot-1, product)">
+                                <div class="matching-product-title">{{ product.title }}</div>
+                                <div class="matching-product-info">
+                                    <div>ASIN: {{ product.asin }}</div>
+                                    <div>MSKU: {{ product.msku }}</div>
+                                    <div>Condition: {{ product.condition }}</div>
+                                    <div>Product ID: {{ product.ProductID }}</div>
                                 </div>
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+            <div v-else class="fully-dispensed-message">
+                <i class="fas fa-check-circle"></i> This item is fully dispensed
+            </div>
+        </div>
+    </div>
+</div>
 
                     <!-- Regular Process Section - Show when not auto-dispensing -->
                     <div v-else>
@@ -600,18 +695,23 @@
                                         <div class="process-item-title">{{ item.platform_title }}</div>
                                         <div class="process-item-info">
                                             ASIN: {{ item.platform_asin }} | SKU: {{ item.platform_sku }} | Qty: {{ item.quantity_ordered }}
+                                            <span v-if="isItemDispensed(item)"> ({{ getDispensedProductCount(item) }} dispensed)</span>
                                         </div>
                                         <div class="process-item-info">
                                             Order Item ID: {{ item.platform_order_item_id }}
                                         </div>
                                         
-                                        <!-- Show product_id and details if it exists -->
+                                        <!-- Show multiple dispensed products if they exist -->
                                         <div v-if="isItemDispensed(item)" class="process-item-info product-id-info">
-                                            <div>Order Item ID: {{ item.platform_order_item_id }}</div>
-                                            <div v-if="item.warehouseLocation">Location: {{ item.warehouseLocation }}</div>
-                                            <div v-if="item.serialNumber">Serial #: {{ item.serialNumber }}</div>
-                                            <div v-if="item.rtCounter">RT Counter: {{ item.rtCounter }}</div>
-                                            <div v-if="item.FNSKU">FNSKU: {{ item.FNSKU }}</div>
+                                            <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)" 
+                                                 :key="'process-dp-' + dpIndex" class="process-dispensed-product">
+                                                <div><strong>Product ID:</strong> {{ dispensedProduct.product_id }}</div>
+                                                <div v-if="dispensedProduct.warehouseLocation"><strong>Location:</strong> {{ dispensedProduct.warehouseLocation }}</div>
+                                                <div v-if="dispensedProduct.serialNumber"><strong>Serial #:</strong> {{ dispensedProduct.serialNumber }}</div>
+                                                <div v-if="dispensedProduct.rtCounter"><strong>RT Counter:</strong> {{ dispensedProduct.rtCounter }}</div>
+                                                <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}</div>
+                                                <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1" class="dispensed-separator">
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -638,36 +738,37 @@
                         </div>
                     </div>
                 </div>
+                <!-- Enhanced Process Modal Footer with improved button logic -->
                 <div class="process-modal-footer">
-                    <button class="btn-cancel" @click="closeProcessModal">Close</button>
-                    
-                    <!-- Auto Dispense Mode Buttons -->
-                    <template v-if="processingAutoDispense">
-                        <button class="btn-back-to-process" @click="cancelAutoDispenseProcess">
-                            <i class="fas fa-arrow-left"></i> Back
-                        </button>
-                        <button class="btn-confirm-dispense" @click="confirmAutoDispenseInProcess" :disabled="!canConfirmDispense">
-                            <i class="fas fa-check"></i> Confirm Dispense
-                        </button>
-                    </template>
-                    
-                    <!-- Regular Process Mode Buttons - Only showing cancel dispense button -->
-                    <template v-else>
-                        <!-- Show Cancel Dispense button if there are dispensed items -->
-                        <button v-if="hasDispensedItems(currentProcessOrder)" 
-                                class="btn-cancel-dispense-in-process" 
-                                @click="cancelDispense(currentProcessOrder)">
-                            <i class="fas fa-undo"></i> Cancel Dispense
-                        </button>
-                        
-                        <!-- Auto Dispense button - only show if there are unassigned items -->
-                        <button class="btn-auto-dispense-from-process" 
-                                @click="startAutoDispenseInProcess" 
-                                v-if="!hasDispensedItems(currentProcessOrder) && currentOrderHasUnassignedItems">
-                            <i class="fas fa-box-open"></i> Auto Dispense Items
-                        </button>
-                    </template>
-                </div>
+    <button class="btn-cancel" @click="closeProcessModal">Close</button>
+    
+    <!-- Auto Dispense Mode Buttons -->
+    <template v-if="processingAutoDispense">
+        <button class="btn-back-to-process" @click="cancelAutoDispenseProcess">
+            <i class="fas fa-arrow-left"></i> Back
+        </button>
+        <button class="btn-confirm-dispense" @click="confirmAutoDispenseInProcess" :disabled="!canConfirmDispense">
+            <i class="fas fa-check"></i> Confirm Dispense
+        </button>
+    </template>
+    
+    <!-- Regular Process Mode Buttons -->
+    <template v-else>
+        <!-- Show Cancel Dispense button if there are dispensed items -->
+        <button v-if="hasDispensedItems(currentProcessOrder)" 
+                class="btn-cancel-dispense-in-process" 
+                @click="cancelDispense(currentProcessOrder)">
+            <i class="fas fa-undo"></i> Cancel Dispense
+        </button>
+        
+        <!-- Auto Dispense button - only show if there are unassigned items -->
+        <button class="btn-auto-dispense-from-process" 
+                @click="startAutoDispenseInProcess" 
+                v-if="currentOrderHasUnassignedItems">
+            <i class="fas fa-box-open"></i> Auto Dispense Items
+        </button>
+    </template>
+</div>
             </div>
         </div>
     </div>
@@ -679,6 +780,9 @@
 </script>
 
 <style>
+/* Module-specific styles */
+/* Complete CSS for FBM Order Module with Enhanced Multiple Product Display */
+
 /* Module-specific styles */
 .fbm-order-module .status-badge {
     padding: 4px 8px;
@@ -746,36 +850,93 @@
     margin-left: 8px;
 }
 
-/* Styling for dispensed items */
+/* Enhanced Styling for Multiple Dispensed Items */
 .fbm-order-module .dispensed-item-details {
-  border-left: 3px solid #007bff;
-  padding-left: 8px;
-  margin-top: 8px;
+  border-left: 3px solid #17a2b8;
+  padding: 12px;
+  margin-top: 10px;
   background-color: #f8f9fa;
-  border-radius: 4px;
-  padding: 8px;
+  border-radius: 6px;
   margin-left: 24px; /* Align with text after checkbox */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .fbm-order-module .dispensed-header {
-  margin-bottom: 5px;
+  margin-bottom: 10px;
   font-weight: bold;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 6px;
+}
+
+.fbm-order-module .product-id-badge {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  padding: 4px 10px;
+  border-radius: 4px;
+  display: inline-block;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+/* Individual Dispensed Product Items */
+.fbm-order-module .dispensed-product-item {
+  background-color: #ffffff;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 8px;
+  transition: box-shadow 0.2s ease;
+}
+
+.fbm-order-module .dispensed-product-item:hover {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.fbm-order-module .dispensed-product-item:last-child {
+  margin-bottom: 0;
 }
 
 .fbm-order-module .dispensed-detail {
   font-size: 0.8rem;
   color: #495057;
-  margin-bottom: 2px;
-  padding-left: 5px;
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.fbm-order-module .product-id-badge {
-  background-color: #e7f5ff;
-  color: #004085;
-  padding: 2px 6px;
-  border-radius: 3px;
-  display: inline-block;
+.fbm-order-module .dispensed-detail strong {
+  color: #212529;
   font-weight: 600;
+  min-width: 90px;
+  margin-right: 8px;
+}
+
+/* Separator between dispensed products */
+.fbm-order-module .dispensed-separator {
+  border: none;
+  border-top: 1px solid #dee2e6;
+  margin: 8px 0;
+  opacity: 0.7;
+}
+
+/* Enhanced Quantity Badge with Dispensed Count */
+.fbm-order-module .quantity-badge {
+  background-color: #e9ecef;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  margin-left: 6px;
+  color: #495057;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.fbm-order-module .dispensed-count {
+  color: #28a745;
+  font-weight: 600;
+  margin-left: 4px;
 }
 
 /* Checkbox styles */
@@ -806,31 +967,116 @@
     margin-left: 8px;
 }
 
+/* Enhanced Mobile Dispensed Products Display */
+.fbm-order-module .quantity-badge-mobile {
+  display: block;
+  font-size: 0.8rem;
+  color: #6c757d;
+  font-weight: normal;
+  margin-top: 3px;
+}
+
+.fbm-order-module .mobile-product-dispense {
+  background-color: #f8f9fa;
+  border-left: 3px solid #17a2b8;
+  padding: 8px;
+  margin-top: 8px;
+  border-radius: 4px;
+  margin-left: 24px; /* Align with text after checkbox */
+}
+
+.fbm-order-module .mobile-dispensed-header {
+  font-weight: 600;
+  color: #0c5460;
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 3px;
+}
+
+.fbm-order-module .mobile-dispensed-item {
+  background-color: #ffffff;
+  border-radius: 3px;
+  padding: 6px;
+  margin-bottom: 6px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.fbm-order-module .mobile-dispensed-item:last-child {
+  margin-bottom: 0;
+}
+
+.fbm-order-module .mobile-dispensed-detail {
+  font-size: 0.75rem;
+  color: #6c757d;
+  margin-bottom: 2px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fbm-order-module .mobile-dispensed-detail strong {
+  color: #495057;
+  font-weight: 600;
+  min-width: 50px;
+  margin-right: 4px;
+}
+
 /* For the detail view in the modal */
 .fbm-order-module .order-item .item-details-dispensed {
   background-color: #f8f9fa;
-  border-left: 3px solid #007bff;
-  padding: 8px;
-  margin-top: 10px;
-  border-radius: 4px;
+  border-left: 3px solid #17a2b8;
+  padding: 12px;
+  margin-top: 15px;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .fbm-order-module .item-dispensed-title {
   font-weight: 600;
-  margin-bottom: 5px;
-  color: #004085;
+  margin-bottom: 10px;
+  color: #0c5460;
+  font-size: 1rem;
+  border-bottom: 1px solid #dee2e6;
+  padding-bottom: 5px;
 }
 
 .fbm-order-module .item-dispensed-detail {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  font-size: 0.85rem;
+  display: block;
+}
+
+.fbm-order-module .dispensed-product-modal {
+  background-color: #ffffff;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 10px;
+  border: 1px solid #e9ecef;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.fbm-order-module .dispensed-product-modal:last-child {
+  margin-bottom: 0;
+}
+
+.fbm-order-module .dispensed-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
 }
 
 .fbm-order-module .dispensed-label {
   color: #6c757d;
   font-weight: 500;
+  font-size: 0.85rem;
+  min-width: 80px;
+}
+
+.fbm-order-module .dispensed-value {
+  font-weight: 600;
+  color: #212529;
+  font-size: 0.85rem;
 }
 
 .fbm-order-module .fifo-note {
@@ -838,6 +1084,10 @@
   color: #6c757d;
   font-style: italic;
   margin-bottom: 10px;
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
+  border-left: 3px solid #17a2b8;
 }
 
 .fbm-order-module .fifo-note i {
@@ -1019,15 +1269,18 @@
     padding: 10px;
     margin-bottom: 10px;
     cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .fbm-order-module .matching-product:hover {
     background-color: #f5f5f5;
+    border-color: #adb5bd;
 }
 
 .fbm-order-module .matching-product.selected {
     border-color: #28a745;
     background-color: #f8fff8;
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.2);
 }
 
 .fbm-order-module .loading-dispense,
@@ -1043,6 +1296,11 @@
     padding: 8px 15px;
     border-radius: 4px;
     cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.fbm-order-module .btn-confirm-dispense:hover {
+    background-color: #5a2d91;
 }
 
 .fbm-order-module .btn-confirm-dispense:disabled {
@@ -1050,7 +1308,7 @@
     cursor: not-allowed;
 }
 
-/* New Cancel Dispense in Process button */
+/* Enhanced Cancel Dispense Button Styles */
 .fbm-order-module .btn-cancel-dispense-in-process {
     background-color: #fd7e14;
     color: white;
@@ -1061,10 +1319,25 @@
     cursor: pointer;
     display: flex;
     align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.fbm-order-module .btn-cancel-dispense-in-process:hover {
+    background-color: #e8630e;
 }
 
 .fbm-order-module .btn-cancel-dispense-in-process i {
     margin-right: 5px;
+}
+
+.fbm-order-module .cancel-dispense-button {
+    background-color: #fd7e14;
+    color: white;
+    grid-column: span 2;
+}
+
+.fbm-order-module .cancel-dispense-button:hover {
+    background-color: #e8630e;
 }
 
 /* Mobile view styles */
@@ -1095,24 +1368,6 @@
         background-color: #28a745;
     }
     
-    .fbm-order-module .mobile-product-dispense {
-        background-color: #e7f5ff;
-        color: #004085;
-        padding: 2px 6px;
-        border-radius: 3px;
-        display: inline-block;
-        margin-top: 5px;
-        font-weight: 600;
-        font-size: 0.8rem;
-        margin-left: 24px; /* Align with text after checkbox */
-    }
-    
-    .fbm-order-module .mobile-dispensed-detail {
-        font-size: 0.75rem;
-        color: #6c757d;
-        margin-top: 2px;
-    }
-    
     .fbm-order-module .mobile-btn i {
         margin-right: 3px;
         font-size: 0.7rem;
@@ -1122,6 +1377,27 @@
         background-color: #6c757d;
         cursor: not-allowed;
         opacity: 0.65;
+    }
+    
+    /* Enhanced mobile dispensed product display */
+    .fbm-order-module .dispensed-detail {
+        flex-direction: column;
+        gap: 2px;
+        align-items: flex-start;
+    }
+    
+    .fbm-order-module .dispensed-detail strong {
+        min-width: auto;
+    }
+    
+    .fbm-order-module .mobile-dispensed-detail {
+        flex-direction: column;
+        gap: 1px;
+        align-items: flex-start;
+    }
+    
+    .fbm-order-module .mobile-dispensed-detail strong {
+        min-width: auto;
     }
 }
 
@@ -1142,6 +1418,11 @@
   cursor: pointer;
   display: flex;
   align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.fbm-order-module .btn-auto-dispense-from-process:hover {
+    background-color: #5a2d91;
 }
 
 .fbm-order-module .btn-auto-dispense-from-process i,
@@ -1159,6 +1440,11 @@
   border-radius: 4px;
   cursor: pointer;
   margin-bottom: 10px;
+  transition: background-color 0.2s ease;
+}
+
+.fbm-order-module .auto-dispense-button:hover {
+    background-color: #5a2d91;
 }
 
 .fbm-order-module .btn-back-to-process {
@@ -1171,6 +1457,11 @@
   cursor: pointer;
   display: flex;
   align-items: center;
+  transition: background-color 0.2s ease;
+}
+
+.fbm-order-module .btn-back-to-process:hover {
+    background-color: #5a6268;
 }
 
 .fbm-order-module .process-modal .matching-product {
@@ -1179,6 +1470,7 @@
   padding: 10px;
   margin-bottom: 10px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .fbm-order-module .process-modal .matching-product:hover {
@@ -1231,7 +1523,7 @@
 
 .fbm-order-module .process-modal .matching-product-info {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   font-size: 0.8rem;
   gap: 5px;
 }
@@ -1250,36 +1542,38 @@
   background-color: #f9f9f9;
 }
 
-.fbm-order-module .btn-confirm-dispense {
-  background-color: #6f42c1;
-  color: white;
-  border: none;
-  padding: 8px 15px;
+/* Enhanced Process Modal Product Display */
+.fbm-order-module .process-dispensed-product {
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
   border-radius: 4px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
+  padding: 8px;
+  margin-bottom: 8px;
 }
 
-.fbm-order-module .btn-confirm-dispense:disabled {
-  background-color: #a084d0;
-  cursor: not-allowed;
+.fbm-order-module .process-dispensed-product:last-child {
+  margin-bottom: 0;
 }
 
 /* Style for product_id info */
 .fbm-order-module .product-id-info {
   background-color: #e7f5ff;
   color: #004085;
-  padding: 6px 10px;
-  border-radius: 3px;
+  padding: 8px 12px;
+  border-radius: 4px;
   display: block;
-  font-weight: 600;
+  font-weight: 500;
   margin-top: 8px;
   font-size: 0.8rem;
+  border-left: 3px solid #007bff;
 }
 
 .fbm-order-module .product-id-info > div {
   margin-bottom: 3px;
+}
+
+.fbm-order-module .product-id-info div:last-child {
+  margin-bottom: 0;
 }
 
 /* ====== MOBILE VIEW IMPROVEMENTS ====== */
@@ -1645,7 +1939,7 @@
 
 .fbm-order-module .order-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
@@ -1672,16 +1966,18 @@
   grid-column: span 2;
 }
 
+.fbm-order-module .auto-dispense-button:hover {
+    background-color: #5a2d91;
+}
+
 .fbm-order-module .process-button {
   background-color: #28a745;
   color: white;
   grid-column: span 2;
 }
 
-.fbm-order-module .cancel-dispense-button {
-  background-color: #fd7e14;
-  color: white;
-  grid-column: span 2;
+.fbm-order-module .process-button:hover {
+    background-color: #218838;
 }
 
 .fbm-order-module .packing-button,
@@ -1690,10 +1986,19 @@
   color: white;
 }
 
+.fbm-order-module .packing-button:hover,
+.fbm-order-module .label-button:hover {
+    background-color: #138496;
+}
+
 .fbm-order-module .cancel-button {
   background-color: #dc3545;
   color: white;
   grid-column: span 2;
+}
+
+.fbm-order-module .cancel-button:hover {
+    background-color: #c82333;
 }
 
 .fbm-order-module .order-items-section {
@@ -1742,44 +2047,6 @@
 
 .fbm-order-module .item-value {
   font-weight: 500;
-  color: #212529;
-}
-
-.fbm-order-module .item-details-dispensed {
-  background-color: #e7f5ff;
-  border-radius: 5px;
-  padding: 12px;
-  grid-column: 1 / -1;
-  margin-top: 15px;
-}
-
-.fbm-order-module .item-dispensed-title {
-  font-weight: 600;
-  color: #004085;
-  margin-bottom: 10px;
-}
-
-.fbm-order-module .item-dispensed-detail {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px;
-}
-
-.fbm-order-module .dispensed-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin-bottom: 5px;
-}
-
-.fbm-order-module .dispensed-label {
-  font-size: 0.85rem;
-  color: #004085;
-  font-weight: 500;
-}
-
-.fbm-order-module .dispensed-value {
-  font-weight: 600;
   color: #212529;
 }
 
@@ -1885,6 +2152,19 @@
   font-size: 12px;
   white-space: nowrap;
   z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 /* Item-specific tooltip message */
@@ -2006,5 +2286,101 @@
     font-size: 0.75rem;
     padding: 6px 8px;
   }
+}
+
+/* Enhanced Auto Dispense Features */
+.fbm-order-module .product-selection-slot {
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 10px;
+  background-color: #ffffff;
+}
+
+.fbm-order-module .already-dispensed-section {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #f0f0f0;
+  border-radius: 4px;
+  border-left: 3px solid #28a745;
+}
+
+.fbm-order-module .dispensed-id-tag {
+  background-color: #e9ecef;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  margin-right: 5px;
+  display: inline-block;
+  margin-bottom: 3px;
+}
+
+.fbm-order-module .fully-dispensed-message {
+  text-align: center;
+  padding: 15px;
+  color: #28a745;
+  font-weight: 600;
+  background-color: #f8fff8;
+  border-radius: 4px;
+  border: 1px solid #d4edda;
+}
+
+.fbm-order-module .fully-dispensed-message i {
+  margin-right: 8px;
+  font-size: 1.2rem;
+}
+
+/* Process modal enhancements */
+.fbm-order-module .process-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.fbm-order-module .process-modal-content {
+  background-color: #fff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+}
+
+.fbm-order-module .process-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #ddd;
+  background-color: #f8f9fa;
+}
+
+.fbm-order-module .process-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6c757d;
+}
+
+.fbm-order-module .process-modal-body {
+  padding: 20px;
+}
+
+.fbm-order-module .process-modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #ddd;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background-color: #f8f9fa;
 }
 </style>

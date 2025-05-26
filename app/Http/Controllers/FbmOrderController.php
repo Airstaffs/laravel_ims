@@ -27,6 +27,14 @@ class FbmOrderController extends BasetablesController
         $storeFilter = $request->input('store', '');
         $statusFilter = $request->input('status', '');
         
+        Log::info('FBM Orders index called with params:', [
+            'per_page' => $perPage,
+            'page' => $page,
+            'search' => $search,
+            'store' => $storeFilter,
+            'status' => $statusFilter
+        ]);
+        
         // Base query for orders
         $query = DB::table('tbloutboundorders')
             ->select(
@@ -63,75 +71,129 @@ class FbmOrderController extends BasetablesController
         $totalCount = $query->count();
         $totalPages = ceil($totalCount / $perPage);
         
+        Log::info('Query built, total count: ' . $totalCount);
+        
         // Get paginated orders
         $orders = $query->orderBy('PurchaseDate', 'desc')
                       ->skip(($page - 1) * $perPage)
                       ->take($perPage)
                       ->get();
         
+        Log::info('Orders fetched: ' . $orders->count());
+        
         // Get orders with their items
         $formattedOrders = [];
         foreach ($orders as $order) {
             $orderData = (array) $order;
             
-            // Get items for this order - JOIN with product table to get additional details
-            $items = DB::table('tbloutboundordersitem AS oi')
-                ->select(
-                    'oi.outboundorderitemid',
-                    'oi.platform_order_id',
-                    'oi.platform_order_item_id',
-                    'oi.platform_sku',
-                    'oi.platform_asin',
-                    'oi.platform_title',
-                    'oi.ConditionId',
-                    'oi.ConditionSubtypeId',
-                    'oi.order_status',
-                    'oi.QuantityOrdered as quantity_ordered',
-                    'oi.QuantityShipped as quantity_shipped',
-                    'oi.trackingnumber as tracking_number',
-                    'oi.trackingstatus as tracking_status',
-                    'oi.unit_price',
-                    'oi.unit_tax',
-                    'oi.ProductID as product_id',
-                    // Join with product table to get these details when product_id exists
-                    'p.warehouseLocation',
-                    'p.serialNumber',
-                    'p.rtCounter',
-                    'p.FNSKUviewer as FNSKU'
-                )
-                ->leftJoin('tblproduct AS p', 'oi.ProductID', '=', 'p.ProductID')
-                ->where('oi.platform_order_id', $order->platform_order_id)
-                ->get();
-            
-            // Format items with condition - pass store name for store-specific formatting
-            $formattedItems = [];
-            foreach ($items as $item) {
-                $itemArray = (array) $item;
-                $itemArray['condition'] = $this->formatCondition($item->ConditionId, $item->ConditionSubtypeId, $order->storename);
-                $formattedItems[] = $itemArray;
-            }
-            
-            // Add items to order
-            $orderData['items'] = $formattedItems;
-            
-            // Set order status based on items
-            if (!empty($formattedItems)) {
-                $statuses = array_column($formattedItems, 'order_status');
+            try {
+                // Get items for this order
+                $items = DB::table('tbloutboundordersitem AS oi')
+                    ->select(
+                        'oi.outboundorderitemid',
+                        'oi.platform_order_id',
+                        'oi.platform_order_item_id',
+                        'oi.platform_sku',
+                        'oi.platform_asin',
+                        'oi.platform_title',
+                        'oi.ConditionId',
+                        'oi.ConditionSubtypeId',
+                        'oi.order_status',
+                        'oi.QuantityOrdered as quantity_ordered',
+                        'oi.QuantityShipped as quantity_shipped',
+                        'oi.trackingnumber as tracking_number',
+                        'oi.trackingstatus as tracking_status',
+                        'oi.unit_price',
+                        'oi.unit_tax',
+                        'oi.ProductID as product_id' // Keep this for backward compatibility
+                    )
+                    ->where('oi.platform_order_id', $order->platform_order_id)
+                    ->get();
                 
-                if (in_array('Canceled', $statuses)) {
-                    $orderData['order_status'] = 'Canceled';
-                } elseif (in_array('Pending', $statuses)) {
-                    $orderData['order_status'] = 'Pending';
-                } elseif (count(array_filter($statuses, function($s) { return $s == 'Shipped'; })) == count($statuses)) {
-                    $orderData['order_status'] = 'Shipped';
-                } else {
-                    $orderData['order_status'] = 'Unshipped';
+                Log::info('Items fetched for order ' . $order->platform_order_id . ': ' . $items->count());
+                
+                // Format items with condition and get dispensed product details
+                $formattedItems = [];
+                foreach ($items as $item) {
+                    $itemArray = (array) $item;
+                    
+                    try {
+                        $itemArray['condition'] = $this->formatCondition($item->ConditionId, $item->ConditionSubtypeId, $order->storename);
+                        
+                        // Get all dispensed products for this item
+                        $dispensedProducts = $this->getDispensedProductsForItem($item->outboundorderitemid);
+                        
+                        // If we have dispensed products, add their details to the item
+                        if (!empty($dispensedProducts)) {
+                            // For backward compatibility, keep the first product_id
+                            $itemArray['product_id'] = $dispensedProducts[0]['product_id'];
+                            
+                            // Add detailed information from the first dispensed product
+                            $itemArray['warehouseLocation'] = $dispensedProducts[0]['warehouseLocation'] ?? '';
+                            $itemArray['serialNumber'] = $dispensedProducts[0]['serialNumber'] ?? '';
+                            $itemArray['rtCounter'] = $dispensedProducts[0]['rtCounter'] ?? '';
+                            $itemArray['FNSKU'] = $dispensedProducts[0]['FNSKU'] ?? '';
+                            
+                            // Add all dispensed products array for multiple quantity handling
+                            $itemArray['dispensed_products'] = $dispensedProducts;
+                            $itemArray['dispensed_count'] = count($dispensedProducts);
+                        } else {
+                            // No dispensed products
+                            $itemArray['product_id'] = null;
+                            $itemArray['warehouseLocation'] = '';
+                            $itemArray['serialNumber'] = '';
+                            $itemArray['rtCounter'] = '';
+                            $itemArray['FNSKU'] = '';
+                            $itemArray['dispensed_products'] = [];
+                            $itemArray['dispensed_count'] = 0;
+                        }
+                        
+                        $formattedItems[] = $itemArray;
+                        
+                    } catch (\Exception $e) {
+                        Log::error('Error processing item ' . $item->outboundorderitemid . ': ' . $e->getMessage());
+                        // Add item with basic info if processing fails
+                        $itemArray['condition'] = $item->ConditionId . $item->ConditionSubtypeId;
+                        $itemArray['product_id'] = null;
+                        $itemArray['warehouseLocation'] = '';
+                        $itemArray['serialNumber'] = '';
+                        $itemArray['rtCounter'] = '';
+                        $itemArray['FNSKU'] = '';
+                        $itemArray['dispensed_products'] = [];
+                        $itemArray['dispensed_count'] = 0;
+                        $formattedItems[] = $itemArray;
+                    }
                 }
-            } else {
+                
+                // Add items to order
+                $orderData['items'] = $formattedItems;
+                
+                // Set order status based on items
+                if (!empty($formattedItems)) {
+                    $statuses = array_column($formattedItems, 'order_status');
+                    
+                    if (in_array('Canceled', $statuses)) {
+                        $orderData['order_status'] = 'Canceled';
+                    } elseif (in_array('Pending', $statuses)) {
+                        $orderData['order_status'] = 'Pending';
+                    } elseif (count(array_filter($statuses, function($s) { return $s == 'Shipped'; })) == count($statuses)) {
+                        $orderData['order_status'] = 'Shipped';
+                    } else {
+                        $orderData['order_status'] = 'Unshipped';
+                    }
+                } else {
+                    $orderData['order_status'] = 'Pending';
+                }
+                
+                $formattedOrders[] = $orderData;
+                
+            } catch (\Exception $e) {
+                Log::error('Error processing order ' . $order->outboundorderid . ': ' . $e->getMessage());
+                // Add order with basic info if processing fails
+                $orderData['items'] = [];
                 $orderData['order_status'] = 'Pending';
+                $formattedOrders[] = $orderData;
             }
-            
-            $formattedOrders[] = $orderData;
         }
         
         // Additional status filtering if needed
@@ -141,6 +203,8 @@ class FbmOrderController extends BasetablesController
             });
             $formattedOrders = array_values($formattedOrders);
         }
+        
+        Log::info('Formatted orders: ' . count($formattedOrders));
         
         return response()->json([
             'success' => true,
@@ -153,10 +217,268 @@ class FbmOrderController extends BasetablesController
         
     } catch (\Exception $e) {
         Log::error('Error fetching FBM orders: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
-        return response()->json(['success' => false, 'message' => 'Error fetching orders', 'error' => $e->getMessage()], 500);
+        return response()->json([
+            'success' => false, 
+            'message' => 'Error fetching orders', 
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ], 500);
     }
 }
-    
+
+/**
+ * Get dispensed products for a specific order item
+ */
+private function getDispensedProductsForItem($orderItemId)
+{
+    try {
+        // Check if the dispensed table exists first
+        if (!Schema::hasTable('tblorderitemdispense')) {
+            Log::warning('Table tblorderitemdispense does not exist');
+            return [];
+        }
+        
+        $dispensedProducts = DB::table('tblorderitemdispense as d')
+            ->select(
+                'd.productid as product_id',
+                'p.warehouseLocation',
+                'p.serialNumber', 
+                'p.rtCounter',
+                'p.FNSKUviewer as FNSKU'
+            )
+            ->leftJoin('tblproduct as p', 'd.productid', '=', 'p.ProductID')
+            ->where('d.orderitemid', $orderItemId)
+            ->get();
+        
+        return $dispensedProducts->map(function($item) {
+            return [
+                'product_id' => $item->product_id,
+                'warehouseLocation' => $item->warehouseLocation ?? '',
+                'serialNumber' => $item->serialNumber ?? '',
+                'rtCounter' => $item->rtCounter ?? '',
+                'FNSKU' => $item->FNSKU ?? ''
+            ];
+        })->toArray();
+        
+    } catch (\Exception $e) {
+        Log::error('Error getting dispensed products for item ' . $orderItemId . ': ' . $e->getMessage());
+        return [];
+    }
+}
+
+
+
+// Fixed getOrderDetail method for FbmOrderController
+public function getOrderDetail(Request $request)
+{
+    try {
+        // Validate request
+        $request->validate([
+            'order_id' => 'required|integer'
+        ]);
+        
+        $orderId = $request->input('order_id');
+        
+        Log::info('Getting order detail for order ID: ' . $orderId);
+        
+        // Get the order with better error handling
+        $orderQuery = DB::table('tbloutboundorders')
+            ->select(
+                'outboundorderid', 
+                'platform', 
+                'storename', 
+                'platform_order_id',
+                'FulfillmentChannel',
+                'BuyerName as buyer_name',
+                'address_line1',
+                'city',
+                'StateOrRegion',
+                'postal_code',
+                'PurchaseDate as purchase_date',
+                'ship_date',
+                'delivery_date',
+                'ShipmentServiceLevelCategory as shipment_service',
+                'OrderType as order_type',
+                'ordernote',
+                'IsReplacementOrder as is_replacement'
+            )
+            ->where('outboundorderid', $orderId);
+            
+        Log::info('Order query built for ID: ' . $orderId);
+        
+        $order = $orderQuery->first();
+        
+        if (!$order) {
+            Log::warning('Order not found for ID: ' . $orderId);
+            return response()->json([
+                'success' => false,
+                'message' => 'Order not found'
+            ], 404);
+        }
+        
+        Log::info('Order found: ' . $order->platform_order_id);
+        
+        $orderData = (array) $order;
+        
+        // Build address manually to avoid CONCAT issues
+        $addressParts = array_filter([
+            $order->address_line1 ?? '',
+            $order->city ?? '',
+            $order->StateOrRegion ?? '',
+            $order->postal_code ?? ''
+        ]);
+        $orderData['address'] = implode(', ', $addressParts);
+        
+        // Remove individual address fields to clean up response
+        unset($orderData['address_line1'], $orderData['city'], $orderData['StateOrRegion'], $orderData['postal_code']);
+        
+        Log::info('Getting items for order ID: ' . $orderId);
+        
+        // Get items for this order with better error handling
+        $itemsQuery = DB::table('tbloutboundordersitem AS oi')
+            ->select(
+                'oi.outboundorderitemid',
+                'oi.outboundorderid',
+                'oi.platform_order_id',
+                'oi.platform_order_item_id',
+                'oi.platform_sku',
+                'oi.platform_asin',
+                'oi.platform_title',
+                'oi.ConditionId',
+                'oi.ConditionSubtypeId',
+                'oi.order_status',
+                'oi.QuantityOrdered as quantity_ordered',
+                'oi.QuantityShipped as quantity_shipped',
+                'oi.trackingnumber as tracking_number',
+                'oi.trackingstatus as tracking_status',
+                'oi.unit_price',
+                'oi.unit_tax',
+                'oi.ProductID as product_id'
+            )
+            ->where('oi.outboundorderid', $orderId);
+            
+        $items = $itemsQuery->get();
+        
+        Log::info('Found ' . $items->count() . ' items for order');
+        
+        // Format items with condition and dispensed product details
+        $formattedItems = [];
+        foreach ($items as $item) {
+            $itemArray = (array) $item;
+            
+            try {
+                // Format condition
+                $itemArray['condition'] = $this->formatCondition(
+                    $item->ConditionId, 
+                    $item->ConditionSubtypeId, 
+                    $order->storename
+                );
+                
+                Log::info('Processing item: ' . $item->outboundorderitemid);
+                
+                // Get all dispensed products for this item
+                $dispensedProducts = $this->getDispensedProductsForItem($item->outboundorderitemid);
+                
+                Log::info('Found ' . count($dispensedProducts) . ' dispensed products for item ' . $item->outboundorderitemid);
+                
+                // If we have dispensed products, add their details to the item
+                if (!empty($dispensedProducts)) {
+                    // For backward compatibility, keep the first product_id
+                    $itemArray['product_id'] = $dispensedProducts[0]['product_id'];
+                    
+                    // Add detailed information from the first dispensed product
+                    $itemArray['warehouseLocation'] = $dispensedProducts[0]['warehouseLocation'] ?? '';
+                    $itemArray['serialNumber'] = $dispensedProducts[0]['serialNumber'] ?? '';
+                    $itemArray['rtCounter'] = $dispensedProducts[0]['rtCounter'] ?? '';
+                    $itemArray['FNSKU'] = $dispensedProducts[0]['FNSKU'] ?? '';
+                    
+                    // Add all dispensed products array for multiple quantity handling
+                    $itemArray['dispensed_products'] = $dispensedProducts;
+                    $itemArray['dispensed_count'] = count($dispensedProducts);
+                } else {
+                    // No dispensed products
+                    $itemArray['product_id'] = null;
+                    $itemArray['warehouseLocation'] = '';
+                    $itemArray['serialNumber'] = '';
+                    $itemArray['rtCounter'] = '';
+                    $itemArray['FNSKU'] = '';
+                    $itemArray['dispensed_products'] = [];
+                    $itemArray['dispensed_count'] = 0;
+                }
+                
+                $formattedItems[] = $itemArray;
+                
+            } catch (\Exception $e) {
+                Log::error('Error processing item ' . $item->outboundorderitemid . ' in detail view: ' . $e->getMessage());
+                Log::error('Item processing error trace: ' . $e->getTraceAsString());
+                
+                // Add item with basic info if processing fails
+                $itemArray['condition'] = ($item->ConditionId ?? '') . ($item->ConditionSubtypeId ?? '');
+                $itemArray['product_id'] = null;
+                $itemArray['warehouseLocation'] = '';
+                $itemArray['serialNumber'] = '';
+                $itemArray['rtCounter'] = '';
+                $itemArray['FNSKU'] = '';
+                $itemArray['dispensed_products'] = [];
+                $itemArray['dispensed_count'] = 0;
+                $formattedItems[] = $itemArray;
+            }
+        }
+        
+        // Add items to order
+        $orderData['items'] = $formattedItems;
+        
+        Log::info('Processed ' . count($formattedItems) . ' items');
+        
+        // Set order status based on items
+        if (!empty($formattedItems)) {
+            $statuses = array_column($formattedItems, 'order_status');
+            
+            if (in_array('Canceled', $statuses)) {
+                $orderData['order_status'] = 'Canceled';
+            } elseif (in_array('Pending', $statuses)) {
+                $orderData['order_status'] = 'Pending';
+            } elseif (count(array_filter($statuses, function($s) { return $s == 'Shipped'; })) == count($statuses)) {
+                $orderData['order_status'] = 'Shipped';
+            } else {
+                $orderData['order_status'] = 'Unshipped';
+            }
+        } else {
+            $orderData['order_status'] = 'Pending';
+        }
+        
+        Log::info('Order detail processing completed successfully');
+        
+        return response()->json([
+            'success' => true,
+            'data' => $orderData
+        ]);
+        
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        Log::error('Validation error in getOrderDetail: ' . json_encode($e->errors()));
+        return response()->json([
+            'success' => false, 
+            'message' => 'Invalid request parameters', 
+            'errors' => $e->errors()
+        ], 422);
+    } catch (\Exception $e) {
+        Log::error('Error fetching order detail: ' . $e->getMessage());
+        Log::error('Error trace: ' . $e->getTraceAsString());
+        Log::error('Error file: ' . $e->getFile() . ' at line ' . $e->getLine());
+        
+        return response()->json([
+            'success' => false, 
+            'message' => 'Error fetching order detail', 
+            'error' => $e->getMessage(),
+            'debug_info' => [
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'order_id' => $request->input('order_id', 'not provided')
+            ]
+        ], 500);
+    }
+}
+
     /**
      * Get list of stores for filtering
      */
@@ -180,10 +502,21 @@ class FbmOrderController extends BasetablesController
     /**
      * Find matching products for auto dispense with store-specific condition handling
      */
+/**
+ * Find matching products for auto dispense with quantity handling
+ */
 public function findDispenseProducts(Request $request)
 {
     try {
         Log::info('findDispenseProducts request received', $request->all());
+        
+        // Check if dispensed table exists
+        if (!Schema::hasTable('tblorderitemdispense')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dispensed products table not found. Please contact system administrator.'
+            ], 500);
+        }
         
         // Validate request
         $request->validate([
@@ -207,12 +540,8 @@ public function findDispenseProducts(Request $request)
         
         $storeName = $order->storename;
         $normalizedStoreName = $this->normalizeStoreName($storeName);
-        Log::info('Processing order from store: ' . $storeName . ' (normalized: ' . $normalizedStoreName . ')');
 
-        // Create a pool of available products by ASIN+condition
-        $productPool = [];
-        
-        // Get order items
+        // Get order items with detailed info
         $items = DB::table('tbloutboundordersitem')
             ->select(
                 'outboundorderitemid',
@@ -235,59 +564,91 @@ public function findDispenseProducts(Request $request)
             ], 404);
         }
 
-        // First, find all products that match our order criteria
-        foreach ($items as $item) {
-            if (empty($item->platform_asin)) continue;
-            
-            $itemCondition = $this->formatCondition($item->ConditionId, $item->ConditionSubtypeId, $storeName);
-            $key = $item->platform_asin . '-' . $itemCondition;
-            
-            if (!isset($productPool[$key])) {
-                // Find all matching products for this ASIN+condition
-                $productPool[$key] = $this->findMatchingProductsForItem($item, $storeName, $normalizedStoreName);
-            }
-        }
-        
-        // Keep track of allocated products
-        $allocatedProductIds = [];
-        
+        // Get ALL already dispensed products for this entire order to avoid conflicts
+        $allDispensedProductIds = DB::table('tblorderitemdispense as d')
+            ->join('tbloutboundordersitem as oi', 'd.orderitemid', '=', 'oi.outboundorderitemid')
+            ->where('oi.platform_order_id', $order->platform_order_id)
+            ->pluck('d.productid')
+            ->toArray();
+
+        Log::info('Already dispensed product IDs for entire order:', $allDispensedProductIds);
+
         // Results array for API response
         $results = [];
         
-        // Now, for each order item, assign a unique product
+        // Track used products across all items in this request to prevent duplicates
+        $usedProductIds = $allDispensedProductIds;
+        
+        // Process each order item
         foreach ($items as $item) {
             if (empty($item->platform_asin)) continue;
             
             $itemCondition = $this->formatCondition($item->ConditionId, $item->ConditionSubtypeId, $storeName);
-            $key = $item->platform_asin . '-' . $itemCondition;
             
-            // Get available products for this type
-            $availableProducts = $productPool[$key] ?? [];
+            // Get already dispensed products for THIS specific item
+            $dispensedProducts = $this->getDispensedProductsForItem($item->outboundorderitemid);
+            $alreadyDispensed = count($dispensedProducts);
             
-            // Find the first product that hasn't been allocated yet
-            $selectedProduct = null;
-            foreach ($availableProducts as $product) {
-                if (!in_array($product['ProductID'], $allocatedProductIds)) {
-                    $selectedProduct = $product;
-                    $allocatedProductIds[] = $product['ProductID'];
-                    break;
+            // Calculate remaining quantity needed for THIS item
+            $quantityNeeded = max(0, $item->QuantityOrdered - $alreadyDispensed);
+            
+            Log::info("Item {$item->outboundorderitemid}: Ordered={$item->QuantityOrdered}, Dispensed={$alreadyDispensed}, Needed={$quantityNeeded}");
+            
+            // If we still need products for this item
+            if ($quantityNeeded > 0) {
+                // Find ALL matching products for this ASIN/condition
+                $allMatchingProducts = $this->findMatchingProductsForItem($item, $storeName, $normalizedStoreName);
+                
+                // Filter out products that are already used (dispensed to ANY item in this order)
+                $availableProducts = array_filter($allMatchingProducts, function($product) use ($usedProductIds) {
+                    return !in_array($product['ProductID'], $usedProductIds);
+                });
+                
+                // Sort by stockroom date for FIFO
+                usort($availableProducts, function($a, $b) {
+                    $dateA = $a['stockroom_insert_date'] ?? '1970-01-01';
+                    $dateB = $b['stockroom_insert_date'] ?? '1970-01-01';
+                    return strcmp($dateA, $dateB);
+                });
+                
+                // Auto-select the needed quantity of products for this item
+                $selectedProducts = [];
+                $productsToTake = min($quantityNeeded, count($availableProducts));
+                
+                for ($i = 0; $i < $productsToTake; $i++) {
+                    $selectedProducts[] = $availableProducts[$i];
+                    // Mark this product as used so other items can't use it
+                    $usedProductIds[] = $availableProducts[$i]['ProductID'];
                 }
+                
+                Log::info("Item {$item->outboundorderitemid}: Selected {$productsToTake} products from " . count($availableProducts) . " available");
+                
+                // Add to results
+                $results[] = [
+                    'item_id' => $item->outboundorderitemid,
+                    'ordered_item' => $item,
+                    'ordered_condition' => $itemCondition,
+                    'quantity_ordered' => $item->QuantityOrdered,
+                    'quantity_dispensed' => $alreadyDispensed,
+                    'quantity_remaining' => $quantityNeeded,
+                    'available_products_count' => count($availableProducts),
+                    'auto_selected_products' => $selectedProducts, // Auto-selected products
+                    'matching_products' => [], // Empty since we auto-select
+                    'already_dispensed_products' => array_column($dispensedProducts, 'product_id'),
+                    'dispensed_products_details' => $dispensedProducts
+                ];
             }
-            
-            // Add to results - only include the single selected product, or empty array if none found
-            $results[] = [
-                'item_id' => $item->outboundorderitemid,
-                'ordered_item' => $item,
-                'ordered_condition' => $itemCondition,
-                'matching_products' => $selectedProduct ? [$selectedProduct] : []
-            ];
         }
 
-        Log::info('findDispenseProducts completed successfully', ['items_with_matches' => count($results)]);
-        
         return response()->json([
             'success' => true,
-            'data' => $results
+            'data' => $results,
+            'debug_info' => [
+                'total_items_processed' => count($items),
+                'items_needing_dispense' => count($results),
+                'total_products_used' => count($usedProductIds),
+                'order_platform_id' => $order->platform_order_id
+            ]
         ]);
 
     } catch (\Exception $e) {
@@ -295,10 +656,102 @@ public function findDispenseProducts(Request $request)
         return response()->json([
             'success' => false, 
             'message' => 'Error finding dispense products', 
-            'error' => $e->getMessage(),
-            'trace' => explode("\n", $e->getTraceAsString()),
-            'line' => $e->getLine(),
-            'file' => $e->getFile()
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+public function autoDispense(Request $request)
+{
+    try {
+        // Check if dispensed table exists
+        if (!Schema::hasTable('tblorderitemdispense')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dispensed products table not found. Please contact system administrator.'
+            ], 500);
+        }
+        
+        // Validate request
+        $request->validate([
+            'order_id' => 'required|integer',
+            'item_ids' => 'required|array',
+            'item_ids.*' => 'integer'
+        ]);
+
+        // Start transaction
+        DB::beginTransaction();
+
+        // Get fresh matching products and auto-select them
+        $findProductsRequest = new \Illuminate\Http\Request();
+        $findProductsRequest->merge([
+            'order_id' => $request->order_id,
+            'item_ids' => $request->item_ids
+        ]);
+        
+        $findResponse = $this->findDispenseProducts($findProductsRequest);
+        $findData = $findResponse->getData(true);
+        
+        if (!$findData['success'] || empty($findData['data'])) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'No products available for auto-dispense'
+            ], 400);
+        }
+        
+        $dispenseItems = [];
+        
+        // Build dispense items from auto-selected products
+        foreach ($findData['data'] as $itemData) {
+            foreach ($itemData['auto_selected_products'] as $product) {
+                $dispenseItems[] = [
+                    'item_id' => $itemData['item_id'],
+                    'product_id' => $product['ProductID']
+                ];
+            }
+        }
+        
+        if (empty($dispenseItems)) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'No products were auto-selected for dispensing'
+            ], 400);
+        }
+        
+        // Use the existing dispense logic
+        $dispenseRequest = new \Illuminate\Http\Request();
+        $dispenseRequest->merge([
+            'order_id' => $request->order_id,
+            'dispense_items' => $dispenseItems
+        ]);
+        
+        // Call the existing dispense method
+        $dispenseResponse = $this->dispense($dispenseRequest);
+        $dispenseData = $dispenseResponse->getData(true);
+        
+        if ($dispenseData['success']) {
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'message' => 'Items auto-dispensed successfully',
+                'dispensed_count' => count($dispenseItems),
+                'items_processed' => count($findData['data'])
+            ]);
+        } else {
+            DB::rollBack();
+            return response()->json($dispenseData, $dispenseResponse->getStatusCode());
+        }
+
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Error in auto dispense: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+        return response()->json([
+            'success' => false, 
+            'message' => 'Error in auto dispense', 
+            'error' => $e->getMessage()
         ], 500);
     }
 }
@@ -306,104 +759,116 @@ public function findDispenseProducts(Request $request)
 // New helper method to find matching products for an item
 private function findMatchingProductsForItem($item, $storeName, $normalizedStoreName)
 {
-    $originalConditionId = $item->ConditionId;
-    $originalSubtypeId = $item->ConditionSubtypeId;
-    
-    // Build the query differently depending on the store
-    $asinQuery = DB::table('tblasin')
-        ->select([
-            'tblasin.ASIN',
-            'tblfnsku.MSKU as MSKUviewer',
-            'tblasin.internal as AStitle',
-            'tblfnsku.storename',
-            'tblfnsku.grading',
-            'tblfnsku.FNSKU',
-            'tblproduct.FBMAvailable',
-            'tblproduct.ProductID',
-            'tblproduct.warehouseLocation',
-            'tblproduct.serialNumber',
-            'tblproduct.rtCounter',
-            'tblproduct.stockroom_insert_date'
-        ])
-        ->leftJoin('tblfnsku', 'tblasin.ASIN', '=', 'tblfnsku.ASIN')
-        ->leftJoin('tblproduct', function ($join) {
-            $join->on('tblfnsku.FNSKU', '=', 'tblproduct.FNSKUviewer');
-        })
-        ->where('tblasin.ASIN', $item->platform_asin);
+    try {
+        $originalConditionId = $item->ConditionId;
+        $originalSubtypeId = $item->ConditionSubtypeId;
         
-    // Add availability filter
-    if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
-        $asinQuery->where('tblproduct.FBMAvailable', '>', 0);
-    }
-        
-    // Add location filter if column exists
-    if (Schema::hasColumn('tblproduct', 'ProductModuleLoc')) {
-        $asinQuery->where('tblproduct.ProductModuleLoc', 'Stockroom');
-    }
-    
-    // Add store-specific filtering
-    if ($normalizedStoreName === 'allrenewed') {
-        // For AllRenewed, match on storename with various patterns
-        $asinQuery->where(function($q) {
-            $q->where('tblfnsku.storename', 'All Renewed')
-                ->orWhere('tblfnsku.storename', 'AllRenewed')
-                ->orWhere('tblfnsku.storename', 'Allrenewed');
-        });
-        
-        // For AllRenewed, only match on the "New" condition in the database
-        // regardless of the ConditionSubtypeId
-        $asinQuery->where('tblfnsku.grading', 'New');
-    } else {
-        // For other stores like Renovartech, match the exact store name
-        $asinQuery->where('tblfnsku.storename', $storeName);
-        
-        // For other stores, match the exact condition
-        $asinQuery->where('tblfnsku.grading', $originalConditionId);
-    }
-    
-    // Order by stockroom_insert_date ASC for FIFO - oldest products first
-    if (Schema::hasColumn('tblproduct', 'stockroom_insert_date')) {
-        $asinQuery->orderBy('tblproduct.stockroom_insert_date', 'asc');
-    }
-    
-    // Execute the query
-    $matchingProducts = $asinQuery->get();
-    
-    // Format matching products
-    $formattedProducts = [];
-    foreach ($matchingProducts as $product) {
-        // Get and normalize the product's store name
-        $productStore = $product->storename ?? '';
-        $productGrading = $product->grading ?? '';
-        
-        // Format condition display (for UI)
-        $productCondition = $this->formatCondition($productGrading, '', $productStore);
-        
-        // Format insert date for display if available
-        $stockroomDate = null;
-        if (isset($product->stockroom_insert_date)) {
-            $stockroomDate = $product->stockroom_insert_date;
+        // Check if required tables exist
+        if (!Schema::hasTable('tblasin') || !Schema::hasTable('tblfnsku') || !Schema::hasTable('tblproduct')) {
+            Log::warning('Required tables for product matching do not exist');
+            return [];
         }
         
-        // Add this product to formatted results
-        $formattedProducts[] = [
-            'ProductID' => $product->ProductID,
-            'asin' => $product->ASIN,
-            'msku' => $product->MSKUviewer,
-            'title' => $product->AStitle ?? 'No title',
-            'store' => $product->storename ?? 'No store',
-            'condition' => $productCondition,
-            'fbm_available' => $product->FBMAvailable ?? 0,
-            'grading' => $productGrading,
-            'warehouseLocation' => $product->warehouseLocation ?? '',
-            'serialNumber' => $product->serialNumber ?? '',
-            'rtCounter' => $product->rtCounter ?? '',
-            'fnsku' => $product->FNSKU ?? '',
-            'stockroom_insert_date' => $stockroomDate
-        ];
+        // Build the query differently depending on the store
+        $asinQuery = DB::table('tblasin')
+            ->select([
+                'tblasin.ASIN',
+                'tblfnsku.MSKU as MSKUviewer',
+                'tblasin.internal as AStitle',
+                'tblfnsku.storename',
+                'tblfnsku.grading',
+                'tblfnsku.FNSKU',
+                'tblproduct.FBMAvailable',
+                'tblproduct.ProductID',
+                'tblproduct.warehouseLocation',
+                'tblproduct.serialNumber',
+                'tblproduct.rtCounter',
+                'tblproduct.stockroom_insert_date'
+            ])
+            ->leftJoin('tblfnsku', 'tblasin.ASIN', '=', 'tblfnsku.ASIN')
+            ->leftJoin('tblproduct', function ($join) {
+                $join->on('tblfnsku.FNSKU', '=', 'tblproduct.FNSKUviewer');
+            })
+            ->where('tblasin.ASIN', $item->platform_asin);
+            
+        // Add availability filter
+        if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+            $asinQuery->where('tblproduct.FBMAvailable', '>', 0);
+        }
+            
+        // Add location filter if column exists
+        if (Schema::hasColumn('tblproduct', 'ProductModuleLoc')) {
+            $asinQuery->where('tblproduct.ProductModuleLoc', 'Stockroom');
+        }
+        
+        // Add store-specific filtering
+        if ($normalizedStoreName === 'allrenewed') {
+            // For AllRenewed, match on storename with various patterns
+            $asinQuery->where(function($q) {
+                $q->where('tblfnsku.storename', 'All Renewed')
+                    ->orWhere('tblfnsku.storename', 'AllRenewed')
+                    ->orWhere('tblfnsku.storename', 'Allrenewed');
+            });
+            
+            // For AllRenewed, only match on the "New" condition in the database
+            // regardless of the ConditionSubtypeId
+            $asinQuery->where('tblfnsku.grading', 'New');
+        } else {
+            // For other stores like Renovartech, match the exact store name
+            $asinQuery->where('tblfnsku.storename', $storeName);
+            
+            // For other stores, match the exact condition
+            $asinQuery->where('tblfnsku.grading', $originalConditionId);
+        }
+        
+        // Order by stockroom_insert_date ASC for FIFO - oldest products first
+        if (Schema::hasColumn('tblproduct', 'stockroom_insert_date')) {
+            $asinQuery->orderBy('tblproduct.stockroom_insert_date', 'asc');
+        }
+        
+        // Execute the query
+        $matchingProducts = $asinQuery->get();
+        
+        // Format matching products
+        $formattedProducts = [];
+        foreach ($matchingProducts as $product) {
+            // Get and normalize the product's store name
+            $productStore = $product->storename ?? '';
+            $productGrading = $product->grading ?? '';
+            
+            // Format condition display (for UI)
+            $productCondition = $this->formatCondition($productGrading, '', $productStore);
+            
+            // Format insert date for display if available
+            $stockroomDate = null;
+            if (isset($product->stockroom_insert_date)) {
+                $stockroomDate = $product->stockroom_insert_date;
+            }
+            
+            // Add this product to formatted results
+            $formattedProducts[] = [
+                'ProductID' => $product->ProductID,
+                'asin' => $product->ASIN,
+                'msku' => $product->MSKUviewer,
+                'title' => $product->AStitle ?? 'No title',
+                'store' => $product->storename ?? 'No store',
+                'condition' => $productCondition,
+                'fbm_available' => $product->FBMAvailable ?? 0,
+                'grading' => $productGrading,
+                'warehouseLocation' => $product->warehouseLocation ?? '',
+                'serialNumber' => $product->serialNumber ?? '',
+                'rtCounter' => $product->rtCounter ?? '',
+                'fnsku' => $product->FNSKU ?? '',
+                'stockroom_insert_date' => $stockroomDate
+            ];
+        }
+        
+        return $formattedProducts;
+        
+    } catch (\Exception $e) {
+        Log::error('Error finding matching products for item: ' . $e->getMessage());
+        return [];
     }
-    
-    return $formattedProducts;
 }
     /**
      * Perform auto dispense (assign products to order items)
@@ -411,6 +876,14 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
  public function dispense(Request $request)
 {
     try {
+        // Check if dispensed table exists
+        if (!Schema::hasTable('tblorderitemdispense')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dispensed products table not found. Please contact system administrator.'
+            ], 500);
+        }
+        
         // Validate request
         $request->validate([
             'order_id' => 'required|integer',
@@ -431,14 +904,13 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
             DB::rollBack();
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot dispense the same product multiple times within one order. Please select different products for each order item.'
+                'message' => 'Cannot dispense the same product multiple times. Please select different products for each slot.'
             ], 400);
         }
         
         // Also check if any of the requested products are already assigned to another order
-        $alreadyAssignedProducts = DB::table('tbloutboundordersitem')
-            ->whereIn('ProductID', $productIds)
-            ->whereNotNull('ProductID')
+        $alreadyAssignedProducts = DB::table('tblorderitemdispense')
+            ->whereIn('productid', $productIds)
             ->count();
             
         if ($alreadyAssignedProducts > 0) {
@@ -449,23 +921,53 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
             ], 400);
         }
 
-        // Process each item - store the ProductID
+        // Process each item - insert into tblorderitemdispense
         foreach ($request->dispense_items as $dispenseItem) {
             $itemId = $dispenseItem['item_id'];
             $productId = $dispenseItem['product_id'];
             
-            // Update the order item with product ID 
-            DB::table('tbloutboundordersitem')
+            // Check if this order item has already been fully dispensed
+            $orderItem = DB::table('tbloutboundordersitem')
+                ->select('QuantityOrdered')
                 ->where('outboundorderitemid', $itemId)
-                ->update([
-                    'ProductID' => $productId,
-                    'updated_at' => now()
-                ]);
+                ->first();
             
-            // Decrement the FBMAvailable count for the product
-            DB::table('tblproduct')
-                ->where('ProductID', $productId)
-                ->decrement('FBMAvailable', 1);
+            if (!$orderItem) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order item not found: ' . $itemId
+                ], 404);
+            }
+            
+            // Count existing dispense records
+            $dispensedCount = DB::table('tblorderitemdispense')
+                ->where('orderitemid', $itemId)
+                ->count();
+            
+            // Check if we already have enough dispensed products
+            if ($dispensedCount >= $orderItem->QuantityOrdered) {
+                DB::rollBack();
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Order item ' . $itemId . ' already has the maximum number of dispensed products'
+                ], 400);
+            }
+            
+            // Insert into tblorderitemdispense
+            DB::table('tblorderitemdispense')->insert([
+                'orderitemid' => $itemId,
+                'productid' => $productId,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            
+            // Decrement the FBMAvailable count for the product if column exists
+            if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+                DB::table('tblproduct')
+                    ->where('ProductID', $productId)
+                    ->decrement('FBMAvailable', 1);
+            }
         }
         
         // Add note to order
@@ -476,7 +978,7 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
         $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
         $timestamp = $dateTime->format('Y-m-d H:i:s');
         
-        $dispenseNote = $timestamp . " - Auto dispense completed for " . count($request->dispense_items) . " items";
+        $dispenseNote = $timestamp . " - Auto dispense completed for " . count($request->dispense_items) . " products";
         
         $newNote = $currentNote 
             ? $currentNote . "\n\n" . $dispenseNote
@@ -509,9 +1011,17 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
     /**
      * Cancel auto dispense
      */
-    public function cancelDispense(Request $request)
+  public function cancelDispense(Request $request)
 {
     try {
+        // Check if dispensed table exists
+        if (!Schema::hasTable('tblorderitemdispense')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Dispensed products table not found. Please contact system administrator.'
+            ], 500);
+        }
+        
         // Validate request
         $request->validate([
             'order_id' => 'required|integer',
@@ -522,34 +1032,21 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
         // Start transaction
         DB::beginTransaction();
 
-        // IMPORTANT: Get the current product IDs before removing them (to restore availability)
-        $itemsWithProducts = DB::table('tbloutboundordersitem')
-            ->select('outboundorderitemid', 'ProductID')
-            ->whereIn('outboundorderitemid', $request->item_ids)
-            ->whereNotNull('ProductID')
+        // Get the dispensed products for these items to increment FBMAvailable correctly
+        $dispensedProducts = DB::table('tblorderitemdispense')
+            ->whereIn('orderitemid', $request->item_ids)
             ->get();
-            
-        // Get product IDs to increment FBMAvailable counts
-        $productIds = [];
-        foreach ($itemsWithProducts as $item) {
-            if ($item->ProductID) {
-                $productIds[] = $item->ProductID;
-            }
-        }
-
-        // Update items to remove product_id and related fields
-        DB::table('tbloutboundordersitem')
-            ->whereIn('outboundorderitemid', $request->item_ids)
-            ->update([
-                'ProductID' => null,
-                'updated_at' => now()
-            ]);
-            
-        // CRITICAL FIX: Increment FBMAvailable for all affected products
-        if (!empty($productIds)) {
-            foreach ($productIds as $productId) {
+        
+        // Delete the dispense records for these items
+        DB::table('tblorderitemdispense')
+            ->whereIn('orderitemid', $request->item_ids)
+            ->delete();
+        
+        // Increment FBMAvailable for each product if column exists
+        if (Schema::hasColumn('tblproduct', 'FBMAvailable')) {
+            foreach ($dispensedProducts as $dispense) {
                 DB::table('tblproduct')
-                    ->where('ProductID', $productId)
+                    ->where('ProductID', $dispense->productid)
                     ->increment('FBMAvailable', 1);
             }
         }
@@ -562,7 +1059,7 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
         $dateTime = new DateTime('now', new DateTimeZone('America/New_York'));
         $timestamp = $dateTime->format('Y-m-d H:i:s');
         
-        $cancelNote = $timestamp . " - Auto dispense canceled for " . count($request->item_ids) . " items";
+        $cancelNote = $timestamp . " - Auto dispense canceled for " . count($dispensedProducts) . " products";
         
         $newNote = $currentNote 
             ? $currentNote . "\n\n" . $cancelNote
@@ -862,117 +1359,4 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
         
         return $condition . $subtype;
     }
-
-
-    public function getOrderDetail(Request $request)
-{
-    try {
-        // Validate request
-        $request->validate([
-            'order_id' => 'required|integer'
-        ]);
-        
-        $orderId = $request->input('order_id');
-        
-        // Get the order
-        $order = DB::table('tbloutboundorders')
-            ->select(
-                'outboundorderid', 
-                'platform', 
-                'storename', 
-                'platform_order_id',
-                'FulfillmentChannel',
-                'BuyerName as buyer_name',
-                DB::raw("CONCAT(COALESCE(address_line1, ''), ', ', COALESCE(city, ''), ', ', COALESCE(StateOrRegion, ''), ' ', COALESCE(postal_code, '')) as address"),
-                'PurchaseDate as purchase_date',
-                'ship_date',
-                'delivery_date',
-                'ShipmentServiceLevelCategory as shipment_service',
-                'OrderType as order_type',
-                'ordernote',
-                'IsReplacementOrder as is_replacement'
-            )
-            ->where('outboundorderid', $orderId)
-            ->first();
-            
-        if (!$order) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Order not found'
-            ], 404);
-        }
-        
-        $orderData = (array) $order;
-        
-        // Get items for this order with product details
-        $items = DB::table('tbloutboundordersitem AS oi')
-            ->select(
-                'oi.outboundorderitemid',
-                'oi.outboundorderid', // Add this to match the regular API response
-                'oi.platform_order_id',
-                'oi.platform_order_item_id',
-                'oi.platform_sku',
-                'oi.platform_asin',
-                'oi.platform_title',
-                'oi.ConditionId',
-                'oi.ConditionSubtypeId',
-                'oi.order_status',
-                'oi.QuantityOrdered as quantity_ordered',
-                'oi.QuantityShipped as quantity_shipped',
-                'oi.trackingnumber as tracking_number',
-                'oi.trackingstatus as tracking_status',
-                'oi.unit_price',
-                'oi.unit_tax',
-                'oi.ProductID as product_id',
-                'p.warehouseLocation',
-                'p.serialNumber',
-                'p.rtCounter',
-                'p.FNSKUviewer as FNSKU'
-            )
-            ->leftJoin('tblproduct AS p', 'oi.ProductID', '=', 'p.ProductID')
-            ->where('oi.outboundorderid', $orderId)
-            ->get();
-        
-        // Format items with condition
-        $formattedItems = [];
-        foreach ($items as $item) {
-            $itemArray = (array) $item;
-            $itemArray['condition'] = $this->formatCondition($item->ConditionId, $item->ConditionSubtypeId, $order->storename);
-            $formattedItems[] = $itemArray;
-        }
-        
-        // Add items to order
-        $orderData['items'] = $formattedItems;
-        
-        // Set order status based on items
-        if (!empty($formattedItems)) {
-            $statuses = array_column($formattedItems, 'order_status');
-            
-            if (in_array('Canceled', $statuses)) {
-                $orderData['order_status'] = 'Canceled';
-            } elseif (in_array('Pending', $statuses)) {
-                $orderData['order_status'] = 'Pending';
-            } elseif (count(array_filter($statuses, function($s) { return $s == 'Shipped'; })) == count($statuses)) {
-                $orderData['order_status'] = 'Shipped';
-            } else {
-                $orderData['order_status'] = 'Unshipped';
-            }
-        } else {
-            $orderData['order_status'] = 'Pending';
-        }
-        
-        return response()->json([
-            'success' => true,
-            'data' => $orderData
-        ]);
-        
-    } catch (\Exception $e) {
-        Log::error('Error fetching order detail: ' . $e->getMessage());
-        return response()->json([
-            'success' => false, 
-            'message' => 'Error fetching order detail', 
-            'error' => $e->getMessage()
-        ], 500);
-    }
-  }
 }

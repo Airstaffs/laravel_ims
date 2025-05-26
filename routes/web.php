@@ -371,7 +371,7 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/packing-slip', [FbmOrderController::class, 'generatePackingSlip']);
     Route::post('/shipping-label', [FbmOrderController::class, 'printShippingLabel']);
     Route::post('/cancel', [FbmOrderController::class, 'cancelOrder']);
-    
+    Route::post('/auto-dispense', [FbmOrderController::class, 'autoDispense']);
     // Add new routes for auto dispense functionality
     Route::post('/find-dispense-products', [FbmOrderController::class, 'findDispenseProducts']);
     Route::post('/dispense', [FbmOrderController::class, 'dispense']);
