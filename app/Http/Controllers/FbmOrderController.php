@@ -53,7 +53,7 @@ class FbmOrderController extends BasetablesController
                 'ordernote',
                 'IsReplacementOrder as is_replacement'
             )
-            ->where('FulfillmentChannel', 'MFN');
+            ->where('FulfillmentChannel', 'FBM');
             
         // Apply filters if provided
         if (!empty($search)) {
