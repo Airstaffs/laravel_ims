@@ -490,6 +490,7 @@ public function processScan(Request $request)
                         ->update([
                             'ProductModuleLoc' => $modulelocation,
                             'warehouselocation' => $location,
+                            'validation_status'=>'validated',
                             'stockroom_insert_date' => $curentDatetimeString
                         ]);
                     
@@ -528,7 +529,7 @@ public function processScan(Request $request)
                         ->orWhere('serialnumberb', $serial);
                 })
                 ->where('returnstatus', 'Not Returned')
-           //     ->where('validation_status', 'validated')
+                ->where('validation_status', 'validated')
                 ->where('ProductModuleLoc', 'Validation')
                 ->first();
 
@@ -690,6 +691,7 @@ public function processScan(Request $request)
                         'FNSKUviewer' => $getFNSKU,
                         'FbmAvailable' => 1,
                         'Fulfilledby' => 'FBM',
+                        'validation_status'=>'validated',
                         'quantity' => 1,
                         'stockroom_insert_date' => $curentDatetimeString,
                     ]);
@@ -746,6 +748,7 @@ public function processScan(Request $request)
                         'FNSKUviewer' => $getAvailableFNSKU,
                         'FbmAvailable' => 1,
                         'Fulfilledby' => 'FBM',
+                        'validation_status'=>'validated',
                         'quantity' => 1,
                         'stockroom_insert_date' => $curentDatetimeString,
                     ]);

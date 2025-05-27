@@ -614,7 +614,10 @@ body {
     background-color: #dc3545;
 }
 
-.modal .changePwdForm {
+.modal .changePwdForm,
+.modal .tblnDsgnForm,
+.modal .addUserForm,
+.modal .storeListContainer {
     width: 600px;
     margin: 0 auto;
     display: flex;
@@ -624,16 +627,26 @@ body {
     gap: 20px;
 }
 
-.changePwdForm label {
+.changePwdForm label,
+.tblnDsgnForm label,
+.addUserForm label {
+    font-weight: 600;
     margin: 0;
 }
 
-.changePwdForm .form-control {
+.changePwdForm .form-control,
+.tblnDsgnForm .form-control,
+.addUserForm .form-control {
     width: calc(100% - 40px);
     position: relative;
 }
 
-.changePwdForm .toggle-password {
+.tblnDsgnForm .form-control {
+    width: 100%;
+}
+
+.changePwdForm .toggle-password,
+.addUserForm .toggle-password {
     position: absolute;
     right: 0;
     top: 50%;
@@ -644,7 +657,11 @@ hr.dashed {
     border-style: dashed;
 }
 
-.changePwdForm .btn-process {
+.changePwdForm .btn-process,
+.tblnDsgnForm .btn-process,
+.addUserForm .btn-process,
+.storeListContainer .btn-process {
+    background: #007bff;
     justify-content: center;
     font-weight: 600;
     width: 50%;
@@ -698,6 +715,11 @@ hr.dashed {
         height: 100%;
         border-radius: 0;
         border: 0;
+    }
+
+    .modal form,
+    .modal .storeListContainer {
+        width: 100%;
     }
 
     .modal .nav-tabs {

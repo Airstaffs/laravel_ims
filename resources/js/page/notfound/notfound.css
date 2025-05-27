@@ -1,0 +1,4 @@
+.production-module th:nth-child(2),
+.production-module td:nth-child(2) {
+    min-width: 300px;
+}
