@@ -178,21 +178,29 @@
                                         <ul v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                             :key="'dp-' + dpIndex"
                                             class="list-unstyled dispense-detail dispensed-product-item">
-                                            <li>
-                                                <p><strong>Product ID: </strong> {{ dispensedProduct.product_id }}</p>
+                                             <li>
+                                                <p><strong>Title: </strong> {{ dispensedProduct.title || 'N/A' }}</p>
                                             </li>
-                                            <li v-if="dispensedProduct.warehouseLocation">
-                                                <p><strong>Location: </strong> {{ dispensedProduct.warehouseLocation }}
-                                                </p>
+                                             <li>
+                                                <p><strong>ASIN: </strong> {{ dispensedProduct.asin || 'N/A' }}</p>
                                             </li>
-                                            <li v-if="dispensedProduct.serialNumber">
+                                             <li>
+                                                <p><strong>Location: </strong> {{ dispensedProduct.warehouseLocation || 'N/A' }}</p>
+                                            </li>
+                                             <li v-if="dispensedProduct.serialNumber">
                                                 <p><strong>Serial #: </strong> {{ dispensedProduct.serialNumber }}</p>
                                             </li>
-                                            <li v-if="dispensedProduct.rtCounter">
+                                             <li v-if="dispensedProduct.rtCounter">
                                                 <p><strong>RT Counter: </strong> {{ dispensedProduct.rtCounter }}</p>
                                             </li>
-                                            <li v-if="dispensedProduct.FNSKU">
+                                             <li v-if="dispensedProduct.FNSKU">
                                                 <p><strong>FNSKU: </strong> {{ dispensedProduct.FNSKU }}</p>
+                                            </li>
+                                            <li>
+                                                <button class="btn-not-found" @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                                    title="Mark product as not found and auto-select replacement">
+                                                    <i class="fas fa-exclamation-triangle"></i> Not Found
+                                                </button>
                                             </li>
                                             <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
                                                 class="dispensed-separator">
@@ -346,10 +354,13 @@
                                 <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                     :key="'mobile-dp-' + dpIndex" class="mobile-dispensed-item">
                                     <div class="mobile-dispensed-detail">
-                                        <strong>ID:</strong> {{ dispensedProduct.product_id }}
+                                        <strong>Title:</strong> {{ dispensedProduct.title || 'N/A' }}
                                     </div>
-                                    <div v-if="dispensedProduct.warehouseLocation" class="mobile-dispensed-detail">
-                                        <strong>Loc:</strong> {{ dispensedProduct.warehouseLocation }}
+                                    <div class="mobile-dispensed-detail">
+                                        <strong>ASIN:</strong> {{ dispensedProduct.asin || 'N/A' }}
+                                    </div>
+                                    <div class="mobile-dispensed-detail">
+                                        <strong>Loc:</strong> {{ dispensedProduct.warehouseLocation || 'N/A' }}
                                     </div>
                                     <div v-if="dispensedProduct.serialNumber" class="mobile-dispensed-detail">
                                         <strong>Serial:</strong> {{ dispensedProduct.serialNumber }}
@@ -359,6 +370,12 @@
                                     </div>
                                     <div v-if="dispensedProduct.FNSKU" class="mobile-dispensed-detail">
                                         <strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}
+                                    </div>
+                                    <div class="mobile-dispensed-actions">
+                                        <button class="btn-not-found-mobile" @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                            title="Mark as not found">
+                                            <i class="fas fa-exclamation-triangle"></i>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -593,30 +610,35 @@
                                                 <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                                     :key="'modal-dp-' + dpIndex" class="dispensed-product-modal">
                                                     <div class="dispensed-row">
-                                                        <span class="dispensed-label">Product ID:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.product_id }}</span>
+                                                        <span class="dispensed-label">Title:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.title || 'N/A' }}</span>
                                                     </div>
-                                                    <div v-if="dispensedProduct.warehouseLocation"
-                                                        class="dispensed-row">
+                                                    <div class="dispensed-row">
+                                                        <span class="dispensed-label">ASIN:</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A' }}</span>
+                                                    </div>
+                                                    <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.warehouseLocation }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.warehouseLocation || 'N/A' }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.serialNumber }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.serialNumber }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.rtCounter }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.rtCounter }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.FNSKU }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.FNSKU }}</span>
+                                                    </div>
+                                                    <div class="dispensed-row">
+                                                        <span class="dispensed-label">Action:</span>
+                                                        <button class="btn-not-found-modal" @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                                            title="Mark product as not found and auto-select replacement">
+                                                            <i class="fas fa-exclamation-triangle"></i> Not Found
+                                                        </button>
                                                     </div>
                                                     <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
                                                         class="dispensed-separator">
@@ -764,20 +786,23 @@
                                         <div v-if="isItemDispensed(item)" class="process-item-info product-id-info">
                                             <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(item)"
                                                 :key="'process-dp-' + dpIndex" class="process-dispensed-product">
-                                                <div><strong>Product ID:</strong> {{ dispensedProduct.product_id }}
+                                                <div><strong>Title:</strong> {{ dispensedProduct.title || 'N/A' }}</div>
+                                                <div><strong>ASIN:</strong> {{ dispensedProduct.asin || 'N/A' }}</div>
+                                                <div><strong>Location:</strong> {{ dispensedProduct.warehouseLocation || 'N/A' }}</div>
+                                                <div v-if="dispensedProduct.serialNumber">
+                                                    <strong>Serial #:</strong> {{ dispensedProduct.serialNumber }}
                                                 </div>
-                                                <div v-if="dispensedProduct.warehouseLocation">
-                                                    <strong>Location:</strong>
-                                                    {{ dispensedProduct.warehouseLocation }}
+                                                <div v-if="dispensedProduct.rtCounter">
+                                                    <strong>RT Counter:</strong> {{ dispensedProduct.rtCounter }}
                                                 </div>
-                                                <div v-if="dispensedProduct.serialNumber"><strong>Serial #:</strong>
-                                                    {{ dispensedProduct.serialNumber }}
+                                                <div v-if="dispensedProduct.FNSKU">
+                                                    <strong>FNSKU:</strong> {{ dispensedProduct.FNSKU }}
                                                 </div>
-                                                <div v-if="dispensedProduct.rtCounter"><strong>RT Counter:</strong>
-                                                    {{ dispensedProduct.rtCounter }}
-                                                </div>
-                                                <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong>
-                                                    {{ dispensedProduct.FNSKU }}
+                                                <div class="process-dispensed-actions">
+                                                    <button class="btn-not-found-process" @click="markProductNotFound(dispensedProduct.product_id, item)"
+                                                        title="Mark product as not found and auto-select replacement">
+                                                        <i class="fas fa-exclamation-triangle"></i> Not Found
+                                                    </button>
                                                 </div>
                                                 <hr v-if="dpIndex < getDispensedProductsDisplay(item).length - 1"
                                                     class="dispensed-separator">
