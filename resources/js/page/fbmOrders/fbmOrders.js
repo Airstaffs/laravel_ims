@@ -1678,7 +1678,7 @@ async markProductNotFound(productId, item) {
 
     try {
         let orderId = this.getCurrentOrderId();
-        
+
         // If no order ID found in context, try to find it from the orders array
         if (!orderId && item && item.outboundorderitemid) {
             console.log('No order ID in context, searching in orders array...');
@@ -1690,7 +1690,7 @@ async markProductNotFound(productId, item) {
                 }
             }
         }
-        
+
         if (!orderId) {
             alert('Unable to determine order ID. Please try again.');
             return;
@@ -1723,7 +1723,7 @@ async markProductNotFound(productId, item) {
 
         if (response.data && response.data.success) {
             let message = 'Product marked as "Not Found" successfully.';
-            
+
             if (response.data.replacement_found) {
                 message += `\n\nReplacement product automatically selected:\n• ${response.data.replacement_details.title}\n• Location: ${response.data.replacement_details.warehouseLocation}`;
             } else {
@@ -1748,7 +1748,7 @@ getCurrentOrderId() {
     console.log('currentProcessOrder:', this.currentProcessOrder);
     console.log('selectedOrder:', this.selectedOrder);
     console.log('autoDispenseOrder:', this.autoDispenseOrder);
-    
+
     if (this.currentProcessOrder) {
         console.log('Using currentProcessOrder ID:', this.currentProcessOrder.outboundorderid);
         return this.currentProcessOrder.outboundorderid;
@@ -1759,7 +1759,7 @@ getCurrentOrderId() {
         console.log('Using autoDispenseOrder ID:', this.autoDispenseOrder.outboundorderid);
         return this.autoDispenseOrder.outboundorderid;
     }
-    
+
     console.log('No order context found, returning null');
     return null;
 },

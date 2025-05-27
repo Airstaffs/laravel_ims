@@ -162,3 +162,105 @@
 .fbm-order-module .btn-not-found i {
     font-size: 0.7rem;
 }
+
+.fbm-order-module .btn-not-found-process {
+    background-color: #ffc107;
+    color: #212529;
+    border: 1px solid #ffc107;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.fbm-order-module .btn-not-found-process:hover {
+    background-color: #e0a800;
+    border-color: #e0a800;
+    color: #000;
+}
+
+.fbm-order-module .btn-not-found-process i {
+    font-size: 0.7rem;
+}
+
+.fbm-order-module .process-dispensed-actions {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.fbm-order-module .btn-cancel-dispense-in-process {
+    background-color: #fd7e14;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    margin-right: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.fbm-order-module .btn-cancel-dispense-in-process:hover {
+    background-color: #e8630e;
+}
+
+.fbm-order-module .btn-cancel-dispense-in-process i {
+    margin-right: 5px;
+}
+
+.fbm-order-module .cancel-dispense-button {
+    background-color: #fd7e14;
+    color: white;
+    grid-column: span 2;
+}
+
+.fbm-order-module .cancel-dispense-button:hover {
+    background-color: #e8630e;
+}
+
+.fbm-order-module .btn-auto-dispense-from-process {
+    background-color: #6f42c1;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 4px;
+    margin-right: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s ease;
+}
+
+.fbm-order-module .btn-auto-dispense-from-process:hover {
+    background-color: #5a2d91;
+}
+
+.fbm-order-module .btn-auto-dispense-from-process i,
+.fbm-order-module .btn-back-to-process i,
+.fbm-order-module .btn-confirm-dispense i,
+.fbm-order-module .auto-dispense-button i {
+    margin-right: 5px;
+}
+
+.fbm-order-module .dispensed-header {
+    margin-bottom: 10px;
+    font-weight: bold;
+    /* border-bottom: 1px solid #dee2e6; */
+    background-color: #d1ecf1;
+    color: #0c5460;
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: inline-block;
+    font-size: 0.85rem;
+}
+
+.fbm-order-module .dispensed-hr {
+    border: 1px solid;
+    border-color: #dee2e6;
+    margin: .5rem 0;
+}
