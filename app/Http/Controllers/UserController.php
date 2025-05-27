@@ -7,7 +7,6 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
@@ -77,7 +76,7 @@ class UserController extends Controller
             ]);
 
             // Log using service
-            $this->userLogService->log('add user - ' . $validated['username']);
+                    $this->userLogService->log('add user - ' . $validated['username']);
     
             return response()->json([
                 'success' => true,
@@ -98,54 +97,54 @@ class UserController extends Controller
     }
         
     public function updatepassword(Request $request)
-    {
-        $currentUserId = Auth::user()->id; // Get the current user's ID
-
-        // Validate the request
-        $request->validate([
-            'password' => 'required|min:6|confirmed',
-        ]);
-
-        try {
-            // Find the current user by ID
-            $user = User::findOrFail($currentUserId);
-
-            // Update the user's password
-            $user->update([
-                'password' => Hash::make($request->password),
+        {
+            $currentUserId = Auth::user()->id; // Get the current user's ID
+    
+            // Validate the request
+            $request->validate([
+                'password' => 'required|min:6|confirmed',
             ]);
+    
+            try {
+                // Find the current user by ID
+                $user = User::findOrFail($currentUserId);
+    
+                // Update the user's password
+                $user->update([
+                    'password' => Hash::make($request->password),
+                ]);
 
-            // Log using service
-            $this->userLogService->log('User Update Password');
-
-            return back()->with('success', 'Password updated successfully!');
-        } catch (\Exception $e) {
-            Log::error('Failed to update password: ' . $e->getMessage());
-            return back()->with('error', 'Failed to update password. Please try again.');
+                // Log using service
+                        $this->userLogService->log('User Update Password');
+    
+                return back()->with('success', 'Password updated successfully!');
+            } catch (\Exception $e) {
+                Log::error('Failed to update password: ' . $e->getMessage());
+                return back()->with('error', 'Failed to update password. Please try again.');
+            }
         }
-    }
     
     public function showStoreColumns()
-    {
-        $user = new User();
-        $storeColumns = $user->getStoreColumns();
-
-        return response()->json($storeColumns); // Returns the list of store columns as JSON
-    }
+            {
+                $user = new User();
+                $storeColumns = $user->getStoreColumns();
+    
+                return response()->json($storeColumns); // Returns the list of store columns as JSON
+            }
     
     public function getStoreColumns()
-    {
-        // Dynamically fetch columns from the 'tbluser' table
-        $columns = Schema::getColumnListing('tbluser');  // Get all columns for the 'tbluser' table
-        
-        // Filter out only the columns that start with 'store_'
-        $storeColumns = array_filter($columns, function ($column) {
-            return str_starts_with($column, 'store_');  // Only return columns with the 'store_' prefix
-        });
-    
-        // Return the store columns as a JSON response
-        return response()->json(['stores' => array_values($storeColumns)]);
-    }
+            {
+                // Dynamically fetch columns from the 'tbluser' table
+                $columns = Schema::getColumnListing('tbluser');  // Get all columns for the 'tbluser' table
+                
+                // Filter out only the columns that start with 'store_'
+                $storeColumns = array_filter($columns, function ($column) {
+                    return str_starts_with($column, 'store_');  // Only return columns with the 'store_' prefix
+                });
+            
+                // Return the store columns as a JSON response
+                return response()->json(['stores' => array_values($storeColumns)]);
+            }
         
         
     // Controller method to get user privileges
@@ -294,249 +293,175 @@ class UserController extends Controller
         }
     }
 
-    /**
-     * Update session with fresh user data
-     */
-    private function updateCurrentUserSession($userId)
-    {
-        try {
-            // Only update session if the current user is being modified
-            $currentUser = Auth::user();
-            if (!$currentUser || $currentUser->id != $userId) {
-                return; // Don't update session for other users
-            }
-
-            // Get fresh user data
-            $user = User::find($userId);
-            if (!$user) {
-                return;
-            }
-
-            // Define all possible modules
-            $allModules = [
-                'order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                'productionarea', 'returnscanner', 'fbmorder'
-            ];
-
-            // Get main module and ensure it's lowercase with no spaces
-            $mainModule = $user->main_module;
-            if ($mainModule) {
-                $mainModule = strtolower(str_replace(' ', '', $mainModule));
-            }
-
-            // Get active sub-modules (excluding main module)
-            $activeSubModules = [];
-            foreach ($allModules as $module) {
-                if ($user->{$module} == 1 && $module !== $mainModule) {
-                    $activeSubModules[] = strtolower($module);
-                }
-            }
-
-            // Update session variables
-            Session::forget(['main_module', 'sub_modules']);
-            Session::put('main_module', $mainModule);
-            Session::put('sub_modules', $activeSubModules);
-            Session::save();
-
-            Log::info('Session updated for current user', [
-                'user_id' => $userId,
-                'main_module' => $mainModule,
-                'sub_modules' => $activeSubModules
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to update current user session', [
-                'user_id' => $userId,
-                'error' => $e->getMessage()
-            ]);
-        }
-    }
-
     public function saveUserPrivileges(Request $request)
-    {
-        try {
-            // Typecast user_id to integer before validation
-            $request->merge(['user_id' => (int) $request->input('user_id')]);
+{
+    try {
+        // Typecast user_id to integer before validation
+        $request->merge(['user_id' => (int) $request->input('user_id')]);
 
-            // Validate the request
-            $data = $request->validate([
-                'user_id' => 'required|numeric|exists:tbluser,id',
-                'main_module' => 'required|string',
-                'sub_modules' => 'array|nullable',
-                'privileges_stores' => 'array|nullable',
-            ]);
+        // Validate the request
+        $data = $request->validate([
+            'user_id' => 'required|numeric|exists:tbluser,id',
+            'main_module' => 'required|string',
+            'sub_modules' => 'array|nullable',
+            'privileges_stores' => 'array|nullable',
+        ]);
 
-            // Log the request data for debugging
-            Log::info('Request Data:', $data);
+        // Log the request data for debugging
+        Log::info('Request Data:', $data);
 
-            // Fetch the user
-            $user = User::find($data['user_id']);
-            $username = $user->username; // Store username for logging
+        // Fetch the user
+        $user = User::find($data['user_id']);
+        $username = $user->username;
 
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'User not found']);
-            }
-            Log::info('Fetched User:', ['user' => $user]);
-
-            // Define module mapping (display name to database column)
-            $moduleMapping = [
-                'Order' => 'order',
-                'Unreceived' => 'unreceived',
-                'Received' => 'receiving',
-                'Labeling' => 'labeling',
-                'Testing' => 'testing',
-                'Cleaning' => 'cleaning',
-                'Packing' => 'packing',
-                'Stockroom' => 'stockroom',
-                'Validation' => 'validation',
-                'FNSKU' => 'fnsku',
-                'Production Area' => 'productionarea',
-                'Return Scanner' => 'returnscanner',
-                'FBM Order' => 'fbmorder'
-            ];
-
-            // Convert main module from display name to database column name
-            $mainModuleDb = null;
-            foreach ($moduleMapping as $displayName => $columnName) {
-                if (strcasecmp($data['main_module'], $displayName) === 0 || 
-                    strcasecmp($data['main_module'], str_replace(' ', '', $displayName)) === 0) {
-                    $mainModuleDb = $columnName;
-                    break;
-                }
-            }
-
-            // If no mapping found, try to convert it directly (lowercase, no spaces)
-            if (!$mainModuleDb) {
-                $mainModuleDb = strtolower(str_replace(' ', '', $data['main_module']));
-            }
-
-            // Update main module with the database column name
-            $user->main_module = $mainModuleDb;
-
-            // Update sub-modules with proper mapping
-            $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                          'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea','returnscanner','fbmorder'];
-            
-            // First reset all modules to 0
-            foreach ($subModules as $module) {
-                $user->{$module} = 0;
-            }
-            
-            // Then set the selected ones to 1, but exclude the main module
-            if (!empty($data['sub_modules'])) {
-                foreach ($data['sub_modules'] as $selectedModule) {
-                    // Find the database column for this module
-                    $dbColumn = null;
-                    foreach ($moduleMapping as $displayName => $columnName) {
-                        // Case-insensitive comparison and handle both with/without spaces
-                        if (strcasecmp($selectedModule, $displayName) === 0 || 
-                            strcasecmp($selectedModule, str_replace(' ', '', $displayName)) === 0) {
-                            $dbColumn = $columnName;
-                            break;
-                        }
-                    }
-                    
-                    // If we found a match and it's not the main module, set it to 1
-                    if ($dbColumn && in_array($dbColumn, $subModules) && $dbColumn !== $mainModuleDb) {
-                        $user->{$dbColumn} = 1;
-                    }
-                }
-            }
-
-            // Always ensure the main module is enabled in its column
-            if ($mainModuleDb && in_array($mainModuleDb, $subModules)) {
-                $user->{$mainModuleDb} = 1;
-            }
-
-            // Fetch all store columns dynamically
-            $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
-            $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
-
-            // Reset all store columns to 0
-            foreach ($storeColumns as $storeColumn) {
-                $user->{$storeColumn} = 0;
-            }
-
-            // Enable selected stores
-            if (!empty($data['privileges_stores'])) {
-                foreach ($data['privileges_stores'] as $store) {
-                    if (in_array($store, $storeColumns)) {
-                        $user->{$store} = 1;
-                    } else {
-                        Log::warning("Store column '{$store}' does not exist in tbluser.");
-                    }
-                }
-            }
-
-            // Collect different types of modules for logging
-            $mainModuleDisplay = $data['main_module']; // Keep original for display
-            $enabledSubModules = [];
-            $enabledStores = [];
-
-            // Collect enabled sub-modules (excluding main module)
-            foreach ($subModules as $module) {
-                if ($user->{$module} == 1 && $module !== $mainModuleDb) {
-                    // Convert database column to display name
-                    $displayName = array_search($module, $moduleMapping) ?: ucfirst($module);
-                    $enabledSubModules[] = $displayName;
-                }
-            }
-
-            // Collect enabled stores
-            foreach ($storeColumns as $storeColumn) {
-                if ($user->{$storeColumn} == 1) {
-                    $storeName = str_replace('store_', '', $storeColumn);
-                    $storeName = str_replace('_', ' ', $storeName);
-                    $enabledStores[] = ucfirst($storeName);
-                }
-            }
-
-            // Format the log message
-            $logMessage = sprintf(
-                'Update Privileges for User %s - Main: %s | Sub-Modules: %s | Stores: %s',
-                $username,
-                $mainModuleDisplay,
-                $enabledSubModules ? implode(', ', $enabledSubModules) : 'None',
-                $enabledStores ? implode(', ', $enabledStores) : 'None'
-            );
-
-            // Save the user privileges
-            $user->save();
-
-            // CRITICAL: Update session if this is the current user
-            $this->updateCurrentUserSession($data['user_id']);
-
-            // Log using service
-            $this->userLogService->log($logMessage);
-
-            // Prepare the response with properly filtered sub_modules
-            $responseSubModules = [];
-            foreach ($subModules as $module) {
-                if ($user->{$module} == 1 && $module !== $mainModuleDb) {
-                    $responseSubModules[] = $module;
-                }
-            }
-
-            return response()->json([
-                'success' => true, 
-                'message' => 'User privileges updated successfully!',
-                'main_module' => $mainModuleDb,
-                'sub_modules' => $responseSubModules,
-                'session_updated' => Auth::id() == $data['user_id'] // Indicate if session was updated
-            ]);
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            Log::error('Validation Error:', ['errors' => $e->errors()]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed.',
-                'errors' => $e->errors(),
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error saving user privileges:', ['error' => $e->getMessage()]);
-            return response()->json(['success' => false, 'message' => $e->getMessage()]);
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not found']);
         }
-    }      
+
+        // Define module mapping (display name to database column)
+        $moduleMapping = [
+            'Order' => 'order',
+            'Unreceived' => 'unreceived',
+            'Received' => 'receiving',
+            'Labeling' => 'labeling',
+            'Testing' => 'testing',
+            'Cleaning' => 'cleaning',
+            'Packing' => 'packing',
+            'Stockroom' => 'stockroom',
+            'Validation' => 'validation',
+            'FNSKU' => 'fnsku',
+            'Production Area' => 'productionarea',
+            'Return Scanner' => 'returnscanner',
+            'FBM Order' => 'fbmorder'
+        ];
+
+        // Convert main module from display name to database column name
+        $mainModuleDb = null;
+        foreach ($moduleMapping as $displayName => $columnName) {
+            if (strcasecmp($data['main_module'], $displayName) === 0 || 
+                strcasecmp($data['main_module'], str_replace(' ', '', $displayName)) === 0) {
+                $mainModuleDb = $columnName;
+                break;
+            }
+        }
+
+        // If no mapping found, try to convert it directly
+        if (!$mainModuleDb) {
+            $mainModuleDb = strtolower(str_replace(' ', '', $data['main_module']));
+        }
+
+        // Update main module
+        $user->main_module = $mainModuleDb;
+
+        // Define all possible sub-modules
+        $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
+                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
+                      'productionarea', 'returnscanner', 'fbmorder'];
+        
+        // First reset all modules to 0
+        foreach ($subModules as $module) {
+            $user->{$module} = 0;
+        }
+        
+        // Process sub-modules - they're already coming as database column names
+        if (!empty($data['sub_modules'])) {
+            Log::info('Processing sub_modules:', $data['sub_modules']);
+            
+            foreach ($data['sub_modules'] as $selectedModule) {
+                // The sub_modules are already database column names (e.g., "receiving")
+                // so we can use them directly
+                if (in_array($selectedModule, $subModules) && $selectedModule !== $mainModuleDb) {
+                    $user->{$selectedModule} = 1;
+                    Log::info("Enabling sub-module: {$selectedModule}");
+                }
+            }
+        }
+
+        // Always ensure the main module is enabled
+        if ($mainModuleDb && in_array($mainModuleDb, $subModules)) {
+            $user->{$mainModuleDb} = 1;
+        }
+
+        // Handle stores (rest of the code remains the same)
+        $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
+        $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
+
+        // Reset all store columns to 0
+        foreach ($storeColumns as $storeColumn) {
+            $user->{$storeColumn} = 0;
+        }
+
+        // Enable selected stores
+        if (!empty($data['privileges_stores'])) {
+            foreach ($data['privileges_stores'] as $store) {
+                if (in_array($store, $storeColumns)) {
+                    $user->{$store} = 1;
+                }
+            }
+        }
+
+        // Prepare logging information
+        $mainModuleDisplay = array_search($mainModuleDb, $moduleMapping) ?: ucfirst($mainModuleDb);
+        $enabledSubModules = [];
+        $enabledStores = [];
+
+        // Collect enabled sub-modules for logging
+        foreach ($subModules as $module) {
+            if ($user->{$module} == 1 && $module !== $mainModuleDb) {
+                $displayName = array_search($module, $moduleMapping) ?: ucfirst($module);
+                $enabledSubModules[] = $displayName;
+            }
+        }
+
+        // Collect enabled stores
+        foreach ($storeColumns as $storeColumn) {
+            if ($user->{$storeColumn} == 1) {
+                $storeName = str_replace('store_', '', $storeColumn);
+                $storeName = str_replace('_', ' ', $storeName);
+                $enabledStores[] = ucfirst($storeName);
+            }
+        }
+
+        // Format the log message
+        $logMessage = sprintf(
+            'Update Privileges for User %s - Main: %s | Sub-Modules: %s | Stores: %s',
+            $username,
+            $mainModuleDisplay,
+            $enabledSubModules ? implode(', ', $enabledSubModules) : 'None',
+            $enabledStores ? implode(', ', $enabledStores) : 'None'
+        );
+
+        // Save the user
+        $user->save();
+
+        // Log using service
+        $this->userLogService->log($logMessage);
+
+        // Prepare response
+        $responseSubModules = [];
+        foreach ($subModules as $module) {
+            if ($user->{$module} == 1 && $module !== $mainModuleDb) {
+                $responseSubModules[] = $module;
+            }
+        }
+
+        return response()->json([
+            'success' => true, 
+            'message' => 'User privileges updated successfully!',
+            'main_module' => $mainModuleDb,
+            'sub_modules' => $responseSubModules
+        ]);
+        
+    } catch (\Exception $e) {
+        Log::error('Error saving user privileges:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        return response()->json(['success' => false, 'message' => $e->getMessage()]);
+    }
+}     
+
+
 
     public function refreshUserSession(Request $request)
     {
@@ -547,12 +472,6 @@ class UserController extends Controller
                 return response()->json(['success' => false, 'message' => 'User not authenticated']);
             }
             
-            // Get fresh user data from database
-            $freshUser = User::find($user->id);
-            if (!$freshUser) {
-                return response()->json(['success' => false, 'message' => 'User not found']);
-            }
-            
             // Define all possible modules as stored in the database
             $modules = [
                 'order', 'unreceived', 'receiving', 'labeling', 'testing', 
@@ -561,7 +480,7 @@ class UserController extends Controller
             ];
             
             // Get main module and ensure it's lowercase with no spaces
-            $mainModule = $freshUser->main_module;
+            $mainModule = $user->main_module;
             if ($mainModule) {
                 // Remove any spaces and convert to lowercase
                 $mainModule = strtolower(str_replace(' ', '', $mainModule));
@@ -571,24 +490,21 @@ class UserController extends Controller
             $activeModules = [];
             foreach ($modules as $module) {
                 // Only add to sub-modules if it's enabled AND not the main module
-                if ($freshUser->{$module} == 1 && $module !== $mainModule) {
+                if ($user->{$module} == 1 && $module !== $mainModule) {
                     $activeModules[] = strtolower($module);
                 }
             }
             
-            // Clear existing session data and set new data
-            Session::forget(['main_module', 'sub_modules']);
-            Session::put('main_module', $mainModule);
-            Session::put('sub_modules', $activeModules);
-            Session::save();
+            // Save to session
+            session(['main_module' => $mainModule]);
+            session(['sub_modules' => $activeModules]);
             
             // Debug log
             Log::info('Session refreshed for user', [
-                'user_id' => $freshUser->id,
-                'username' => $freshUser->username,
+                'user_id' => $user->id,
+                'username' => $user->username,
                 'main_module' => $mainModule,
-                'sub_modules' => $activeModules,
-                'session_id' => session()->getId()
+                'sub_modules' => $activeModules
             ]);
             
             return response()->json([
@@ -609,84 +525,83 @@ class UserController extends Controller
         }
     }
 
+        
     public function createdusers()
-    {
-        $user = User::select('id', 'username', 'role', 'created_at')
-            ->orderBy('created_at', 'desc')
-            ->get();
-    
-        // Return privileges as JSON
+        {
+            $user = User::select('id', 'username', 'role', 'created_at')
+                ->orderBy('created_at', 'desc')
+                ->get();
+        
+            // Return privileges as JSON
         return response()->json([
             'status' => 'success',
             'message' => 'Users retrieved successfully',
             'data' => $user
         ]);
-    }
+        }
 
     public function update(Request $request, $id)
-    {
-        $request->validate([
-            'username' => 'required|string|max:255|unique:tbluser,username,'.$id,
-            'password' => 'nullable|min:6',
-            'role' => 'required|in:SuperAdmin,SubAdmin,User',
-        ]);
-    
-        try {
-            $user = User::findOrFail($id);
-            
-            $updateData = [
-                'username' => $request->username,
-                'role' => $request->role,
-            ];
-    
-            if ($request->filled('password')) {
-                $updateData['password'] = Hash::make($request->password);
-            }
-    
-            $user->update($updateData);
-
-            // Update session if this is the current user
-            $this->updateCurrentUserSession($id);
-
-            // Log using service
-            $this->userLogService->log('Update data of User - ' . $request->username);
-    
-            return response()->json([
-                'success' => true,
-                'message' => 'User updated successfully!'
+        {
+            $request->validate([
+                'username' => 'required|string|max:255|unique:tbluser,username,'.$id,
+                'password' => 'nullable|min:6',
+                'role' => 'required|in:SuperAdmin,SubAdmin,User',
             ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to update user: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to update user. Please try again.'
-            ]);
-        }
-    }
         
-    public function destroy($id)
-    {
-        try {
-            // Get the user and username before deleting
-            $user = User::findOrFail($id);
-            $username = $user->username; // Store username for logging
-    
-            // Delete the user
-            $user->delete();
-    
-            // Log using service
-            $this->userLogService->log('Deleted User - ' . $username);
-    
-            return response()->json([
-                'success' => true,
-                'message' => 'User deleted successfully!'
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to delete user: ' . $e->getMessage());
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to delete user. Please try again.'
-            ]);
+            try {
+                $user = User::findOrFail($id);
+                
+                $updateData = [
+                    'username' => $request->username,
+                    'role' => $request->role,
+                ];
+        
+                if ($request->filled('password')) {
+                    $updateData['password'] = Hash::make($request->password);
+                }
+        
+                $user->update($updateData);
+
+                // Log using service
+                        $this->userLogService->log('Update data of User - ' . $request->username);
+        
+                return response()->json([
+                    'success' => true,
+                    'message' => 'User updated successfully!'
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to update user: ' . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to update user. Please try again.'
+                ]);
+            }
         }
-    }
+        
+        public function destroy($id)
+        {
+            try {
+                // Get the user and username before deleting
+                $user = User::findOrFail($id);
+                $username = $user->username; // Store username for logging
+        
+                // Delete the user
+                $user->delete();
+        
+                // Log using service
+                $this->userLogService->log('Deleted User - ' . $username);
+        
+                return response()->json([
+                    'success' => true,
+                    'message' => 'User deleted successfully!'
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to delete user: ' . $e->getMessage());
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to delete user. Please try again.'
+                ]);
+            }
+        }
+        
 }
