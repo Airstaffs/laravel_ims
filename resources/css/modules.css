@@ -527,7 +527,17 @@ textarea.form-control {
 .btn-validation,
 .btn-labeling,
 .btn-stockroom,
-.btn-fnsku {
+.btn-fnsku,
+.btn-track,
+.btn-process,
+.btn-auto-dispense,
+.btn-cancel-dispense,
+.btn-tracking-history,
+.btn-shipping-label,
+.btn-invoice,
+.btn-edit-customer,
+.btn-edit-address,
+.btn-edit-note {
     width: 150px;
     height: 40px;
     padding: 5px;
@@ -560,6 +570,33 @@ textarea.form-control {
 
 .btn-details:hover {
     background-color: #0069d9;
+}
+
+.btn-track {
+    background-color: #e3f2fd !important;
+    border: 1px solid #c4d1da;
+}
+
+.btn-track:hover {
+    background-color: #c4d1da;
+}
+
+.btn-auto-dispense {
+    background-color: #6f42c1 !important;
+    border: 1px solid #573597;
+}
+
+.btn-auto-dispense:hover {
+    background-color: #573597;
+}
+
+.btn-cancel-dispense {
+    background-color: #fd7e14 !important;
+    border: 1px solid #d36912;
+}
+
+.btn-cancel-dispense:hover {
+    background-color: #d36912;
 }
 
 /* Expanded content */
