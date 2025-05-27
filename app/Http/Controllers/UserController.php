@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Session;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
@@ -76,7 +77,7 @@ class UserController extends Controller
             ]);
 
             // Log using service
-                    $this->userLogService->log('add user - ' . $validated['username']);
+            $this->userLogService->log('add user - ' . $validated['username']);
     
             return response()->json([
                 'success' => true,
@@ -97,54 +98,54 @@ class UserController extends Controller
     }
         
     public function updatepassword(Request $request)
-        {
-            $currentUserId = Auth::user()->id; // Get the current user's ID
-    
-            // Validate the request
-            $request->validate([
-                'password' => 'required|min:6|confirmed',
-            ]);
-    
-            try {
-                // Find the current user by ID
-                $user = User::findOrFail($currentUserId);
-    
-                // Update the user's password
-                $user->update([
-                    'password' => Hash::make($request->password),
-                ]);
+    {
+        $currentUserId = Auth::user()->id; // Get the current user's ID
 
-                // Log using service
-                        $this->userLogService->log('User Update Password');
-    
-                return back()->with('success', 'Password updated successfully!');
-            } catch (\Exception $e) {
-                Log::error('Failed to update password: ' . $e->getMessage());
-                return back()->with('error', 'Failed to update password. Please try again.');
-            }
+        // Validate the request
+        $request->validate([
+            'password' => 'required|min:6|confirmed',
+        ]);
+
+        try {
+            // Find the current user by ID
+            $user = User::findOrFail($currentUserId);
+
+            // Update the user's password
+            $user->update([
+                'password' => Hash::make($request->password),
+            ]);
+
+            // Log using service
+            $this->userLogService->log('User Update Password');
+
+            return back()->with('success', 'Password updated successfully!');
+        } catch (\Exception $e) {
+            Log::error('Failed to update password: ' . $e->getMessage());
+            return back()->with('error', 'Failed to update password. Please try again.');
         }
+    }
     
     public function showStoreColumns()
-            {
-                $user = new User();
-                $storeColumns = $user->getStoreColumns();
-    
-                return response()->json($storeColumns); // Returns the list of store columns as JSON
-            }
+    {
+        $user = new User();
+        $storeColumns = $user->getStoreColumns();
+
+        return response()->json($storeColumns); // Returns the list of store columns as JSON
+    }
     
     public function getStoreColumns()
-            {
-                // Dynamically fetch columns from the 'tbluser' table
-                $columns = Schema::getColumnListing('tbluser');  // Get all columns for the 'tbluser' table
-                
-                // Filter out only the columns that start with 'store_'
-                $storeColumns = array_filter($columns, function ($column) {
-                    return str_starts_with($column, 'store_');  // Only return columns with the 'store_' prefix
-                });
-            
-                // Return the store columns as a JSON response
-                return response()->json(['stores' => array_values($storeColumns)]);
-            }
+    {
+        // Dynamically fetch columns from the 'tbluser' table
+        $columns = Schema::getColumnListing('tbluser');  // Get all columns for the 'tbluser' table
+        
+        // Filter out only the columns that start with 'store_'
+        $storeColumns = array_filter($columns, function ($column) {
+            return str_starts_with($column, 'store_');  // Only return columns with the 'store_' prefix
+        });
+    
+        // Return the store columns as a JSON response
+        return response()->json(['stores' => array_values($storeColumns)]);
+    }
         
         
     // Controller method to get user privileges
@@ -290,6 +291,65 @@ class UserController extends Controller
                 'error' => 'Failed to fetch stores',
                 'message' => $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Update session with fresh user data
+     */
+    private function updateCurrentUserSession($userId)
+    {
+        try {
+            // Only update session if the current user is being modified
+            $currentUser = Auth::user();
+            if (!$currentUser || $currentUser->id != $userId) {
+                return; // Don't update session for other users
+            }
+
+            // Get fresh user data
+            $user = User::find($userId);
+            if (!$user) {
+                return;
+            }
+
+            // Define all possible modules
+            $allModules = [
+                'order', 'unreceived', 'receiving', 'labeling', 'testing', 
+                'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
+                'productionarea', 'returnscanner', 'fbmorder'
+            ];
+
+            // Get main module and ensure it's lowercase with no spaces
+            $mainModule = $user->main_module;
+            if ($mainModule) {
+                $mainModule = strtolower(str_replace(' ', '', $mainModule));
+            }
+
+            // Get active sub-modules (excluding main module)
+            $activeSubModules = [];
+            foreach ($allModules as $module) {
+                if ($user->{$module} == 1 && $module !== $mainModule) {
+                    $activeSubModules[] = strtolower($module);
+                }
+            }
+
+            // Update session variables
+            Session::forget(['main_module', 'sub_modules']);
+            Session::put('main_module', $mainModule);
+            Session::put('sub_modules', $activeSubModules);
+            Session::save();
+
+            Log::info('Session updated for current user', [
+                'user_id' => $userId,
+                'main_module' => $mainModule,
+                'sub_modules' => $activeSubModules
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update current user session', [
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
         }
     }
 
@@ -444,6 +504,9 @@ class UserController extends Controller
             // Save the user privileges
             $user->save();
 
+            // CRITICAL: Update session if this is the current user
+            $this->updateCurrentUserSession($data['user_id']);
+
             // Log using service
             $this->userLogService->log($logMessage);
 
@@ -459,7 +522,8 @@ class UserController extends Controller
                 'success' => true, 
                 'message' => 'User privileges updated successfully!',
                 'main_module' => $mainModuleDb,
-                'sub_modules' => $responseSubModules
+                'sub_modules' => $responseSubModules,
+                'session_updated' => Auth::id() == $data['user_id'] // Indicate if session was updated
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             Log::error('Validation Error:', ['errors' => $e->errors()]);
@@ -474,8 +538,6 @@ class UserController extends Controller
         }
     }      
 
-
-
     public function refreshUserSession(Request $request)
     {
         try {
@@ -483,6 +545,12 @@ class UserController extends Controller
             
             if (!$user) {
                 return response()->json(['success' => false, 'message' => 'User not authenticated']);
+            }
+            
+            // Get fresh user data from database
+            $freshUser = User::find($user->id);
+            if (!$freshUser) {
+                return response()->json(['success' => false, 'message' => 'User not found']);
             }
             
             // Define all possible modules as stored in the database
@@ -493,7 +561,7 @@ class UserController extends Controller
             ];
             
             // Get main module and ensure it's lowercase with no spaces
-            $mainModule = $user->main_module;
+            $mainModule = $freshUser->main_module;
             if ($mainModule) {
                 // Remove any spaces and convert to lowercase
                 $mainModule = strtolower(str_replace(' ', '', $mainModule));
@@ -503,21 +571,24 @@ class UserController extends Controller
             $activeModules = [];
             foreach ($modules as $module) {
                 // Only add to sub-modules if it's enabled AND not the main module
-                if ($user->{$module} == 1 && $module !== $mainModule) {
+                if ($freshUser->{$module} == 1 && $module !== $mainModule) {
                     $activeModules[] = strtolower($module);
                 }
             }
             
-            // Save to session
-            session(['main_module' => $mainModule]);
-            session(['sub_modules' => $activeModules]);
+            // Clear existing session data and set new data
+            Session::forget(['main_module', 'sub_modules']);
+            Session::put('main_module', $mainModule);
+            Session::put('sub_modules', $activeModules);
+            Session::save();
             
             // Debug log
             Log::info('Session refreshed for user', [
-                'user_id' => $user->id,
-                'username' => $user->username,
+                'user_id' => $freshUser->id,
+                'username' => $freshUser->username,
                 'main_module' => $mainModule,
-                'sub_modules' => $activeModules
+                'sub_modules' => $activeModules,
+                'session_id' => session()->getId()
             ]);
             
             return response()->json([
@@ -538,83 +609,84 @@ class UserController extends Controller
         }
     }
 
-        
     public function createdusers()
-        {
-            $user = User::select('id', 'username', 'role', 'created_at')
-                ->orderBy('created_at', 'desc')
-                ->get();
-        
-            // Return privileges as JSON
+    {
+        $user = User::select('id', 'username', 'role', 'created_at')
+            ->orderBy('created_at', 'desc')
+            ->get();
+    
+        // Return privileges as JSON
         return response()->json([
             'status' => 'success',
             'message' => 'Users retrieved successfully',
             'data' => $user
         ]);
-        }
+    }
 
     public function update(Request $request, $id)
-        {
-            $request->validate([
-                'username' => 'required|string|max:255|unique:tbluser,username,'.$id,
-                'password' => 'nullable|min:6',
-                'role' => 'required|in:SuperAdmin,SubAdmin,User',
-            ]);
-        
-            try {
-                $user = User::findOrFail($id);
-                
-                $updateData = [
-                    'username' => $request->username,
-                    'role' => $request->role,
-                ];
-        
-                if ($request->filled('password')) {
-                    $updateData['password'] = Hash::make($request->password);
-                }
-        
-                $user->update($updateData);
+    {
+        $request->validate([
+            'username' => 'required|string|max:255|unique:tbluser,username,'.$id,
+            'password' => 'nullable|min:6',
+            'role' => 'required|in:SuperAdmin,SubAdmin,User',
+        ]);
+    
+        try {
+            $user = User::findOrFail($id);
+            
+            $updateData = [
+                'username' => $request->username,
+                'role' => $request->role,
+            ];
+    
+            if ($request->filled('password')) {
+                $updateData['password'] = Hash::make($request->password);
+            }
+    
+            $user->update($updateData);
 
-                // Log using service
-                        $this->userLogService->log('Update data of User - ' . $request->username);
-        
-                return response()->json([
-                    'success' => true,
-                    'message' => 'User updated successfully!'
-                ]);
-            } catch (\Exception $e) {
-                Log::error('Failed to update user: ' . $e->getMessage());
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to update user. Please try again.'
-                ]);
-            }
+            // Update session if this is the current user
+            $this->updateCurrentUserSession($id);
+
+            // Log using service
+            $this->userLogService->log('Update data of User - ' . $request->username);
+    
+            return response()->json([
+                'success' => true,
+                'message' => 'User updated successfully!'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to update user: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update user. Please try again.'
+            ]);
         }
+    }
         
-        public function destroy($id)
-        {
-            try {
-                // Get the user and username before deleting
-                $user = User::findOrFail($id);
-                $username = $user->username; // Store username for logging
-        
-                // Delete the user
-                $user->delete();
-        
-                // Log using service
-                $this->userLogService->log('Deleted User - ' . $username);
-        
-                return response()->json([
-                    'success' => true,
-                    'message' => 'User deleted successfully!'
-                ]);
-            } catch (\Exception $e) {
-                Log::error('Failed to delete user: ' . $e->getMessage());
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Failed to delete user. Please try again.'
-                ]);
-            }
+    public function destroy($id)
+    {
+        try {
+            // Get the user and username before deleting
+            $user = User::findOrFail($id);
+            $username = $user->username; // Store username for logging
+    
+            // Delete the user
+            $user->delete();
+    
+            // Log using service
+            $this->userLogService->log('Deleted User - ' . $username);
+    
+            return response()->json([
+                'success' => true,
+                'message' => 'User deleted successfully!'
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to delete user: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete user. Please try again.'
+            ]);
         }
-        
+    }
 }

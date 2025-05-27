@@ -133,50 +133,79 @@
         </div>
 
         <h5 class="text-center">Navigation</h5>
-        <?php
-        // In your blade template
-        $mainModule = strtolower(session('main_module', ''));
-        $subModules = array_map('strtolower', session('sub_modules', []));
+     
+<?php
+use Illuminate\Support\Facades\Auth;
 
-        // Remove main module from sub modules if it exists
-        $subModules = array_filter($subModules, function ($module) use ($mainModule) {
-            return $module !== $mainModule;
-        });
-
-        // Fallback for main module
-        $defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
-
-        function checkPermission($module, $mainModule, $subModules)
-        {
-            // Convert to lowercase for comparison
-            $module = strtolower($module);
-            $mainModule = strtolower($mainModule);
-            $subModules = array_map('strtolower', (array) $subModules);
-
-            if ($module === 'dashboard') {
-                return true;
-            }
-            // A module is permitted if it's the main module OR in sub modules (but not both)
-            return $module === $mainModule || in_array($module, $subModules);
+// Get fresh user data instead of relying on session
+$currentUser = Auth::user();
+if ($currentUser) {
+    // Get fresh data from database
+    $userId = $currentUser->id;
+    $freshUser = \App\Models\User::find($userId);
+    
+    $mainModule = strtolower($freshUser->main_module ?: '');
+    
+    // Build sub modules array from database
+    $subModules = [];
+    $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
+                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
+                      'productionarea', 'returnscanner', 'fbmorder'];
+    
+    foreach ($moduleColumns as $column) {
+        if ($currentUser->{$column} && $column !== $mainModule) {
+            $subModules[] = $column;
         }
+    }
+    
+    // Update session with fresh data
+    session(['main_module' => $mainModule]);
+    session(['sub_modules' => $subModules]);
+} else {
+    // Fallback to session if no user
+    $mainModule = strtolower(session('main_module', ''));
+    $subModules = array_map('strtolower', session('sub_modules', []));
+}
 
-        $modules = [
-            'order' => 'Order',
-            'unreceived' => 'Unreceived',
-            'receiving' => 'Received',
-            'labeling' => 'Labeling',
-            'validation' => 'Validation',
-            'testing' => 'Testing',
-            'cleaning' => 'Cleaning',
-            'packing' => 'Packing',
-            'fnsku' => 'Fnsku',
-            'stockroom' => 'Stockroom',
-            'productionarea' => 'Production Area',
-            'fbashipmentinbound' => 'FBA Inbound Shipment',
-            'returnscanner' => 'Return Scanner',
-            'fbmorder' => 'FBM Order',
-        ];
-        ?>
+// Remove main module from sub modules if it exists
+$subModules = array_filter($subModules, function($module) use ($mainModule) {
+    return $module !== $mainModule;
+});
+
+// Fallback for main module
+$defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+
+function checkPermission($module, $mainModule, $subModules)
+{
+    // Convert to lowercase for comparison
+    $module = strtolower($module);
+    $mainModule = strtolower($mainModule);
+    $subModules = array_map('strtolower', (array) $subModules);
+
+    if ($module === 'dashboard') {
+        return true;
+    }
+    // A module is permitted if it's the main module OR in sub modules (but not both)
+    return $module === $mainModule || in_array($module, $subModules);
+}
+
+$modules = [
+    'order' => 'Order',
+    'unreceived' => 'Unreceived',
+    'receiving' => 'Received',
+    'labeling' => 'Labeling',
+    'validation' => 'Validation',
+    'testing' => 'Testing',
+    'cleaning' => 'Cleaning',
+    'packing' => 'Packing',
+    'fnsku' => 'Fnsku',
+    'stockroom' => 'Stockroom',
+    'productionarea' => 'Production Area',
+    'fbashipmentinbound' => 'FBA Inbound Shipment',
+    'returnscanner' => 'Return Scanner',
+    'fbmorder' => 'FBM Order',
+];
+?>
         <script>
             // Make sure these are set properly with filtering
             window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
@@ -986,19 +1015,33 @@
             }
         }
 
-        function collectFormData() {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+      function collectFormData() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    // Get the main module value
+    const mainModuleRadio = document.querySelector('input[name="main_module"]:checked');
+    const mainModuleValue = mainModuleRadio ? mainModuleRadio.value : '';
+    
+    // Get all checked sub-modules - these will be database column names
+    const subModuleCheckboxes = document.querySelectorAll('input[name="sub_modules[]"]:checked');
+    const subModules = Array.from(subModuleCheckboxes).map(checkbox => checkbox.value);
+    
+    // Debug logging
+    console.log('Collecting form data:', {
+        main_module: mainModuleValue,
+        sub_modules: subModules,
+        main_module_radio: mainModuleRadio
+    });
 
-            return {
-                user_id: parseInt(document.getElementById('selectUser').value, 10),
-                main_module: document.querySelector('input[name="main_module"]:checked')?.value || '',
-                sub_modules: [...document.querySelectorAll('input[name="sub_modules[]"]:checked')].map(input => input
-                    .value),
-                privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
-                    input.value),
-                _token: csrfToken
-            };
-        }
+    return {
+        user_id: parseInt(document.getElementById('selectUser').value, 10),
+        main_module: mainModuleValue,  // This will be "Received" if that's selected
+        sub_modules: subModules,       // These will be database column names like "receiving"
+        privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
+            input.value),
+        _token: csrfToken
+    };
+}
 
         async function saveUserPrivileges(formData) {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -1114,7 +1157,7 @@
                 'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
             ];
 
-            const mainModuleHTML = `
+       const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
             ${mainModules.map(module => {
@@ -1123,12 +1166,12 @@
                 const isChecked = data.main_module === dbColumnName ? 'checked' : '';
 
                 return `
-                                                                <div class="col-4 form-check mb-2 px-10">
-                                                                    <input class="form-check-input" type="radio" name="main_module"
-                                                                           value="${module}" ${isChecked} required>
-                                                                    <label class="form-check-label">${module}</label>
-                                                                </div>
-                                                            `;
+                    <div class="col-4 form-check mb-2 px-10">
+                        <input class="form-check-input" type="radio" name="main_module"
+                               value="${module}" ${isChecked} required>
+                        <label class="form-check-label">${module}</label>
+                    </div>
+                `;
             }).join('')}
         </div>
     `;
@@ -1190,18 +1233,18 @@
                 }
             ];
 
-            const subModulesHTML = `
-<h6>Sub-Modules</h6>
-<div class="row mb-3">
-    ${subModules.map(module => `
-                                                    <div class="col-4 form-check mb-2 px-10">
-                                                        <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                                                               value="${module.db}"
-                                                               ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
-                                                        <label class="form-check-label">${module.display}</label>
-                                                    </div>
-                                                `).join('')}
-</div>
+          const subModulesHTML = `
+        <h6>Sub-Modules</h6>
+        <div class="row mb-3">
+            ${subModules.map(module => `
+                <div class="col-4 form-check mb-2 px-10">
+                    <input class="form-check-input" type="checkbox" name="sub_modules[]"
+                           value="${module.db}"
+                           ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
+                    <label class="form-check-label">${module.display}</label>
+                </div>
+            `).join('')}
+        </div>
 `;
             document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
         }
