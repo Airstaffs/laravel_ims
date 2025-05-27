@@ -344,13 +344,12 @@ body {
 }
 
 .store-filter {
-    max-width: 25%;
     position: relative;
     display: flex;
     align-items: center;
     justify-content: end;
     gap: 8px;
-    padding: 0 8px 0 1rem;
+    padding-left: 10px;
 }
 
 .store-filter::after {
