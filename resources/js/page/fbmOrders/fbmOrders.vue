@@ -43,6 +43,9 @@
                 </button>
             </div>
             <div class="selection-actions">
+                <button class="btn-action" @click="PurchaseShippingLabel">
+                    <i class="fas fa-shipping-fast"></i> Purchase Shipping Label
+                </button>
                 <button class="btn-action" @click="processSelectedOrders">
                     <i class="fas fa-shipping-fast"></i> Process Selected
                 </button>
@@ -837,6 +840,13 @@
             </div>
         </div>
     </div>
+
+<ShipmentLabel
+  :show="showShipmentLabelModal"
+  :shipmentData="selectedShipmentData"
+  @close="closeShipmentLabelModal"
+  @submit="handleShipmentLabelSubmit"
+/>
 </template>
 
 <script>
