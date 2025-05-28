@@ -6,6 +6,13 @@
                 <button class="btn" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
                 </button>
+                <button class="btn">Track</button>
+                <button class="btn">Tracking History</button>
+                <button class="btn">Purchase Shipping Label</button>
+                <button class="btn">Print Invoice</button>
+                <button class="btn">Edit Customer Name</button>
+                <button class="btn">Edit Address</button>
+                <button class="btn">Edit Note</button>
             </div>
 
             <div class="store-filter">
@@ -289,6 +296,8 @@
                         <div class="mobile-customer-address">{{ formatAddress(order.address) }}</div>
                     </div>
 
+                    <hr>
+
                     <!-- Enhanced Mobile Products Display -->
                     <div class="mobile-products">
                         <div v-for="(item, itemIndex) in (order.items || [])" :key="itemIndex"
@@ -354,6 +363,8 @@
                         </div>
                     </div>
 
+                    <hr>
+
                     <div class="mobile-order-details">
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Purchase Date:</span>
@@ -368,6 +379,8 @@
                             <span class="mobile-detail-value">{{ order.shipment_service }}</span>
                         </div>
                     </div>
+
+                    <hr>
 
                     <div class="mobile-actions">
                         <button class="mobile-btn" @click="viewOrderDetails(order)">

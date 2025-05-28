@@ -5,7 +5,7 @@
 
 .fbm-order-module th:nth-child(3),
 .fbm-order-module td:nth-child(3) {
-    min-width: 170px;
+    min-width: 200px;
 }
 
 .fbm-order-module .fbm-tag {
@@ -461,12 +461,6 @@
     cursor: pointer;
 }
 
-.fbm-order-module .btn-track {
-    background-color: #e3f2fd !important;
-    color: #0d47a1;
-    font-weight: bold;
-}
-
 .fbm-order-module .btn-process {
     background-color: #28a745 !important;
     color: white !important;
@@ -636,12 +630,6 @@
 
 /* Mobile view styles */
 @media (max-width: 768px) {
-    .fbm-order-module .mobile-actions {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 5px;
-    }
-
     .fbm-order-module .mobile-btn {
         padding: 8px;
         font-size: 0.8rem;
@@ -884,44 +872,6 @@
         display: block !important;
     }
 
-    /* Better header layout on mobile */
-    .fbm-order-module .top-header {
-        flex-direction: column;
-        padding: 10px;
-    }
-
-    .fbm-order-module .store-filter {
-        flex-direction: column;
-        width: 100%;
-        gap: 10px;
-        margin-top: 10px;
-    }
-
-    .fbm-order-module .store-filter label {
-        margin-right: 5px;
-        font-weight: 500;
-    }
-
-    .fbm-order-module .store-select,
-    .fbm-order-module .status-select {
-        width: 100%;
-        padding: 8px;
-        margin-bottom: 5px;
-        border-radius: 4px;
-        border: 1px solid #ccc;
-    }
-
-    .fbm-order-module .btn-refresh {
-        width: 100%;
-        justify-content: center;
-        padding: 8px;
-        border-radius: 4px;
-        background-color: #0056b3;
-        color: white;
-        border: none;
-        font-weight: 500;
-    }
-
     /* Improved mobile card design */
     .fbm-order-module .mobile-card {
         border: 1px solid #ddd;
@@ -954,8 +904,7 @@
     }
 
     .fbm-order-module .mobile-customer {
-        padding: 12px;
-        border-bottom: 1px solid #eee;
+        padding: 12px 12px 0 12px;
     }
 
     .fbm-order-module .mobile-customer-name {
@@ -1484,8 +1433,7 @@
 .fbm-order-module .product-item:has(.item-dispense-checkbox:not(:disabled)) {
     background-color: rgba(232, 244, 248, 0.15);
     border-left: 3px solid #28a745;
-    padding-left: 5px;
-    margin-left: -8px;
+    padding-left: 10px;
 }
 
 .fbm-order-module .mobile-product-item:has(.mobile-item-dispense-checkbox:not(:disabled)) {
