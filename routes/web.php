@@ -28,6 +28,7 @@ use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\FbmOrderController;
+use App\Http\Controllers\notfoundController;
 
 
 
@@ -378,6 +379,13 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/cancel-dispense', [FbmOrderController::class, 'cancelDispense']);
     Route::get('/detail', [FbmOrderController::class, 'getOrderDetail']);
     Route::post('/mark-not-found', [FbmOrderController::class, 'markProductNotFound']);
+});
+
+
+// Routes Not Found
+Route::prefix('api/notfound')->group(function () {
+    Route::get('products', [notfoundController::class, 'index']);
+    Route::post('move-to-stockroom', [notfoundController::class, 'moveToStockroom']);
 });
 
 

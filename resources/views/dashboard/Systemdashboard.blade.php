@@ -150,7 +150,7 @@ if ($currentUser) {
     $subModules = [];
     $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
                       'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                      'productionarea', 'returnscanner', 'fbmorder'];
+                      'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
     
     foreach ($moduleColumns as $column) {
         if ($currentUser->{$column} && $column !== $mainModule) {
@@ -204,6 +204,7 @@ $modules = [
     'fbashipmentinbound' => 'FBA Inbound Shipment',
     'returnscanner' => 'Return Scanner',
     'fbmorder' => 'FBM Order',
+    'notfound' => 'Not Found',
 ];
 ?>
         <script>
@@ -1077,7 +1078,8 @@ $modules = [
                             'stockroom': 'Stockroom',
                             'productionarea': 'Production Area',
                             'returnscanner': 'Return Scanner',
-                            'fbmorder': 'FBM Order'
+                            'fbmorder': 'FBM Order',
+                            'notfound': 'Not Found'
                         }
                     };
 
@@ -1150,11 +1152,12 @@ $modules = [
                 'FNSKU': 'fnsku',
                 'Production Area': 'productionarea',
                 'Return Scanner': 'returnscanner',
-                'FBM Order': 'fbmorder'
+                'FBM Order': 'fbmorder',
+                'Not Found': 'notfound' 
             };
 
             const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
+                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order', 'Not Found'
             ];
 
        const mainModuleHTML = `
@@ -1230,6 +1233,9 @@ $modules = [
                 {
                     db: 'fbmorder',
                     display: 'FBM Order'
+                },
+                { db: 'notfound', 
+                    display: 'Not Found' 
                 }
             ];
 
@@ -1255,12 +1261,12 @@ $modules = [
     <div class="row mb-3">
         ${data.privileges_stores && data.privileges_stores.length > 0
             ? data.privileges_stores.map(store => `
-                                                                                                                                        <div class="col-4 form-check mb-2">
-                                                                                                                                            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                                                                                                                                                   value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                                                                                                                                            <label class="form-check-label">${store.store_name}</label>
-                                                                                                                                        </div>
-                                                                                                                                    `).join('')
+         <div class="col-4 form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
+                value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+             <label class="form-check-label">${store.store_name}</label>
+              </div>
+               `).join('')
             : '<p>No stores available</p>'
         }
     </div>
@@ -1308,7 +1314,8 @@ $modules = [
                         'productionarea': 'Production Area',
                         'returnscanner': 'Return Scanner',
                         'fbashipmentinbound': 'FBA Inbound Shipment',
-                        'fbmorder': 'FBM Order'
+                        'fbmorder': 'FBM Order',
+                        'notfound': 'Not Found' // Add this mapping
                     };
 
                     updateUserNavigation({
@@ -1343,7 +1350,8 @@ $modules = [
                 'productionarea': 'Production Area',
                 'returnscanner': 'Return Scanner',
                 'fbashipmentinbound': 'FBA Inbound Shipment',
-                'fbmorder': 'FBM Order'
+                'fbmorder': 'FBM Order',
+                 'notfound': 'Not Found' // Add this mapping
             };
 
             // Use provided modules or default modules
