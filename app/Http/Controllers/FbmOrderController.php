@@ -1709,4 +1709,40 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
         
         return $condition . $subtype;
     }
+
+public function shippinglabelselecteditem(Request $request)
+{
+    $itemIds = $request->query('itemIds');
+
+    if (!$itemIds) {
+        return response()->json(['error' => 'Missing item IDs'], 400);
+    }
+
+    $itemIdArray = explode(',', $itemIds);
+
+    // Fetch the selected order items
+    $items = DB::table('tbloutboundordersitem')
+        ->whereIn('outboundorderitemid', $itemIdArray)
+        ->get();
+
+    // Group items by platform_order_id
+    $itemsGrouped = $items->groupBy('platform_order_id');
+
+    // Fetch the corresponding orders
+    $platformOrderIds = $itemsGrouped->keys();
+
+    $orders = DB::table('tbloutboundorders')
+        ->whereIn('platform_order_id', $platformOrderIds)
+        ->get();
+
+    // Combine items into each order
+    $response = $orders->map(function ($order) use ($itemsGrouped) {
+        $orderArray = (array) $order;
+        $orderArray['items'] = $itemsGrouped[$order->platform_order_id]->values();
+        return $orderArray;
+    });
+
+    return response()->json($response);
+}
+
 }

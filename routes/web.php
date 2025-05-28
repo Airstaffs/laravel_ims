@@ -379,6 +379,7 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/cancel-dispense', [FbmOrderController::class, 'cancelDispense']);
     Route::get('/detail', [FbmOrderController::class, 'getOrderDetail']);
     Route::post('/mark-not-found', [FbmOrderController::class, 'markProductNotFound']);
+    Route::get('/shipping-label-selected-items', [FbmOrderController::class, 'shippinglabelselecteditem']);
 });
 
 

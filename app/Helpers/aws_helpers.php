@@ -14,15 +14,14 @@ if (!function_exists('AWSCredentials')) {
     function AWSCredentials($store)
     {
         try {
-            $id = ($store === 'Renovar Tech') ? 6 : 10;
+            
 
-            $credentials = (array) DB::table('tblstores')->where('store_id', $id)->first();
+            $credentials = (array) DB::table('tblstores')->where('storename', $store)->first();
 
             if (!$credentials) {
-                Log::error("No keys found for the given client ID: {$id}");
+                Log::error("No keys found for the given client ID: {$store}");
                 return null;
             }
-
             return $credentials;
         } catch (\Exception $e) {
             Log::error("Error retrieving credentials: " . $e->getMessage());
