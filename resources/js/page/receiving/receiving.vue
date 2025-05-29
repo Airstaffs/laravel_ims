@@ -380,3 +380,7 @@
         </div>
     </div>
 </template>
+<script>
+    import Received from "./receiving.js";
+    export default Received;
+</script>

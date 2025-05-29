@@ -5,6 +5,10 @@
 
     RewriteEngine On
 
+    # Redirect root (/) to /login
+    RewriteCond %{REQUEST_URI} ^/$
+    RewriteRule ^$ /login [L,R=301]
+
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
     RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
