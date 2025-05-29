@@ -365,7 +365,7 @@
         </div>
 
         <!-- FNSKU Selection Modal - Moved outside image modal and now has proper styling -->
-        <div class="fnsku-modal-container" v-if="isFnskuModalVisible">
+        <div v-if="isFnskuModalVisible" class="modal fnsku-modal">
             <!-- Overlay -->
             <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
 
@@ -392,7 +392,7 @@
                     <!-- Search -->
                     <div class="fnsku-search-container">
                         <input type="text" v-model="fnskuSearch" placeholder="Search FNSKU, ASIN, title, or grading..."
-                            class="fnsku-search-input" @input="filterFnskuList" />
+                            class="fnsku-search-input form-control" @input="filterFnskuList" />
                     </div>
 
                     <!-- FNSKU List -->
