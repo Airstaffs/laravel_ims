@@ -65,17 +65,8 @@ body {
     transition: margin-left 0.3s ease-in-out;
 }
 
-.content.sidebar-visible {
-    margin-left: 240px;
-}
-
 #burger-menu {
     display: block;
-}
-
-#burger-menu.hidden {
-    display: none;
-    /* Hide burger menu when sidebar is visible */
 }
 
 .navbar-brand.shifted {
@@ -149,6 +140,10 @@ body {
 
 #storeList .edit-store-btn:hover {
     background-color: #0056b3;
+}
+
+#storeList .delete-store-btn {
+    color: #FFF;
 }
 
 .d-flex button {
@@ -396,7 +391,9 @@ body {
     justify-content: start;
     align-items: center;
     gap: 10px;
-    overflow: auto;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: thin;
 }
 
 .header-buttons::-webkit-scrollbar {
@@ -485,6 +482,9 @@ body {
     align-items: center;
     gap: 10px;
     border-bottom: 2px solid #dee2e6;
+    overflow-x: auto;
+    white-space: nowrap;
+    flex-wrap: nowrap;
 }
 
 .modal .nav-item {
@@ -617,7 +617,9 @@ body {
 .modal .changePwdForm,
 .modal .tblnDsgnForm,
 .modal .addUserForm,
-.modal .storeListContainer {
+.modal .storeListContainer,
+.modal .userTimeRecord,
+.modal .userLogs {
     width: 600px;
     margin: 0 auto;
     display: flex;
@@ -625,6 +627,19 @@ body {
     justify-content: center;
     align-items: stretch;
     gap: 20px;
+}
+
+.modal .userTimeRecord,
+.modal .userLogs {
+    flex-direction: row;
+}
+
+.userTimeRecord fieldset,
+.userLogs fieldset {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
 }
 
 .changePwdForm label,
@@ -643,6 +658,34 @@ body {
 
 .tblnDsgnForm .form-control {
     width: 100%;
+}
+
+.userTimeRecord .form-control,
+.userTimeRecord .form-select,
+.userLogs .form-control,
+.userLogs .form-select {
+    min-width: 150px;
+    margin: 0;
+}
+
+.userTimeRecord .input-container,
+.userLogs .input-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.userTimeRecord button,
+.userLogs button {
+    width: 100px;
+    color: #FFF;
+    justify-content: center;
+}
+
+#usertimerecord .table-responsive,
+#userlogs .table-responsive {
+    height: 452px;
 }
 
 .changePwdForm .toggle-password,
@@ -755,11 +798,6 @@ hr.dashed {
         border: 0;
     }
 
-    .modal form,
-    .modal .storeListContainer {
-        width: 100%;
-    }
-
     .modal .nav-tabs {
         overflow: auto;
         width: 100%;
@@ -806,5 +844,36 @@ hr.dashed {
         position: absolute;
         top: 0;
         right: 0;
+    }
+
+    .modal .changePwdForm,
+    .modal .tblnDsgnForm,
+    .modal .addUserForm,
+    .modal .storeListContainer,
+    .modal .userTimeRecord,
+    .modal .userLogs {
+        width: 100%;
+    }
+
+    .modal .userTimeRecord,
+    .modal .userLogs {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .modal .userTimeRecord fieldset {}
+
+    .userTimeRecord .form-control,
+    .userTimeRecord .form-select,
+    .userTimeRecord button,
+    .userLogs .form-control,
+    .userLogs .form-select,
+    .userLogs button {
+        height: 40px;
+    }
+
+    .userTimeRecord button,
+    .userLogs button {
+        width: 100%;
     }
 }

@@ -133,79 +133,77 @@
         </div>
 
         <h5 class="text-center">Navigation</h5>
-     
-<?php
-use Illuminate\Support\Facades\Auth;
 
-// Get fresh user data instead of relying on session
-$currentUser = Auth::user();
-if ($currentUser) {
-    // Get fresh data from database
-    $userId = $currentUser->id;
-    $freshUser = \App\Models\User::find($userId);
-    
-    $mainModule = strtolower($freshUser->main_module ?: '');
-    
-    // Build sub modules array from database
-    $subModules = [];
-    $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                      'productionarea', 'returnscanner', 'fbmorder'];
-    
-    foreach ($moduleColumns as $column) {
-        if ($currentUser->{$column} && $column !== $mainModule) {
-            $subModules[] = $column;
+        <?php
+        use Illuminate\Support\Facades\Auth;
+
+        // Get fresh user data instead of relying on session
+        $currentUser = Auth::user();
+        if ($currentUser) {
+            // Get fresh data from database
+            $userId = $currentUser->id;
+            $freshUser = \App\Models\User::find($userId);
+
+            $mainModule = strtolower($freshUser->main_module ?: '');
+
+            // Build sub modules array from database
+            $subModules = [];
+            $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder'];
+
+            foreach ($moduleColumns as $column) {
+                if ($currentUser->{$column} && $column !== $mainModule) {
+                    $subModules[] = $column;
+                }
+            }
+
+            // Update session with fresh data
+            session(['main_module' => $mainModule]);
+            session(['sub_modules' => $subModules]);
+        } else {
+            // Fallback to session if no user
+            $mainModule = strtolower(session('main_module', ''));
+            $subModules = array_map('strtolower', session('sub_modules', []));
         }
-    }
-    
-    // Update session with fresh data
-    session(['main_module' => $mainModule]);
-    session(['sub_modules' => $subModules]);
-} else {
-    // Fallback to session if no user
-    $mainModule = strtolower(session('main_module', ''));
-    $subModules = array_map('strtolower', session('sub_modules', []));
-}
 
-// Remove main module from sub modules if it exists
-$subModules = array_filter($subModules, function($module) use ($mainModule) {
-    return $module !== $mainModule;
-});
+        // Remove main module from sub modules if it exists
+        $subModules = array_filter($subModules, function ($module) use ($mainModule) {
+            return $module !== $mainModule;
+        });
 
-// Fallback for main module
-$defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+        // Fallback for main module
+        $defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
 
-function checkPermission($module, $mainModule, $subModules)
-{
-    // Convert to lowercase for comparison
-    $module = strtolower($module);
-    $mainModule = strtolower($mainModule);
-    $subModules = array_map('strtolower', (array) $subModules);
+        function checkPermission($module, $mainModule, $subModules)
+        {
+            // Convert to lowercase for comparison
+            $module = strtolower($module);
+            $mainModule = strtolower($mainModule);
+            $subModules = array_map('strtolower', (array) $subModules);
 
-    if ($module === 'dashboard') {
-        return true;
-    }
-    // A module is permitted if it's the main module OR in sub modules (but not both)
-    return $module === $mainModule || in_array($module, $subModules);
-}
+            if ($module === 'dashboard') {
+                return true;
+            }
+            // A module is permitted if it's the main module OR in sub modules (but not both)
+            return $module === $mainModule || in_array($module, $subModules);
+        }
 
-$modules = [
-    'order' => 'Order',
-    'unreceived' => 'Unreceived',
-    'receiving' => 'Received',
-    'labeling' => 'Labeling',
-    'validation' => 'Validation',
-    'testing' => 'Testing',
-    'cleaning' => 'Cleaning',
-    'packing' => 'Packing',
-    'fnsku' => 'Fnsku',
-    'stockroom' => 'Stockroom',
-    'productionarea' => 'Production Area',
-    'fbashipmentinbound' => 'FBA Inbound Shipment',
-    'returnscanner' => 'Return Scanner',
-    'fbmorder' => 'FBM Order',
-];
-?>
+        $modules = [
+            'order' => 'Order',
+            'unreceived' => 'Unreceived',
+            'receiving' => 'Received',
+            'labeling' => 'Labeling',
+            'validation' => 'Validation',
+            'testing' => 'Testing',
+            'cleaning' => 'Cleaning',
+            'packing' => 'Packing',
+            'fnsku' => 'Fnsku',
+            'stockroom' => 'Stockroom',
+            'productionarea' => 'Production Area',
+            'fbashipmentinbound' => 'FBA Inbound Shipment',
+            'returnscanner' => 'Return Scanner',
+            'fbmorder' => 'FBM Order',
+        ];
+        ?>
         <script>
             // Make sure these are set properly with filtering
             window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
@@ -577,49 +575,40 @@ $modules = [
 
                         <div class="tab-pane fade" id="usertimerecord" role="tabpanel"
                             aria-labelledby="usertimerecord-tab">
-                            <h5>USER TIME RECORD</h5>
+                            <h3 class="text-center">User Time Record</h3>
 
                             <!-- User Selection Form -->
-                            <form id="usertimerecord" class="mb-4">
+                            <form id="usertimerecord" class="userTimeRecord">
                                 @csrf
-                                <div class="row align-items-center g-2">
-                                    <!-- Changed to align-items-center and added g-2 for gap -->
-                                    <div class="col-auto">
-                                        <select class="form-select" id="selectUserDrop" name="user_id" required>
-                                            @foreach ($Allusers as $userOption)
-                                                <option value="{{ $userOption->id }}"
-                                                    {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
-                                                    {{ $userOption->username }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
+                                <fieldset>
+                                    <select class="form-select" id="selectUserDrop" name="user_id" required>
+                                        @foreach ($Allusers as $userOption)
+                                            <option value="{{ $userOption->id }}"
+                                                {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
+                                                {{ $userOption->username }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </fieldset>
 
-                                    <div class="col-auto">
-                                        <input type="date" class="form-control" id="start_date" name="start_date"
-                                            placeholder="Start Date">
-                                    </div>
+                                <fieldset class="input-container">
+                                    <input type="date" class="form-control" id="start_date" name="start_date"
+                                        placeholder="Start Date">
+                                    <input type="date" class="form-control" id="end_date" name="end_date"
+                                        placeholder="End Date">
+                                </fieldset>
 
-                                    <div class="col-auto">
-                                        <input type="date" class="form-control" id="end_date" name="end_date"
-                                            placeholder="End Date">
-                                    </div>
-
-                                    <div class="col-auto">
-                                        <button type="button" class="btn btn-primary"
-                                            id="filterRecords">Filter</button>
-                                    </div>
-                                </div>
+                                <button type="button" class="btn btn-primary" id="filterRecords">Filter</button>
                             </form>
 
                             <!-- Time Records Table -->
-                            <div class="table-responsive-notes mt-3">
-                                <table class="table-notes table-striped-notes table-bordered-notes">
-                                    <thead class="table-header-notes">
-                                        <tr class="tr-notes">
-                                            <th class="th-notes">Details</th>
-                                            <th class="th-notes">Total Hours</th>
-                                            <th class="th-notes">Notes</th>
+                            <div class="table-responsive d-none d-md-block">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Details</th>
+                                            <th>Total Hours</th>
+                                            <th>Notes</th>
                                         </tr>
                                     </thead>
                                     <tbody id="timeRecordsBody" class="tbody-notes">
@@ -627,58 +616,58 @@ $modules = [
                                     </tbody>
                                 </table>
                             </div>
+
+                            <!-- Mobile Card View -->
+                            <div class="d-block d-md-none" id="timeRecordsMobile">
+                                <!-- Cards will be populated by JS -->
+                            </div>
                         </div>
 
                         <div class="tab-pane fade" id="userlogs" role="tabpanel" aria-labelledby="userlogs-tab">
-                            <h5>USER LOGS</h5>
+                            <h3 class="text-center">User Logs</h3>
 
                             <!-- User Selection Form -->
-                            <form id="userlogs" class="mb-4">
+                            <form id="userlogs" class="userLogs">
                                 @csrf
-                                <div class="row align-items-center g-2">
-                                    <!-- Changed to align-items-center and added g-2 for gap -->
-                                    <div class="col-auto">
-                                        <select class="form-select" id="selectUserDrop_logs" name="user_id" required>
-                                            @foreach ($Allusers as $userOption)
-                                                <option value="{{ $userOption->id }}"
-                                                    {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
-                                                    {{ $userOption->username }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                    </div>
+                                <fieldset>
+                                    <select class="form-select" id="selectUserDrop_logs" name="user_id" required>
+                                        @foreach ($Allusers as $userOption)
+                                            <option value="{{ $userOption->id }}"
+                                                {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
+                                                {{ $userOption->username }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </fieldset>
 
-                                    <div class="col-auto">
-                                        <input type="date" class="form-control" id="start_date_logs"
-                                            name="start_date_logs" placeholder="Start Date">
-                                    </div>
+                                <fieldset class="input-container">
+                                    <input type="date" class="form-control" id="start_date_logs"
+                                        name="start_date_logs" placeholder="Start Date">
 
-                                    <div class="col-auto">
-                                        <input type="date" class="form-control" id="end_date_logs"
-                                            name="end_date_logs" placeholder="End Date">
-                                    </div>
+                                    <input type="date" class="form-control" id="end_date_logs"
+                                        name="end_date_logs" placeholder="End Date">
+                                </fieldset>
 
-                                    <div class="col-auto">
-                                        <button type="button" class="btn btn-primary"
-                                            id="filter_logs">Filter</button>
-                                    </div>
-                                </div>
+                                <button type="button" class="btn btn-primary" id="filter_logs">Filter</button>
                             </form>
 
                             <!-- Table -->
-                            <div class="table-responsive-notes mt-3">
-                                <table class="table-notes table-striped-notes table-bordered-notes">
-                                    <thead class="table-header-notes">
-                                        <tr class="tr-notes">
-                                            <th class="th-notes">User</th>
-                                            <th class="th-notes">Actions</th>
-                                            <th class="th-notes">Date</th>
+                            <div class="table-responsive d-none d-md-block">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>User</th>
+                                            <th>Actions</th>
+                                            <th>Date</th>
                                         </tr>
                                     </thead>
                                     <tbody id="userlogsData" class="tbody-notes">
                                         <!-- Data populated through JavaScript -->
                                     </tbody>
                                 </table>
+                            </div>
+
+                            <div class="container d-block d-md-none" id="userlogsCardView">
                             </div>
                         </div>
 
@@ -720,38 +709,44 @@ $modules = [
                                         .then(response => response.json())
                                         .then(data => {
                                             const tbody = document.getElementById('timeRecordsBody');
+                                            const mobileContainer = document.getElementById('timeRecordsMobile');
                                             tbody.innerHTML = '';
+                                            mobileContainer.innerHTML = '';
 
-                                            data.forEach(record => {
+                                            data.forEach((record, index) => {
                                                 const timeIn = new Date(record.TimeIn);
                                                 const timeOut = record.TimeOut ? new Date(record.TimeOut) : null;
-                                                const totalHours = record.TimeOut ? calculateHours(timeIn, timeOut) :
-                                                    'Active';
+                                                const totalHours = timeOut ? calculateHours(timeIn, timeOut) : 'Active';
                                                 const formattedDate = formatDate(timeIn);
+                                                const notes = record.Notes || '-';
+                                                const timeOutStr = timeOut ? formatTime(timeOut) : 'Not clocked out';
+                                                const cardBg = index % 2 === 0 ? 'bg-light' : 'bg-white';
 
-                                                const row = `
-                                <tr class="tr-notes">
-                                    <td class="td-notes">
-                                        ${formattedDate}<br>
-                                        <small class="text-muted-notes">IN: ${formatTime(timeIn)}</small><br>
-                                        <small class="text-muted-notes">OUT: ${timeOut ? formatTime(timeOut) : 'Not clocked out'}</small>
-                                    </td>
-                                    <td class="td-notes">${totalHours}</td>
-                                    ${isMobile ?
-                                        `<td class="td-notes">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            ${record.Notes ?
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                `<div class="notes-icon">
-                                                    <i class="bi bi-sticky"></i>
-                                                    <span class="tooltip-notes">${record.Notes}</span>
-                                                </div>` :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                '-'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        </td>` :
-                                        `<td class="td-notes notes-column">${record.Notes || '-'}</td>`
-                                    }
-                                </tr>
-                                `;
-                                                tbody.innerHTML += row;
+                                                // Table row (desktop)
+                                                tbody.innerHTML += `
+                                                    <tr class="tr-notes">
+                                                        <td class="td-notes">
+                                                            ${formattedDate}<br>
+                                                            <small class="text-muted-notes">IN: ${formatTime(timeIn)}</small><br>
+                                                            <small class="text-muted-notes">OUT: ${timeOutStr}</small>
+                                                        </td>
+                                                        <td class="td-notes">${totalHours}</td>
+                                                        <td class="td-notes notes-column">${notes}</td>
+                                                    </tr>
+                                                `;
+
+                                                // Card layout (mobile)
+                                                mobileContainer.innerHTML += `
+                                                    <div class="card mb-3 shadow-sm ${cardBg}">
+                                                        <div class="card-body">
+                                                            <h6 class="mb-1"><strong>${formattedDate}</strong></h6>
+                                                            <p class="mb-1"><strong>Time In:</strong> ${formatTime(timeIn)}</p>
+                                                            <p class="mb-1"><strong>Time Out:</strong> ${timeOutStr}</p>
+                                                            <p class="mb-1"><strong>Total Hours:</strong> ${totalHours}</p>
+                                                            <p class="mb-0"><strong>Notes:</strong> ${notes !== '-' ? `<i class="bi bi-sticky me-1"></i>${notes}` : '-'}</p>
+                                                        </div>
+                                                    </div>
+                                                `;
                                             });
                                         })
                                         .catch(error => {
@@ -810,7 +805,7 @@ $modules = [
                                 function fetchUserLogs() {
                                     const params = new URLSearchParams({
                                         user_id: selectUser.value,
-                                        start_date_logs: startDate_logs.value, // Changed from start_date
+                                        start_date_logs: startDate_logs.value,
                                         end_date_logs: endDate_logs.value
                                     });
 
@@ -818,46 +813,62 @@ $modules = [
                                         .then(response => response.json())
                                         .then(data => {
                                             const tbody = document.getElementById('userlogsData');
+                                            const cardContainer = document.getElementById('userlogsCardView');
                                             tbody.innerHTML = '';
+                                            cardContainer.innerHTML = '';
 
-                                            data.forEach(log => {
-                                                const row = `
-                                    <tr class="tr-notes">
-                                        <td class="td-notes">${log.username}</td>
+                                            if (data.length > 0) {
+                                                data.forEach((log, index) => {
+                                                    const formattedDate = formatDate(log.datetimelogs);
+                                                    const actions = log.actions || '-';
+                                                    const cardBg = index % 2 === 0 ? 'bg-light' : 'bg-white';
 
-                                        ${isMobile ?
-                                            `<td class="td-notes">
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                ${log.actions ?
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    `<div class="notes-icon">
-                                                        <i class="bi bi-sticky"></i>
-                                                        <span class="tooltip-notes">${log.actions}</span>
-                                                    </div>` :
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    '-'
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            </td>` :
-                                            `<td class="td-notes notes-column">${log.actions || '-'}</td>`
-                                        }
-                                        <td class="td-notes">${formatDate(log.datetimelogs)}</td>
-                                    </tr>
-                                `;
-                                                tbody.innerHTML += row;
-                                            });
+                                                    // Desktop Table Row
+                                                    tbody.innerHTML += `
+                                                        <tr class="tr-notes">
+                                                            <td class="td-notes">${log.username}</td>
+                                                            <td class="td-notes notes-column">${actions}</td>
+                                                            <td class="td-notes">${formattedDate}</td>
+                                                        </tr>
+                                                    `;
 
-                                            if (data.length === 0) {
+                                                    // Mobile Card View
+                                                    cardContainer.innerHTML += `
+                                                        <div class="card mb-3 shadow-sm ${cardBg}">
+                                                            <div class="card-body">
+                                                                <h6 class="mb-1"><strong>User:</strong> ${log.username}</h6>
+                                                                <p class="mb-1"><strong>Action:</strong> ${log.actions ? `<i class="bi bi-sticky me-1"></i>${log.actions}` : '-'}</p>
+                                                                <p class="mb-0"><strong>Date:</strong> ${formattedDate}</p>
+                                                            </div>
+                                                        </div>
+                                                    `;
+                                                });
+                                            } else {
+                                                // No logs found
                                                 tbody.innerHTML = `
-                                    <tr class="tr-notes">
-                                        <td colspan="3" class="td-notes text-center">No logs found</td>
-                                    </tr>
-                                `;
+                                                    <tr class="tr-notes">
+                                                        <td colspan="3" class="td-notes text-center">No logs found</td>
+                                                    </tr>
+                                                `;
+                                                cardContainer.innerHTML = `
+                                                    <div class="alert alert-info text-center" role="alert">
+                                                        No logs found
+                                                    </div>
+                                                `;
                                             }
                                         })
                                         .catch(error => {
                                             console.error('Error fetching user logs:', error);
                                             document.getElementById('userlogsData').innerHTML = `
-                                <tr class="tr-notes">
-                                    <td colspan="3" class="td-notes text-center text-danger">Error loading logs</td>
-                                </tr>
-                            `;
+                                                <tr class="tr-notes">
+                                                    <td colspan="3" class="td-notes text-center text-danger">Error loading logs</td>
+                                                </tr>
+                                            `;
+                                            document.getElementById('userlogsCardView').innerHTML = `
+                                                <div class="alert alert-danger text-center" role="alert">
+                                                    Error loading logs
+                                                </div>
+                                            `;
                                         });
                                 }
 
@@ -1015,33 +1026,33 @@ $modules = [
             }
         }
 
-      function collectFormData() {
-    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-    
-    // Get the main module value
-    const mainModuleRadio = document.querySelector('input[name="main_module"]:checked');
-    const mainModuleValue = mainModuleRadio ? mainModuleRadio.value : '';
-    
-    // Get all checked sub-modules - these will be database column names
-    const subModuleCheckboxes = document.querySelectorAll('input[name="sub_modules[]"]:checked');
-    const subModules = Array.from(subModuleCheckboxes).map(checkbox => checkbox.value);
-    
-    // Debug logging
-    console.log('Collecting form data:', {
-        main_module: mainModuleValue,
-        sub_modules: subModules,
-        main_module_radio: mainModuleRadio
-    });
+        function collectFormData() {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-    return {
-        user_id: parseInt(document.getElementById('selectUser').value, 10),
-        main_module: mainModuleValue,  // This will be "Received" if that's selected
-        sub_modules: subModules,       // These will be database column names like "receiving"
-        privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
-            input.value),
-        _token: csrfToken
-    };
-}
+            // Get the main module value
+            const mainModuleRadio = document.querySelector('input[name="main_module"]:checked');
+            const mainModuleValue = mainModuleRadio ? mainModuleRadio.value : '';
+
+            // Get all checked sub-modules - these will be database column names
+            const subModuleCheckboxes = document.querySelectorAll('input[name="sub_modules[]"]:checked');
+            const subModules = Array.from(subModuleCheckboxes).map(checkbox => checkbox.value);
+
+            // Debug logging
+            console.log('Collecting form data:', {
+                main_module: mainModuleValue,
+                sub_modules: subModules,
+                main_module_radio: mainModuleRadio
+            });
+
+            return {
+                user_id: parseInt(document.getElementById('selectUser').value, 10),
+                main_module: mainModuleValue, // This will be "Received" if that's selected
+                sub_modules: subModules, // These will be database column names like "receiving"
+                privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
+                    input.value),
+                _token: csrfToken
+            };
+        }
 
         async function saveUserPrivileges(formData) {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -1157,7 +1168,7 @@ $modules = [
                 'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
             ];
 
-       const mainModuleHTML = `
+            const mainModuleHTML = `
         <h6>Main Module</h6>
         <div class="row mb-3">
             ${mainModules.map(module => {
@@ -1166,12 +1177,12 @@ $modules = [
                 const isChecked = data.main_module === dbColumnName ? 'checked' : '';
 
                 return `
-                    <div class="col-4 form-check mb-2 px-10">
-                        <input class="form-check-input" type="radio" name="main_module"
-                               value="${module}" ${isChecked} required>
-                        <label class="form-check-label">${module}</label>
-                    </div>
-                `;
+                                            <div class="col-4 form-check mb-2 px-10">
+                                                <input class="form-check-input" type="radio" name="main_module"
+                                                       value="${module}" ${isChecked} required>
+                                                <label class="form-check-label">${module}</label>
+                                            </div>
+                                        `;
             }).join('')}
         </div>
     `;
@@ -1233,17 +1244,17 @@ $modules = [
                 }
             ];
 
-          const subModulesHTML = `
+            const subModulesHTML = `
         <h6>Sub-Modules</h6>
         <div class="row mb-3">
             ${subModules.map(module => `
-                <div class="col-4 form-check mb-2 px-10">
-                    <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                           value="${module.db}"
-                           ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
-                    <label class="form-check-label">${module.display}</label>
-                </div>
-            `).join('')}
+                                        <div class="col-4 form-check mb-2 px-10">
+                                            <input class="form-check-input" type="checkbox" name="sub_modules[]"
+                                                   value="${module.db}"
+                                                   ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
+                                            <label class="form-check-label">${module.display}</label>
+                                        </div>
+                                    `).join('')}
         </div>
 `;
             document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
@@ -1255,12 +1266,12 @@ $modules = [
     <div class="row mb-3">
         ${data.privileges_stores && data.privileges_stores.length > 0
             ? data.privileges_stores.map(store => `
-                                                                                                                                        <div class="col-4 form-check mb-2">
-                                                                                                                                            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                                                                                                                                                   value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                                                                                                                                            <label class="form-check-label">${store.store_name}</label>
-                                                                                                                                        </div>
-                                                                                                                                    `).join('')
+                                                                                                                                                                <div class="col-4 form-check mb-2">
+                                                                                                                                                                    <input class="form-check-input" type="checkbox" name="privileges_stores[]"
+                                                                                                                                                                           value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                                                                                                                                                                    <label class="form-check-label">${store.store_name}</label>
+                                                                                                                                                                </div>
+                                                                                                                                                            `).join('')
             : '<p>No stores available</p>'
         }
     </div>
