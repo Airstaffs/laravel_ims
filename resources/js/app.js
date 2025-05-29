@@ -24,6 +24,7 @@ import ProductionArea from "./page/production/production.vue";
 import ReturnScanner from "./page/returnScanner/returnscanner.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound_shipment.vue";
 import FBMorders from "./page/fbmOrders/fbmOrders.vue";
+import notFound from "./page/notfound/notfound.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
@@ -128,14 +129,15 @@ const componentMapping = {
     // Define any special cases here (nav name -> component name)
     "received": "receiving",
     "return scanner": "returnscanner",
-    "returnscanner": "returnscanner", // Add explicit mapping
+    "returnscanner": "returnscanner", //explicit mapping
     "return_scanner": "returnscanner",
     "order": "order",
     "fbashipmentinbound": "fbashipmentinbound",
-    "fbashipment": "fbashipmentinbound", // Just in case another name variant is used
+    "fbashipment": "fbashipmentinbound", 
     "fba": "fbashipmentinbound", 
     "fbm order":"fbmorder",
-    "FBM Order":"fbmorder"// Just in case another name variant is used
+    "FBM Order":"fbmorder",
+    "Not Found":"notfound"
     // Add more mappings as needed
 };
 
@@ -487,6 +489,7 @@ const app = createApp({
         fnsku: FNSKU,
         fbashipmentinbound: FbaInboundShipment,
         fbmorder: FBMorders,
+        notfound: notFound
     },
 });
 

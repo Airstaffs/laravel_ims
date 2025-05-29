@@ -137,33 +137,35 @@
         <?php
         use Illuminate\Support\Facades\Auth;
 
-        // Get fresh user data instead of relying on session
-        $currentUser = Auth::user();
-        if ($currentUser) {
-            // Get fresh data from database
-            $userId = $currentUser->id;
-            $freshUser = \App\Models\User::find($userId);
-
-            $mainModule = strtolower($freshUser->main_module ?: '');
-
-            // Build sub modules array from database
-            $subModules = [];
-            $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder'];
-
-            foreach ($moduleColumns as $column) {
-                if ($currentUser->{$column} && $column !== $mainModule) {
-                    $subModules[] = $column;
-                }
-            }
-
-            // Update session with fresh data
-            session(['main_module' => $mainModule]);
-            session(['sub_modules' => $subModules]);
-        } else {
-            // Fallback to session if no user
-            $mainModule = strtolower(session('main_module', ''));
-            $subModules = array_map('strtolower', session('sub_modules', []));
+// Get fresh user data instead of relying on session
+$currentUser = Auth::user();
+if ($currentUser) {
+    // Get fresh data from database
+    $userId = $currentUser->id;
+    $freshUser = \App\Models\User::find($userId);
+    
+    $mainModule = strtolower($freshUser->main_module ?: '');
+    
+    // Build sub modules array from database
+    $subModules = [];
+    $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
+                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
+                      'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
+    
+    foreach ($moduleColumns as $column) {
+        if ($currentUser->{$column} && $column !== $mainModule) {
+            $subModules[] = $column;
         }
+    }
+    
+    // Update session with fresh data
+    session(['main_module' => $mainModule]);
+    session(['sub_modules' => $subModules]);
+} else {
+    // Fallback to session if no user
+    $mainModule = strtolower(session('main_module', ''));
+    $subModules = array_map('strtolower', session('sub_modules', []));
+}
 
         // Remove main module from sub modules if it exists
         $subModules = array_filter($subModules, function ($module) use ($mainModule) {
@@ -187,23 +189,24 @@
             return $module === $mainModule || in_array($module, $subModules);
         }
 
-        $modules = [
-            'order' => 'Order',
-            'unreceived' => 'Unreceived',
-            'receiving' => 'Received',
-            'labeling' => 'Labeling',
-            'validation' => 'Validation',
-            'testing' => 'Testing',
-            'cleaning' => 'Cleaning',
-            'packing' => 'Packing',
-            'fnsku' => 'Fnsku',
-            'stockroom' => 'Stockroom',
-            'productionarea' => 'Production Area',
-            'fbashipmentinbound' => 'FBA Inbound Shipment',
-            'returnscanner' => 'Return Scanner',
-            'fbmorder' => 'FBM Order',
-        ];
-        ?>
+$modules = [
+    'order' => 'Order',
+    'unreceived' => 'Unreceived',
+    'receiving' => 'Received',
+    'labeling' => 'Labeling',
+    'validation' => 'Validation',
+    'testing' => 'Testing',
+    'cleaning' => 'Cleaning',
+    'packing' => 'Packing',
+    'fnsku' => 'Fnsku',
+    'stockroom' => 'Stockroom',
+    'productionarea' => 'Production Area',
+    'fbashipmentinbound' => 'FBA Inbound Shipment',
+    'returnscanner' => 'Return Scanner',
+    'fbmorder' => 'FBM Order',
+    'notfound' => 'Not Found',
+];
+?>
         <script>
             // Make sure these are set properly with filtering
             window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
@@ -1088,7 +1091,8 @@
                             'stockroom': 'Stockroom',
                             'productionarea': 'Production Area',
                             'returnscanner': 'Return Scanner',
-                            'fbmorder': 'FBM Order'
+                            'fbmorder': 'FBM Order',
+                            'notfound': 'Not Found'
                         }
                     };
 
@@ -1161,11 +1165,12 @@
                 'FNSKU': 'fnsku',
                 'Production Area': 'productionarea',
                 'Return Scanner': 'returnscanner',
-                'FBM Order': 'fbmorder'
+                'FBM Order': 'fbmorder',
+                'Not Found': 'notfound' 
             };
 
             const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order'
+                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order', 'Not Found'
             ];
 
             const mainModuleHTML = `
@@ -1241,6 +1246,9 @@
                 {
                     db: 'fbmorder',
                     display: 'FBM Order'
+                },
+                { db: 'notfound', 
+                    display: 'Not Found' 
                 }
             ];
 
@@ -1266,12 +1274,12 @@
     <div class="row mb-3">
         ${data.privileges_stores && data.privileges_stores.length > 0
             ? data.privileges_stores.map(store => `
-                                                                                                                                                                <div class="col-4 form-check mb-2">
-                                                                                                                                                                    <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                                                                                                                                                                           value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                                                                                                                                                                    <label class="form-check-label">${store.store_name}</label>
-                                                                                                                                                                </div>
-                                                                                                                                                            `).join('')
+         <div class="col-4 form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
+                value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+             <label class="form-check-label">${store.store_name}</label>
+              </div>
+               `).join('')
             : '<p>No stores available</p>'
         }
     </div>
@@ -1319,7 +1327,8 @@
                         'productionarea': 'Production Area',
                         'returnscanner': 'Return Scanner',
                         'fbashipmentinbound': 'FBA Inbound Shipment',
-                        'fbmorder': 'FBM Order'
+                        'fbmorder': 'FBM Order',
+                        'notfound': 'Not Found' // Add this mapping
                     };
 
                     updateUserNavigation({
@@ -1354,7 +1363,8 @@
                 'productionarea': 'Production Area',
                 'returnscanner': 'Return Scanner',
                 'fbashipmentinbound': 'FBA Inbound Shipment',
-                'fbmorder': 'FBM Order'
+                'fbmorder': 'FBM Order',
+                 'notfound': 'Not Found' // Add this mapping
             };
 
             // Use provided modules or default modules

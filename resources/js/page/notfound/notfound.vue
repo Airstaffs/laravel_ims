@@ -139,7 +139,9 @@
                                     </button>
                                     <button class="btn-expand">example</button>
                                     <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
+                                    <button class="btn-expand" @click="moveToStockroom(item)">
+                                        Move to Stockroom
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -326,6 +328,7 @@
 </template>
 
 <script>
-    import Production from "./production.js";
-    export default Production;
+    import notFound from "./notfound.js";
+    export default notFound;
 </script>
+

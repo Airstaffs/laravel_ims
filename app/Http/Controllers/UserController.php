@@ -42,6 +42,7 @@ class UserController extends Controller
                 'productionarea',
                 'returnscanner',
                 'fbmorder',
+                'notfound' 
             )
             ->where('id', $currentUserId)
             ->first();
@@ -194,6 +195,7 @@ class UserController extends Controller
                     'productionarea' => (bool) $selectedUser->productionarea,
                     'returnscanner' => (bool) $selectedUser->returnscanner,
                     'fbmorder' => (bool) $selectedUser->fbmorder,
+                    'notfound' => (bool) $selectedUser->notfound,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -332,7 +334,8 @@ class UserController extends Controller
             'FNSKU' => 'fnsku',
             'Production Area' => 'productionarea',
             'Return Scanner' => 'returnscanner',
-            'FBM Order' => 'fbmorder'
+            'FBM Order' => 'fbmorder',
+            'Not Found' => 'notfound' 
         ];
 
         // Convert main module from display name to database column name
@@ -356,7 +359,7 @@ class UserController extends Controller
         // Define all possible sub-modules
         $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
                       'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                      'productionarea', 'returnscanner', 'fbmorder'];
+                      'productionarea', 'returnscanner', 'fbmorder','notfound'];
         
         // First reset all modules to 0
         foreach ($subModules as $module) {
@@ -476,7 +479,7 @@ class UserController extends Controller
             $modules = [
                 'order', 'unreceived', 'receiving', 'labeling', 'testing', 
                 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                'productionarea', 'returnscanner', 'fbashipmentinbound','fbmorder'
+                'productionarea', 'returnscanner', 'fbashipmentinbound','fbmorder','notfound'
             ];
             
             // Get main module and ensure it's lowercase with no spaces
