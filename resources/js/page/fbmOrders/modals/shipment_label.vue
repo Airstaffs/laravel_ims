@@ -189,7 +189,7 @@
 
                     <div class="button-row">
                         <button @click="getRates">Get Rates</button>
-                        <button @click="submitValidShipments">Buy Shipment</button>
+                        <button @click="buyShipment" :disabled="!hasValidShipments">Buy Shipment</button>
                         <button @click="manualShipment">Manual Shipment</button>
                     </div>
 
@@ -290,6 +290,11 @@ export default {
             return this.rateResults.find(
                 r => r.platform_order_id === this.selectedCarrierOrderId
             );
+        },
+        hasValidShipments() {
+            return this.shipmentData.some(order =>
+                this.selectedCarriers[order.platform_order_id] && this.forms[order.platform_order_id]
+            );
         }
     },
     watch: {
@@ -349,11 +354,24 @@ export default {
         },
         buyShipment() {
             const payload = {
-                selectedRates: this.selectedRateMap,
-                orders: this.shipmentData,
+                orders: this.shipmentData.map(order => {
+                    return {
+                        ...order,
+                        selectedCarrier: this.selectedCarriers[order.platform_order_id] || null
+                    };
+                }),
                 forms: this.forms
             };
-            this.$emit('submit', payload);
+
+            axios.post('/amzn/fbm-orders/purchase-label/createshipment', payload)
+                .then(res => {
+                    console.log('Shipment purchase response:', res.data);
+                    this.$emit('close'); // or handle success visually
+                })
+                .catch(err => {
+                    console.error('Buy shipment error:', err);
+                    alert('Failed to buy shipment');
+                });
         },
         manualShipment() {
             alert('Manual shipment not implemented yet.');

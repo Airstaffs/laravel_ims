@@ -176,137 +176,165 @@ class ShippingLabelController extends Controller
 
     public function create_shipment(Request $request)
     {
-        $request->validate([
-            'store' => 'nullable|string',
-            'destinationMarketplace' => 'nullable|string',
-            'nextToken' => 'nullable|string',
-            'shipmentID' => 'nullable|string'
-        ]);
-        $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $orders = $request->input('orders', []);
+        $forms = $request->input('forms', []);
+
+        if (empty($orders) || empty($forms)) {
+            return response()->json(['error' => 'Missing orders or form data'], 400);
+        }
+
+        $destinationMarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $nextToken = $request->input('nextToken', null);
-        $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
-
-        $data_additionale['AmazonOrderId'] = $request->input('AmazonOrderId', '');
-        $data_additionale['orderitems'] = $request->input('orderitems', []);
-        $data_additionale['package_dimensions_length'] = $request->input('package_dimensions_length', '');
-        $data_additionale['package_dimensions_height'] = $request->input('package_dimensions_height', '');
-        $data_additionale['package_dimensions_width'] = $request->input('package_dimensions_width', '');
-        $data_additionale['package_dimensions_unit'] = $request->input('package_dimensions_unit', '');
-
-        $data_additionale['package_weight_unit'] = $request->input('package_weight_unit', '');
-        $data_additionale['package_weight_value'] = $request->input('package_weight_value', '');
-
-        $data_additionale['Shipping_DeliveryExperience'] = $request->input('Shipping_DeliveryExperience', '');
-        $data_additionale['Shipping_CarrierPickUpOption'] = $request->input('Shipping_CarrierPickUpOption', '');
-
-        $data_additionale['Shipping_valueCurrencyCode'] = $request->input('Shipping_valueCurrencyCode', '');
-        $data_additionale['Shipping_valueAmount'] = $request->input('Shipping_valueAmount', '');
-        $data_additionale['Shipping_DeliveryExperience'] = $request->input('Shipping_DeliveryExperience', '');
-        $data_additionale['Shipby_Datetime'] = $request->input('Shipby_Datetime', '');
-        $data_additionale['Delivered_Datetime'] = $request->input('Delivered_Datetime', '');
-
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
-        $path = '/mfn/v0/eligibleShippingServices';
+        $path = '/mfn/v0/shipments';
         $customParams = [];
 
         $companydetails = $this->fetchCompanyDetails();
-
         if (!$companydetails) {
             return response()->json(['error' => 'Company not found'], 404);
         }
 
-        // Generate JSON payload
-        $jsonData = $this->JsonCreation('get_rates', $companydetails, 'ATVPDKIKX0DER', $data_additionale);
+        $Results = [];
 
-        // Check if JSON encoding failed
-        if ($jsonData === false) {
-            Log::error('JSON Encoding Failed:', ['error' => json_last_error_msg()]);
-            return response()->json(['success' => false, 'message' => 'JSON encoding error'], 500);
-        }
+        foreach ($orders as $order) {
+            $platformOrderId = $order['platform_order_id'] ?? null;
+            $store = $order['storename'] ?? '';
+            $form = $forms[$platformOrderId] ?? null;
 
+            $shippingService = $order['shippingService'] ?? null;
 
-        $credentials = AWSCredentials($store);
-        if (!$credentials) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No credentials found for the given store.',
-            ], 500);
-        }
+            // You can now access the offer ID if it exists
+            $offerId = $shippingService['ShippingServiceOfferId'] ?? null;
 
-        $accessToken = fetchAccessToken($credentials, $returnRaw = false);
-        if (!$accessToken) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch access token.',
-            ], 500);
-        }
+            if (!$platformOrderId || !$form)
+                continue;
 
-        try {
-            // Build headers using the helper function
-            $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
-            // Ensure Content-Type is set
-            $headers['Content-Type'] = 'application/json';
-            $headers['accept'] = 'application/json';
-
-            // Log the headers
-            Log::info('Request headers:', $headers);
-
-            // Build query string using the helper function
-            $queryString = buildQueryString($nextToken, $customParams);
-
-            // Construct the full URL
-            $url = "{$endpoint}{$path}{$queryString}";
-
-            // Log the request details (headers, body, etc.) for debugging
-            Log::info('Request details:', [
-                'url' => $url,
-                'headers' => $headers,
-                'queryString' => $queryString,
-                'body' => $jsonData
-            ]);
-
-            // Make the HTTP request (change GET to POST)
-            $response = Http::timeout(50)
-                ->withHeaders($headers)
-                ->withBody($jsonData, 'application/json') // Ensure JSON is properly sent
-                ->post($url);
-
-            // Log the curl information (response details)
-            $curlInfo = $response->handlerStats(); // This will give you cURL-like information
-
-            Log::info('Curl Info:', $curlInfo);
-
-            if ($response->successful()) {
-                $data = $response->json(); // Parse JSON response
-
-                // If no operationId, return success response but indicate missing operation tracking
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Get Rates returned.',
-                    'data' => $data,
-                    'logs' => $curlInfo,
-                ]);
+            $credentials = AWSCredentials($store);
+            if (!$credentials) {
+                $Results[] = [
+                    'platform_order_id' => $platformOrderId,
+                    'error' => 'No credentials found for store: ' . $store
+                ];
+                continue;
             }
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Successfully sent but error.',
-                'headers' => $headers,
-                'error' => $response->json(),
-                'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
-                'logs' => $curlInfo,
-            ], $response->status());
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'An error occurred during the API request.',
-                'error' => $e->getMessage(),
-                'logs' => $curlInfo ?? null, // If logs exist, return them
-            ], 500);
+            $accessToken = fetchAccessToken($credentials, false);
+            if (!$accessToken) {
+                $Results[] = [
+                    'platform_order_id' => $platformOrderId,
+                    'error' => 'Failed to fetch access token.',
+                    'credentials' => $credentials
+                ];
+                continue;
+            }
+
+            // Normalize weight input
+            $originalWeightValue = (float) $form['weight'];
+            $originalWeightUnit = strtolower($form['weightUnit']);
+
+            // Convert to grams or ounces
+            if ($originalWeightUnit === 'pound') {
+                $normalizedWeightUnit = 'grams';
+                $convertedWeightValue = $originalWeightValue * 453.592;
+            } elseif ($originalWeightUnit === 'kilogram') {
+                $normalizedWeightUnit = 'grams';
+                $convertedWeightValue = $originalWeightValue * 1000;
+            } else {
+                // Assume user already entered ounces or grams properly
+                $normalizedWeightUnit = $originalWeightUnit;
+                $convertedWeightValue = $originalWeightValue;
+            }
+
+            // Build item list with per-item weights
+            $itemList = collect($order['items'] ?? [])->map(function ($item) use ($convertedWeightValue, $normalizedWeightUnit) {
+                return [
+                    'OrderItemId' => $item['platform_order_item_id'],
+                    'Quantity' => $item['QuantityOrdered'] ?? 1,
+                    'ItemWeight' => [
+                        'Value' => $convertedWeightValue,
+                        'Unit' => $normalizedWeightUnit
+                    ]
+                ];
+            })->values()->all();
+
+            // Calculate total weight
+            $totalWeightValue = array_reduce($itemList, function ($carry, $item) {
+                return $carry + ($item['Quantity'] * $item['ItemWeight']['Value']);
+            }, 0);
+
+            // Final payload
+            $data_additionale = [
+                'AmazonOrderId' => $platformOrderId,
+                'orderitems' => $itemList,
+
+                // Package dimensions
+                'package_dimensions_length' => $form['length'],
+                'package_dimensions_width' => $form['width'],
+                'package_dimensions_height' => $form['height'],
+                'package_dimensions_unit' => $form['dimensionUnit'],
+
+                // Total package weight
+                'package_weight_value' => $totalWeightValue,
+                'package_weight_unit' => $normalizedWeightUnit,
+
+                // Shipping options
+                'deliveryExperience' => $form['deliveryExperience'],
+                'Shipping_valueCurrencyCode' => $form['currency'] ?? 'USD',
+
+                // Dates
+                'Shipby_Datetime' => $form['shipBy'],
+                'Delivered_Datetime' => $form['deliverBy']
+            ];
+
+            $jsonData = $this->JsonCreation('get_rates', $companydetails, $destinationMarketplace, $data_additionale);
+            if ($jsonData === false) {
+                Log::error('JSON Encoding Failed for order: ' . $platformOrderId, ['error' => json_last_error_msg()]);
+                continue;
+            }
+
+            try {
+                $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+                $headers['Content-Type'] = 'application/json';
+                $headers['accept'] = 'application/json';
+
+                $queryString = buildQueryString($nextToken, $customParams);
+                $url = "{$endpoint}{$path}{$queryString}";
+
+                $response = Http::timeout(50)
+                    ->withHeaders($headers)
+                    ->withBody($jsonData, 'application/json')
+                    ->post($url);
+
+                $curlInfo = $response->handlerStats();
+
+                if ($response->successful()) {
+                    $Results[] = [
+                        'platform_order_id' => $platformOrderId,
+                        'rates' => $response->json(),
+                        'logs' => $curlInfo
+                    ];
+                } else {
+                    $Results[] = [
+                        'platform_order_id' => $platformOrderId,
+                        'error' => $response->json(),
+                        'status' => $response->status(),
+                        'logs' => $curlInfo
+                    ];
+                }
+            } catch (\Exception $e) {
+                $Results[] = [
+                    'platform_order_id' => $platformOrderId,
+                    'exception' => $e->getMessage()
+                ];
+            }
         }
+
+        return response()->json([
+            'success' => true,
+            'results' => $Results
+        ]);
     }
 
     public function manual_shipment(Request $request)
@@ -364,6 +392,44 @@ class ShippingLabelController extends Controller
                     "IncludeComplexShippingOptions" => 'true'
                 ]
 
+            ];
+        } else if ($action == 'create_shipment') {
+            $final_json_construct = [
+                "ShipmentRequestDetails" => [
+                    "AmazonOrderId" => $data_additionale['AmazonOrderId'],
+                    "ItemList" => $data_additionale['orderitems'],
+                    "ShipFromAddress" => [
+                        "Name" => $companydetails['Name'],
+                        "AddressLine1" => $companydetails['StreetAddress'],
+                        "Email" => $companydetails['Email'],
+                        "City" => $companydetails['City'],
+                        "StateOrProvinceCode" => $companydetails['State'],
+                        "PostalCode" => $companydetails['ZIPCode'],
+                        "CountryCode" => $companydetails['CountryCode'],
+                        "Phone" => $companydetails['Contact']
+                    ],
+                    "PackageDimensions" => [
+                        "Length" => $data_additionale['package_dimensions_length'],
+                        "Width" => $data_additionale['package_dimensions_height'],
+                        "Height" => $data_additionale['package_dimensions_width'],
+                        "Unit" => $data_additionale['package_dimensions_unit']
+                    ],
+                    "Weight" => [
+                        "Value" => $data_additionale['package_weight_value'],
+                        "Unit" => $data_additionale['package_weight_unit']
+                    ],
+                    "ShippingServiceOptions" => [
+                        "DeliveryExperience" => $data_additionale['deliveryExperience'],
+                        "CarrierWillPickUp" => false,
+                        // "CarrierWillPickUpOption" => $data_additionale['carrierPickUpOption'],
+                        "LabelFormat" => "PDF"
+                    ],
+                    "LabelCustomization" => [
+                        "AmazonOrderId" => $data_additionale['AmazonOrderId']
+                    ]
+                ],
+                "ShippingServiceId" => "RAWR",
+                "ShippingServiceOfferId" => "rawr"
             ];
         }
 
