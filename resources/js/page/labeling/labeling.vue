@@ -276,11 +276,13 @@
                             <i class="bi bi-clipboard-check"></i> SET FNSKU
                         </button>
 
-                        <button @click="confirmMoveToValidation(item)" class="btn btn-validation" :disabled="isProcessing">
+                        <button @click="confirmMoveToValidation(item)" class="btn btn-validation"
+                            :disabled="isProcessing">
                             <i class="bi bi-check-circle"></i> Move to Validation
                         </button>
 
-                        <button @click="confirmMoveToStockroom(item)" class="btn btn-stockroom" :disabled="isProcessing">
+                        <button @click="confirmMoveToStockroom(item)" class="btn btn-stockroom"
+                            :disabled="isProcessing">
                             <i class="bi bi-box-seam"></i> Move to Stockroom
                         </button>
                     </div>
@@ -365,7 +367,7 @@
         </div>
 
         <!-- FNSKU Selection Modal - Moved outside image modal and now has proper styling -->
-        <div class="fnsku-modal-container" v-if="isFnskuModalVisible">
+        <div v-if="isFnskuModalVisible" class="modal fnsku-modal">
             <!-- Overlay -->
             <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
 
@@ -392,50 +394,99 @@
                     <!-- Search -->
                     <div class="fnsku-search-container">
                         <input type="text" v-model="fnskuSearch" placeholder="Search FNSKU, ASIN, title, or grading..."
-                            class="fnsku-search-input" @input="filterFnskuList" />
+                            class="fnsku-search-input form-control" @input="filterFnskuList" />
                     </div>
 
                     <!-- FNSKU List -->
-                    <div class="fnsku-list-container">
-                        <!-- List Header -->
-                        <div class="fnsku-list-header">
-                            <div class="fnsku-details-column">FNSKU Details</div>
-                            <div class="fnsku-title-column">Title & Inventory</div>
-                            <div class="fnsku-action-column">Action</div>
-                        </div>
+                    <div class="fnsku-list-container d-none d-md-block">
+                        <table class="table">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>FNSKU Details</th>
+                                    <th>Title & Inventory</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU">
+                                    <tr>
+                                        <td>
+                                            <ul class="list-unstyled m-0 fnsku-details">
+                                                <li>{{ fnsku.FNSKU }}</li>
+                                                <li><strong>ASIN:</strong> {{ fnsku.ASIN }}</li>
+                                                <li>
+                                                    <div class="badge badge-pill badge-secondary fnsku-badge"
+                                                        :class="{ 'badge-success': fnsku.grading.includes('New') }">
+                                                        {{ fnsku.grading }}
+                                                    </div>
+                                                </li>
+                                            </ul>
+                                        </td>
+                                        <td>
+                                            <ul class="list-unstyled m-0 fnsku-title">
+                                                <li>{{ fnsku.astitle }}</li>
+                                                <li>{{ fnsku.Units }} in inventory</li>
+                                            </ul>
+                                        </td>
+                                        <td>
+                                            <div class="fnsku-action">
+                                                <button @click="selectFnsku(fnsku)" class="btn btn-fnsku-select"
+                                                    :class="{ 'fnsku-recommended': fnsku.ASIN === currentItem?.ASIN }">
+                                                    {{ fnsku.ASIN === currentItem?.ASIN ? 'Recommended' : 'Select' }}
+                                                </button>
+                                            </div>
+                                        </td>
 
-                        <!-- No Results -->
-                        <div v-if="filteredFnskuList.length === 0" class="fnsku-no-results">
-                            No matching FNSKUs found
-                        </div>
+                                        <td v-if="filteredFnskuList.length === 0" colspan="3">
+                                            <span class="fnsku-no-results">No matching FNSKUs found</span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
 
-                        <!-- List Items -->
-                        <div class="fnsku-list">
-                            <div v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU" class="fnsku-item"
-                                :class="{
-                                    'fnsku-highlighted': fnsku.ASIN === currentItem?.ASIN,
-                                    'fnsku-even': index % 2 === 0
-                                }">
-                                <div class="fnsku-details-column">
-                                    <div class="fnsku-code">{{ fnsku.FNSKU }}</div>
-                                    <div class="fnsku-asin">ASIN: {{ fnsku.ASIN }}</div>
-                                    <div class="fnsku-badge" :class="{ 'fnsku-new': fnsku.grading.includes('New') }">
-                                        {{ fnsku.grading }}
+                    <!-- Mobile FNSKU Card View -->
+                    <div class="fnsku-card-container d-block d-md-none">
+                        <div v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU" class="card mb-3 shadow-sm"
+                            :class="index % 2 === 0 ? 'bg-light' : 'bg-white'">
+                            <div class="card-body d-flex flex-column gap-3">
+                                <!-- Section 1: FNSKU Details -->
+                                <div class="d-flex justify-content-between">
+                                    <div class="fnsku-details">
+                                        <h6>{{ fnsku.FNSKU }}</h6>
+                                        <p><strong>ASIN:</strong> {{ fnsku.ASIN }}</p>
                                     </div>
+                                    <span class="badge fnsku-badge" :class="{
+                                        'bg-success': fnsku.grading.includes('New'),
+                                        'bg-secondary': !fnsku.grading.includes('New')
+                                    }">
+                                        {{ fnsku.grading }}
+                                    </span>
                                 </div>
 
-                                <div class="fnsku-title-column">
-                                    <div class="fnsku-title">{{ fnsku.astitle }}</div>
-                                    <div class="fnsku-units">{{ fnsku.Units }} in inventory</div>
+                                <!-- Section 2: Title & Inventory -->
+                                <div class="d-flex flex-column align-items-start gap-1">
+                                    <span><strong>{{ fnsku.astitle }}</strong></span>
+                                    <span class="text-muted mb-0">{{ fnsku.Units }} in inventory</span>
                                 </div>
 
-                                <div class="fnsku-action-column">
-                                    <button @click="selectFnsku(fnsku)" class="fnsku-select-btn"
-                                        :class="{ 'fnsku-recommended': fnsku.ASIN === currentItem?.ASIN }">
+                                <!-- Section 3: Action Button -->
+                                <div>
+                                    <button @click="selectFnsku(fnsku)" class="btn btn-sm" :class="{
+                                        'btn-success': fnsku.ASIN === currentItem?.ASIN,
+                                        'btn-outline-primary': fnsku.ASIN !== currentItem?.ASIN
+                                    }">
                                         {{ fnsku.ASIN === currentItem?.ASIN ? 'Recommended' : 'Select' }}
                                     </button>
                                 </div>
                             </div>
+                        </div>
+
+
+                        <!-- No results message -->
+                        <div v-if="filteredFnskuList.length === 0" class="alert alert-info text-center">
+                            No matching FNSKUs found
                         </div>
                     </div>
                 </div>
@@ -444,12 +495,12 @@
 
         <!-- Add this confirmation modal HTML to your template section -->
         <!-- Confirmation Modal -->
-        <div class="confirmation-modal" v-if="showConfirmationModal">
+        <div v-if="showConfirmationModal" class="modal confirmation-modal">
             <div class="modal-overlay" @click="cancelConfirmation"></div>
             <div class="confirmation-modal-content">
                 <div class="confirmation-modal-header">
                     <h3>{{ confirmationTitle }}</h3>
-                    <button class="close-button" @click="cancelConfirmation">&times;</button>
+                    <button class="confirmation-close" @click="cancelConfirmation">&times;</button>
                 </div>
                 <div class="confirmation-modal-body">
                     <p>{{ confirmationMessage }}</p>

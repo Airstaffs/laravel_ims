@@ -352,8 +352,18 @@ Route::prefix('api/returns')->group(function () {
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {
 Route::get('products', [LabelingController::class, 'index']);});
-Route::post('api/labeling/move-to-validation', [LabelingController::class, 'moveToValidation']);
-Route::post('api/labeling/move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
+Route::post('/api/labeling/move-to-validation', [LabelingController::class, 'moveToValidation']);
+Route::post('/api/labeling/move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
+Route::get('/test-labeling-controller', function() {
+    return response()->json([
+        'message' => 'LabelingController is accessible',
+        'timestamp' => now()
+    ]);
+});
+
+Route::post('/test-move-validation', [LabelingController::class, 'moveToValidation']);
+Route::post('/test-move-stockroom', [LabelingController::class, 'moveToStockroom']);
+
 
 // Routes for Validation Function 
 Route::prefix('api/validation')->group(function () {
