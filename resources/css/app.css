@@ -11,6 +11,26 @@ body {
     padding: 0;
 }
 
+:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    -o-appearance: none;
+}
+
+select::-ms-expand {
+    display: none;
+}
+
+select {
+    background: url('/public/images/chevron-down.png') center right 15px no-repeat #FFFFFF !important;
+}
+
 .navbar-brand,
 .nav-link {
     color: #fff !important;

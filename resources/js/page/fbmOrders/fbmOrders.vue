@@ -6,9 +6,7 @@
                 <button class="btn" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
                 </button>
-                <button class="btn">Track</button>
-                <button class="btn">Tracking History</button>
-                <button class="btn">Purchase Shipping Label</button>
+                <button v-if="persistentSelectedOrderIds.length > 0" class="btn" @click="PurchaseShippingLabel">Purchase Shipping Label</button>
                 <button class="btn">Print Invoice</button>
                 <button class="btn">Edit Customer Name</button>
                 <button class="btn">Edit Address</button>
@@ -251,11 +249,6 @@
                                     <div class="action-buttons">
                                         <button class="btn-track">TRACK</button>
                                         <button class="btn-tracking-history">Tracking History</button>
-                                        <button class="btn-shipping-label">Purchase Shipping Label</button>
-                                        <button class="btn-invoice">Print Invoice</button>
-                                        <button class="btn-edit-customer">Edit Customer Name</button>
-                                        <button class="btn-edit-address">Edit Address</button>
-                                        <button class="btn-edit-note">Edit Note</button>
 
                                         <!-- Process Button (with integrated Auto Dispense) -->
                                         <button class="btn-process" @click="openProcessModal(order)"
