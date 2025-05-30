@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
@@ -122,7 +123,7 @@ class ShippingLabelController extends Controller
 
                 // Dates
                 'Shipby_Datetime' => $form['shipBy'],
-                'Delivered_Datetime' => $form['deliverBy']
+                'Delivered_Datetime' => $form['deliverBy'],
             ];
 
             $jsonData = $this->JsonCreation('get_rates', $companydetails, $destinationMarketplace, $data_additionale);
@@ -203,10 +204,11 @@ class ShippingLabelController extends Controller
             $store = $order['storename'] ?? '';
             $form = $forms[$platformOrderId] ?? null;
 
-            $shippingService = $order['shippingService'] ?? null;
+            $shippingService = $order['selectedCarrier'] ?? null;
 
             // You can now access the offer ID if it exists
-            $offerId = $shippingService['ShippingServiceOfferId'] ?? null;
+            $ShippingServiceId = $shippingService['ShippingServiceId'] ?? null;
+            $ShippingServiceOfferId = $shippingService['ShippingServiceOfferId'] ?? null;
 
             if (!$platformOrderId || !$form)
                 continue;
@@ -285,10 +287,18 @@ class ShippingLabelController extends Controller
 
                 // Dates
                 'Shipby_Datetime' => $form['shipBy'],
-                'Delivered_Datetime' => $form['deliverBy']
+                'Delivered_Datetime' => $form['deliverBy'],
+
+                // Carrier Data
+                'ShippingServiceId' => $ShippingServiceId,
+                'ShippingServiceOfferId' => $ShippingServiceOfferId,
             ];
 
-            $jsonData = $this->JsonCreation('get_rates', $companydetails, $destinationMarketplace, $data_additionale);
+            $ShippingServiceId = $shippingService['ShippingServiceId'] ?? null;
+            $ShippingServiceOfferId = $shippingService['ShippingServiceOfferId'] ?? null;
+
+
+            $jsonData = $this->JsonCreation('create_shipment', $companydetails, $destinationMarketplace, $data_additionale);
             if ($jsonData === false) {
                 Log::error('JSON Encoding Failed for order: ' . $platformOrderId, ['error' => json_last_error_msg()]);
                 continue;
@@ -315,6 +325,8 @@ class ShippingLabelController extends Controller
                         'rates' => $response->json(),
                         'logs' => $curlInfo
                     ];
+
+                    $this->insertShipmentData($order, $response->json(), $form);
                 } else {
                     $Results[] = [
                         'platform_order_id' => $platformOrderId,
@@ -428,8 +440,8 @@ class ShippingLabelController extends Controller
                         "AmazonOrderId" => $data_additionale['AmazonOrderId']
                     ]
                 ],
-                "ShippingServiceId" => "RAWR",
-                "ShippingServiceOfferId" => "rawr"
+                "ShippingServiceId" => $data_additionale['ShippingServiceId'],
+                "ShippingServiceOfferId" => $data_additionale['ShippingServiceOfferId']
             ];
         }
 
@@ -545,5 +557,75 @@ class ShippingLabelController extends Controller
                 'volume' => $bestBox->length * $bestBox->width * $bestBox->height
             ] : null
         ];
+    }
+
+    private function insertShipmentData(array $orders)
+    {
+        $user = session('user_name', 'Unknown');
+
+        foreach ($orders as $order) {
+            $amazonOrderId = $order['platform_order_id'] ?? null;
+            $form = $order['form'] ?? [];
+            $apiData = $order['apiData'] ?? [];
+            $selectedCarrier = $order['selectedCarrier'] ?? [];
+            $rateAmount = $form['rate'] ?? 0.00;
+
+            if (!$amazonOrderId)
+                continue;
+
+            // Step 1: Find or Generate Invoice Number
+            $existingInvoice = DB::table('tbllabelhistory')
+                ->where('AmazonOrderId', $amazonOrderId)
+                ->value('invoicenumberid');
+
+            if ($existingInvoice) {
+                $invoiceNumber = $existingInvoice;
+            } else {
+                $max = DB::table('tbllabelhistory')->max('invoicenumberid');
+                $invoiceNumber = $max ? $max + 1 : 1;
+            }
+
+            // Step 2: Insert into tbllabelhistory
+            $labelId = DB::table('tbllabelhistory')->insertGetId([
+                'shipmentid' => $apiData['ShipmentId'] ?? null,
+                'AmazonOrderId' => $amazonOrderId,
+                'status' => $apiData['Status'] ?? null,
+                'trackingid' => $apiData['TrackingId'] ?? null,
+                'updatedDate' => now(),
+                'ShippingServiceId' => $apiData['ShippingService']['ShippingServiceId'] ?? null,
+                'ShippingServiceOfferId' => $apiData['ShippingService']['ShippingServiceOfferId'] ?? null,
+                'labelprice' => $rateAmount,
+                'user' => $user,
+                'invoicenumberid' => $invoiceNumber,
+                'ShipDate' => $apiData['ShippingService']['ShipDate'] ?? null
+            ]);
+
+            // Step 3: Insert into tbllabelhistoryitems and update outbound item
+            foreach ($apiData['ItemList'] ?? [] as $item) {
+                $orderItemId = $item['OrderItemId'] ?? null;
+
+                DB::table('tbllabelhistoryitems')->insert([
+                    'shipmentid' => $apiData['ShipmentId'] ?? null,
+                    'AmazonOrderId' => $amazonOrderId,
+                    'orderitemid' => $orderItemId,
+                    'trackingid' => $apiData['TrackingId'] ?? null,
+                    'shipDate' => $apiData['ShippingService']['ShipDate'] ?? null,
+                    'EarliestEstimatedDeliveryDate' => $apiData['ShippingService']['EarliestEstimatedDeliveryDate'] ?? null,
+                    'LatestEstimatedDeliveryDate' => $apiData['ShippingService']['LatestEstimatedDeliveryDate'] ?? null,
+                    'labelhistory_id' => $labelId,
+                    'PDFLabel' => $apiData['Label']['FileContents']['Contents'] ?? null,
+                    'DeliveryExperience' => $form['deliveryExperience'] ?? null
+                ]);
+
+                DB::table('tbloutboundordersitem')
+                    ->where('platform_order_id', $amazonOrderId)
+                    ->where('platform_order_item_id', $orderItemId)
+                    ->update([
+                        'trackingnumber' => $apiData['TrackingId'] ?? null,
+                        'carrier' => $selectedCarrier['CarrierName'] ?? null,
+                        'carrier_description' => $selectedCarrier['ShippingServiceName'] ?? null,
+                    ]);
+            }
+        }
     }
 }
