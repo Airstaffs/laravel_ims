@@ -3,7 +3,8 @@
     min-width: 310px;
 }
 
-.modal.fnsku-modal {
+.modal.fnsku-modal,
+.modal.confirmation-modal {
     position: fixed;
     top: 0;
     left: 0;
@@ -16,7 +17,8 @@
     z-index: 1000;
 }
 
-.fnsku-modal-content {
+.fnsku-modal-content,
+.confirmation-modal-content {
     background-color: white;
     border-radius: 8px;
     width: 90%;
@@ -26,7 +28,8 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
-.fnsku-modal-header {
+.fnsku-modal-header,
+.confirmation-modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -34,13 +37,15 @@
     border-bottom: 1px solid #ddd;
 }
 
-.fnsku-modal-header h2 {
+.fnsku-modal-header h2,
+.confirmation-modal-header h2 {
     margin: 0;
     font-size: 18px;
     color: #333;
 }
 
-button.fnsku-close {
+button.fnsku-close,
+button.confirmation-close {
     background: none;
     border: none;
     font-size: 24px;
@@ -55,11 +60,17 @@ button.fnsku-close {
     gap: 20px;
 }
 
+.fnsku-product-info h4 {
+    font-weight: 600;
+}
+
 .fnsku-list-container {
     background-color: #f8f9fa;
-    padding: 15px;
+    padding: 15px 10px 15px 15px;
     border-radius: 4px;
     border: 1px solid #eee;
+    height: 400px;
+    overflow: auto;
 }
 
 .fnsku-list-header {
@@ -76,3 +87,73 @@ button.fnsku-close {
     flex-direction: column;
     gap: 10px;
 }
+
+.fnsku-action {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+button.btn.btn-fnsku-select {
+    width: 100px;
+    justify-content: center;
+    border-radius: 4px;
+    background-color: #007bff;
+    border: 1px solid #0069d9;
+    color: #fff;
+}
+
+.fnsku-list-container tr {
+    vertical-align: middle;
+}
+
+button.btn.btn-fnsku-select:hover {
+    background-color: #0069d9;
+}
+
+.badge-secondary {
+    color: #fff;
+    background-color: #007bff;
+}
+
+.badge-success {
+    color: #fff;
+    background-color: #28a745;
+}
+
+.confirmation-modal-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.confirmation-modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #ddd;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+@media (max-width: 767px) {
+    .fnsku-modal-content {
+        width: 100%;
+        max-width: unset;
+        height: 100%;
+        max-height: unset;
+        border-radius: 0;
+    }
+
+    .card.bg-light,
+    .card.bg-white {
+        transition: background-color 0.3s ease;
+    }
+
+    .fnsku-card-container {
+        height: 575px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+}
+
