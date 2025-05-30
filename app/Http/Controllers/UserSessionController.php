@@ -43,7 +43,8 @@ class UserSessionController extends Controller
             if ($user->validation) $subModules[] = 'validation';
             if ($user->productionarea) $subModules[] = 'productionarea';
             if ($user->fnsku) $subModules[] = 'fnsku';
-            
+            if ($user->notfound) $subModules[] = 'notfound';
+
             // Important: Make explicit check for returnscanner and log for debugging
             if ($user->returnscanner) {
                 $subModules[] = 'returnscanner';
@@ -57,6 +58,8 @@ class UserSessionController extends Controller
             if ($user->fbmorder) {
                 $subModules[] = 'fbmorder';
             }
+
+            
     
     
             // Update session with fresh data
@@ -94,7 +97,8 @@ class UserSessionController extends Controller
                     'fnsku' => 'FNSKU',
                     'productionarea'=>'Production Area',
                     'returnscanner' => 'Return Scanner',
-                    'fbmorder' => 'FBM Order'
+                    'fbmorder' => 'FBM Order',
+                    'notfound' => 'Not Found'
                 ]
             ]);
     

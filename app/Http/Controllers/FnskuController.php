@@ -20,9 +20,9 @@ class FnskuController extends BasetablesController
         // Apply search filters if search parameter exists
         if ($search) {
             $fnskuTable->where(function ($q) use ($search) {
-                $q->where('astitle', 'like', "%{$search}%")
-                    ->orWhere('ASIN', 'like', "%{$search}%")
-                    ->orWhere('FNSKU', 'like', "%{$search}%");
+                $q->where('ASIN', 'like', "%{$search}%")
+                    ->orWhere('ASIN', 'like', "%{$search}%");
+                
             });
         }
     
@@ -39,17 +39,49 @@ class FnskuController extends BasetablesController
     }
 
     
-    public function getFnskuList()
+    public function getFnskuList(Request $request)
     {
         try {
-            $fnskuList = DB::table($this->fnskuTable)
-                ->select('*')
-                ->where('fnsku_status', 'available')
-                ->where('Units', '>', 0)
-                ->orderBy('FNSKU')
+            // Get limit from request, default to 50, max 200
+            $limit = min($request->input('limit', 50), 200);
+            $search = $request->input('search', '');
+            
+            // Updated to join with ASIN table to get the title
+            $query = DB::table($this->fnskuTable . ' as fnsku')
+                ->select([
+                    'fnsku.FNSKU',
+                    'fnsku.MSKU', 
+                    'fnsku.ASIN',
+                    'fnsku.grading',
+                    'fnsku.Units',
+                    'fnsku.storename',
+                    'fnsku.fnsku_status',
+                    'asin.internal as astitle' // Get title from ASIN table, same as StockroomController
+                ])
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->where('fnsku.fnsku_status', 'available')
+                ->where('fnsku.Units', '>', 0);
+
+            // Add search functionality if search parameter is provided
+            if (!empty($search)) {
+                $query->where(function($q) use ($search) {
+                    $q->where('fnsku.FNSKU', 'like', "%{$search}%")
+                      ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                      ->orWhere('fnsku.grading', 'like', "%{$search}%")
+                      ->orWhere('asin.internal', 'like', "%{$search}%");
+                });
+            }
+
+            $fnskuList = $query->orderBy('fnsku.FNSKU')
+                ->limit($limit)
                 ->get();
 
-            return response()->json($fnskuList);
+            return response()->json([
+                'data' => $fnskuList,
+                'total' => $fnskuList->count(),
+                'limit' => $limit,
+                'has_more' => $fnskuList->count() >= $limit
+            ]);
         } catch (\Exception $e) {
             Log::error('Error fetching FNSKU list: ' . $e->getMessage());
             return response()->json([
@@ -65,7 +97,6 @@ class FnskuController extends BasetablesController
             $request->validate([
                 'fnsku' => 'required|string|unique:' . $this->fnskuTable . ',FNSKU',
                 'asin' => 'required|string',
-                'astitle' => 'required|string',
                 'grading' => 'required|string',
                 'msku' => 'nullable|string',
                 'storename' => 'nullable|string',
@@ -77,7 +108,6 @@ class FnskuController extends BasetablesController
                 'MSKU' => $request->msku,
                 'ASIN' => $request->asin,
                 'grading' => $request->grading,
-                'astitle' => $request->astitle,
                 'storename' => $request->storename,
                 'fnsku_status' => 'available',
                 'insert_date' => now()
@@ -97,18 +127,17 @@ class FnskuController extends BasetablesController
     }
 
     public function updateFnsku(Request $request) {
-        \Log::info('Received update request:', $request->all());
+        Log::info('Received update request:', $request->all());
         
         try {
+            // More flexible validation - only require what you actually need
             $request->validate([
                 'product_id' => 'required|integer',
-                'fnsku' => 'required|string',
-                // Only include fields you actually use in validation
-                // If these fields are for future use, consider making them optional
-                'msku' => 'required|string',
-                'asin' => 'required|string',
-                'grading' => 'required|string',
-                'astitle' => 'required|string',
+                'fnsku' => 'required|string|min:1',
+                // Make these optional or provide defaults
+                'msku' => 'nullable|string',
+                'asin' => 'nullable|string', 
+                'grading' => 'nullable|string'
             ]);
             
             // Begin transaction
@@ -124,17 +153,13 @@ class FnskuController extends BasetablesController
                 throw new \Exception('Product not found');
             }
             
+            // Prepare update data - only include non-null values
+            $updateData = ['FNSKUviewer' => $request->fnsku];
+            
             // Update the product
             DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
-                ->update([
-                    'FNSKUviewer' => $request->fnsku,
-                    // Uncomment these if you actually need to update them
-                    // 'MSKUviewer' => $request->msku,
-                    // 'ASINviewer' => $request->asin,
-                    // 'gradingviewer' => $request->grading,
-                    // 'AStitle' => $request->astitle,
-                ]);
+                ->update($updateData);
             
             // Find an available FNSKU record
             $fnsku = DB::table($this->fnskuTable)
@@ -146,21 +171,21 @@ class FnskuController extends BasetablesController
             if ($fnsku) {
                 // Decrement the units
                 DB::table($this->fnskuTable)
-                ->where('FNSKU', $request->fnsku) // Use primary key for precise update
+                    ->where('FNSKU', $request->fnsku)
                     ->update([
                         'Units' => DB::raw('Units - 1')
                     ]);
                     
                 // Mark as unavailable if units reach zero
-                if ($fnsku->Units == 1) {
+                if ($fnsku->Units == 1) { // Check if it will be 0 after decrement
                     DB::table($this->fnskuTable)
-                    ->where('FNSKU', $request->fnsku)
+                        ->where('FNSKU', $request->fnsku)
                         ->update([
                             'fnsku_status' => 'unavailable'
                         ]);
                 }
             } else {
-                \Log::warning('No available units found for FNSKU: ' . $request->fnsku);
+                Log::warning('No available units found for FNSKU: ' . $request->fnsku);
             }
             
             // Commit the transaction
@@ -172,7 +197,7 @@ class FnskuController extends BasetablesController
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
-            \Log::error('Validation error: ' . json_encode($e->errors()));
+            Log::error('Validation error: ' . json_encode($e->errors()));
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
@@ -182,13 +207,11 @@ class FnskuController extends BasetablesController
             // Rollback the transaction in case of error
             DB::rollBack();
             
-            \Log::error('Error updating FNSKU: ' . $e->getMessage());
+            Log::error('Error updating FNSKU: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update FNSKU. Please try again later.'
             ], 500);
         }
     }
-
-    
 }
