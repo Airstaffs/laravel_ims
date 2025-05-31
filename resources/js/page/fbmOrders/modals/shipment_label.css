@@ -1,0 +1,365 @@
+.modal.shipmentLabel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.shipmentLabel .modal-content {
+    background-color: white;
+    border-radius: 8px;
+    max-width: 1024px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.shipmentLabel .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    background: transparent;
+}
+
+.shipmentLabel .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.btn.btn-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.shipmentLabel .modal-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow: auto;
+}
+
+.order-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 1rem;
+}
+
+.order-section .left-container,
+.order-section .right-container {
+    width: calc(100% / 2);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.order-section .left-container {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+}
+
+.order-section .right-container {
+    background: #fff7ef;
+    border: 1px solid #f0d9c2;
+}
+
+.order-info {
+    height: 100%;
+    width: 100%;
+    font-size: .8rem;
+}
+
+.order-info ul>li>p,
+.order-info ul>li .orderItems-container ul>li {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.order-info ul>li .orderItems-container ul {
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 1px solid #ddd;
+}
+
+.orderItems-container {
+    height: 186px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 1rem;
+}
+
+.orderItems-container .status-Unshipped {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.selected-carrier li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.package-dimensions {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.package-dimensions fieldset {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.package-dimensions fieldset label {
+    min-width: 125px;
+    height: 40px;
+    margin: 0;
+    font-size: .8rem;
+    font-weight: 600;
+    line-height: 40px;
+    text-align: right;
+}
+
+.shipmentLabel .modal-footer {
+    gap: 10px;
+    padding: 1rem 1.5rem;
+}
+
+.shipmentLabel .modal-footer button {
+    background-color: #007bff;
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    margin: 0;
+}
+
+.shipmentLabel .modal-footer button:hover {
+    background-color: #0056b3;
+}
+
+/* Carrier */
+
+.modal.carrier {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.carrier .modal-content {
+    background-color: white;
+    border-radius: 8px;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.carrier .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    background: transparent;
+}
+
+.carrier .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.carrier .modal-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow: auto;
+}
+
+.carrier tbody {
+    font-size: .8rem;
+}
+
+.shipping-details li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 2rem;
+    z-index: 1000;
+}
+
+.modal-container {
+    background: #fff;
+    padding: 1.5rem;
+    border-radius: 10px;
+    max-width: 1100px;
+    width: 100%;
+    max-height: 95vh;
+    overflow-y: auto;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.close-btn {
+    background: transparent;
+    font-size: 1.5rem;
+    border: none;
+    cursor: pointer;
+    color: #333;
+}
+
+.shipment-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.left-panel {
+    flex: 1;
+    background: #f8f9fa;
+    padding: 1rem;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.right-panel {
+    flex: 1;
+}
+
+.order-section {
+    display: flex;
+    gap: 2rem;
+}
+
+.order-info {
+    margin-bottom: 1rem;
+    line-height: 1.5;
+}
+
+.package-dimensions {
+    background: #fff7ef;
+    padding: 1rem;
+    border: 1px solid #f0d9c2;
+    border-radius: 8px;
+}
+
+.carrier-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    background: #fff;
+}
+
+.carrier-table th,
+.carrier-table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    vertical-align: top;
+    text-align: left;
+}
+
+.carrier-table th {
+    background-color: #f0f0f0;
+    min-width: 0px;
+    max-width: 0px;
+}
+
+.form-row,
+.form-group {
+    margin-bottom: 1rem;
+}
+
+label {
+    font-weight: bold;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 6px;
+    font-size: 1rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+.button-row {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    justify-content: flex-end;
+}
+
+.button-row button {
+    background-color: #007bff;
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.button-row button:hover {
+    background-color: #0056b3;
+}
+
+.order-wrapper {
+    display: flex;
+    gap: 24px;
+    // margin-bottom: 32px;
+    flex-direction: column;
+} */
