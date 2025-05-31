@@ -27,12 +27,9 @@
                                 </button>
                             </div>
                         </th>
-                        <th class="">Location</th>
-                        <th class="">Added date</th>
-                        <th class="">Updated date</th>
-                        <th class="">Fnsku</th>
-                        <th class="">Msku</th>
-                        <th class="">Asin</th>
+                        <th class="">ASIN</th>
+                        <th class="">FNSKU</th>
+                        <th class="">MSKU</th>
                         <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">FBM
                         </th>
                         <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">FBA
@@ -76,27 +73,16 @@
                                     </div>
                                 </div>
                             </td>
+
                             <td>
-                                <span><strong></strong> {{ item.warehouselocation }}</span>
+                                <span><strong></strong> {{ item.ASIN }}</span>
                             </td>
 
                             <td>
-                                <span><strong></strong> {{ item.datedelivered }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong> {{ item.lastDateUpdate }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong> {{ item.FNSKUviewer }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong> {{ item.MSKUviewer }}</span>
+                                <span><strong></strong> {{ item.FNSKUviewer  }}</span>
                             </td>
                             <td>
-                                <span><strong></strong> {{ item.ASINviewer }}</span>
+                                <span><strong></strong> {{ item.MSKU  }}</span>
                             </td>
                             <!-- Hidden -->
                             <td v-if="showDetails">
@@ -367,131 +353,172 @@
         </div>
 
         <!-- FNSKU Selection Modal - Moved outside image modal and now has proper styling -->
-        <div v-if="isFnskuModalVisible" class="modal fnsku-modal">
-            <!-- Overlay -->
-            <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
+     <!-- FNSKU Selection Modal - Updated with hidden fields and loading -->
+<div v-if="isFnskuModalVisible" class="modal fnsku-modal">
+    <!-- Overlay -->
+    <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
 
-            <!-- Modal Content -->
-            <div class="fnsku-modal-content">
-                <!-- Header -->
-                <div class="fnsku-modal-header">
-                    <h2>Select FNSKU</h2>
-                    <button class="fnsku-close" @click="hideFnskuModal">&times;</button>
+    <!-- Modal Content -->
+    <div class="fnsku-modal-content">
+        <!-- Header -->
+        <div class="fnsku-modal-header">
+            <h2>Select FNSKU</h2>
+            <button class="fnsku-close" @click="hideFnskuModal">&times;</button>
+        </div>
+
+        <!-- Body -->
+        <div class="fnsku-modal-body">
+            <!-- Product Info - Updated to hide ID -->
+            <div class="fnsku-product-info">
+                <h4>{{ currentItem?.ProductTitle }}</h4>
+                <div class="fnsku-product-details">
+                    <!-- ID and Serial are now hidden -->
+                    <!-- <p><strong>ID:</strong> {{ currentItem?.ProductID }}</p> -->
+                    <!-- <p><strong>Serial#:</strong> {{ currentItem?.serialnumber }}</p> -->
+                    <p><strong>Current FNSKU:</strong> {{ currentItem?.FNSKUviewer || 'None' }}</p>
+                    <p><strong>RT#:</strong> {{ currentItem?.rtcounter }}</p>
+                </div>
+            </div>
+
+            <!-- Search with Loading -->
+            <div class="fnsku-search-container">
+                <div class="search-input-wrapper">
+                    <input 
+                        type="text" 
+                        v-model="fnskuSearch" 
+                        placeholder="Search FNSKU, ASIN, title, or grading..."
+                        class="fnsku-search-input form-control" 
+                        @input="filterFnskuList"
+                        :disabled="isSearching" />
+                    
+                    <!-- Loading spinner inside search input -->
+                    <div v-if="isSearching" class="search-loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
+                </div>
+                
+                <!-- Loading text below search -->
+                <div v-if="isSearching" class="search-loading-text">
+                    Searching FNSKUs...
+                </div>
+            </div>
+
+            <!-- FNSKU List - Desktop Table -->
+            <div class="fnsku-list-container d-none d-md-block">
+                <!-- Show loading overlay when searching -->
+                <div v-if="isSearching" class="fnsku-loading-overlay">
+                    <div class="loading-content">
+                        <div class="loading-spinner-large"></div>
+                        <p>Loading FNSKUs...</p>
+                    </div>
                 </div>
 
-                <!-- Body -->
-                <div class="fnsku-modal-body">
-                    <!-- Product Info -->
-                    <div class="fnsku-product-info">
-                        <h4>{{ currentItem?.ProductTitle }}</h4>
-                        <div class="fnsku-product-details">
-                            <p><strong>ID:</strong> {{ currentItem?.ProductID }}</p>
-                            <p><strong>Serial#:</strong> {{ currentItem?.serialnumber }}</p>
-                            <p><strong>FNSKU:</strong> {{ currentItem?.FNSKUviewer || 'None' }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Search -->
-                    <div class="fnsku-search-container">
-                        <input type="text" v-model="fnskuSearch" placeholder="Search FNSKU, ASIN, title, or grading..."
-                            class="fnsku-search-input form-control" @input="filterFnskuList" />
-                    </div>
-
-                    <!-- FNSKU List -->
-                    <div class="fnsku-list-container d-none d-md-block">
-                        <table class="table">
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>FNSKU Details</th>
-                                    <th>Title & Inventory</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU">
-                                    <tr>
-                                        <td>
-                                            <ul class="list-unstyled m-0 fnsku-details">
-                                                <li>{{ fnsku.FNSKU }}</li>
-                                                <li><strong>ASIN:</strong> {{ fnsku.ASIN }}</li>
-                                                <li>
-                                                    <div class="badge badge-pill badge-secondary fnsku-badge"
-                                                        :class="{ 'badge-success': fnsku.grading.includes('New') }">
-                                                        {{ fnsku.grading }}
-                                                    </div>
-                                                </li>
-                                            </ul>
-                                        </td>
-                                        <td>
-                                            <ul class="list-unstyled m-0 fnsku-title">
-                                                <li>{{ fnsku.astitle }}</li>
-                                                <li>{{ fnsku.Units }} in inventory</li>
-                                            </ul>
-                                        </td>
-                                        <td>
-                                            <div class="fnsku-action">
-                                                <button @click="selectFnsku(fnsku)" class="btn btn-fnsku-select"
-                                                    :class="{ 'fnsku-recommended': fnsku.ASIN === currentItem?.ASIN }">
-                                                    {{ fnsku.ASIN === currentItem?.ASIN ? 'Recommended' : 'Select' }}
-                                                </button>
+                <table class="table" :class="{ 'loading-blur': isSearching }">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>FNSKU Details</th>
+                            <th>Title & Inventory</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU">
+                            <tr>
+                                <td>
+                                    <ul class="list-unstyled m-0 fnsku-details">
+                                        <li>{{ fnsku.FNSKU }}</li>
+                                        <li><strong>ASIN:</strong> {{ fnsku.ASIN }}</li>
+                                        <li>
+                                            <div class="badge badge-pill badge-secondary fnsku-badge"
+                                                :class="{ 'badge-success': fnsku.grading.includes('New') }">
+                                                {{ fnsku.grading }}
                                             </div>
-                                        </td>
-
-                                        <td v-if="filteredFnskuList.length === 0" colspan="3">
-                                            <span class="fnsku-no-results">No matching FNSKUs found</span>
-                                        </td>
-                                    </tr>
-                                </template>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- Mobile FNSKU Card View -->
-                    <div class="fnsku-card-container d-block d-md-none">
-                        <div v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU" class="card mb-3 shadow-sm"
-                            :class="index % 2 === 0 ? 'bg-light' : 'bg-white'">
-                            <div class="card-body d-flex flex-column gap-3">
-                                <!-- Section 1: FNSKU Details -->
-                                <div class="d-flex justify-content-between">
-                                    <div class="fnsku-details">
-                                        <h6>{{ fnsku.FNSKU }}</h6>
-                                        <p><strong>ASIN:</strong> {{ fnsku.ASIN }}</p>
+                                        </li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <ul class="list-unstyled m-0 fnsku-title">
+                                        <li>{{ fnsku.astitle }}</li>
+                                        <li>{{ fnsku.Units }} in inventory</li>
+                                    </ul>
+                                </td>
+                                <td>
+                                    <div class="fnsku-action">
+                                        <button @click="selectFnsku(fnsku)" class="btn btn-fnsku-select"
+                                            :class="{ 'fnsku-recommended': fnsku.ASIN === currentItem?.ASINviewer }"
+                                            :disabled="isSearching">
+                                            {{ fnsku.ASIN === currentItem?.ASINviewer ? 'Recommended' : 'Select' }}
+                                        </button>
                                     </div>
-                                    <span class="badge fnsku-badge" :class="{
-                                        'bg-success': fnsku.grading.includes('New'),
-                                        'bg-secondary': !fnsku.grading.includes('New')
-                                    }">
-                                        {{ fnsku.grading }}
-                                    </span>
-                                </div>
+                                </td>
+                            </tr>
+                        </template>
+                        
+                        <!-- No results row -->
+                        <tr v-if="filteredFnskuList.length === 0 && !isSearching">
+                            <td colspan="3" class="text-center">
+                                <span class="fnsku-no-results">No matching FNSKUs found</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-                                <!-- Section 2: Title & Inventory -->
-                                <div class="d-flex flex-column align-items-start gap-1">
-                                    <span><strong>{{ fnsku.astitle }}</strong></span>
-                                    <span class="text-muted mb-0">{{ fnsku.Units }} in inventory</span>
-                                </div>
+            <!-- Mobile FNSKU Card View -->
+            <div class="fnsku-card-container d-block d-md-none">
+                <!-- Mobile loading overlay -->
+                <div v-if="isSearching" class="fnsku-loading-overlay mobile">
+                    <div class="loading-content">
+                        <div class="loading-spinner-large"></div>
+                        <p>Loading FNSKUs...</p>
+                    </div>
+                </div>
 
-                                <!-- Section 3: Action Button -->
-                                <div>
-                                    <button @click="selectFnsku(fnsku)" class="btn btn-sm" :class="{
-                                        'btn-success': fnsku.ASIN === currentItem?.ASIN,
-                                        'btn-outline-primary': fnsku.ASIN !== currentItem?.ASIN
-                                    }">
-                                        {{ fnsku.ASIN === currentItem?.ASIN ? 'Recommended' : 'Select' }}
-                                    </button>
+                <div :class="{ 'loading-blur': isSearching }">
+                    <div v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU" class="card mb-3 shadow-sm"
+                        :class="index % 2 === 0 ? 'bg-light' : 'bg-white'">
+                        <div class="card-body d-flex flex-column gap-3">
+                            <!-- Section 1: FNSKU Details -->
+                            <div class="d-flex justify-content-between">
+                                <div class="fnsku-details">
+                                    <h6>{{ fnsku.FNSKU }}</h6>
+                                    <p><strong>ASIN:</strong> {{ fnsku.ASIN }}</p>
                                 </div>
+                                <span class="badge fnsku-badge" :class="{
+                                    'bg-success': fnsku.grading.includes('New'),
+                                    'bg-secondary': !fnsku.grading.includes('New')
+                                }">
+                                    {{ fnsku.grading }}
+                                </span>
+                            </div>
+
+                            <!-- Section 2: Title & Inventory -->
+                            <div class="d-flex flex-column align-items-start gap-1">
+                                <span><strong>{{ fnsku.astitle }}</strong></span>
+                                <span class="text-muted mb-0">{{ fnsku.Units }} in inventory</span>
+                            </div>
+
+                            <!-- Section 3: Action Button -->
+                            <div>
+                                <button @click="selectFnsku(fnsku)" class="btn btn-sm" :class="{
+                                    'btn-success': fnsku.ASIN === currentItem?.ASINviewer,
+                                    'btn-outline-primary': fnsku.ASIN !== currentItem?.ASINviewer
+                                }" :disabled="isSearching">
+                                    {{ fnsku.ASIN === currentItem?.ASINviewer ? 'Recommended' : 'Select' }}
+                                </button>
                             </div>
                         </div>
+                    </div>
 
-
-                        <!-- No results message -->
-                        <div v-if="filteredFnskuList.length === 0" class="alert alert-info text-center">
-                            No matching FNSKUs found
-                        </div>
+                    <!-- No results message -->
+                    <div v-if="filteredFnskuList.length === 0 && !isSearching" class="alert alert-info text-center">
+                        No matching FNSKUs found
                     </div>
                 </div>
             </div>
         </div>
+    </div>
+</div>
 
         <!-- Add this confirmation modal HTML to your template section -->
         <!-- Confirmation Modal -->
@@ -524,3 +551,192 @@
     import Labeling from "./labeling.js";
     export default Labeling;
 </script>
+
+<style>
+
+/* Loading Animation CSS - Add this to your labeling.css file */
+
+/* Search input wrapper for positioning */
+.search-input-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+/* Small spinner inside search input */
+.search-loading-spinner {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+}
+
+.search-loading-spinner .spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+/* Loading text below search */
+.search-loading-text {
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.9em;
+    margin-top: 8px;
+    font-style: italic;
+}
+
+/* Loading overlay for FNSKU list */
+.fnsku-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    border-radius: 8px;
+}
+
+.fnsku-loading-overlay.mobile {
+    position: relative;
+    min-height: 200px;
+    background: rgba(248, 249, 250, 0.9);
+}
+
+/* Loading content */
+.loading-content {
+    text-align: center;
+    padding: 20px;
+}
+
+.loading-content p {
+    margin-top: 15px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* Large spinner for overlay */
+.loading-spinner-large {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+/* Blur effect when loading */
+.loading-blur {
+    filter: blur(1px);
+    opacity: 0.6;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+/* Spinner animation */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Disabled state for buttons during loading */
+button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Search input disabled state */
+.fnsku-search-input:disabled {
+    background-color: #f8f9fa;
+    cursor: not-allowed;
+}
+
+/* Pulse animation for search input when loading */
+.fnsku-search-input:disabled {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        background-color: #f8f9fa;
+    }
+    50% {
+        background-color: #e9ecef;
+    }
+    100% {
+        background-color: #f8f9fa;
+    }
+}
+
+/* Container positioning for overlay */
+.fnsku-list-container,
+.fnsku-card-container {
+    position: relative;
+}
+
+/* Ensure table maintains structure during blur */
+.table.loading-blur {
+    table-layout: fixed;
+}
+
+/* Loading state for mobile cards */
+.fnsku-card-container.loading-blur .card {
+    pointer-events: none;
+}
+
+/* Smooth transitions */
+.fnsku-list-container,
+.fnsku-card-container,
+.search-input-wrapper {
+    transition: all 0.3s ease;
+}
+
+/* Loading indicator variants */
+.spinner-small {
+    width: 12px;
+    height: 12px;
+    border-width: 2px;
+}
+
+.spinner-medium {
+    width: 24px;
+    height: 24px;
+    border-width: 3px;
+}
+
+.spinner-large {
+    width: 48px;
+    height: 48px;
+    border-width: 4px;
+}
+
+/* Responsive loading overlay */
+@media (max-width: 768px) {
+    .fnsku-loading-overlay {
+        border-radius: 0;
+    }
+    
+    .loading-spinner-large {
+        width: 32px;
+        height: 32px;
+        border-width: 3px;
+    }
+    
+    .loading-content {
+        padding: 15px;
+    }
+    
+    .loading-content p {
+        font-size: 0.9em;
+        margin-top: 10px;
+    }
+}
+</style>
