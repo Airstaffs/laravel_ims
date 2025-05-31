@@ -48,7 +48,8 @@
 
                                 <hr>
 
-                                <li v-if="(!selectedCarriers.hasOwnProperty(order.platform_order_id) || !selectedCarriers[order.platform_order_id])">
+                                <li
+                                    v-if="(!selectedCarriers.hasOwnProperty(order.platform_order_id) || !selectedCarriers[order.platform_order_id])">
                                     <button v-if="rateResults && rateResults.length" @click="openCarrierModal(order)"
                                         class="btn btn-carrier">
                                         Select Carrier Option
@@ -188,56 +189,118 @@
             </div>
 
             <div class="modal-body">
-                <table class="table" v-if="selectedCarrierOrder?.rates?.payload?.ShippingServiceList?.length">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Select</th>
-                            <th>Shipping Service</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="(rate, idx) in selectedCarrierOrder.rates.payload.ShippingServiceList" :key="idx">
-                            <td v-if="selectedCarrierOrder">
-                                <input type="radio" :name="'select-carrier-' + selectedCarrierOrder.platform_order_id"
-                                    :value="rate" v-model="selectedCarriers[selectedCarrierOrder.platform_order_id]"
-                                    @change="ensureSelectedCarrierEntry(selectedCarrierOrder.platform_order_id)" />
-                            </td>
-                            <td>
-                                <p><strong>{{ rate.ShippingServiceName }}</strong></p>
-                                <p><strong>Included: </strong></p>
-                                <ul class="list-unstyled m-0">
-                                    <li v-for="b in rate.Benefits?.IncludedBenefits || []" :key="b"> {{ b }}</li>
-                                    <li>
-                                        <ul class="list-unstyled m-0 shipping-details">
-                                            <li>
-                                                Ship Date: <strong>{{ formatDatetext(rate.ShipDate) }}</strong>
-                                            </li>
-                                            <li>
-                                                Rate: <strong>${{ rate.Rate.Amount }}</strong>
-                                            </li>
-                                            <li>
-                                                Estimated Delivery:
-                                                <strong>{{ formatDatetext(rate.EarliestEstimatedDeliveryDate) }} - {{
-                                                    formatDatetext(rate.LatestEstimatedDeliveryDate) }}</strong>
-                                            </li>
-                                        </ul>
-                                    </li>
+                <div class="d-none d-md-block">
+                    <table class="table" v-if="selectedCarrierOrder?.rates?.payload?.ShippingServiceList?.length">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Select</th>
+                                <th>Shipping Service</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(rate, idx) in selectedCarrierOrder.rates.payload.ShippingServiceList"
+                                :key="idx">
+                                <td v-if="selectedCarrierOrder">
+                                    <input type="radio"
+                                        :name="'select-carrier-' + selectedCarrierOrder.platform_order_id" :value="rate"
+                                        v-model="selectedCarriers[selectedCarrierOrder.platform_order_id]"
+                                        @change="ensureSelectedCarrierEntry(selectedCarrierOrder.platform_order_id)" />
+                                </td>
+                                <td>
+                                    <p><strong>{{ rate.ShippingServiceName }}</strong></p>
+                                    <p><strong>Included: </strong></p>
+                                    <ul class="list-unstyled m-0">
+                                        <li v-for="b in rate.Benefits?.IncludedBenefits || []" :key="b"> {{ b }}</li>
+                                        <li>
+                                            <ul class="list-unstyled m-0 shipping-details">
+                                                <li>
+                                                    Ship Date: <strong>{{ formatDatetext(rate.ShipDate) }}</strong>
+                                                </li>
+                                                <li>
+                                                    Rate: <strong>${{ rate.Rate.Amount }}</strong>
+                                                </li>
+                                                <li>
+                                                    Estimated Delivery:
+                                                    <strong>{{ formatDatetext(rate.EarliestEstimatedDeliveryDate) }} -
+                                                        {{
+                                                            formatDatetext(rate.LatestEstimatedDeliveryDate) }}</strong>
+                                                </li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>
+                                    <input type="radio"
+                                        :name="'select-carrier-' + selectedCarrierOrder.platform_order_id" :value="null"
+                                        v-model="selectedCarriers[selectedCarrierOrder.platform_order_id]" />
+                                </td>
+                                <td colspan="4">
+                                    <div class="alert alert-danger m-0">
+                                        <strong>No carrier selected (skip this order)</strong>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card View -->
+                <div class="d-block d-md-none" v-if="selectedCarrierOrder?.rates?.payload?.ShippingServiceList?.length">
+                    <div v-for="(rate, idx) in selectedCarrierOrder.rates.payload.ShippingServiceList" :key="idx"
+                        class="card mb-3 shadow-sm">
+                        <div class="card-body d-flex flex-column gap-2">
+                            <!-- Radio Select -->
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                    :name="'select-carrier-' + selectedCarrierOrder.platform_order_id" :value="rate"
+                                    v-model="selectedCarriers[selectedCarrierOrder.platform_order_id]"
+                                    @change="ensureSelectedCarrierEntry(selectedCarrierOrder.platform_order_id)"
+                                    :id="'rate-' + idx" />
+                                <label class="form-check-label" :for="'rate-' + idx">
+                                    <strong>{{ rate.ShippingServiceName }}</strong>
+                                </label>
+                            </div>
+
+                            <!-- Included Benefits -->
+                            <div>
+                                <strong>Included:</strong>
+                                <ul class="list-unstyled mb-1">
+                                    <li v-for="b in rate.Benefits?.IncludedBenefits || []" :key="b">• {{ b }}</li>
                                 </ul>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <input type="radio" :name="'select-carrier-' + selectedCarrierOrder.platform_order_id"
-                                    :value="null" v-model="selectedCarriers[selectedCarrierOrder.platform_order_id]" />
-                            </td>
-                            <td colspan="4">
-                                <div class="alert alert-danger m-0">
+                            </div>
+
+                            <!-- Shipping Details -->
+                            <ul class="list-unstyled shipping-details mb-0">
+                                <li>Ship Date: <strong>{{ formatDatetext(rate.ShipDate) }}</strong></li>
+                                <li>Rate: <strong>${{ rate.Rate.Amount }}</strong></li>
+                                <li>
+                                    Estimated Delivery:
+                                    <strong>{{ formatDatetext(rate.EarliestEstimatedDeliveryDate) }} - {{
+                                        formatDatetext(rate.LatestEstimatedDeliveryDate) }}</strong>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- No Carrier Option -->
+                    <div class="card border-danger">
+                        <div class="card-body">
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio"
+                                    :name="'select-carrier-' + selectedCarrierOrder.platform_order_id" :value="null"
+                                    v-model="selectedCarriers[selectedCarrierOrder.platform_order_id]"
+                                    :id="'no-carrier-' + selectedCarrierOrder.platform_order_id" />
+                                <label class="form-check-label text-danger"
+                                    :for="'no-carrier-' + selectedCarrierOrder.platform_order_id">
                                     <strong>No carrier selected (skip this order)</strong>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
