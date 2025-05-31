@@ -5,6 +5,8 @@ error_reporting(E_ALL);
 session_start();
 date_default_timezone_set('America/Los_Angeles');
 
+exit("Wiping Data");
+
 $success = false;
 $strname = "RT";
 $platform = "Amazon";
