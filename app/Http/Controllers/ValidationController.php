@@ -15,12 +15,14 @@ use DateTimeZone;
 
 class ValidationController extends BasetablesController
 {
-    public function index(Request $request)
+   public function index(Request $request)
     {
         try {
             // Log tables being used for debugging
             Log::info('Tables being used:', [
                 'productTable' => $this->productTable,
+                'fnskuTable' => $this->fnskuTable,
+                'asinTable' => $this->asinTable,
                 'capturedImagesTable' => $this->capturedImagesTable,
                 'company' => $this->company
             ]);
@@ -30,23 +32,43 @@ class ValidationController extends BasetablesController
             $location = $request->input('location', 'Validation');
             $includeImages = $request->boolean('include_images', false);
             
-            // Query base products
-            $query = DB::table($this->productTable)
-            ->leftJoin($this->fnskuTable, $this->productTable.'.FNSKUviewer', '=', $this->fnskuTable.'.fnsku')
-            ->select($this->productTable.'.*', $this->fnskuTable.'.asin', $this->fnskuTable.'.astitle', $this->fnskuTable.'.storename') // Select all from product table plus asin from fnsku table
-            ->where('ProductModuleLoc', $location)
-            ->when($search, function($query) use ($search) {
-                return $query->where(function($q) use ($search) {
-                    $q->where($this->productTable.'.serialnumber', 'like', "%{$search}%")
-                    ->orWhere($this->productTable.'.FNSKUviewer', 'like', "%{$search}%")
-                    ->orWhere($this->productTable.'.rtcounter', 'like', "%{$search}%");
-                });
-            })
-            ->orderBy($this->productTable.'.lastDateUpdate', 'desc');
+            // Updated query to join with both FNSKU and ASIN tables
+            $query = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*', // All product fields
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    'asin.internal as astitle' // Get title from ASIN table
+                ])
+                ->where('prod.ProductModuleLoc', $location)
+                ->when($search, function($query) use ($search) {
+                    return $query->where(function($q) use ($search) {
+                        $q->where('prod.serialnumber', 'like', "%{$search}%")
+                          ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")  
+                          ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                          ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                          ->orWhere('asin.internal', 'like', "%{$search}%"); // Search in ASIN title
+                    });
+                })
+                ->orderBy('prod.lastDateUpdate', 'desc');
             
             // Get paginated products
             $products = $query->paginate($perPage);
             Log::info('Products fetched successfully', ['count' => $products->count()]);
+            
+            // Debug: Log first product to see the joined data
+            if ($products->count() > 0) {
+                Log::info('First product with joins:', [
+                    'ProductID' => $products->first()->ProductID,
+                    'ASIN' => $products->first()->ASIN,
+                    'astitle' => $products->first()->astitle,
+                    'storename' => $products->first()->storename
+                ]);
+            }
             
             // If images are requested, fetch them for each product
             if ($includeImages) {

@@ -27,9 +27,6 @@
                                 </button>
                             </div>
                         </th>
-                        <th class="">Location</th>
-                        <th class="">Added date</th>
-                        <th class="">Updated date</th>
                         <th class="">Fnsku</th>
                         <th class="">Msku</th>
                         <th class="">Asin</th>
@@ -84,17 +81,6 @@
                                         </p>
                                     </div>
                                 </div>
-                            </td>
-                            <td>
-                                <span><strong></strong> {{ item.warehouselocation }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong> {{ item.datedelivered }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong> {{ item.lastDateUpdate }}</span>
                             </td>
 
                             <td>
