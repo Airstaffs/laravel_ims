@@ -1745,4 +1745,17 @@ public function shippinglabelselecteditem(Request $request)
     return response()->json($response);
 }
 
+public function fbmorderauthorizedusers(Request $request)
+{
+    $users = DB::table('tblusers')
+        ->select('id', 'username')
+        ->where('fbmorder', 1)
+        ->get();
+
+    return response()->json([
+        'success' => true,
+        'users' => $users
+    ]);
+}
+
 }

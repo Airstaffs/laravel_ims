@@ -137,4 +137,6 @@ class WorkhistoryController extends Controller
             'message' => count($groupedHistory) ? null : 'No work history found.'
         ]);
     }
+
+    
 }

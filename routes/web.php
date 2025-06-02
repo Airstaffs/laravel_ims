@@ -395,6 +395,7 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::get('/shipping-label-selected-items', [FbmOrderController::class, 'shippinglabelselecteditem']);
 
    Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
+   Route::post('/authorized-outboundorder-users', [WorkhistoryController::class, 'fbmorderauthorizedusers']);
 });
 
 
