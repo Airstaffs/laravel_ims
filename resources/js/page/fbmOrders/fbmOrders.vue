@@ -864,6 +864,50 @@
         </div>
     </div>
 
+
+        <div v-if="showWorkHistoryModal" class="modal workHistory">
+            <div class="modal-overlay" @click="closeWorkHistoryModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Work History</h2>
+                    <button class="btn btn-modal-close" @click="closeWorkHistoryModal">&times;</button>
+                </div>
+
+                <div class="modal-body">
+                    <div v-if="loading" class="loading-spinner">
+                        <i class="fas fa-spinner fa-spin"></i> Loading work history...
+                    </div>
+                    <div v-else-if="error" class="error-message">
+                        <i class="fas fa-exclamation-triangle"></i> {{ error }}
+                        <button class="btn btn-retry" @click="fetchWorkHistory">
+                            <i class="fas fa-redo"></i> Retry
+                        </button>
+                    </div>
+                    <div v-else-if="workHistory" class="work-history-content">
+                        <!-- Format the work history data nicely -->
+                        <div v-if="Array.isArray(workHistory)">
+                            <div v-for="(item, index) in workHistory" :key="index" class="work-history-item">
+                                <pre>{{ JSON.stringify(item, null, 2) }}</pre>
+                            </div>
+                        </div>
+                        <div v-else>
+                            <pre>{{ typeof workHistory === 'string' ? workHistory : JSON.stringify(workHistory, null, 2) }}</pre>
+                        </div>
+                    </div>
+                    <div v-else class="no-data">
+                        No work history available.
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @click="closeWorkHistoryModal">Close</button>
+                </div>
+            </div>
+        </div>
+
+
+
     <ShipmentLabel :show="showShipmentLabelModal" :shipmentData="selectedShipmentData" @close="closeShipmentLabelModal"
         @submit="handleShipmentLabelSubmit" />
 

@@ -3,9 +3,6 @@ import "../../../css/modules.css";
 import "./fbmOrders.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-import ShipmentLabel from "./modals/shipment_label.vue";
-import WorkHistory from "./modals/workhistory/workhistory.vue";
-
 export default {
     name: "FbmOrderModule",
     components: {
@@ -1951,6 +1948,35 @@ export default {
             selectedOrderIds.forEach((id) => this.generatePackingSlip(id));
         },
     },
+
+   async fetchWorkHistory() {
+        this.loading = true;
+        this.error = null;
+        try {
+            // Fix the API endpoint to match what you're expecting
+            const response = await axios.get(
+                `${API_BASE_URL}/api/fbm-orders/work-history`,
+                {
+                    withCredentials: true,
+                }
+            );
+            
+            // Check if response has the expected structure
+            if (response.data && response.data.success) {
+                this.workHistory = response.data.data;
+            } else {
+                this.workHistory = response.data;
+            }
+        } catch (err) {
+            this.error = "Failed to load work history.";
+            console.error('Work history fetch error:', err);
+        } finally {
+            this.loading = false;
+        }
+    },
+
+
+
     watch: {
         // Watch for global search changes
         searchQuery() {

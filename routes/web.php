@@ -391,6 +391,8 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::get('/detail', [FbmOrderController::class, 'getOrderDetail']);
     Route::post('/mark-not-found', [FbmOrderController::class, 'markProductNotFound']);
     Route::get('/shipping-label-selected-items', [FbmOrderController::class, 'shippinglabelselecteditem']);
+
+    Route::get('/work-history', [WorkhistoryController::class, 'getWorkHistory']);
 });
 
 
