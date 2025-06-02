@@ -858,14 +858,74 @@
             </div>
         </div>
 
-        <!-- Work History Modal - INLINE -->
-        <div v-if="showWorkHistoryModal" class="modal workHistory">
+        <!-- Work History Modal - EXACT DESIGN MATCH -->
+        <div v-if="showWorkHistoryModal" class="modal workHistory show">
             <div class="modal-overlay" @click="closeWorkHistoryModal"></div>
-
-            <div class="modal-content">
+            <div class="modal-content work-summary-modal">
                 <div class="modal-header">
-                    <h2>Work History</h2>
+                    <h2><i class="fas fa-chart-line"></i> Work Summary</h2>
                     <button class="btn btn-modal-close" @click="closeWorkHistoryModal">&times;</button>
+                </div>
+
+                <!-- Work Summary Controls - Exact Layout -->
+                <div class="work-summary-controls">
+                    <!-- First Row - Main Controls -->
+                    <div class="controls-first-row">
+                        <div class="control-group">
+                            <label>Sort By:</label>
+                            <select v-model="workHistoryFilters.sortBy" @change="fetchWorkHistory" class="form-control">
+                                <option value="purchase_date">Label Purchase Date (DESC)</option>
+                                <option value="created_date">Purchase Date</option>
+                                <option value="delivery_date">Delivery Date</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label>Start Date & Time:</label>
+                            <input type="datetime-local" v-model="workHistoryFilters.startDate" @change="fetchWorkHistory" class="form-control">
+                        </div>
+
+                        <div class="control-group">
+                            <label>End Date & Time:</label>
+                            <input type="datetime-local" v-model="workHistoryFilters.endDate" @change="fetchWorkHistory" class="form-control">
+                        </div>
+
+                        <div class="control-group">
+                            <label>Select User:</label>
+                            <select v-model="workHistoryFilters.userId" @change="fetchWorkHistory" class="form-control">
+                                <option value="all">All Users</option>
+                                <option value="Van">Van</option>
+                                <option value="Jundell">Jundell</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label>Filter Late Orders:</label>
+                            <select v-model="workHistoryFilters.lateOrders" @change="fetchWorkHistory" class="form-control">
+                                <option value="">All Orders</option>
+                                <option value="late">Late Orders Only</option>
+                                <option value="ontime">On Time Orders</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Second Row - Stats and Actions -->
+                    <div class="controls-second-row">
+                        <div class="summary-stats-left">
+                            <span class="total-orders">Total Orders: {{ workHistoryStats.totalOrders }}</span>
+                            <input type="text" v-model="workHistoryFilters.searchQuery" @input="fetchWorkHistory" 
+                                   placeholder="Search AmazonOrderId or ..." class="search-input">
+                            <span class="carrier-breakdown">
+                                <i class="fas fa-truck"></i> Carrier Breakdown
+                            </span>
+                        </div>
+                        <div class="summary-stats-right">
+                            <button class="btn btn-export" @click="exportWorkHistory">
+                                <i class="fas fa-download"></i> Export Work History
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="modal-body">
@@ -879,68 +939,109 @@
                         </button>
                     </div>
                     <div v-else-if="workHistory && workHistory.length > 0" class="work-history-content">
-                        <!-- Structured display for your work history data -->
-                        <div v-for="(historyItem, index) in workHistory" :key="index" class="work-history-order">
-                            <div class="order-header">
-                                <h3>{{ historyItem.orderInfo.AmazonOrderId }}</h3>
-                                <div class="order-meta">
-                                    <span class="customer">{{ historyItem.orderInfo.customer_name }}</span>
-                                    <span class="store">{{ historyItem.orderInfo.strname }}</span>
-                                </div>
-                            </div>
-                            
-                            <div class="order-details">
-                                <div class="order-detail-row">
-                                    <strong>Purchase Date:</strong> {{ historyItem.orderInfo.datecreatedsheesh }}
-                                </div>
-                                <div class="order-detail-row">
-                                    <strong>Label Purchase Date:</strong> {{ historyItem.orderInfo.purchaselabeldate }}
-                                </div>
-                                <div class="order-detail-row">
-                                    <strong>Latest Ship Date:</strong> {{ historyItem.orderInfo.LatestShipDateoforder }}
-                                </div>
-                                <div class="order-detail-row">
-                                    <strong>Delivery Date:</strong> {{ historyItem.orderInfo.datedeliveredsheesh }}
-                                </div>
-                                <div class="order-detail-row">
-                                    <strong>Tracking ID:</strong> {{ historyItem.orderInfo.trackingid }}
-                                </div>
-                                <div class="order-detail-row">
-                                    <strong>Carrier:</strong> {{ historyItem.orderInfo.carrier_description || historyItem.orderInfo.carrier }}
-                                </div>
-                                <div class="order-detail-row">
-                                    <strong>Tracking Status:</strong> {{ historyItem.orderInfo.trackingstatus }}
-                                </div>
-                                <div v-if="historyItem.orderInfo.ordernote" class="order-detail-row">
-                                    <strong>Order Note:</strong> {{ historyItem.orderInfo.ordernote }}
-                                </div>
-                            </div>
-
-                            <!-- Order Items -->
-                            <div v-if="historyItem.orderInfo.items && historyItem.orderInfo.items.length > 0" class="order-items">
-                                <h4>Items ({{ historyItem.orderInfo.items.length }})</h4>
-                                <div v-for="(item, itemIndex) in historyItem.orderInfo.items" :key="itemIndex" class="order-item">
-                                    <div class="item-title">{{ item.Title }}</div>
-                                    <div class="item-details">
-                                        <span><strong>ASIN:</strong> {{ item.ASIN }}</span>
-                                        <span><strong>SKU:</strong> {{ item.MSKU }}</span>
-                                        <span><strong>Order Item ID:</strong> {{ item.OrderItemId }}</span>
-                                        <span v-if="item.ProductID"><strong>Product ID:</strong> {{ item.ProductID }}</span>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Dispensed FNSKU -->
-                            <div v-if="historyItem.orderInfo.dispensedFNSKU && historyItem.orderInfo.dispensedFNSKU.length > 0" class="dispensed-fnsku">
-                                <h4>Dispensed FNSKU</h4>
-                                <div class="fnsku-list">
-                                    <span v-for="(fnsku, fnskuIndex) in historyItem.orderInfo.dispensedFNSKU" :key="fnskuIndex" class="fnsku-item">
-                                        {{ fnsku }}
-                                    </span>
-                                </div>
-                            </div>
-
-                            <hr v-if="index < workHistory.length - 1" class="order-separator">
+                        <!-- Exact Table Design Match -->
+                        <div class="work-history-table-container">
+                            <table class="work-history-table">
+                                <thead>
+                                    <tr>
+                                        <th class="col-purchase-date">
+                                            <div class="th-content">
+                                                <div class="th-main">Purchase Date</div>
+                                                <div class="th-sub">Label Purchase Date</div>
+                                            </div>
+                                        </th>
+                                        <th class="col-customer">Customer Name</th>
+                                        <th class="col-items">
+                                            <div class="th-content">
+                                                <div class="th-main">Ordered Items</div>
+                                                <div class="th-sub">(ASIN / Title / MSKU)</div>
+                                            </div>
+                                        </th>
+                                        <th class="col-amazon-order">Amazon Order ID</th>
+                                        <th class="col-tracking">Tracking ID</th>
+                                        <th class="col-carrier">
+                                            <div class="th-content">
+                                                <div class="th-main">Carrier</div>
+                                                <select v-model="workHistoryFilters.carrierFilter" @change="fetchWorkHistory" class="carrier-filter">
+                                                    <option value="">All Statuses</option>
+                                                    <option value="UPS">UPS</option>
+                                                    <option value="FEDEX">FedEx</option>
+                                                    <option value="USPS">USPS</option>
+                                                    <option value="DHL">DHL</option>
+                                                </select>
+                                            </div>
+                                        </th>
+                                        <th class="col-delivery">
+                                            <div class="th-content">
+                                                <div class="th-main">Date Delivered</div>
+                                                <div class="th-sub">by Date Ship Date</div>
+                                            </div>
+                                        </th>
+                                        <th class="col-dispensed">Dispensed FNSKU</th>
+                                        <th class="col-stores">
+                                            <div class="th-content">
+                                                <div class="th-main">All Stores</div>
+                                                <select v-model="workHistoryFilters.storeFilter" @change="fetchWorkHistory" class="store-filter">
+                                                    <option value="">All Stores</option>
+                                                    <option value="TestStore">TestStore</option>
+                                                    <option value="AllRenewed">AllRenewed</option>
+                                                </select>
+                                            </div>
+                                        </th>
+                                        <th class="col-remarks">Remarks</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr v-for="(historyItem, index) in workHistory" :key="index" class="work-history-row">
+                                        <td class="col-purchase-date">
+                                            <div class="date-cell">
+                                                <div class="main-date">{{ getMainDate(historyItem.orderInfo) }}</div>
+                                                <div class="sub-date">{{ getSubDate(historyItem.orderInfo) }}</div>
+                                            </div>
+                                        </td>
+                                        <td class="col-customer">
+                                            <span class="customer-link">{{ historyItem.orderInfo.customer_name || 'N/A' }}</span>
+                                        </td>
+                                        <td class="col-items">
+                                            <div class="items-cell">
+                                                <div v-for="(item, itemIndex) in (historyItem.orderInfo.items || [])" 
+                                                     :key="itemIndex" class="item-entry">
+                                                    <div class="item-indicator">|</div>
+                                                </div>
+                                                <div v-if="!historyItem.orderInfo.items || historyItem.orderInfo.items.length === 0" class="item-entry">
+                                                    <div class="item-indicator">|</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="col-amazon-order">
+                                            <span class="amazon-order-link">{{ historyItem.orderInfo.AmazonOrderId }}</span>
+                                        </td>
+                                        <td class="col-tracking">
+                                            <span class="tracking-number">{{ historyItem.orderInfo.trackingid || 'N/A' }}</span>
+                                        </td>
+                                        <td class="col-carrier">
+                                            <span :class="getCarrierClass(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description)">
+                                                {{ getCarrierText(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description) }}
+                                            </span>
+                                        </td>
+                                        <td class="col-delivery">
+                                            <div class="delivery-cell">
+                                                <div class="delivery-main">{{ getDeliveryStatus(historyItem.orderInfo) }}</div>
+                                                <div class="delivery-sub">{{ getDeliverySubDate(historyItem.orderInfo) }}</div>
+                                            </div>
+                                        </td>
+                                        <td class="col-dispensed">
+                                            <span class="dispensed-status">{{ getDispensedStatus(historyItem.orderInfo) }}</span>
+                                        </td>
+                                        <td class="col-stores">
+                                            <span class="store-link">{{ historyItem.orderInfo.strname || 'N/A' }}</span>
+                                        </td>
+                                        <td class="col-remarks">
+                                            <span class="remarks-text">{{ getRemarks(historyItem.orderInfo) }}</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                     <div v-else class="no-data">
@@ -949,7 +1050,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-secondary" @click="closeWorkHistoryModal">Close</button>
+                    <button class="btn btn-close-modal" @click="closeWorkHistoryModal">Close</button>
                 </div>
             </div>
         </div>
@@ -962,3 +1063,545 @@
     import fbmorder from "./fbmOrders.js";
     export default fbmorder;
 </script>
+
+<style>
+/* Work History Modal Styles - Exact Design Match */
+.modal.workHistory {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: none;
+}
+
+.modal.workHistory.show {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+.work-summary-modal {
+    max-width: 98vw !important;
+    width: 1600px !important;
+    max-height: 95vh !important;
+    height: 90vh !important;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 8px;
+    max-width: 90vw;
+    max-height: 90vh;
+    width: 900px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    z-index: 10000;
+}
+
+.modal-header {
+    background: #52c41a;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+}
+
+.btn-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Work Summary Controls - Exact Layout */
+.work-summary-controls {
+    background: #f5f5f5;
+    padding: 12px 16px;
+    border-bottom: 1px solid #ddd;
+    flex-shrink: 0;
+}
+
+.controls-first-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.controls-second-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.control-group label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.form-control {
+    padding: 6px 8px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    font-size: 12px;
+    min-width: 140px;
+    height: 28px;
+}
+
+.summary-stats-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.summary-stats-right {
+    display: flex;
+    align-items: center;
+}
+
+.total-orders {
+    font-weight: bold;
+    font-size: 13px;
+    color: #333;
+}
+
+.search-input {
+    padding: 6px 8px;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    font-size: 12px;
+    width: 200px;
+    height: 28px;
+}
+
+.carrier-breakdown {
+    font-size: 13px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.btn-export {
+    background: #1890ff;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+}
+
+.btn-export:hover {
+    background: #096dd9;
+}
+
+.modal-body {
+    padding: 0;
+    overflow: hidden;
+    flex: 1;
+    min-height: 400px;
+}
+
+.modal-footer {
+    padding: 12px 16px;
+    border-top: 1px solid #ddd;
+    display: flex;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 40px;
+    font-size: 16px;
+    color: #666;
+}
+
+.loading-spinner i {
+    font-size: 20px;
+    margin-right: 8px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-message {
+    text-align: center;
+    padding: 40px;
+    color: #e74c3c;
+    font-size: 14px;
+}
+
+.btn-retry {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    margin-left: 8px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+/* Work History Table - Exact Match */
+.work-history-table-container {
+    overflow: auto;
+    height: calc(100% - 0px);
+    border: 1px solid #e8e8e8;
+}
+
+.work-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    min-width: 1400px;
+    background: white;
+}
+
+.work-history-table th {
+    background: #fafafa;
+    border: 1px solid #e8e8e8;
+    padding: 8px 6px;
+    text-align: left;
+    font-weight: 600;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    font-size: 11px;
+    color: #333;
+}
+
+.work-history-table td {
+    border: 1px solid #e8e8e8;
+    padding: 6px;
+    vertical-align: top;
+    font-size: 11px;
+}
+
+.th-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.th-main {
+    font-weight: 600;
+    color: #333;
+}
+
+.th-sub {
+    font-size: 10px;
+    color: #666;
+    font-weight: normal;
+}
+
+/* Column Widths - Exact Match */
+.col-purchase-date {
+    width: 120px;
+}
+
+.col-customer {
+    width: 100px;
+}
+
+.col-items {
+    width: 80px;
+}
+
+.col-amazon-order {
+    width: 140px;
+}
+
+.col-tracking {
+    width: 140px;
+}
+
+.col-carrier {
+    width: 100px;
+}
+
+.col-delivery {
+    width: 120px;
+}
+
+.col-dispensed {
+    width: 120px;
+}
+
+.col-stores {
+    width: 100px;
+}
+
+.col-remarks {
+    width: 80px;
+}
+
+/* Content Styles - Exact Match */
+.date-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.main-date {
+    font-weight: 600;
+    color: #333;
+    font-size: 11px;
+}
+
+.sub-date {
+    color: #666;
+    font-size: 10px;
+}
+
+.customer-link {
+    color: #1890ff;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.customer-link:hover {
+    color: #096dd9;
+}
+
+.items-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.item-entry {
+    display: flex;
+    align-items: center;
+}
+
+.item-indicator {
+    color: #52c41a;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.amazon-order-link {
+    color: #fa8c16;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.amazon-order-link:hover {
+    color: #d46b08;
+}
+
+.tracking-number {
+    font-family: 'Courier New', monospace;
+    color: #333;
+    font-size: 10px;
+}
+
+/* Carrier Colors - Exact Match */
+.carrier-ups {
+    color: #8b4513;
+    font-weight: 600;
+}
+
+.carrier-fedex {
+    color: #4b0082;
+    font-weight: 600;
+}
+
+.carrier-usps {
+    color: #0047ab;
+    font-weight: 600;
+}
+
+.carrier-dhl {
+    color: #ffcc00;
+    background: #cc0000;
+    padding: 1px 3px;
+    border-radius: 2px;
+    color: white;
+    font-weight: 600;
+}
+
+.carrier-na, .carrier-other {
+    color: #8b5cf6;
+    font-weight: 600;
+}
+
+.delivery-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.delivery-main {
+    color: #52c41a;
+    font-weight: 600;
+    font-size: 11px;
+}
+
+.delivery-sub {
+    color: #666;
+    font-size: 10px;
+}
+
+.dispensed-status {
+    color: #1890ff;
+    font-size: 11px;
+}
+
+.store-link {
+    color: #1890ff;
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.store-link:hover {
+    color: #096dd9;
+}
+
+.remarks-text {
+    color: #1890ff;
+    font-size: 11px;
+}
+
+/* Filter Dropdowns in Headers */
+.carrier-filter, .store-filter {
+    width: 100%;
+    padding: 2px 4px;
+    border: 1px solid #d9d9d9;
+    border-radius: 3px;
+    font-size: 10px;
+    margin-top: 3px;
+    background: white;
+}
+
+.work-history-row:hover {
+    background: #f0f9ff;
+}
+
+.work-history-row:nth-child(even) {
+    background: #fafafa;
+}
+
+.work-history-row:nth-child(even):hover {
+    background: #f0f9ff;
+}
+
+.no-data {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+    font-size: 16px;
+}
+
+.btn-close-modal {
+    background: #95a5a6;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.btn-close-modal:hover {
+    background: #7f8c8d;
+}
+
+/* Responsive Design */
+@media (max-width: 1400px) {
+    .work-summary-modal {
+        width: 95vw !important;
+        max-width: 95vw !important;
+    }
+    
+    .controls-first-row {
+        flex-wrap: wrap;
+    }
+    
+    .controls-second-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .summary-stats-left {
+        flex-wrap: wrap;
+    }
+}
+
+@media (max-width: 1000px) {
+    .work-summary-modal {
+        width: 98vw !important;
+        height: 95vh !important;
+    }
+    
+    .controls-first-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .form-control {
+        min-width: 120px;
+    }
+}
+</style>

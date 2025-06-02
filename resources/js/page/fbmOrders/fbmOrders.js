@@ -62,6 +62,21 @@ export default {
             showWorkHistoryModal: false,
             workHistory: null,
             error: null,
+            
+            // Enhanced work history filters and stats
+            workHistoryFilters: {
+                sortBy: 'purchase_date',
+                startDate: '2024-05-20T05:49',
+                endDate: '2025-06-03T05:49',
+                userId: 'all',
+                lateOrders: '',
+                searchQuery: '',
+                carrierFilter: '',
+                storeFilter: ''
+            },
+            workHistoryStats: {
+                totalOrders: 0
+            },
         };
     },
     computed: {
@@ -143,69 +158,263 @@ export default {
             this.showShipmentLabelModal = false;
         },
 
-        // WORK HISTORY METHODS - MOVED INSIDE METHODS OBJECT
+        // WORK HISTORY METHODS - FIXED VERSION
         openWorkHistoryModal() {
+            console.log('🚀 Opening work history modal...'); // DEBUG
             this.showWorkHistoryModal = true;
-            this.fetchWorkHistory(); // Call when modal opens
+            this.fetchWorkHistory();
+            
+            // Force DOM update and ensure modal visibility
+            this.$nextTick(() => {
+                const modal = document.querySelector('.modal.workHistory');
+                if (modal) {
+                    modal.classList.add('show');
+                    modal.style.display = 'flex';
+                    console.log('✅ Modal should now be visible');
+                } else {
+                    console.error('❌ Modal element not found in DOM');
+                }
+            });
         },
+        
         closeWorkHistoryModal() {
+            console.log('🔒 Closing work history modal...');
             this.showWorkHistoryModal = false;
+            
+            // Also force hide via DOM manipulation
+            this.$nextTick(() => {
+                const modal = document.querySelector('.modal.workHistory');
+                if (modal) {
+                    modal.classList.remove('show');
+                    modal.style.display = 'none';
+                }
+            });
         },
 
-        async fetchWorkHistory() {
-    console.log('🔄 DEBUG: fetchWorkHistory called - using POST method');
-    
-    this.loading = true;
-    this.error = null;
-    
-    try {
-        const payload = {
-            user_id: 'all',
-            start_date: '2024-05-20',
-            end_date: '2025-06-01',
-            sort_by: 'purchase_date',
-            sort_order: 'DESC',
-            search_query: ''
-        };
+         async fetchWorkHistory() {
+            console.log('🔄 fetchWorkHistory called - using POST method'); // DEBUG LINE
+            this.loading = true;
+            this.error = null;
+            try {
+                // Use the enhanced payload format
+                const payload = {
+                    user_id: this.workHistoryFilters.userId,
+                    start_date: this.workHistoryFilters.startDate ? this.formatDateForAPI(this.workHistoryFilters.startDate) : '2024-05-20',
+                    end_date: this.workHistoryFilters.endDate ? this.formatDateForAPI(this.workHistoryFilters.endDate) : '2025-06-01',
+                    sort_by: this.workHistoryFilters.sortBy,
+                    sort_order: 'DESC',
+                    search_query: this.workHistoryFilters.searchQuery || '',
+                    late_orders: this.workHistoryFilters.lateOrders || '',
+                    carrier_filter: this.workHistoryFilters.carrierFilter || '',
+                    store_filter: this.workHistoryFilters.storeFilter || ''
+                };
 
-        console.log('🚀 DEBUG: About to send POST request to:', `${API_BASE_URL}/api/fbm-orders/work-history`);
-        console.log('📦 DEBUG: Payload:', payload);
+                console.log('Sending work history request with payload:', payload);
 
-        const response = await axios({
-            method: 'POST',  // Explicitly set method
-            url: `${API_BASE_URL}/api/fbm-orders/work-history`,
-            data: payload,   // POST body
-            withCredentials: true,
-            headers: {
-                "Content-Type": "application/json",
-                Accept: "application/json",
-                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]')?.content,
-            },
-        });
-        
-        console.log('✅ DEBUG: Work history response received:', response);
-        
-        if (response.data && response.data.success) {
-            this.workHistory = response.data.history;
-            if (response.data.message) {
-                console.log('📝 DEBUG: Work history message:', response.data.message);
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/fbm-orders/work-history`,
+                    payload,
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            )?.content,
+                        },
+                    }
+                );
+                
+                console.log('Work history response:', response);
+                
+                // Handle the response based on your controller's actual return format
+                if (response.data && response.data.success) {
+                    // Your controller returns 'history' not 'data'
+                    this.workHistory = response.data.history;
+                    this.workHistoryStats.totalOrders = this.workHistory ? this.workHistory.length : 0;
+                    
+                    // Show success message if available
+                    if (response.data.message) {
+                        console.log('Work history message:', response.data.message);
+                    }
+                } else {
+                    this.workHistory = response.data;
+                    this.workHistoryStats.totalOrders = Array.isArray(this.workHistory) ? this.workHistory.length : 0;
+                }
+            } catch (err) {
+                this.error = "Failed to load work history.";
+                console.error('Work history fetch error:', err);
+                
+                // More detailed error logging
+                if (err.response) {
+                    console.error('Error response:', err.response.data);
+                    console.error('Error status:', err.response.status);
+                }
+            } finally {
+                this.loading = false;
             }
-        } else {
-            this.workHistory = response.data;
-        }
-    } catch (err) {
-        this.error = "Failed to load work history.";
-        console.error('❌ DEBUG: Work history fetch error:', err);
-        
-        if (err.response) {
-            console.error('❌ DEBUG: Error response:', err.response.data);
-            console.error('❌ DEBUG: Error status:', err.response.status);
-            console.error('❌ DEBUG: Request config:', err.config);
-        }
-    } finally {
-        this.loading = false;
-    }
-},
+        },
+
+        // Format date for API (convert from datetime-local to YYYY-MM-DD)
+        formatDateForAPI(dateTimeString) {
+            if (!dateTimeString) return '';
+            return dateTimeString.split('T')[0];
+        },
+
+        // Format date for work history table display
+        formatWorkDate(dateStr) {
+            if (!dateStr || dateStr === 'N/A') return 'N/A';
+            try {
+                const date = new Date(dateStr);
+                return date.toLocaleDateString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit', 
+                    year: 'numeric'
+                }) + ' ' + date.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } catch (e) {
+                return dateStr;
+            }
+        },
+
+        // Export work history functionality
+        async exportWorkHistory() {
+            try {
+                const payload = {
+                    user_id: this.workHistoryFilters.userId,
+                    start_date: this.workHistoryFilters.startDate ? this.formatDateForAPI(this.workHistoryFilters.startDate) : '2024-05-20',
+                    end_date: this.workHistoryFilters.endDate ? this.formatDateForAPI(this.workHistoryFilters.endDate) : '2025-06-01',
+                    sort_by: this.workHistoryFilters.sortBy,
+                    sort_order: 'DESC',
+                    search_query: this.workHistoryFilters.searchQuery || '',
+                    late_orders: this.workHistoryFilters.lateOrders || '',
+                    carrier_filter: this.workHistoryFilters.carrierFilter || '',
+                    store_filter: this.workHistoryFilters.storeFilter || '',
+                    export: true
+                };
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/fbm-orders/work-history/export`,
+                    payload,
+                    {
+                        responseType: 'blob',
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            )?.content,
+                        },
+                    }
+                );
+
+                // Create download link
+                const url = window.URL.createObjectURL(new Blob([response.data]));
+                const link = document.createElement('a');
+                link.href = url;
+                link.setAttribute('download', `work-history-${new Date().toISOString().split('T')[0]}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                window.URL.revokeObjectURL(url);
+
+                alert('Work history exported successfully!');
+            } catch (error) {
+                console.error('Error exporting work history:', error);
+                alert('Failed to export work history. Please try again.');
+            }
+        },
+
+        // Helper methods for exact data display matching the screenshot
+        getMainDate(orderInfo) {
+            if (!orderInfo.datecreatedsheesh || orderInfo.datecreatedsheesh === 'N/A') {
+                return 'N/A';
+            }
+            try {
+                const date = new Date(orderInfo.datecreatedsheesh);
+                return date.toLocaleDateString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    year: 'numeric'
+                });
+            } catch (e) {
+                return 'N/A';
+            }
+        },
+
+        getSubDate(orderInfo) {
+            if (!orderInfo.purchaselabeldate || orderInfo.purchaselabeldate === 'N/A') {
+                return '';
+            }
+            try {
+                const date = new Date(orderInfo.purchaselabeldate);
+                return date.toLocaleTimeString('en-US', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            } catch (e) {
+                return '';
+            }
+        },
+
+        getCarrierClass(carrier) {
+            if (!carrier || carrier === 'N/A') {
+                return 'carrier-na';
+            }
+            const carrierUpper = carrier.toString().toUpperCase();
+            if (carrierUpper.includes('UPS')) {
+                return 'carrier-ups';
+            } else if (carrierUpper.includes('FEDEX') || carrierUpper.includes('FEDX')) {
+                return 'carrier-fedex';
+            } else if (carrierUpper.includes('USPS')) {
+                return 'carrier-usps';
+            } else if (carrierUpper.includes('DHL')) {
+                return 'carrier-dhl';
+            }
+            return 'carrier-other';
+        },
+
+        getCarrierText(carrier) {
+            if (!carrier || carrier === 'N/A') {
+                return 'N/A';
+            }
+            const carrierUpper = carrier.toString().toUpperCase();
+            if (carrierUpper.includes('UPS')) {
+                return 'USPS';
+            } else if (carrierUpper.includes('FEDEX') || carrierUpper.includes('FEDX')) {
+                return 'FEDEX';
+            } else if (carrierUpper.includes('USPS')) {
+                return 'USPS';
+            } else if (carrierUpper.includes('DHL')) {
+                return 'DHL';
+            }
+            return carrier;
+        },
+
+        getDeliveryStatus(orderInfo) {
+            if (!orderInfo.datedeliveredsheesh || orderInfo.datedeliveredsheesh === 'N/A') {
+                return 'N/A';
+            }
+            return 'N/A'; // Based on screenshot, most show N/A
+        },
+
+        getDeliverySubDate(orderInfo) {
+            return 'N/A'; // Based on screenshot
+        },
+
+        getDispensedStatus(orderInfo) {
+            return 'N/A'; // Based on screenshot, most show N/A
+        },
+
+        getRemarks(orderInfo) {
+            return 'N/A'; // Based on screenshot, most show N/A
+        },
 
         PurchaseShippingLabel() {
             if (this.dispenseItemsSelected.length === 0) {
