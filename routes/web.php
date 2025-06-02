@@ -29,7 +29,8 @@ use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\FbmOrderController;
 use App\Http\Controllers\notfoundController;
-
+use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Request;
 
 
 Route::get('/', function () {
@@ -422,3 +423,23 @@ Route::post('/amzn/fbm-orders/purchase-label/manualshipment', [ShippingLabelCont
 Route::get('/postmaster', function () {
     return include base_path('app/automations/postmaster.php');
 });
+
+// FBM Workhistory
+use App\Http\Controllers\Fbmorders\WorkhistoryController;
+Route::get('/fbmorders/work-history-test-post', function () {
+    $payload = [
+        'user_id' => 'all',
+        'start_date' => '2024-05-20',
+        'end_date' => '2025-06-01',
+        'sort_by' => 'purchase_date', // or created_date
+        'sort_order' => 'ASC', // ASC or DESC
+        'search_query' => '' // string text
+    ];
+
+    $request = Request::create('/fbmorders/fetch-work-history', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode($payload));
+    $request->headers->set('Accept', 'application/json');
+
+    return app()->handle($request);
+});
+
+Route::post('/fbmorders/fetch-work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
