@@ -23,12 +23,13 @@ class WorkhistoryController extends Controller
         $sort_column = $sort_by === 'purchase_date' ? 'lh.createdDate' : 'oo.purchase_date';
 
         $query = DB::table('tbllabelhistory as lh')
+            ->join('tbllabelhistoryitems as lhi', 'lh.AmazonOrderId', '=', 'lhi.AmazonOrderId')
             ->leftJoin('tbloutboundordersitem as oi', function ($join) {
-                $join->on('lh.AmazonOrderId', '=', 'oi.platform_order_id')
-                    ->on('lh.OrderItemId', '=', 'oi.platform_order_item_id');
+                $join->on('lhi.AmazonOrderId', '=', 'oi.platform_order_id')
+                    ->on('lhi.OrderItemId', '=', 'oi.platform_order_item_id');
             })
-            ->leftJoin('tbloutboundorders as oo', 'oi.outbound_order_id', '=', 'oo.outboundorderid')
-            ->leftJoin('tblorderitemdispense as oid', 'oi.outboundorderitemid', '=', 'oid.outboundorderitemid')
+            ->leftJoin('tbloutboundorders as oo', 'oi.platform_order_id', '=', 'oo.platform_order_id')
+            ->leftJoin('tblorderitemdispense as oid', 'oi.outboundorderitemid', '=', 'oid.orderitemid')
             ->leftJoin('tblproduct as p', 'oid.productid', '=', 'p.ProductID')
             ->leftJoin('tblamzntrackinghistory as amznth', 'lh.trackingid', '=', 'amznth.trackingnumber')
             ->select(
@@ -42,11 +43,11 @@ class WorkhistoryController extends Controller
                 'p.ProductID',
                 'oi.outboundorderitemid',
                 'oi.platform_order_item_id as OrderItemId',
-                'oi.title as Title',
-                'oi.sku as MSKU',
-                'oi.asin as ASIN',
-                'oo.store_name as strname',
-                'oo.date_delivered as datedelivered',
+                'oi.platform_title as Title',
+                'oi.platform_sku as MSKU',
+                'oi.platform_asin as ASIN',
+                'oo.storename as strname',
+                'oo.delivery_date as datedelivered',
                 'amznth.current_tracking_status as trackingstatus',
                 'amznth.carrier',
                 'amznth.carrier_description',
@@ -92,7 +93,7 @@ class WorkhistoryController extends Controller
             // Fetch dispensed FNSKU via tblorderitemdispense -> tblproduct
             $fnskuArray = DB::table('tblorderitemdispense as oid')
                 ->join('tblproduct as p', 'oid.productid', '=', 'p.ProductID')
-                ->where('oid.outboundorderitemid', $row->outboundorderitemid)
+                ->where('oid.orderitemid', $row->outboundorderitemid)
                 ->pluck('p.FNSKUviewer')
                 ->toArray();
 
