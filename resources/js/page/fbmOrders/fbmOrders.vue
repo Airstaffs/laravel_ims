@@ -6,7 +6,25 @@
                 <button class="btn" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
                 </button>
-                <button v-if="persistentSelectedOrderIds.length > 0" class="btn" @click="PurchaseShippingLabel">Purchase Shipping Label</button>
+                <button class="btn" @click="openWorkHistoryModal">
+                    <span>Work History</span>
+                </button>
+                <button v-if="persistentSelectedOrderIds.length > 0" class="btn" @click="PurchaseShippingLabel">
+                    <i class="fas fa-shipping-fast"></i>
+                    <span>Purchase Shipping Label</span>
+                </button>
+                <button class="btn" @click="processSelectedOrders">
+                    <i class="fas fa-shipping-fast"></i>
+                    <span>Process Selected</span>
+                </button>
+                <button class="btn" @click="printShippingLabels">
+                    <i class="fas fa-tag"></i>
+                    <span>Print Labels</span>
+                </button>
+                <button class="btn" @click="generatePackingSlips">
+                    <i class="fas fa-file-alt"></i>
+                    <span>Generate Packing Slips</span>
+                </button>
                 <button class="btn">Print Invoice</button>
                 <button class="btn">Edit Customer Name</button>
                 <button class="btn">Edit Address</button>
@@ -45,20 +63,6 @@
                     }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
-                </button>
-            </div>
-            <div class="selection-actions">
-                <button class="btn-action" @click="PurchaseShippingLabel">
-                    <i class="fas fa-shipping-fast"></i> Purchase Shipping Label
-                </button>
-                <button class="btn-action" @click="processSelectedOrders">
-                    <i class="fas fa-shipping-fast"></i> Process Selected
-                </button>
-                <button class="btn-action" @click="printShippingLabels">
-                    <i class="fas fa-tag"></i> Print Labels
-                </button>
-                <button class="btn-action" @click="generatePackingSlips">
-                    <i class="fas fa-file-alt"></i> Generate Packing Slips
                 </button>
             </div>
         </div>
@@ -860,12 +864,10 @@
         </div>
     </div>
 
-<ShipmentLabel
-  :show="showShipmentLabelModal"
-  :shipmentData="selectedShipmentData"
-  @close="closeShipmentLabelModal"
-  @submit="handleShipmentLabelSubmit"
-/>
+    <ShipmentLabel :show="showShipmentLabelModal" :shipmentData="selectedShipmentData" @close="closeShipmentLabelModal"
+        @submit="handleShipmentLabelSubmit" />
+
+    <WorkHistory :show="showWorkHistoryModal" @close="closeWorkHistoryModal" />
 </template>
 
 <script>

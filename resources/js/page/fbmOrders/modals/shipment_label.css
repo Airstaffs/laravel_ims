@@ -1,4 +1,5 @@
-.modal.shipmentLabel {
+.modal.shipmentLabel,
+.modal.workHistory {
     position: fixed;
     top: 0;
     left: 0;
@@ -11,7 +12,8 @@
     z-index: 1000;
 }
 
-.shipmentLabel .modal-content {
+.shipmentLabel .modal-content,
+.workHistory .modal-content {
     background-color: white;
     border-radius: 8px;
     max-width: 1024px;
@@ -20,7 +22,8 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
-.shipmentLabel .modal-header {
+.shipmentLabel .modal-header,
+.workHistory .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -29,7 +32,8 @@
     background: transparent;
 }
 
-.shipmentLabel .modal-header h2 {
+.shipmentLabel .modal-header h2,
+.workHistory .modal-header h2 {
     margin: 0;
     font-size: 18px;
     font-weight: 600;
@@ -44,7 +48,8 @@
     color: #666;
 }
 
-.shipmentLabel .modal-body {
+.shipmentLabel .modal-body,
+.workHistory .modal-body {
     padding: 20px;
     display: flex;
     flex-direction: column;

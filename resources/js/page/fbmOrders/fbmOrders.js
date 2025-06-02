@@ -3,12 +3,14 @@ import "../../../css/modules.css";
 import "./fbmOrders.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-import ShipmentLabel from './modals/shipment_label.vue';
+import ShipmentLabel from "./modals/shipment_label.vue";
+import WorkHistory from "./modals/workhistory/workhistory.vue";
 
 export default {
-    name: 'FbmOrderModule',
+    name: "FbmOrderModule",
     components: {
         ShipmentLabel,
+        WorkHistory,
     },
     data() {
         return {
@@ -58,7 +60,10 @@ export default {
 
             // for shipment-label modal
             showShipmentLabelModal: false,
-            selectedShipmentData: null
+            selectedShipmentData: null,
+
+            // for workHistory modal
+            showWorkHistoryModal: false,
         };
     },
     computed: {
@@ -139,29 +144,39 @@ export default {
         closeShipmentLabelModal() {
             this.showShipmentLabelModal = false;
         },
-        PurchaseShippingLabel() {
-        if (this.dispenseItemsSelected.length === 0) {
-            alert("Please select items first.");
-            return;
-        }
 
-        const itemIds = this.dispenseItemsSelected.join(',');
-        axios.get('api/fbm-orders/shipping-label-selected-items', {
-            params: { itemIds }
-        }).then(response => {
-            this.selectedShipmentData = response.data; // Store result
-            this.openShipmentLabelModal();
-        }).catch(error => {
-            alert("Failed to fetch shipment info.");
-            console.error(error);
-        });
+        openWorkHistoryModal() {
+            this.showWorkHistoryModal = true;
+        },
+        closeWorkHistoryModal() {
+            this.showWorkHistoryModal = false;
+        },
+
+        PurchaseShippingLabel() {
+            if (this.dispenseItemsSelected.length === 0) {
+                alert("Please select items first.");
+                return;
+            }
+
+            const itemIds = this.dispenseItemsSelected.join(",");
+            axios
+                .get("api/fbm-orders/shipping-label-selected-items", {
+                    params: { itemIds },
+                })
+                .then((response) => {
+                    this.selectedShipmentData = response.data; // Store result
+                    this.openShipmentLabelModal();
+                })
+                .catch((error) => {
+                    alert("Failed to fetch shipment info.");
+                    console.error(error);
+                });
         },
         handleShipmentLabelSubmit(data) {
             console.log("Submitted shipment label data:", data);
             this.closeShipmentLabelModal();
         },
         //________________________________________________________________________________
-
 
         // Normalize store name for consistent comparison
         normalizeStoreName(storeName) {
