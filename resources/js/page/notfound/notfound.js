@@ -1,10 +1,10 @@
 import { eventBus } from '../../components/eventBus';
 import "../../../css/modules.css";
-import "./notfound.css";
+import "./production.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
-    name: "Not Found",
+    name: "ProductList",
     data() {
         return {
             inventory: [],
@@ -152,12 +152,12 @@ export default {
         // Fetch inventory data from the API
         async fetchInventory() {
             try {
-                const response = await axios.get(`${API_BASE_URL}/api/notfound/products`, {
+                const response = await axios.get(`${API_BASE_URL}/api/productionArea/products`, {
                     params: {
                         search: this.searchQuery,
                         page: this.currentPage,
                         per_page: this.perPage,
-                        location: "Not Found",
+                        location: "Production Area",
                     },
                 });
 
@@ -210,36 +210,7 @@ export default {
                 this.sortOrder = "asc";
             }
         },
-
-     async moveToStockroom(item) {
-    if (!item || !item.ProductID) {
-        alert("Invalid item");
-        return;
-    }
-
-        const confirmed = confirm(`Are you sure you want to move "${item.ProductTitle}" to Stockroom?`);
-        if (!confirmed) return;
-
-        try {
-            const response = await axios.post(`${API_BASE_URL}/api/notfound/move-to-stockroom`, {
-                id: item.ProductID,
-            });
-
-            if (response.data.success) {
-                alert("Item moved to Stockroom successfully.");
-                item.ProductModuleLoc = "Stockroom";
-                this.fetchInventory(); // Refresh
-            } else {
-                alert("Failed to move item: " + (response.data.message || "Unknown error"));
-            }
-        } catch (error) {
-            console.error("Error moving item to Stockroom:", error);
-            alert("An error occurred while moving the item.");
-        }
-    }
-
     },
-
 
     watch: {
         searchQuery() {

@@ -16,7 +16,6 @@ export default {
             sortColumn: "",
             sortOrder: "asc",
             showDetails: false,
-            isProcessing: false, // Add this missing property
             defaultImage:
                 "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=",
             // Modal state
@@ -33,7 +32,6 @@ export default {
             fnskuList: [],
             filteredFnskuList: [],
             fnskuSearch: "",
-            isSearching: false, // NEW: Add loading state for search
 
             showConfirmationModal: false,
             confirmationTitle: "",
@@ -341,49 +339,38 @@ export default {
             }
         },
 
-        // FNSKU Modal methods - Updated with server-side search and loading animation
+        // FNSKU Modal methods - Fixed and improved
         async showFnskuModal(item) {
             console.log("Opening FNSKU modal for item:", item);
             this.currentItem = item;
             this.isFnskuModalVisible = true;
             this.fnskuSearch = item.ASINviewer || ""; // Pre-fill with current ASIN for easier search
-            this.isSearching = true; // Start loading
 
             try {
                 console.log("Fetching FNSKU list...");
-                // Use the FNSKU endpoint with limit parameter and exclude assigned FNSKUs
-                const response = await axios.get(`${API_BASE_URL}/fnsku-list`, {
-                    params: {
-                        limit: 100, // Limit to 100 records initially
-                        search: this.fnskuSearch, // Send initial search if ASIN is pre-filled
-                        exclude_assigned: true // NEW: Exclude already assigned FNSKUs
-                    }
-                });
+                const response = await axios.get(`${API_BASE_URL}/fnsku-list`);
                 console.log("FNSKU list response:", response.data);
-                
-                // Handle new response structure
-                if (response.data.data) {
-                    this.fnskuList = response.data.data;
-                } else {
-                    // Fallback for old response structure
-                    this.fnskuList = response.data;
-                }
-                
+                this.fnskuList = response.data;
                 this.filterFnskuList(); // Apply initial filter
             } catch (error) {
                 console.error("Error fetching FNSKU list:", error);
                 alert("Error fetching FNSKU list. Please try again.");
-            } finally {
-                this.isSearching = false; // Stop loading
             }
         },
 
-        // Updated filterFnskuList method with server-side search and loading animation
-        async filterFnskuList() {
+        hideFnskuModal() {
+            console.log("Hiding FNSKU modal");
+            this.isFnskuModalVisible = false;
+            this.currentItem = null;
+            this.fnskuList = [];
+            this.filteredFnskuList = [];
+            this.fnskuSearch = "";
+        },
+
+        filterFnskuList() {
             console.log("Filtering FNSKU list with search:", this.fnskuSearch);
-            
-            // If search is empty, show current list sorted by matching ASIN
-            if (!this.fnskuSearch || this.fnskuSearch.trim() === '') {
+            if (!this.fnskuSearch) {
+                // If empty search, show matching ASIN first, then everything else
                 this.filteredFnskuList = [...this.fnskuList].sort((a, b) => {
                     if (
                         a.ASIN === this.currentItem?.ASINviewer &&
@@ -401,93 +388,18 @@ export default {
                 return;
             }
 
-            // For search terms longer than 2 characters, use server-side search
-            if (this.fnskuSearch.trim().length > 2) {
-                this.isSearching = true; // Start loading for search
-                
-                try {
-                    const response = await axios.get(`${API_BASE_URL}/fnsku-list`, {
-                        params: {
-                            limit: 100,
-                            search: this.fnskuSearch.trim(),
-                            exclude_assigned: true // NEW: Always exclude assigned FNSKUs
-                        }
-                    });
-                    
-                    if (response.data.data) {
-                        this.filteredFnskuList = response.data.data;
-                    } else {
-                        this.filteredFnskuList = response.data;
-                    }
-                } catch (error) {
-                    console.error("Error searching FNSKU list:", error);
-                    // Fallback to client-side filtering
-                    this.clientSideFilter();
-                } finally {
-                    this.isSearching = false; // Stop loading
-                }
-            } else {
-                // For short search terms, use client-side filtering
-                this.clientSideFilter();
-            }
-        },
-
-        // Updated hideFnskuModal to reset loading state
-        hideFnskuModal() {
-            console.log("Hiding FNSKU modal");
-            this.isFnskuModalVisible = false;
-            this.currentItem = null;
-            this.fnskuList = [];
-            this.filteredFnskuList = [];
-            this.fnskuSearch = "";
-            this.isSearching = false; // Reset loading state
-        },
-
-        // Helper method for client-side filtering
-        clientSideFilter() {
             const search = this.fnskuSearch.toLowerCase();
             this.filteredFnskuList = this.fnskuList.filter(
                 (fnsku) =>
                     fnsku.FNSKU?.toLowerCase().includes(search) ||
                     fnsku.ASIN?.toLowerCase().includes(search) ||
-                    fnsku.astitle?.toLowerCase().includes(search) ||
-                    fnsku.grading?.toLowerCase().includes(search)
+                    fnsku.astitle?.toLowerCase().includes(search)
             );
         },
 
-        // Updated selectFnsku method with better validation
         async selectFnsku(fnsku) {
-            console.log("Selecting FNSKU - Full object:", fnsku);
-            
-            // Debug: Log each property individually
-            console.log("FNSKU properties:", {
-                FNSKU: fnsku.FNSKU,
-                MSKU: fnsku.MSKU, 
-                ASIN: fnsku.ASIN,
-                grading: fnsku.grading
-            });
-            
-            if (!this.currentItem || !fnsku) {
-                console.error("Missing currentItem or fnsku object");
-                return;
-            }
-
-            // Check for required fields and provide meaningful error messages
-            const requiredFields = ['FNSKU', 'MSKU', 'grading'];
-            const missingFields = [];
-            
-            requiredFields.forEach(field => {
-                if (!fnsku[field] || fnsku[field] === null || fnsku[field] === undefined || fnsku[field].toString().trim() === '') {
-                    missingFields.push(field);
-                }
-            });
-            
-            if (missingFields.length > 0) {
-                console.error("Missing required fields:", missingFields);
-                console.error("FNSKU object:", fnsku);
-                alert(`Cannot select this FNSKU. Missing required fields: ${missingFields.join(', ')}`);
-                return;
-            }
+            console.log("Selecting FNSKU:", fnsku);
+            if (!this.currentItem || !fnsku) return;
 
             try {
                 // Get the CSRF token from the meta tag
@@ -495,25 +407,20 @@ export default {
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
-                // Prepare the payload with clean data
-                const payload = {
-                    product_id: this.currentItem.ProductID,
-                    fnsku: fnsku.FNSKU.toString().trim(),
-                    msku: fnsku.MSKU.toString().trim(),
-                    asin: (fnsku.ASIN || '').toString().trim(),
-                    grading: fnsku.grading.toString().trim()
-                };
-
-                console.log("Sending payload:", payload);
-
                 // Make the request with proper data format and headers
                 const response = await axios.post(
                     `${API_BASE_URL}/update-fnsku`,
-                    payload,
+                    {
+                        product_id: this.currentItem.ProductID,
+                        fnsku: fnsku.FNSKU,
+                        msku: fnsku.MSKU,
+                        asin: fnsku.ASIN,
+                        grading: fnsku.grading,
+                        astitle: fnsku.astitle,
+                    },
                     {
                         headers: {
                             "X-CSRF-TOKEN": csrfToken,
-                            "Content-Type": "application/json",
                         },
                     }
                 );
@@ -529,363 +436,109 @@ export default {
                 }
             } catch (error) {
                 console.error("Error updating FNSKU:", error);
-                
-                // More detailed error handling
-                if (error.response && error.response.data) {
-                    console.error("Server response:", error.response.data);
-                    if (error.response.data.errors) {
-                        const errorMessages = Object.values(error.response.data.errors).flat();
-                        alert("Validation errors:\n" + errorMessages.join("\n"));
-                    } else {
-                        alert(error.response.data.message || "Failed to update FNSKU. Please try again.");
-                    }
-                } else {
-                    alert("Failed to update FNSKU. Please try again.");
-                }
+                alert("Failed to update FNSKU. Please try again.");
             }
         },
 
-        // Debug method for FNSKU data
-        debugFnskuData() {
-            console.log("=== FNSKU Data Debug ===");
-            console.log("Total FNSKU records:", this.fnskuList.length);
-            
-            // Check first few records
-            this.fnskuList.slice(0, 5).forEach((fnsku, index) => {
-                console.log(`FNSKU ${index + 1}:`, {
-                    FNSKU: fnsku.FNSKU,
-                    MSKU: fnsku.MSKU,
-                    ASIN: fnsku.ASIN,
-                    grading: fnsku.grading,
-                    Units: fnsku.Units
-                });
-            });
-            
-            // Find records with missing required fields
-            const problematicRecords = this.fnskuList.filter(fnsku => 
-                !fnsku.FNSKU || !fnsku.MSKU || !fnsku.grading ||
-                fnsku.FNSKU === null || fnsku.MSKU === null || fnsku.grading === null
-            );
-            
-            if (problematicRecords.length > 0) {
-                console.warn("Found records with missing required fields:", problematicRecords);
+        // Add these methods to the methods object in your component
+        async moveToValidation(item) {
+            if (!item || !item.ProductID) {
+                console.error("Invalid item data for moving to Validation");
+                return;
             }
-            
-            console.log("=== End Debug ===");
+
+            try {
+                // Get the CSRF token from the meta tag
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
+
+                // Make the request with proper data format and headers
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/labeling/move-to-validation`,
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Labeling",
+                        new_location: "Validation",
+                    },
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": csrfToken,
+                        },
+                    }
+                );
+
+                console.log("Move to Validation response:", response.data);
+
+                if (response.data.success) {
+                    // Show success message
+                    alert(
+                        `Item ${item.rtcounter} successfully moved to Validation`
+                    );
+                    // Refresh the inventory list
+                    this.fetchInventory();
+                } else {
+                    alert(
+                        response.data.message ||
+                            "Failed to move item to Validation"
+                    );
+                }
+            } catch (error) {
+                console.error("Error moving item to Validation:", error);
+                alert("Failed to move item to Validation. Please try again.");
+            }
         },
 
-        // Updated moveToValidation method with better error handling
-       // Updated moveToValidation method with FNSKU validation handling
-async moveToValidation(item) {
-    console.log("=== MOVE TO VALIDATION DEBUG ===");
-    console.log("Item data:", item);
-    console.log("API_BASE_URL:", API_BASE_URL);
-    console.log("Full URL will be:", `${API_BASE_URL}/api/labeling/move-to-validation`);
-    
-    if (!item || !item.ProductID) {
-        console.error("Invalid item data for moving to Validation");
-        alert("Invalid item data. Please refresh and try again.");
-        return;
-    }
-
-    // Prevent multiple simultaneous requests
-    if (this.isProcessing) {
-        console.log("Already processing a request...");
-        return;
-    }
-
-    this.isProcessing = true;
-
-    try {
-        console.log("Moving item to Validation:", {
-            ProductID: item.ProductID,
-            rtcounter: item.rtcounter
-        });
-
-        // Get the CSRF token from the meta tag
-        const csrfToken = document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content");
-
-        console.log("CSRF Token found:", !!csrfToken);
-        console.log("CSRF Token value:", csrfToken ? csrfToken.substring(0, 10) + "..." : "null");
-
-        if (!csrfToken) {
-            throw new Error("CSRF token not found. Please refresh the page.");
-        }
-
-        // Prepare the payload
-        const payload = {
-            product_id: item.ProductID,
-            rt_counter: item.rtcounter,
-            current_location: "Labeling"
-        };
-
-        console.log("Sending payload:", payload);
-
-        const requestUrl = `${API_BASE_URL}/api/labeling/move-to-validation`;
-        console.log("Request URL:", requestUrl);
-
-        const requestOptions = {
-            headers: {
-                "X-CSRF-TOKEN": csrfToken,
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            },
-        };
-
-        console.log("Request options:", requestOptions);
-
-        // Make the request with proper data format and headers
-        const response = await axios.post(requestUrl, payload, requestOptions);
-
-        console.log("Move to Validation response status:", response.status);
-        console.log("Move to Validation response headers:", response.headers);
-        console.log("Move to Validation response data:", response.data);
-
-        if (response.data && response.data.success) {
-            // Show success message
-            alert(`Item ${item.rtcounter} successfully moved to Validation`);
-            // Refresh the inventory list
-            await this.fetchInventory();
-        } else {
-            const errorMessage = response.data?.message || "Failed to move item to Validation";
-            console.error("Backend returned error:", errorMessage);
-            console.error("Full response data:", response.data);
-            alert(errorMessage);
-        }
-    } catch (error) {
-        console.error("=== MOVE TO VALIDATION ERROR ===");
-        console.error("Error object:", error);
-        console.error("Error message:", error.message);
-        
-        let errorMessage = "Failed to move item to Validation. Please try again.";
-        
-        if (error.response) {
-            // Server responded with error status
-            console.error("Server response status:", error.response.status);
-            console.error("Server response headers:", error.response.headers);
-            console.error("Server response data:", error.response.data);
-            console.error("Server response config:", error.response.config);
-            
-            if (error.response.status === 422) {
-                // Validation error - check if it's missing FNSKU fields
-                const responseData = error.response.data;
-                
-                if (responseData.requires_fnsku_setup) {
-                    // Special handling for missing FNSKU/MSKU/ASIN
-                    const missingFields = responseData.missing_fields || [];
-                    const missingFieldsText = missingFields.join(', ');
-                    
-                    // Show specific error message and offer to open FNSKU modal
-                    const userChoice = confirm(
-                        `Cannot move to Validation.\n\n` +
-                        `Missing required fields: ${missingFieldsText}\n\n` +
-                        `Would you like to set up the FNSKU now?`
-                    );
-                    
-                    if (userChoice) {
-                        // Open the FNSKU modal for this item
-                        this.showFnskuModal(item);
-                    }
-                    
-                    return; // Exit early, don't show generic error
-                } else {
-                    // Regular validation errors
-                    const errors = responseData?.errors;
-                    if (errors) {
-                        const errorMessages = Object.values(errors).flat();
-                        errorMessage = "Validation errors:\n" + errorMessages.join("\n");
-                    } else {
-                        errorMessage = responseData?.message || "Validation failed";
-                    }
-                }
-            } else if (error.response.status === 404) {
-                errorMessage = "API endpoint not found. Please check your routes.";
-                console.error("404 Error - Route not found. Check if route is properly defined.");
-                console.error("Attempted URL:", `${API_BASE_URL}/api/labeling/move-to-validation`);
-            } else if (error.response.status === 405) {
-                errorMessage = "Method not allowed. Check if POST method is supported.";
-                console.error("405 Error - Method not allowed");
-            } else if (error.response.status === 419) {
-                errorMessage = "CSRF token mismatch. Please refresh the page.";
-                console.error("419 Error - CSRF token mismatch");
-            } else if (error.response.status === 500) {
-                errorMessage = error.response.data?.message || "Server error occurred.";
-                console.error("500 Error - Internal server error");
-            } else {
-                errorMessage = error.response.data?.message || `Server error (${error.response.status})`;
+        async moveToStockroom(item) {
+            if (!item || !item.ProductID) {
+                console.error("Invalid item data for moving to Stockroom");
+                return;
             }
-        } else if (error.request) {
-            // Request was made but no response received
-            console.error("No response received from server");
-            console.error("Request details:", error.request);
-            errorMessage = "No response from server. Please check your connection.";
-        } else {
-            // Something else happened
-            console.error("Request setup error:", error.message);
-            errorMessage = `Request error: ${error.message}`;
-        }
-        
-        console.error("Final error message:", errorMessage);
-        alert(errorMessage);
-    } finally {
-        this.isProcessing = false;
-        console.log("=== END MOVE TO VALIDATION DEBUG ===");
-    }
-},
 
-    async moveToStockroom(item) {
-    console.log("=== MOVE TO STOCKROOM DEBUG ===");
-    console.log("Item data:", item);
-    console.log("API_BASE_URL:", API_BASE_URL);
-    console.log("Full URL will be:", `${API_BASE_URL}/api/labeling/move-to-stockroom`);
-    
-    if (!item || !item.ProductID) {
-        console.error("Invalid item data for moving to Stockroom");
-        alert("Invalid item data. Please refresh and try again.");
-        return;
-    }
+            try {
+                // Get the CSRF token from the meta tag
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
 
-    if (this.isProcessing) {
-        console.log("Already processing a request...");
-        return;
-    }
+                // Make the request with proper data format and headers
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/labeling/move-to-stockroom`,
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Labeling",
+                        new_location: "Stockroom",
+                    },
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": csrfToken,
+                        },
+                    }
+                );
 
-    this.isProcessing = true;
+                console.log("Move to Stockroom response:", response.data);
 
-    try {
-        console.log("Moving item to Stockroom:", {
-            ProductID: item.ProductID,
-            rtcounter: item.rtcounter
-        });
-
-        const csrfToken = document
-            .querySelector('meta[name="csrf-token"]')
-            ?.getAttribute("content");
-
-        console.log("CSRF Token found:", !!csrfToken);
-        console.log("CSRF Token value:", csrfToken ? csrfToken.substring(0, 10) + "..." : "null");
-
-        if (!csrfToken) {
-            throw new Error("CSRF token not found. Please refresh the page.");
-        }
-
-        const payload = {
-            product_id: item.ProductID,
-            rt_counter: item.rtcounter,
-            current_location: "Labeling"
-        };
-
-        console.log("Sending payload:", payload);
-
-        const requestUrl = `${API_BASE_URL}/api/labeling/move-to-stockroom`;
-        console.log("Request URL:", requestUrl);
-
-        const requestOptions = {
-            headers: {
-                "X-CSRF-TOKEN": csrfToken,
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            },
-        };
-
-        console.log("Request options:", requestOptions);
-
-        const response = await axios.post(requestUrl, payload, requestOptions);
-
-        console.log("Move to Stockroom response status:", response.status);
-        console.log("Move to Stockroom response headers:", response.headers);
-        console.log("Move to Stockroom response data:", response.data);
-
-        if (response.data && response.data.success) {
-            alert(`Item ${item.rtcounter} successfully moved to Stockroom`);
-            await this.fetchInventory();
-        } else {
-            const errorMessage = response.data?.message || "Failed to move item to Stockroom";
-            console.error("Backend returned error:", errorMessage);
-            console.error("Full response data:", response.data);
-            alert(errorMessage);
-        }
-    } catch (error) {
-        console.error("=== MOVE TO STOCKROOM ERROR ===");
-        console.error("Error object:", error);
-        console.error("Error message:", error.message);
-        
-        let errorMessage = "Failed to move item to Stockroom. Please try again.";
-        
-        if (error.response) {
-            console.error("Server response status:", error.response.status);
-            console.error("Server response headers:", error.response.headers);
-            console.error("Server response data:", error.response.data);
-            console.error("Server response config:", error.response.config);
-            
-            if (error.response.status === 422) {
-                // Validation error - check if it's missing FNSKU fields
-                const responseData = error.response.data;
-                
-                if (responseData.requires_fnsku_setup) {
-                    // Special handling for missing FNSKU/MSKU/ASIN
-                    const missingFields = responseData.missing_fields || [];
-                    const missingFieldsText = missingFields.join(', ');
-                    
-                    // Show specific error message and offer to open FNSKU modal
-                    const userChoice = confirm(
-                        `Cannot move to Stockroom.\n\n` +
-                        `Missing required fields: ${missingFieldsText}\n\n` +
-                        `Would you like to set up the FNSKU now?`
+                if (response.data.success) {
+                    // Show success message
+                    alert(
+                        `Item ${item.rtcounter} successfully moved to Stockroom`
                     );
-                    
-                    if (userChoice) {
-                        // Open the FNSKU modal for this item
-                        this.showFnskuModal(item);
-                    }
-                    
-                    return; // Exit early, don't show generic error
+                    // Refresh the inventory list
+                    this.fetchInventory();
                 } else {
-                    // Regular validation errors
-                    const errors = responseData?.errors;
-                    if (errors) {
-                        const errorMessages = Object.values(errors).flat();
-                        errorMessage = "Validation errors:\n" + errorMessages.join("\n");
-                    } else {
-                        errorMessage = responseData?.message || "Validation failed";
-                    }
+                    alert(
+                        response.data.message ||
+                            "Failed to move item to Stockroom"
+                    );
                 }
-            } else if (error.response.status === 404) {
-                errorMessage = "API endpoint not found. Please check your routes.";
-                console.error("404 Error - Route not found. Check if route is properly defined.");
-                console.error("Attempted URL:", `${API_BASE_URL}/api/labeling/move-to-stockroom`);
-            } else if (error.response.status === 405) {
-                errorMessage = "Method not allowed. Check if POST method is supported.";
-                console.error("405 Error - Method not allowed");
-            } else if (error.response.status === 419) {
-                errorMessage = "CSRF token mismatch. Please refresh the page.";
-                console.error("419 Error - CSRF token mismatch");
-            } else if (error.response.status === 500) {
-                errorMessage = error.response.data?.message || "Server error occurred.";
-                console.error("500 Error - Internal server error");
-            } else {
-                errorMessage = error.response.data?.message || `Server error (${error.response.status})`;
+            } catch (error) {
+                console.error("Error moving item to Stockroom:", error);
+                alert("Failed to move item to Stockroom. Please try again.");
             }
-        } else if (error.request) {
-            console.error("No response received from server");
-            console.error("Request details:", error.request);
-            errorMessage = "No response from server. Please check your connection.";
-        } else {
-            console.error("Request setup error:", error.message);
-            errorMessage = `Request error: ${error.message}`;
-        }
-        
-        console.error("Final error message:", errorMessage);
-        alert(errorMessage);
-    } finally {
-        this.isProcessing = false;
-        console.log("=== END MOVE TO STOCKROOM DEBUG ===");
-    }
-},
+        },
 
-        
         // Method to show the validation confirmation
         confirmMoveToValidation(item) {
             this.showConfirmationModal = true;

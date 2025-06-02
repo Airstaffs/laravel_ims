@@ -14,25 +14,13 @@ export default {
       inventory: [],
       currentPage: 1,
       totalPages: 1,
-      perPage: 15, // Increased default for better UX
+      perPage: 10, // Default rows per page
       selectAll: false,
       expandedRows: {},
-      serialDropdowns: {},
+      serialDropdowns: {}, // Added for serial number dropdowns
       sortColumn: "",
       sortOrder: "asc",
       showDetails: false,
-      
-      // Loading states
-      isLoading: false,
-      isSearching: false,
-      
-      // Debouncing
-      searchDebounceTimer: null,
-      fetchDebounceTimer: null,
-      
-      // Caching
-      inventoryCache: new Map(),
-      cacheExpiry: 30000, // 30 seconds
       
       // Store filter
       stores: [],
@@ -42,7 +30,7 @@ export default {
       serialNumber: '',
       fnsku: '',
       locationInput: '',
-      showManualInput: false,
+      showManualInput: false, // Will be set from scanner component
       
       // For auto verification
       autoVerifyTimeout: null,
@@ -59,9 +47,9 @@ export default {
       processNotes: '',
       processLocation: '',    
       currentProcessItem: null,
-      currentProductId: null,
-      currentProductAsin: null,
-      currentProductTitle: '',
+      currentProductId: null, // Added to store the product ID
+      currentProductAsin: null, // Added to store the ASIN
+      currentProductTitle: '', // Added to store the product title
       selectedItems: [],
       selectAllItems: false,
       isProcessing: false,
@@ -69,7 +57,7 @@ export default {
       // For product details modal
       showProductDetailsModal: false,
       selectedProduct: null,
-      enlargeImage: false,
+      enlargeImage: false, // For toggling enlarged image view
       
       // For image handling
       defaultImagePath: '/images/default-product.png'
@@ -96,16 +84,21 @@ export default {
           : String(valueB).localeCompare(String(valueA));
       });
     },
+    // Add a computed property to detect mobile
     isMobile() {
       return window.innerWidth <= 768;
     },
+    // Check if only one item is selected
     singleItemSelected() {
       return this.selectedItems.length === 1;
     },
+    // Check if any items are selected
     hasSelectedItems() {
       return this.selectedItems.length > 0;
     },
+    // Check if process form is valid for submission
     isProcessFormValid() {
+      // Basic validation for processing - require shipment type and tracking number
       return this.processShipmentType && 
              this.processTrackingNumber && 
              this.selectedItems.length > 0;
@@ -114,12 +107,16 @@ export default {
   methods: {
     // Function to get the image path based on ASIN
     getImagePath(asin) {
+      // Direct path return without checks to prevent blinking
       return asin ? `/images/asinimg/${asin}_0.png` : this.defaultImagePath;
     },
     
     // Simplified image error handling that just swaps to default image
     handleImageError(event, item) {
+      // Immediately set the source to default image
       event.target.src = this.defaultImagePath;
+      
+      // Mark this item to use default image from now on
       if (item) item.useDefaultImage = true;
     },
     
@@ -132,10 +129,13 @@ export default {
     formatItemCount(item) {
       if (!item) return '0';
       
+      // Check if this is a pack item
       if (item.pack_size && item.pack_size > 1) {
+        // For pack items, show both the box count and the total units
         return `${item.box_count} boxes (${item.item_count} units)`;
       }
       
+      // For regular items, just show the count
       return item.item_count.toString();
     },
     
@@ -143,6 +143,7 @@ export default {
     getPackInfo(item) {
       if (!item || !item.AStitle) return '';
       
+      // Check for pack information in the title
       const packMatch = item.AStitle.match(/(\d+)-Pack/i);
       if (packMatch && packMatch[1]) {
         return `${packMatch[1]}-Pack`;
@@ -153,6 +154,7 @@ export default {
     
     // Add a separate method for viewing product image
     viewProductImage(item) {
+      // Set the selected product and open the modal directly
       this.selectedProduct = item;
       this.showProductDetailsModal = true;
     },
@@ -167,7 +169,7 @@ export default {
     closeProductDetailsModal() {
       this.showProductDetailsModal = false;
       this.selectedProduct = null;
-      this.enlargeImage = false;
+      this.enlargeImage = false; // Reset enlarged state
     },
     
     // Open process modal from product details
@@ -176,7 +178,7 @@ export default {
       this.openProcessModal(item);
     },
     
-    // Open scanner modal method
+    // Open scanner modal method - this will call the scanner component's method
     openScannerModal() {
       this.$refs.scanner.openScannerModal();
     },
@@ -198,95 +200,52 @@ export default {
       } else if (storeName === 'Allrenewed') {
         return `AR ${paddedCounter}`;
       } else {
+        // Default format if store doesn't match known patterns
         return `#${paddedCounter}`;
       }
     },
     
-    // Store dropdown functions with caching
+    // Store dropdown functions
     async fetchStores() {
       try {
-        // Check cache first using our inventory cache system
-        const cacheKey = 'stockroom_stores';
-        if (this.inventoryCache.has(cacheKey)) {
-          const cached = this.inventoryCache.get(cacheKey);
-          if (Date.now() - cached.timestamp < 3600000) { // 1 hour cache
-            this.stores = cached.data;
-            return;
-          }
-        }
-        
         const response = await axios.get(`${API_BASE_URL}/api/stockroom/stores`, {
           withCredentials: true
         });
         this.stores = response.data;
-        
-        // Cache the stores for 1 hour using our existing cache system
-        this.inventoryCache.set(cacheKey, {
-          data: response.data,
-          timestamp: Date.now()
-        });
       } catch (error) {
         console.error("Error fetching stores:", error);
-        console.error("Error details:", error.response?.data);
       }
     },
     
     changeStore() {
       this.currentPage = 1;
-      this.inventoryCache.clear(); // Clear cache when store changes
-      this.fetchInventory(false);
+      this.fetchInventory();
     },
     
     // Validate the item count against serials
     validateItemCount(item) {
       if (!item) return true;
       
+      // If no serials, just return true
       if (!item.serials || item.serials.length === 0) {
         return true;
       }
       
+      // For pack items, we need to check if the actual serial count matches the box count
+      // rather than the total item count (which includes the multiplication by pack size)
       if (item.pack_size && item.pack_size > 1) {
         const serialCount = item.serials.length;
         return serialCount === item.box_count;
       }
       
+      // For regular items, compare serials count with item_count directly
       const serialCount = item.serials.length;
       return serialCount === item.item_count;
     },
     
-    // Optimized inventory fetching with caching and debouncing
-    async fetchInventory(useCache = true) {
-      if (this.isLoading) return;
-      
-      // Create cache key
-      const cacheKey = `${this.searchQuery}_${this.currentPage}_${this.perPage}_${this.selectedStore}`;
-      
-      // Check cache first
-      if (useCache && this.inventoryCache.has(cacheKey)) {
-        const cached = this.inventoryCache.get(cacheKey);
-        if (Date.now() - cached.timestamp < this.cacheExpiry) {
-          this.applyInventoryData(cached.data);
-          return;
-        }
-      }
-      
-      // Debounce rapid requests
-      if (this.fetchDebounceTimer) {
-        clearTimeout(this.fetchDebounceTimer);
-      }
-      
-      this.fetchDebounceTimer = setTimeout(async () => {
-        await this.performFetch(cacheKey);
-      }, this.searchQuery ? 300 : 100);
-    },
-    
-    async performFetch(cacheKey) {
+    // Modified fetchInventory with count validation
+    async fetchInventory() {
       try {
-        this.isLoading = true;
-        this.isSearching = !!this.searchQuery;
-        
-        const startTime = performance.now();
-        
         const response = await axios.get(`${API_BASE_URL}/api/stockroom/products`, {
           params: { 
             search: this.searchQuery, 
@@ -294,114 +253,54 @@ export default {
             per_page: this.perPage,
             store: this.selectedStore
           },
-          withCredentials: true,
-          timeout: 10000
+          withCredentials: true
+        });
+
+        // Initialize items with checked property and useDefaultImage flag
+        this.inventory = (response.data.data || []).map(item => {
+          const itemWithFlags = {
+            ...item,
+            checked: false,
+            serials: item.serials || [],
+            fnskus: item.fnskus || [],
+            useDefaultImage: false, // Add this flag
+            countValid: true, // Add a flag for item count validation
+            
+            // Ensure pack_size is set
+            pack_size: item.pack_size || 1,
+            
+            // Ensure box_count is set (for non-pack items, this equals item_count)
+            box_count: item.box_count || item.item_count
+          };
+          
+          // Validate the item count
+          itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
+          
+          return itemWithFlags;
         });
         
-        console.log(`Fetch took ${performance.now() - startTime}ms`);
-        
-        // Cache the response
-        this.inventoryCache.set(cacheKey, {
-          data: response.data,
-          timestamp: Date.now()
-        });
-        
-        // Clean old cache entries
-        this.cleanCache();
-        
-        this.applyInventoryData(response.data);
-        
+        this.totalPages = response.data.last_page || 1;
       } catch (error) {
-        console.error("Error fetching inventory:", error);
-        this.handleFetchError(error);
-      } finally {
-        this.isLoading = false;
-        this.isSearching = false;
-      }
-    },
-    
-    // Apply inventory data with optimizations
-    applyInventoryData(data) {
-      const startTime = performance.now();
-      
-      // Use Object.freeze for immutable data to prevent unnecessary reactivity
-      this.inventory = (data.data || []).map(item => {
-        const optimizedItem = {
-          ...item,
-          checked: false,
-          serials: Object.freeze(item.serials || []),
-          fnskus: Object.freeze(item.fnskus || []),
-          useDefaultImage: false,
-          countValid: this.validateItemCount(item),
-          pack_size: item.pack_size || 1,
-          box_count: item.box_count || item.item_count
-        };
-        
-        return Object.freeze(optimizedItem);
-      });
-      
-      this.totalPages = data.last_page || 1;
-      
-      console.log(`Data processing took ${performance.now() - startTime}ms`);
-    },
-    
-    // Clean expired cache entries
-    cleanCache() {
-      const now = Date.now();
-      for (const [key, value] of this.inventoryCache.entries()) {
-        if (now - value.timestamp > this.cacheExpiry) {
-          this.inventoryCache.delete(key);
+        console.error("Error fetching inventory data:", error);
+        if (SoundService && SoundService.error) {
+          SoundService.error();
         }
-      }
-      
-      // Limit cache size
-      if (this.inventoryCache.size > 50) {
-        const oldestKeys = Array.from(this.inventoryCache.keys()).slice(0, 10);
-        oldestKeys.forEach(key => this.inventoryCache.delete(key));
-      }
-    },
-    
-    // Optimized search with debouncing
-    handleSearchChange() {
-      if (this.searchDebounceTimer) {
-        clearTimeout(this.searchDebounceTimer);
-      }
-      
-      this.searchDebounceTimer = setTimeout(() => {
-        this.currentPage = 1;
-        this.fetchInventory(false); // Don't use cache for new searches
-      }, 300);
-    },
-    
-    // Error handling
-    handleFetchError(error) {
-      if (error.code === 'ECONNABORTED') {
-        console.error('Request timeout');
-      } else if (error.response?.status === 500) {
-        console.error('Server error');
-      }
-      
-      if (SoundService?.error) {
-        SoundService.error();
       }
     },
 
     // Pagination methods
     changePerPage() {
       this.currentPage = 1;
-      this.inventoryCache.clear(); // Clear cache when per page changes
-      this.fetchInventory(false);
+      this.fetchInventory();
     },
-    
     prevPage() {
-      if (this.currentPage > 1 && !this.isLoading) {
+      if (this.currentPage > 1) {
         this.currentPage--;
         this.fetchInventory();
       }
     },
-    
     nextPage() {
-      if (this.currentPage < this.totalPages && !this.isLoading) {
+      if (this.currentPage < this.totalPages) {
         this.currentPage++;
         this.fetchInventory();
       }
@@ -413,6 +312,7 @@ export default {
     },
     
     toggleDetails(index) {
+      // Create a new object for reactivity
       const updatedExpandedRows = { ...this.expandedRows };
       updatedExpandedRows[index] = !updatedExpandedRows[index];
       this.expandedRows = updatedExpandedRows;
@@ -434,34 +334,37 @@ export default {
     
     // Process modal functions
     openProcessModal(item) {
-      this.currentProcessItem = item;
-      this.showProcessModal = true;
-      this.processShipmentType = 'For Dispense';
-      this.processTrackingNumber = '';
-      this.processNotes = '';
-      this.processLocation = '';
-      this.selectedItems = [];
-      this.selectAllItems = false;
+    this.currentProcessItem = item;
+    this.showProcessModal = true;
+    this.processShipmentType = 'For Dispense';
+    this.processTrackingNumber = '';
+    this.processNotes = '';
+    this.processLocation = '';
+    this.selectedItems = [];
+    this.selectAllItems = false;
+    
+    // Store the parent product ID (ASIN level) - hidden from UI
+    this.currentProductId = item.ProductID || null;
+    this.currentProductAsin = item.ASIN || null;
+    this.currentProductTitle = item.AStitle || '';
+    
+    // If the item has just one serial number, pre-select it and show its location
+    if (item.serials && item.serials.length === 1) {
+      const singleSerial = item.serials[0];
+      this.selectedItems = [singleSerial.ProductID];
+      this.processLocation = singleSerial.warehouselocation || '';
       
-      this.currentProductId = item.ProductID || null;
-      this.currentProductAsin = item.ASIN || null;
-      this.currentProductTitle = item.AStitle || '';
-      
-      // If the item has just one serial number, pre-select it and show its location
-      if (item.serials && item.serials.length === 1) {
-        const singleSerial = item.serials[0];
-        this.selectedItems = [singleSerial.ProductID];
-        this.processLocation = singleSerial.warehouselocation || '';
-        
-        this.$nextTick(() => {
-          const locationInput = document.querySelector('.process-modal .form-control[placeholder="e.g., L123A or Floor"]');
-          if (locationInput) {
-            locationInput.focus();
-            locationInput.select();
-          }
-        });
-      }
-    },
+      // Use nextTick to ensure the input is rendered before focusing
+      this.$nextTick(() => {
+        // Focus and select all text in the location field for easy editing
+        const locationInput = document.querySelector('.process-modal .form-control[placeholder="e.g., L123A or Floor"]');
+        if (locationInput) {
+          locationInput.focus();
+          locationInput.select();
+        }
+      });
+    }
+  },
     
     closeProcessModal() {
       this.showProcessModal = false;
@@ -472,12 +375,15 @@ export default {
     // Toggle selection of all items
     toggleAllItems() {
       if (this.selectAllItems) {
+        // Select all items
         this.selectedItems = this.currentProcessItem.serials.map(serial => serial.ProductID);
         
+        // Clear location field when multiple items are selected
         if (this.selectedItems.length > 1) {
           this.processLocation = '';
         }
       } else {
+        // Deselect all items
         this.selectedItems = [];
         this.processLocation = '';
       }
@@ -488,8 +394,10 @@ export default {
       if (!this.isProcessFormValid) return;
       
       try {
+        // Start loading state
         this.isProcessing = true;
         
+        // Prepare data for API
         const processData = {
           shipmentType: this.processShipmentType,
           trackingNumber: this.processTrackingNumber,
@@ -497,6 +405,7 @@ export default {
           items: this.selectedItems
         };
         
+        // Send to API
         const response = await axios.post('/api/stockroom/process-items', processData, {
           withCredentials: true,
           headers: {
@@ -507,11 +416,13 @@ export default {
         });
         
         if (response.data.success) {
+          // Show success message
           alert(`Successfully processed ${this.selectedItems.length} items`);
           this.closeProcessModal();
-          this.inventoryCache.clear(); // Clear cache after processing
-          this.fetchInventory(false);
+          // Refresh inventory
+          this.fetchInventory();
         } else {
+          // Show error message
           alert(`Error: ${response.data.message || 'Failed to process items'}`);
         }
       } catch (error) {
@@ -521,6 +432,7 @@ export default {
         this.isProcessing = false;
       }
     },
+    
     
     // Update location for a single selected item
     async updateSelectedLocation() {
@@ -546,16 +458,19 @@ export default {
       }
       
       try {
+        // Show loading state
         this.isProcessing = true;
         
+        // Prepare update data
         const updateData = {
-          itemId: this.singleItemSelected ? this.selectedItems[0] : null,
+          itemId: this.singleItemSelected ? this.selectedItems[0] : null, // For backward compatibility
           itemIds: this.selectedItems,
           newLocation: this.processLocation
         };
         
-        console.log('Sending update data:', updateData);
+        console.log('Sending update data:', updateData); // Add this for debugging
         
+        // Send to API
         const response = await axios.post(`${API_BASE_URL}/api/stockroom/update-location`, updateData, {
           withCredentials: true,
           headers: {
@@ -566,13 +481,14 @@ export default {
         });
         
         if (response.data.success) {
+          // Show success message with item count
           const itemCount = this.selectedItems.length;
           const itemText = itemCount === 1 ? 'item' : 'items';
           alert(`Location updated successfully for ${itemCount} ${itemText}`);
           
           this.closeProcessModal();
-          this.inventoryCache.clear(); // Clear cache after update
-          this.fetchInventory(false);
+          // Refresh inventory
+          this.fetchInventory();
         } else {
           alert(`Error: ${response.data.message || 'Failed to update location'}`);
         }
@@ -607,9 +523,13 @@ export default {
     validateSerialNumber() {
       const serial = this.serialNumber.trim();
       
+      // Skip validation if empty (it's optional)
       if (!serial) return true;
       
+      // Check for valid serial format using regex
       const validFormat = /^[a-zA-Z0-9]+$/.test(serial);
+      
+      // Check if it contains X00
       const containsX00 = serial.includes('X00');
       
       return validFormat && !containsX00;
@@ -619,10 +539,13 @@ export default {
     validateFnsku() {
       const fnsku = this.fnsku.trim();
       
+      // Skip validation if empty (when serial is provided)
       if (!fnsku) return true;
       
+      // Check if it matches a location pattern
       const isLocation = /^L\d{3}[A-G]$/i.test(fnsku);
       
+      // If it looks like a location code, mark it as invalid for FNSKU field
       return !isLocation;
     },
     
@@ -630,6 +553,7 @@ export default {
     async checkFnskuAvailability() {
       const fnsku = this.fnsku.trim();
       
+      // Skip check if empty or appears to be a location
       if (!fnsku || /^L\d{3}[A-G]$/i.test(fnsku)) {
         this.fnskuValid = false;
         return false;
@@ -638,12 +562,14 @@ export default {
       try {
         this.fnskuChecking = true;
         
+        // Call API to check FNSKU status
         const response = await axios.get(`${API_BASE_URL}/api/stockroom/check-fnsku`, {
           params: { fnsku: fnsku }
         });
         
         this.fnskuChecking = false;
         
+        // Update validity based on response
         if (response.data.exists && response.data.status === 'available') {
           this.fnskuValid = true;
           this.fnskuStatus = 'available';
@@ -664,49 +590,63 @@ export default {
     
     // Input field handlers with sound
     async handleSerialInput() {
+      // First validate serial number
       const isValid = this.validateSerialNumber();
       
       if (!isValid) {
+        // Show error for invalid serial
         this.$refs.scanner.showScanError("Invalid Serial Number - must be alphanumeric and not contain X00");
         this.$refs.serialNumberInput.select();
         SoundService.error();
         return;
       }
       
+      // In auto mode with valid input, play sound and proceed
       if (!this.showManualInput && this.serialNumber.trim().length > 5) {
         if (this.autoVerifyTimeout) {
           clearTimeout(this.autoVerifyTimeout);
         }
         
         this.autoVerifyTimeout = setTimeout(() => {
+          // Play success sound
           SoundService.success();
+          
+          // Focus on next field
           this.focusNextField('fnskuInput');
         }, 500);
       }
     },
     
     async handleFnskuInput() {
+      // First validate FNSKU
       const isValid = this.validateFnsku();
       
       if (!isValid) {
+        // If it looks like a location, show a specific message
         this.$refs.scanner.showScanError("This appears to be a location code. Please enter it in the Location field.");
         this.$refs.fnskuInput.select();
         SoundService.error();
         return;
       }
       
+      // In auto mode with valid input, check availability and proceed
       if (!this.showManualInput && this.fnsku.trim().length > 5) {
         if (this.autoVerifyTimeout) {
           clearTimeout(this.autoVerifyTimeout);
         }
         
         this.autoVerifyTimeout = setTimeout(async () => {
+          // Check FNSKU availability
           const isAvailable = await this.checkFnskuAvailability();
           
           if (isAvailable) {
+            // Play success sound if FNSKU is valid and available
             SoundService.success();
+            
+            // Focus on location field
             this.focusNextField('locationInput');
           } else {
+            // Show appropriate error message based on status
             let errorMessage = "Unknown FNSKU status";
             
             switch (this.fnskuStatus) {
@@ -730,7 +670,9 @@ export default {
     
     // Fixed handleLocationInput method
     handleLocationInput() {
+      // Only perform validation in auto mode
       if (!this.showManualInput) {
+        // Validate location format
         const locationRegex = /^L\d{3}[A-G]$/i;
         const isValid = locationRegex.test(this.locationInput.trim()) || 
                       this.locationInput.trim() === 'Floor' || 
@@ -743,13 +685,17 @@ export default {
           return;
         }
         
+        // Only in auto mode, process scan after valid location input
         if (isValid && this.locationInput.trim().length > 0) {
           if (this.autoVerifyTimeout) {
             clearTimeout(this.autoVerifyTimeout);
           }
           
           this.autoVerifyTimeout = setTimeout(() => {
+            // Play success sound for valid location
             SoundService.success();
+            
+            // Process the scan
             this.processScan();
           }, 500);
         }
@@ -769,17 +715,21 @@ export default {
     // Process scan with validation
     async processScan(scannedCode = null) {
       try {
+        // Use either the scanned code or input fields
         let scanSerial, scanFnsku, scanLocation;
         
         if (scannedCode) {
+          // External code passed (from hardware scanner)
           scanSerial = '';
           scanFnsku = scannedCode;
           scanLocation = this.locationInput || '';
         } else {
+          // Use the input fields
           scanSerial = this.serialNumber;
           scanFnsku = this.fnsku;
           scanLocation = this.locationInput;
           
+          // Basic validation - need at least one of serial or FNSKU
           if (!scanFnsku && !scanSerial) {
             this.$refs.scanner.showScanError("Serial Number or FNSKU is required");
             SoundService.error();
@@ -788,18 +738,21 @@ export default {
           }
         }
         
+        // Validate serial number if provided
         if (scanSerial && (!(/^[a-zA-Z0-9]+$/.test(scanSerial)) || scanSerial.includes('X00'))) {
           this.$refs.scanner.showScanError("Invalid Serial Number - must be alphanumeric and not contain X00");
           SoundService.error();
           return;
         }
         
+        // Check if FNSKU is actually a location
         if (scanFnsku && /^L\d{3}[A-G]$/i.test(scanFnsku)) {
           this.$refs.scanner.showScanError("FNSKU appears to be a location. Please enter it in the Location field.");
           SoundService.error();
           return;
         }
         
+        // Validate location format - this should happen for both auto and manual mode at submission time
         const locationRegex = /^L\d{3}[A-G]$/i;
         if (scanLocation && !locationRegex.test(scanLocation) && scanLocation !== 'Floor' && scanLocation !== 'L800G') {
           this.$refs.scanner.showScanError("Invalid Location Format (use L###X, Floor, or L800G)");
@@ -807,8 +760,10 @@ export default {
           return;
         }
         
+        // Get images from scanner
         const imageData = this.$refs.scanner.capturedImages.map(img => img.data);
         
+        // Send data to server
         const scanData = {
           SerialNumber: scanSerial, 
           FNSKU: scanFnsku,
@@ -816,8 +771,10 @@ export default {
           Images: imageData
         };
         
+        // Show loading state
         this.$refs.scanner.startLoading('Processing Scan');
         
+        // Send to API
         const response = await axios.post('/api/stockroom/process-scan', scanData, {
           withCredentials: true,
           headers: {
@@ -827,52 +784,64 @@ export default {
           }
         });
         
+        // Hide loading
         this.$refs.scanner.stopLoading();
         
         const data = response.data;
         
         if (data.success) {
+          // Success case
           this.$refs.scanner.showScanSuccess(data.item || 'Item scanned successfully');
           SoundService.successScan(true);
           
+          // Add to scan history
           this.$refs.scanner.addSuccessScan({
             Serial: scanSerial,
             FNSKU: scanFnsku,
             Location: scanLocation
           });
           
+          // Clear images
           this.$refs.scanner.capturedImages = [];
           
+          // Check if we need to handle reprint
           if (data.needReprint && data.productId) {
+            // Confirm reprint label
             if (confirm("Different FNSKU found in the database. Do you want to reprint the label?")) {
               this.printLabel(data.productId);
             }
           }
         } else {
+          // Error case
           this.$refs.scanner.showScanError(data.message || 'Error processing scan');
           SoundService.scanRejected(true);
           
+          // Add to error scan history
           this.$refs.scanner.addErrorScan({
             Serial: scanSerial,
             FNSKU: scanFnsku,
             Location: scanLocation
           }, data.reason || 'error');
           
+          // Clear images
           this.$refs.scanner.capturedImages = [];
         }
         
+        // Clear input fields and focus first field
         this.serialNumber = '';
         this.fnsku = '';
         this.locationInput = '';
         this.focusNextField('serialNumberInput');
         
       } catch (error) {
+        // Hide loading
         this.$refs.scanner.stopLoading();
         
         console.error('Error processing scan:', error);
         this.$refs.scanner.showScanError('Network or server error');
         SoundService.scanRejected(true);
         
+        // Add failed scan to history
         this.$refs.scanner.addErrorScan({
           Serial: this.serialNumber || '',
           FNSKU: this.fnsku || '',
@@ -881,126 +850,143 @@ export default {
       }
     },
 
-    // Updated mergeSelectedItems function with correct API URL format
-    async mergeSelectedItems() {
-      if (this.selectedItems.length < 2) {
-        alert('Please select at least two items to merge.');
-        return;
-      }
-      
-      let productTitle = '';
-      let productAsin = '';
-      let productStore = '';
-      let selectedSerials = [];
-      let selectedFnsku = '';
-      
-      if (this.currentProcessItem) {
-        productTitle = this.currentProcessItem.AStitle || '';
-        productAsin = this.currentProcessItem.ASIN || '';
-        productStore = this.currentProcessItem.storename || '';
-        
-        console.log("Using process modal title:", productTitle);
-        
-        selectedSerials = this.currentProcessItem.serials
-          .filter(serial => this.selectedItems.includes(serial.ProductID))
-          .map(serial => serial.serialnumber);
-          
-        if (this.currentProcessItem.fnskus && this.currentProcessItem.fnskus.length > 0) {
-          selectedFnsku = this.currentProcessItem.fnskus[0].FNSKU || this.currentProcessItem.fnskus[0];
-          console.log("Using FNSKU from current process item:", selectedFnsku);
-        }
-      } else {
-        const firstSelectedId = this.selectedItems[0];
-        for (const item of this.inventory) {
-          if (item.serials && item.serials.some(serial => serial.ProductID === firstSelectedId)) {
-            productTitle = item.AStitle || '';
-            productAsin = item.ASIN || '';
-            productStore = item.storename || '';
-            
-            if (item.fnskus && item.fnskus.length > 0) {
-              selectedFnsku = item.fnskus[0].FNSKU || item.fnskus[0];
-              console.log("Found FNSKU from inventory:", selectedFnsku);
-            }
-            
-            console.log("Found title from inventory:", productTitle);
-            break;
-          }
-        }
-        
-        for (const id of this.selectedItems) {
-          for (const item of this.inventory) {
-            if (item.serials) {
-              const serial = item.serials.find(s => s.ProductID === id);
-              if (serial) {
-                selectedSerials.push(serial.serialnumber);
-              }
-            }
-          }
-        }
-      }
-      
-      if (!productTitle) {
-        alert('Could not determine product title for merging.');
-        return;
-      }
 
-      console.log("Final title being sent:", productTitle);
-      console.log("Number of items being merged:", this.selectedItems.length);
-      console.log("FNSKU being sent:", selectedFnsku);
+ // Updated mergeSelectedItems function with correct API URL format
+ async mergeSelectedItems() {
+  if (this.selectedItems.length < 2) {
+    alert('Please select at least two items to merge.');
+    return;
+  }
+  
+  // When merging from process modal, we know all items belong to the same product
+  // Make sure to get the title directly from the modal item
+  let productTitle = '';
+  let productAsin = '';
+  let productStore = '';
+  let selectedSerials = [];
+  let selectedFnsku = ''; // Add variable for FNSKU
+  
+  if (this.currentProcessItem) {
+    // We're in the process modal, so use the title from the current process item
+    productTitle = this.currentProcessItem.AStitle || '';
+    productAsin = this.currentProcessItem.ASIN || '';
+    productStore = this.currentProcessItem.storename || '';
+    
+    console.log("Using process modal title:", productTitle);
+    
+    // Get just the serial numbers of selected items
+    selectedSerials = this.currentProcessItem.serials
+      .filter(serial => this.selectedItems.includes(serial.ProductID))
+      .map(serial => serial.serialnumber);
       
-      if (confirm(`Are you sure you want to merge ${this.selectedItems.length} items of "${productTitle}"?`)) {
-        try {
-          this.isProcessing = true;
-          
-          const mergeData = {
-            items: this.selectedItems,
-            title: productTitle,
-            asin: productAsin,
-            store: productStore,
-            serialNumbers: selectedSerials,
-            fnsku: selectedFnsku
-          };
-          
-          console.log("Sending merge data:", mergeData);
-          
-          const response = await axios.post(`${API_BASE_URL}/api/stockroom/merge-items`, mergeData, {
-            withCredentials: true,
-            headers: {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
-            }
-          });
-          
-          if (response.data.success) {
-            const newRtNumber = response.data.newrt;
-            const productId = response.data.productid;
-            const mergedTitle = response.data.title || productTitle;
-            const mergedFnsku = response.data.fnsku || selectedFnsku;
-            
-            let storeNameForRt = response.data.store || productStore;
-            const formattedRt = this.formatRTNumber(newRtNumber, storeNameForRt);
-            
-            alert(`Items successfully merged into new item ${formattedRt}: ${mergedTitle}${mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ''}`);
-            
-            if (confirm('Do you want to print a label for the newly created item?')) {
-              await this.printLabel(productId);
-            }
-            
-            this.closeProcessModal();
-            this.inventoryCache.clear(); // Clear cache after merge
-            this.fetchInventory(false);
-          } else {
-            alert(`Error: ${response.data.message || 'Failed to merge items'}`);
+    // Get the first available FNSKU for this product if any
+    if (this.currentProcessItem.fnskus && this.currentProcessItem.fnskus.length > 0) {
+      selectedFnsku = this.currentProcessItem.fnskus[0].FNSKU || this.currentProcessItem.fnskus[0];
+      console.log("Using FNSKU from current process item:", selectedFnsku);
+    }
+  } else {
+    // If not in process modal, find the product information
+    const firstSelectedId = this.selectedItems[0];
+    for (const item of this.inventory) {
+      if (item.serials && item.serials.some(serial => serial.ProductID === firstSelectedId)) {
+        productTitle = item.AStitle || '';
+        productAsin = item.ASIN || '';
+        productStore = item.storename || '';
+        
+        // Get the first available FNSKU for this product if any
+        if (item.fnskus && item.fnskus.length > 0) {
+          selectedFnsku = item.fnskus[0].FNSKU || item.fnskus[0];
+          console.log("Found FNSKU from inventory:", selectedFnsku);
+        }
+        
+        console.log("Found title from inventory:", productTitle);
+        break;
+      }
+    }
+    
+    // Get serial numbers from the inventory
+    for (const id of this.selectedItems) {
+      for (const item of this.inventory) {
+        if (item.serials) {
+          const serial = item.serials.find(s => s.ProductID === id);
+          if (serial) {
+            selectedSerials.push(serial.serialnumber);
           }
-        } catch (error) {
-          console.error('Error merging items:', error);
-          alert('Failed to merge items. Please try again.');
-        } finally {
-          this.isProcessing = false;
         }
       }
-    },
+    }
+  }
+  
+  if (!productTitle) {
+    alert('Could not determine product title for merging.');
+    return;
+  }
+
+  console.log("Final title being sent:", productTitle);
+  console.log("Number of items being merged:", this.selectedItems.length);
+  console.log("FNSKU being sent:", selectedFnsku);
+  
+  if (confirm(`Are you sure you want to merge ${this.selectedItems.length} items of "${productTitle}"?`)) {
+    try {
+      // Start loading state
+      this.isProcessing = true;
+      
+      // Prepare merge data with all required information
+      const mergeData = {
+        items: this.selectedItems,
+        title: productTitle,
+        asin: productAsin,
+        store: productStore,
+        serialNumbers: selectedSerials,
+        fnsku: selectedFnsku // Add FNSKU to merge data
+      };
+      
+      console.log("Sending merge data:", mergeData);
+      
+      // Send to API using the correct API_BASE_URL format
+      const response = await axios.post(`${API_BASE_URL}/api/stockroom/merge-items`, mergeData, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+        }
+      });
+      
+      if (response.data.success) {
+        // Show success message with new RT number
+        const newRtNumber = response.data.newrt;
+        const productId = response.data.productid;
+        const mergedTitle = response.data.title || productTitle;
+        const mergedFnsku = response.data.fnsku || selectedFnsku;
+        
+        // Format the RT number based on the store
+        let storeNameForRt = response.data.store || productStore;
+        const formattedRt = this.formatRTNumber(newRtNumber, storeNameForRt);
+        
+        // Show success alert with details
+        alert(`Items successfully merged into new item ${formattedRt}: ${mergedTitle}${mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ''}`);
+        
+        // Ask if user wants to print the new label
+        if (confirm('Do you want to print a label for the newly created item?')) {
+          await this.printLabel(productId);
+        }
+        
+        this.closeProcessModal();
+        // Refresh inventory
+        this.fetchInventory();
+      } else {
+        alert(`Error: ${response.data.message || 'Failed to merge items'}`);
+      }
+    } catch (error) {
+      console.error('Error merging items:', error);
+      alert('Failed to merge items. Please try again.');
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+},
+
     
     // Print label method
     async printLabel(productId) {
@@ -1033,6 +1019,7 @@ export default {
     },
     
     handleHardwareScan(scannedCode) {
+      // For hardware scanner input, process the scan
       this.processScan(scannedCode);
     },
     
@@ -1041,14 +1028,17 @@ export default {
     },
     
     handleScannerOpened() {
+      // Get current mode from scanner component
       this.showManualInput = this.$refs.scanner.showManualInput;
       
+      // Reset fields
       this.serialNumber = '';
       this.fnsku = '';
       this.locationInput = '';
       this.fnskuValid = false;
       this.fnskuStatus = '';
       
+      // Focus on first field
       this.$nextTick(() => {
         if (this.$refs.serialNumberInput) {
           this.$refs.serialNumberInput.focus();
@@ -1057,11 +1047,12 @@ export default {
     },
     
     handleScannerClosed() {
-      this.inventoryCache.clear(); // Clear cache when scanner closes
-      this.fetchInventory(false);
+      // Refresh inventory when scanner is closed
+      this.fetchInventory();
     },
     
     handleScannerReset() {
+      // Reset fields when scanner is reset
       this.serialNumber = '';
       this.fnsku = '';
       this.locationInput = '';
@@ -1071,6 +1062,7 @@ export default {
     
     // Methods for handling responsiveness
     handleResize() {
+      // If we're on mobile and dropdowns are open, we might want to close them
       if (this.isMobile) {
         const hasOpenDropdowns = Object.values(this.serialDropdowns).some(isOpen => isOpen);
         if (hasOpenDropdowns) {
@@ -1080,74 +1072,32 @@ export default {
     },
     
     closeDropdownsOnClickOutside(event) {
+      // Check if click is outside any dropdown
       const isOutside = !event.target.closest('.serial-dropdown');
       if (isOutside) {
         this.serialDropdowns = {};
       }
-    },
-    
-    // Preload next page for better UX
-    preloadNextPage() {
-      if (this.currentPage < this.totalPages && !this.isLoading) {
-        const nextPageKey = `${this.searchQuery}_${this.currentPage + 1}_${this.perPage}_${this.selectedStore}`;
-        
-        if (!this.inventoryCache.has(nextPageKey)) {
-          const originalPage = this.currentPage;
-          this.currentPage = originalPage + 1;
-          
-          this.performFetch(nextPageKey).then(() => {
-            this.currentPage = originalPage;
-          });
-        }
-      }
-    },
-    
-    // Setup lazy loading for images
-    setupLazyLoading() {
-      this.$nextTick(() => {
-        const images = document.querySelectorAll('.product-thumbnail, .product-thumbnail-mobile');
-        
-        if ('IntersectionObserver' in window) {
-          const imageObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-              if (entry.isIntersecting) {
-                const img = entry.target;
-                if (img.dataset.src) {
-                  img.src = img.dataset.src;
-                  img.removeAttribute('data-src');
-                  imageObserver.unobserve(img);
-                }
-              }
-            });
-          });
-          
-          images.forEach(img => {
-            if (img.dataset.src) {
-              imageObserver.observe(img);
-            }
-          });
-        }
-      });
     }
   },
-  
   watch: {
-    searchQuery() {
-      this.handleSearchChange();
-    },
-    // Watch for changes to selectedItems to update location field
-    selectedItems(newValue) {
-      if (newValue.length === 1 && this.currentProcessItem && this.currentProcessItem.serials) {
-        const selectedSerial = this.currentProcessItem.serials.find(serial => serial.ProductID === newValue[0]);
-        if (selectedSerial) {
-          this.processLocation = selectedSerial.warehouselocation || '';
-        }
-      } else if (newValue.length > 1) {
-        this.processLocation = '';
-      }
-    }
+  searchQuery() {
+    this.currentPage = 1;
+    this.fetchInventory();
   },
-  
+  // Watch for changes to selectedItems to update location field
+  selectedItems(newValue) {
+    // If exactly one item is selected, try to get its current location
+    if (newValue.length === 1 && this.currentProcessItem && this.currentProcessItem.serials) {
+      const selectedSerial = this.currentProcessItem.serials.find(serial => serial.ProductID === newValue[0]);
+      if (selectedSerial) {
+        this.processLocation = selectedSerial.warehouselocation || '';
+      }
+    } else if (newValue.length > 1) {
+      // Clear location when multiple items are selected
+      this.processLocation = '';
+    }
+  }
+},
   mounted() {
     // Configure axios
     axios.defaults.baseURL = window.location.origin;
@@ -1170,19 +1120,11 @@ export default {
     // Set the default image to our SVG
     this.defaultImagePath = this.createDefaultImageSVG();
     
-    // Setup performance monitoring
-    if (window.performance && window.performance.mark) {
-      window.performance.mark('stockroom-module-start');
-    }
-    
     // Fetch stores for dropdown
     this.fetchStores();
     
     // Fetch initial data
     this.fetchInventory();
-    
-    // Setup lazy loading
-    this.setupLazyLoading();
     
     // Listen for window resize to update isMobile
     window.addEventListener('resize', this.handleResize);
@@ -1194,29 +1136,14 @@ export default {
     
     // Close dropdowns when clicking outside
     document.addEventListener('click', this.closeDropdownsOnClickOutside);
-    
-    // Preload next page after initial load
-    setTimeout(() => {
-      this.preloadNextPage();
-    }, 2000);
   },
-  
   beforeUnmount() {
     // Clean up any timeouts
     if (this.autoVerifyTimeout) {
       clearTimeout(this.autoVerifyTimeout);
     }
-    if (this.searchDebounceTimer) {
-      clearTimeout(this.searchDebounceTimer);
-    }
-    if (this.fetchDebounceTimer) {
-      clearTimeout(this.fetchDebounceTimer);
-    }
     
     window.removeEventListener('resize', this.handleResize);
     document.removeEventListener('click', this.closeDropdownsOnClickOutside);
-    
-    // Clear cache
-    this.inventoryCache.clear();
   }
 }
