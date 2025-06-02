@@ -635,15 +635,34 @@ if (true) {
 
 function InsertORUpdate_tblhistory($edited)
 {
-    // set global all value!
     global $db, $amazonOrderId, $purchaseDate, $lastUpdateDate, $orderStatus, $fulfilledby, $itemsShipped, $paymentMethod, $buyerEmail, $BuyerName, $ShippingPrice, $itemsUnshipped, $asin, $sellerSKU, $title, $conditionId, $itemprice, $itemtax, $conditionSubtypeId, $QuantityOrdered, $QuantityShipped, $rowprodid, $orderItemId, $replacementOrder, $earliestShipDate, $latestShipDate, $earliestDeliveryDate, $latestDeliveryDate, $state, $postalcode, $city, $countrycode, $shipmentservice, $ordertype, $shippedtocustomerupdater, $strname, $AddressLine1, $ship_to_name, $IsBuyerRequestedCancel, $BuyerCancelReason;
-    // insert to tblallship 
+
+    // Convert GMT dates to Los Angeles time
+    $timezone = new DateTimeZone('America/Los_Angeles');
+
+    function convertToLA($datetimeString, $timezone) {
+        if (empty($datetimeString)) return null;
+        try {
+            $date = new DateTime($datetimeString, new DateTimeZone('UTC'));
+            $date->setTimezone($timezone);
+            return $date->format('Y-m-d H:i:s');
+        } catch (Exception $e) {
+            return null;
+        }
+    }
+
+    $purchaseDate = convertToLA($purchaseDate, $timezone);
+    $lastUpdateDate = convertToLA($lastUpdateDate, $timezone);
+    $earliestShipDate = convertToLA($earliestShipDate, $timezone);
+    $latestShipDate = convertToLA($latestShipDate, $timezone);
+    $earliestDeliveryDate = convertToLA($earliestDeliveryDate, $timezone);
+    $latestDeliveryDate = convertToLA($latestDeliveryDate, $timezone);
+
+    // Continue with your existing logic
     $query = "SELECT AmazonOrderId FROM tblshiphistory WHERE AmazonOrderId = '$amazonOrderId' AND orderitemid = '$orderItemId'";
     $result = $db->query($query);
 
     if ($result->num_rows > 0) {
-
-        // Order already exists, update it 
         $sql = "UPDATE tblshiphistory SET
                 PurchaseDate = '$purchaseDate',
                 LastUpdateDate = '$lastUpdateDate',
@@ -665,7 +684,6 @@ function InsertORUpdate_tblhistory($edited)
                 QuantityOrdered = '$QuantityOrdered',
                 QuantityShipped = '$QuantityShipped',
                 ProductID = '$rowprodid',
-                QuantityShipped = '$QuantityShipped',
                 orderitemid = '$orderItemId',
                 IsReplacementOrder = '$replacementOrder',
                 EarliestShipDate = '$earliestShipDate',
@@ -682,28 +700,23 @@ function InsertORUpdate_tblhistory($edited)
                 OrderType = '$ordertype',
                 strname = '$strname',
                 IsBuyerRequestedCancel = '$IsBuyerRequestedCancel',
-                BuyerCancelReason = '$BuyerCancelReason'
-                 ";
+                BuyerCancelReason = '$BuyerCancelReason'";
 
         if ($edited === "FALSE") {
-            $sql .= "                                        
-                    ,
-                    ASIN = '$asin',
-                    SellerSKU = '$sellerSKU'";
+            $sql .= ",
+                ASIN = '$asin',
+                SellerSKU = '$sellerSKU'";
         }
 
         if ($shippedtocustomerupdater !== "Shipped to Customer" && $orderStatus == "Shipped to Customer") {
             date_default_timezone_set('America/Los_Angeles');
             $current_time = date('Y-m-d H:i:s');
-            echo $current_time;
-
-            $sql .= "                                        
-            ,
-            shipped_to_customer_date = '$current_time' ";
+            $sql .= ",
+                shipped_to_customer_date = '$current_time'";
         }
+
         $sql .= " WHERE AmazonOrderId = '$amazonOrderId' AND orderitemid = '$orderItemId'";
     } else {
-        // Order does not exist, insert it
         $sql = "INSERT INTO tblshiphistory (AmazonOrderId, purchaseDate, LastUpdateDate, OrderStatus, FulfillmentChannel, NumberOfItemsShipped, NumberOfItemsUnshipped, PaymentMethod, BuyerEmail, costumer_name, shippingPrice, ASIN, SellerSKU, Title, ConditionSubtypeId, ConditionId, ItemPrice, ItemTax, QuantityOrdered, QuantityShipped, orderitemid, IsReplacementOrder, EarliestShipDate, LatestShipDate, EarliestDeliveryDate, LatestDeliveryDate, StateOrRegion, PostalCode, City, CountryCode, ShipmentServiceLevelCategory, OrderType, strname, AddressLine1, IsBuyerRequestedCancel, BuyerCancelReason, ship_to_name)
         VALUES ('$amazonOrderId', '$purchaseDate', '$lastUpdateDate', '$orderStatus', '$fulfilledby', '$itemsShipped', '$itemsUnshipped', '$paymentMethod', '$buyerEmail', '$BuyerName', '$ShippingPrice', '$asin', '$sellerSKU', '$title', '$conditionSubtypeId', '$conditionId','$itemprice', '$itemtax', '$QuantityOrdered','$QuantityShipped', '$orderItemId', '$replacementOrder', '$earliestShipDate', '$latestShipDate', '$earliestDeliveryDate', '$latestDeliveryDate', '$state', '$postalcode', '$city', '$countrycode', '$shipmentservice', '$ordertype', '$strname', '$AddressLine1', '$IsBuyerRequestedCancel', '$BuyerCancelReason', '$ship_to_name')";
     }
@@ -766,11 +779,6 @@ function dbDatabase()
 
     // Create mysqli dbion
     $db = new mysqli($hostname, $username, $password, $database);
-
-    // Check dbion
-    if ($db->db_error) {
-        die("❌ dbion failed: " . $db->db_error);
-    }
 
     return $db;
 }
