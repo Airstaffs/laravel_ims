@@ -3,9 +3,7 @@
         <!-- Top header bar with blue background -->
         <div class="top-header">
             <div class="header-buttons">
-                <button class="btn" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
-                </button>
+
                 <button class="btn" @click="openWorkHistoryModal">
                     <span>Work History</span>
                 </button>
@@ -26,9 +24,6 @@
                     <span>Generate Packing Slips</span>
                 </button>
                 <button class="btn">Print Invoice</button>
-                <button class="btn">Edit Customer Name</button>
-                <button class="btn">Edit Address</button>
-                <button class="btn">Edit Note</button>
             </div>
 
             <div class="store-filter">
@@ -862,9 +857,8 @@
                 </div>
             </div>
         </div>
-    </div>
 
-
+        <!-- Work History Modal - INLINE -->
         <div v-if="showWorkHistoryModal" class="modal workHistory">
             <div class="modal-overlay" @click="closeWorkHistoryModal"></div>
 
@@ -884,19 +878,73 @@
                             <i class="fas fa-redo"></i> Retry
                         </button>
                     </div>
-                    <div v-else-if="workHistory" class="work-history-content">
-                        <!-- Format the work history data nicely -->
-                        <div v-if="Array.isArray(workHistory)">
-                            <div v-for="(item, index) in workHistory" :key="index" class="work-history-item">
-                                <pre>{{ JSON.stringify(item, null, 2) }}</pre>
+                    <div v-else-if="workHistory && workHistory.length > 0" class="work-history-content">
+                        <!-- Structured display for your work history data -->
+                        <div v-for="(historyItem, index) in workHistory" :key="index" class="work-history-order">
+                            <div class="order-header">
+                                <h3>{{ historyItem.orderInfo.AmazonOrderId }}</h3>
+                                <div class="order-meta">
+                                    <span class="customer">{{ historyItem.orderInfo.customer_name }}</span>
+                                    <span class="store">{{ historyItem.orderInfo.strname }}</span>
+                                </div>
                             </div>
-                        </div>
-                        <div v-else>
-                            <pre>{{ typeof workHistory === 'string' ? workHistory : JSON.stringify(workHistory, null, 2) }}</pre>
+                            
+                            <div class="order-details">
+                                <div class="order-detail-row">
+                                    <strong>Purchase Date:</strong> {{ historyItem.orderInfo.datecreatedsheesh }}
+                                </div>
+                                <div class="order-detail-row">
+                                    <strong>Label Purchase Date:</strong> {{ historyItem.orderInfo.purchaselabeldate }}
+                                </div>
+                                <div class="order-detail-row">
+                                    <strong>Latest Ship Date:</strong> {{ historyItem.orderInfo.LatestShipDateoforder }}
+                                </div>
+                                <div class="order-detail-row">
+                                    <strong>Delivery Date:</strong> {{ historyItem.orderInfo.datedeliveredsheesh }}
+                                </div>
+                                <div class="order-detail-row">
+                                    <strong>Tracking ID:</strong> {{ historyItem.orderInfo.trackingid }}
+                                </div>
+                                <div class="order-detail-row">
+                                    <strong>Carrier:</strong> {{ historyItem.orderInfo.carrier_description || historyItem.orderInfo.carrier }}
+                                </div>
+                                <div class="order-detail-row">
+                                    <strong>Tracking Status:</strong> {{ historyItem.orderInfo.trackingstatus }}
+                                </div>
+                                <div v-if="historyItem.orderInfo.ordernote" class="order-detail-row">
+                                    <strong>Order Note:</strong> {{ historyItem.orderInfo.ordernote }}
+                                </div>
+                            </div>
+
+                            <!-- Order Items -->
+                            <div v-if="historyItem.orderInfo.items && historyItem.orderInfo.items.length > 0" class="order-items">
+                                <h4>Items ({{ historyItem.orderInfo.items.length }})</h4>
+                                <div v-for="(item, itemIndex) in historyItem.orderInfo.items" :key="itemIndex" class="order-item">
+                                    <div class="item-title">{{ item.Title }}</div>
+                                    <div class="item-details">
+                                        <span><strong>ASIN:</strong> {{ item.ASIN }}</span>
+                                        <span><strong>SKU:</strong> {{ item.MSKU }}</span>
+                                        <span><strong>Order Item ID:</strong> {{ item.OrderItemId }}</span>
+                                        <span v-if="item.ProductID"><strong>Product ID:</strong> {{ item.ProductID }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Dispensed FNSKU -->
+                            <div v-if="historyItem.orderInfo.dispensedFNSKU && historyItem.orderInfo.dispensedFNSKU.length > 0" class="dispensed-fnsku">
+                                <h4>Dispensed FNSKU</h4>
+                                <div class="fnsku-list">
+                                    <span v-for="(fnsku, fnskuIndex) in historyItem.orderInfo.dispensedFNSKU" :key="fnskuIndex" class="fnsku-item">
+                                        {{ fnsku }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <hr v-if="index < workHistory.length - 1" class="order-separator">
                         </div>
                     </div>
                     <div v-else class="no-data">
-                        No work history available.
+                        No work history available for the selected criteria.
                     </div>
                 </div>
 
@@ -905,13 +953,9 @@
                 </div>
             </div>
         </div>
+    </div>
 
-
-
-    <ShipmentLabel :show="showShipmentLabelModal" :shipmentData="selectedShipmentData" @close="closeShipmentLabelModal"
-        @submit="handleShipmentLabelSubmit" />
-
-    <WorkHistory :show="showWorkHistoryModal" @close="closeWorkHistoryModal" />
+<!-- REMOVED THE PROBLEMATIC COMPONENT REFERENCES -->
 </template>
 
 <script>

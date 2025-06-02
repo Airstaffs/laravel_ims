@@ -29,6 +29,8 @@ use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\FbmOrderController;
 use App\Http\Controllers\notfoundController;
+use App\Http\Controllers\Fbmorders\WorkhistoryController;
+
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 
@@ -392,7 +394,7 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/mark-not-found', [FbmOrderController::class, 'markProductNotFound']);
     Route::get('/shipping-label-selected-items', [FbmOrderController::class, 'shippinglabelselecteditem']);
 
-    Route::get('/work-history', [WorkhistoryController::class, 'getWorkHistory']);
+   Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
 });
 
 
@@ -426,6 +428,4 @@ Route::get('/postmaster', function () {
     return include base_path('app/automations/postmaster.php');
 });
 
-// FBM Workhistory
-use App\Http\Controllers\Fbmorders\WorkhistoryController;
-Route::match(['get', 'post'], '/fbmorders/fetch-work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
+
