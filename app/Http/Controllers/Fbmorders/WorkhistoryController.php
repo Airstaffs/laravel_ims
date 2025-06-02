@@ -20,30 +20,37 @@ class WorkhistoryController extends Controller
 
         $allowed_orders = ['ASC', 'DESC'];
         $sort_order = in_array($sort_order, $allowed_orders) ? $sort_order : 'DESC';
-        $sort_column = $sort_by === 'purchase_date' ? 'lh.createdDate' : 'sh.PurchaseDate';
+        $sort_column = $sort_by === 'purchase_date' ? 'lh.createdDate' : 'oo.purchase_date';
 
         $query = DB::table('tbllabelhistory as lh')
-            ->leftJoin('tblshiphistory as sh', 'lh.AmazonOrderId', '=', 'sh.AmazonOrderId')
-            ->leftJoin('tblproduct as tp', 'sh.ProductID', '=', 'tp.ProductID')
+            ->leftJoin('tbloutboundordersitem as oi', function ($join) {
+                $join->on('lh.AmazonOrderId', '=', 'oi.platform_order_id')
+                    ->on('lh.OrderItemId', '=', 'oi.platform_order_item_id');
+            })
+            ->leftJoin('tbloutboundorders as oo', 'oi.outbound_order_id', '=', 'oo.outboundorderid')
+            ->leftJoin('tblorderitemdispense as oid', 'oi.outboundorderitemid', '=', 'oid.outboundorderitemid')
+            ->leftJoin('tblproduct as p', 'oid.productid', '=', 'p.ProductID')
             ->leftJoin('tblamzntrackinghistory as amznth', 'lh.trackingid', '=', 'amznth.trackingnumber')
             ->select(
                 'lh.*',
-                'sh.ordernote',
-                'sh.PurchaseDate',
-                'sh.LatestShipDate',
-                'sh.EarliestDeliveryDate',
-                'sh.LatestDeliveryDate',
-                'sh.costumer_name as customer_name',
-                'sh.ProductID',
-                'sh.OrderItemId',
-                'sh.Title',
-                'sh.SellerSKU as MSKU',
-                'sh.ASIN',
-                'sh.strname',
-                'sh.datedelivered',
+                'oo.ordernote',
+                'oo.PurchaseDate as PurchaseDate',
+                'oo.LatestShipDate as LatestShipDate',
+                'oo.EarliestDeliveryDate as EarliestDeliveryDate',
+                'oo.LatestDeliveryDate as LatestDeliveryDate',
+                'oo.BuyerName as customer_name',
+                'p.ProductID',
+                'oi.outboundorderitemid',
+                'oi.platform_order_item_id as OrderItemId',
+                'oi.title as Title',
+                'oi.sku as MSKU',
+                'oi.asin as ASIN',
+                'oo.store_name as strname',
+                'oo.date_delivered as datedelivered',
                 'amznth.current_tracking_status as trackingstatus',
                 'amznth.carrier',
-                'amznth.carrier_description'
+                'amznth.carrier_description',
+                'p.FNSKUviewer'
             )
             ->where('lh.status', 'Purchased')
             ->whereBetween($sort_column, [$start_date, $end_date]);
@@ -60,8 +67,8 @@ class WorkhistoryController extends Controller
         }
 
         $query->orderBy('lh.AmazonOrderId')
-              ->orderBy('sh.OrderItemId')
-              ->orderBy($sort_column, $sort_order);
+            ->orderBy('oi.platform_order_item_id')
+            ->orderBy($sort_column, $sort_order);
 
         if (!empty($search_query)) {
             $query->limit(30);
@@ -80,39 +87,40 @@ class WorkhistoryController extends Controller
             $LatestShipDateoforder = $row->LatestShipDate ? Carbon::parse($row->LatestShipDate)->format('m-d-Y') : null;
             $EarliestDeliveryDateSheesh = $row->EarliestDeliveryDate ? Carbon::parse($row->EarliestDeliveryDate)->format('m-d-Y') : null;
             $LatestDeliveryDateSheesh = $row->LatestDeliveryDate ? Carbon::parse($row->LatestDeliveryDate)->format('m-d-Y') : null;
-            $datedeliveredsheesh = $row->datedelivered ? Carbon::parse($row->createdDate, 'UTC')->setTimezone('America/Los_Angeles')->format('m-d-Y') : null;
+            $datedeliveredsheesh = $row->datedelivered ? Carbon::parse($row->datedelivered)->format('m-d-Y') : null;
 
-            // FNSKU fetch
-            $fnskuArray = DB::table('tblproduct')
-                ->where('shipment_tracking_number', $row->trackingid)
-                ->pluck('FNSKUviewer')
+            // Fetch dispensed FNSKU via tblorderitemdispense -> tblproduct
+            $fnskuArray = DB::table('tblorderitemdispense as oid')
+                ->join('tblproduct as p', 'oid.productid', '=', 'p.ProductID')
+                ->where('oid.outboundorderitemid', $row->outboundorderitemid)
+                ->pluck('p.FNSKUviewer')
                 ->toArray();
 
             if (!isset($groupedHistory[$orderId])) {
                 $groupedHistory[$orderId] = [
                     'orderInfo' => [
-                        'AmazonOrderId' => $orderId,
-                        'customer_name' => $row->customer_name,
-                        'PurchaseDate' => $row->PurchaseDate,
-                        'purchaselabeldate' => $purchaselabeldate,
-                        'datecreatedsheesh' => $datecreatedsheesh,
-                        'LatestShipDateoforder' => $LatestShipDateoforder,
-                        'EarliestDeliveryDateSheesh' => $EarliestDeliveryDateSheesh,
-                        'LatestDeliveryDateSheesh' => $LatestDeliveryDateSheesh,
-                        'datedeliveredsheesh' => $datedeliveredsheesh,
-                        'ordernote' => $row->ordernote,
-                        'strname' => $row->strname,
-                        'trackingstatus' => $row->trackingstatus,
-                        'carrier' => $row->carrier,
-                        'carrier_description' => $row->carrier_description,
-                        'dispensedFNSKU' => $fnskuArray,
-                        'trackingid' => $row->trackingid,
-                    ],
-                    'items' => []
+                        'AmazonOrderId' => $orderId ?? '',
+                        'customer_name' => $row->customer_name ?? '',
+                        'PurchaseDate' => $row->PurchaseDate ?? '',
+                        'purchaselabeldate' => $purchaselabeldate ?? '',
+                        'datecreatedsheesh' => $datecreatedsheesh ?? '',
+                        'LatestShipDateoforder' => $LatestShipDateoforder ?? '',
+                        'EarliestDeliveryDateSheesh' => $EarliestDeliveryDateSheesh ?? '',
+                        'LatestDeliveryDateSheesh' => $LatestDeliveryDateSheesh ?? '',
+                        'datedeliveredsheesh' => $datedeliveredsheesh ?? '',
+                        'ordernote' => $row->ordernote ?? '',
+                        'strname' => $row->strname ?? '',
+                        'trackingstatus' => $row->trackingstatus ?? '',
+                        'carrier' => $row->carrier ?? '',
+                        'carrier_description' => $row->carrier_description ?? '',
+                        'dispensedFNSKU' => $fnskuArray ?? [],
+                        'trackingid' => $row->trackingid ?? '',
+                        'items' => []
+                    ]
                 ];
             }
 
-            $groupedHistory[$orderId]['items'][] = [
+            $groupedHistory[$orderId]['orderInfo']['items'][] = [
                 'OrderItemId' => $row->OrderItemId,
                 'Title' => $row->Title,
                 'ASIN' => $row->ASIN,

@@ -426,20 +426,4 @@ Route::get('/postmaster', function () {
 
 // FBM Workhistory
 use App\Http\Controllers\Fbmorders\WorkhistoryController;
-Route::get('/fbmorders/work-history-test-post', function () {
-    $payload = [
-        'user_id' => 'all',// option all and fetch users where tbluser is fbmorder = 1
-        'start_date' => '2024-05-20', // date
-        'end_date' => '2025-06-01', // date
-        'sort_by' => 'purchase_date', // or created_date
-        'sort_order' => 'ASC', // ASC or DESC
-        'search_query' => '' // string text
-    ];
-
-    $request = Request::create('/fbmorders/fetch-work-history', 'POST', [], [], [], ['CONTENT_TYPE' => 'application/json'], json_encode($payload));
-    $request->headers->set('Accept', 'application/json');
-
-    return app()->handle($request);
-});
-
-Route::post('/fbmorders/fetch-work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
+Route::match(['get', 'post'], '/fbmorders/fetch-work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
