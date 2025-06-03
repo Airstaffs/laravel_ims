@@ -88,17 +88,16 @@ function getUSPSAccessToken($clientId, $clientSecret)
 {
     $url = 'https://api.usps.com/oauth2/v3/token';
 
-    $auth = base64_encode("$clientId:$clientSecret");
-
     $headers = [
         'Content-Type: application/x-www-form-urlencoded',
         'Accept: application/json',
-        "Authorization: Basic $auth", // Explicit Authorization header
     ];
 
     $postFields = http_build_query([
         'grant_type' => 'client_credentials',
         'scope' => 'tracking',
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
     ]);
 
     $ch = curl_init($url);
@@ -125,6 +124,7 @@ function getUSPSAccessToken($clientId, $clientSecret)
         return false;
     }
 }
+
 function getUSPSTrackingInfo($trackingNumber, $accessToken)
 {
     $url = "https://api.usps.com/tracking/v3/tracking/$trackingNumber";
