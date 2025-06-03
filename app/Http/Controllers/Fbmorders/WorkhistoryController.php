@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 
 class WorkhistoryController extends Controller
 {
@@ -138,5 +141,38 @@ class WorkhistoryController extends Controller
         ]);
     }
 
-    
+    public function exportSpreadsheet()
+    {
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $sheet->setCellValue('A1', 'Hello World!');
+        $sheet->setCellValue('A2', 'Laravel + PhpSpreadsheet');
+
+        $writer = new Xlsx($spreadsheet);
+
+        $fileName = 'exported_file.xlsx';
+        $temp_file = tempnam(sys_get_temp_dir(), $fileName);
+
+        $writer->save($temp_file);
+
+        return response()->download($temp_file, $fileName)->deleteFileAfterSend(true);
+    }
+
+    public function importSpreadsheet(Request $request)
+    {
+        $file = $request->file('excel_file');
+
+        if (!$file || !$file->isValid()) {
+            return response()->json(['error' => 'Invalid file'], 400);
+        }
+
+        $spreadsheet = IOFactory::load($file->getRealPath());
+        $sheet = $spreadsheet->getActiveSheet();
+        $data = $sheet->toArray();
+
+        return response()->json(['data' => $data]);
+    }
+
+
 }
