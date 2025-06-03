@@ -88,9 +88,12 @@ function getUSPSAccessToken($clientId, $clientSecret)
 {
     $url = 'https://api.usps.com/oauth2/v3/token';
 
+    $auth = base64_encode("$clientId:$clientSecret");
+
     $headers = [
         'Content-Type: application/x-www-form-urlencoded',
         'Accept: application/json',
+        "Authorization: Basic $auth", // Explicit Authorization header
     ];
 
     $postFields = http_build_query([
@@ -100,31 +103,28 @@ function getUSPSAccessToken($clientId, $clientSecret)
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_USERPWD, "$clientId:$clientSecret"); // Basic Auth
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postFields);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
     $response = curl_exec($ch);
-
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
     $data = json_decode($response, true);
 
     echo "<pre>";
+    echo "HTTP Status: $status\n";
     print_r($data);
     echo "</pre>";
-
 
     if ($status === 200 && isset($data['access_token'])) {
         return $data['access_token'];
     } else {
-        error_log("Token Error [$status]: $response");
+        error_log("USPS Token Error [$status]: $response");
         return false;
     }
 }
-
 function getUSPSTrackingInfo($trackingNumber, $accessToken)
 {
     $url = "https://api.usps.com/tracking/v3/tracking/$trackingNumber";
