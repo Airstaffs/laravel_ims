@@ -10,8 +10,7 @@ $imsv1_connect = dbDatabase($servertype1);
 $servertype2 = "laravel_ims";
 $imsv2_connect = dbDatabase($servertype2);
 
-$creds = USPSCredentials($imsv2_connect);
-
+$creds = getUPSCredentials($imsv1_connect);
 
 if ($creds) {
     $clientId = $creds['client_id'];
@@ -77,57 +76,61 @@ function dbDatabase($servertype)
     return $db;
 }
 
-function USPSCredentials($db)
+function getUPSCredentials($Connect)
 {
-    $sql = "SELECT client_id, client_secret FROM tblapis WHERE api_name = 'USPS' LIMIT 1";
-    $result = $db->query($sql);
+    $id = 4;
+    $sql = "SELECT client_id, client_secret, access_token, refresh_token, expires_in FROM aws_key WHERE id = $id";
+    $result = $Connect->query($sql);
+    $row = $result->fetch_assoc();
 
-    if ($result && $result->num_rows > 0) {
-        return $result->fetch_assoc(); // returns ['client_id' => '...', 'client_secret' => '...']
-    } else {
-        error_log("USPS credentials not found in tblapis.");
-        return false;
+    if (!$row) {
+        die("No keys found for the given client ID.");
     }
+
+    return $row;
 }
 
-function getUSPSAccessToken($clientId, $clientSecret)
+function UPS_fetchDetails($trackingnumber, $credentials)
 {
-    $url = 'https://api.usps.com/oauth2/v3/token';
+    $inquiry = $trackingnumber;
+    $query = array(
+        "locale" => "en_US",
+        "returnSignature" => "false",
+        "returnMilestones" => "false"
+    );
 
-    $headers = [
-        'Content-Type: application/x-www-form-urlencoded',
-        'Accept: application/json',
-    ];
+    $curl = curl_init();
 
-    $postFields = http_build_query([
-        'grant_type' => 'client_credentials',
-        'scope' => 'tracking',
-        'client_id' => $clientId,
-        'client_secret' => $clientSecret,
+    curl_setopt_array($curl, [
+        CURLOPT_HTTPHEADER => [
+            "Authorization: Bearer " . $credentials['access_token'],
+            "transId: asjfdklasdjfaslkjsdfasslkdjfas",
+            "transactionSrc: CustomerServicePortal"
+        ],
+        CURLOPT_URL => "https://onlinetools.ups.com/api/track/v1/details/" . $inquiry . "?" . http_build_query($query),
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CUSTOMREQUEST => "GET",
     ]);
 
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, $postFields);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
-    $response = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
+    $response = curl_exec($curl);
 
-    $data = json_decode($response, true);
+    $response = json_decode($response, true);
 
+    $data = curl_getinfo($curl);
     echo "<pre>";
-    echo "HTTP Status: $status\n";
-    print_r($data);
+    print_r($response);
     echo "</pre>";
 
-    if ($status === 200 && isset($data['access_token'])) {
-        return $data['access_token'];
+
+    $error = curl_error($curl);
+
+    curl_close($curl);
+
+    if ($error) {
+        echo "cURL Error #:" . $error;
     } else {
-        error_log("USPS Token Error [$status]: $response");
-        return false;
+        return $response;
     }
 }
 
