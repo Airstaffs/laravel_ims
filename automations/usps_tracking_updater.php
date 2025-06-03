@@ -10,7 +10,7 @@ $creds = USPSCredentials($db);
 if ($creds) {
     $clientId = $creds['client_id'];
     $clientSecret = $creds['client_secret'];
-    
+
     $accessToken = getUSPSAccessToken($clientId, $clientSecret);
 
     $trackingNumber = '9334910571270204784002';
@@ -106,10 +106,16 @@ function getUSPSAccessToken($clientId, $clientSecret)
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
     $response = curl_exec($ch);
+
     $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
 
     $data = json_decode($response, true);
+
+    echo "<pre>";
+    print_r($data);
+    echo "</pre>";
+
 
     if ($status === 200 && isset($data['access_token'])) {
         return $data['access_token'];
@@ -143,7 +149,7 @@ function getUSPSTrackingInfo($trackingNumber, $accessToken)
     echo "<pre>";
     print_r($data);
     echo "</pre>";
-    
+
     if ($status === 200) {
         return $data;
     } else {
