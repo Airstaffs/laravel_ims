@@ -87,7 +87,7 @@ function USPSCredentials($db)
 
 function getUSPSAccessToken($clientId, $clientSecret)
 {
-    $url = 'https://api.usps.com/oauth2/v3/token';
+    $url = 'https://apis.usps.com/oauth2/v3/token';
 
     $headers = [
         'Content-Type: application/x-www-form-urlencoded',
