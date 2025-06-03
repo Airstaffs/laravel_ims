@@ -6,6 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 export default {
     name: "FbmOrderModule",
     components: {
+   
         // REMOVED ALL COMPONENT REFERENCES - USING INLINE MODALS ONLY
     },
     data() {
@@ -63,7 +64,7 @@ export default {
             workHistory: null,
             error: null,
             
-            // Enhanced work history filters and stats
+            // Enhanced work history filters and stats (from old code)
             workHistoryFilters: {
                 sortBy: 'purchase_date',
                 startDate: '2024-05-20T05:49',
@@ -158,7 +159,7 @@ export default {
             this.showShipmentLabelModal = false;
         },
 
-        // WORK HISTORY METHODS - FIXED VERSION
+        // WORK HISTORY METHODS - ENHANCED VERSION (from new code)
         openWorkHistoryModal() {
             console.log('🚀 Opening work history modal...'); // DEBUG
             this.showWorkHistoryModal = true;
@@ -191,7 +192,7 @@ export default {
             });
         },
 
-         async fetchWorkHistory() {
+        async fetchWorkHistory() {
             console.log('🔄 fetchWorkHistory called - using POST method'); // DEBUG LINE
             this.loading = true;
             this.error = null;
@@ -282,53 +283,148 @@ export default {
         },
 
         // Export work history functionality
-        async exportWorkHistory() {
-            try {
-                const payload = {
-                    user_id: this.workHistoryFilters.userId,
-                    start_date: this.workHistoryFilters.startDate ? this.formatDateForAPI(this.workHistoryFilters.startDate) : '2024-05-20',
-                    end_date: this.workHistoryFilters.endDate ? this.formatDateForAPI(this.workHistoryFilters.endDate) : '2025-06-01',
-                    sort_by: this.workHistoryFilters.sortBy,
-                    sort_order: 'DESC',
-                    search_query: this.workHistoryFilters.searchQuery || '',
-                    late_orders: this.workHistoryFilters.lateOrders || '',
-                    carrier_filter: this.workHistoryFilters.carrierFilter || '',
-                    store_filter: this.workHistoryFilters.storeFilter || '',
-                    export: true
-                };
+            async exportWorkHistory() {
+                try {
+                    // Check if date filters are applied
+                    const isDateFiltered = this.workHistoryFilters.startDate && this.workHistoryFilters.endDate;
+                    const hasOtherFilters = this.workHistoryFilters.searchQuery || 
+                                        this.workHistoryFilters.carrierFilter || 
+                                        this.workHistoryFilters.storeFilter || 
+                                        this.workHistoryFilters.userId !== 'all' ||
+                                        this.workHistoryFilters.lateOrders;
 
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/fbm-orders/work-history/export`,
-                    payload,
-                    {
-                        responseType: 'blob',
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            )?.content,
-                        },
+                    // Build confirmation message
+                    let confirmMessage = 'Export Work History to CSV\n\n';
+                    confirmMessage += 'Export Details:\n';
+                    
+                    if (isDateFiltered) {
+                        const startDate = new Date(this.workHistoryFilters.startDate).toLocaleDateString();
+                        const endDate = new Date(this.workHistoryFilters.endDate).toLocaleDateString();
+                        confirmMessage += `📅 Date Range: ${startDate} to ${endDate}\n`;
+                    } else {
+                        confirmMessage += '📅 Date Range: All available data (no date filter applied)\n';
                     }
-                );
 
-                // Create download link
-                const url = window.URL.createObjectURL(new Blob([response.data]));
-                const link = document.createElement('a');
-                link.href = url;
-                link.setAttribute('download', `work-history-${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                window.URL.revokeObjectURL(url);
+                    if (this.workHistoryFilters.userId !== 'all') {
+                        confirmMessage += `👤 User: ${this.workHistoryFilters.userId}\n`;
+                    }
 
-                alert('Work history exported successfully!');
-            } catch (error) {
-                console.error('Error exporting work history:', error);
-                alert('Failed to export work history. Please try again.');
-            }
-        },
+                    if (this.workHistoryFilters.searchQuery) {
+                        confirmMessage += `🔍 Search: "${this.workHistoryFilters.searchQuery}"\n`;
+                    }
+
+                    if (this.workHistoryFilters.carrierFilter) {
+                        confirmMessage += `🚚 Carrier: ${this.workHistoryFilters.carrierFilter}\n`;
+                    }
+
+                    if (this.workHistoryFilters.storeFilter) {
+                        confirmMessage += `🏪 Store: ${this.workHistoryFilters.storeFilter}\n`;
+                    }
+
+                    if (this.workHistoryFilters.lateOrders) {
+                        confirmMessage += `⏰ Late Orders: ${this.workHistoryFilters.lateOrders}\n`;
+                    }
+
+                    confirmMessage += '\nColumns to be exported:\n';
+                    confirmMessage += '• Purchase Date\n';
+                    confirmMessage += '• Label Purchase Date\n';
+                    confirmMessage += '• Customer Name\n';
+                    confirmMessage += '• Ordered Items (ASIN / Title / MSKU)\n';
+                    confirmMessage += '• Amazon Order ID\n';
+                    confirmMessage += '• Tracking ID\n';
+                    confirmMessage += '• Carrier\n';
+                    confirmMessage += '• Date Delivered\n';
+                    confirmMessage += '• Dispensed FNSKU\n';
+                    confirmMessage += '• Store Name\n';
+                    confirmMessage += '• Remarks\n';
+
+                    if (this.workHistoryStats.totalOrders > 0) {
+                        confirmMessage += `\nEstimated records: ${this.workHistoryStats.totalOrders} orders\n`;
+                    }
+
+                    confirmMessage += '\nProceed with export?';
+
+                    // Show confirmation dialog
+                    if (!confirm(confirmMessage)) {
+                        return;
+                    }
+
+                    // Show loading state
+                    const exportButton = document.querySelector('.btn-export');
+                    const originalText = exportButton.innerHTML;
+                    exportButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+                    exportButton.disabled = true;
+
+                    const payload = {
+                        user_id: this.workHistoryFilters.userId,
+                        start_date: this.workHistoryFilters.startDate ? this.formatDateForAPI(this.workHistoryFilters.startDate) : '',
+                        end_date: this.workHistoryFilters.endDate ? this.formatDateForAPI(this.workHistoryFilters.endDate) : '',
+                        sort_by: this.workHistoryFilters.sortBy,
+                        sort_order: 'DESC',
+                        search_query: this.workHistoryFilters.searchQuery || '',
+                        late_orders: this.workHistoryFilters.lateOrders || '',
+                        carrier_filter: this.workHistoryFilters.carrierFilter || '',
+                        store_filter: this.workHistoryFilters.storeFilter || ''
+                    };
+
+                    console.log('Sending export request with payload:', payload);
+
+                    const response = await axios.post(
+                        `${API_BASE_URL}/api/fbm-orders/work-history-export`,
+                        payload,
+                        {
+                            responseType: 'blob',
+                            withCredentials: true,
+                            headers: {
+                                "Content-Type": "application/json",
+                                Accept: "application/json",
+                                "X-CSRF-TOKEN": document.querySelector(
+                                    'meta[name="csrf-token"]'
+                                )?.content,
+                            },
+                        }
+                    );
+
+                    // Generate filename based on filters
+                    let filename = 'work-history';
+                    if (isDateFiltered) {
+                        const startDate = this.formatDateForAPI(this.workHistoryFilters.startDate);
+                        const endDate = this.formatDateForAPI(this.workHistoryFilters.endDate);
+                        filename += `_${startDate}_to_${endDate}`;
+                    }
+                    if (this.workHistoryFilters.userId !== 'all') {
+                        filename += `_${this.workHistoryFilters.userId}`;
+                    }
+                    filename += `_${new Date().toISOString().split('T')[0]}.csv`;
+
+                    // Create download link
+                    const url = window.URL.createObjectURL(new Blob([response.data]));
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.setAttribute('download', filename);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    window.URL.revokeObjectURL(url);
+
+                    // Restore button state
+                    exportButton.innerHTML = originalText;
+                    exportButton.disabled = false;
+
+                    alert('Work history exported successfully!');
+                } catch (error) {
+                    console.error('Error exporting work history:', error);
+                    
+                    // Restore button state on error
+                    const exportButton = document.querySelector('.btn-export');
+                    if (exportButton) {
+                        exportButton.innerHTML = '<i class="fas fa-download"></i> Export Work History';
+                        exportButton.disabled = false;
+                    }
+                    
+                    alert('Failed to export work history. Please try again.');
+                }
+            },
 
         // Helper methods for exact data display matching the screenshot
         getMainDate(orderInfo) {
@@ -386,7 +482,7 @@ export default {
             }
             const carrierUpper = carrier.toString().toUpperCase();
             if (carrierUpper.includes('UPS')) {
-                return 'USPS';
+                return 'UPS';
             } else if (carrierUpper.includes('FEDEX') || carrierUpper.includes('FEDX')) {
                 return 'FEDEX';
             } else if (carrierUpper.includes('USPS')) {
@@ -1006,7 +1102,7 @@ export default {
                     item_ids: itemIds,
                 };
 
-                console.log("Standalone auto dispense request:", requestData);
+                console.log("🤖 Standalone auto dispense request:", requestData);
 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/fbm-orders/auto-dispense`,
@@ -1028,19 +1124,64 @@ export default {
                         `Auto-dispensing completed successfully!\n\nDispensed ${response.data.dispensed_count} products across ${response.data.items_processed} items.`
                     );
 
+                    // COMPREHENSIVE REFRESH AFTER AUTO DISPENSE
+                    console.log("🔄 Starting comprehensive refresh after auto dispense for order:", orderId);
+                    
+                    // Step 1: Always refresh main orders list first
+                    console.log("📋 Refreshing main orders list...");
                     await this.fetchOrders();
-
-                    if (
-                        this.selectedOrder &&
-                        this.selectedOrder.outboundorderid === orderId
-                    ) {
-                        const updatedOrder = this.orders.find(
-                            (o) => o.outboundorderid === orderId
-                        );
+                    
+                    // Step 2: Update details modal if open for this order
+                    if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+                        console.log("📝 Updating details modal...");
+                        const updatedOrder = this.orders.find(o => o.outboundorderid === orderId);
                         if (updatedOrder) {
                             this.selectedOrder = { ...updatedOrder };
+                            console.log("✅ Details modal updated with dispensed products");
                         }
                     }
+                    
+                    // Step 3: Update process modal if open for this order
+                    if (this.currentProcessOrder && this.currentProcessOrder.outboundorderid === orderId) {
+                        console.log("🔧 Updating process modal...");
+                        const updatedOrderFromList = this.orders.find(o => o.outboundorderid === orderId);
+                        if (updatedOrderFromList) {
+                            const wasChecked = this.currentProcessOrder.checked;
+                            this.currentProcessOrder = {
+                                ...updatedOrderFromList,
+                                checked: wasChecked
+                            };
+                            
+                            this.selectedItems = this.currentProcessOrder.items
+                                ? this.currentProcessOrder.items.map(item => item.outboundorderitemid)
+                                : [];
+                                
+                            console.log("✅ Process modal updated with dispensed products");
+                        }
+                    }
+                    
+                    // Step 4: Update auto dispense modal if open for this order
+                    if (this.autoDispenseOrder && this.autoDispenseOrder.outboundorderid === orderId) {
+                        console.log("🤖 Updating auto dispense modal...");
+                        const updatedOrderFromList = this.orders.find(o => o.outboundorderid === orderId);
+                        if (updatedOrderFromList) {
+                            this.autoDispenseOrder = { ...updatedOrderFromList };
+                            console.log("✅ Auto dispense modal updated");
+                        }
+                    }
+                    
+                    // Step 5: Reinitialize dispense items selection
+                    console.log("🔄 Reinitializing dispense items...");
+                    this.initializeDispenseItems();
+                    
+                    // Step 6: Force Vue to update all components
+                    this.$nextTick(() => {
+                        this.$forceUpdate();
+                        console.log("✅ Vue components force updated after auto dispense");
+                    });
+                    
+                    console.log("🎉 Auto dispense refresh completed!");
+                    
                 } else {
                     alert(
                         `Error in auto-dispensing: ${
@@ -1062,6 +1203,7 @@ export default {
             this.selectedDispenseProducts = {};
         },
 
+        // FIXED: Enhanced cancel dispense with comprehensive refresh
         async cancelDispense(order) {
             if (!this.hasDispensedItems(order)) return;
 
@@ -1079,6 +1221,8 @@ export default {
                     .map((item) => item.outboundorderitemid);
 
                 if (itemIds.length === 0) return;
+
+                console.log("🗑️ Canceling dispense for order:", order.outboundorderid, "items:", itemIds);
 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/fbm-orders/cancel-dispense`,
@@ -1100,7 +1244,68 @@ export default {
 
                 if (response.data && response.data.success) {
                     alert("Dispense canceled successfully");
+                    
+                    // COMPREHENSIVE REFRESH STRATEGY
+                    const orderId = order.outboundorderid;
+                    console.log("🔄 Starting comprehensive refresh for order:", orderId);
+                    
+                    // Step 1: Always refresh main orders list first
+                    console.log("📋 Refreshing main orders list...");
                     await this.fetchOrders();
+                    
+                    // Step 2: Update process modal if open for this order
+                    if (this.currentProcessOrder && this.currentProcessOrder.outboundorderid === orderId) {
+                        console.log("🔧 Updating process modal...");
+                        const updatedOrderFromList = this.orders.find(o => o.outboundorderid === orderId);
+                        if (updatedOrderFromList) {
+                            // Preserve modal state while updating data
+                            const wasChecked = this.currentProcessOrder.checked;
+                            this.currentProcessOrder = {
+                                ...updatedOrderFromList,
+                                checked: wasChecked
+                            };
+                            
+                            // Update selected items
+                            this.selectedItems = this.currentProcessOrder.items
+                                ? this.currentProcessOrder.items.map(item => item.outboundorderitemid)
+                                : [];
+                                
+                            console.log("✅ Process modal updated with fresh data");
+                        }
+                    }
+                    
+                    // Step 3: Update details modal if open for this order
+                    if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+                        console.log("📝 Updating details modal...");
+                        const updatedOrderFromList = this.orders.find(o => o.outboundorderid === orderId);
+                        if (updatedOrderFromList) {
+                            this.selectedOrder = { ...updatedOrderFromList };
+                            console.log("✅ Details modal updated with fresh data");
+                        }
+                    }
+                    
+                    // Step 4: Update auto dispense modal if open for this order
+                    if (this.autoDispenseOrder && this.autoDispenseOrder.outboundorderid === orderId) {
+                        console.log("🤖 Updating auto dispense modal...");
+                        const updatedOrderFromList = this.orders.find(o => o.outboundorderid === orderId);
+                        if (updatedOrderFromList) {
+                            this.autoDispenseOrder = { ...updatedOrderFromList };
+                            console.log("✅ Auto dispense modal updated with fresh data");
+                        }
+                    }
+                    
+                    // Step 5: Reinitialize dispense items selection
+                    console.log("🔄 Reinitializing dispense items...");
+                    this.initializeDispenseItems();
+                    
+                    // Step 6: Force Vue to update all components
+                    this.$nextTick(() => {
+                        this.$forceUpdate();
+                        console.log("✅ Vue components force updated");
+                    });
+                    
+                    console.log("🎉 Comprehensive refresh completed!");
+                    
                 } else {
                     alert(
                         `Error: ${
@@ -1172,6 +1377,8 @@ export default {
                     };
                 });
 
+                console.log("🔧 Confirming auto dispense in process modal:", dispenseItems);
+
                 const response = await axios.post(
                     `${API_BASE_URL}/api/fbm-orders/dispense`,
                     {
@@ -1192,10 +1399,60 @@ export default {
 
                 if (response.data && response.data.success) {
                     alert("Items dispensed successfully");
+                    
+                    // IMMEDIATE STATE CLEANUP
                     this.processingAutoDispense = false;
                     this.dispenseProducts = [];
                     this.selectedDispenseProducts = {};
-                    await this.refreshCurrentProcessOrderForModal();
+                    
+                    // COMPREHENSIVE REFRESH FOR PROCESS MODAL
+                    const orderId = this.currentProcessOrder.outboundorderid;
+                    console.log("🔄 Starting comprehensive refresh for process modal, order:", orderId);
+                    
+                    // Step 1: Refresh main orders list to get latest data
+                    console.log("📋 Refreshing main orders list...");
+                    await this.fetchOrders();
+                    
+                    // Step 2: Update process modal with fresh data from main list
+                    console.log("🔧 Updating process modal with fresh data...");
+                    const updatedOrderFromList = this.orders.find(o => o.outboundorderid === orderId);
+                    if (updatedOrderFromList) {
+                        // Preserve modal state while updating data
+                        const wasChecked = this.currentProcessOrder.checked;
+                        this.currentProcessOrder = {
+                            ...updatedOrderFromList,
+                            checked: wasChecked
+                        };
+                        
+                        // Update selected items to include all items
+                        this.selectedItems = this.currentProcessOrder.items
+                            ? this.currentProcessOrder.items.map(item => item.outboundorderitemid)
+                            : [];
+                            
+                        console.log("✅ Process modal updated with dispensed products");
+                    } else {
+                        console.error("❌ Could not find updated order in main list");
+                    }
+                    
+                    // Step 3: Update details modal if open for same order
+                    if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+                        console.log("📝 Updating details modal...");
+                        this.selectedOrder = { ...this.currentProcessOrder };
+                        console.log("✅ Details modal updated");
+                    }
+                    
+                    // Step 4: Reinitialize dispense items selection
+                    console.log("🔄 Reinitializing dispense items...");
+                    this.initializeDispenseItems();
+                    
+                    // Step 5: Force Vue reactivity update
+                    this.$nextTick(() => {
+                        this.$forceUpdate();
+                        console.log("✅ Vue components force updated in process modal");
+                    });
+                    
+                    console.log("🎉 Process modal refresh completed!");
+                    
                 } else {
                     alert(
                         `Error: ${
@@ -1209,46 +1466,82 @@ export default {
             }
         },
 
+        // CRITICAL: Enhanced modal refresh method
         async refreshCurrentProcessOrderForModal() {
             if (!this.currentProcessOrder) return;
 
             try {
-                await this.fetchOrders();
+                console.log("🔄 Refreshing process modal content for order:", this.currentProcessOrder.outboundorderid);
 
-                const updatedOrder = this.orders.find(
-                    (o) =>
-                        o.outboundorderid ===
-                        this.currentProcessOrder.outboundorderid
-                );
+                // Method 1: Try to get fresh data from detail endpoint
+                try {
+                    const response = await axios.get(
+                        `${API_BASE_URL}/api/fbm-orders/detail`,
+                        {
+                            params: { order_id: this.currentProcessOrder.outboundorderid },
+                            withCredentials: true,
+                        }
+                    );
 
-                if (updatedOrder) {
-                    this.currentProcessOrder = {
-                        ...updatedOrder,
-                        checked: this.currentProcessOrder.checked || false,
-                    };
-
-                    this.selectedItems = this.currentProcessOrder.items
-                        ? this.currentProcessOrder.items.map(
-                              (item) => item.outboundorderitemid
-                          )
-                        : [];
-
-                    this.initializeDispenseItems();
-
-                    if (
-                        this.selectedOrder &&
-                        this.selectedOrder.outboundorderid ===
-                            this.currentProcessOrder.outboundorderid
-                    ) {
-                        this.selectedOrder = { ...this.currentProcessOrder };
+                    if (response.data && response.data.success) {
+                        const updatedOrder = response.data.data;
+                        
+                        // Update the current process order with fresh data
+                        this.currentProcessOrder = {
+                            ...updatedOrder,
+                            checked: this.currentProcessOrder.checked || false,
+                        };
+                        
+                        console.log("✅ Process modal refreshed via detail endpoint");
+                    } else {
+                        throw new Error("Detail endpoint failed");
                     }
-
-                    this.$nextTick(() => {
-                        this.$forceUpdate();
-                    });
+                } catch (detailError) {
+                    console.log("⚠️ Detail endpoint failed, trying main orders refresh...");
+                    
+                    // Method 2: Fallback to main orders refresh
+                    await this.fetchOrders();
+                    
+                    const updatedOrder = this.orders.find(
+                        (o) => o.outboundorderid === this.currentProcessOrder.outboundorderid
+                    );
+                    
+                    if (updatedOrder) {
+                        this.currentProcessOrder = {
+                            ...updatedOrder,
+                            checked: this.currentProcessOrder.checked || false,
+                        };
+                        console.log("✅ Process modal refreshed via main orders");
+                    } else {
+                        console.error("❌ Could not find updated order");
+                    }
                 }
+
+                // Reset selectedItems to include all items
+                this.selectedItems = this.currentProcessOrder.items
+                    ? this.currentProcessOrder.items.map((item) => item.outboundorderitemid)
+                    : [];
+
+                // Update dispense items selection
+                this.initializeDispenseItems();
+
+                // If details modal is open for this order, update it too
+                if (
+                    this.selectedOrder &&
+                    this.selectedOrder.outboundorderid === this.currentProcessOrder.outboundorderid
+                ) {
+                    this.selectedOrder = { ...this.currentProcessOrder };
+                }
+
+                // Force Vue reactivity update
+                this.$nextTick(() => {
+                    this.$forceUpdate();
+                });
+
+                console.log("✅ Process modal content refresh completed");
+                
             } catch (error) {
-                console.error("Error refreshing process modal content:", error);
+                console.error("❌ Error refreshing process modal content:", error);
             }
         },
 
@@ -1546,7 +1839,7 @@ export default {
             selectedOrderIds.forEach((id) => this.generatePackingSlip(id));
         },
 
-        // Additional missing methods that might have been in your original code:
+        // Additional missing methods from old code:
 
         async loadMatchingProducts() {
             if (!this.autoDispenseOrder) return;
@@ -1633,6 +1926,8 @@ export default {
                     };
                 });
 
+                console.log("🤖 Confirming auto dispense in standalone modal:", dispenseItems);
+
                 const response = await axios.post(
                     `${API_BASE_URL}/api/fbm-orders/dispense`,
                     {
@@ -1653,8 +1948,59 @@ export default {
 
                 if (response.data && response.data.success) {
                     alert("Items dispensed successfully");
+                    
+                    // Close the auto dispense modal first
                     this.closeAutoDispenseModal();
+
+                    // COMPREHENSIVE REFRESH AFTER STANDALONE AUTO DISPENSE
+                    const orderId = this.autoDispenseOrder.outboundorderid;
+                    console.log("🔄 Starting comprehensive refresh after standalone auto dispense for order:", orderId);
+                    
+                    // Step 1: Always refresh main orders list first
+                    console.log("📋 Refreshing main orders list...");
                     await this.fetchOrders();
+                    
+                    // Step 2: Update details modal if open for this order
+                    if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+                        console.log("📝 Updating details modal...");
+                        const updatedOrder = this.orders.find(o => o.outboundorderid === orderId);
+                        if (updatedOrder) {
+                            this.selectedOrder = { ...updatedOrder };
+                            console.log("✅ Details modal updated with dispensed products");
+                        }
+                    }
+                    
+                    // Step 3: Update process modal if open for this order
+                    if (this.currentProcessOrder && this.currentProcessOrder.outboundorderid === orderId) {
+                        console.log("🔧 Updating process modal...");
+                        const updatedOrderFromList = this.orders.find(o => o.outboundorderid === orderId);
+                        if (updatedOrderFromList) {
+                            const wasChecked = this.currentProcessOrder.checked;
+                            this.currentProcessOrder = {
+                                ...updatedOrderFromList,
+                                checked: wasChecked
+                            };
+                            
+                            this.selectedItems = this.currentProcessOrder.items
+                                ? this.currentProcessOrder.items.map(item => item.outboundorderitemid)
+                                : [];
+                                
+                            console.log("✅ Process modal updated with dispensed products");
+                        }
+                    }
+                    
+                    // Step 4: Reinitialize dispense items selection
+                    console.log("🔄 Reinitializing dispense items...");
+                    this.initializeDispenseItems();
+                    
+                    // Step 5: Force Vue to update all components
+                    this.$nextTick(() => {
+                        this.$forceUpdate();
+                        console.log("✅ Vue components force updated after standalone auto dispense");
+                    });
+                    
+                    console.log("🎉 Standalone auto dispense refresh completed!");
+
                 } else {
                     alert(
                         `Error: ${
@@ -1764,6 +2110,8 @@ export default {
                     item_ids: itemIds,
                 };
 
+                console.log("🤖 Performing auto dispense in process modal:", requestData);
+
                 const response = await axios.post(
                     `${API_BASE_URL}/api/fbm-orders/auto-dispense`,
                     requestData,
@@ -1784,11 +2132,59 @@ export default {
                         `Auto-dispensing completed successfully!\n\nDispensed ${response.data.dispensed_count} products across ${response.data.items_processed} items.`
                     );
 
+                    // IMMEDIATE STATE CLEANUP
                     this.processingAutoDispense = false;
                     this.dispenseProducts = [];
                     this.selectedDispenseProducts = {};
 
-                    await this.refreshCurrentProcessOrderForModal();
+                    // COMPREHENSIVE REFRESH FOR PROCESS MODAL
+                    const orderId = this.currentProcessOrder.outboundorderid;
+                    console.log("🔄 Starting comprehensive refresh after auto dispense in process modal, order:", orderId);
+                    
+                    // Step 1: Refresh main orders list to get latest data
+                    console.log("📋 Refreshing main orders list...");
+                    await this.fetchOrders();
+                    
+                    // Step 2: Update process modal with fresh data from main list
+                    console.log("🔧 Updating process modal with fresh data...");
+                    const updatedOrderFromList = this.orders.find(o => o.outboundorderid === orderId);
+                    if (updatedOrderFromList) {
+                        // Preserve modal state while updating data
+                        const wasChecked = this.currentProcessOrder.checked;
+                        this.currentProcessOrder = {
+                            ...updatedOrderFromList,
+                            checked: wasChecked
+                        };
+                        
+                        // Update selected items to include all items
+                        this.selectedItems = this.currentProcessOrder.items
+                            ? this.currentProcessOrder.items.map(item => item.outboundorderitemid)
+                            : [];
+                            
+                        console.log("✅ Process modal updated with auto-dispensed products");
+                    } else {
+                        console.error("❌ Could not find updated order in main list");
+                    }
+                    
+                    // Step 3: Update details modal if open for same order
+                    if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+                        console.log("📝 Updating details modal...");
+                        this.selectedOrder = { ...this.currentProcessOrder };
+                        console.log("✅ Details modal updated");
+                    }
+                    
+                    // Step 4: Reinitialize dispense items selection
+                    console.log("🔄 Reinitializing dispense items...");
+                    this.initializeDispenseItems();
+                    
+                    // Step 5: Force Vue reactivity update
+                    this.$nextTick(() => {
+                        this.$forceUpdate();
+                        console.log("✅ Vue components force updated after auto dispense in process modal");
+                    });
+                    
+                    console.log("🎉 Auto dispense in process modal refresh completed!");
+
                 } else {
                     alert(
                         `Error in auto-dispensing: ${
