@@ -13,6 +13,8 @@ if ($creds) {
     
     $accessToken = getUSPSAccessToken($clientId, $clientSecret);
 
+    $trackingNumber = '9334910571270204784002';
+
     $data = getUSPSTrackingInfo($trackingNumber, $accessToken);
 
     echo "<pre>";
