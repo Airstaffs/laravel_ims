@@ -140,7 +140,10 @@ function getUSPSTrackingInfo($trackingNumber, $accessToken)
     curl_close($ch);
 
     $data = json_decode($response, true);
-
+    echo "<pre>";
+    print_r($data);
+    echo "</pre>";
+    
     if ($status === 200) {
         return $data;
     } else {
