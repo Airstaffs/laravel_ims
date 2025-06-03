@@ -96,6 +96,8 @@ function getUSPSAccessToken($clientId, $clientSecret)
     $postFields = http_build_query([
         'grant_type' => 'client_credentials',
         'scope' => 'tracking',
+        'client_id' => $clientId,
+        'client_secret' => $clientSecret,
     ]);
 
     $ch = curl_init($url);
