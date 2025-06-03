@@ -8,8 +8,9 @@ $creds = USPSCredentials($db);
 
 
 if ($creds) {
-    $clientId = $creds['client_id'];
-    $clientSecret = $creds['client_secret'];
+    $clientId = trim($creds['client_id']);
+    $clientSecret = trim($creds['client_secret']);
+
 
     $accessToken = getUSPSAccessToken($clientId, $clientSecret);
 
