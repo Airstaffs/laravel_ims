@@ -99,6 +99,10 @@ function getUSPSAccessToken($clientId, $clientSecret)
         'client_id' => $clientId,
         'client_secret' => $clientSecret,
     ]);
+    echo "<br>Data post fields:<br>";
+    echo "<pre>";
+    print_r($postFields);
+    echo "</pre>";
 
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
