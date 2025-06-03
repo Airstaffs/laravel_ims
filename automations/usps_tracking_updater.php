@@ -133,7 +133,10 @@ function getUSPSTrackingInfo($trackingNumber, $accessToken)
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 
     $response = curl_exec($ch);
-    $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $status = curl_getinfo($ch);
+    echo "<pre>";
+    print_r($status);
+    echo "</pre>";
     curl_close($ch);
 
     $data = json_decode($response, true);
