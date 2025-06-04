@@ -62,20 +62,20 @@ export default {
             showWorkHistoryModal: false,
             workHistory: null,
             error: null,
-            
+
             // Enhanced work history filters and stats
             workHistoryFilters: {
-                sortBy: 'purchase_date',
-                startDate: '2024-05-20T05:49',
-                endDate: '2025-06-03T05:49',
-                userId: 'all',
-                lateOrders: '',
-                searchQuery: '',
-                carrierFilter: '',
-                storeFilter: ''
+                sortBy: "purchase_date",
+                startDate: "2024-05-20T05:49",
+                endDate: "2025-06-03T05:49",
+                userId: "all",
+                lateOrders: "",
+                searchQuery: "",
+                carrierFilter: "",
+                storeFilter: "",
             },
             workHistoryStats: {
-                totalOrders: 0
+                totalOrders: 0,
             },
         };
     },
@@ -160,56 +160,65 @@ export default {
 
         // WORK HISTORY METHODS - FIXED VERSION
         openWorkHistoryModal() {
-            console.log('🚀 Opening work history modal...'); // DEBUG
+            console.log("🚀 Opening work history modal..."); // DEBUG
             this.showWorkHistoryModal = true;
             this.fetchWorkHistory();
-            
+
             // Force DOM update and ensure modal visibility
             this.$nextTick(() => {
-                const modal = document.querySelector('.modal.workHistory');
+                const modal = document.querySelector(".modal.workHistory");
                 if (modal) {
-                    modal.classList.add('show');
-                    modal.style.display = 'flex';
-                    console.log('✅ Modal should now be visible');
+                    modal.classList.add("show");
+                    modal.style.display = "flex";
+                    console.log("✅ Modal should now be visible");
                 } else {
-                    console.error('❌ Modal element not found in DOM');
-                }
-            });
-        },
-        
-        closeWorkHistoryModal() {
-            console.log('🔒 Closing work history modal...');
-            this.showWorkHistoryModal = false;
-            
-            // Also force hide via DOM manipulation
-            this.$nextTick(() => {
-                const modal = document.querySelector('.modal.workHistory');
-                if (modal) {
-                    modal.classList.remove('show');
-                    modal.style.display = 'none';
+                    console.error("❌ Modal element not found in DOM");
                 }
             });
         },
 
-         async fetchWorkHistory() {
-            console.log('🔄 fetchWorkHistory called - using POST method'); // DEBUG LINE
+        closeWorkHistoryModal() {
+            console.log("🔒 Closing work history modal...");
+            this.showWorkHistoryModal = false;
+
+            // Also force hide via DOM manipulation
+            this.$nextTick(() => {
+                const modal = document.querySelector(".modal.workHistory");
+                if (modal) {
+                    modal.classList.remove("show");
+                    modal.style.display = "none";
+                }
+            });
+        },
+
+        async fetchWorkHistory() {
+            console.log("🔄 fetchWorkHistory called - using POST method"); // DEBUG LINE
             this.loading = true;
             this.error = null;
             try {
                 // Use the enhanced payload format
                 const payload = {
                     user_id: this.workHistoryFilters.userId,
-                    start_date: this.workHistoryFilters.startDate ? this.formatDateForAPI(this.workHistoryFilters.startDate) : '2024-05-20',
-                    end_date: this.workHistoryFilters.endDate ? this.formatDateForAPI(this.workHistoryFilters.endDate) : '2025-06-01',
+                    start_date: this.workHistoryFilters.startDate
+                        ? this.formatDateForAPI(
+                              this.workHistoryFilters.startDate
+                          )
+                        : "2024-05-20",
+                    end_date: this.workHistoryFilters.endDate
+                        ? this.formatDateForAPI(this.workHistoryFilters.endDate)
+                        : "2025-06-01",
                     sort_by: this.workHistoryFilters.sortBy,
-                    sort_order: 'DESC',
-                    search_query: this.workHistoryFilters.searchQuery || '',
-                    late_orders: this.workHistoryFilters.lateOrders || '',
-                    carrier_filter: this.workHistoryFilters.carrierFilter || '',
-                    store_filter: this.workHistoryFilters.storeFilter || ''
+                    sort_order: "DESC",
+                    search_query: this.workHistoryFilters.searchQuery || "",
+                    late_orders: this.workHistoryFilters.lateOrders || "",
+                    carrier_filter: this.workHistoryFilters.carrierFilter || "",
+                    store_filter: this.workHistoryFilters.storeFilter || "",
                 };
 
-                console.log('Sending work history request with payload:', payload);
+                console.log(
+                    "Sending work history request with payload:",
+                    payload
+                );
 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/fbm-orders/work-history`,
@@ -225,31 +234,40 @@ export default {
                         },
                     }
                 );
-                
-                console.log('Work history response:', response);
-                
+
+                console.log("Work history response:", response);
+
                 // Handle the response based on your controller's actual return format
                 if (response.data && response.data.success) {
                     // Your controller returns 'history' not 'data'
                     this.workHistory = response.data.history;
-                    this.workHistoryStats.totalOrders = this.workHistory ? this.workHistory.length : 0;
-                    
+                    this.workHistoryStats.totalOrders = this.workHistory
+                        ? this.workHistory.length
+                        : 0;
+
                     // Show success message if available
                     if (response.data.message) {
-                        console.log('Work history message:', response.data.message);
+                        console.log(
+                            "Work history message:",
+                            response.data.message
+                        );
                     }
                 } else {
                     this.workHistory = response.data;
-                    this.workHistoryStats.totalOrders = Array.isArray(this.workHistory) ? this.workHistory.length : 0;
+                    this.workHistoryStats.totalOrders = Array.isArray(
+                        this.workHistory
+                    )
+                        ? this.workHistory.length
+                        : 0;
                 }
             } catch (err) {
                 this.error = "Failed to load work history.";
-                console.error('Work history fetch error:', err);
-                
+                console.error("Work history fetch error:", err);
+
                 // More detailed error logging
                 if (err.response) {
-                    console.error('Error response:', err.response.data);
-                    console.error('Error status:', err.response.status);
+                    console.error("Error response:", err.response.data);
+                    console.error("Error status:", err.response.status);
                 }
             } finally {
                 this.loading = false;
@@ -258,24 +276,28 @@ export default {
 
         // Format date for API (convert from datetime-local to YYYY-MM-DD)
         formatDateForAPI(dateTimeString) {
-            if (!dateTimeString) return '';
-            return dateTimeString.split('T')[0];
+            if (!dateTimeString) return "";
+            return dateTimeString.split("T")[0];
         },
 
         // Format date for work history table display
         formatWorkDate(dateStr) {
-            if (!dateStr || dateStr === 'N/A') return 'N/A';
+            if (!dateStr || dateStr === "N/A") return "N/A";
             try {
                 const date = new Date(dateStr);
-                return date.toLocaleDateString('en-US', {
-                    month: '2-digit',
-                    day: '2-digit', 
-                    year: 'numeric'
-                }) + ' ' + date.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
-                });
+                return (
+                    date.toLocaleDateString("en-US", {
+                        month: "2-digit",
+                        day: "2-digit",
+                        year: "numeric",
+                    }) +
+                    " " +
+                    date.toLocaleTimeString("en-US", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                    })
+                );
             } catch (e) {
                 return dateStr;
             }
@@ -286,22 +308,28 @@ export default {
             try {
                 const payload = {
                     user_id: this.workHistoryFilters.userId,
-                    start_date: this.workHistoryFilters.startDate ? this.formatDateForAPI(this.workHistoryFilters.startDate) : '2024-05-20',
-                    end_date: this.workHistoryFilters.endDate ? this.formatDateForAPI(this.workHistoryFilters.endDate) : '2025-06-01',
+                    start_date: this.workHistoryFilters.startDate
+                        ? this.formatDateForAPI(
+                              this.workHistoryFilters.startDate
+                          )
+                        : "2024-05-20",
+                    end_date: this.workHistoryFilters.endDate
+                        ? this.formatDateForAPI(this.workHistoryFilters.endDate)
+                        : "2025-06-01",
                     sort_by: this.workHistoryFilters.sortBy,
-                    sort_order: 'DESC',
-                    search_query: this.workHistoryFilters.searchQuery || '',
-                    late_orders: this.workHistoryFilters.lateOrders || '',
-                    carrier_filter: this.workHistoryFilters.carrierFilter || '',
-                    store_filter: this.workHistoryFilters.storeFilter || '',
-                    export: true
+                    sort_order: "DESC",
+                    search_query: this.workHistoryFilters.searchQuery || "",
+                    late_orders: this.workHistoryFilters.lateOrders || "",
+                    carrier_filter: this.workHistoryFilters.carrierFilter || "",
+                    store_filter: this.workHistoryFilters.storeFilter || "",
+                    export: true,
                 };
 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/fbm-orders/work-history/export`,
                     payload,
                     {
-                        responseType: 'blob',
+                        responseType: "blob",
                         withCredentials: true,
                         headers: {
                             "Content-Type": "application/json",
@@ -314,106 +342,126 @@ export default {
                 );
 
                 // Create download link
-                const url = window.URL.createObjectURL(new Blob([response.data]));
-                const link = document.createElement('a');
+                const url = window.URL.createObjectURL(
+                    new Blob([response.data])
+                );
+                const link = document.createElement("a");
                 link.href = url;
-                link.setAttribute('download', `work-history-${new Date().toISOString().split('T')[0]}.csv`);
+                link.setAttribute(
+                    "download",
+                    `work-history-${new Date().toISOString().split("T")[0]}.csv`
+                );
                 document.body.appendChild(link);
                 link.click();
                 link.remove();
                 window.URL.revokeObjectURL(url);
 
-                alert('Work history exported successfully!');
+                alert("Work history exported successfully!");
             } catch (error) {
-                console.error('Error exporting work history:', error);
-                alert('Failed to export work history. Please try again.');
+                console.error("Error exporting work history:", error);
+                alert("Failed to export work history. Please try again.");
             }
         },
 
         // Helper methods for exact data display matching the screenshot
         getMainDate(orderInfo) {
-            if (!orderInfo.datecreatedsheesh || orderInfo.datecreatedsheesh === 'N/A') {
-                return 'N/A';
+            if (
+                !orderInfo.datecreatedsheesh ||
+                orderInfo.datecreatedsheesh === "N/A"
+            ) {
+                return "N/A";
             }
             try {
                 const date = new Date(orderInfo.datecreatedsheesh);
-                return date.toLocaleDateString('en-US', {
-                    month: '2-digit',
-                    day: '2-digit',
-                    year: 'numeric'
+                return date.toLocaleDateString("en-US", {
+                    month: "2-digit",
+                    day: "2-digit",
+                    year: "numeric",
                 });
             } catch (e) {
-                return 'N/A';
+                return "N/A";
             }
         },
 
         getSubDate(orderInfo) {
-            if (!orderInfo.purchaselabeldate || orderInfo.purchaselabeldate === 'N/A') {
-                return '';
+            if (
+                !orderInfo.purchaselabeldate ||
+                orderInfo.purchaselabeldate === "N/A"
+            ) {
+                return "";
             }
             try {
                 const date = new Date(orderInfo.purchaselabeldate);
-                return date.toLocaleTimeString('en-US', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: true
+                return date.toLocaleTimeString("en-US", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true,
                 });
             } catch (e) {
-                return '';
+                return "";
             }
         },
 
         getCarrierClass(carrier) {
-            if (!carrier || carrier === 'N/A') {
-                return 'carrier-na';
+            if (!carrier || carrier === "N/A") {
+                return "carrier-na";
             }
             const carrierUpper = carrier.toString().toUpperCase();
-            if (carrierUpper.includes('UPS')) {
-                return 'carrier-ups';
-            } else if (carrierUpper.includes('FEDEX') || carrierUpper.includes('FEDX')) {
-                return 'carrier-fedex';
-            } else if (carrierUpper.includes('USPS')) {
-                return 'carrier-usps';
-            } else if (carrierUpper.includes('DHL')) {
-                return 'carrier-dhl';
+            if (carrierUpper.includes("UPS")) {
+                return "carrier-ups";
+            } else if (
+                carrierUpper.includes("FEDEX") ||
+                carrierUpper.includes("FEDX")
+            ) {
+                return "carrier-fedex";
+            } else if (carrierUpper.includes("USPS")) {
+                return "carrier-usps";
+            } else if (carrierUpper.includes("DHL")) {
+                return "carrier-dhl";
             }
-            return 'carrier-other';
+            return "carrier-other";
         },
 
         getCarrierText(carrier) {
-            if (!carrier || carrier === 'N/A') {
-                return 'N/A';
+            if (!carrier || carrier === "N/A") {
+                return "N/A";
             }
             const carrierUpper = carrier.toString().toUpperCase();
-            if (carrierUpper.includes('UPS')) {
-                return 'USPS';
-            } else if (carrierUpper.includes('FEDEX') || carrierUpper.includes('FEDX')) {
-                return 'FEDEX';
-            } else if (carrierUpper.includes('USPS')) {
-                return 'USPS';
-            } else if (carrierUpper.includes('DHL')) {
-                return 'DHL';
+            if (carrierUpper.includes("UPS")) {
+                return "USPS";
+            } else if (
+                carrierUpper.includes("FEDEX") ||
+                carrierUpper.includes("FEDX")
+            ) {
+                return "FEDEX";
+            } else if (carrierUpper.includes("USPS")) {
+                return "USPS";
+            } else if (carrierUpper.includes("DHL")) {
+                return "DHL";
             }
             return carrier;
         },
 
         getDeliveryStatus(orderInfo) {
-            if (!orderInfo.datedeliveredsheesh || orderInfo.datedeliveredsheesh === 'N/A') {
-                return 'N/A';
+            if (
+                !orderInfo.datedeliveredsheesh ||
+                orderInfo.datedeliveredsheesh === "N/A"
+            ) {
+                return "N/A";
             }
-            return 'N/A'; // Based on screenshot, most show N/A
+            return "N/A"; // Based on screenshot, most show N/A
         },
 
         getDeliverySubDate(orderInfo) {
-            return 'N/A'; // Based on screenshot
+            return "N/A"; // Based on screenshot
         },
 
         getDispensedStatus(orderInfo) {
-            return 'N/A'; // Based on screenshot, most show N/A
+            return "N/A"; // Based on screenshot, most show N/A
         },
 
         getRemarks(orderInfo) {
-            return 'N/A'; // Based on screenshot, most show N/A
+            return "N/A"; // Based on screenshot, most show N/A
         },
 
         PurchaseShippingLabel() {
@@ -1540,7 +1588,9 @@ export default {
         generatePackingSlips() {
             const selectedOrderIds = this.persistentSelectedOrderIds;
             if (selectedOrderIds.length === 0) {
-                alert("Please select at least one order to generate packing slips");
+                alert(
+                    "Please select at least one order to generate packing slips"
+                );
                 return;
             }
             selectedOrderIds.forEach((id) => this.generatePackingSlip(id));
@@ -1556,7 +1606,8 @@ export default {
             try {
                 const itemIds = this.autoDispenseOrder.items
                     .filter((item) => {
-                        const dispensedCount = this.getDispensedProductCount(item);
+                        const dispensedCount =
+                            this.getDispensedProductCount(item);
                         return dispensedCount < item.quantity_ordered;
                     })
                     .map((item) => item.outboundorderitemid);
@@ -1706,7 +1757,8 @@ export default {
                 ) {
                     const dispenseData = findResponse.data.data;
 
-                    let dispenseMessage = "The following products will be auto-dispensed:\n\n";
+                    let dispenseMessage =
+                        "The following products will be auto-dispensed:\n\n";
                     let totalItemsToDispense = 0;
 
                     dispenseData.forEach((item) => {
@@ -1731,7 +1783,9 @@ export default {
                     });
 
                     if (totalItemsToDispense === 0) {
-                        alert("No products available for auto-dispensing at this time.");
+                        alert(
+                            "No products available for auto-dispensing at this time."
+                        );
                         this.processingAutoDispense = false;
                         this.loadingDispenseProducts = false;
                         return;
@@ -1745,12 +1799,16 @@ export default {
                         this.processingAutoDispense = false;
                     }
                 } else {
-                    alert("No matching products found in inventory for auto-dispensing.");
+                    alert(
+                        "No matching products found in inventory for auto-dispensing."
+                    );
                     this.processingAutoDispense = false;
                 }
             } catch (error) {
                 console.error("Error in auto dispense:", error);
-                alert("Error finding products for auto-dispensing. Please try again.");
+                alert(
+                    "Error finding products for auto-dispensing. Please try again."
+                );
                 this.processingAutoDispense = false;
             } finally {
                 this.loadingDispenseProducts = false;

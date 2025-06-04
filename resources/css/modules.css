@@ -20,8 +20,6 @@ table {
 
 th,
 td {
-    min-width: 150px;
-    max-width: 150px;
     padding: 12px 10px;
     border: 1px solid #ddd;
     background-color: white;

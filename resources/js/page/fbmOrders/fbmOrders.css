@@ -1,11 +1,16 @@
 .fbm-order-module th:nth-child(2),
 .fbm-order-module td:nth-child(2) {
-    min-width: 250px;
+    min-width: 300px;
 }
 
 .fbm-order-module th:nth-child(3),
 .fbm-order-module td:nth-child(3) {
-    min-width: 200px;
+    min-width: 400px;
+}
+
+.fbm-order-module th:last-child,
+.fbm-order-module td:last-child {
+    width: 150px;
 }
 
 .fbm-order-module .fbm-tag {
@@ -69,11 +74,6 @@
 .fbm-order-module td {
     white-space: pre-line;
     vertical-align: top;
-}
-
-.fbm-order-module th:last-child,
-.fbm-order-module td:last-child {
-    width: 170px;
 }
 
 .fbm-order-module .status-badge {
@@ -1852,112 +1852,14 @@
     }
 }
 
-.modal.workHistory {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 9999;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: none;
-}
 
-.modal.workHistory.show {
+.modal.workHistory {
     display: flex !important;
     align-items: center;
     justify-content: center;
 }
 
-.modal-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-}
 
-.modal-content {
-    position: relative;
-    background: white;
-    border-radius: 8px;
-    max-width: 90vw;
-    max-height: 90vh;
-    width: 900px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    display: flex;
-    flex-direction: column;
-    z-index: 10000;
-}
-
-.modal-header {
-    background: #2c3e50;
-    color: white;
-    padding: 20px;
-    border-radius: 8px 8px 0 0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.modal-header h2 {
-    margin: 0;
-    font-size: 24px;
-}
-
-.btn-modal-close {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 28px;
-    cursor: pointer;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.btn-modal-close:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-}
-
-.modal-body {
-    padding: 20px;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 200px;
-}
-
-.modal-footer {
-    padding: 15px 20px;
-    border-top: 1px solid #ddd;
-    display: flex;
-    justify-content: flex-end;
-    flex-shrink: 0;
-}
-
-.loading-spinner {
-    text-align: center;
-    padding: 40px;
-    font-size: 18px;
-    color: #666;
-}
-
-.loading-spinner i {
-    font-size: 24px;
-    margin-right: 10px;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
 
 .error-message {
     text-align: center;
@@ -1974,11 +1876,6 @@
     border-radius: 4px;
     margin-left: 10px;
     cursor: pointer;
-}
-
-.work-history-content {
-    max-height: 600px;
-    overflow-y: auto;
 }
 
 .work-history-order {
@@ -2106,17 +2003,13 @@
     font-size: 18px;
 }
 
-.btn {
+.btn-header {
     background: #3498db;
-    color: white;
-    border: none;
-    padding: 8px 16px;
+    border: 1px solid #3498db;
     border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
 }
 
-.btn:hover {
+.btn-header:hover {
     background: #2980b9;
 }
 
@@ -2128,3 +2021,445 @@
     background: #7f8c8d;
 }
 
+/* Shipping Label Modal */
+.modal.shipmentLabel {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.shipmentLabel .modal-content {
+    background-color: white;
+    border-radius: 8px;
+    max-width: 1024px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.shipmentLabel .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    background: transparent;
+}
+
+.shipmentLabel .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.btn.btn-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.shipmentLabel .modal-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow: auto;
+}
+
+.order-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+    gap: 1rem;
+}
+
+.order-section .left-container,
+.order-section .right-container {
+    width: calc(100% / 2);
+    padding: 1rem;
+    border-radius: 8px;
+}
+
+.order-section .left-container {
+    background: #f8f9fa;
+    border: 1px solid #ddd;
+}
+
+.order-section .right-container {
+    background: #fff7ef;
+    border: 1px solid #f0d9c2;
+}
+
+.order-info {
+    height: 100%;
+    width: 100%;
+    font-size: .8rem;
+}
+
+.order-info ul>li>p,
+.order-info ul>li .orderItems-container ul>li {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.order-info ul>li .orderItems-container ul {
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 1px solid #ddd;
+}
+
+.orderItems-container {
+    height: 186px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 1rem;
+}
+
+.orderItems-container .status-Unshipped {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.selected-carrier li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.package-dimensions {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.package-dimensions fieldset {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.package-dimensions fieldset label {
+    min-width: 125px;
+    height: 40px;
+    margin: 0;
+    font-size: .8rem;
+    font-weight: 600;
+    line-height: 40px;
+    text-align: right;
+}
+
+.shipmentLabel .modal-footer {
+    gap: 10px;
+    padding: 1rem 1.5rem;
+}
+
+.shipmentLabel .modal-footer button {
+    background-color: #007bff;
+    border: none;
+    color: white;
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border-radius: 4px;
+    margin: 0;
+}
+
+.shipmentLabel .modal-footer button:hover {
+    background-color: #0056b3;
+}
+
+/* Carrier */
+
+.modal.carrier {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.carrier .modal-content {
+    background-color: white;
+    border-radius: 8px;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.carrier .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+    background: transparent;
+}
+
+.carrier .modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.carrier .modal-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow: auto;
+}
+
+.carrier tbody {
+    font-size: .8rem;
+}
+
+.shipping-details li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+@media (max-width: 767px) {
+
+    .shipmentLabel .modal-content,
+    .carrier .modal-content {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        max-height: 100%;
+        padding: 0;
+        border-radius: 0;
+    }
+
+    .shipmentLabel .modal-header h2,
+    .carrier .modal-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .shipmentLabel .modal-body,
+    .carrier .modal-body {
+        padding: 1rem;
+        gap: 1rem;
+        max-height: calc(95vh - 160px);
+        overflow-y: auto;
+    }
+
+    .order-section {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .order-section .left-container,
+    .order-section .right-container {
+        width: 100%;
+        padding: 0.75rem;
+    }
+
+    .order-info {
+        font-size: 0.85rem;
+    }
+
+    .orderItems-container {
+        height: auto;
+        max-height: 200px;
+    }
+
+    .selected-carrier li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+    }
+
+    .package-dimensions fieldset {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .package-dimensions fieldset label {
+        text-align: left;
+        line-height: 1.2;
+        height: auto;
+        min-width: auto;
+        font-size: 0.85rem;
+    }
+
+    .shipmentLabel .modal-footer {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+    }
+
+    .shipmentLabel .modal-footer button {
+        width: 100%;
+        font-size: 1rem;
+        padding: 0.75rem;
+    }
+
+    .carrier tbody {
+        font-size: 0.9rem;
+    }
+
+    .shipping-details li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+    }
+}
+
+/* Work History Modal */
+.workHistory .modal-content {
+    width: 1920px;
+}
+
+.workHistory .modal-header {
+    height: 60px;
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.workHistory .modal-header h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #333;
+}
+
+.btn-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.btn-modal-close:hover {
+    color: #999;
+}
+
+.first-control fieldset {
+    width: 100%;
+}
+
+.second-control fieldset {
+    min-width: 500px;
+}
+
+
+fieldset label {
+    height: 40px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+fieldset .form-control,
+span.carrier-breakdown {
+    height: 40px;
+}
+
+
+/* Work History */
+.workHistory .modal-body {
+    padding: 20px;
+    padding-top: 0;
+}
+
+.work-history-table {
+    max-height: 450px;
+    overflow-y: auto;
+}
+
+.work-history-table table {
+    font-size: 14px;
+}
+
+.work-history-table .sticky-thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+.work-history-table tr th:first-child,
+.work-history-table tr td:first-child {
+    min-width: 170px;
+}
+
+.work-history-table tr th:nth-child(n+2):nth-child(-n+3),
+.work-history-table tr td:nth-child(n+2):nth-child(-n+3) {
+    min-width: 200px;
+}
+
+.work-history-table tr th:nth-child(n+4):nth-child(-n+5),
+.work-history-table tr td:nth-child(n+4):nth-child(-n+5) {
+    min-width: 190px;
+}
+
+.work-history-table tr th:nth-child(6),
+.work-history-table tr td:nth-child(6),
+.work-history-table tr th:nth-child(2n+7),
+.work-history-table tr td:nth-child(2n+7) {
+    min-width: 140px;
+}
+
+.work-history-table tr th:last-child,
+.work-history-table tr td:last-child {
+    min-width: 100px;
+}
+
+.work-history-table .th-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 5px;
+}
+
+.work-history-table .form-control {
+    width: 120px;
+}
+
+.work-history-row td ul>li p {
+    display: flex;
+    flex-direction: column;
+    white-space: pre;
+    justify-content: flex-start;
+    align-items: stretch;
+}
+
+.work-history-row td ul {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 10px;
+}

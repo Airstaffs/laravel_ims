@@ -143,21 +143,21 @@ if ($currentUser) {
     // Get fresh data from database
     $userId = $currentUser->id;
     $freshUser = \App\Models\User::find($userId);
-    
+
     $mainModule = strtolower($freshUser->main_module ?: '');
-    
+
     // Build sub modules array from database
     $subModules = [];
-    $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
+    $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing',
+                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku',
                       'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
-    
+
     foreach ($moduleColumns as $column) {
         if ($currentUser->{$column} && $column !== $mainModule) {
             $subModules[] = $column;
         }
     }
-    
+
     // Update session with fresh data
     session(['main_module' => $mainModule]);
     session(['sub_modules' => $subModules]);
@@ -1166,7 +1166,7 @@ $modules = [
                 'Production Area': 'productionarea',
                 'Return Scanner': 'returnscanner',
                 'FBM Order': 'fbmorder',
-                'Not Found': 'notfound' 
+                'Not Found': 'notfound'
             };
 
             const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
@@ -1247,8 +1247,8 @@ $modules = [
                     db: 'fbmorder',
                     display: 'FBM Order'
                 },
-                { db: 'notfound', 
-                    display: 'Not Found' 
+                { db: 'notfound',
+                    display: 'Not Found'
                 }
             ];
 
