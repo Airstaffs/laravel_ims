@@ -56,7 +56,7 @@
             <div class="selection-info">
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{ persistentSelectedOrderIds.length > 1 ? 's' : ''
-                }} selected across all pages</span>
+                    }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
                 </button>
@@ -592,33 +592,34 @@
                                                     :key="'modal-dp-' + dpIndex" class="dispensed-product-modal">
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.title || 'N/A' }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.asin || 'N/A' }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.warehouseLocation || 'N/A' }}</span>
+                                                        <span class="dispensed-value">{{
+                                                            dispensedProduct.warehouseLocation ||
+                                                            'N/A' }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.serialNumber }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.serialNumber
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.rtCounter }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.rtCounter
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
-                                                        <span
-                                                            class="dispensed-value">{{ dispensedProduct.FNSKU }}</span>
+                                                        <span class="dispensed-value">{{ dispensedProduct.FNSKU
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -899,7 +900,8 @@
                                                 <li>SKU: <strong>{{ item.platform_sku }}</strong></li>
                                                 <li>Qty: <strong>{{ item.QuantityOrdered }}</strong></li>
                                                 <li>Status: <strong class="badge"
-                                                        :class="'status-' + item.order_status">{{ item.order_status }}</strong>
+                                                        :class="'status-' + item.order_status">{{
+                                                        item.order_status }}</strong>
                                                 </li>
                                                 <li>Condition: <strong>{{ item.ConditionSubtypeId }} -
                                                         {{ item.ConditionId }}</strong></li>
@@ -1190,14 +1192,12 @@
                                         </td>
                                         <td> {{ historyItem.orderInfo.customer_name || 'N/A' }} </td>
                                         <td>
-                                            <div class="items-cell">
-                                                <div v-for="(item, itemIndex) in (historyItem.orderInfo.items || [])"
-                                                    :key="itemIndex" class="item-entry">
-                                                    <div class="item-indicator">|</div>
-                                                </div>
-                                                <div v-if="!historyItem.orderInfo.items || historyItem.orderInfo.items.length === 0"
-                                                    class="item-entry">
-                                                    <div class="item-indicator">|</div>
+                                            <div v-for="(item, itemIndex) in (historyItem.orderInfo.items || [])"
+                                                :key="itemIndex" class="item-entry">
+                                                <div class="item-indicator">
+                                                    {{ item.Title }}<br>
+                                                    {{ item.ASIN }}<br>
+                                                    {{ item.MSKU }}
                                                 </div>
                                             </div>
                                         </td>
@@ -1206,7 +1206,8 @@
                                         <td>
                                             <span
                                                 :class="getCarrierClass(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description)">
-                                                {{ getCarrierText(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description) }}
+                                                {{ getCarrierText(historyItem.orderInfo.carrier ||
+                                                historyItem.orderInfo.carrier_description) }}
                                             </span>
                                         </td>
                                         <td>
@@ -1244,6 +1245,6 @@
 </template>
 
 <script>
-    import fbmorder from "./fbmOrders.js";
-    export default fbmorder;
+import fbmorder from "./fbmOrders.js";
+export default fbmorder;
 </script>

@@ -424,6 +424,7 @@ Route::post('/amzn/fbm-orders/purchase-label/rates', [ShippingLabelController::c
 Route::post('/amzn/fbm-orders/purchase-label/createshipment', [ShippingLabelController::class, 'create_shipment']);
 Route::post('/amzn/fbm-orders/purchase-label/manualshipment', [ShippingLabelController::class, 'manual_shipment']);
 
+Route::match(['get', 'post'], '/fbmorders/fetch-work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
 
 // Automations
 Route::get('/postmaster', function () {
