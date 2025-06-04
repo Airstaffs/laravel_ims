@@ -17,7 +17,7 @@ $credentials = getUPSCredentials($imsv1_connect);
 if ($credentials) {
     $trackingNumber = '9334910571270204784002';
 
-    $resultsheesh = UPS_fetchDetails($row['tracking_number'], $credentials, $imsv2_connect);
+    $resultsheesh = UPS_fetchDetails($trackingNumber, $credentials, $imsv2_connect);
 
     echo "<pre>";
     print_r($resultsheesh);
