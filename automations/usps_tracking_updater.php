@@ -14,7 +14,7 @@ if ($creds) {
 
     $accessToken = getUSPSAccessToken($clientId, $clientSecret);
 
-    $trackingNumber = '9334910571270204784002';
+    $trackingNumber = '1ZK5083X0309539701';
 
     $data = getUSPSTrackingInfo($trackingNumber, $accessToken);
 
