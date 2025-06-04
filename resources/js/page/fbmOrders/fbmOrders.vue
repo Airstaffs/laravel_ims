@@ -56,7 +56,7 @@
             <div class="selection-info">
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{ persistentSelectedOrderIds.length > 1 ? 's' : ''
-                    }} selected across all pages</span>
+                }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
                 </button>
@@ -593,12 +593,12 @@
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -609,17 +609,17 @@
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -901,7 +901,7 @@
                                                 <li>Qty: <strong>{{ item.QuantityOrdered }}</strong></li>
                                                 <li>Status: <strong class="badge"
                                                         :class="'status-' + item.order_status">{{
-                                                        item.order_status }}</strong>
+                                                            item.order_status }}</strong>
                                                 </li>
                                                 <li>Condition: <strong>{{ item.ConditionSubtypeId }} -
                                                         {{ item.ConditionId }}</strong></li>
@@ -1192,14 +1192,13 @@
                                         </td>
                                         <td> {{ historyItem.orderInfo.customer_name || 'N/A' }} </td>
                                         <td>
-                                            <div v-for="(item, itemIndex) in (historyItem.orderInfo.items || [])"
-                                                :key="itemIndex" class="item-entry">
-                                                <div class="item-indicator">
-                                                    {{ item.Title }}<br>
-                                                    {{ item.ASIN }}<br>
-                                                    {{ item.MSKU }}
-                                                </div>
-                                            </div>
+                                            <ul class="list-unstyled m-0"
+                                                v-for="(item, itemIndex) in (historyItem.orderInfo.items || [])"
+                                                :key="itemIndex">
+                                                <li><strong>{{ item.Title }}</strong></li>
+                                                <li>{{ item.ASIN }}</li>
+                                                <li>{{ item.MSKU }}</li>
+                                            </ul>
                                         </td>
                                         <td> {{ historyItem.orderInfo.AmazonOrderId }} </td>
                                         <td> {{ historyItem.orderInfo.trackingid || 'N/A' }} </td>
@@ -1207,7 +1206,7 @@
                                             <span
                                                 :class="getCarrierClass(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description)">
                                                 {{ getCarrierText(historyItem.orderInfo.carrier ||
-                                                historyItem.orderInfo.carrier_description) }}
+                                                    historyItem.orderInfo.carrier_description) }}
                                             </span>
                                         </td>
                                         <td>
@@ -1245,6 +1244,6 @@
 </template>
 
 <script>
-import fbmorder from "./fbmOrders.js";
-export default fbmorder;
+    import fbmorder from "./fbmOrders.js";
+    export default fbmorder;
 </script>

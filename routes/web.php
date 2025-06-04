@@ -170,9 +170,9 @@ Route::get('/apis/ebay-login', action: function () {
     $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e'; // Replace with your client ID
     $redirectUrl = 'https://ims.tecniquality.com/Admin/modules/orders/callback.php'; // Replace with your redirect URL
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
-    
+
     $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
-    
+
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
 
@@ -245,9 +245,9 @@ Route::get('/apis/ebay-login', action: function () {
     $clientId = 'Christia-LaravelI-SBX-8f72598d8-73053ea8'; // Replace with your client ID
     $redirectUrl = 'https://ims.tecniquality.com/Admin/modules/orders/callback.php'; // Replace with your redirect URL
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
-    
+
     $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
-    
+
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
 
@@ -280,7 +280,7 @@ Route::get('/csrf-token', function () {
 // Session management routes
 Route::get('/keep-alive', [App\Http\Controllers\UserSessionController::class, 'keepAlive'])
     ->middleware('web');
-    
+
 Route::get('/csrf-token', [App\Http\Controllers\UserSessionController::class, 'csrfToken'])
     ->middleware('web');
 
@@ -296,10 +296,10 @@ Route::prefix('api/stockroom')->group(function () {
     Route::post('print-label', [StockroomController::class, 'printLabel']);
     Route::get('stores', [StockroomController::class, 'getStores']);
 
-       // New routes for Process functionality
-       Route::post('/process-items', [StockroomController::class, 'processItems']);
-       Route::post('merge-items', [StockroomController::class, 'mergeItems']);
-       Route::post('update-location', [StockroomController::class, 'updateLocation']);
+    // New routes for Process functionality
+    Route::post('/process-items', [StockroomController::class, 'processItems']);
+    Route::post('merge-items', [StockroomController::class, 'mergeItems']);
+    Route::post('update-location', [StockroomController::class, 'updateLocation']);
 });
 
 // Routes for Unreceived scanner
@@ -314,7 +314,7 @@ Route::prefix('api/unreceived')->group(function () {
 // Routes for Received scanner 
 Route::prefix('api/received')->group(function () {
     Route::get('products', [ReceivedController::class, 'index']);
-    Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);  
+    Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
     Route::post('validate-pcn', [ReceivedController::class, 'validatePcn']); // <-- Now points
     Route::post('process-scan', [ReceivedController::class, 'processScan']);
 });
@@ -346,7 +346,7 @@ Route::prefix('api/returns')->group(function () {
     Route::get('products', [ReturnScannerController::class, 'index']);
     Route::get('stores', [ReturnScannerController::class, 'getStores']);
     Route::get('check-serial', [ReturnScannerController::class, 'checkSerial']);
-    
+
     // POST routes - REMOVE the withoutMiddleware call to make it consistent with Stockroom
     Route::post('process-scan', [ReturnScannerController::class, 'processScan']);
 });
@@ -354,10 +354,11 @@ Route::prefix('api/returns')->group(function () {
 
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {
-Route::get('products', [LabelingController::class, 'index']);});
+    Route::get('products', [LabelingController::class, 'index']);
+});
 Route::post('/api/labeling/move-to-validation', [LabelingController::class, 'moveToValidation']);
 Route::post('/api/labeling/move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
-Route::get('/test-labeling-controller', function() {
+Route::get('/test-labeling-controller', function () {
     return response()->json([
         'message' => 'LabelingController is accessible',
         'timestamp' => now()
@@ -370,10 +371,10 @@ Route::post('/test-move-stockroom', [LabelingController::class, 'moveToStockroom
 
 // Routes for Validation Function 
 Route::prefix('api/validation')->group(function () {
-Route::get('products', [ValidationController::class, 'index']);
-Route::post('move-to-stockroom', [ValidationController::class, 'moveToStockroom']);
-Route::post('move-to-labeling', [ValidationController::class, 'moveToLabeling']);
-Route::post('validate', [ValidationController::class, 'validate']);
+    Route::get('products', [ValidationController::class, 'index']);
+    Route::post('move-to-stockroom', [ValidationController::class, 'moveToStockroom']);
+    Route::post('move-to-labeling', [ValidationController::class, 'moveToLabeling']);
+    Route::post('validate', [ValidationController::class, 'validate']);
 
 });
 
@@ -428,7 +429,18 @@ Route::match(['get', 'post'], '/fbmorders/fetch-work-history', [WorkhistoryContr
 
 // Automations
 Route::get('/postmaster', function () {
-    return include base_path('app/automations/postmaster.php');
+    return include base_path('automations/postmaster.php');
 });
 
+Route::get('/usps_tracking', function () {
+    ob_start();
+    include base_path('automations/usps_tracking_updater.php');
+    return response(ob_get_clean());
+});
+
+Route::get('/ups_tracking', function () {
+    ob_start();
+    return include base_path('automations/ups_tracking_updater.php');
+    return response(ob_get_clean());
+});
 
