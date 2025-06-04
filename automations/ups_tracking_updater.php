@@ -20,7 +20,7 @@ if ($credentials) {
     $resultsheesh = UPS_fetchDetails($row['tracking_number'], $credentials, $imsv2_connect);
 
     echo "<pre>";
-    print_r($data);
+    print_r($resultsheesh);
     echo "</pre>";
 } else {
     echo "USPS API credentials not found.";
