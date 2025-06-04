@@ -4,7 +4,7 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 
-$servertype1 = "ims";
+$servertype1 = "hostinger";
 $imsv1_connect = dbDatabase($servertype1);
 
 $servertype2 = "laravel_ims";
