@@ -99,6 +99,5 @@ class USPSController extends Controller
             Log::error('USPS Tracking Error', ['exception' => $e->getMessage()]);
             return response()->json(['error' => 'An unexpected error occurred. Please try again later.'], 500);
         }
-
     }
 }
