@@ -2242,96 +2242,9 @@
     align-items: center;
 }
 
-@media (max-width: 767px) {
-
-    .shipmentLabel .modal-content,
-    .carrier .modal-content {
-        width: 100%;
-        max-width: 100%;
-        height: 100%;
-        max-height: 100%;
-        padding: 0;
-        border-radius: 0;
-    }
-
-    .shipmentLabel .modal-header h2,
-    .carrier .modal-header h2 {
-        font-size: 1.1rem;
-    }
-
-    .shipmentLabel .modal-body,
-    .carrier .modal-body {
-        padding: 1rem;
-        gap: 1rem;
-        max-height: calc(95vh - 160px);
-        overflow-y: auto;
-    }
-
-    .order-section {
-        flex-direction: column;
-        gap: 1rem;
-    }
-
-    .order-section .left-container,
-    .order-section .right-container {
-        width: 100%;
-        padding: 0.75rem;
-    }
-
-    .order-info {
-        font-size: 0.85rem;
-    }
-
-    .orderItems-container {
-        height: auto;
-        max-height: 200px;
-    }
-
-    .selected-carrier li {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.3rem;
-    }
-
-    .package-dimensions fieldset {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .package-dimensions fieldset label {
-        text-align: left;
-        line-height: 1.2;
-        height: auto;
-        min-width: auto;
-        font-size: 0.85rem;
-    }
-
-    .shipmentLabel .modal-footer {
-        flex-direction: column;
-        align-items: stretch;
-        padding: 1rem;
-    }
-
-    .shipmentLabel .modal-footer button {
-        width: 100%;
-        font-size: 1rem;
-        padding: 0.75rem;
-    }
-
-    .carrier tbody {
-        font-size: 0.9rem;
-    }
-
-    .shipping-details li {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 0.2rem;
-    }
-}
-
 /* Work History Modal */
 .workHistory .modal-content {
-    width: 1920px;
+    max-width: 1680px;
 }
 
 .workHistory .modal-header {
@@ -2363,6 +2276,22 @@
     color: #999;
 }
 
+.workHistory .modal-controls {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 20px;
+}
+
+.first-control,
+.second-control {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
 .first-control fieldset {
     width: 100%;
 }
@@ -2371,6 +2300,12 @@
     min-width: 500px;
 }
 
+.carrier-breakdown {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
 
 fieldset label {
     height: 40px;
@@ -2462,4 +2397,130 @@ span.carrier-breakdown {
     justify-content: flex-start;
     align-items: stretch;
     gap: 10px;
+}
+
+@media (max-width: 767px) {
+
+    .shipmentLabel .modal-content,
+    .carrier .modal-content {
+        width: 100%;
+        max-width: 100%;
+        height: 100%;
+        max-height: 100%;
+        padding: 0;
+        border-radius: 0;
+    }
+
+    .shipmentLabel .modal-header h2,
+    .carrier .modal-header h2 {
+        font-size: 1.1rem;
+    }
+
+    .shipmentLabel .modal-body,
+    .carrier .modal-body {
+        padding: 1rem;
+        gap: 1rem;
+        max-height: calc(95vh - 160px);
+        overflow-y: auto;
+    }
+
+    .order-section {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .order-section .left-container,
+    .order-section .right-container {
+        width: 100%;
+        padding: 0.75rem;
+    }
+
+    .order-info {
+        font-size: 0.85rem;
+    }
+
+    .orderItems-container {
+        height: auto;
+        max-height: 200px;
+    }
+
+    .selected-carrier li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.3rem;
+    }
+
+    .package-dimensions fieldset {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .package-dimensions fieldset label {
+        text-align: left;
+        line-height: 1.2;
+        height: auto;
+        min-width: auto;
+        font-size: 0.85rem;
+    }
+
+    .shipmentLabel .modal-footer {
+        flex-direction: column;
+        align-items: stretch;
+        padding: 1rem;
+    }
+
+    .shipmentLabel .modal-footer button {
+        width: 100%;
+        font-size: 1rem;
+        padding: 0.75rem;
+    }
+
+    .carrier tbody {
+        font-size: 0.9rem;
+    }
+
+    .shipping-details li {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+    }
+
+    .workHistory {
+        background: #FFF;
+    }
+
+    .btn.btn-toggle {
+        width: 40px;
+        height: 40px;
+        background: #f8f8f8;
+        border-radius: 8px;
+        border: 1px solid #ccc;
+    }
+
+    .first-control {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .first-control fieldset {
+        width: calc(100% / 2 - 5px);
+    }
+
+    .first-control fieldset:first-child {
+        width: 100%;
+    }
+
+    .second-control {
+        flex-wrap: wrap;
+    }
+
+    .second-control fieldset,
+    .second-control button {
+        min-width: 100%;
+        width: 100%;
+    }
+
+    .workHistory .card-body>div:nth-child(-n+4) {
+        display: unset;
+    }
 }

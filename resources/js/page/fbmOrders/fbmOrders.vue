@@ -56,7 +56,7 @@
             <div class="selection-info">
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{ persistentSelectedOrderIds.length > 1 ? 's' : ''
-                }} selected across all pages</span>
+                    }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
                 </button>
@@ -1056,8 +1056,13 @@
                     <button class="btn btn-modal-close" @click="closeWorkHistoryModal">&times;</button>
                 </div>
 
-                <div class="modal-controls d-flex flex-column align-items-stretch gap-2 p-3">
-                    <form class="first-control d-flex justify-content-center align-items-center gap-2">
+                <div class="modal-controls">
+                    <!-- Mobile Toggle Button -->
+                    <button class="btn btn-toggle d-md-none" @click="toggleFilters">
+                        <i class="fas fa-sliders-h"></i>
+                    </button>
+
+                    <form class="first-control" v-show="showFilters">
                         <fieldset>
                             <label>Sort By: </label>
                             <select v-model="workHistoryFilters.sortBy" @change="fetchWorkHistory" class="form-control">
@@ -1100,12 +1105,12 @@
                         </fieldset>
                     </form>
 
-                    <form class="second-control d-flex justify-content-center align-items-center gap-2">
+                    <form class="second-control" v-show="showFilters">
                         <fieldset>
                             <label><span>Total Orders:</span> <span>{{ workHistoryStats.totalOrders }}</span></label>
                             <input type="text" v-model="workHistoryFilters.searchQuery" @input="fetchWorkHistory"
                                 placeholder="Search Order Id or ..." class="search-input form-control">
-                            <span class="carrier-breakdown d-flex justify-content-start align-items-center gap-2">
+                            <span class="carrier-breakdown">
                                 <i class="fas fa-truck"></i> Carrier Breakdown
                             </span>
                         </fieldset>
@@ -1128,7 +1133,7 @@
                     </div>
                     <div v-else-if="workHistory && workHistory.length > 0" class="work-history-content">
                         <!-- Exact Table Design Match -->
-                        <div class="work-history-table">
+                        <div class="work-history-table d-none d-md-block">
                             <table>
                                 <thead class="sticky-thead">
                                     <tr>
@@ -1231,6 +1236,67 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+
+                        <div class="work-history-mobile d-block d-md-none">
+                            <div class="card mb-3" v-for="(historyItem, index) in workHistory" :key="index">
+                                <div class="card-body">
+                                    <!-- Purchase Dates -->
+                                    <p class="mb-1"><strong>Purchase Date:</strong>
+                                        {{ getMainDate(historyItem.orderInfo) }}</p>
+                                    <p class="mb-2"><strong>Label Purchase Date:</strong>
+                                        {{ getSubDate(historyItem.orderInfo) }}
+                                    </p>
+
+                                    <!-- Customer Name -->
+                                    <p class="mb-2"><strong>Customer:</strong>
+                                        {{ historyItem.orderInfo.customer_name || 'N/A' }}
+                                    </p>
+
+                                    <!-- Ordered Items -->
+                                    <div v-for="(item, itemIndex) in (historyItem.orderInfo.items || [])"
+                                        :key="itemIndex" class="mb-2">
+                                        <p><strong>Item:</strong> {{ item.Title }}</p>
+                                        <p><strong>ASIN:</strong> {{ item.ASIN }}</p>
+                                        <p><strong>MSKU:</strong> {{ item.MSKU }}</p>
+                                    </div>
+
+                                    <!-- Amazon Order ID -->
+                                    <p class="mb-2"><strong>Order ID:</strong> {{ historyItem.orderInfo.AmazonOrderId }}
+                                    </p>
+
+                                    <!-- Tracking and Carrier -->
+                                    <p class="mb-2"><strong>Tracking ID:</strong>
+                                        {{ historyItem.orderInfo.trackingid || 'N/A' }}
+                                    </p>
+                                    <p class="mb-2">
+                                        <strong>Carrier:</strong>
+                                        <span
+                                            :class="getCarrierClass(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description)">
+                                            {{ getCarrierText(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description) }}
+                                        </span>
+                                    </p>
+
+                                    <!-- Delivery Info -->
+                                    <p class="mb-1"><strong>Date Delivered:</strong>
+                                        {{ getDeliveryStatus(historyItem.orderInfo) }}
+                                    </p>
+                                    <p class="mb-2"><strong>Date Ship:</strong>
+                                        {{ getDeliverySubDate(historyItem.orderInfo) }}
+                                    </p>
+
+                                    <!-- FNSKU & Store -->
+                                    <p class="mb-2"><strong>Dispensed FNSKU:</strong>
+                                        {{ getDispensedStatus(historyItem.orderInfo) }}
+                                    </p>
+                                    <p class="mb-2"><strong>Store:</strong> {{ historyItem.orderInfo.strname || 'N/A' }}
+                                    </p>
+
+                                    <!-- Remarks -->
+                                    <p class="mb-0"><strong>Remarks:</strong> {{ getRemarks(historyItem.orderInfo) }}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 

@@ -137,35 +137,33 @@
         <?php
         use Illuminate\Support\Facades\Auth;
 
-// Get fresh user data instead of relying on session
-$currentUser = Auth::user();
-if ($currentUser) {
-    // Get fresh data from database
-    $userId = $currentUser->id;
-    $freshUser = \App\Models\User::find($userId);
+        // Get fresh user data instead of relying on session
+        $currentUser = Auth::user();
+        if ($currentUser) {
+            // Get fresh data from database
+            $userId = $currentUser->id;
+            $freshUser = \App\Models\User::find($userId);
 
-    $mainModule = strtolower($freshUser->main_module ?: '');
+            $mainModule = strtolower($freshUser->main_module ?: '');
 
-    // Build sub modules array from database
-    $subModules = [];
-    $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing',
-                      'cleaning', 'packing', 'stockroom', 'validation', 'fnsku',
-                      'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
+            // Build sub modules array from database
+            $subModules = [];
+            $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
 
-    foreach ($moduleColumns as $column) {
-        if ($currentUser->{$column} && $column !== $mainModule) {
-            $subModules[] = $column;
+            foreach ($moduleColumns as $column) {
+                if ($currentUser->{$column} && $column !== $mainModule) {
+                    $subModules[] = $column;
+                }
+            }
+
+            // Update session with fresh data
+            session(['main_module' => $mainModule]);
+            session(['sub_modules' => $subModules]);
+        } else {
+            // Fallback to session if no user
+            $mainModule = strtolower(session('main_module', ''));
+            $subModules = array_map('strtolower', session('sub_modules', []));
         }
-    }
-
-    // Update session with fresh data
-    session(['main_module' => $mainModule]);
-    session(['sub_modules' => $subModules]);
-} else {
-    // Fallback to session if no user
-    $mainModule = strtolower(session('main_module', ''));
-    $subModules = array_map('strtolower', session('sub_modules', []));
-}
 
         // Remove main module from sub modules if it exists
         $subModules = array_filter($subModules, function ($module) use ($mainModule) {
@@ -189,24 +187,24 @@ if ($currentUser) {
             return $module === $mainModule || in_array($module, $subModules);
         }
 
-$modules = [
-    'order' => 'Order',
-    'unreceived' => 'Unreceived',
-    'receiving' => 'Received',
-    'labeling' => 'Labeling',
-    'validation' => 'Validation',
-    'testing' => 'Testing',
-    'cleaning' => 'Cleaning',
-    'packing' => 'Packing',
-    'fnsku' => 'Fnsku',
-    'stockroom' => 'Stockroom',
-    'productionarea' => 'Production Area',
-    'fbashipmentinbound' => 'FBA Inbound Shipment',
-    'returnscanner' => 'Return Scanner',
-    'fbmorder' => 'FBM Order',
-    'notfound' => 'Not Found',
-];
-?>
+        $modules = [
+            'order' => 'Order',
+            'unreceived' => 'Unreceived',
+            'receiving' => 'Received',
+            'labeling' => 'Labeling',
+            'validation' => 'Validation',
+            'testing' => 'Testing',
+            'cleaning' => 'Cleaning',
+            'packing' => 'Packing',
+            'fnsku' => 'Fnsku',
+            'stockroom' => 'Stockroom',
+            'productionarea' => 'Production Area',
+            'fbashipmentinbound' => 'FBA Inbound Shipment',
+            'returnscanner' => 'Return Scanner',
+            'fbmorder' => 'FBM Order',
+            'notfound' => 'Not Found',
+        ];
+        ?>
         <script>
             // Make sure these are set properly with filtering
             window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
@@ -508,7 +506,7 @@ $modules = [
                                     </select>
                                 </fieldset>
 
-                                <div class="d-flex justify-content-between align-items-center">
+                                <div class="d-flex justify-content-between align-items-center gap-2">
                                     <button type="submit"
                                         class="btn btn-primary w-100 text-white justify-content-center fw-bold">Add
                                         User</button>
@@ -535,8 +533,8 @@ $modules = [
                                 <button class="btn btn-process" id="addStoreButton">Add Store</button>
                             </div>
                         </div>
-                        <!-- Store List Tab Content END-->
 
+                        <!-- User Privileges -->
                         <div class="tab-pane fade" id="privilege" role="tabpanel" aria-labelledby="privilege-tab">
                             <h5>User Privileges</h5>
                             <form id="privilegeForm">
@@ -576,6 +574,7 @@ $modules = [
                             </form>
                         </div>
 
+                        <!-- User Time Record -->
                         <div class="tab-pane fade" id="usertimerecord" role="tabpanel"
                             aria-labelledby="usertimerecord-tab">
                             <h3 class="text-center">User Time Record</h3>
@@ -670,7 +669,7 @@ $modules = [
                                 </table>
                             </div>
 
-                            <div class="container d-block d-md-none" id="userlogsCardView">
+                            <div class="d-block d-md-none" id="userlogsCardView">
                             </div>
                         </div>
 
@@ -727,14 +726,24 @@ $modules = [
 
                                                 // Table row (desktop)
                                                 tbody.innerHTML += `
-                                                    <tr class="tr-notes">
-                                                        <td class="td-notes">
-                                                            ${formattedDate}<br>
-                                                            <small class="text-muted-notes">IN: ${formatTime(timeIn)}</small><br>
-                                                            <small class="text-muted-notes">OUT: ${timeOutStr}</small>
+                                                    <tr>
+                                                        <td>
+                                                            <ul class="list-unstyled m-0">
+                                                                <li>
+                                                                    <strong>${formattedDate}</strong>
+                                                                </li>
+                                                                <li>
+                                                                    <strong>IN: </strong>
+                                                                    <span>${formatTime(timeIn)}</span>
+                                                                </li>
+                                                                <li>
+                                                                    <strong>OUT: </strong>
+                                                                    <span>${timeOutStr}</span>
+                                                                </li>
+                                                            </ul>
                                                         </td>
-                                                        <td class="td-notes">${totalHours}</td>
-                                                        <td class="td-notes notes-column">${notes}</td>
+                                                        <td> ${totalHours} </td>
+                                                        <td> ${notes} </td>
                                                     </tr>
                                                 `;
 
@@ -1182,12 +1191,12 @@ $modules = [
                 const isChecked = data.main_module === dbColumnName ? 'checked' : '';
 
                 return `
-                                            <div class="col-4 form-check mb-2 px-10">
-                                                <input class="form-check-input" type="radio" name="main_module"
-                                                       value="${module}" ${isChecked} required>
-                                                <label class="form-check-label">${module}</label>
-                                            </div>
-                                        `;
+                                                    <div class="col-4 form-check mb-2 px-10">
+                                                        <input class="form-check-input" type="radio" name="main_module"
+                                                               value="${module}" ${isChecked} required>
+                                                        <label class="form-check-label">${module}</label>
+                                                    </div>
+                                                `;
             }).join('')}
         </div>
     `;
@@ -1247,7 +1256,8 @@ $modules = [
                     db: 'fbmorder',
                     display: 'FBM Order'
                 },
-                { db: 'notfound',
+                {
+                    db: 'notfound',
                     display: 'Not Found'
                 }
             ];
@@ -1256,13 +1266,13 @@ $modules = [
         <h6>Sub-Modules</h6>
         <div class="row mb-3">
             ${subModules.map(module => `
-                                        <div class="col-4 form-check mb-2 px-10">
-                                            <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                                                   value="${module.db}"
-                                                   ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
-                                            <label class="form-check-label">${module.display}</label>
-                                        </div>
-                                    `).join('')}
+                                                <div class="col-4 form-check mb-2 px-10">
+                                                    <input class="form-check-input" type="checkbox" name="sub_modules[]"
+                                                           value="${module.db}"
+                                                           ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
+                                                    <label class="form-check-label">${module.display}</label>
+                                                </div>
+                                            `).join('')}
         </div>
 `;
             document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
@@ -1274,12 +1284,12 @@ $modules = [
     <div class="row mb-3">
         ${data.privileges_stores && data.privileges_stores.length > 0
             ? data.privileges_stores.map(store => `
-         <div class="col-4 form-check mb-2">
-            <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-             <label class="form-check-label">${store.store_name}</label>
-              </div>
-               `).join('')
+                 <div class="col-4 form-check mb-2">
+                    <input class="form-check-input" type="checkbox" name="privileges_stores[]"
+                        value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
+                     <label class="form-check-label">${store.store_name}</label>
+                      </div>
+                       `).join('')
             : '<p>No stores available</p>'
         }
     </div>
@@ -1364,7 +1374,7 @@ $modules = [
                 'returnscanner': 'Return Scanner',
                 'fbashipmentinbound': 'FBA Inbound Shipment',
                 'fbmorder': 'FBM Order',
-                 'notfound': 'Not Found' // Add this mapping
+                'notfound': 'Not Found' // Add this mapping
             };
 
             // Use provided modules or default modules
@@ -1668,7 +1678,7 @@ $modules = [
     </script>
 
     <!-- PROFILE Modal -->
-    <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel"
+    <div class="modal profile fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel"
         aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -1758,74 +1768,76 @@ $modules = [
                             </div>
 
                             <!-- Attendance Table -->
-                            <table class="table table-bordered table-hover desktop">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>Time In</th>
-                                        <th>Time Out</th>
-                                        <th>Computed Hours</th>
-                                        <th>Notes</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach ($employeeClocksThisweek as $clockwk)
-                                        <tr data-bs-toggle="tooltip" data-bs-placement="top"
-                                            title="{{ $clockwk->Notes }}">
-
-                                            <!-- Time In -->
-                                            <td>
-                                                <div
-                                                    class="d-flex flex-column justify-content-start align-items-center gap-2">
-                                                    <span>{{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}</span>
-                                                    <sup><b> {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}
-                                                        </b></sup>
-                                                </div>
-                                            </td>
-
-                                            <!-- Time Out -->
-                                            <td>
-                                                <div
-                                                    class="d-flex flex-column justify-content-start align-items-center gap-2">
-                                                    @if ($clockwk->TimeOut)
-                                                        <span>{{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('h:i A') }}</span>
-                                                        <sup><b> {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('M d, Y') }}
-                                                            </b></sup>
-                                                    @else
-                                                        <span class="badge badge-danger">Not yet timed out</span>
-                                                    @endif
-                                                </div>
-                                            </td>
-
-                                            <!-- Computed Hours -->
-                                            <td>
-                                                <div id="computed-hours-{{ $clockwk->ID }}"
-                                                    class="d-flex flex-column justify-content-start align-items-center gap-2">
-                                                    <sup><b> Not yet calculated </b></sup>
-                                                </div>
-                                            </td>
-
-                                            <!-- Update Button -->
-                                            <td style="display:none;">
-                                                <button class="btn btn-primary update-computed-hours d-none"
-                                                    data-id="{{ $clockwk->ID }}"
-                                                    data-timein="{{ $clockwk->TimeIn }}"
-                                                    data-timeout="{{ $clockwk->TimeOut }}">
-                                                    Update
-                                                </button>
-                                            </td>
-                                            <td>
-                                                <div class="d-flex justify-content-center align-items-center">
-                                                    <button class="btn btn-sm btn-primary m-0 text-white"
-                                                        data-bs-toggle="modal" data-bs-target="#editNotesModal"
-                                                        onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
+                            <div class="attendance-table">
+                                <table class="table table-bordered table-hover desktop">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Time In</th>
+                                            <th>Time Out</th>
+                                            <th>Computed Hours</th>
+                                            <th>Notes</th>
                                         </tr>
-                                    @endforeach
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($employeeClocksThisweek as $clockwk)
+                                            <tr data-bs-toggle="tooltip" data-bs-placement="top"
+                                                title="{{ $clockwk->Notes }}">
+
+                                                <!-- Time In -->
+                                                <td>
+                                                    <div
+                                                        class="d-flex flex-column justify-content-start align-items-center gap-2">
+                                                        <span>{{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}</span>
+                                                        <sup><b> {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}
+                                                            </b></sup>
+                                                    </div>
+                                                </td>
+
+                                                <!-- Time Out -->
+                                                <td>
+                                                    <div
+                                                        class="d-flex flex-column justify-content-start align-items-center gap-2">
+                                                        @if ($clockwk->TimeOut)
+                                                            <span>{{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('h:i A') }}</span>
+                                                            <sup><b> {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('M d, Y') }}
+                                                                </b></sup>
+                                                        @else
+                                                            <span class="badge badge-danger">Not yet timed out</span>
+                                                        @endif
+                                                    </div>
+                                                </td>
+
+                                                <!-- Computed Hours -->
+                                                <td>
+                                                    <div id="computed-hours-{{ $clockwk->ID }}"
+                                                        class="d-flex flex-column justify-content-start align-items-center gap-2">
+                                                        <sup><b> Not yet calculated </b></sup>
+                                                    </div>
+                                                </td>
+
+                                                <!-- Update Button -->
+                                                <td style="display:none;">
+                                                    <button class="btn btn-primary update-computed-hours d-none"
+                                                        data-id="{{ $clockwk->ID }}"
+                                                        data-timein="{{ $clockwk->TimeIn }}"
+                                                        data-timeout="{{ $clockwk->TimeOut }}">
+                                                        Update
+                                                    </button>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex justify-content-center align-items-center">
+                                                        <button class="btn btn-sm btn-primary m-0 text-white"
+                                                            data-bs-toggle="modal" data-bs-target="#editNotesModal"
+                                                            onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
 
                             <!-- Mobile Attendance -->
                             <div class="container mobile">
@@ -2226,7 +2238,7 @@ $modules = [
                         newStoreItem.classList.add('list-group-item');
                         newStoreItem.innerHTML = `
                     ${response.data.store.storename}
-                    <div class="d-flex justify-content-end">
+                    <div class="d-flex justify-content-end gap-2">
                         <button class="btn btn-secondary btn-sm edit-store-btn"
                                 data-id="${response.data.store.store_id}"
                                 data-name="${response.data.store.storename}">
@@ -2284,7 +2296,7 @@ $modules = [
                         listItem.classList.add('list-group-item');
                         listItem.innerHTML = `
                     ${store.storename}
-                    <div class="d-flex justify-content-end">
+                    <div class="d-flex justify-content-end gap-2">
                         <button class="btn btn-secondary btn-sm edit-store-btn"
                                 data-id="${store.store_id}"
                                 data-name="${store.storename}">
