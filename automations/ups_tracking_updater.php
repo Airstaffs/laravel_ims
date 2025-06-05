@@ -15,7 +15,7 @@ $refresher = ups_refresher($imsv1_connect);
 $credentials = getUPSCredentials($imsv1_connect);
 
 if ($credentials) {
-    $trackingNumber = '9334910571270204784002';
+    $trackingNumber = '1ZK5083X0318006920';
 
     $resultsheesh = UPS_fetchDetails($trackingNumber, $credentials, $imsv2_connect);
 
