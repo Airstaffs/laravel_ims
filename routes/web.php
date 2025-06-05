@@ -395,9 +395,9 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/mark-not-found', [FbmOrderController::class, 'markProductNotFound']);
     Route::get('/shipping-label-selected-items', [FbmOrderController::class, 'shippinglabelselecteditem']);
 
-    Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
-    Route::post('/work-history-export', [WorkhistoryController::class, 'exportWorkHistory']);
-    Route::post('/authorized-outboundorder-users', [WorkhistoryController::class, 'fbmorderauthorizedusers']);
+   Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
+   Route::post('/export-work-history', [WorkhistoryController::class, 'exportWorkHistory']); 
+
 });
 
 

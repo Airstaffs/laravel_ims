@@ -320,170 +320,163 @@ export default {
         },
 
         // Export work history functionality
-        async exportWorkHistory() {
-            try {
-                // Check if date filters are applied
-                const isDateFiltered =
-                    this.workHistoryFilters.startDate &&
-                    this.workHistoryFilters.endDate;
-                const hasOtherFilters =
-                    this.workHistoryFilters.searchQuery ||
-                    this.workHistoryFilters.carrierFilter ||
-                    this.workHistoryFilters.storeFilter ||
-                    this.workHistoryFilters.userId !== "all" ||
-                    this.workHistoryFilters.lateOrders;
+    async exportWorkHistory() {
+    try {
+        // Check if date filters are applied
+        const isDateFiltered = this.workHistoryFilters.startDate && this.workHistoryFilters.endDate;
 
-                // Build confirmation message
-                let confirmMessage = "Export Work History to CSV\n\n";
-                confirmMessage += "Export Details:\n";
+        // Build confirmation message
+        let confirmMessage = 'Export Work History to Excel\n\n';
+        confirmMessage += 'Export Details:\n';
 
-                if (isDateFiltered) {
-                    const startDate = new Date(
-                        this.workHistoryFilters.startDate
-                    ).toLocaleDateString();
-                    const endDate = new Date(
-                        this.workHistoryFilters.endDate
-                    ).toLocaleDateString();
-                    confirmMessage += `📅 Date Range: ${startDate} to ${endDate}\n`;
-                } else {
-                    confirmMessage +=
-                        "📅 Date Range: All available data (no date filter applied)\n";
-                }
+        if (isDateFiltered) {
+            const startDate = new Date(this.workHistoryFilters.startDate).toLocaleDateString();
+            const endDate = new Date(this.workHistoryFilters.endDate).toLocaleDateString();
+            confirmMessage += `📅 Date Range: ${startDate} to ${endDate}\n`;
+        } else {
+            confirmMessage += '📅 Date Range: All available data (no date filter applied)\n';
+        }
 
-                if (this.workHistoryFilters.userId !== "all") {
-                    confirmMessage += `👤 User: ${this.workHistoryFilters.userId}\n`;
-                }
+        if (this.workHistoryFilters.userId !== 'all') {
+            confirmMessage += `👤 User: ${this.workHistoryFilters.userId}\n`;
+        }
 
-                if (this.workHistoryFilters.searchQuery) {
-                    confirmMessage += `🔍 Search: "${this.workHistoryFilters.searchQuery}"\n`;
-                }
+        if (this.workHistoryFilters.searchQuery) {
+            confirmMessage += `🔍 Search: "${this.workHistoryFilters.searchQuery}"\n`;
+        }
 
-                if (this.workHistoryFilters.carrierFilter) {
-                    confirmMessage += `🚚 Carrier: ${this.workHistoryFilters.carrierFilter}\n`;
-                }
+        if (this.workHistoryFilters.carrierFilter) {
+            confirmMessage += `🚚 Carrier: ${this.workHistoryFilters.carrierFilter}\n`;
+        }
 
-                if (this.workHistoryFilters.storeFilter) {
-                    confirmMessage += `🏪 Store: ${this.workHistoryFilters.storeFilter}\n`;
-                }
+        if (this.workHistoryFilters.storeFilter) {
+            confirmMessage += `🏪 Store: ${this.workHistoryFilters.storeFilter}\n`;
+        }
 
-                if (this.workHistoryFilters.lateOrders) {
-                    confirmMessage += `⏰ Late Orders: ${this.workHistoryFilters.lateOrders}\n`;
-                }
+        if (this.workHistoryFilters.lateOrders) {
+            confirmMessage += `⏰ Late Orders: ${this.workHistoryFilters.lateOrders}\n`;
+        }
 
-                confirmMessage += "\nColumns to be exported:\n";
-                confirmMessage += "• Purchase Date\n";
-                confirmMessage += "• Label Purchase Date\n";
-                confirmMessage += "• Customer Name\n";
-                confirmMessage += "• Ordered Items (ASIN / Title / MSKU)\n";
-                confirmMessage += "• Amazon Order ID\n";
-                confirmMessage += "• Tracking ID\n";
-                confirmMessage += "• Carrier\n";
-                confirmMessage += "• Date Delivered\n";
-                confirmMessage += "• Dispensed FNSKU\n";
-                confirmMessage += "• Store Name\n";
-                confirmMessage += "• Remarks\n";
+        confirmMessage += '\nProceed with export?';
 
-                if (this.workHistoryStats.totalOrders > 0) {
-                    confirmMessage += `\nEstimated records: ${this.workHistoryStats.totalOrders} orders\n`;
-                }
+        // Show confirmation dialog
+        if (!confirm(confirmMessage)) {
+            return;
+        }
 
-                confirmMessage += "\nProceed with export?";
+        // Show loading state
+        const exportButton = document.querySelector('.btn-export, .btn-primary');
+        const originalText = exportButton ? exportButton.innerHTML : '';
+        if (exportButton) {
+            exportButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Exporting...';
+            exportButton.disabled = true;
+        }
 
-                // Show confirmation dialog
-                if (!confirm(confirmMessage)) {
-                    return;
-                }
+        // ✅ FIXED: Ensure all values are proper strings or empty strings
+        const payload = {
+            user_id: String(this.workHistoryFilters.userId || 'all'),
+            start_date: this.workHistoryFilters.startDate ? String(this.formatDateForAPI(this.workHistoryFilters.startDate)) : '',
+            end_date: this.workHistoryFilters.endDate ? String(this.formatDateForAPI(this.workHistoryFilters.endDate)) : '',
+            sort_by: String(this.workHistoryFilters.sortBy || 'purchase_date'),
+            sort_order: String('DESC'),
+            search_query: String(this.workHistoryFilters.searchQuery || ''),
+            late_orders: String(this.workHistoryFilters.lateOrders || ''),
+            carrier_filter: String(this.workHistoryFilters.carrierFilter || ''),
+            store_filter: String(this.workHistoryFilters.storeFilter || '')
+        };
 
-                // Show loading state
-                const exportButton = document.querySelector(".btn-export");
-                const originalText = exportButton.innerHTML;
-                exportButton.innerHTML =
-                    '<i class="fas fa-spinner fa-spin"></i> Exporting...';
-                exportButton.disabled = true;
+        console.log('Sending export request with payload:', payload);
 
-                const payload = {
-                    user_id: this.workHistoryFilters.userId,
-                    start_date: this.workHistoryFilters.startDate
-                        ? this.formatDateForAPI(
-                              this.workHistoryFilters.startDate
-                          )
-                        : "",
-                    end_date: this.workHistoryFilters.endDate
-                        ? this.formatDateForAPI(this.workHistoryFilters.endDate)
-                        : "",
-                    sort_by: this.workHistoryFilters.sortBy,
-                    sort_order: "DESC",
-                    search_query: this.workHistoryFilters.searchQuery || "",
-                    late_orders: this.workHistoryFilters.lateOrders || "",
-                    carrier_filter: this.workHistoryFilters.carrierFilter || "",
-                    store_filter: this.workHistoryFilters.storeFilter || "",
-                };
-
-                console.log("Sending export request with payload:", payload);
-
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/fbm-orders/work-history-export`,
-                    payload,
-                    {
-                        responseType: "blob",
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            )?.content,
-                        },
-                    }
-                );
-
-                // Generate filename based on filters
-                let filename = "work-history";
-                if (isDateFiltered) {
-                    const startDate = this.formatDateForAPI(
-                        this.workHistoryFilters.startDate
-                    );
-                    const endDate = this.formatDateForAPI(
-                        this.workHistoryFilters.endDate
-                    );
-                    filename += `_${startDate}_to_${endDate}`;
-                }
-                if (this.workHistoryFilters.userId !== "all") {
-                    filename += `_${this.workHistoryFilters.userId}`;
-                }
-                filename += `_${new Date().toISOString().split("T")[0]}.csv`;
-
-                // Create download link
-                const url = window.URL.createObjectURL(
-                    new Blob([response.data])
-                );
-                const link = document.createElement("a");
-                link.href = url;
-                link.setAttribute("download", filename);
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                window.URL.revokeObjectURL(url);
-
-                // Restore button state
-                exportButton.innerHTML = originalText;
-                exportButton.disabled = false;
-
-                alert("Work history exported successfully!");
-            } catch (error) {
-                console.error("Error exporting work history:", error);
-
-                // Restore button state on error
-                const exportButton = document.querySelector(".btn-export");
-                if (exportButton) {
-                    exportButton.innerHTML =
-                        '<i class="fas fa-download"></i> Export Work History';
-                    exportButton.disabled = false;
-                }
-
-                alert("Failed to export work history. Please try again.");
+        const response = await axios.post(
+            `${API_BASE_URL}/api/fbm-orders/export-work-history`,
+            payload,
+            {
+                responseType: 'blob', // Important for file downloads
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
+                timeout: 300000 // 5 minute timeout for large exports
             }
-        },
+        );
+
+        // Check if response is actually an error
+        if (response.data.type === 'application/json') {
+            const text = await response.data.text();
+            const errorData = JSON.parse(text);
+            throw new Error(errorData.message || 'Export failed');
+        }
+
+        // Generate filename based on filters
+        let filename = 'work-history';
+        if (isDateFiltered) {
+            const startDate = this.formatDateForAPI(this.workHistoryFilters.startDate);
+            const endDate = this.formatDateForAPI(this.workHistoryFilters.endDate);
+            filename += `_${startDate}_to_${endDate}`;
+        }
+        if (this.workHistoryFilters.userId !== 'all') {
+            filename += `_${this.workHistoryFilters.userId}`;
+        }
+        filename += `_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+        // Create download link
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', filename);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+
+        // Restore button state
+        if (exportButton) {
+            exportButton.innerHTML = originalText || '<i class="fas fa-download"></i> Export Work History';
+            exportButton.disabled = false;
+        }
+
+        alert('Work history exported successfully!');
+    } catch (error) {
+        console.error('Error exporting work history:', error);
+
+        // Restore button state on error
+        const exportButton = document.querySelector('.btn-export, .btn-primary');
+        if (exportButton) {
+            exportButton.innerHTML = '<i class="fas fa-download"></i> Export Work History';
+            exportButton.disabled = false;
+        }
+
+        // Better error handling
+        let errorMessage = 'Failed to export work history. ';
+        if (error.response) {
+            if (error.response.status === 404) {
+                errorMessage += 'Export endpoint not found. Please check your routes.';
+            } else if (error.response.status === 500) {
+                errorMessage += 'Server error occurred. Please check the logs.';
+            } else if (error.response.status === 422) {
+                errorMessage += 'Invalid data provided.';
+                if (error.response.data && error.response.data.errors) {
+                    errorMessage += '\n\nValidation errors:\n';
+                    Object.keys(error.response.data.errors).forEach(key => {
+                        errorMessage += `• ${key}: ${error.response.data.errors[key].join(', ')}\n`;
+                    });
+                }
+            } else {
+                errorMessage += `Server returned error ${error.response.status}.`;
+            }
+        } else if (error.request) {
+            errorMessage += 'No response from server. Please check your connection.';
+        } else {
+            errorMessage += error.message || 'Unknown error occurred.';
+        }
+
+        alert(errorMessage);
+    }
+},
 
         // Helper methods for exact data display matching the screenshot
         getMainDate(orderInfo) {

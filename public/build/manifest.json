@@ -1,16 +1,68 @@
 {
+  "_print_custom_invoice-Cuhe3CfZ.js": {
+    "file": "assets/print_custom_invoice-Cuhe3CfZ.js",
+    "name": "print_custom_invoice",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.js"
+    ],
+    "dynamicImports": [
+      "node_modules/html2canvas/dist/html2canvas.esm.js",
+      "node_modules/dompurify/dist/purify.es.mjs",
+      "node_modules/canvg/lib/index.es.js"
+    ],
+    "css": [
+      "assets/print_custom_invoice-aA5-wC_4.css"
+    ]
+  },
+  "_print_custom_invoice-aA5-wC_4.css": {
+    "file": "assets/print_custom_invoice-aA5-wC_4.css",
+    "src": "_print_custom_invoice-aA5-wC_4.css"
+  },
+  "node_modules/canvg/lib/index.es.js": {
+    "file": "assets/index.es-BGnNa4-n.js",
+    "name": "index.es",
+    "src": "node_modules/canvg/lib/index.es.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "_print_custom_invoice-Cuhe3CfZ.js",
+      "resources/js/app.js"
+    ]
+  },
+  "node_modules/dompurify/dist/purify.es.mjs": {
+    "file": "assets/purify.es-CQJ0hv7W.js",
+    "name": "purify.es",
+    "src": "node_modules/dompurify/dist/purify.es.mjs",
+    "isDynamicEntry": true
+  },
+  "node_modules/html2canvas/dist/html2canvas.esm.js": {
+    "file": "assets/html2canvas.esm-CBrSDip1.js",
+    "name": "html2canvas.esm",
+    "src": "node_modules/html2canvas/dist/html2canvas.esm.js",
+    "isDynamicEntry": true
+  },
+  "public/images/chevron-down.png": {
+    "file": "assets/chevron-down-BtOrH9m3.png",
+    "src": "public/images/chevron-down.png"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-CRbRvBDh.css",
+    "file": "assets/app-DdBF7jdC.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BOBIndKe.js",
+    "file": "assets/app-D7sF_HG7.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
+    "dynamicImports": [
+      "_print_custom_invoice-Cuhe3CfZ.js"
+    ],
     "css": [
-      "assets/app-DgshqoAv.css"
+      "assets/app-DFCaVtIO.css"
+    ],
+    "assets": [
+      "assets/chevron-down-BtOrH9m3.png"
     ]
   }
 }
