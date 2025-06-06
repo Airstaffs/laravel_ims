@@ -89,6 +89,7 @@ class StockroomController extends BasetablesController
                 ->select([
                     'asin.ASIN',
                     'asin.internal as AStitle',
+                     'asin.asinStatus', 
                     DB::raw('MIN(fnsku.storename) as storename'),
                     DB::raw('SUM(CASE WHEN prod.ProductModuleLoc = "Stockroom" THEN prod.FBMAvailable ELSE 0 END) as FBMAvailable'),
                     DB::raw('SUM(CASE WHEN prod.ProductModuleLoc = "Stockroom" THEN prod.FbaAvailable ELSE 0 END) as FbaAvailable'),
@@ -149,14 +150,12 @@ class StockroomController extends BasetablesController
             // Add having clause to filter out items with no stockroom products
             // BUT - if we're searching for related ASINs, we want to show all related ones even if they have 0 inventory
             if (!empty($search) && preg_match('/^B0[A-Z0-9]{8}$/i', $search)) {
-                // For ASIN searches, show related ASINs even with 0 inventory
-                $asinQuery->groupBy('asin.ASIN', 'asin.internal')
-                         ->having('item_count', '>=', 0); // Show all related ASINs
-            } else {
-                // For regular searches, only show items with inventory
-                $asinQuery->groupBy('asin.ASIN', 'asin.internal')
-                         ->having('item_count', '>', 0); // Only show items that have stockroom inventory
-            }
+            $asinQuery->groupBy('asin.ASIN', 'asin.internal', 'asin.asinStatus') // ADD asinStatus here
+                     ->having('item_count', '>=', 0);
+        } else {
+            $asinQuery->groupBy('asin.ASIN', 'asin.internal', 'asin.asinStatus') // ADD asinStatus here
+                     ->having('item_count', '>', 0);
+        }
             
             // Get paginated results
             $asins = $asinQuery->paginate($perPage);
@@ -250,63 +249,6 @@ class StockroomController extends BasetablesController
     }
 
 
-    private function convertItemCondition($itemCondition, $storeName, $asin = null, $originalGrading = null)
-    {
-        // Normalize store name check
-        $isAllrenewed = in_array(strtolower($storeName), ['allrenewed', 'all renewed']);
-        
-        switch ($itemCondition) {
-            case 'UsedLikeNew':
-                return 'Used - Like New';
-                
-            case 'UsedVeryGood':
-                if ($isAllrenewed) {
-                    return 'Refurbished - Excellent';
-                } else {
-                    return 'Used - Very Good';
-                }
-                
-            case 'UsedGood':
-                if ($isAllrenewed) {
-                    return 'Refurbished - Good';
-                } else {
-                    return 'Used - Good';
-                }
-                
-            case 'UsedAcceptable':
-                if ($isAllrenewed) {
-                    return 'Refurbished - Acceptable';
-                } else {
-                    return 'Used - Acceptable';
-                }
-                
-            case 'New':
-                if ($isAllrenewed && $asin) {
-                    // Check ASIN status for Allrenewed store
-                    $asinData = DB::table($this->asinTable)
-                        ->where('ASIN', $asin)
-                        ->first();
-                        
-                    if ($asinData) {
-                        $asinStatus = strtolower($asinData->asinStatus ?? '');
-                        if ($asinStatus === 'renewed') {
-                            return 'Refurbished - Excellent';
-                        }
-                    }
-                    
-                    // If no ASIN status or not renewed, return original grading
-                    return $originalGrading ?? 'New';
-                } else {
-                    // For non-Allrenewed stores, return original grading
-                    return $originalGrading ?? 'New';
-                }
-                
-            default:
-                // Handle unexpected condition values
-                return $originalGrading ?? $itemCondition;
-        }
-    }
-
     /**
      * Helper function to extract pack size from product title with caching
      */
@@ -353,54 +295,82 @@ class StockroomController extends BasetablesController
             ], 500);
         }
     }
+    
+private function normalizeFnsku($fnsku)
+   {
+    if (empty($fnsku)) {
+        return $fnsku;
+    }
+    
+    $fnsku = trim($fnsku);
+    
+    // If FNSKU is longer than 10 characters, check if it starts with 2 letters
+    // More flexible pattern to catch cases like "B3X0049KMM09"
+    if (strlen($fnsku) > 10 && preg_match('/^[A-Z0-9]{2}[X0-9]/', strtoupper($fnsku))) {
+        $normalizedFnsku = substr($fnsku, 2);
+        Log::info('FNSKU normalized', [
+            'original' => $fnsku,
+            'normalized' => $normalizedFnsku
+        ]);
+        return $normalizedFnsku;
+    }
+    
+    return $fnsku;
+}
 
-    //check FNSKU
-    public function checkFnsku(Request $request)
-    {
-        $fnsku = $request->input('fnsku');
+//check FNSKU
+public function checkFnsku(Request $request)
+{
+    $fnsku = $request->input('fnsku');
 
-        if (empty($fnsku)) {
-            return response()->json([
-                'exists' => false,
-                'status' => 'invalid',
-                'message' => 'FNSKU is required'
-            ]);
-        }
-
-        try {
-            // Check in tblfnsku table with company suffix
-            $result = DB::table($this->fnskuTable)
-                ->where('FNSKU', $fnsku)
-                ->first();
-
-            if ($result) {
-                // Found the FNSKU, now check its status
-                $isAvailable = strtolower($result->fnsku_status) === 'available';
-
-                return response()->json([
-                    'exists' => true,
-                    'status' => $isAvailable ? 'available' : 'unavailable',
-                    'message' => $isAvailable ? 'FNSKU is available' : 'FNSKU exists but is not available'
-                ]);
-            } else {
-                // FNSKU not found
-                return response()->json([
-                    'exists' => false,
-                    'status' => 'not_found',
-                    'message' => 'FNSKU not found in the database'
-                ]);
-            }
-        } catch (\Exception $e) {
-            $this->logError('Error checking FNSKU', $e, ['fnsku' => $fnsku]);
-
-            return response()->json([
-                'exists' => false,
-                'status' => 'error',
-                'message' => 'Error checking FNSKU status'
-            ], 500);
-        }
+    if (empty($fnsku)) {
+        return response()->json([
+            'exists' => false,
+            'status' => 'invalid',
+            'message' => 'FNSKU is required'
+        ]);
     }
 
+    try {
+        // Normalize the FNSKU first
+        $normalizedFnsku = $this->normalizeFnsku($fnsku);
+        
+        // Check in tblfnsku table with normalized FNSKU
+        $result = DB::table($this->fnskuTable)
+            ->where('FNSKU', $normalizedFnsku)
+            ->first();
+
+        if ($result) {
+            // Found the FNSKU, now check its status
+            $isAvailable = strtolower($result->fnsku_status) === 'available';
+
+            return response()->json([
+                'exists' => true,
+                'status' => $isAvailable ? 'available' : 'unavailable',
+                'message' => $isAvailable ? 'FNSKU is available' : 'FNSKU exists but is not available',
+                'normalized_fnsku' => $normalizedFnsku, // Return the normalized FNSKU
+                'original_fnsku' => $fnsku
+            ]);
+        } else {
+            // FNSKU not found
+            return response()->json([
+                'exists' => false,
+                'status' => 'not_found',
+                'message' => 'FNSKU not found in the database',
+                'normalized_fnsku' => $normalizedFnsku,
+                'original_fnsku' => $fnsku
+            ]);
+        }
+    } catch (\Exception $e) {
+        $this->logError('Error checking FNSKU', $e, ['fnsku' => $fnsku]);
+
+        return response()->json([
+            'exists' => false,
+            'status' => 'error',
+            'message' => 'Error checking FNSKU status'
+        ], 500);
+    }
+}
     /**
      * Process scanner data
      */
@@ -431,6 +401,15 @@ class StockroomController extends BasetablesController
             $serial = trim($request->input('SerialNumber', ''));
             $location = trim($request->input('Location', ''));
             $FNSKU = trim($request->input('FNSKU', ''));
+
+
+             if (!empty($FNSKU)) {
+                $FNSKU = $this->normalizeFnsku($FNSKU);
+                Log::info('Processing scan with normalized FNSKU', [
+                    'original_fnsku' => $request->input('FNSKU', ''),
+                    'normalized_fnsku' => $FNSKU
+                ]);
+            }
 
             // Check for empty serial and FNSKU
             if (empty($serial) && empty($FNSKU)) {
@@ -919,6 +898,16 @@ class StockroomController extends BasetablesController
             $productAsin = $request->asin ?? '';
             $firstStore = $request->store ?? '';
             $providedFnsku = $request->fnsku ?? '';
+
+
+             if (!empty($providedFnsku)) {
+                $providedFnsku = $this->normalizeFnsku($providedFnsku);
+                Log::info('Merge items with normalized FNSKU', [
+                    'original_fnsku' => $request->fnsku ?? '',
+                    'normalized_fnsku' => $providedFnsku
+                ]);
+            }
+    
             
             // Process each selected item
             foreach ($serialNumberResults as $row) {
