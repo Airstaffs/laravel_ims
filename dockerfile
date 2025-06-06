@@ -1,5 +1,6 @@
 FROM php:8.2-cli
 
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     libpng-dev \
     libjpeg-dev \
@@ -9,13 +10,13 @@ RUN apt-get update && apt-get install -y \
     unzip \
     git \
     curl \
+    libmagickwand-dev \
+    imagemagick \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd zip mysqli
+    && docker-php-ext-install gd zip mysqli pdo pdo_mysql
 
-
-
-# ✅ Install PHP extensions (PDO + MySQL)
-RUN docker-php-ext-install pdo pdo_mysql
+# Install Imagick PHP extension
+RUN pecl install imagick && docker-php-ext-enable imagick
 
 # Install Node.js and npm
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
@@ -40,7 +41,7 @@ RUN npm install
 RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache && \
     chmod -R 777 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Expose port 8000
+# Expose port
 EXPOSE 8000
 
 # Run Laravel development server
