@@ -83,7 +83,7 @@ class PrintInvoiceController extends Controller
         $mpdf->WriteHTML(trim($html));
         $mpdf->Output($pdfPath, 'F');
     }
-
+/*
     protected function convertImageToZPL($testPrint, $imagePath)
     {
         $imagick = new \Imagick($imagePath);
@@ -152,5 +152,6 @@ class PrintInvoiceController extends Controller
             'zpl' => $zplCode
         ]);
     }
+        */
 
 }
