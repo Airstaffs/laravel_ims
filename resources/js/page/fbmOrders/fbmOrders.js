@@ -27,7 +27,7 @@ export default {
             selectedStore: "",
             statusFilter: "",
 
-            showFilters: false,
+            showFilters: true,
             workHistoryFilters: {
                 sortBy: "",
                 startDate: "",
