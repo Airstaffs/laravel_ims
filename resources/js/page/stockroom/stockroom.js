@@ -36,9 +36,10 @@ export default {
       autoVerifyTimeout: null,
       
       // For FNSKU validation
-      fnskuValid: false,
-      fnskuChecking: false,
-      fnskuStatus: '',
+        fnskuValid: false,
+        fnskuChecking: false,
+        fnskuStatus: '',
+        fnskuNormalized: false,
       
       // For process modal (replaces move modal)
       showProcessModal: false,
@@ -161,7 +162,8 @@ export default {
     
     // Regular product details modal
     viewProductDetails(item) {
-      this.selectedProduct = item;
+      const processedItem = this.applyGradeConversion([item])[0];
+      this.selectedProduct = processedItem;
       this.showProductDetailsModal = true;
     },
     
@@ -204,6 +206,30 @@ export default {
         return `#${paddedCounter}`;
       }
     },
+
+normalizeFnsku(fnsku) {
+    if (!fnsku) return fnsku;
+    
+    const trimmed = fnsku.trim();
+    console.log('Normalizing FNSKU:', { original: trimmed, length: trimmed.length });
+    
+    // If FNSKU is longer than 10 characters, check if it starts with 2 characters (letters or numbers)
+    // More flexible pattern to catch cases like "B3X0049KMM09"
+    if (trimmed.length > 10 && /^[A-Z0-9]{2}[X0-9]/i.test(trimmed)) {
+      const normalized = trimmed.substring(2);
+      console.log('FNSKU normalized:', { 
+        original: trimmed, 
+        normalized: normalized,
+        originalLength: trimmed.length,
+        normalizedLength: normalized.length
+      });
+      return normalized;
+    }
+    
+    console.log('FNSKU not normalized - pattern did not match');
+    return trimmed;
+  },
+
     
     // Store dropdown functions
     async fetchStores() {
@@ -242,6 +268,145 @@ export default {
       const serialCount = item.serials.length;
       return serialCount === item.item_count;
     },
+
+
+    convertItemCondition(itemCondition, storeName, asin = null, originalGrading = null, asinStatus = null) {
+  // Normalize store name check
+  const isAllrenewed = ['allrenewed', 'all renewed'].includes(storeName?.toLowerCase());
+  
+  console.log('Converting grade:', { 
+    itemCondition, 
+    storeName, 
+    isAllrenewed, 
+    asin, 
+    originalGrading,
+    asinStatus 
+  });
+  
+  let convertedGrade;
+  
+  switch (itemCondition) {
+    case 'UsedLikeNew':
+      convertedGrade = 'Used - Like New';
+      break;
+      
+    case 'UsedVeryGood':
+      convertedGrade = isAllrenewed ? 'Refurbished - Excellent' : 'Used - Very Good';
+      break;
+      
+    case 'UsedGood':
+      convertedGrade = isAllrenewed ? 'Refurbished - Good' : 'Used - Good';
+      break;
+      
+    case 'UsedAcceptable':
+      convertedGrade = isAllrenewed ? 'Refurbished - Acceptable' : 'Used - Acceptable';
+      break;
+      
+    case 'New':
+      if (isAllrenewed && asinStatus) {
+        // Check ASIN status for Allrenewed store
+        if (asinStatus.toLowerCase() === 'renewed') {
+          convertedGrade = 'Refurbished - Excellent';
+        } else {
+          // If ASIN status is not 'renewed', return original grading
+          convertedGrade = originalGrading || 'New';
+        }
+      } else {
+        // For non-Allrenewed stores, return original grading
+        convertedGrade = originalGrading || 'New';
+      }
+      break;
+      
+    default:
+      // Handle unexpected condition values
+      convertedGrade = originalGrading || itemCondition;
+  }
+  
+  console.log('Grade converted from', itemCondition, 'to', convertedGrade);
+  return convertedGrade;
+},
+
+
+  // Enhanced helper method to get display grading for any item
+ getDisplayGrading(item, storeName = null, productData = null) {
+  if (!item) return '';
+  
+  const grading = item.grading || item.condition;
+  const store = storeName || item.storename || this.selectedStore;
+  const asin = item.ASIN || item.asin;
+  
+  // Get ASIN status from item or product data
+  const asinStatus = item.asinStatus || productData?.asinStatus || null;
+  
+  // If display_grading already exists, use it
+  if (item.display_grading) {
+    return item.display_grading;
+  }
+  
+  // Otherwise, convert on the fly
+  return this.convertItemCondition(grading, store, asin, grading, asinStatus);
+},
+  getDisplayGrading(item, storeName = null) {
+    if (!item) return '';
+    
+    const grading = item.grading || item.condition;
+    const store = storeName || item.storename || this.selectedStore;
+    const asin = item.ASIN || item.asin;
+    
+    return this.convertItemCondition(grading, store, asin, grading);
+  },
+
+  // Apply grade conversion to inventory items (call this after fetching data)
+  applyGradeConversion(items) {
+  console.log('Applying grade conversion to', items.length, 'items');
+  
+  return items.map(item => {
+    console.log('Processing item:', item.ASIN || item.asin, 'asinStatus:', item.asinStatus);
+    
+    // Convert FNSKUs grades
+    if (item.fnskus && item.fnskus.length > 0) {
+      item.fnskus = item.fnskus.map(fnsku => {
+        const convertedGrade = this.convertItemCondition(
+          fnsku.grading, 
+          fnsku.storename || item.storename, 
+          item.ASIN, 
+          fnsku.grading,
+          item.asinStatus // Pass asinStatus to conversion
+        );
+        
+        console.log('FNSKU grade converted:', fnsku.grading, '->', convertedGrade);
+        
+        return {
+          ...fnsku,
+          display_grading: convertedGrade
+        };
+      });
+    }
+    
+    // Convert serials grades
+    if (item.serials && item.serials.length > 0) {
+      item.serials = item.serials.map(serial => {
+        const convertedGrade = this.convertItemCondition(
+          serial.grading, 
+          serial.storename || item.storename, 
+          item.ASIN, 
+          serial.grading,
+          item.asinStatus // Pass asinStatus to conversion
+        );
+        
+        console.log('Serial grade converted:', serial.grading, '->', convertedGrade);
+        
+        return {
+          ...serial,
+          display_grading: convertedGrade
+        };
+      });
+    }
+    
+    return item;
+  });
+},
+
     
     // Modified fetchInventory with count validation
     async fetchInventory() {
@@ -257,7 +422,7 @@ export default {
         });
 
         // Initialize items with checked property and useDefaultImage flag
-        this.inventory = (response.data.data || []).map(item => {
+           let inventoryItems = (response.data.data || []).map(item => {
           const itemWithFlags = {
             ...item,
             checked: false,
@@ -278,6 +443,9 @@ export default {
           
           return itemWithFlags;
         });
+
+        // Apply grade conversion to all items
+      this.inventory = this.applyGradeConversion(inventoryItems)
         
         this.totalPages = response.data.last_page || 1;
       } catch (error) {
@@ -334,7 +502,9 @@ export default {
     
     // Process modal functions
     openProcessModal(item) {
-    this.currentProcessItem = item;
+    const processedItem = this.applyGradeConversion([item])[0];
+    this.currentProcessItem = processedItem;
+
     this.showProcessModal = true;
     this.processShipmentType = 'For Dispense';
     this.processTrackingNumber = '';
@@ -551,42 +721,68 @@ export default {
     
     // Check FNSKU availability
     async checkFnskuAvailability() {
-      const fnsku = this.fnsku.trim();
+    const fnsku = this.fnsku.trim();
+    console.log('checkFnskuAvailability called with:', fnsku);
+    
+    // Skip check if empty or appears to be a location
+    if (!fnsku || /^L\d{3}[A-G]$/i.test(fnsku)) {
+      this.fnskuValid = false;
+      console.log('FNSKU check skipped - empty or location pattern');
+      return false;
+    }
+    
+    try {
+      this.fnskuChecking = true;
       
-      // Skip check if empty or appears to be a location
-      if (!fnsku || /^L\d{3}[A-G]$/i.test(fnsku)) {
-        this.fnskuValid = false;
-        return false;
-      }
+      console.log('Sending API request to check FNSKU:', fnsku);
       
-      try {
-        this.fnskuChecking = true;
+      // Call API to check FNSKU status
+      const response = await axios.get(`${API_BASE_URL}/api/stockroom/check-fnsku`, {
+        params: { fnsku: fnsku }
+      });
+      
+      this.fnskuChecking = false;
+      
+      // Log the response for debugging
+      console.log('FNSKU check API response:', response.data);
+      
+      // Update validity based on response
+      if (response.data.exists && response.data.status === 'available') {
+        this.fnskuValid = true;
+        this.fnskuStatus = 'available';
         
-        // Call API to check FNSKU status
-        const response = await axios.get(`${API_BASE_URL}/api/stockroom/check-fnsku`, {
-          params: { fnsku: fnsku }
+        // If FNSKU was normalized, show the normalized version in the input
+        if (response.data.normalized_fnsku && response.data.normalized_fnsku !== response.data.original_fnsku) {
+          console.log('Server returned different normalized FNSKU:', response.data.normalized_fnsku);
+          this.fnsku = response.data.normalized_fnsku;
+        }
+        
+        return true;
+      } else {
+        this.fnskuValid = false;
+        this.fnskuStatus = response.data.exists ? response.data.status : 'not_found';
+        
+        console.log('FNSKU not available:', {
+          exists: response.data.exists,
+          status: response.data.status,
+          normalized: response.data.normalized_fnsku
         });
         
-        this.fnskuChecking = false;
-        
-        // Update validity based on response
-        if (response.data.exists && response.data.status === 'available') {
-          this.fnskuValid = true;
-          this.fnskuStatus = 'available';
-          return true;
-        } else {
-          this.fnskuValid = false;
-          this.fnskuStatus = response.data.exists ? response.data.status : 'not_found';
-          return false;
+        // Still update the FNSKU field with normalized version for consistency
+        if (response.data.normalized_fnsku && response.data.normalized_fnsku !== response.data.original_fnsku) {
+          this.fnsku = response.data.normalized_fnsku;
         }
-      } catch (error) {
-        console.error('Error checking FNSKU:', error);
-        this.fnskuChecking = false;
-        this.fnskuValid = false;
-        this.fnskuStatus = 'error';
+        
         return false;
       }
-    },
+    } catch (error) {
+      console.error('Error checking FNSKU:', error);
+      this.fnskuChecking = false;
+      this.fnskuValid = false;
+      this.fnskuStatus = 'error';
+      return false;
+    }
+  },
     
     // Input field handlers with sound
     async handleSerialInput() {
@@ -617,56 +813,75 @@ export default {
       }
     },
     
-    async handleFnskuInput() {
-      // First validate FNSKU
-      const isValid = this.validateFnsku();
-      
-      if (!isValid) {
-        // If it looks like a location, show a specific message
-        this.$refs.scanner.showScanError("This appears to be a location code. Please enter it in the Location field.");
-        this.$refs.fnskuInput.select();
-        SoundService.error();
-        return;
+     async handleFnskuInput() {
+    console.log('handleFnskuInput called with:', this.fnsku);
+    
+    // Normalize the FNSKU and update the input field automatically
+    const originalFnsku = this.fnsku;
+    const normalizedFnsku = this.normalizeFnsku(originalFnsku);
+    
+    console.log('Input normalization result:', {
+      original: originalFnsku,
+      normalized: normalizedFnsku,
+      changed: originalFnsku !== normalizedFnsku
+    });
+    
+    // Update the input field to show the normalized FNSKU
+    this.fnsku = normalizedFnsku;
+    
+    // First validate FNSKU
+    const isValid = this.validateFnsku();
+    
+    if (!isValid) {
+      // If it looks like a location, show a specific message
+      this.$refs.scanner.showScanError("This appears to be a location code. Please enter it in the Location field.");
+      this.$refs.fnskuInput.select();
+      SoundService.error();
+      return;
+    }
+    
+    // In auto mode with valid input, check availability and proceed
+    if (!this.showManualInput && this.fnsku.trim().length > 5) {
+      if (this.autoVerifyTimeout) {
+        clearTimeout(this.autoVerifyTimeout);
       }
       
-      // In auto mode with valid input, check availability and proceed
-      if (!this.showManualInput && this.fnsku.trim().length > 5) {
-        if (this.autoVerifyTimeout) {
-          clearTimeout(this.autoVerifyTimeout);
-        }
+      this.autoVerifyTimeout = setTimeout(async () => {
+        console.log('About to check FNSKU availability for:', this.fnsku);
         
-        this.autoVerifyTimeout = setTimeout(async () => {
-          // Check FNSKU availability
-          const isAvailable = await this.checkFnskuAvailability();
+        // Check FNSKU availability
+        const isAvailable = await this.checkFnskuAvailability();
+        
+        if (isAvailable) {
+          // Play success sound if FNSKU is valid and available
+          SoundService.success();
           
-          if (isAvailable) {
-            // Play success sound if FNSKU is valid and available
-            SoundService.success();
-            
-            // Focus on location field
-            this.focusNextField('locationInput');
-          } else {
-            // Show appropriate error message based on status
-            let errorMessage = "Unknown FNSKU status";
-            
-            switch (this.fnskuStatus) {
-              case 'not_found':
-                errorMessage = "FNSKU not found in database";
-                break;
-              case 'unavailable':
-                errorMessage = "FNSKU exists but is not available";
-                break;
-              case 'error':
-                errorMessage = "Error checking FNSKU status";
-                break;
-            }
-            
-            this.$refs.scanner.showScanError(errorMessage);
-            SoundService.error();
+          // Focus on location field
+          this.focusNextField('locationInput');
+        } else {
+          // Show appropriate error message based on status
+          let errorMessage = "Unknown FNSKU status";
+          
+          switch (this.fnskuStatus) {
+            case 'not_found':
+              errorMessage = "FNSKU not found in database";
+              break;
+            case 'unavailable':
+              errorMessage = "FNSKU exists but is not available";
+              break;
+            case 'error':
+              errorMessage = "Error checking FNSKU status";
+              break;
           }
-        }, 500);
-      }
-    },
+          
+          console.error('FNSKU check failed:', { fnsku: this.fnsku, status: this.fnskuStatus });
+          this.$refs.scanner.showScanError(errorMessage);
+          SoundService.error();
+        }
+      }, 500);
+    }
+  },
+
     
     // Fixed handleLocationInput method
     handleLocationInput() {
@@ -721,13 +936,15 @@ export default {
         if (scannedCode) {
           // External code passed (from hardware scanner)
           scanSerial = '';
-          scanFnsku = scannedCode;
+          scanFnsku = this.normalizeFnsku(scannedCode);
+          this.fnsku = scanFnsku;
           scanLocation = this.locationInput || '';
         } else {
           // Use the input fields
           scanSerial = this.serialNumber;
           scanFnsku = this.fnsku;
           scanLocation = this.locationInput;
+          console.log('Scanned code normalized to:', scanFnsku);
           
           // Basic validation - need at least one of serial or FNSKU
           if (!scanFnsku && !scanSerial) {
@@ -880,10 +1097,11 @@ export default {
       .map(serial => serial.serialnumber);
       
     // Get the first available FNSKU for this product if any
-    if (this.currentProcessItem.fnskus && this.currentProcessItem.fnskus.length > 0) {
-      selectedFnsku = this.currentProcessItem.fnskus[0].FNSKU || this.currentProcessItem.fnskus[0];
-      console.log("Using FNSKU from current process item:", selectedFnsku);
-    }
+   if (this.currentProcessItem.fnskus && this.currentProcessItem.fnskus.length > 0) {
+        let rawFnsku = this.currentProcessItem.fnskus[0].FNSKU || this.currentProcessItem.fnskus[0];
+        selectedFnsku = this.normalizeFnsku(rawFnsku);
+        console.log("Using normalized FNSKU from current process item:", selectedFnsku);
+      }
   } else {
     // If not in process modal, find the product information
     const firstSelectedId = this.selectedItems[0];
@@ -894,10 +1112,11 @@ export default {
         productStore = item.storename || '';
         
         // Get the first available FNSKU for this product if any
-        if (item.fnskus && item.fnskus.length > 0) {
-          selectedFnsku = item.fnskus[0].FNSKU || item.fnskus[0];
-          console.log("Found FNSKU from inventory:", selectedFnsku);
-        }
+       if (item.fnskus && item.fnskus.length > 0) {
+        let rawFnsku = item.fnskus[0].FNSKU || item.fnskus[0];
+        selectedFnsku = this.normalizeFnsku(rawFnsku);
+        console.log("Found normalized FNSKU from inventory:", selectedFnsku);
+      }
         
         console.log("Found title from inventory:", productTitle);
         break;
@@ -1019,9 +1238,21 @@ export default {
     },
     
     handleHardwareScan(scannedCode) {
-      // For hardware scanner input, process the scan
+    // Check if the scanned code looks like an FNSKU
+    if (scannedCode && /^[A-Z0-9]{10,}$/i.test(scannedCode)) {
+      // If it's an FNSKU, normalize it and put it in the FNSKU field
+      const normalizedFnsku = this.normalizeFnsku(scannedCode);
+      this.fnsku = normalizedFnsku;
+      
+      // Focus on the location field next
+      this.$nextTick(() => {
+        this.focusNextField('locationInput');
+      });
+    } else {
+      // For other codes, process the scan normally
       this.processScan(scannedCode);
-    },
+    }
+  },
     
     handleModeChange(event) {
       this.showManualInput = event.manual;

@@ -206,7 +206,7 @@
                                                         <td>{{ serial.warehouselocation }}</td>
                                                         <td>{{ serial.FNSKUviewer }}</td>
                                                         <td>{{ serial.MSKU }}</td>
-                                                        <td>{{ serial.grading }}</td>
+                                                        <td>{{ serial.display_grading || getDisplayGrading(serial, item.storename) }}</td>
                                                     </tr>
                                                     <tr v-if="!item.serials || item.serials.length === 0">
                                                         <td colspan="6" class="text-center">No serial numbers found</td>
@@ -318,7 +318,8 @@
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Grading:</span>
-                                        <span class="mobile-serial-value">{{ serial.grading }}</span>
+                                         <span class="mobile-serial-value">{{ serial.display_grading || getDisplayGrading(serial, item.storename) }}</span>
+
                                     </div>
                                 </div>
                                 <div v-if="!item.serials || item.serials.length === 0" class="mobile-empty">
@@ -400,8 +401,9 @@
                                     <label class="process-item-checkbox">
                                         <input type="checkbox" v-model="selectedItems" :value="serial.ProductID">
                                         <span>{{ formatRTNumber(serial.rtcounter, currentProcessItem.storename) }} -
-                                            {{ serial.serialnumber }} - {{ serial.FNSKUviewer }}</span>
-                                    </label>
+                                        {{ serial.serialnumber }} - {{ serial.FNSKUviewer }} - 
+                                        {{ serial.display_grading || getDisplayGrading(serial, currentProcessItem.storename) }}</span>
+                                   </label>
                                 </div>
                             </div>
                         </div>
@@ -480,7 +482,7 @@
                                             <div class="fnsku-main">{{ fnsku.FNSKU || fnsku }}</div>
                                             <div class="fnsku-details">
                                                 <span class="fnsku-detail">MSKU: {{ fnsku.MSKU || '-' }}</span>
-                                                <span class="fnsku-detail">Grade: {{ fnsku.grading || '-' }}</span>
+                                                <span class="fnsku-detail">Grade: {{ fnsku.display_grading || getDisplayGrading(fnsku, selectedProduct.storename) }}</span>
                                             </div>
                                         </div>
                                         <div v-if="!selectedProduct.fnskus || selectedProduct.fnskus.length === 0" class="product-details-empty">
@@ -514,7 +516,7 @@
                                                 <td>{{ serial.warehouselocation }}</td>
                                                 <td>{{ serial.FNSKUviewer || '-' }}</td>
                                                 <td>{{ serial.MSKU || '-' }}</td>
-                                                <td>{{ serial.grading || '-' }}</td>
+                                                <td>{{ serial.display_grading || getDisplayGrading(serial, selectedProduct.storename) }}</td>
                                             </tr>
                                             <tr v-if="!selectedProduct.serials || selectedProduct.serials.length === 0">
                                                 <td colspan="6" class="text-center">No serial numbers found</td>
