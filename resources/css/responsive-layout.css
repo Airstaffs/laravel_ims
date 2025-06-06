@@ -1,6 +1,6 @@
 @media (min-width: 1024px) and (max-width: 1439px) {
     #appsearch input {
-        min-width: 500px;
+        min-width: 500px !important;
     }
 }
 
@@ -14,11 +14,11 @@
     }
 
     #navbarNav {
-        display: none;
+        display: none !important;
     }
 
     #appsearch input {
-        min-width: 400px;
+        min-width: 400px !important;
     }
 
     .store-filter::after {
@@ -33,7 +33,7 @@
 
 @media (min-width: 320px) and (max-width: 424px) {
     #appsearch input {
-        min-width: 300px;
+        min-width: 300px !important;
     }
 
     .store-filter::after {
