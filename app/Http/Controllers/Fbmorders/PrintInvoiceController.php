@@ -21,7 +21,7 @@ class PrintInvoiceController extends Controller {
     public function PrintInvoice(Request $request) {
 
     }
-
+/*
     private function generateAndConvertPDF($html, $orderItemId, $width_format = 100, $testprint = false)
 {
     $pdfPath = storage_path("app/public/invoice_{$orderItemId}.pdf");
@@ -74,4 +74,5 @@ class PrintInvoiceController extends Controller {
 
     return $zplFullCommand;
 }
+    */
 }
