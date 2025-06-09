@@ -63,6 +63,8 @@ class PrintInvoiceController extends Controller
     protected function generateHtml($settings, $orderData, $action)
     {
 
+        $rowCount = [];
+
         $html .= '
 <!DOCTYPE html>
 <html lang="en">
@@ -193,6 +195,8 @@ class PrintInvoiceController extends Controller
 <body>
     <div class="container">
     ';
+
+                if ($rowCount > 1) {
 
             $html .= '
 
