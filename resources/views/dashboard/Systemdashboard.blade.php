@@ -18,22 +18,26 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            const tooltipList = tooltipTriggerList.map(function(tooltipTriggerEl) {
+            const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
                 return new bootstrap.Tooltip(tooltipTriggerEl);
             });
         });
     </script>
     <style>
         .navbar {
-            background-color: {{ session('theme_color', '#007bff') }};
+            background-color:
+                {{ session('theme_color', '#007bff') }}
+            ;
             transition: margin-left 0.3s ease-in-out, padding-left 0.3s ease-in-out;
         }
 
         .sidebar-nav .nav-link.active {
             color: #fff;
-            background-color: {{ session('theme_color', '#007bff') }};
+            background-color:
+                {{ session('theme_color', '#007bff') }}
+            ;
             border-radius: 5px;
             font-weight: 500;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -120,136 +124,104 @@
         </div>
     </nav>
 
-    <!-- Updated Sidebar -->
+    <!-- Sidebar -->
     <div id="sidebar" class="sidebar">
         <button id="close-btn" class="close-btn">&times;</button>
 
-        <!-- User Info Section -->
-        <div class="user-info">
+        <!-- User Info -->
+        <div class="user-info text-center">
             <img src="{{ session('profile_picture', 'default-profile.jpg') }}" alt="User Profile"
                 class="rounded-circle mb-2" style="width: 80px; height: 80px; object-fit: cover;">
-
             <h5>{{ session('user_name', 'User Name') }}</h5>
         </div>
 
         <h5 class="text-center">Navigation</h5>
 
         <?php
-        use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Auth;
 
-        // Get fresh user data instead of relying on session
-        $currentUser = Auth::user();
-        if ($currentUser) {
-            // Get fresh data from database
-            $userId = $currentUser->id;
-            $freshUser = \App\Models\User::find($userId);
+// Refresh user data from DB
+$currentUser = Auth::user();
+$subModules = [];
+$mainModule = '';
 
-            $mainModule = strtolower($freshUser->main_module ?: '');
+if ($currentUser) {
+    $freshUser = \App\Models\User::find($currentUser->id);
+    $mainModule = strtolower($freshUser->main_module ?: '');
 
-            // Build sub modules array from database
-            $subModules = [];
-            $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
+    $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
 
-            foreach ($moduleColumns as $column) {
-                if ($currentUser->{$column} && $column !== $mainModule) {
-                    $subModules[] = $column;
-                }
-            }
-
-            // Update session with fresh data
-            session(['main_module' => $mainModule]);
-            session(['sub_modules' => $subModules]);
-        } else {
-            // Fallback to session if no user
-            $mainModule = strtolower(session('main_module', ''));
-            $subModules = array_map('strtolower', session('sub_modules', []));
+    foreach ($moduleColumns as $column) {
+        if (!empty($freshUser->{$column}) && $column !== $mainModule) {
+            $subModules[] = strtolower($column);
         }
+    }
 
-        // Remove main module from sub modules if it exists
-        $subModules = array_filter($subModules, function ($module) use ($mainModule) {
-            return $module !== $mainModule;
-        });
+    session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
+} else {
+    $mainModule = strtolower(session('main_module', ''));
+    $subModules = array_map('strtolower', session('sub_modules', []));
+}
 
-        // Fallback for main module
-        $defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+// Remove duplication
+$subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
 
-        function checkPermission($module, $mainModule, $subModules)
-        {
-            // Convert to lowercase for comparison
-            $module = strtolower($module);
-            $mainModule = strtolower($mainModule);
-            $subModules = array_map('strtolower', (array) $subModules);
+// Fallback to first submodule or dashboard
+$defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
 
-            if ($module === 'dashboard') {
-                return true;
-            }
-            // A module is permitted if it's the main module OR in sub modules (but not both)
-            return $module === $mainModule || in_array($module, $subModules);
-        }
+$modules = [
+    'order' => 'Order',
+    'unreceived' => 'Unreceived',
+    'receiving' => 'Received',
+    'labeling' => 'Labeling',
+    'validation' => 'Validation',
+    'testing' => 'Testing',
+    'cleaning' => 'Cleaning',
+    'packing' => 'Packing',
+    'fnsku' => 'Fnsku',
+    'stockroom' => 'Stockroom',
+    'productionarea' => 'Production Area',
+    'fbashipmentinbound' => 'FBA Inbound Shipment',
+    'returnscanner' => 'Return Scanner',
+    'fbmorder' => 'FBM Order',
+    'notfound' => 'Not Found',
+];
 
-        $modules = [
-            'order' => 'Order',
-            'unreceived' => 'Unreceived',
-            'receiving' => 'Received',
-            'labeling' => 'Labeling',
-            'validation' => 'Validation',
-            'testing' => 'Testing',
-            'cleaning' => 'Cleaning',
-            'packing' => 'Packing',
-            'fnsku' => 'Fnsku',
-            'stockroom' => 'Stockroom',
-            'productionarea' => 'Production Area',
-            'fbashipmentinbound' => 'FBA Inbound Shipment',
-            'returnscanner' => 'Return Scanner',
-            'fbmorder' => 'FBM Order',
-            'notfound' => 'Not Found',
-        ];
-        ?>
+function hasAccess($module, $mainModule, $subModules): bool
+{
+    $module = strtolower($module);
+    return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
+}
+    ?>
+
+        <!-- Client-side Setup -->
         <script>
-            // Make sure these are set properly with filtering
-            window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-            window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+            window.defaultComponent = "<?= $defaultModule ?>";
+            window.mainModule = "<?= $mainModule ?>";
+            window.allowedModules = <?= json_encode($subModules) ?>;
 
-            // Filter out main module from allowed modules
-            const rawSubModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
-            window.allowedModules = rawSubModules.filter(module => module !== window.mainModule);
-
-            // Add this for debugging
             console.log('Session Modules:', {
                 defaultComponent: window.defaultComponent,
                 allowedModules: window.allowedModules,
-                mainModule: window.mainModule,
-                hasReturnScanner: window.allowedModules.includes('returnscanner')
+                mainModule: window.mainModule
             });
         </script>
 
-        <!-- Updated Navigation structure with improved highlighting -->
+        <!-- Navigation Links -->
         <nav class="nav flex-column sidebar-nav">
-            <?php if ($mainModule): ?>
-            <a class="nav-link <?= request()->segment(1) == $mainModule ? 'active' : '' ?>" href="/<?= $mainModule ?>"
-                onclick="window.loadContent('<?= $mainModule ?>'); highlightNavLink(this); closeSidebar(); return false;">
-                <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
-            </a>
-            <?php endif; ?>
-
             <?php foreach ($modules as $module => $label): ?>
-            <?php
-            // Only show in navigation if:
-            // 1. User has permission for this module
-            // 2. It's not the main module (avoid duplication)
-            if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule):
-            ?>
+            <?php    if (hasAccess($module, $mainModule, $subModules)): ?>
             <a class="nav-link <?= request()->segment(1) == $module ? 'active' : '' ?>" href="/<?= $module ?>"
                 onclick="window.loadContent('<?= $module ?>'); highlightNavLink(this); closeSidebar(); return false;">
                 <?= $label ?>
             </a>
-            <?php endif; ?>
+            <?php    endif; ?>
             <?php endforeach; ?>
         </nav>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Function to highlight the current active page based on URL
             function setActiveNavLink() {
                 const currentPath = window.location.pathname;
@@ -318,8 +290,7 @@
         <div id="app">
             <!-- Hidden component triggers -->
             <?php foreach ($modules as $module => $label): ?>
-            <a id="<?= $module ?>Link" style="display:none" href="#"
-                @click.prevent="loadContent('<?= $module ?>')">
+            <a id="<?= $module ?>Link" style="display:none" href="#" @click.prevent="loadContent('<?= $module ?>')">
                 <?= $label ?>
             </a>
             <?php endforeach; ?>
@@ -335,10 +306,10 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const settingsModal = document.getElementById('settingsModal');
 
-            settingsModal.addEventListener('shown.bs.modal', function() {
+            settingsModal.addEventListener('shown.bs.modal', function () {
                 const defaultTab = document.querySelector('#design-tab');
                 const defaultTabPane = document.querySelector('#design');
 
@@ -348,7 +319,7 @@
                 }
             });
 
-            settingsModal.addEventListener('hidden.bs.modal', function() {
+            settingsModal.addEventListener('hidden.bs.modal', function () {
                 // Reset all tabs
                 document.querySelectorAll('#settingsTab .nav-link').forEach(tab => {
                     tab.classList.remove('active');
@@ -369,8 +340,7 @@
     </script>
 
     <!-- Settings Modal -->
-    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -385,13 +355,13 @@
                             <i class="bi bi-palette"></i>
                             <span> Title & Design</span>
                         </li>
-                        <li class="nav-item" id="user-tab" data-bs-toggle="tab" data-bs-target="#user"
-                            type="button" role="tab" aria-controls="user" aria-selected="false">
+                        <li class="nav-item" id="user-tab" data-bs-toggle="tab" data-bs-target="#user" type="button"
+                            role="tab" aria-controls="user" aria-selected="false">
                             <i class="bi bi-person-plus"></i>
                             <span> Add User</span>
                         </li>
-                        <li class="nav-item" id="store-tab" data-bs-toggle="tab" data-bs-target="#store"
-                            type="button" role="tab" aria-controls="store" aria-selected="false">
+                        <li class="nav-item" id="store-tab" data-bs-toggle="tab" data-bs-target="#store" type="button"
+                            role="tab" aria-controls="store" aria-selected="false">
                             <i class="bi bi-shop"></i>
                             <span> Store List</span>
                         </li>
@@ -401,8 +371,8 @@
                             <span> Privileges</span>
                         </li>
                         <li class="nav-item" id="usertimerecord-tab" data-bs-toggle="tab"
-                            data-bs-target="#usertimerecord" type="button" role="tab"
-                            aria-controls="usertimerecord" aria-selected="false">
+                            data-bs-target="#usertimerecord" type="button" role="tab" aria-controls="usertimerecord"
+                            aria-selected="false">
                             <i class="bi bi-clock"></i>
                             <span> Time Record</span>
                         </li>
@@ -416,8 +386,7 @@
                     <!-- Combined Tab for Title & Design -->
                     <div class="tab-content" id="settingsTabContent">
                         <!-- Title & Design Tab -->
-                        <div class="tab-pane fade show active" id="design" role="tabpanel"
-                            aria-labelledby="design-tab">
+                        <div class="tab-pane fade show active" id="design" role="tabpanel" aria-labelledby="design-tab">
                             <h3 class="text-center">Title & Design Settings</h3>
                             <!-- Title & Design Settings Form -->
                             <form action="{{ route('update.system.design') }}" method="POST" class="tblnDsgnForm"
@@ -448,8 +417,8 @@
                                     <label for="logoUpload" class="form-label">Upload Logo</label>
                                     <input type="file" class="form-control" id="logoUpload" name="logo">
                                     @if (!empty($systemDesign->logo))
-                                        <p>Current Logo: <img src="{{ asset('storage/' . $systemDesign->logo) }}"
-                                                alt="Logo" width="100"></p>
+                                        <p>Current Logo: <img src="{{ asset('storage/' . $systemDesign->logo) }}" alt="Logo"
+                                                width="100"></p>
                                     @endif
                                 </fieldset>
                                 <button type="submit" class="btn btn-process">Save Changes</button>
@@ -460,8 +429,7 @@
                         <div class="tab-pane fade" id="user" role="tabpanel" aria-labelledby="user-tab">
                             <h3 class="text-center">Add User</h3>
 
-                            <form action="{{ route('add-user') }}" method="POST" class="addUserForm"
-                                id="addUserForm">
+                            <form action="{{ route('add-user') }}" method="POST" class="addUserForm" id="addUserForm">
                                 @csrf
                                 <!-- Username -->
                                 <fieldset>
@@ -554,8 +522,7 @@
                                     <!-- Default option (Select User) -->
 
                                     @foreach ($Allusers as $userOption)
-                                        <option value="{{ $userOption->id }}"
-                                            {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
+                                        <option value="{{ $userOption->id }}" {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
                                             {{ $userOption->username }}
                                         </option>
                                     @endforeach
@@ -585,8 +552,7 @@
                                 <fieldset>
                                     <select class="form-select" id="selectUserDrop" name="user_id" required>
                                         @foreach ($Allusers as $userOption)
-                                            <option value="{{ $userOption->id }}"
-                                                {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
+                                            <option value="{{ $userOption->id }}" {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
                                                 {{ $userOption->username }}
                                             </option>
                                         @endforeach
@@ -634,8 +600,7 @@
                                 <fieldset>
                                     <select class="form-select" id="selectUserDrop_logs" name="user_id" required>
                                         @foreach ($Allusers as $userOption)
-                                            <option value="{{ $userOption->id }}"
-                                                {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
+                                            <option value="{{ $userOption->id }}" {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
                                                 {{ $userOption->username }}
                                             </option>
                                         @endforeach
@@ -643,11 +608,11 @@
                                 </fieldset>
 
                                 <fieldset class="input-container">
-                                    <input type="date" class="form-control" id="start_date_logs"
-                                        name="start_date_logs" placeholder="Start Date">
+                                    <input type="date" class="form-control" id="start_date_logs" name="start_date_logs"
+                                        placeholder="Start Date">
 
-                                    <input type="date" class="form-control" id="end_date_logs"
-                                        name="end_date_logs" placeholder="End Date">
+                                    <input type="date" class="form-control" id="end_date_logs" name="end_date_logs"
+                                        placeholder="End Date">
                                 </fieldset>
 
                                 <button type="button" class="btn btn-primary" id="filter_logs">Filter</button>
@@ -674,7 +639,7 @@
                         </div>
 
                         <script>
-                            document.addEventListener('DOMContentLoaded', function() {
+                            document.addEventListener('DOMContentLoaded', function () {
                                 const selectUser = document.getElementById('selectUserDrop');
                                 const startDate = document.getElementById('start_date');
                                 const endDate = document.getElementById('end_date');
@@ -783,7 +748,7 @@
                             });
                         </script>
                         <script>
-                            document.addEventListener('DOMContentLoaded', function() {
+                            document.addEventListener('DOMContentLoaded', function () {
                                 const selectUser = document.getElementById('selectUserDrop_logs');
                                 const startDate_logs = document.getElementById('start_date_logs');
                                 const endDate_logs = document.getElementById('end_date_logs');
@@ -905,7 +870,7 @@
 
     <script>
         // Initialize when DOM is loaded
-        document.addEventListener("DOMContentLoaded", function() {
+        document.addEventListener("DOMContentLoaded", function () {
             const privilegeForm = document.getElementById('privilegeForm');
             if (privilegeForm) {
                 initializeUserSelect();
@@ -919,7 +884,7 @@
         function initializeUserSelect() {
             const selectUser = document.getElementById('selectUser');
 
-            selectUser.addEventListener('change', function() {
+            selectUser.addEventListener('change', function () {
                 const selectedValue = this.value;
 
                 Array.from(this.options).forEach(option => {
@@ -942,7 +907,7 @@
         function initializePrivilegeForm() {
             const form = document.getElementById('privilegeForm');
 
-            form.addEventListener('submit', async function(e) {
+            form.addEventListener('submit', async function (e) {
                 e.preventDefault();
 
                 try {
@@ -1205,61 +1170,61 @@
 
         function updateSubModules(data) {
             const subModules = [{
-                    db: 'order',
-                    display: 'Order'
-                },
-                {
-                    db: 'unreceived',
-                    display: 'Unreceived'
-                },
-                {
-                    db: 'receiving',
-                    display: 'Received'
-                },
-                {
-                    db: 'labeling',
-                    display: 'Labeling'
-                },
-                {
-                    db: 'testing',
-                    display: 'Testing'
-                },
-                {
-                    db: 'cleaning',
-                    display: 'Cleaning'
-                },
-                {
-                    db: 'packing',
-                    display: 'Packing'
-                },
-                {
-                    db: 'stockroom',
-                    display: 'Stockroom'
-                },
-                {
-                    db: 'validation',
-                    display: 'Validation'
-                },
-                {
-                    db: 'fnsku',
-                    display: 'FNSKU'
-                },
-                {
-                    db: 'productionarea',
-                    display: 'Production Area'
-                },
-                {
-                    db: 'returnscanner',
-                    display: 'Return Scanner'
-                },
-                {
-                    db: 'fbmorder',
-                    display: 'FBM Order'
-                },
-                {
-                    db: 'notfound',
-                    display: 'Not Found'
-                }
+                db: 'order',
+                display: 'Order'
+            },
+            {
+                db: 'unreceived',
+                display: 'Unreceived'
+            },
+            {
+                db: 'receiving',
+                display: 'Received'
+            },
+            {
+                db: 'labeling',
+                display: 'Labeling'
+            },
+            {
+                db: 'testing',
+                display: 'Testing'
+            },
+            {
+                db: 'cleaning',
+                display: 'Cleaning'
+            },
+            {
+                db: 'packing',
+                display: 'Packing'
+            },
+            {
+                db: 'stockroom',
+                display: 'Stockroom'
+            },
+            {
+                db: 'validation',
+                display: 'Validation'
+            },
+            {
+                db: 'fnsku',
+                display: 'FNSKU'
+            },
+            {
+                db: 'productionarea',
+                display: 'Production Area'
+            },
+            {
+                db: 'returnscanner',
+                display: 'Return Scanner'
+            },
+            {
+                db: 'fbmorder',
+                display: 'FBM Order'
+            },
+            {
+                db: 'notfound',
+                display: 'Not Found'
+            }
             ];
 
             const subModulesHTML = `
@@ -1283,15 +1248,15 @@
     <h6>Stores</h6>
     <div class="row mb-3">
         ${data.privileges_stores && data.privileges_stores.length > 0
-            ? data.privileges_stores.map(store => `
+                    ? data.privileges_stores.map(store => `
                  <div class="col-4 form-check mb-2">
                     <input class="form-check-input" type="checkbox" name="privileges_stores[]"
                         value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
                      <label class="form-check-label">${store.store_name}</label>
                       </div>
                        `).join('')
-            : '<p>No stores available</p>'
-        }
+                    : '<p>No stores available</p>'
+                }
     </div>
 `;
             document.getElementById('storeContainer').innerHTML = storeHTML;
@@ -1314,8 +1279,8 @@
                     const mainModule = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
                     const subModules = data.sub_modules ?
                         data.sub_modules
-                        .map(m => m.toLowerCase().replace(/\s+/g, ''))
-                        .filter(m => m !== mainModule) : // Ensure main module is not in sub modules
+                            .map(m => m.toLowerCase().replace(/\s+/g, ''))
+                            .filter(m => m !== mainModule) : // Ensure main module is not in sub modules
                         [];
 
                     window.defaultComponent = mainModule;
@@ -1449,7 +1414,7 @@
         }
 
         // Initialize form when page loads
-        window.onload = function() {
+        window.onload = function () {
             const selectedUserId = document.getElementById('selectUser')?.value;
             if (selectedUserId) {
                 fetchUserPrivileges(selectedUserId);
@@ -1458,15 +1423,13 @@
     </script>
 
     <!-- Add Store Modal -->
-    <div class="modal fade" id="addStoreModal" tabindex="-1" aria-labelledby="addStoreModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="addStoreModal" tabindex="-1" aria-labelledby="addStoreModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <form id="addStoreForm">
                     <div class="modal-header">
                         <h5 class="modal-title" id="addStoreModalLabel">Add New Store</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"
-                            aria-label="Close"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <div class="mb-3">
@@ -1484,8 +1447,7 @@
     </div>
 
     <!-- Edit Store Modal -->
-    <div class="modal fade" id="editStoreModal" tabindex="-1" aria-labelledby="editStoreModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="editStoreModal" tabindex="-1" aria-labelledby="editStoreModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1540,8 +1502,7 @@
     </div>
 
     <!-- User List Modal -->
-    <div class="modal fade" id="userListModal" tabindex="-1" aria-labelledby="userListModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="userListModal" tabindex="-1" aria-labelledby="userListModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1573,8 +1534,7 @@
     </div>
 
     <!-- Edit User Modal -->
-    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
@@ -1644,10 +1604,10 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const profileModal = document.getElementById('profileModal');
 
-            profileModal.addEventListener('shown.bs.modal', function() {
+            profileModal.addEventListener('shown.bs.modal', function () {
                 const defaultTab = document.querySelector('#attendance-tab');
                 const defaultTabPane = document.querySelector('#attendance');
 
@@ -1657,7 +1617,7 @@
                 }
             });
 
-            profileModal.addEventListener('hidden.bs.modal', function() {
+            profileModal.addEventListener('hidden.bs.modal', function () {
                 // Reset all tabs
                 document.querySelectorAll('#profileTab .nav-link').forEach(tab => {
                     tab.classList.remove('active');
@@ -1684,8 +1644,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="profileModalLabel">Profile</h5>
-                    <button type="button" class="btn btn-close" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
+                    <button type="button" class="btn btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
 
                 <div class="modal-body">
@@ -1706,9 +1665,8 @@
                             <i class="bi bi-clock"></i>
                             <span>Record</span>
                         </li>
-                        <li class="nav-item" id="myprivileges-tab" data-bs-toggle="tab"
-                            data-bs-target="#myprivileges" type="button" role="tab"
-                            aria-controls="myprivileges" aria-selected="false">
+                        <li class="nav-item" id="myprivileges-tab" data-bs-toggle="tab" data-bs-target="#myprivileges"
+                            type="button" role="tab" aria-controls="myprivileges" aria-selected="false">
                             <i class="bi bi-shield-lock"></i>
                             <span>My Privileges</span>
                         </li>
@@ -1732,25 +1690,21 @@
                                 <!-- Clock In/Out Buttons -->
                                 <div class="d-flex justify-content-center gap-3">
                                     <!-- Clock In Button -->
-                                    <form action="{{ route('attendance.clockin') }}" method="POST"
-                                        id="clockin-form">
+                                    <form action="{{ route('attendance.clockin') }}" method="POST" id="clockin-form">
                                         @csrf
                                         <button type="button"
                                             class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-clockin' : 'btn-clockout' }}"
-                                            onclick="confirmClockIn()"
-                                            {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
+                                            onclick="confirmClockIn()" {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
                                             Clock In
                                         </button>
                                     </form>
 
                                     <!-- Clock Out Button -->
-                                    <form action="{{ route('attendance.clockout') }}" method="POST"
-                                        id="clockout-form">
+                                    <form action="{{ route('attendance.clockout') }}" method="POST" id="clockout-form">
                                         @csrf
                                         <button type="button"
                                             class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-clockin' : 'btn-clockout' }}"
-                                            onclick="confirmClockOut()"
-                                            {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
+                                            onclick="confirmClockOut()" {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
                                             Clock Out
                                         </button>
                                     </form>
@@ -1818,8 +1772,7 @@
                                                 <!-- Update Button -->
                                                 <td style="display:none;">
                                                     <button class="btn btn-primary update-computed-hours d-none"
-                                                        data-id="{{ $clockwk->ID }}"
-                                                        data-timein="{{ $clockwk->TimeIn }}"
+                                                        data-id="{{ $clockwk->ID }}" data-timein="{{ $clockwk->TimeIn }}"
                                                         data-timeout="{{ $clockwk->TimeOut }}">
                                                         Update
                                                     </button>
@@ -1843,19 +1796,20 @@
                             <div class="container mobile">
                                 @foreach ($employeeClocksThisweek as $index => $clockwk)
                                     <div class="mobile-card mb-3 shadow-sm {{ $index % 2 == 0 ? 'bg-light' : 'bg-white' }}"
-                                        data-bs-toggle="tooltip" data-bs-placement="top"
-                                        title="{{ $clockwk->Notes }}">
+                                        data-bs-toggle="tooltip" data-bs-placement="top" title="{{ $clockwk->Notes }}">
                                         <div class="card-body">
                                             <div>
                                                 <h6 class="mb-0">Date :</h6>
                                                 <p class="mb-0">
-                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}</p>
+                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}
+                                                </p>
                                             </div>
                                             <!-- Time In -->
                                             <div>
                                                 <h6 class="mb-0">Time In :</h6>
                                                 <p class="mb-0">
-                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}</p>
+                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}
+                                                </p>
                                             </div>
 
                                             <!-- Time Out -->
@@ -1880,8 +1834,8 @@
 
                                             <!-- Notes Edit -->
                                             <div class="notes-container">
-                                                <button class="btn btn-sm btn-primary text-white"
-                                                    data-bs-toggle="modal" data-bs-target="#editNotesModal"
+                                                <button class="btn btn-sm btn-primary text-white" data-bs-toggle="modal"
+                                                    data-bs-target="#editNotesModal"
                                                     onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
                                                     <i class="bi bi-pencil-square"></i>
                                                 </button>
@@ -1894,8 +1848,7 @@
                         </div>
 
                         <!-- Tab -->
-                        <div class="tab-pane fade" id="userprofile" role="tabpanel"
-                            aria-labelledby="userprofile-tab">
+                        <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="userprofile-tab">
                             <h3 class="text-center">Change Password</h3>
 
                             <form action="{{ route('update-password') }}" method="POST" class="changePwdForm">
@@ -2002,8 +1955,8 @@
                                 <!-- First Column -->
                                 <div class="col-md-6">
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="order"
-                                            name="order" value="1" disabled>
+                                        <input class="form-check-input" type="checkbox" id="order" name="order"
+                                            value="1" disabled>
                                         <label class="" for="order"
                                             style="font-size: 16px; font-weight: 500; color: #000;">
                                             Order
@@ -2018,24 +1971,24 @@
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="receiving"
-                                            name="receiving" value="1" disabled>
+                                        <input class="form-check-input" type="checkbox" id="receiving" name="receiving"
+                                            value="1" disabled>
                                         <label class="" for="receiving"
                                             style="font-size: 16px; font-weight: 500; color: #000;">
                                             Receiving
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="labeling"
-                                            name="labeling" value="1" disabled>
+                                        <input class="form-check-input" type="checkbox" id="labeling" name="labeling"
+                                            value="1" disabled>
                                         <label class="" for="labeling"
                                             style="font-size: 16px; font-weight: 500; color: #000;">
                                             Labeling
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="fnsku"
-                                            name="fnsku" value="1" disabled>
+                                        <input class="form-check-input" type="checkbox" id="fnsku" name="fnsku"
+                                            value="1" disabled>
                                         <label class="" for="fnsku"
                                             style="font-size: 16px; font-weight: 500; color: #000;">
                                             FNSKU
@@ -2046,32 +1999,32 @@
                                 <!-- Second Column -->
                                 <div class="col-md-6">
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="testing"
-                                            name="testing" value="1" disabled>
+                                        <input class="form-check-input" type="checkbox" id="testing" name="testing"
+                                            value="1" disabled>
                                         <label class="" for="testing"
                                             style="font-size: 16px; font-weight: 500; color: #000;">
                                             Testing
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="cleaning"
-                                            name="cleaning" value="1" disabled>
+                                        <input class="form-check-input" type="checkbox" id="cleaning" name="cleaning"
+                                            value="1" disabled>
                                         <label class="" for="cleaning"
                                             style="font-size: 16px; font-weight: 500; color: #000;">
                                             Cleaning
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="packing"
-                                            name="packing" value="1" disabled>
+                                        <input class="form-check-input" type="checkbox" id="packing" name="packing"
+                                            value="1" disabled>
                                         <label class="" for="packing"
                                             style="font-size: 16px; font-weight: 500; color: #000;">
                                             Packing
                                         </label>
                                     </div>
                                     <div class="form-check">
-                                        <input class="form-check-input" type="checkbox" id="stockroom"
-                                            name="stockroom" value="1" disabled>
+                                        <input class="form-check-input" type="checkbox" id="stockroom" name="stockroom"
+                                            value="1" disabled>
                                         <label class="" for="stockroom"
                                             style="font-size: 16px; font-weight: 500; color: #000;">
                                             Stockroom
@@ -2096,8 +2049,7 @@
     </div>
 
     <!-- NOTES Modal -->
-    <div class="modal fade" id="editNotesModal" tabindex="-1" aria-labelledby="editNotesModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="editNotesModal" tabindex="-1" aria-labelledby="editNotesModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
@@ -2120,12 +2072,12 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const editNotesModal = document.getElementById('editNotesModal');
             const profileModal = document.getElementById('profileModal');
 
             // Listen for the hidden.bs.modal event on the notes modal
-            editNotesModal.addEventListener('hidden.bs.modal', function() {
+            editNotesModal.addEventListener('hidden.bs.modal', function () {
                 // Remove any remaining backdrop
                 const backdrop = document.querySelector('.modal-backdrop');
                 if (backdrop) {
@@ -2142,7 +2094,7 @@
             });
 
             // When notes modal is about to show
-            editNotesModal.addEventListener('show.bs.modal', function() {
+            editNotesModal.addEventListener('show.bs.modal', function () {
                 // Hide the profile modal properly
                 const profileModalInstance = bootstrap.Modal.getInstance(profileModal);
                 if (profileModalInstance) {
@@ -2167,15 +2119,15 @@
 
             // Send an AJAX request to update the Notes
             fetch(`/update-notes/${recordId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    },
-                    body: JSON.stringify({
-                        notes: notes
-                    }),
-                })
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                },
+                body: JSON.stringify({
+                    notes: notes
+                }),
+            })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -2206,14 +2158,14 @@
             'content');
 
         // Show the add store modal and hide the settings modal
-        document.getElementById('addStoreButton').addEventListener('click', function() {
+        document.getElementById('addStoreButton').addEventListener('click', function () {
             // Show the add store modal
             $('#addStoreModal').modal('show');
             $('#settingsModal').modal('hide');
         });
 
         // Add Store Submission
-        document.getElementById('addStoreForm').addEventListener('submit', function(e) {
+        document.getElementById('addStoreForm').addEventListener('submit', function (e) {
             e.preventDefault(); // Prevent default form submission
 
             const storeName = document.getElementById('newStoreName').value.trim();
@@ -2229,8 +2181,8 @@
 
             // Send the data to the Laravel backend
             axios.post('/add-store', {
-                    storename: storeName
-                })
+                storename: storeName
+            })
                 .then(response => {
                     if (response.data.success) {
                         const storeList = document.getElementById('storeList');
@@ -2256,7 +2208,7 @@
                         $('#addStoreModal').modal('hide');
 
                         // Ensure the modal is fully closed before opening settings modal
-                        $('#addStoreModal').on('hidden.bs.modal', function() {
+                        $('#addStoreModal').on('hidden.bs.modal', function () {
                             $('#settingsModal').modal('show');
 
                             // Ensure the store tab is active
@@ -2280,7 +2232,7 @@
 
 
         // Fetch and display the list of stores on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             fetchStoreList();
         });
 
@@ -2317,7 +2269,7 @@
         }
 
         // Re-fetch store list when switching to the "Store List" tab
-        $('#store-tab').on('click', function() {
+        $('#store-tab').on('click', function () {
             fetchStoreList(); // Re-fetch the store list when the tab is clicked
         });
 
@@ -2401,11 +2353,11 @@
         }
 
         // Event Listeners
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Initialize privilege tab listener
             const privilegeTab = document.getElementById('privilege-tab');
             if (privilegeTab) {
-                privilegeTab.addEventListener('click', function() {
+                privilegeTab.addEventListener('click', function () {
                     const userId = document.getElementById('selectUser').value;
                     if (userId) {
                         refreshStoreList();
@@ -2416,7 +2368,7 @@
             // Initialize select user change listener
             const selectUser = document.getElementById('selectUser');
             if (selectUser) {
-                selectUser.addEventListener('change', function() {
+                selectUser.addEventListener('change', function () {
                     if (this.value) {
                         refreshStoreList();
                     }
@@ -2424,7 +2376,7 @@
             }
         });
         // Delete Store functionality
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             if (e.target.classList.contains('delete-store-btn')) {
                 const storeId = e.target.dataset.id;
 
@@ -2446,7 +2398,7 @@
             }
         });
 
-        $(document).on('click', '.edit-store-btn', function() {
+        $(document).on('click', '.edit-store-btn', function () {
             const storeId = $(this).data('id');
             $('#settingsModal').modal('hide');
             // Fetch the store details using the store ID
@@ -2473,7 +2425,7 @@
                 });
         });
 
-        document.getElementById('editStoreForm').addEventListener('submit', function(e) {
+        document.getElementById('editStoreForm').addEventListener('submit', function (e) {
             e.preventDefault(); // Prevent default form submission
 
             const storeId = document.getElementById('editStoreId').value.trim();
@@ -2498,11 +2450,11 @@
 
             // Send request to update store
             axios.post('/update-store/' + storeId, updatedStoreData, {
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
-                            'content')
-                    }
-                })
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
+                        'content')
+                }
+            })
                 .then(response => {
                     console.log(response);
                     if (response.data.success) {
@@ -2524,7 +2476,7 @@
 
 
         // Alternatively, if you're using the close button explicitly, you can handle it like this:
-        document.querySelector('#editStoreModal .btn-close').addEventListener('click', function() {
+        document.querySelector('#editStoreModal .btn-close').addEventListener('click', function () {
             // Show the settings modal and select the store tab after closing the edit modal
             $('#settingsModal').modal('show');
             $('#store-tab').tab('show'); // This activates the store tab
@@ -2629,10 +2581,10 @@
     @endif
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Automatically show all toasts on page load
             const toastElList = [].slice.call(document.querySelectorAll('.toast'));
-            toastElList.forEach(function(toastEl) {
+            toastElList.forEach(function (toastEl) {
                 new bootstrap.Toast(toastEl).show();
             });
         });
@@ -2667,8 +2619,7 @@
     <audio id="logout-sound" src="/sounds/logout.mp3"></audio>
 
     <!-- Success Modal -->
-    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel"
-        aria-hidden="true">
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
@@ -2704,7 +2655,7 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Get the audio elements
             const clockinSound = document.getElementById('clockin-sound');
             const clockoutSound = document.getElementById('clockout-sound');
@@ -2726,12 +2677,12 @@
                 clockoutSound.play();
             @endif
 
-            // Show error modal and play error sound if an error message exists
-            @if (session('error'))
-                const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
-                errorModal.show();
-                errorSound.play();
-            @endif
+                // Show error modal and play error sound if an error message exists
+                @if (session('error'))
+                    const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+                    errorModal.show();
+                    errorSound.play();
+                @endif
         });
     </script>
 
@@ -2769,7 +2720,7 @@
         }
 
         // Handle the "Yes" button click in the modal
-        document.getElementById('confirmLogout').addEventListener('click', function() {
+        document.getElementById('confirmLogout').addEventListener('click', function () {
             document.getElementById('logout-form').submit();
         });
 
@@ -2833,7 +2784,7 @@
             const mobileView = document.querySelector('.mobile-view'); // For mobile view
 
             if (searchInput && (dataTable || mobileView)) {
-                searchInput.addEventListener("input", function() {
+                searchInput.addEventListener("input", function () {
                     const filter = searchInput.value.toLowerCase();
 
                     if (dataTable) {
@@ -2937,7 +2888,7 @@
     </script>
 
     <script>
-        $(document).ready(function() {
+        $(document).ready(function () {
             function updateComputedHours(clockId, timeIn, timeOut) {
                 $.ajax({
                     url: "{{ route('update.computed.hours') }}",
@@ -2947,14 +2898,14 @@
                         timeIn: timeIn,
                         timeOut: timeOut,
                     },
-                    success: function(response) {
+                    success: function (response) {
                         const computedCell = $(`#computed-hours-${clockId}`);
                         computedCell.html(`${response.hours} hrs ${response.minutes} mins`);
                         if (response.message) {
                             computedCell.append(`<div class="text-muted">(${response.message})</div>`);
                         }
                     },
-                    error: function(error) {
+                    error: function (error) {
                         console.error("Error updating computed hours:", error);
                     }
                 });
@@ -2962,7 +2913,7 @@
 
             // Function to loop through all rows and update computed hours
             function updateAllComputedHours() {
-                $('.update-computed-hours').each(function() {
+                $('.update-computed-hours').each(function () {
                     const clockId = $(this).data('id'); // Get clock ID
                     const timeIn = $(this).data('timein'); // Get TimeIn
                     const timeOut = $(this).data('timeout'); // Get TimeOut (or null)
@@ -2988,12 +2939,12 @@
                 $.ajax({
                     url: "{{ route('attendance.update.hours') }}",
                     type: "POST",
-                    success: function(response) {
+                    success: function (response) {
                         // Update Today's Hours and This Week's Hours
                         $('#today-hours').text(response.todayHours);
                         $('#week-hours').text(response.weekHours);
                     },
-                    error: function(error) {
+                    error: function (error) {
                         console.error("Error updating hours:", error);
                     }
                 });
@@ -3008,7 +2959,7 @@
     </script>
 
     <script>
-        $(document).ready(function() {
+        $(document).ready(function () {
 
             // Function to fetch attendance data
             function fetchAttendanceData(startDate = null, endDate = null) {
@@ -3020,7 +2971,7 @@
                         start_date: startDate,
                         end_date: endDate
                     },
-                    success: function(response) {
+                    success: function (response) {
                         const tableBody = $('#attendance-table-body');
                         const cardContainer = $('#attendance-card-container');
                         const totalHoursSpan = $('#total-hours');
@@ -3029,7 +2980,7 @@
                         let totalMinutes = 0;
 
                         if (response.employeeClocks.length > 0) {
-                            response.employeeClocks.forEach(function(clock, index) {
+                            response.employeeClocks.forEach(function (clock, index) {
                                 const timeIn = new Date(clock.time_in);
                                 const timeOut = clock.time_out ?
                                     new Date(clock.time_out) :
@@ -3106,7 +3057,7 @@
                             totalHoursSpan.text('0:00');
                         }
                     },
-                    error: function(xhr, status, error) {
+                    error: function (xhr, status, error) {
                         console.error("Error fetching data:", error);
                     }
                 });
@@ -3116,7 +3067,7 @@
             fetchAttendanceData();
 
             // Fetch data on filter button click
-            $('#filter-button').on('click', function() {
+            $('#filter-button').on('click', function () {
                 const startDate = $('#start-date').val();
                 const endDate = $('#end-date').val();
                 fetchAttendanceData(startDate, endDate);
@@ -3124,7 +3075,7 @@
 
         });
 
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             function autoClockOut() {
                 const lastRecordTimeIn =
                     "{{ $verylastRecord ? $verylastRecord->TimeIn : null }}"; // Fetch TimeIn from server-side variable
@@ -3152,14 +3103,14 @@
 
                     // Send the request to auto clock-out
                     fetch("{{ route('auto-clockout') }}", {
-                            method: "POST",
-                            headers: {
-                                "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute(
-                                    'content'),
-                                "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify({}),
-                        })
+                        method: "POST",
+                        headers: {
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute(
+                                'content'),
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({}),
+                    })
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {
@@ -3182,7 +3133,7 @@
         });
 
         // Fetch privileges data when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             let lastPrivileges = null; // Store last fetched privileges
 
             // Function to fetch privileges and update checkboxes if there are changes
@@ -3230,7 +3181,7 @@
     </script>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const userListModal = document.getElementById('userListModal');
             const settingsModal = document.getElementById('settingsModal');
             const addUserForm = document.getElementById('addUserForm');
@@ -3282,7 +3233,7 @@
             }
 
             // User List Modal event handlers
-            userListModal.addEventListener('hidden.bs.modal', function(event) {
+            userListModal.addEventListener('hidden.bs.modal', function (event) {
                 // Check if edit modal is being shown
                 const editModalElement = document.getElementById('editUserModal');
                 if (editModalElement.classList.contains('show')) {
@@ -3295,7 +3246,7 @@
                 }
             });
 
-            userListModal.addEventListener('show.bs.modal', function() {
+            userListModal.addEventListener('show.bs.modal', function () {
                 const settingsModalInstance = bootstrap.Modal.getInstance(settingsModal);
                 if (settingsModalInstance) {
                     settingsModalInstance.hide();
@@ -3305,17 +3256,17 @@
 
             // Add User Form handler
             if (addUserForm) {
-                addUserForm.addEventListener('submit', function(e) {
+                addUserForm.addEventListener('submit', function (e) {
                     e.preventDefault();
 
                     const formData = new FormData(this);
 
                     fetch('{{ route('add-user') }}', {
-                            method: 'POST',
-                            body: formData,
-                            // Don't manually set Content-Type when using FormData
-                            // Let the browser handle it automatically
-                        })
+                        method: 'POST',
+                        body: formData,
+                        // Don't manually set Content-Type when using FormData
+                        // Let the browser handle it automatically
+                    })
                         .then(response => {
                             if (!response.ok) {
                                 return response.json().then(data => Promise.reject(data));
@@ -3361,7 +3312,7 @@
                 });
             }
             // Edit User Functions
-            window.editUser = function(userId, username, role) {
+            window.editUser = function (userId, username, role) {
                 // Get modal instances
                 const userListModalInstance = bootstrap.Modal.getInstance(document.getElementById(
                     'userListModal'));
@@ -3397,18 +3348,18 @@
             };
 
             // Edit form submission handler
-            document.getElementById('editUserForm').addEventListener('submit', function(e) {
+            document.getElementById('editUserForm').addEventListener('submit', function (e) {
                 e.preventDefault();
                 const userId = document.getElementById('edit_user_id').value;
 
                 fetch(`/update-user/${userId}`, {
-                        method: 'POST',
-                        body: new FormData(this),
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')
-                                .getAttribute('content')
-                        }
-                    })
+                    method: 'POST',
+                    body: new FormData(this),
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')
+                            .getAttribute('content')
+                    }
+                })
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
@@ -3432,7 +3383,7 @@
             });
 
             // Edit modal hidden event handler
-            document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function(event) {
+            document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function (event) {
                 event.stopPropagation();
 
                 const backdrop = document.querySelector('.modal-backdrop');
@@ -3450,22 +3401,22 @@
             // Delete User Functions
             let deleteUserId = null;
 
-            window.showDeleteConfirmation = function(userId, username) {
+            window.showDeleteConfirmation = function (userId, username) {
                 deleteUserId = userId;
                 document.getElementById('delete-user-name').textContent = username;
                 const deleteModal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
                 deleteModal.show();
             };
 
-            document.getElementById('confirmDelete').addEventListener('click', function() {
+            document.getElementById('confirmDelete').addEventListener('click', function () {
                 if (deleteUserId) {
                     fetch(`/delete-user/${deleteUserId}`, {
-                            method: 'DELETE',
-                            headers: {
-                                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')
-                                    .getAttribute('content')
-                            }
-                        })
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')
+                                .getAttribute('content')
+                        }
+                    })
                         .then(response => response.json())
                         .then(data => {
                             if (data.success) {

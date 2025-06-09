@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -8,9 +9,7 @@ class User extends Authenticatable
 {
     protected $table = 'tbluser'; // Map to tbluser table
 
-    protected $fillable = [
-        '*'// new boolean columns
-    ];
+    protected $guarded = [];
 
     protected $hidden = [
         'password',
@@ -21,5 +20,4 @@ class User extends Authenticatable
     {
         return $this->belongsTo(User::class, 'user_id');
     }
-
 }

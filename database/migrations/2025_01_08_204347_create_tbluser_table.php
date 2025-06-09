@@ -14,6 +14,8 @@ return new class extends Migration
         Schema::create('tbluser', function (Blueprint $table) {
             $table->id();
             $table->string('username')->unique();
+            $table->string('email')->unique();
+            $table->string('google_id')->nullable();
             $table->string("password");
             $table->char("profile_picture");
             $table->string("role");

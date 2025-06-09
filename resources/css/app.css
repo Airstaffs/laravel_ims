@@ -64,34 +64,89 @@ select {
 
 .sidebar {
     height: 100vh;
-    background: #343a40;
-    padding: 1rem;
-    color: #fff;
+    width: 260px;
+    background-color: #212529; /* Darker and cleaner */
+    padding: 1.5rem 1rem;
+    color: #f8f9fa;
     position: fixed;
     top: 0;
-    left: -240px;
-    /* Start with sidebar hidden */
-    width: 240px;
+    left: -260px; /* Hidden by default */
     transition: left 0.3s ease-in-out;
     z-index: 1050;
+    box-shadow: 2px 0 6px rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
 }
 
+/* Show sidebar when toggled */
 .sidebar.visible {
     left: 0;
-    /* Show the sidebar */
 }
 
+/* Sidebar nav links */
 .sidebar .nav-link {
-    color: #adb5bd;
-    position: relative;
-    z-index: 1;
-    /* Ensure it's clickable */
+    color: #ced4da;
+    padding: 0.75rem 1rem;
+    display: block;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: background-color 0.25s, color 0.25s;
 }
 
+/* On hover or focus */
+.sidebar .nav-link:hover,
+.sidebar .nav-link:focus {
+    background-color: #343a40;
+    color: #ffffff;
+}
+
+/* Active link style */
 .sidebar .nav-link.active {
-    color: #fff;
     background-color: #495057;
-    border-radius: 5px;
+    color: #ffffff;
+    font-weight: 600;
+    position: relative;
+}
+
+/* Optional: Add left border or indicator */
+.sidebar .nav-link.active::before {
+    content: '';
+    position: absolute;
+    height: 100%;
+    width: 4px;
+    left: 0;
+    top: 0;
+    background-color: #0d6efd; /* Bootstrap primary or any accent */
+    border-radius: 4px;
+}
+
+/* Optional: For sidebar headings or sections */
+.sidebar h5,
+.sidebar .section-title {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    color: #6c757d;
+    margin: 1.5rem 0 0.75rem;
+    padding-left: 1rem;
+    letter-spacing: 0.05em;
+}
+
+/* Smooth scrollbar for overflow */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+}
+.sidebar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+}
+
+#logoutModal .modal-content {
+    width: 400px;
+}
+
+#logoutModal .modal-body {
+    padding: 20px;
 }
 
 .close-btn {
