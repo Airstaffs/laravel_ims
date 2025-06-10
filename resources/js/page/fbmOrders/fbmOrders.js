@@ -76,7 +76,7 @@ export default {
             workHistory: null,
             error: null,
 
-            // Enhanced work history filters and stats (from old code)
+            // Enhanced work history filters
             workHistoryFilters: {
                 sortBy: "purchase_date",
                 startDate: "2024-05-20T05:49",
@@ -90,6 +90,15 @@ export default {
             workHistoryStats: {
                 totalOrders: 0,
             },
+
+            workHistoryPagination: {
+            currentPage: 1,
+            perPage: 20,
+            totalPages: 1,
+            totalRecords: 0,
+            from: 0,
+            to: 0
+           },
         };
     },
     computed: {
