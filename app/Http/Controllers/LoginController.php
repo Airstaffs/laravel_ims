@@ -174,7 +174,7 @@ class LoginController extends Controller
             }
 
             // ✅ Extract username
-            $username = Str::before($email, '@');
+            $username = Str::ucfirst(Str::before($email, '@'));
 
             // ✅ Check if user with this username already exists
             $user = User::where('username', $username)->first();
