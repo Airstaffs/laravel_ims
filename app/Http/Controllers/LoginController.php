@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Str;
 use App\Models\SystemDesign;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -165,17 +166,32 @@ class LoginController extends Controller
     {
         try {
             $googleUser = Socialite::driver('google')->stateless()->user();
+            $email = $googleUser->getEmail();
 
-            // Try to find user by username (email is stored as username)
-            $user = User::where('username', $googleUser->getEmail())->first();
+            // ✅ Restrict to @airstaffs.com domain
+            if (!Str::endsWith($email, '@airstaffs.com')) {
+                return redirect()->route('login')->with('error', 'Only Airstaffs employee are allowed.');
+            }
 
-            if (!$user) {
-                // Create new user if not found
-                $user = User::create([
-                    'username' => \Str::before($googleUser->getEmail(), '@'),
-                    'email' => $googleUser->getEmail(),
+            // ✅ Extract username
+            $username = Str::ucfirst(Str::before($email, '@'));
+
+            // ✅ Check if user with this username already exists
+            $user = User::where('username', $username)->first();
+
+            if ($user) {
+                // ✅ Update existing user info
+                $user->update([
+                    'email' => $email,
                     'profile_picture' => $googleUser->getAvatar(),
-                    'password' => bcrypt('1234'), // You can randomize this later
+                ]);
+            } else {
+                // ✅ Create new user
+                $user = User::create([
+                    'username' => $username,
+                    'email' => $email,
+                    'profile_picture' => $googleUser->getAvatar(),
+                    'password' => bcrypt($username . '1234'),
                 ]);
             }
 
