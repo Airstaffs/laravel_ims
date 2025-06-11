@@ -133,10 +133,11 @@
     <div id="sidebar" class="sidebar">
         <button id="close-btn" class="close-btn">&times;</button>
 
-        <!-- User Info -->
-        <div class="user-info text-center">
+        <!-- User Info Section -->
+        <div class="user-info">
             <img src="{{ session('profile_picture', 'default-profile.jpg') }}" alt="User Profile"
                 class="rounded-circle mb-2" style="width: 80px; height: 80px; object-fit: cover;">
+
             <h5>{{ session('user_name', 'User Name') }}</h5>
         </div>
 
@@ -145,34 +146,55 @@
         <?php
 use Illuminate\Support\Facades\Auth;
 
-// Refresh user data from DB
+// Get fresh user data instead of relying on session
 $currentUser = Auth::user();
-$subModules = [];
-$mainModule = '';
-
 if ($currentUser) {
-    $freshUser = \App\Models\User::find($currentUser->id);
+    // Get fresh data from database
+    $userId = $currentUser->id;
+    $freshUser = \App\Models\User::find($userId);
+
     $mainModule = strtolower($freshUser->main_module ?: '');
 
+    // Build sub modules array from database
+    $subModules = [];
     $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
 
     foreach ($moduleColumns as $column) {
-        if (!empty($freshUser->{$column}) && $column !== $mainModule) {
-            $subModules[] = strtolower($column);
+        if ($currentUser->{$column} && $column !== $mainModule) {
+            $subModules[] = $column;
         }
     }
 
-    session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
+    // Update session with fresh data
+    session(['main_module' => $mainModule]);
+    session(['sub_modules' => $subModules]);
 } else {
+    // Fallback to session if no user
     $mainModule = strtolower(session('main_module', ''));
     $subModules = array_map('strtolower', session('sub_modules', []));
 }
 
-// Remove duplication
-$subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
+// Remove main module from sub modules if it exists
+$subModules = array_filter($subModules, function ($module) use ($mainModule) {
+    return $module !== $mainModule;
+});
 
-// Fallback to first submodule or dashboard
-$defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
+// Fallback for main module
+$defaultModule = $mainModule ?: ($subModules ? reset($subModules) : 'dashboard');
+
+function checkPermission($module, $mainModule, $subModules)
+{
+    // Convert to lowercase for comparison
+    $module = strtolower($module);
+    $mainModule = strtolower($mainModule);
+    $subModules = array_map('strtolower', (array) $subModules);
+
+    if ($module === 'dashboard') {
+        return true;
+    }
+    // A module is permitted if it's the main module OR in sub modules (but not both)
+    return $module === $mainModule || in_array($module, $subModules);
+}
 
 $modules = [
     'order' => 'Order',
@@ -191,31 +213,41 @@ $modules = [
     'fbmorder' => 'FBM Order',
     'notfound' => 'Not Found',
 ];
-
-function hasAccess($module, $mainModule, $subModules): bool
-{
-    $module = strtolower($module);
-    return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
-}
-    ?>
-
-        <!-- Client-side Setup -->
+        ?>
         <script>
-            window.defaultComponent = "<?= $defaultModule ?>";
-            window.mainModule = "<?= $mainModule ?>";
-            window.allowedModules = <?= json_encode($subModules) ?>;
+            // Make sure these are set properly with filtering
+            window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
+            window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
 
+            // Filter out main module from allowed modules
+            const rawSubModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
+            window.allowedModules = rawSubModules.filter(module => module !== window.mainModule);
+
+            // Add this for debugging
             console.log('Session Modules:', {
                 defaultComponent: window.defaultComponent,
                 allowedModules: window.allowedModules,
-                mainModule: window.mainModule
+                mainModule: window.mainModule,
+                hasReturnScanner: window.allowedModules.includes('returnscanner')
             });
         </script>
 
-        <!-- Navigation Links -->
+        <!-- Updated Navigation structure with improved highlighting -->
         <nav class="nav flex-column sidebar-nav">
+            <?php if ($mainModule): ?>
+            <a class="nav-link <?= request()->segment(1) == $mainModule ? 'active' : '' ?>" href="/<?= $mainModule ?>"
+                onclick="window.loadContent('<?= $mainModule ?>'); highlightNavLink(this); closeSidebar(); return false;">
+                <?= $modules[$mainModule] ?? ucfirst($mainModule) ?>
+            </a>
+            <?php endif; ?>
+
             <?php foreach ($modules as $module => $label): ?>
-            <?php    if (hasAccess($module, $mainModule, $subModules)): ?>
+            <?php
+    // Only show in navigation if:
+    // 1. User has permission for this module
+    // 2. It's not the main module (avoid duplication)
+    if (checkPermission($module, $mainModule, $subModules) && $module !== $mainModule):
+            ?>
             <a class="nav-link <?= request()->segment(1) == $module ? 'active' : '' ?>" href="/<?= $module ?>"
                 onclick="window.loadContent('<?= $module ?>'); highlightNavLink(this); closeSidebar(); return false;">
                 <?= $label ?>

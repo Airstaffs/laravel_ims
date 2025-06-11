@@ -65,7 +65,6 @@
             color: #555;
             height: 50px;
             border-radius: 8px;
-            margin-top: 1rem;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
             text-decoration: none;
@@ -174,6 +173,10 @@
                 <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
                 Continue with Google
             </a>
+
+            <div class="form-text text-center mt-3">
+                Forgot your password? <a href="#">Reset here</a>
+            </div>
         </form>
     </div>
 
