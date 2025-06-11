@@ -3,13 +3,13 @@ import "../../../css/modules.css";
 import "./fbmOrders.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-import PrintInvoiceModal from './modals/printinvoice.vue';
+import PrintInvoiceModal from "./modals/printinvoice.vue";
 
 export default {
     name: "FbmOrderModule",
     components: {
         // REMOVED ALL COMPONENT REFERENCES - USING INLINE MODALS ONLY
-            PrintInvoiceModal,
+        PrintInvoiceModal,
     },
     data() {
         return {
@@ -94,21 +94,19 @@ export default {
                 totalOrders: 0,
             },
 
-              // Work History Pagination
-                workHistoryPagination: {
-                    currentPage: 1,
-                    perPage: 20,
-                    totalRecords: 0,
-                    totalPages: 1,
-                    from: 0,
-                    to: 0
-                },
-                quickJumpPage: 1,
+            // Work History Pagination
+            workHistoryPagination: {
+                currentPage: 1,
+                perPage: 20,
+                totalRecords: 0,
+                totalPages: 1,
+                from: 0,
+                to: 0,
+            },
+            quickJumpPage: 1,
 
-                      printInvoiceVisible: false,
-      selectedOrder: null,
-
-
+            printInvoiceVisible: false,
+            selectedOrder: null,
         };
     },
     computed: {

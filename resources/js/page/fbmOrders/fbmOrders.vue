@@ -56,7 +56,7 @@
             <div class="selection-info">
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{ persistentSelectedOrderIds.length > 1 ? 's' : ''
-                }} selected across all pages</span>
+                    }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
                 </button>
@@ -598,12 +598,12 @@
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -614,17 +614,17 @@
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -1277,7 +1277,7 @@
                                         <span
                                             :class="getCarrierClass(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description)">
                                             {{ getCarrierText(historyItem.orderInfo.carrier ||
-                                            historyItem.orderInfo.carrier_description) }}
+                                                historyItem.orderInfo.carrier_description) }}
                                         </span>
                                     </p>
 
@@ -1308,16 +1308,15 @@
                             <div class="pagination-controls" v-if="workHistoryPagination.totalPages > 1">
                                 <!-- First Button -->
                                 <button @click="goToWorkHistoryPage(1)"
-                                        :disabled="workHistoryPagination.currentPage === 1"
-                                        class="pagination-btn first-btn">
-                                        <i class="fas fa-chevron-left"></i>
-                                        <i class="fas fa-chevron-left"></i>
+                                    :disabled="workHistoryPagination.currentPage === 1"
+                                    class="pagination-btn first-btn">
+                                    <i class="fas fa-chevron-left"></i>
+                                    <i class="fas fa-chevron-left"></i>
                                 </button>
 
                                 <!-- Previous Button -->
-                                <button @click="prevWorkHistoryPage"
-                                        :disabled="workHistoryPagination.currentPage === 1"
-                                        class="pagination-btn prev-btn">
+                                <button @click="prevWorkHistoryPage" :disabled="workHistoryPagination.currentPage === 1"
+                                    class="pagination-btn prev-btn">
                                     <i class="fas fa-chevron-left"></i>
                                 </button>
 
@@ -1325,7 +1324,7 @@
                                 <div class="page-numbers">
                                     <template v-for="page in visibleWorkHistoryPages" :key="page">
                                         <button @click="goToWorkHistoryPage(page)"
-                                                :class="['pagination-btn', 'page-btn', { 'active': page === workHistoryPagination.currentPage }]">
+                                            :class="['pagination-btn', 'page-btn', { 'active': page === workHistoryPagination.currentPage }]">
                                             {{ page }}
                                         </button>
                                     </template>
@@ -1333,17 +1332,17 @@
 
                                 <!-- Next Button -->
                                 <button @click="nextWorkHistoryPage"
-                                        :disabled="workHistoryPagination.currentPage === workHistoryPagination.totalPages"
-                                        class="pagination-btn next-btn">
+                                    :disabled="workHistoryPagination.currentPage === workHistoryPagination.totalPages"
+                                    class="pagination-btn next-btn">
                                     <i class="fas fa-chevron-right"></i>
                                 </button>
 
                                 <!-- Last Button -->
                                 <button @click="goToWorkHistoryPage(workHistoryPagination.totalPages)"
-                                        :disabled="workHistoryPagination.currentPage === workHistoryPagination.totalPages"
-                                        class="pagination-btn last-btn">
-                                        <i class="fas fa-chevron-right"></i>
-                                        <i class="fas fa-chevron-right"></i>
+                                    :disabled="workHistoryPagination.currentPage === workHistoryPagination.totalPages"
+                                    class="pagination-btn last-btn">
+                                    <i class="fas fa-chevron-right"></i>
+                                    <i class="fas fa-chevron-right"></i>
                                 </button>
                             </div>
                         </div>
@@ -1357,11 +1356,7 @@
         </div>
     </div>
 
-    <PrintInvoiceModal
-  :visible="printInvoiceVisible"
-  :order="selectedOrder"
-  @close="closePrintInvoiceModal"
-/>
+    <PrintInvoiceModal :visible="printInvoiceVisible" :order="selectedOrder" @close="closePrintInvoiceModal" />
 </template>
 
 <script>
