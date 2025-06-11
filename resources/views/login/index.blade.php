@@ -64,7 +64,6 @@
             color: #555;
             height: 50px;
             border-radius: 8px;
-            margin-top: 1rem;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             transition: all 0.2s ease;
         }
@@ -116,13 +115,19 @@
                     placeholder="Enter your password" required>
             </div>
             <button type="submit" class="btn btn-primary w-100">Login</button>
-            <div class="form-text text-center mt-3">
-                Forgot your password? <a href="#">Reset here</a>
+            <div class="d-flex align-items-center">
+                <hr class="flex-grow-1 border-secondary">
+                <span class="mx-2 text-muted">or</span>
+                <hr class="flex-grow-1 border-secondary">
             </div>
             <a href="{{ url('auth/google') }}" class="google-login-btn">
                 <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
                 Continue with Google
             </a>
+
+            <div class="form-text text-center mt-3">
+                Forgot your password? <a href="#">Reset here</a>
+            </div>
         </form>
     </div>
 
