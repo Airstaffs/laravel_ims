@@ -173,10 +173,6 @@
                 <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
                 Continue with Google
             </a>
-
-            <div class="form-text text-center mt-3">
-                Forgot your password? <a href="#">Reset here</a>
-            </div>
         </form>
     </div>
 
