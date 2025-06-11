@@ -56,7 +56,7 @@
             <div class="selection-info">
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{ persistentSelectedOrderIds.length > 1 ? 's' : ''
-                    }} selected across all pages</span>
+                }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
                 </button>
@@ -249,6 +249,11 @@
                                     <div class="action-buttons">
                                         <button class="btn-track">TRACK</button>
                                         <button class="btn-tracking-history">Tracking History</button>
+
+                                        <!-- Print Invoice Open Modal -->
+                                        <button class="btn-process" @click="openPrintInvoiceModal(order)">
+                                            <i class="fas fa-shipping-fast"></i> Process
+                                        </button>
 
                                         <!-- Process Button (with integrated Auto Dispense) -->
                                         <button class="btn-process" @click="openProcessModal(order)"
@@ -593,12 +598,12 @@
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -609,17 +614,17 @@
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -1271,7 +1276,8 @@
                                         <strong>Carrier:</strong>
                                         <span
                                             :class="getCarrierClass(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description)">
-                                            {{ getCarrierText(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description) }}
+                                            {{ getCarrierText(historyItem.orderInfo.carrier ||
+                                            historyItem.orderInfo.carrier_description) }}
                                         </span>
                                     </p>
 
@@ -1350,9 +1356,15 @@
             </div>
         </div>
     </div>
+
+    <PrintInvoiceModal
+  :visible="printInvoiceVisible"
+  :order="selectedOrder"
+  @close="closePrintInvoiceModal"
+/>
 </template>
 
 <script>
-    import fbmorder from "./fbmOrders.js";
-    export default fbmorder;
+import fbmorder from "./fbmOrders.js";
+export default fbmorder;
 </script>
