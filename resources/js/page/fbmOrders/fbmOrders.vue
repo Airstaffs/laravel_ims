@@ -56,7 +56,7 @@
             <div class="selection-info">
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{ persistentSelectedOrderIds.length > 1 ? 's' : ''
-                    }} selected across all pages</span>
+                }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
                 </button>
@@ -249,6 +249,11 @@
                                     <div class="action-buttons">
                                         <button class="btn-track">TRACK</button>
                                         <button class="btn-tracking-history">Tracking History</button>
+
+                                        <!-- Print Invoice Open Modal -->
+                                        <button class="btn-process" @click="openPrintInvoiceModal(order)">
+                                            <i class="fas fa-shipping-fast"></i> Process
+                                        </button>
 
                                         <!-- Process Button (with integrated Auto Dispense) -->
                                         <button class="btn-process" @click="openProcessModal(order)"
@@ -593,12 +598,12 @@
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -609,17 +614,17 @@
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -1271,7 +1276,8 @@
                                         <strong>Carrier:</strong>
                                         <span
                                             :class="getCarrierClass(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description)">
-                                            {{ getCarrierText(historyItem.orderInfo.carrier || historyItem.orderInfo.carrier_description) }}
+                                            {{ getCarrierText(historyItem.orderInfo.carrier ||
+                                            historyItem.orderInfo.carrier_description) }}
                                         </span>
                                     </p>
 
@@ -1309,17 +1315,16 @@
                     <div class="pagination-info-bar">
                         <div class="pagination-summary">
                             <span v-if="workHistoryPagination.totalRecords > 0">
-                                Showing {{ workHistoryPagination.from }} to {{ workHistoryPagination.to }} 
+                                Showing {{ workHistoryPagination.from }} to {{ workHistoryPagination.to }}
                                 of {{ workHistoryPagination.totalRecords }} entries
                             </span>
                             <span v-else>No entries found</span>
                         </div>
-                        
+
                         <div class="per-page-selector">
                             <label>Show:</label>
-                            <select v-model="workHistoryPagination.perPage" 
-                                    @change="changeWorkHistoryPerPage" 
-                                    class="form-control per-page-select">
+                            <select v-model="workHistoryPagination.perPage" @change="changeWorkHistoryPerPage"
+                                class="form-control per-page-select">
                                 <option value="10">10</option>
                                 <option value="20">20</option>
                                 <option value="50">50</option>
@@ -1332,9 +1337,8 @@
                     <!-- Pagination Controls -->
                     <div class="pagination-controls" v-if="workHistoryPagination.totalPages > 1">
                         <!-- Previous Button -->
-                        <button @click="prevWorkHistoryPage" 
-                                :disabled="workHistoryPagination.currentPage === 1"
-                                class="pagination-btn prev-btn">
+                        <button @click="prevWorkHistoryPage" :disabled="workHistoryPagination.currentPage === 1"
+                            class="pagination-btn prev-btn">
                             <i class="fas fa-chevron-left"></i>
                             Previous
                         </button>
@@ -1342,39 +1346,38 @@
                         <!-- Page Numbers -->
                         <div class="page-numbers">
                             <!-- First Page -->
-                            <button v-if="workHistoryPagination.currentPage > 3"
-                                    @click="goToWorkHistoryPage(1)"
-                                    class="pagination-btn page-btn">
+                            <button v-if="workHistoryPagination.currentPage > 3" @click="goToWorkHistoryPage(1)"
+                                class="pagination-btn page-btn">
                                 1
                             </button>
-                            
+
                             <!-- Ellipsis -->
                             <span v-if="workHistoryPagination.currentPage > 4" class="pagination-ellipsis">...</span>
 
                             <!-- Page Range -->
                             <template v-for="page in getWorkHistoryPageRange()" :key="page">
                                 <button @click="goToWorkHistoryPage(page)"
-                                        :class="['pagination-btn', 'page-btn', { 'active': page === workHistoryPagination.currentPage }]">
+                                    :class="['pagination-btn', 'page-btn', { 'active': page === workHistoryPagination.currentPage }]">
                                     {{ page }}
                                 </button>
                             </template>
 
                             <!-- Ellipsis -->
-                            <span v-if="workHistoryPagination.currentPage < workHistoryPagination.totalPages - 3" 
-                                  class="pagination-ellipsis">...</span>
-                            
+                            <span v-if="workHistoryPagination.currentPage < workHistoryPagination.totalPages - 3"
+                                class="pagination-ellipsis">...</span>
+
                             <!-- Last Page -->
                             <button v-if="workHistoryPagination.currentPage < workHistoryPagination.totalPages - 2"
-                                    @click="goToWorkHistoryPage(workHistoryPagination.totalPages)"
-                                    class="pagination-btn page-btn">
+                                @click="goToWorkHistoryPage(workHistoryPagination.totalPages)"
+                                class="pagination-btn page-btn">
                                 {{ workHistoryPagination.totalPages }}
                             </button>
                         </div>
 
                         <!-- Next Button -->
-                        <button @click="nextWorkHistoryPage" 
-                                :disabled="workHistoryPagination.currentPage === workHistoryPagination.totalPages"
-                                class="pagination-btn next-btn">
+                        <button @click="nextWorkHistoryPage"
+                            :disabled="workHistoryPagination.currentPage === workHistoryPagination.totalPages"
+                            class="pagination-btn next-btn">
                             Next
                             <i class="fas fa-chevron-right"></i>
                         </button>
@@ -1383,18 +1386,20 @@
                     <!-- Quick Jump -->
                     <div class="quick-jump" v-if="workHistoryPagination.totalPages > 5">
                         <label>Go to page:</label>
-                        <input type="number" 
-                               v-model.number="quickJumpPage"
-                               @keyup.enter="quickJumpToPage"
-                               :min="1" 
-                               :max="workHistoryPagination.totalPages"
-                               class="form-control quick-jump-input">
+                        <input type="number" v-model.number="quickJumpPage" @keyup.enter="quickJumpToPage" :min="1"
+                            :max="workHistoryPagination.totalPages" class="form-control quick-jump-input">
                         <button @click="quickJumpToPage" class="btn btn-sm btn-secondary">Go</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <PrintInvoiceModal
+  :visible="printInvoiceVisible"
+  :order="selectedOrder"
+  @close="closePrintInvoiceModal"
+/>
 </template>
 
 <style scoped>
@@ -1507,22 +1512,22 @@
         align-items: stretch;
         text-align: center;
     }
-    
+
     .pagination-controls {
         flex-direction: column;
         gap: 10px;
     }
-    
+
     .page-numbers {
         justify-content: center;
         flex-wrap: wrap;
     }
-    
+
     .pagination-btn {
         padding: 10px 12px;
         min-width: 44px;
     }
-    
+
     .quick-jump {
         flex-direction: column;
         gap: 8px;
@@ -1531,6 +1536,6 @@
 </style>
 
 <script>
-    import fbmorder from "./fbmOrders.js";
-    export default fbmorder;
+import fbmorder from "./fbmOrders.js";
+export default fbmorder;
 </script>

@@ -3,10 +3,13 @@ import "../../../css/modules.css";
 import "./fbmOrders.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+import PrintInvoiceModal from './modals/printinvoice.vue';
+
 export default {
     name: "FbmOrderModule",
     components: {
         // REMOVED ALL COMPONENT REFERENCES - USING INLINE MODALS ONLY
+            PrintInvoiceModal,
     },
     data() {
         return {
@@ -101,6 +104,11 @@ export default {
                     to: 0
                 },
                 quickJumpPage: 1,
+
+                      printInvoiceVisible: false,
+      selectedOrder: null,
+
+
         };
     },
     computed: {
