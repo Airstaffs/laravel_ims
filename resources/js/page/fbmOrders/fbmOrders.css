@@ -810,7 +810,7 @@
     gap: 5px;
 }
 
-.fbm-order-module .process-modal .matching-product-info>div {
+.fbm-order-module .process-modal .matching-product-info > div {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -850,7 +850,7 @@
     border-left: 3px solid #007bff;
 }
 
-.fbm-order-module .product-id-info>div {
+.fbm-order-module .product-id-info > div {
     margin-bottom: 3px;
 }
 
@@ -862,7 +862,6 @@
 
 /* Only apply these styles on mobile screens */
 @media (max-width: 768px) {
-
     /* Better mobile display toggling */
     .fbm-order-module .desktop-view {
         display: none !important;
@@ -1415,7 +1414,9 @@
 
 /* Item-specific tooltip message */
 .fbm-order-module .product-title-row .checkbox-disabled-tooltip:hover::after,
-.fbm-order-module .mobile-product-title-row .checkbox-disabled-tooltip:hover::after,
+.fbm-order-module
+    .mobile-product-title-row
+    .checkbox-disabled-tooltip:hover::after,
 .fbm-order-module .item-title-row .checkbox-disabled-tooltip:hover::after {
     content: "Item must be dispensed before it can be selected";
 }
@@ -1425,7 +1426,8 @@
     background-color: rgba(232, 244, 248, 0.3);
 }
 
-.fbm-order-module .mobile-card:has(.mobile-checkbox input[type="checkbox"]:not(:disabled)) {
+.fbm-order-module
+    .mobile-card:has(.mobile-checkbox input[type="checkbox"]:not(:disabled)) {
     border-left: 3px solid #28a745;
 }
 
@@ -1436,7 +1438,8 @@
     padding-left: 10px;
 }
 
-.fbm-order-module .mobile-product-item:has(.mobile-item-dispense-checkbox:not(:disabled)) {
+.fbm-order-module
+    .mobile-product-item:has(.mobile-item-dispense-checkbox:not(:disabled)) {
     background-color: rgba(232, 244, 248, 0.15);
     border-left: 3px solid #28a745;
     padding-left: 5px;
@@ -1819,18 +1822,17 @@
     position: relative;
 }
 
-.fbm-order-module .process-dispensed-product>div {
+.fbm-order-module .process-dispensed-product > div {
     margin-bottom: 3px;
     font-size: 0.85rem;
 }
 
-.fbm-order-module .process-dispensed-product>div:last-child {
+.fbm-order-module .process-dispensed-product > div:last-child {
     margin-bottom: 0;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-
     .fbm-order-module .dispensed-detail,
     .fbm-order-module .mobile-dispensed-detail {
         flex-direction: column;
@@ -1852,14 +1854,11 @@
     }
 }
 
-
 .modal.workHistory {
     display: flex !important;
     align-items: center;
     justify-content: center;
 }
-
-
 
 .error-message {
     text-align: center;
@@ -2103,17 +2102,17 @@
 .order-info {
     height: 100%;
     width: 100%;
-    font-size: .8rem;
+    font-size: 0.8rem;
 }
 
-.order-info ul>li>p,
-.order-info ul>li .orderItems-container ul>li {
+.order-info ul > li > p,
+.order-info ul > li .orderItems-container ul > li {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
 }
 
-.order-info ul>li .orderItems-container ul {
+.order-info ul > li .orderItems-container ul {
     padding: 1rem;
     border-radius: 8px;
     border-left: 1px solid #ddd;
@@ -2159,7 +2158,7 @@
     min-width: 125px;
     height: 40px;
     margin: 0;
-    font-size: .8rem;
+    font-size: 0.8rem;
     font-weight: 600;
     line-height: 40px;
     text-align: right;
@@ -2233,7 +2232,7 @@
 }
 
 .carrier tbody {
-    font-size: .8rem;
+    font-size: 0.8rem;
 }
 
 .shipping-details li {
@@ -2284,8 +2283,7 @@
     padding: 20px;
 }
 
-.first-control,
-.second-control {
+.first-control {
     display: flex;
     justify-content: center;
     align-items: center;
@@ -2296,18 +2294,8 @@
     width: 100%;
 }
 
-.second-control fieldset {
-    min-width: 500px;
-}
-
-.carrier-breakdown {
-    display: flex;
-    justify-content: flex-start;
-    align-items: center;
-    gap: 10px;
-}
-
-fieldset label {
+fieldset label,
+.first-control div > label {
     height: 40px;
     display: flex;
     justify-content: flex-start;
@@ -2321,7 +2309,6 @@ fieldset .form-control,
 span.carrier-breakdown {
     height: 40px;
 }
-
 
 /* Work History */
 .workHistory .modal-body {
@@ -2349,20 +2336,20 @@ span.carrier-breakdown {
     min-width: 170px;
 }
 
-.work-history-table tr th:nth-child(n+2):nth-child(-n+3),
-.work-history-table tr td:nth-child(n+2):nth-child(-n+3) {
+.work-history-table tr th:nth-child(n + 2):nth-child(-n + 3),
+.work-history-table tr td:nth-child(n + 2):nth-child(-n + 3) {
     min-width: 200px;
 }
 
-.work-history-table tr th:nth-child(n+4):nth-child(-n+5),
-.work-history-table tr td:nth-child(n+4):nth-child(-n+5) {
+.work-history-table tr th:nth-child(n + 4):nth-child(-n + 5),
+.work-history-table tr td:nth-child(n + 4):nth-child(-n + 5) {
     min-width: 190px;
 }
 
 .work-history-table tr th:nth-child(6),
 .work-history-table tr td:nth-child(6),
-.work-history-table tr th:nth-child(2n+7),
-.work-history-table tr td:nth-child(2n+7) {
+.work-history-table tr th:nth-child(2n + 7),
+.work-history-table tr td:nth-child(2n + 7) {
     min-width: 140px;
 }
 
@@ -2383,7 +2370,7 @@ span.carrier-breakdown {
     width: 120px;
 }
 
-.work-history-row td ul>li p {
+.work-history-row td ul > li p {
     display: flex;
     flex-direction: column;
     white-space: pre;
@@ -2400,7 +2387,6 @@ span.carrier-breakdown {
 }
 
 @media (max-width: 767px) {
-
     .shipmentLabel .modal-content,
     .carrier .modal-content {
         width: 100%;
@@ -2486,7 +2472,7 @@ span.carrier-breakdown {
     }
 
     .workHistory {
-        background: #FFF;
+        background: #fff;
     }
 
     .btn.btn-toggle {
@@ -2506,21 +2492,21 @@ span.carrier-breakdown {
         width: calc(100% / 2 - 5px);
     }
 
-    .first-control fieldset:first-child {
+    .first-control div {
         width: 100%;
     }
 
-    .second-control {
-        flex-wrap: wrap;
+    .first-control div > label {
+        display: none;
     }
 
-    .second-control fieldset,
-    .second-control button {
-        min-width: 100%;
-        width: 100%;
+    .first-control div > button {
+        width: 250px;
+        justify-content: center;
+        margin: 0 auto;
     }
 
-    .workHistory .card-body>div:nth-child(-n+4) {
+    .workHistory .card-body > div:nth-child(-n + 4) {
         display: unset;
     }
 }

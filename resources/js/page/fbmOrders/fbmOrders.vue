@@ -1103,21 +1103,19 @@
                                 <option value="ontime">On Time Orders</option>
                             </select>
                         </fieldset>
-                    </form>
 
-                    <form class="second-control" v-show="showFilters">
                         <fieldset>
                             <label><span>Total Orders:</span> <span>{{ workHistoryStats.totalOrders }}</span></label>
                             <input type="text" v-model="workHistoryFilters.searchQuery" @input="fetchWorkHistory"
                                 placeholder="Search Order Id or ..." class="search-input form-control">
-                            <span class="carrier-breakdown">
-                                <i class="fas fa-truck"></i> Carrier Breakdown
-                            </span>
                         </fieldset>
 
-                        <button role="button" class="btn btn-primary text-white m-0" @click="exportWorkHistory">
-                            <i class="fas fa-download"></i> Export Work History
-                        </button>
+                        <div>
+                            <label></label>
+                            <button role="button" class="btn btn-primary text-white" @click="exportWorkHistory">
+                                <i class="fas fa-download"></i> Export Work History
+                            </button>
+                        </div>
                     </form>
                 </div>
 
