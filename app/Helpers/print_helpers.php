@@ -179,15 +179,15 @@ if (!function_exists('fetchNote')) {
                     ->value('shipmentnotes');
 
                 return $note ?? 'N/A';
-            } else {
-                $note = DB::table('tblshiphistory')
-                    ->where('AmazonOrderId', $amazonOrderId)
-                    ->value('ordernote');
-
-                return $note ?? 'N/A';
             }
+
+            $note = DB::table('tblshiphistory')
+                ->where('AmazonOrderId', $amazonOrderId)
+                ->value('ordernote');
+
+            return $note ?? 'N/A';
         } catch (\Exception $e) {
-            \Log::error("Error fetching note: " . $e->getMessage());
+            Log::error("Error fetching note: " . $e->getMessage());
             return 'N/A';
         }
     }
