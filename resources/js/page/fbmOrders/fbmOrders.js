@@ -90,6 +90,17 @@ export default {
             workHistoryStats: {
                 totalOrders: 0,
             },
+
+              // Work History Pagination
+                workHistoryPagination: {
+                    currentPage: 1,
+                    perPage: 20,
+                    totalRecords: 0,
+                    totalPages: 1,
+                    from: 0,
+                    to: 0
+                },
+                quickJumpPage: 1,
         };
     },
     computed: {
@@ -174,24 +185,26 @@ export default {
             this.showShipmentLabelModal = false;
         },
 
-        // WORK HISTORY METHODS - ENHANCED VERSION (from new code)
-        openWorkHistoryModal() {
-            console.log("🚀 Opening work history modal..."); // DEBUG
-            this.showWorkHistoryModal = true;
-            this.fetchWorkHistory();
+    openWorkHistoryModal() {
+        console.log("🚀 Opening work history modal...");
+        this.showWorkHistoryModal = true;
+        
+        // Reset pagination to first page when opening modal
+        this.workHistoryPagination.currentPage = 1;
+        
+        this.fetchWorkHistory();
 
-            // Force DOM update and ensure modal visibility
-            this.$nextTick(() => {
-                const modal = document.querySelector(".modal.workHistory");
-                if (modal) {
-                    modal.classList.add("show");
-                    modal.style.display = "flex";
-                    console.log("✅ Modal should now be visible");
-                } else {
-                    console.error("❌ Modal element not found in DOM");
-                }
-            });
-        },
+        this.$nextTick(() => {
+            const modal = document.querySelector(".modal.workHistory");
+            if (modal) {
+                modal.classList.add("show");
+                modal.style.display = "flex";
+                console.log("✅ Modal should now be visible");
+            } else {
+                console.error("❌ Modal element not found in DOM");
+            }
+        });
+     },
 
         closeWorkHistoryModal() {
             console.log("🔒 Closing work history modal...");
@@ -207,88 +220,162 @@ export default {
             });
         },
 
-        async fetchWorkHistory() {
-            console.log("🔄 fetchWorkHistory called - using POST method"); // DEBUG LINE
-            this.loading = true;
-            this.error = null;
-            try {
-                // Use the enhanced payload format
-                const payload = {
-                    user_id: this.workHistoryFilters.userId,
-                    start_date: this.workHistoryFilters.startDate
-                        ? this.formatDateForAPI(
-                              this.workHistoryFilters.startDate
-                          )
-                        : "2024-05-20",
-                    end_date: this.workHistoryFilters.endDate
-                        ? this.formatDateForAPI(this.workHistoryFilters.endDate)
-                        : "2025-06-01",
-                    sort_by: this.workHistoryFilters.sortBy,
-                    sort_order: "DESC",
-                    search_query: this.workHistoryFilters.searchQuery || "",
-                    late_orders: this.workHistoryFilters.lateOrders || "",
-                    carrier_filter: this.workHistoryFilters.carrierFilter || "",
-                    store_filter: this.workHistoryFilters.storeFilter || "",
-                };
+          async fetchWorkHistory(resetPage = false) {
+        console.log("🔄 fetchWorkHistory called - using POST method with pagination");
+        
+        if (resetPage) {
+            this.workHistoryPagination.currentPage = 1;
+        }
+        
+        this.loading = true;
+        this.error = null;
+        
+        try {
+            const payload = {
+                user_id: this.workHistoryFilters.userId,
+                start_date: this.workHistoryFilters.startDate
+                    ? this.formatDateForAPI(this.workHistoryFilters.startDate)
+                    : "2024-05-20",
+                end_date: this.workHistoryFilters.endDate
+                    ? this.formatDateForAPI(this.workHistoryFilters.endDate)
+                    : "2025-06-01",
+                sort_by: this.workHistoryFilters.sortBy,
+                sort_order: "DESC",
+                search_query: this.workHistoryFilters.searchQuery || "",
+                late_orders: this.workHistoryFilters.lateOrders || "",
+                carrier_filter: this.workHistoryFilters.carrierFilter || "",
+                store_filter: this.workHistoryFilters.storeFilter || "",
+                // Add pagination parameters
+                page: this.workHistoryPagination.currentPage,
+                per_page: this.workHistoryPagination.perPage
+            };
 
-                console.log(
-                    "Sending work history request with payload:",
-                    payload
-                );
+            console.log("Sending work history request with payload:", payload);
 
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/fbm-orders/work-history`,
-                    payload,
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            )?.content,
-                        },
-                    }
-                );
-
-                console.log("Work history response:", response);
-
-                // Handle the response based on your controller's actual return format
-                if (response.data && response.data.success) {
-                    // Your controller returns 'history' not 'data'
-                    this.workHistory = response.data.history;
-                    this.workHistoryStats.totalOrders = this.workHistory
-                        ? this.workHistory.length
-                        : 0;
-
-                    // Show success message if available
-                    if (response.data.message) {
-                        console.log(
-                            "Work history message:",
-                            response.data.message
-                        );
-                    }
-                } else {
-                    this.workHistory = response.data;
-                    this.workHistoryStats.totalOrders = Array.isArray(
-                        this.workHistory
-                    )
-                        ? this.workHistory.length
-                        : 0;
+            const response = await axios.post(
+                `${API_BASE_URL}/api/fbm-orders/work-history`,
+                payload,
+                {
+                    withCredentials: true,
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        )?.content,
+                    },
                 }
-            } catch (err) {
-                this.error = "Failed to load work history.";
-                console.error("Work history fetch error:", err);
+            );
 
-                // More detailed error logging
-                if (err.response) {
-                    console.error("Error response:", err.response.data);
-                    console.error("Error status:", err.response.status);
+            console.log("Work history response:", response);
+
+            if (response.data && response.data.success) {
+                // Handle paginated response
+                this.workHistory = response.data.history;
+                
+                // Update pagination info
+                this.workHistoryPagination.totalRecords = response.data.total || 0;
+                this.workHistoryPagination.totalPages = response.data.last_page || 1;
+                this.workHistoryPagination.currentPage = response.data.current_page || 1;
+                this.workHistoryPagination.perPage = response.data.per_page || 20;
+                this.workHistoryPagination.from = response.data.from || 0;
+                this.workHistoryPagination.to = response.data.to || 0;
+                
+                // Update total orders stat
+                this.workHistoryStats.totalOrders = this.workHistoryPagination.totalRecords;
+
+                if (response.data.message) {
+                    console.log("Work history message:", response.data.message);
                 }
-            } finally {
-                this.loading = false;
+            } else {
+                this.workHistory = [];
+                this.workHistoryPagination.totalRecords = 0;
+                this.workHistoryPagination.totalPages = 1;
             }
-        },
+        } catch (err) {
+            this.error = "Failed to load work history.";
+            console.error("Work history fetch error:", err);
+
+            if (err.response) {
+                console.error("Error response:", err.response.data);
+                console.error("Error status:", err.response.status);
+            }
+        } finally {
+            this.loading = false;
+        }
+    },
+
+    // Change per page
+    changeWorkHistoryPerPage() {
+        this.workHistoryPagination.currentPage = 1;
+        this.fetchWorkHistory();
+    },
+
+    // Navigate to previous page
+    prevWorkHistoryPage() {
+        if (this.workHistoryPagination.currentPage > 1) {
+            this.workHistoryPagination.currentPage--;
+            this.fetchWorkHistory();
+        }
+    },
+
+    // Navigate to next page
+    nextWorkHistoryPage() {
+        if (this.workHistoryPagination.currentPage < this.workHistoryPagination.totalPages) {
+            this.workHistoryPagination.currentPage++;
+            this.fetchWorkHistory();
+        }
+    },
+
+    // Go to specific page
+    goToWorkHistoryPage(page) {
+        if (page >= 1 && page <= this.workHistoryPagination.totalPages) {
+            this.workHistoryPagination.currentPage = page;
+            this.fetchWorkHistory();
+        }
+    },
+
+    // Get page range for pagination buttons
+    getWorkHistoryPageRange() {
+        const current = this.workHistoryPagination.currentPage;
+        const total = this.workHistoryPagination.totalPages;
+        const delta = 2; // Number of pages to show on each side of current page
+        
+        const range = [];
+        const rangeWithDots = [];
+        let l;
+
+        for (let i = 1; i <= total; i++) {
+            if (i === 1 || i === total || (i >= current - delta && i <= current + delta)) {
+                range.push(i);
+            }
+        }
+
+        range.forEach((i) => {
+            if (l) {
+                if (i - l === 2) {
+                    rangeWithDots.push(l + 1);
+                } else if (i - l !== 1) {
+                    rangeWithDots.push('...');
+                }
+            }
+            rangeWithDots.push(i);
+            l = i;
+        });
+
+        return rangeWithDots.filter(i => i !== '...');
+    },
+
+    // Quick jump to page
+    quickJumpToPage() {
+        const page = parseInt(this.quickJumpPage);
+        if (!isNaN(page) && page >= 1 && page <= this.workHistoryPagination.totalPages) {
+            this.goToWorkHistoryPage(page);
+        } else {
+            alert(`Please enter a valid page number between 1 and ${this.workHistoryPagination.totalPages}`);
+            this.quickJumpPage = this.workHistoryPagination.currentPage;
+        }
+    },
 
         // Format date for API (convert from datetime-local to YYYY-MM-DD)
         formatDateForAPI(dateTimeString) {
@@ -326,8 +413,9 @@ export default {
         const isDateFiltered = this.workHistoryFilters.startDate && this.workHistoryFilters.endDate;
 
         // Build confirmation message
-        let confirmMessage = 'Export Work History to Excel\n\n';
-        confirmMessage += 'Export Details:\n';
+          let confirmMessage = 'Export Work History to Excel\n\n';
+            confirmMessage += '⚠️ Note: This will export ALL matching records, not just the current page.\n\n';
+            confirmMessage += 'Export Details:\n';
 
         if (isDateFiltered) {
             const startDate = new Date(this.workHistoryFilters.startDate).toLocaleDateString();

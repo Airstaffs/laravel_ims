@@ -15,19 +15,30 @@ use Illuminate\Support\Facades\Log;
 
 class WorkhistoryController extends Controller
 {
-    public function fetchWorkHistory(Request $request)
+   public function fetchWorkHistory(Request $request)
     {
+        // Get filter parameters
         $user_id = $request->input('user_id', 'Jundell');
         $start_date = $request->input('start_date') ? $request->input('start_date') . ' 00:01:00' : Carbon::now()->startOfDay()->format('Y-m-d H:i:s');
         $end_date = $request->input('end_date') ? $request->input('end_date') . ' 23:59:59' : Carbon::now()->endOfDay()->format('Y-m-d H:i:s');
         $sort_by = $request->input('sort_by', 'purchase_date');
         $sort_order = strtoupper($request->input('sort_order', 'DESC'));
         $search_query = trim($request->input('search_query', ''));
+        
+        // Get pagination parameters
+        $page = $request->input('page', 1);
+        $per_page = $request->input('per_page', 20);
+        
+        // Additional filters
+        $carrier_filter = $request->input('carrier_filter', '');
+        $store_filter = $request->input('store_filter', '');
+        $late_orders = $request->input('late_orders', '');
 
         $allowed_orders = ['ASC', 'DESC'];
         $sort_order = in_array($sort_order, $allowed_orders) ? $sort_order : 'DESC';
         $sort_column = $sort_by === 'purchase_date' ? 'lh.createdDate' : 'oo.purchase_date';
 
+        // Build the base query
         $query = DB::table('tbllabelhistory as lh')
             ->join('tbllabelhistoryitems as lhi', 'lh.AmazonOrderId', '=', 'lhi.AmazonOrderId')
             ->leftJoin('tbloutboundordersitem as oi', function ($join) {
@@ -62,6 +73,7 @@ class WorkhistoryController extends Controller
             ->where('lh.status', 'Purchased')
             ->whereBetween($sort_column, [$start_date, $end_date]);
 
+        // Apply filters
         if ($user_id !== 'all') {
             $query->where('lh.user', $user_id);
         }
@@ -73,19 +85,46 @@ class WorkhistoryController extends Controller
             });
         }
 
+        if (!empty($carrier_filter)) {
+            $query->where(function ($q) use ($carrier_filter) {
+                $q->where('amznth.carrier', 'like', "%$carrier_filter%")
+                    ->orWhere('amznth.carrier_description', 'like', "%$carrier_filter%");
+            });
+        }
+
+        if (!empty($store_filter)) {
+            $query->where('oo.storename', 'like', "%$store_filter%");
+        }
+
+        // Apply late orders filter if needed
+        if ($late_orders === 'late') {
+            $query->whereRaw('oo.LatestShipDate < NOW()');
+        } elseif ($late_orders === 'ontime') {
+            $query->whereRaw('oo.LatestShipDate >= NOW()');
+        }
+
+        // Order the results
         $query->orderBy('lh.AmazonOrderId')
             ->orderBy('oi.platform_order_item_id')
             ->orderBy($sort_column, $sort_order);
 
-        if (!empty($search_query)) {
-            $query->limit(30);
-        }
+        // Clone query for counting total records before pagination
+        $countQuery = clone $query;
+        
+        // Get distinct order count for total records
+        $totalOrders = $countQuery->distinct('lh.AmazonOrderId')->count('lh.AmazonOrderId');
 
-        $results = $query->get();
+        // Apply pagination to get results
+        $offset = ($page - 1) * $per_page;
+        $results = $query->offset($offset)->limit($per_page * 5)->get(); // Get extra records to handle grouping
 
+        // Group the results by order
         $groupedHistory = [];
+        $orderCount = 0;
+        $startIndex = 0;
+        $endIndex = 0;
 
-        foreach ($results as $row) {
+        foreach ($results as $index => $row) {
             $orderId = $row->AmazonOrderId;
 
             // Format dates
@@ -96,14 +135,29 @@ class WorkhistoryController extends Controller
             $LatestDeliveryDateSheesh = $row->LatestDeliveryDate ? Carbon::parse($row->LatestDeliveryDate)->format('m-d-Y') : null;
             $datedeliveredsheesh = $row->datedelivered ? Carbon::parse($row->datedelivered)->format('m-d-Y') : null;
 
-            // Fetch dispensed FNSKU via tblorderitemdispense -> tblproduct
-            $fnskuArray = DB::table('tblorderitemdispense as oid')
-                ->join('tblproduct as p', 'oid.productid', '=', 'p.ProductID')
-                ->where('oid.orderitemid', $row->outboundorderitemid)
-                ->pluck('p.FNSKUviewer')
-                ->toArray();
+            // Fetch dispensed FNSKU
+            $fnskuArray = [];
+            if ($row->outboundorderitemid) {
+                $fnskuArray = DB::table('tblorderitemdispense as oid')
+                    ->join('tblproduct as p', 'oid.productid', '=', 'p.ProductID')
+                    ->where('oid.orderitemid', $row->outboundorderitemid)
+                    ->pluck('p.FNSKUviewer')
+                    ->toArray();
+            }
 
             if (!isset($groupedHistory[$orderId])) {
+                $orderCount++;
+                
+                // Check if we've reached our per_page limit
+                if ($orderCount > $per_page) {
+                    break;
+                }
+                
+                if ($orderCount === 1) {
+                    $startIndex = $offset + 1;
+                }
+                $endIndex = $offset + $orderCount;
+
                 $groupedHistory[$orderId] = [
                     'orderInfo' => [
                         'AmazonOrderId' => $orderId ?? '',
@@ -127,22 +181,43 @@ class WorkhistoryController extends Controller
                 ];
             }
 
-            $groupedHistory[$orderId]['orderInfo']['items'][] = [
-                'OrderItemId' => $row->OrderItemId,
-                'Title' => $row->Title,
-                'ASIN' => $row->ASIN,
-                'MSKU' => $row->MSKU,
-                'ProductID' => $row->ProductID
-            ];
+            // Only add items for orders within our page limit
+            if ($orderCount <= $per_page) {
+                $groupedHistory[$orderId]['orderInfo']['items'][] = [
+                    'OrderItemId' => $row->OrderItemId,
+                    'Title' => $row->Title,
+                    'ASIN' => $row->ASIN,
+                    'MSKU' => $row->MSKU,
+                    'ProductID' => $row->ProductID
+                ];
+            }
+        }
+
+        // Calculate pagination info
+        $totalPages = ceil($totalOrders / $per_page);
+        $currentPage = min($page, $totalPages);
+        
+        // Adjust indices if no results
+        if (empty($groupedHistory)) {
+            $startIndex = 0;
+            $endIndex = 0;
         }
 
         return response()->json([
             'success' => true,
             'history' => array_values($groupedHistory),
             'userid' => $user_id,
-            'message' => count($groupedHistory) ? null : 'No work history found.'
+            'message' => count($groupedHistory) ? null : 'No work history found.',
+            // Pagination info
+            'total' => $totalOrders,
+            'per_page' => $per_page,
+            'current_page' => $currentPage,
+            'last_page' => $totalPages,
+            'from' => $startIndex,
+            'to' => $endIndex
         ]);
     }
+
 
 public function exportWorkHistory(Request $request)
 {
@@ -504,7 +579,7 @@ public function exportWorkHistory(Request $request)
 }
 
 
-    private function getCarrierText($carrier)
+     private function getCarrierText($carrier)
     {
         if (!$carrier || $carrier === 'N/A') {
             return 'N/A';

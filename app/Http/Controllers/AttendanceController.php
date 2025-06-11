@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
-
 use App\Services\UserLogService;
 
 class AttendanceController extends Controller
@@ -21,8 +20,8 @@ class AttendanceController extends Controller
 
     public function attendance()
     {
-        // Get the current user's ID from the session or Auth 
-          $currentUserId = Auth::id() ?? session('user_name', 'Unknown');
+        // Get the current user's ID from the session or Auth
+        $currentUserId = Auth::user()->id;
 
         // Query the attendance data for the logged-in user, ordered by TimeIn
         $employeeClocks = DB::table('tblemployeeclocks')

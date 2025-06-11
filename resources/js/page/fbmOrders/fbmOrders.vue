@@ -1046,7 +1046,7 @@
             </div>
         </div>
 
-        <!-- Work History Modal - EXACT DESIGN MATCH -->
+        <!-- Work History Modal with Pagination -->
         <div v-if="showWorkHistoryModal" class="modal workHistory">
             <div class="modal-overlay" @click="closeWorkHistoryModal"></div>
 
@@ -1302,10 +1302,233 @@
                         No work history available for the selected criteria.
                     </div>
                 </div>
+
+                <!-- Work History Pagination Section -->
+                <div class="work-history-pagination" v-if="workHistory && workHistory.length > 0">
+                    <!-- Pagination Info -->
+                    <div class="pagination-info-bar">
+                        <div class="pagination-summary">
+                            <span v-if="workHistoryPagination.totalRecords > 0">
+                                Showing {{ workHistoryPagination.from }} to {{ workHistoryPagination.to }} 
+                                of {{ workHistoryPagination.totalRecords }} entries
+                            </span>
+                            <span v-else>No entries found</span>
+                        </div>
+                        
+                        <div class="per-page-selector">
+                            <label>Show:</label>
+                            <select v-model="workHistoryPagination.perPage" 
+                                    @change="changeWorkHistoryPerPage" 
+                                    class="form-control per-page-select">
+                                <option value="10">10</option>
+                                <option value="20">20</option>
+                                <option value="50">50</option>
+                                <option value="100">100</option>
+                            </select>
+                            <span>per page</span>
+                        </div>
+                    </div>
+
+                    <!-- Pagination Controls -->
+                    <div class="pagination-controls" v-if="workHistoryPagination.totalPages > 1">
+                        <!-- Previous Button -->
+                        <button @click="prevWorkHistoryPage" 
+                                :disabled="workHistoryPagination.currentPage === 1"
+                                class="pagination-btn prev-btn">
+                            <i class="fas fa-chevron-left"></i>
+                            Previous
+                        </button>
+
+                        <!-- Page Numbers -->
+                        <div class="page-numbers">
+                            <!-- First Page -->
+                            <button v-if="workHistoryPagination.currentPage > 3"
+                                    @click="goToWorkHistoryPage(1)"
+                                    class="pagination-btn page-btn">
+                                1
+                            </button>
+                            
+                            <!-- Ellipsis -->
+                            <span v-if="workHistoryPagination.currentPage > 4" class="pagination-ellipsis">...</span>
+
+                            <!-- Page Range -->
+                            <template v-for="page in getWorkHistoryPageRange()" :key="page">
+                                <button @click="goToWorkHistoryPage(page)"
+                                        :class="['pagination-btn', 'page-btn', { 'active': page === workHistoryPagination.currentPage }]">
+                                    {{ page }}
+                                </button>
+                            </template>
+
+                            <!-- Ellipsis -->
+                            <span v-if="workHistoryPagination.currentPage < workHistoryPagination.totalPages - 3" 
+                                  class="pagination-ellipsis">...</span>
+                            
+                            <!-- Last Page -->
+                            <button v-if="workHistoryPagination.currentPage < workHistoryPagination.totalPages - 2"
+                                    @click="goToWorkHistoryPage(workHistoryPagination.totalPages)"
+                                    class="pagination-btn page-btn">
+                                {{ workHistoryPagination.totalPages }}
+                            </button>
+                        </div>
+
+                        <!-- Next Button -->
+                        <button @click="nextWorkHistoryPage" 
+                                :disabled="workHistoryPagination.currentPage === workHistoryPagination.totalPages"
+                                class="pagination-btn next-btn">
+                            Next
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
+
+                    <!-- Quick Jump -->
+                    <div class="quick-jump" v-if="workHistoryPagination.totalPages > 5">
+                        <label>Go to page:</label>
+                        <input type="number" 
+                               v-model.number="quickJumpPage"
+                               @keyup.enter="quickJumpToPage"
+                               :min="1" 
+                               :max="workHistoryPagination.totalPages"
+                               class="form-control quick-jump-input">
+                        <button @click="quickJumpToPage" class="btn btn-sm btn-secondary">Go</button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </template>
+
+<style scoped>
+/* Work History Pagination Styles */
+.work-history-pagination {
+    margin: 20px 0;
+    padding: 15px;
+    border-top: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+}
+
+.pagination-info-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.pagination-summary {
+    font-size: 14px;
+    color: #666;
+}
+
+.per-page-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.per-page-select {
+    width: 70px;
+    height: 32px;
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 15px;
+}
+
+.pagination-btn {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    color: #333;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 40px;
+    transition: all 0.2s ease;
+}
+
+.pagination-btn:hover:not(:disabled) {
+    background-color: #f5f5f5;
+    border-color: #999;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-btn.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.page-numbers {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.pagination-ellipsis {
+    padding: 8px 4px;
+    color: #666;
+}
+
+.quick-jump {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.quick-jump-input {
+    width: 80px;
+    height: 32px;
+    padding: 4px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .pagination-info-bar {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+    }
+    
+    .pagination-controls {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .page-numbers {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .pagination-btn {
+        padding: 10px 12px;
+        min-width: 44px;
+    }
+    
+    .quick-jump {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+</style>
 
 <script>
     import fbmorder from "./fbmOrders.js";
