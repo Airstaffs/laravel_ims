@@ -164,15 +164,17 @@
                 <span class="login-text">Login</span>
                 <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
             </button>
-            
-            <div class="form-text text-center mt-3">
-                Forgot your password? <a href="#">Reset here</a>
-            </div>
+      
             
             <a href="{{ url('auth/google') }}" class="google-login-btn">
                 <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
                 Continue with Google
             </a>
+
+                  
+            <div class="form-text text-center mt-3">
+                Forgot your password? <a href="#">Reset here</a>
+            </div>
         </form>
     </div>
 
