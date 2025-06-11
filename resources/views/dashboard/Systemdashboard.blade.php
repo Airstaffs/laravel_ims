@@ -4,6 +4,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
     <title>{{ session('site_title', 'IMS') }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -107,20 +111,18 @@
                     </li>
 
                     <!-- Logout -->
-                    <li class="nav-item">
+                   <li class="nav-item">
                         <a class="nav-link d-flex align-items-center justify-content-center" href="#"
                             onclick="event.preventDefault(); showLogoutModal();">
                             <i class="bi bi-box-arrow-right me-2"></i>
                             <span class="d-none d-lg-inline">Logout</span>
                         </a>
-                        <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
-                            @csrf
-                        </form>
-                        <form id="logout-expired-form" action="{{ route('logout.expired') }}" method="GET"
-                            style="display: none;">
-                        </form>
-
                     </li>
+
+                    <!-- Place this form outside of the navbar, preferably right after the closing </nav> tag -->
+                   <form id="force-logout-form" action="{{ url('/force-logout') }}" method="GET" style="display: none;">
+                   </form>
+
                 </ul>
             </div>
 
@@ -2723,55 +2725,476 @@ $modules = [
 
     <!-- Logout Confirmation Modal -->
     <div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    Are you sure you want to logout?
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No</button>
-                    <button type="button" class="btn btn-danger" id="confirmLogout">Yes</button>
-                </div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to logout?</p>
+                <small class="text-muted">You will be redirected to the login page.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmLogout">
+                    <i class="bi bi-box-arrow-right me-1"></i>
+                    Yes, Logout
+                </button>
             </div>
         </div>
     </div>
+</div>
 
-    <script>
-        const logoutSound = document.getElementById('logout-sound');
-        // Show the logout confirmation modal
-        function showLogoutModal() {
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard loaded - initializing security measures...');
+    
+    // Check for CSRF token on page load
+    let csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfToken) {
+        console.error('CSRF token meta tag missing from page head');
+        // Try to add it if missing
+        const head = document.getElementsByTagName('head')[0];
+        const meta = document.createElement('meta');
+        meta.name = 'csrf-token';
+        meta.content = '{{ csrf_token() }}';
+        head.appendChild(meta);
+        csrfToken = meta;
+    }
+    
+    console.log('CSRF token found:', csrfToken.getAttribute('content').substring(0, 10) + '...');
+    
+    // PREVENT BACK BUTTON ACCESS AFTER LOGOUT
+    preventBackButtonAccess();
+    
+    // Initialize logout system
+    initializeLogoutSystem();
+    
+    // Start session management
+    startSessionManagement();
+});
 
-            if (document.getElementsByName('_token').length === 0) {
-                window.location.href = '/logout';
-                return;
+// PREVENT BACK BUTTON ACCESS - MULTIPLE METHODS
+function preventBackButtonAccess() {
+    console.log('Setting up back button prevention...');
+    
+    // Method 1: History manipulation
+    history.pushState(null, null, window.location.href);
+    window.addEventListener('popstate', function(event) {
+        console.log('Back button pressed - checking authentication...');
+        
+        // Check if user is still authenticated
+        fetch('/check-auth', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
             }
-            const logoutModal = new bootstrap.Modal(document.getElementById('logoutModal'));
-            logoutModal.show();
-            logoutSound.play();
-        }
-
-        // Handle the "Yes" button click in the modal
-        document.getElementById('confirmLogout').addEventListener('click', function () {
-            document.getElementById('logout-form').submit();
+        })
+        .then(response => {
+            if (response.status === 401 || response.status === 419) {
+                console.log('User not authenticated - redirecting to login');
+                window.location.replace('/login');
+            } else {
+                // User is authenticated, push state again
+                history.pushState(null, null, window.location.href);
+            }
+        })
+        .catch(() => {
+            console.log('Auth check failed - redirecting to login');
+            window.location.replace('/login');
         });
-
-
-        function keepSessionAlive() {
-            fetch('/keep-alive', {
+    });
+    
+    // Method 2: Page show event (handles browser cache)
+    window.addEventListener('pageshow', function(event) {
+        if (event.persisted) {
+            console.log('Page loaded from cache - checking authentication...');
+            // Page was loaded from cache (back button)
+            fetch('/check-auth', {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
                 }
-            }).catch(error => console.log('Session refresh failed:', error));
+            })
+            .then(response => {
+                if (response.status === 401 || response.status === 419) {
+                    console.log('User not authenticated - clearing cache and redirecting');
+                    // Clear browser cache and redirect
+                    if ('caches' in window) {
+                        caches.keys().then(names => {
+                            names.forEach(name => {
+                                caches.delete(name);
+                            });
+                        });
+                    }
+                    window.location.replace('/login');
+                }
+            })
+            .catch(() => {
+                window.location.replace('/login');
+            });
         }
+    });
+    
+    // Method 3: Visibility change (tab switching)
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            // Page became visible again
+            console.log('Page became visible - checking authentication...');
+            setTimeout(() => {
+                fetch('/check-auth', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (response.status === 401 || response.status === 419) {
+                        console.log('Session expired - redirecting to login');
+                        window.location.replace('/login');
+                    }
+                })
+                .catch(() => {
+                    // Network error or auth failed
+                    console.log('Auth check failed on visibility change');
+                });
+            }, 1000);
+        }
+    });
+    
+    // Method 4: Disable browser navigation buttons via CSS (add to your CSS)
+    const style = document.createElement('style');
+    style.textContent = `
+        html, body {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        /* Disable right-click context menu */
+        body {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Method 5: Keyboard shortcuts prevention
+    document.addEventListener('keydown', function(e) {
+        // Prevent Alt + Left Arrow (back)
+        if (e.altKey && e.keyCode === 37) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        
+        // Prevent Alt + Right Arrow (forward)
+        if (e.altKey && e.keyCode === 39) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+        
+        // Prevent Backspace (back in some browsers)
+        if (e.keyCode === 8 && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            return false;
+        }
+        
+        // Prevent F5 refresh in some cases
+        if (e.keyCode === 116) {
+            // Allow refresh but check auth after
+            setTimeout(checkAuthStatus, 100);
+        }
+    });
+}
 
-        // Ping every 10 minutes
-        setInterval(keepSessionAlive, 600000);
-    </script>
+// LOGOUT SYSTEM
+function initializeLogoutSystem() {
+    console.log('Initializing logout system...');
+    
+    // Set up confirm logout button
+    const confirmBtn = document.getElementById('confirmLogout');
+    if (confirmBtn) {
+        // Remove any existing listeners first
+        const newBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+        
+        // Add single event listener
+        newBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Logout confirmed by user');
+            
+            // Hide the modal first
+            const modal = bootstrap.Modal.getInstance(document.getElementById('logoutModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Small delay to let modal close, then logout
+            setTimeout(performLogout, 300);
+        });
+    }
+}
+
+// MAIN LOGOUT FUNCTION
+function performLogout() {
+    console.log('Logout initiated...');
+    
+    // Show loading indicator
+    const confirmBtn = document.getElementById('confirmLogout');
+    if (confirmBtn) {
+        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Logging out...';
+        confirmBtn.disabled = true;
+    }
+    
+    // Clear any stored data immediately
+    if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
+    }
+    if (typeof localStorage !== 'undefined') {
+        localStorage.clear();
+    }
+    
+    // Try to get fresh CSRF token first
+    fetch('/csrf-token', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Fresh CSRF token obtained');
+        doLogoutWithToken(data.token);
+    })
+    .catch(error => {
+        console.log('Failed to get fresh token, using existing token');
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const token = csrfMeta ? csrfMeta.getAttribute('content') : '';
+        
+        if (token) {
+            doLogoutWithToken(token);
+        } else {
+            // Last resort - redirect to force logout
+            console.log('No token available, using force logout');
+            window.location.replace('/force-logout');
+        }
+    });
+}
+
+// ACTUAL LOGOUT EXECUTION
+function doLogoutWithToken(token) {
+    console.log('Executing logout with token:', token.substring(0, 10) + '...');
+    
+    // Create and submit a form (most reliable method)
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/logout';
+    form.style.display = 'none';
+    
+    // Add CSRF token
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = '_token';
+    tokenInput.value = token;
+    form.appendChild(tokenInput);
+    
+    // Add to DOM and submit
+    document.body.appendChild(form);
+    
+    console.log('Submitting logout form...');
+    
+    // Clear cache before logout
+    if ('caches' in window) {
+        caches.keys().then(names => {
+            names.forEach(name => {
+                caches.delete(name);
+            });
+        });
+    }
+    
+    // Submit form
+    form.submit();
+    
+    // Cleanup after delay
+    setTimeout(() => {
+        if (document.body.contains(form)) {
+            document.body.removeChild(form);
+        }
+    }, 2000);
+    
+    // Fallback redirect in case form submission fails
+    setTimeout(() => {
+        window.location.replace('/login');
+    }, 3000);
+}
+
+// MODAL FUNCTIONS
+function showLogoutModal() {
+    console.log('Showing logout modal...');
+    
+    // Check if CSRF token exists and is not empty
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfToken || !csrfToken.getAttribute('content')) {
+        console.error('CSRF token missing, refreshing page...');
+        window.location.reload();
+        return;
+    }
+    
+    const logoutModal = new bootstrap.Modal(document.getElementById('logoutModal'));
+    logoutModal.show();
+    
+    // Play logout question sound
+    const logoutSound = document.getElementById('logout-sound');
+    if (logoutSound) {
+        logoutSound.play().catch(e => console.log('Sound play failed:', e));
+    }
+}
+
+// SESSION MANAGEMENT
+function startSessionManagement() {
+    console.log('Starting session management...');
+    
+    // Refresh token immediately on page load
+    setTimeout(refreshCsrfToken, 1000);
+    
+    // Set up intervals
+    setInterval(keepSessionAlive, 300000); // Every 5 minutes
+    setInterval(refreshCsrfToken, 900000); // Every 15 minutes
+    setInterval(checkAuthStatus, 120000); // Every 2 minutes
+    
+    console.log('Session management intervals started');
+}
+
+function keepSessionAlive() {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfToken) return;
+    
+    fetch('/keep-alive', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken.getAttribute('content')
+        }
+    })
+    .then(response => {
+        if (response.status === 419 || response.status === 401) {
+            console.log('Session expired, redirecting to login');
+            window.location.replace('/login');
+        }
+    })
+    .catch(error => {
+        console.log('Keep-alive failed:', error);
+    });
+}
+
+function refreshCsrfToken() {
+    console.log('Refreshing CSRF token...');
+    
+    fetch('/csrf-token', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.token) {
+            // Update meta tag
+            const metaTag = document.querySelector('meta[name="csrf-token"]');
+            if (metaTag) {
+                metaTag.setAttribute('content', data.token);
+                console.log('CSRF token refreshed successfully');
+            }
+            
+            // Update all forms
+            document.querySelectorAll('form input[name="_token"]').forEach(input => {
+                input.value = data.token;
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Token refresh failed:', error);
+    });
+}
+
+function checkAuthStatus() {
+    fetch('/check-auth', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (response.status === 401 || response.status === 419) {
+            console.log('Authentication check failed - redirecting to login');
+            window.location.replace('/login');
+        }
+    })
+    .catch(error => {
+        console.log('Auth check failed:', error);
+        // Don't redirect on network errors, only on auth failures
+    });
+}
+
+// FORCE CACHE CLEAR ON LOGOUT
+function clearBrowserCache() {
+    // Clear service worker caches
+    if ('caches' in window) {
+        caches.keys().then(function(names) {
+            for (let name of names) {
+                caches.delete(name);
+            }
+        });
+    }
+    
+    // Clear session storage
+    if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.clear();
+    }
+    
+    // Clear local storage
+    if (typeof localStorage !== 'undefined') {
+        localStorage.clear();
+    }
+}
+
+// DISABLE RIGHT-CLICK CONTEXT MENU (OPTIONAL)
+document.addEventListener('contextmenu', function(e) {
+    e.preventDefault();
+    return false;
+});
+
+// GLOBAL ERROR HANDLER
+window.addEventListener('error', function(e) {
+    if (e.message && e.message.includes('419')) {
+        console.log('Caught 419 error globally');
+        window.location.replace('/login');
+    }
+});
+
+window.addEventListener('unhandledrejection', function(event) {
+    if (event.reason && event.reason.message && (
+        event.reason.message.includes('419') || 
+        event.reason.message.includes('401') ||
+        event.reason.message.includes('Unauthenticated')
+    )) {
+        console.log('Caught authentication error in promise rejection');
+        window.location.replace('/login');
+    }
+});
+
+console.log('Complete security system loaded successfully');
+</script>
 
     <!-- Footer -->
     <x-footer></x-footer>

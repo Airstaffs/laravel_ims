@@ -24,6 +24,7 @@ import ProductionArea from "./page/production/production.vue";
 import ReturnScanner from "./page/returnScanner/returnscanner.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound_shipment.vue";
 import FBMorders from "./page/fbmOrders/fbmOrders.vue";
+import Notfound from "./page/notfound/notfound.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
@@ -487,6 +488,7 @@ const app = createApp({
         fnsku: FNSKU,
         fbashipmentinbound: FbaInboundShipment,
         fbmorder: FBMorders,
+        notfound : Notfound,
     },
 });
 
