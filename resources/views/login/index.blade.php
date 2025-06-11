@@ -9,136 +9,120 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
-            background: {{ session('theme_color', '#007bff') }};
+            background-color: #f0f2f5;
             height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+
         .login-container {
-            max-width: 380px;
+            width: 100%;
+            max-width: 400px;
             background: #fff;
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.25);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             color: #333;
         }
+
         .login-container h3 {
             text-align: center;
-            font-weight: bold;
-            margin-bottom: 1.5rem;
-            color: #007bff;
+            font-weight: 600;
+            margin-bottom: 2rem;
+            color: #4285F4;
         }
+
         .form-control {
-            border-radius: 5px;
-            height: 45px;
+            border-radius: 8px;
+            height: 50px;
+            font-size: 1rem;
         }
+
         .btn-primary {
-            background: {{ session('theme_color', '#007bff') }};
+            background-color: #4285F4;
             border: none;
-            height: 45px;
-            border-radius: 5px;
+            height: 50px;
+            border-radius: 8px;
             font-weight: bold;
-            transition: background 0.3s ease;
+            font-size: 1rem;
         }
-     
-        .form-label {
+
+        .btn-primary:hover {
+            background-color: #3367D6;
+        }
+
+        .google-login-btn {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             font-weight: 500;
             color: #555;
+            height: 50px;
+            border-radius: 8px;
+            margin-top: 1rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
         }
-        .login-container .form-text {
-            font-size: 0.875rem;
-            color: #666;
+
+        .google-login-btn:hover {
+            background-color: #f7f7f7;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
         }
+
+        .google-login-btn img {
+            height: 24px;
+        }
+
+        .form-text a {
+            color: #4285F4;
+            text-decoration: none;
+        }
+
         footer {
             position: fixed;
             bottom: 0;
-            left: 0;
             width: 100%;
             background: #fff;
-            color: #333;
-            padding: 0.5rem 0;
+            color: #666;
             text-align: center;
-            font-size: 0.875rem;
-            box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.1);
+            padding: 0.75rem 0;
+            font-size: 0.9rem;
+            box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.05);
         }
-
-        :root {
-                --theme-color: {{ session('theme_color', '#007bff') }}; /* Fallback to #007bff if session is not set */
-            }
-
-            button, .btn, a {
-                border-color: var(--theme-color);
-            }
-            input:focus {
-        border-color: var(--theme-color);
-        background-color: white; /* Ensure background stays white */
-    }
-
-        h3 {
-            color: var(--theme-color); /* Apply theme color to h3 */
-        }
-                    /* Update hover states using filter */
-            button:hover, .btn-primary:hover, .btn:hover {
-                filter: brightness(85%); /* Darken by reducing brightness */
-                color: black;
-            }
     </style>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        // Get the theme color from the session
-        const themeColor = '{{ session('theme_color', '#007bff') }}';
-
-        // Function to darken the color
-        function darken(color, percent) {
-            const r = parseInt(color.slice(1, 3), 16);
-            const g = parseInt(color.slice(3, 5), 16);
-            const b = parseInt(color.slice(5, 7), 16);
-
-            // Calculate darkened color
-            const newR = Math.round(r * (1 - percent));
-            const newG = Math.round(g * (1 - percent));
-            const newB = Math.round(b * (1 - percent));
-
-            return `rgb(${newR}, ${newG}, ${newB})`;
-        }
-
-        // Apply darkened color to buttons and links
-        const darkThemeColor = darken(themeColor, 0.1); // Darken by 10%
-
-        const elements = document.querySelectorAll('button, .btn-primary, .btn');
-        
-        elements.forEach((element) => {
-            element.addEventListener('mouseover', () => {
-                element.style.backgroundColor = darkThemeColor;
-                element.style.borderColor = darkThemeColor;
-            });
-
-            element.addEventListener('mouseout', () => {
-                element.style.backgroundColor = themeColor;
-                element.style.borderColor = themeColor;
-            });
-        });
-    });
-</script>
 </head>
 <body>
     <div class="login-container">
-        <h3>Welcome to IMS</h3>
+        <h3>Sign in to IMS</h3>
         <form method="POST" action="{{ route('login') }}">
             @csrf
             <div class="mb-3">
-                <label for="username" class="form-label">Username</label>
-                <input type="text" class="form-control" id="username" name="username" placeholder="Enter your username" required>
+                <label for="username" class="form-label">
+                    <strong>Username or Email</strong>
+                </label>
+                <input type="text" class="form-control" id="username" name="username"
+                    placeholder="Enter your username or email" required>
             </div>
             <div class="mb-3">
-                <label for="password" class="form-label">Password</label>
-                <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
+                <label for="password" class="form-label">
+                    <strong>Password</strong>
+                </label>
+                <input type="password" class="form-control" id="password" name="password"
+                    placeholder="Enter your password" required>
             </div>
             <button type="submit" class="btn btn-primary w-100">Login</button>
-            <div class="form-text text-center mt-3">Forgot your password? <a href="#" class="text-primary">Reset here</a></div>
+            <div class="form-text text-center mt-3">
+                Forgot your password? <a href="#">Reset here</a>
+            </div>
+            <a href="{{ url('auth/google') }}" class="google-login-btn">
+                <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
+                Continue with Google
+            </a>
         </form>
     </div>
 
@@ -150,25 +134,22 @@
     <audio id="errorAudio" src="/sounds/error2.mp3" preload="auto"></audio>
 
     <script>
-            const successAudio = document.getElementById('successAudio');
-            const errorAudio = document.getElementById('errorAudio');
-        // Check if there are session messages
+        const successAudio = document.getElementById('successAudio');
+        const errorAudio = document.getElementById('errorAudio');
+
         @if(session('success'))
-                // Play the audio and show the modal
-                successAudio.play().catch(error => console.error('Audio playback failed:', error));
+            successAudio.play().catch(error => console.error('Audio playback failed:', error));
             Swal.fire({
                 icon: 'success',
                 title: 'Success',
                 text: "{{ session('success') }}",
             }).then(() => {
-                // Redirect after success message
-                window.location.href = "{{ url('/dashboard/Systemdashboard') }}"; // Modify URL as needed
+                window.location.href = "{{ url('/dashboard') }}";
             });
         @endif
 
         @if(session('error'))
-                // Play the audio and show the modal
-                errorAudio.play().catch(error => console.error('Audio playback failed:', error));
+            errorAudio.play().catch(error => console.error('Audio playback failed:', error));
             Swal.fire({
                 icon: 'error',
                 title: 'Error',
@@ -177,8 +158,7 @@
         @endif
 
         @if($errors->any())
-                // Play the audio and show the modal
-                errorAudio.play().catch(error => console.error('Audio playback failed:', error));
+            errorAudio.play().catch(error => console.error('Audio playback failed:', error));
             Swal.fire({
                 icon: 'error',
                 title: 'Error',

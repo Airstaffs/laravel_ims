@@ -1,4 +1,5 @@
 <?php
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use Illuminate\Support\Facades\Auth;
@@ -39,23 +40,21 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-// Logout Route
-Route::get('/logout', function () {
-    Session::flush();
+// Secure POST route for normal logout
+Route::post('/logout', function (Request $request) {
     Auth::logout();
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect('/login')->with('message', 'You have been logged out successfully.');
+})->name('logout');
+
+// GET route only for session expiration redirect, NOT manual logout
+Route::get('/logout', function (Request $request) {
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
     return redirect('/login')->with('message', 'Your session has expired. Please login again.');
 })->name('logout.expired');
-
-// Keep your existing POST route
-Route::post('/logout', function () {
-    Session::flush();
-    Auth::logout();
-    request()->session()->invalidate();
-    request()->session()->regenerateToken();
-    return redirect('/login');
-})->name('logout');
 
 // Login Routes
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -375,7 +374,6 @@ Route::prefix('api/validation')->group(function () {
     Route::post('move-to-stockroom', [ValidationController::class, 'moveToStockroom']);
     Route::post('move-to-labeling', [ValidationController::class, 'moveToLabeling']);
     Route::post('validate', [ValidationController::class, 'validate']);
-
 });
 
 // Routes for Fbm Order Function 
@@ -395,9 +393,8 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/mark-not-found', [FbmOrderController::class, 'markProductNotFound']);
     Route::get('/shipping-label-selected-items', [FbmOrderController::class, 'shippinglabelselecteditem']);
 
-   Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
-   Route::post('/export-work-history', [WorkhistoryController::class, 'exportWorkHistory']); 
-
+    Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
+    Route::post('/export-work-history', [WorkhistoryController::class, 'exportWorkHistory']);
 });
 
 
@@ -410,6 +407,7 @@ Route::prefix('api/notfound')->group(function () {
 
 // Routes for FNSKU Function 
 use App\Http\Controllers\FnskuController;
+
 Route::get('/fnsku-list', [FnskuController::class, 'getFnskuList']);
 Route::post('/update-fnsku', [FnskuController::class, 'updateFnsku']);
 Route::get('/fnsku', [FnskuController::class, 'index']);
@@ -421,6 +419,7 @@ Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'clone
 
 // FBM Orders Shipping Label
 use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
+
 Route::post('/amzn/fbm-orders/purchase-label/rates', [ShippingLabelController::class, 'get_rates']);
 Route::post('/amzn/fbm-orders/purchase-label/createshipment', [ShippingLabelController::class, 'create_shipment']);
 Route::post('/amzn/fbm-orders/purchase-label/manualshipment', [ShippingLabelController::class, 'manual_shipment']);
@@ -444,3 +443,7 @@ Route::get('/ups_tracking', function () {
     return response(ob_get_clean());
 });
 
+Route::get('auth/google', [LoginController::class, 'googlepage']);
+Route::get('auth/google/callback', [LoginController::class, 'handleGoogleCallback']);
+
+Route::get('/dashboard', [AttendanceController::class, 'attendance'])->name('dashboard.system');

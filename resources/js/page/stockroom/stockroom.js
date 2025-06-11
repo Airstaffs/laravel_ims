@@ -61,7 +61,16 @@ export default {
       enlargeImage: false, // For toggling enlarged image view
       
       // For image handling
-      defaultImagePath: '/images/default-product.png'
+      defaultImagePath: '/images/default-product.png',
+
+      // Add this for inventory counts
+    inventoryCounts: {
+      total: 0,
+      qoh: 0,
+      fbm: 0,
+      fba: 0
+    }
+
     };
   },
   computed: {
@@ -346,15 +355,6 @@ normalizeFnsku(fnsku) {
   // Otherwise, convert on the fly
   return this.convertItemCondition(grading, store, asin, grading, asinStatus);
 },
-  getDisplayGrading(item, storeName = null) {
-    if (!item) return '';
-    
-    const grading = item.grading || item.condition;
-    const store = storeName || item.storename || this.selectedStore;
-    const asin = item.ASIN || item.asin;
-    
-    return this.convertItemCondition(grading, store, asin, grading);
-  },
 
   // Apply grade conversion to inventory items (call this after fetching data)
   applyGradeConversion(items) {
@@ -407,54 +407,106 @@ normalizeFnsku(fnsku) {
   });
 },
 
+
+// Add this method to your methods section:
+calculateInventoryCounts() {
+  let totalCount = 0;
+  let qohCount = 0;
+  let fbmCount = 0;
+  let fbaCount = 0;
+
+  // Make sure inventory exists and is an array
+  if (Array.isArray(this.inventory) && this.inventory.length > 0) {
+    this.inventory.forEach(item => {
+      // Add to total count
+      totalCount += parseInt(item.item_count || 0);
+      
+      // Calculate QOH (Quantity on Hand) - sum of FBM and FBA
+      const fbmAvailable = parseInt(item.FBMAvailable || 0);
+      const fbaAvailable = parseInt(item.FbaAvailable || 0);
+      
+      fbmCount += fbmAvailable;
+      fbaCount += fbaAvailable;
+      qohCount += fbmAvailable + fbaAvailable;
+    });
+  }
+
+  // Update the counts object
+  this.inventoryCounts = {
+    total: totalCount,
+    qoh: qohCount,
+    fbm: fbmCount,
+    fba: fbaCount
+  };
+  
+  console.log('Inventory counts calculated:', this.inventoryCounts);
+},
+
     
     // Modified fetchInventory with count validation
-    async fetchInventory() {
-      try {
-        const response = await axios.get(`${API_BASE_URL}/api/stockroom/products`, {
-          params: { 
-            search: this.searchQuery, 
-            page: this.currentPage, 
-            per_page: this.perPage,
-            store: this.selectedStore
-          },
-          withCredentials: true
-        });
+   // Update your fetchInventory method to call calculateInventoryCounts:
+async fetchInventory() {
+  try {
+    console.log('Starting fetchInventory...'); // Debug log
+    
+    const response = await axios.get(`${API_BASE_URL}/api/stockroom/products`, {
+      params: { 
+        search: this.searchQuery, 
+        page: this.currentPage, 
+        per_page: this.perPage,
+        store: this.selectedStore
+      },
+      withCredentials: true
+    });
 
-        // Initialize items with checked property and useDefaultImage flag
-           let inventoryItems = (response.data.data || []).map(item => {
-          const itemWithFlags = {
-            ...item,
-            checked: false,
-            serials: item.serials || [],
-            fnskus: item.fnskus || [],
-            useDefaultImage: false, // Add this flag
-            countValid: true, // Add a flag for item count validation
-            
-            // Ensure pack_size is set
-            pack_size: item.pack_size || 1,
-            
-            // Ensure box_count is set (for non-pack items, this equals item_count)
-            box_count: item.box_count || item.item_count
-          };
-          
-          // Validate the item count
-          itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
-          
-          return itemWithFlags;
-        });
+    console.log('API Response received:', response.data); // Debug log
 
-        // Apply grade conversion to all items
-      this.inventory = this.applyGradeConversion(inventoryItems)
-        
-        this.totalPages = response.data.last_page || 1;
-      } catch (error) {
-        console.error("Error fetching inventory data:", error);
-        if (SoundService && SoundService.error) {
-          SoundService.error();
-        }
-      }
-    },
+    // Initialize items with checked property and useDefaultImage flag
+    let inventoryItems = (response.data.data || []).map(item => {
+      const itemWithFlags = {
+        ...item,
+        checked: false,
+        serials: item.serials || [],
+        fnskus: item.fnskus || [],
+        useDefaultImage: false,
+        countValid: true,
+        pack_size: item.pack_size || 1,
+        box_count: item.box_count || item.item_count
+      };
+      
+      // Validate the item count
+      itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
+      
+      return itemWithFlags;
+    });
+
+    // Apply grade conversion to all items
+    this.inventory = this.applyGradeConversion(inventoryItems);
+    
+    console.log('Inventory items processed:', this.inventory.length); // Debug log
+    
+    this.totalPages = response.data.last_page || 1;
+    
+    // IMPORTANT: Calculate inventory counts AFTER setting this.inventory
+    this.calculateInventoryCounts();
+    
+  } catch (error) {
+    console.error("Error fetching inventory data:", error);
+    
+    // Initialize with empty data on error
+    this.inventory = [];
+    this.inventoryCounts = {
+      total: 0,
+      qoh: 0,
+      fbm: 0,
+      fba: 0
+    };
+    
+    if (SoundService && SoundService.error) {
+      SoundService.error();
+    }
+  }
+},
 
     // Pagination methods
     changePerPage() {

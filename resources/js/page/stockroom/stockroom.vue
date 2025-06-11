@@ -1,3 +1,7 @@
+paste-2.txt
+42.96 KB •1,016 lines
+•
+Formatting may be inconsistent from source
 <template>
     <div class="vue-container stockroom-module">
         <!-- Top header bar with blue background -->
@@ -58,6 +62,28 @@
         </scanner-component>
 
         <h2 class="module-title">Stockroom Module</h2>
+
+
+        <div class="inventory-counts-section">
+                <div class="count-badge total-count">
+                    <span class="count-label">Count:</span>
+                    <span class="count-value">{{ inventoryCounts?.total || 0 }}</span>
+                </div>
+                <div class="count-separator"></div>
+                <div class="count-badge qoh-count">
+                    <span class="count-label">QOH</span>
+                    <span class="count-value">{{ inventoryCounts?.qoh || 0 }}</span>
+                </div>
+                <div class="count-badge fbm-count">
+                    <span class="count-label">FBM</span>
+                    <span class="count-value">{{ inventoryCounts?.fbm || 0 }}</span>
+                </div>
+                <div class="count-badge fba-count">
+                    <span class="count-label">FBA</span>
+                    <span class="count-value">{{ inventoryCounts?.fba || 0 }}</span>
+                </div>
+            </div>
+
 
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">
@@ -549,7 +575,78 @@
 </script>
 
 <style>
-/* FNSKU Tag Styles - Simplified Layout */
+.inventory-counts-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin: 20px 0;
+    font-family: Arial, sans-serif;
+    flex-wrap: wrap;
+    justify-content: flex-start; /* Align badges to the left on desktop */
+}
+
+.count-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.count-badge.total-count {
+    background-color: #17a2b8;
+    color: white;
+    border: 1px solid #117a8b;
+}
+
+.count-badge.qoh-count {
+    background-color: #6f42c1;
+    color: white;
+    border: 1px solid #5a369a;
+}
+
+.count-badge.fbm-count {
+    background-color: #28a745;
+    color: white;
+    border: 1px solid #1e7e34;
+}
+
+.count-badge.fba-count {
+    background-color: #fd7e14;
+    color: white;
+    border: 1px solid #e55a00;
+}
+
+.count-badge:not(.total-count):not(.qoh-count):not(.fbm-count):not(.fba-count) {
+    background-color: #6c757d;
+    color: white;
+    border: 1px solid #545b62;
+}
+
+.count-label {
+    font-weight: 600;
+    margin-right: 2px;
+}
+
+.count-value {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.count-separator {
+    width: 1px;
+    height: 24px;
+    background-color: #dee2e6;
+    margin: 0 5px;
+}
+
 /* FNSKU Tag Styles - Simplified Layout */
 .fnsku-tags {
     display: flex;
@@ -587,7 +684,7 @@
     margin-bottom: 8px;
 }
 
-serial-detail-table thead {
+.serial-detail-table thead {
     background-color: #1a252f !important; /* Much darker header - almost black */
     color: white !important;
 }
@@ -898,6 +995,128 @@ serial-detail-table thead {
     letter-spacing: 0.5px !important;
 }
 
+/* Expanded Content Section Spacing */
+.expanded-fnskus, .expanded-serials {
+    margin-bottom: 20px;
+}
+
+.expanded-fnskus strong, .expanded-serials strong {
+    color: #495057;
+    font-size: 15px;
+    display: block;
+    margin-bottom: 10px;
+}
+
+/* Process Modal Item Display Enhancement */
+.process-item-row span {
+    font-size: 14px;
+    color: #495057;
+}
+
+/* Mobile responsive adjustments for counts - FIXED VERSION */
+@media (max-width: 768px) {
+    .inventory-counts-section {
+        display: flex;
+        flex-direction: row; /* Force horizontal layout */
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 12px 15px;
+        margin: 15px 0;
+        flex-wrap: nowrap; /* Prevent wrapping to new lines */
+    }
+    
+    .count-badge {
+        flex: 1; /* Equal width distribution */
+        display: flex;
+        flex-direction: column; /* Stack label and value vertically within badge */
+        align-items: center;
+        justify-content: center;
+        padding: 8px 4px;
+        font-size: 11px;
+        min-width: 0;
+        border-radius: 4px;
+        text-align: center;
+    }
+    
+    .count-label {
+        font-size: 10px;
+        font-weight: 600;
+        margin-bottom: 2px;
+        margin-right: 0;
+        line-height: 1;
+    }
+    
+    .count-value {
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1;
+    }
+    
+    .count-separator {
+        display: none;
+    }
+    
+    .fnsku-detail-table-container,
+    .serial-table-container {
+        font-size: 12px;
+    }
+    
+    .fnsku-detail-table th,
+    .fnsku-detail-table td,
+    .serial-detail-table th,
+    .serial-detail-table td {
+        padding: 8px 6px;
+    }
+    
+    .mobile-fnsku-item,
+    .mobile-serial-item {
+        margin-bottom: 8px;
+        padding: 10px;
+    }
+    
+    .product-details-content {
+        width: 100%;
+        height: 100vh;
+        border-radius: 0;
+        max-height: 100vh;
+    }
+    
+    .serial-detail-table {
+        min-width: 700px;
+    }
+    
+    .serial-detail-table thead th,
+    .serial-detail-table tbody td {
+        padding: 10px 8px;
+        font-size: 12px;
+    }
+    
+    .expanded-content {
+        width: 100%;
+        padding: 15px;
+    }
+}
+
+@media (max-width: 480px) {
+    .inventory-counts-section {
+        gap: 6px;
+        padding: 10px 12px;
+    }
+    
+    .count-badge {
+        padding: 6px 3px;
+    }
+    
+    .count-label {
+        font-size: 9px;
+    }
+    
+    .count-value {
+        font-size: 14px;
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 1400px) {
     .product-details-content {
@@ -947,69 +1166,6 @@ serial-detail-table thead {
     
     .expanded-content {
         width: 95%;
-    }
-}
-
-@media (max-width: 768px) {
-    .product-details-content {
-        width: 100%;
-        height: 100vh;
-        border-radius: 0;
-        max-height: 100vh;
-    }
-    
-    .serial-detail-table {
-        min-width: 700px;
-    }
-    
-    .serial-detail-table thead th,
-    .serial-detail-table tbody td {
-        padding: 10px 8px;
-        font-size: 12px;
-    }
-    
-    .expanded-content {
-        width: 100%;
-        padding: 15px;
-    }
-}
-
-/* Expanded Content Section Spacing */
-.expanded-fnskus, .expanded-serials {
-    margin-bottom: 20px;
-}
-
-.expanded-fnskus strong, .expanded-serials strong {
-    color: #495057;
-    font-size: 15px;
-    display: block;
-    margin-bottom: 10px;
-}
-
-/* Process Modal Item Display Enhancement */
-.process-item-row span {
-    font-size: 14px;
-    color: #495057;
-}
-
-/* Responsive adjustments for tables */
-@media (max-width: 768px) {
-    .fnsku-detail-table-container,
-    .serial-table-container {
-        font-size: 12px;
-    }
-    
-    .fnsku-detail-table th,
-    .fnsku-detail-table td,
-    .serial-detail-table th,
-    .serial-detail-table td {
-        padding: 8px 6px;
-    }
-    
-    .mobile-fnsku-item,
-    .mobile-serial-item {
-        margin-bottom: 8px;
-        padding: 10px;
     }
 }
 </style>
