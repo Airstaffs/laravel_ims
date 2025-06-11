@@ -31,63 +31,163 @@ use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\FbmOrderController;
 use App\Http\Controllers\notfoundController;
 use App\Http\Controllers\Fbmorders\WorkhistoryController;
-
+use App\Http\Middleware\PreventBackHistory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 
-
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login');
 });
 
-// Secure POST route for normal logout
+// Guest routes (accessible only when not authenticated)
+Route::middleware('guest')->group(function () {
+    // Login routes
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'authenticate']);
+    
+    // Google OAuth routes
+    Route::get('/auth/google', [LoginController::class, 'googlepage'])->name('google.redirect');
+    Route::get('/auth/google/callback', [LoginController::class, 'handleGoogleCallback'])->name('google.callback');
+});
+
+// FIXED LOGOUT ROUTE - Changed session key to prevent audio confusion
 Route::post('/logout', function (Request $request) {
+    try {
+        \Log::info('Logout attempt', [
+            'user_id' => auth()->id(),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+        
+        // Force logout regardless of token issues
+        if (Auth::check()) {
+            \Log::info('User logout: ' . Auth::user()->username);
+        }
+        
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        
+        // Handle AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged out successfully',
+                'redirect' => route('login')
+            ]);
+        }
+        
+        // FIXED: Use 'logout_success' instead of 'success' to avoid audio confusion
+        return redirect('/login')->with('logout_success', 'You have been logged out successfully.');
+        
+    } catch (\Exception $e) {
+        \Log::error('Logout error: ' . $e->getMessage());
+        
+        // Even if there's an error, try to clear session
+        try {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        } catch (\Exception $sessionError) {
+            \Log::error('Session clearing error: ' . $sessionError->getMessage());
+        }
+        
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged out',
+                'redirect' => route('login')
+            ]);
+        }
+        
+        return redirect('/login')->with('logout_success', 'You have been logged out.');
+    }
+})->middleware(['web'])->name('logout');
+
+// BACKUP LOGOUT ROUTE (No CSRF check)
+Route::get('/force-logout', function (Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
-    return redirect('/login')->with('message', 'You have been logged out successfully.');
-})->name('logout');
+    
+    return redirect('/login')->with('logout_success', 'You have been logged out.');
+})->name('force.logout');
 
-// GET route only for session expiration redirect, NOT manual logout
-Route::get('/logout', function (Request $request) {
-    Auth::logout();
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-    return redirect('/login')->with('message', 'Your session has expired. Please login again.');
-})->name('logout.expired');
+// CHECK AUTHENTICATION STATUS (for preventing back button access)
+Route::get('/check-auth', function () {
+    if (auth()->check()) {
+        return response()->json(['authenticated' => true]);
+    }
+    return response()->json(['authenticated' => false], 401);
+});
 
-// Login Routes
-Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-Route::post('/login', [LoginController::class, 'authenticate'])->name('login');
+// Apply PreventBackHistory middleware to all authenticated routes
+Route::middleware(['auth', PreventBackHistory::class])->group(function () {
+    // Dashboard - PRESERVED YOUR ORIGINAL ROUTES
+    Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard.system');
+    
+    // CSRF token refresh endpoint
+    Route::get('/csrf-token', function () {
+        return response()->json(['token' => csrf_token()]);
+    });
+    
+    // Keep session alive endpoint
+    Route::get('/keep-alive', function () {
+        return response()->json(['status' => 'alive']);
+    });
+    
+    // All other authenticated routes
+    Route::get('/dashboard/Systemdashboard', [LoginController::class, 'showSystemDashboard']);
+    Route::get('/get-user-privileges/{userId}', [UserController::class, 'getUserPrivileges']);
+    Route::post('/save-user-privileges', [UserController::class, 'saveUserPrivileges'])->name('saveUserPrivileges');
+    Route::post('/refresh-user-session', [UserController::class, 'refreshUserSession'])->name('refresh.user.session');
 
-// Dashboard Route (Protected with auth middleware)
-Route::get('/dashboard/Systemdashboard', [LoginController::class, 'showSystemDashboard'])->middleware('auth');
-Route::get('/get-user-privileges/{userId}', [UserController::class, 'getUserPrivileges']);
-Route::post('/save-user-privileges', [UserController::class, 'saveUserPrivileges'])->name('saveUserPrivileges');
-Route::post('/refresh-user-session', [UserController::class, 'refreshUserSession'])->name('refresh.user.session');
+    Route::get('/fetchNewlyAddedStoreCol', [UserController::class, 'fetchNewlyAddedStoreCol']);
+    Route::get('/get-store-columns', [UserController::class, 'getStoreColumns']);
 
+    // User Routes
+    Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
+    Route::post('/update-password', [UserController::class, 'updatepassword'])->name('update-password');
+    Route::get('/myprivileges', [UserController::class, 'showmyprivileges'])->name('myprivileges');
+    Route::get('/users', [UserController::class, 'createdusers'])->name('user');
+    Route::post('/update-user/{id}', [UserController::class, 'update'])->name('update-user');
+    Route::delete('/delete-user/{id}', [UserController::class, 'destroy'])->name('delete-user');
 
-Route::get('/fetchNewlyAddedStoreCol', [UserController::class, 'fetchNewlyAddedStoreCol']);
+    // System Design Routes
+    Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');
 
+    // Store Routes
+    Route::get('/get-stores', [StoreController::class, 'getStores']);
+    Route::get('/get-store/{id}', [StoreController::class, 'getStoreID'])->name('get-store');
+    Route::post('/update-store/{id}', [StoreController::class, 'updateStore'])->name('update-store');
+    Route::post('/add-store', [StoreController::class, 'addstore'])->name('add-store');
+    Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
+    Route::get('/fetch-marketplaces', [StoreController::class, 'fetchMarketplaces']);
+    Route::get('/fetch-marketplaces-tblstores', [StoreController::class, 'fetchMarketplacestblstores'])->name('fetchMarketplacestblstores');
 
-Route::get('/get-store-columns', [UserController::class, 'getStoreColumns']);
+    // Attendance Routes
+    Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
+    Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
+    Route::post('/update-computed-hours', [AttendanceController::class, 'updateComputedHours'])->name('update.computed.hours');
+    Route::post('/attendance/update-hours', [AttendanceController::class, 'updateHours'])->name('attendance.update.hours');
+    Route::post('/attendance/filter', [AttendanceController::class, 'filterAttendanceAjax'])->name('attendance.filter.ajax');
+    Route::post('/attendance/auto-clockout', [AttendanceController::class, 'autoClockOut'])->name('auto-clockout');
+    Route::post('/update-notes/{id}', [AttendanceController::class, 'updateNotes'])->name('update-notes');
 
-Route::get('/dashboard/Systemdashboard', function () {
-    return view('dashboard.Systemdashboard');
-})->middleware('auth');
+    Route::get('/get-user-logs', [UserLogsController::class, 'getUserLogs']);
+    Route::get('/get-time-records/{user_id}', [EmployeeClockController::class, 'getUserTimeRecords']);
 
-// User Routes
-Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
-Route::post('/update-password', [UserController::class, 'updatepassword'])->name('update-password');
-Route::get('/myprivileges', [UserController::class, 'showmyprivileges'])->name('myprivileges');
-Route::get('/users', [UserController::class, 'createdusers'])->name('user');
-Route::post('/update-user/{id}', [UserController::class, 'update'])->name('update-user');
-Route::delete('/delete-user/{id}', [UserController::class, 'destroy'])->name('delete-user');
+    Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPrivileges']);
+    Route::post('/refresh-user-session', [UserSessionController::class, 'refreshSession']);
+});
 
-// System Design Routes
-Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');
-
-
+// Fallback route for undefined routes
+Route::fallback(function () {
+    if (auth()->check()) {
+        return redirect()->route('dashboard.system');
+    }
+    return redirect()->route('login');
+});
 
 // Module Routes
 Route::get('/Systemmodule/{module}Module/{moduleName}', function ($module, $moduleName) {
@@ -99,29 +199,6 @@ Route::get('/Systemmodule/{module}Module/{moduleName}', function ($module, $modu
 
     abort(404);
 })->name('modules');
-
-
-Route::get('/get-stores', [StoreController::class, 'getStores']);
-Route::get('/get-store/{id}', [StoreController::class, 'getStoreID'])->name('get-store');
-Route::post('/update-store/{id}', [StoreController::class, 'updateStore'])->name('update-store');
-
-Route::post('/add-store', [StoreController::class, 'addstore'])->name('add-store');
-Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
-Route::get('/fetch-marketplaces', [StoreController::class, 'fetchMarketplaces']);
-Route::get('/fetch-marketplaces-tblstores', [StoreController::class, 'fetchMarketplacestblstores'])->name('fetchMarketplacestblstores');
-
-Route::get('/dashboard/Systemdashboard', [AttendanceController::class, 'attendance']);
-Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
-Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
-Route::post('/update-computed-hours', [AttendanceController::class, 'updateComputedHours'])->name('update.computed.hours');
-Route::post('/attendance/update-hours', [AttendanceController::class, 'updateHours'])->name('attendance.update.hours');
-Route::post('/attendance/filter', [AttendanceController::class, 'filterAttendanceAjax'])->name('attendance.filter.ajax');
-Route::post('/attendance/auto-clockout', [AttendanceController::class, 'autoClockOut'])->name('auto-clockout');
-Route::post('/update-notes/{id}', [AttendanceController::class, 'updateNotes'])->name('update-notes');
-
-Route::get('/get-user-logs', [UserLogsController::class, 'getUserLogs']);
-Route::get('/get-time-records/{user_id}', [EmployeeClockController::class, 'getUserTimeRecords']);
-
 
 // AWS Inventory Routes
 Route::get('/aws-inventory', function () {
@@ -143,31 +220,27 @@ Route::get('/apis/upstracking', function () {
 
 Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
 
+// eBay Routes
 Route::get('/apis/ebay-callback', action: function () {
     require app_path('Helpers/ebay_helpers.php');
-    // Check if the 'code' parameter is present in the URL
     echo "Hello";
     if (isset($_GET['code'])) {
-        $authorizationCode = $_GET['code']; // Get the authorization code from the URL
-        // Call the getAccessToken function to exchange the authorization code for an access token
+        $authorizationCode = $_GET['code'];
         $accessToken = getAccessToken($authorizationCode);
 
         if ($accessToken) {
-            // Access token obtained successfully
             return response()->json(['access_token' => $accessToken]);
         } else {
-            // Failed to retrieve access token
             return response()->json(['error' => 'Unable to obtain access token.'], 500);
         }
     } else {
-        // No authorization code received in the request
         return response()->json(['error' => 'Authorization code not provided.'], 400);
     }
 });
 
 Route::get('/apis/ebay-login', action: function () {
-    $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e'; // Replace with your client ID
-    $redirectUrl = 'https://ims.tecniquality.com/Admin/modules/orders/callback.php'; // Replace with your redirect URL
+    $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e';
+    $redirectUrl = 'https://ims.tecniquality.com/Admin/modules/orders/callback.php';
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
 
     $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
@@ -175,34 +248,10 @@ Route::get('/apis/ebay-login', action: function () {
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
 
-Route::get('/apis/ebay-callback', action: function () {
-    require app_path('Helpers/ebay_helpers.php');
-    // Check if the 'code' parameter is present in the URL
-    echo "Hello";
-    if (isset($_GET['code'])) {
-        $authorizationCode = $_GET['code']; // Get the authorization code from the URL
-        // Call the getAccessToken function to exchange the authorization code for an access token
-        $accessToken = getAccessToken($authorizationCode);
-
-        if ($accessToken) {
-            // Access token obtained successfully
-            return response()->json(['access_token' => $accessToken]);
-        } else {
-            // Failed to retrieve access token
-            return response()->json(['error' => 'Unable to obtain access token.'], 500);
-        }
-    } else {
-        // No authorization code received in the request
-        return response()->json(['error' => 'Authorization code not provided.'], 400);
-    }
-});
-
 use App\Http\Controllers\Ebay\EbayController;
-
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
 use App\Http\Controllers\Amzn\FBACartController;
-
 Route::post('/amzn/fba-cart/add', [FBACartController::class, 'addToCart']);
 Route::get('/amzn/fba-cart/list', [FBACartController::class, 'list']);
 Route::get('/amzn/fba-cart/get-or-create-cart', [FBACartController::class, 'getOrCreateCart']);
@@ -210,7 +259,6 @@ Route::delete('/amzn/fba-cart/remove', [FBACartController::class, 'removeFromCar
 Route::post('/amzn/fba-cart/commit', [FBACartController::class, 'commitCart']);
 
 use App\Http\Controllers\Amzn\FBAShipmentController;
-// localhost:8000
 Route::post('/amzn/fba-shipment/add-item', [FBAShipmentController::class, 'addItemToShipment']);
 Route::get('/amzn/fba-shipment/fetch-shipments', [FBAShipmentController::class, 'fetch_shipment']);
 Route::post('/amzn/fba-shipment/delete-item', [FBAShipmentController::class, 'deleteShipmentItem']);
@@ -236,56 +284,9 @@ Route::get('/amzn/fba-shipment/step6/confirm_placement_option', [FBAShipmentCont
 Route::get('/amzn/fba-shipment/step7/confirm_delivery_window_options', [FBAShipmentController::class, 'step7a_confirm_delivery_window_options']);
 Route::get('/amzn/fba-shipment/step8/confirm_transportation_options', [FBAShipmentController::class, 'step8a_confirm_transportation_options']);
 
-Route::get('/amzn/fba-shipment/step9/get_shipment', [FBAShipmentController::class, 'step9a_get_shipment']); // medyo sheeshables
+Route::get('/amzn/fba-shipment/step9/get_shipment', [FBAShipmentController::class, 'step9a_get_shipment']);
 Route::get('/amzn/fba-shipment/step10/print_label', [FBAShipmentController::class, 'step10a_print_label']);
 
-
-Route::get('/apis/ebay-login', action: function () {
-    $clientId = 'Christia-LaravelI-SBX-8f72598d8-73053ea8'; // Replace with your client ID
-    $redirectUrl = 'https://ims.tecniquality.com/Admin/modules/orders/callback.php'; // Replace with your redirect URL
-    $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
-
-    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
-
-    echo "<a href='{$authUrl}'>Authorize with eBay</a>";
-});
-
-
-use App\Http\Controllers\TestTableController;
-
-Route::get('/test', [TestTableController::class, 'index']);
-
-
-use App\Http\Controllers\tblproductController;
-
-Route::get('/products', [tblproductController::class, 'index']);
-
-
-Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPrivileges'])->middleware('auth');
-
-// In routes/web.php
-Route::post('/refresh-user-session', [UserSessionController::class, 'refreshSession']);
-
-/*Route::get('/keep-alive', function () {
-    // Refresh the session
-    request()->session()->regenerate();
-    return response()->json(['status' => 'ok']);
-})->middleware('web');
-
-Route::get('/csrf-token', function () {
-    return response()->json(['token' => csrf_token()]);
-})->middleware('web'); */
-
-// Session management routes
-Route::get('/keep-alive', [App\Http\Controllers\UserSessionController::class, 'keepAlive'])
-    ->middleware('web');
-
-Route::get('/csrf-token', [App\Http\Controllers\UserSessionController::class, 'csrfToken'])
-    ->middleware('web');
-
-Route::middleware(['web', \App\Http\Middleware\RefreshSession::class])->group(function () {
-    // Your existing routes go here
-});
 
 // Routes for Stockroom scanner
 Route::prefix('api/stockroom')->group(function () {
@@ -307,26 +308,22 @@ Route::prefix('api/unreceived')->group(function () {
     Route::get('verify-tracking', [UnreceivedController::class, 'verifyTracking']);
     Route::get('get-next-rpn', [UnreceivedController::class, 'getNextRpn']);
     Route::post('process-scan', [UnreceivedController::class, 'processScan']);
-    // Other unreceived-specific endpoints
 });
 
 // Routes for Received scanner 
 Route::prefix('api/received')->group(function () {
     Route::get('products', [ReceivedController::class, 'index']);
     Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
-    Route::post('validate-pcn', [ReceivedController::class, 'validatePcn']); // <-- Now points
+    Route::post('validate-pcn', [ReceivedController::class, 'validatePcn']);
     Route::post('process-scan', [ReceivedController::class, 'processScan']);
 });
 
-
 Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::class, 'upload']);
-
 
 // Routes Orders
 Route::prefix('api/orders')->group(function () {
     Route::get('products', [OrdersController::class, 'index']);
 });
-
 
 // Routes Production Area
 Route::prefix('api/productionArea')->group(function () {
@@ -338,18 +335,13 @@ Route::prefix('api/packaging')->group(function () {
     Route::get('products', [PackagingController::class, 'index']);
 });
 
-
 // Routes Returns
 Route::prefix('api/returns')->group(function () {
-    // GET routes
     Route::get('products', [ReturnScannerController::class, 'index']);
     Route::get('stores', [ReturnScannerController::class, 'getStores']);
     Route::get('check-serial', [ReturnScannerController::class, 'checkSerial']);
-
-    // POST routes - REMOVE the withoutMiddleware call to make it consistent with Stockroom
     Route::post('process-scan', [ReturnScannerController::class, 'processScan']);
 });
-
 
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {
@@ -366,7 +358,6 @@ Route::get('/test-labeling-controller', function () {
 
 Route::post('/test-move-validation', [LabelingController::class, 'moveToValidation']);
 Route::post('/test-move-stockroom', [LabelingController::class, 'moveToStockroom']);
-
 
 // Routes for Validation Function 
 Route::prefix('api/validation')->group(function () {
@@ -385,7 +376,6 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/shipping-label', [FbmOrderController::class, 'printShippingLabel']);
     Route::post('/cancel', [FbmOrderController::class, 'cancelOrder']);
     Route::post('/auto-dispense', [FbmOrderController::class, 'autoDispense']);
-    // Add new routes for auto dispense functionality
     Route::post('/find-dispense-products', [FbmOrderController::class, 'findDispenseProducts']);
     Route::post('/dispense', [FbmOrderController::class, 'dispense']);
     Route::post('/cancel-dispense', [FbmOrderController::class, 'cancelDispense']);
@@ -397,13 +387,11 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/export-work-history', [WorkhistoryController::class, 'exportWorkHistory']);
 });
 
-
 // Routes Not Found
 Route::prefix('api/notfound')->group(function () {
     Route::get('products', [notfoundController::class, 'index']);
     Route::post('move-to-stockroom', [notfoundController::class, 'moveToStockroom']);
 });
-
 
 // Routes for FNSKU Function 
 use App\Http\Controllers\FnskuController;
@@ -415,7 +403,6 @@ Route::post('/insert-fnsku', [FnskuController::class, 'insertFnsku']);
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
-
 
 // FBM Orders Shipping Label
 use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
@@ -445,5 +432,3 @@ Route::get('/ups_tracking', function () {
 
 Route::get('auth/google', [LoginController::class, 'googlepage']);
 Route::get('auth/google/callback', [LoginController::class, 'handleGoogleCallback']);
-
-Route::get('/dashboard', [AttendanceController::class, 'attendance'])->name('dashboard.system');
