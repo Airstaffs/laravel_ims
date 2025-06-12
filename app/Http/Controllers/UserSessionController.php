@@ -58,9 +58,6 @@ class UserSessionController extends Controller
             if ($user->fbmorder) {
                 $subModules[] = 'fbmorder';
             }
-
-            
-    
     
             // Update session with fresh data
             Session::forget('main_module');
@@ -69,7 +66,7 @@ class UserSessionController extends Controller
             Session::put('sub_modules', array_map('strtolower', $subModules));
             Session::save();
     
-            // Debugging log
+            // Debugging log (keep this for server logs, but don't return in response)
             Log::info('Updated user privileges and session', [
                 'user_id' => $user->id,
                 'main_module' => $mainModule,
@@ -152,65 +149,53 @@ class UserSessionController extends Controller
     }
 
     /**
-     * Keep user session alive
+     * Keep user session alive - SIMPLIFIED to prevent JSON pollution
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function keepAlive(Request $request)
-    {
-        if (!Auth::check()) {
-            return response()->json(['status' => 'error', 'message' => 'Not authenticated'], 401);
+   public function keepAlive(Request $request)
+{
+    if (!Auth::check()) {
+        return response()->json(['authenticated' => false], 401);
+    }
+    
+    try {
+        // Update last activity timestamp
+        $request->session()->put('last_activity', time());
+        
+        // Only regenerate session after half the lifetime has passed
+        $halfLifetime = (config('session.lifetime') * 60) / 2;
+        $lastRegenerated = session('session_regenerated', 0);
+        
+        if ((time() - $lastRegenerated) > $halfLifetime) {
+            $request->session()->regenerate();
+            $request->session()->put('session_regenerated', time());
+            
+            // Log regeneration for server logs only
+            Log::info('Session regenerated during keep-alive', [
+                'user_id' => Auth::id(),
+                'new_session_id' => session()->getId()
+            ]);
         }
         
-        try {
-            // Update last activity timestamp
-            $request->session()->put('last_activity', time());
-            
-            // Get session info for debugging
-            $sessionInfo = [
-                'id' => session()->getId(),
-                'last_activity' => session('last_activity'),
-                'user' => Auth::user()->username,
-                'expires_in' => (config('session.lifetime') * 60) - (time() - session('last_activity', time())),
-                'main_module' => Session::get('main_module'),
-                'sub_modules' => Session::get('sub_modules')
-            ];
-            
-            // Only regenerate session after half the lifetime has passed to prevent excessive regeneration
-            $halfLifetime = (config('session.lifetime') * 60) / 2; // Half lifetime in seconds
-            $lastRegenerated = session('session_regenerated', 0);
-            
-            if ((time() - $lastRegenerated) > $halfLifetime) {
-                $request->session()->regenerate();
-                $request->session()->put('session_regenerated', time());
-                $sessionInfo['regenerated'] = true;
-                
-                // Log regeneration
-                Log::info('Session regenerated during keep-alive', [
-                    'user_id' => Auth::id(),
-                    'new_session_id' => session()->getId()
-                ]);
-            } else {
-                $sessionInfo['regenerated'] = false;
-            }
-            
-            return response()->json([
-                'status' => 'ok', 
-                'message' => 'Session extended',
-                'debug' => $sessionInfo
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Error in keepAlive: ' . $e->getMessage(), [
-                'exception' => $e
-            ]);
-            
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Failed to extend session: ' . $e->getMessage()
-            ], 500);
-        }
+        // CLEAN RESPONSE - no debug info
+        return response()->json([
+            'status' => 'alive',
+            'message' => 'Session extended'
+        ]);
+        
+    } catch (\Exception $e) {
+        Log::error('Error in keepAlive: ' . $e->getMessage(), [
+            'exception' => $e
+        ]);
+        
+        return response()->json([
+            'status' => 'error',
+            'message' => 'Failed to extend session'
+        ], 500);
     }
+}
     
     /**
      * Get a fresh CSRF token

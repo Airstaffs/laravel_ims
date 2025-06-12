@@ -8,5 +8,9 @@ class VerifyCsrfToken extends Middleware
 {
     protected $except = [
         '/fbmorders/fetch-work-history',
+         'force-logout',
+        'keep-alive',
+        'csrf-token'
+        
     ];
 }

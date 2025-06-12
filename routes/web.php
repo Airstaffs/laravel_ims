@@ -40,6 +40,63 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+<<<<<<< HEAD
+// Guest routes (accessible only when not authenticated)
+Route::middleware('guest')->group(function () {
+    // Login routes
+    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+    Route::post('/login', [LoginController::class, 'authenticate']);
+    
+    // Google OAuth routes
+    Route::get('/auth/google', [LoginController::class, 'googlepage'])->name('google.redirect');
+    Route::get('/auth/google/callback', [LoginController::class, 'handleGoogleCallback'])->name('google.callback');
+});
+
+// FIXED LOGOUT ROUTE - Changed session key to prevent audio confusion
+Route::get('/force-logout', function (Request $request) {
+    try {
+        \Log::info('Force logout initiated', [
+            'user_id' => auth()->id(),
+            'ip' => $request->ip()
+        ]);
+        
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        
+        // Handle AJAX requests
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Logged out',
+                'redirect' => route('login')
+            ]);
+        }
+        
+        return redirect('/login')->with('logout_success', 'You have been logged out.');
+    } catch (\Exception $e) {
+        \Log::error('Force logout error: ' . $e->getMessage());
+        
+        // Force redirect even on error
+        return redirect('/login')->with('logout_success', 'Session ended.');
+    }
+})->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class])->name('force.logout');
+
+// CSRF Token refresh endpoint (for preventing 419 errors)
+Route::get('/csrf-token', function () {
+    return response()->json(['token' => csrf_token()]);
+})->middleware('web');
+
+// Keep session alive endpoint
+Route::get('/keep-alive', function () {
+    return response()->json([
+        'status' => 'alive',
+        'message' => 'Session extended'
+    ]);
+})->middleware('web');
+
+
+=======
 // Secure POST route for normal logout
 Route::post('/logout', function (Request $request) {
     Auth::logout();
@@ -47,6 +104,7 @@ Route::post('/logout', function (Request $request) {
     $request->session()->regenerateToken();
     return redirect('/login')->with('message', 'You have been logged out successfully.');
 })->name('logout');
+>>>>>>> 8afae939a47014012c2a3ae0bbc89d12716cb055
 
 // GET route only for session expiration redirect, NOT manual logout
 Route::get('/logout', function (Request $request) {
@@ -239,6 +297,22 @@ Route::get('/amzn/fba-shipment/step8/confirm_transportation_options', [FBAShipme
 Route::get('/amzn/fba-shipment/step9/get_shipment', [FBAShipmentController::class, 'step9a_get_shipment']); // medyo sheeshables
 Route::get('/amzn/fba-shipment/step10/print_label', [FBAShipmentController::class, 'step10a_print_label']);
 
+use App\Http\Controllers\TestTableController;
+Route::get('/test', [TestTableController::class, 'index']);
+
+use App\Http\Controllers\tblproductController;
+Route::get('/products', [tblproductController::class, 'index']);
+
+// Session management routes
+Route::get('/keep-alive', [App\Http\Controllers\UserSessionController::class, 'keepAlive'])
+    ->middleware('web');
+
+Route::get('/csrf-token', [App\Http\Controllers\UserSessionController::class, 'csrfToken'])
+    ->middleware('web');
+
+Route::middleware(['web', \App\Http\Middleware\RefreshSession::class])->group(function () {
+    // Your existing routes go here
+});
 
 Route::get('/apis/ebay-login', action: function () {
     $clientId = 'Christia-LaravelI-SBX-8f72598d8-73053ea8'; // Replace with your client ID
