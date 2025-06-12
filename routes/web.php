@@ -458,7 +458,7 @@ Route::get('/dashboard', [AttendanceController::class, 'attendance'])->name('das
 use App\Http\Controllers\Fbmorders\PrintInvoiceController;
 
 Route::post('/fbm-orders-invoice', [PrintInvoiceController::class, 'printInvoice']);
-
+/*
 Route::get('/fbm-orders-invoice-test', function () {
     $testPayload = [
         'platform_order_id' => '111-1234567-8900000',
@@ -475,17 +475,17 @@ Route::get('/fbm-orders-invoice-test', function () {
 
     return $response->json(); // Show result in browser
 });
+*/
 
 Route::get('/fbm-orders-invoice-test', function () {
     $controller = new PrintInvoiceController();
 
     $request = Request::create('/fbm-orders-invoice', 'POST', [
-        'platform_order_id' => '111-1234567-8900000',
-        'platform_order_item_ids' => ['ITEM-1', 'ITEM-2'],
-        'action' => 'ViewInvoice',
+        'platform_order_ids' => ['111-9674483-2472244'],
+        'action' => 'PrintInvoice',
         'settings' => [
             'displayPrice' => true,
-            'testPrint' => false,
+            'testPrint' => true,
             'signatureRequired' => true
         ],
     ]);

@@ -6,6 +6,7 @@ session_start();
 date_default_timezone_set('America/Los_Angeles');
 
 
+exit("RAWR");
 
 $success = false;
 $strname = "RT";
@@ -262,6 +263,7 @@ if (true) {
 
 
 
+
                         $outbounditems_check = $db->prepare("SELECT platform_order_id FROM tbloutboundordersitem WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?");
                         $outbounditems_check->bind_param("sss", $AmazonOrderId, $orderItemId, $platform);
                         $outbounditems_check->execute();
@@ -285,6 +287,7 @@ if (true) {
                                 QuantityShipped = ?,
                                 unit_price = ?,
                                 unit_tax = ?,
+                                ShippingPrice = ?
                                 IsBuyerRequestedCancel = ?,
                                 BuyerCancelReason = ?
                             WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?");
@@ -302,14 +305,16 @@ if (true) {
                                 (int) $QuantityShipped,    // 9
                                 (float) $itemprice,        // 10
                                 (float) $itemtax,          // 11
+                                (float) $ShippingPrice,     // 17
                                 $IsBuyerRequestedCancel,  // 12
                                 $BuyerCancelReason,       // 13
                                 $AmazonOrderId,           // 14
                                 $orderItemId,             // 15
-                                $platform                 // 16
+                                $platform,                 // 16
+
                             ];
 
-                            $updateStmt_outbounditems->bind_param('ssssssssiiiddssss', ...$value_sheesh);
+                            $updateStmt_outbounditems->bind_param('ssssssssiiidddssss', ...$value_sheesh);
                             $updateStmt_outbounditems->execute();
                             echo "------ Orderitem updated. <br>";
                             $updateStmt_outbounditems->close();
@@ -332,9 +337,10 @@ if (true) {
                                 QuantityShipped,
                                 unit_price,
                                 unit_tax,
+                                shippingPrice,
                                 IsBuyerRequestedCancel,
                                 BuyerCancelReason
-                            ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                            ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
                             $valueInsert = [
                                 $store,
@@ -352,11 +358,12 @@ if (true) {
                                 $QuantityShipped,
                                 $itemprice,
                                 $itemtax,
+                                $ShippingPrice,
                                 $IsBuyerRequestedCancel,
                                 $BuyerCancelReason
                             ];
 
-                            $insertStmt_outbounditems->bind_param('sssssssssssiiddss', ...$valueInsert);
+                            $insertStmt_outbounditems->bind_param('sssssssssssiidddss', ...$valueInsert);
                             $insertStmt_outbounditems->execute();
                             echo "------ Orderitem inserted. <br>";
                             $insertStmt_outbounditems->close();
@@ -640,8 +647,10 @@ function InsertORUpdate_tblhistory($edited)
     // Convert GMT dates to Los Angeles time
     $timezone = new DateTimeZone('America/Los_Angeles');
 
-    function convertToLA($datetimeString, $timezone) {
-        if (empty($datetimeString)) return null;
+    function convertToLA($datetimeString, $timezone)
+    {
+        if (empty($datetimeString))
+            return null;
         try {
             $date = new DateTime($datetimeString, new DateTimeZone('UTC'));
             $date->setTimezone($timezone);

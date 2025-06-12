@@ -35,6 +35,8 @@
 </template>
 
 <script>
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
 export default {
     props: {
         visible: Boolean,
@@ -53,9 +55,9 @@ export default {
         },
         async handleInvoiceAction(action) {
             const payload = {
-                platform_order_id: this.order.platform_order_id,
+                platform_order_ids: [this.order.platform_order_id], // ✅ fixed
                 platform_order_item_ids: this.order.items?.map(i => i.platform_order_item_id) || [],
-                action: action, // ViewInvoice or PrintInvoice
+                action: action,
                 settings: {
                     displayPrice: this.displayPrice,
                     testPrint: this.testPrint,
@@ -64,7 +66,7 @@ export default {
             };
 
             try {
-                const res = await axios.post('/api/fbm-orders-invoice', payload);
+                const res = await axios.post(`${API_BASE_URL}/fbm-orders-invoice`, payload);
 
                 if (res.data.success) {
                     if (action === 'ViewInvoice') {

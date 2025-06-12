@@ -73,9 +73,9 @@ if (!function_exists('getEarliestShipDate')) {
             return '';
         }
 
-        $earliestShipDate = DB::table('tblshiphistory')
-            ->where('AmazonOrderId', $AmazonOrderId)
-            ->where('orderitemid', $orderitemid)
+        $earliestShipDate = DB::table('tbloutboundorders')
+            ->where('platform_order_id', $AmazonOrderId)
+            // ->where('orderitemid', $orderitemid)
             ->value('EarliestShipDate');
 
         return $earliestShipDate ?? '';
@@ -89,9 +89,9 @@ if (!function_exists('getLatestShipDate')) {
             return '';
         }
 
-        $latestShipDate = DB::table('tblshiphistory')
-            ->where('AmazonOrderId', $AmazonOrderId)
-            ->where('orderitemid', $orderitemid)
+        $latestShipDate = DB::table('tbloutboundorders')
+            ->where('platform_order_id', $AmazonOrderId)
+            // ->where('orderitemid', $orderitemid)
             ->value('LatestShipDate');
 
         return $latestShipDate ?? '';
@@ -181,8 +181,8 @@ if (!function_exists('fetchNote')) {
                 return $note ?? 'N/A';
             }
 
-            $note = DB::table('tblshiphistory')
-                ->where('AmazonOrderId', $amazonOrderId)
+            $note = DB::table('tbloutboundorders')
+                ->where('platform_order_id', $amazonOrderId)
                 ->value('ordernote');
 
             return $note ?? 'N/A';
@@ -256,7 +256,7 @@ if (!function_exists('getlabelhistoryrawr')) {
     }
 }
 
-
+/*
 function convertImageToZPL($testprint, $imagePath, $maxWidth = 1250, $maxHeight = 1100, $bottomRightNumber = "0313", )
 {
     $originalImg = imagecreatefrompng($imagePath);
@@ -320,6 +320,7 @@ function convertImageToZPL($testprint, $imagePath, $maxWidth = 1250, $maxHeight 
     $textY = $newHeight + 70; // Position below the image
     $zpl .= "^FO{$textX},{$textY}^A0N,30,30^FD$bottomRightNumber^FS\n"; // Bottom-right text
     */
+    /*
     if ($testprint) {
         // Define label dimensions (in dots, assuming 203 DPI)
         $labelWidth = 800;  // 4 inches * 203 DPI
@@ -345,3 +346,4 @@ function convertImageToZPL($testprint, $imagePath, $maxWidth = 1250, $maxHeight 
 
     return $zpl;
 }
+*/
