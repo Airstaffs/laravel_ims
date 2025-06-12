@@ -2530,6 +2530,11 @@ span.carrier-breakdown {
         background: #fff;
     }
 
+    .workHistory .modal-content {
+        max-height: 100vh;
+        overflow-y: auto;
+    }
+
     .btn.btn-toggle {
         width: 40px;
         height: 40px;
