@@ -24,7 +24,10 @@
                     <i class="fas fa-file-alt"></i>
                     <span>Generate Packing Slips</span>
                 </button>
-                <button class="btn btn-header">Print Invoice</button>
+                <button class="btn btn-header" @click="openPrintInvoiceModal(order)">
+                    <i class="fas fa-tag"></i>
+                    <span>Print Invoice</span>
+                </button>
             </div>
 
             <div class="store-filter">
@@ -249,11 +252,6 @@
                                     <div class="action-buttons">
                                         <button class="btn-track">TRACK</button>
                                         <button class="btn-tracking-history">Tracking History</button>
-
-                                        <!-- Print Invoice Open Modal -->
-                                        <button class="btn-process" @click="openPrintInvoiceModal(order)">
-                                            <i class="fas fa-shipping-fast"></i> Process
-                                        </button>
 
                                         <!-- Process Button (with integrated Auto Dispense) -->
                                         <button class="btn-process" @click="openProcessModal(order)"
