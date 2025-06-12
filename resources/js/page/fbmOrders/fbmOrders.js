@@ -2790,6 +2790,14 @@ export default {
                 }
             }
         },
+        openPrintInvoiceModal(order) {
+            this.selectedOrder = order;
+            this.printInvoiceVisible = true;
+        },
+        closePrintInvoiceModal() {
+            this.printInvoiceVisible = false;
+            this.selectedOrder = null;
+        },
     },
     watch: {
         searchQuery() {
