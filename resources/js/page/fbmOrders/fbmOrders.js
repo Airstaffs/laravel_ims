@@ -3,6 +3,7 @@ import "../../../css/modules.css";
 import "./fbmOrders.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+import ScrollFab from "../../components/ScrollFab.vue";
 import PrintInvoiceModal from "./modals/printinvoice.vue";
 
 export default {
@@ -10,6 +11,7 @@ export default {
     components: {
         // REMOVED ALL COMPONENT REFERENCES - USING INLINE MODALS ONLY
         PrintInvoiceModal,
+        ScrollFab,
     },
     data() {
         return {

@@ -887,11 +887,11 @@
                                         <p><strong>Amazon Order Id: </strong>{{ order.platform_order_id }}</p>
                                         <p><strong>Customer Name: </strong>{{ order.BuyerName }}</p>
                                         <p><strong>Address: </strong>
-                                        <ul class="list-unstyled m-0 d-flex flex-column align-items-end">
-                                            <li>{{ order.address_line1 }},</li>
-                                            <li>{{ order.city }}, {{ order.StateOrRegion }}</li>
-                                            <li>{{ order.postal_code }}, {{ order.CountryCode }}</li>
-                                        </ul>
+                                            <ul class="list-unstyled m-0 d-flex flex-column align-items-end">
+                                                <li>{{ order.address_line1 }},</li>
+                                                <li>{{ order.city }}, {{ order.StateOrRegion }}</li>
+                                                <li>{{ order.postal_code }}, {{ order.CountryCode }}</li>
+                                            </ul>
                                         </p>
                                     </li>
 
@@ -1355,6 +1355,8 @@
                         No work history available for the selected criteria.
                     </div>
                 </div>
+                
+                <ScrollFab targetSelector=".modal-content" bottomSelector=".work-history-pagination" />
             </div>
         </div>
     </div>
