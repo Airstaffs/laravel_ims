@@ -24,7 +24,10 @@
                     <i class="fas fa-file-alt"></i>
                     <span>Generate Packing Slips</span>
                 </button>
-                <button class="btn btn-header">Print Invoice</button>
+                <button class="btn btn-header" @click="openPrintInvoiceModal(order)">
+                    <i class="fas fa-tag"></i>
+                    <span>Print Invoice</span>
+                </button>
             </div>
 
             <div class="store-filter">
