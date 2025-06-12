@@ -40,63 +40,6 @@ Route::get('/', function () {
     return view('welcome');
 });
 
-<<<<<<< HEAD
-// Guest routes (accessible only when not authenticated)
-Route::middleware('guest')->group(function () {
-    // Login routes
-    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [LoginController::class, 'authenticate']);
-    
-    // Google OAuth routes
-    Route::get('/auth/google', [LoginController::class, 'googlepage'])->name('google.redirect');
-    Route::get('/auth/google/callback', [LoginController::class, 'handleGoogleCallback'])->name('google.callback');
-});
-
-// FIXED LOGOUT ROUTE - Changed session key to prevent audio confusion
-Route::get('/force-logout', function (Request $request) {
-    try {
-        \Log::info('Force logout initiated', [
-            'user_id' => auth()->id(),
-            'ip' => $request->ip()
-        ]);
-        
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-        
-        // Handle AJAX requests
-        if ($request->ajax() || $request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Logged out',
-                'redirect' => route('login')
-            ]);
-        }
-        
-        return redirect('/login')->with('logout_success', 'You have been logged out.');
-    } catch (\Exception $e) {
-        \Log::error('Force logout error: ' . $e->getMessage());
-        
-        // Force redirect even on error
-        return redirect('/login')->with('logout_success', 'Session ended.');
-    }
-})->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class])->name('force.logout');
-
-// CSRF Token refresh endpoint (for preventing 419 errors)
-Route::get('/csrf-token', function () {
-    return response()->json(['token' => csrf_token()]);
-})->middleware('web');
-
-// Keep session alive endpoint
-Route::get('/keep-alive', function () {
-    return response()->json([
-        'status' => 'alive',
-        'message' => 'Session extended'
-    ]);
-})->middleware('web');
-
-
-=======
 // Secure POST route for normal logout
 Route::post('/logout', function (Request $request) {
     Auth::logout();
@@ -104,7 +47,6 @@ Route::post('/logout', function (Request $request) {
     $request->session()->regenerateToken();
     return redirect('/login')->with('message', 'You have been logged out successfully.');
 })->name('logout');
->>>>>>> 8afae939a47014012c2a3ae0bbc89d12716cb055
 
 // GET route only for session expiration redirect, NOT manual logout
 Route::get('/logout', function (Request $request) {
@@ -325,16 +267,6 @@ Route::get('/apis/ebay-login', action: function () {
 });
 
 
-use App\Http\Controllers\TestTableController;
-
-Route::get('/test', [TestTableController::class, 'index']);
-
-
-use App\Http\Controllers\tblproductController;
-
-Route::get('/products', [tblproductController::class, 'index']);
-
-
 Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPrivileges'])->middleware('auth');
 
 // In routes/web.php
@@ -522,6 +454,41 @@ Route::get('auth/google/callback', [LoginController::class, 'handleGoogleCallbac
 
 Route::get('/dashboard', [AttendanceController::class, 'attendance'])->name('dashboard.system');
 
+
 use App\Http\Controllers\Fbmorders\PrintInvoiceController;
 
 Route::post('/fbm-orders-invoice', [PrintInvoiceController::class, 'printInvoice']);
+
+Route::get('/fbm-orders-invoice-test', function () {
+    $testPayload = [
+        'platform_order_id' => '111-1234567-8900000',
+        'platform_order_item_ids' => ['ITEM-1', 'ITEM-2'],
+        'action' => 'ViewInvoice', // or 'PrintInvoice'
+        'settings' => [
+            'displayPrice' => true,
+            'testPrint' => false,
+            'signatureRequired' => true
+        ],
+    ];
+
+    $response = Http::post(url('/api/fbm-orders-invoice'), $testPayload);
+
+    return $response->json(); // Show result in browser
+});
+
+Route::get('/fbm-orders-invoice-test', function () {
+    $controller = new PrintInvoiceController();
+
+    $request = Request::create('/fbm-orders-invoice', 'POST', [
+        'platform_order_id' => '111-1234567-8900000',
+        'platform_order_item_ids' => ['ITEM-1', 'ITEM-2'],
+        'action' => 'ViewInvoice',
+        'settings' => [
+            'displayPrice' => true,
+            'testPrint' => false,
+            'signatureRequired' => true
+        ],
+    ]);
+
+    return $controller->printInvoice($request);
+});
