@@ -23,42 +23,41 @@ class PrintInvoiceController extends Controller
 {
     public function printInvoice(Request $request)
     {
-        $platform_order_id = $request->input('platform_order_id', '');
-        $order_item_ids = $request->input('platform_order_item_ids', ''); // array
+        $platform_order_ids = $request->input('platform_order_ids', []);
         $action = $request->input('action', ''); // 'PrintInvoice' or 'ViewInvoice'
         $settings = $request->input('settings', ''); // could be the display price, test print, or signature required
 
-        // Step 1: Fetch order and items
-        $order = DB::table('tbloutboundorders')
-            ->where('platform_order_id', $platform_order_id)
-            ->first();
 
-        $items = DB::table('tbloutboundordersitem')
-            ->where('platform_order_id', $platform_order_id)
-            ->get(); // no need to filter item IDs since you're selecting all
+        $results = [];
 
-        // Step 2: Merge items into order
-        $orderData = $order->toArray();
-        $orderData['items'] = $items->toArray();
+        foreach ($platform_order_ids as $platform_order_id) {
+            $order = DB::table('tbloutboundorders')->where('platform_order_id', $platform_order_id)->first();
+            $items = DB::table('tbloutboundordersitem')->where('platform_order_id', $platform_order_id)->get();
 
-        // Step 3: Generate HTML
-        $html = $this->generateHtml($settings, $orderData, $action);
+            if (!$order)
+                continue;
 
-        // Step 4: Generate PDF
-        $pdfFile = storage_path("app/public/invoice_{$platform_order_id}.pdf");
-        $this->generatePDF($html, $pdfFile, $settings);
+            $orderData = (array) $order;
+            $orderData['items'] = $items->toArray();
 
-        // Step 5: Convert to ZPL
-        $zplCode = $this->convertPDFToZPL($pdfFile, $platform_order_id, $settings);
+            $html = $this->generateHtml($settings, $orderData, $action);
+            $pdfFile = storage_path("app/public/invoice_{$platform_order_id}.pdf");
+            $this->generatePDF($html, $pdfFile, $settings);
+            $zplCode = $this->convertPDFToZPL($pdfFile, $platform_order_id, $settings);
 
-        // Step 6: Send to printer if requested
-        if ($action === 'PrintInvoice') {
-            $this->sendToPrinter($zplCode); 
+            if ($action === 'PrintInvoice') {
+                $this->sendToPrinter($zplCode);
+            }
+
+            $results[] = [
+                'order_id' => $platform_order_id,
+                'zpl_preview' => $action === 'ViewInvoice' ? $zplCode : null
+            ];
         }
 
         return response()->json([
             'success' => true,
-            'zpl_preview' => $action === 'ViewInvoice' ? $zplCode : null
+            'results' => $results
         ]);
     }
 
