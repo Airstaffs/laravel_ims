@@ -24,7 +24,10 @@
                     <i class="fas fa-file-alt"></i>
                     <span>Generate Packing Slips</span>
                 </button>
-                <button class="btn btn-header">Print Invoice</button>
+                <button class="btn btn-header" @click="openPrintInvoiceModal(order)">
+                    <i class="fas fa-tag"></i>
+                    <span>Print Invoice</span>
+                </button>
             </div>
 
             <div class="store-filter">
@@ -56,7 +59,7 @@
             <div class="selection-info">
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{ persistentSelectedOrderIds.length > 1 ? 's' : ''
-                    }} selected across all pages</span>
+                }} selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
                 </button>
@@ -252,7 +255,7 @@
 
                                         <!-- Print Invoice Open Modal -->
                                         <button class="btn-process" @click="openPrintInvoiceModal(order)">
-                                            <i class="fas fa-shipping-fast"></i> Process
+                                            <i class="fas fa-shipping-fast"></i> Print Invoice
                                         </button>
 
                                         <!-- Process Button (with integrated Auto Dispense) -->
@@ -598,12 +601,12 @@
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -614,17 +617,17 @@
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>

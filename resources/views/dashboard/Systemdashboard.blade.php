@@ -111,7 +111,7 @@
                     </li>
 
                     <!-- Logout -->
-                   <li class="nav-item">
+                    <li class="nav-item">
                         <a class="nav-link d-flex align-items-center justify-content-center" href="#"
                             onclick="event.preventDefault(); showLogoutModal();">
                             <i class="bi bi-box-arrow-right me-2"></i>
@@ -2693,26 +2693,26 @@ function hasAccess($module, $mainModule, $subModules): bool
 
     <!-- Logout Confirmation Modal -->
     <div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to logout?</p>
-                <small class="text-muted">You will be redirected to the login page.</small>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="confirmLogout">
-                    <i class="bi bi-box-arrow-right me-1"></i>
-                    Yes, Logout
-                </button>
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutModalLabel">Confirm Logout</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Are you sure you want to logout?</p>
+                    <small class="text-muted">You will be redirected to the login page.</small>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="confirmLogout">
+                        <i class="bi bi-box-arrow-right me-1"></i>
+                        Yes, Logout
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
 <script>
     // Ensure CSRF token is available

@@ -23,10 +23,10 @@ class PrintInvoiceController extends Controller
 {
     public function printInvoice(Request $request)
     {
-        $platform_order_id = $request->input('platform_order_id', );
-        $order_item_ids = $request->input('platform_order_item_ids', ); // array
-        $action = $request->input('action', ); // 'PrintInvoice' or 'ViewInvoice'
-        $settings = $request->input('settings', ); // could be null or have size, format etc.
+        $platform_order_id = $request->input('platform_order_id', '');
+        $order_item_ids = $request->input('platform_order_item_ids', ''); // array
+        $action = $request->input('action', ''); // 'PrintInvoice' or 'ViewInvoice'
+        $settings = $request->input('settings', ''); // could be the display price, test print, or signature required
 
         // Step 1: Fetch order and items
         $order = DB::table('tbloutboundorders')
