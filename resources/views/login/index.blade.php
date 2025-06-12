@@ -254,7 +254,6 @@
             @endif
 
             // NOTE: Login success audio is now handled on the dashboard page
-            // because successful login redirects immediately to dashboard
 
             // Handle LOGOUT success messages (play logout sound)
             @if(session('logout_success'))

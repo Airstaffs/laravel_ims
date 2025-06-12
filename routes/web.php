@@ -51,18 +51,12 @@ Route::middleware('guest')->group(function () {
 });
 
 // FIXED LOGOUT ROUTE - Changed session key to prevent audio confusion
-Route::post('/logout', function (Request $request) {
+Route::get('/force-logout', function (Request $request) {
     try {
-        \Log::info('Logout attempt', [
+        \Log::info('Force logout initiated', [
             'user_id' => auth()->id(),
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
+            'ip' => $request->ip()
         ]);
-        
-        // Force logout regardless of token issues
-        if (Auth::check()) {
-            \Log::info('User logout: ' . Auth::user()->username);
-        }
         
         Auth::logout();
         $request->session()->invalidate();
@@ -72,46 +66,34 @@ Route::post('/logout', function (Request $request) {
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
-                'message' => 'Logged out successfully',
-                'redirect' => route('login')
-            ]);
-        }
-        
-        // FIXED: Use 'logout_success' instead of 'success' to avoid audio confusion
-        return redirect('/login')->with('logout_success', 'You have been logged out successfully.');
-        
-    } catch (\Exception $e) {
-        \Log::error('Logout error: ' . $e->getMessage());
-        
-        // Even if there's an error, try to clear session
-        try {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-        } catch (\Exception $sessionError) {
-            \Log::error('Session clearing error: ' . $sessionError->getMessage());
-        }
-        
-        if ($request->ajax() || $request->wantsJson()) {
-            return response()->json([
-                'success' => true,
                 'message' => 'Logged out',
                 'redirect' => route('login')
             ]);
         }
         
         return redirect('/login')->with('logout_success', 'You have been logged out.');
+    } catch (\Exception $e) {
+        \Log::error('Force logout error: ' . $e->getMessage());
+        
+        // Force redirect even on error
+        return redirect('/login')->with('logout_success', 'Session ended.');
     }
-})->middleware(['web'])->name('logout');
+})->withoutMiddleware([\App\Http\Middleware\VerifyCsrfToken::class])->name('force.logout');
 
-// BACKUP LOGOUT ROUTE (No CSRF check)
-Route::get('/force-logout', function (Request $request) {
-    Auth::logout();
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-    
-    return redirect('/login')->with('logout_success', 'You have been logged out.');
-})->name('force.logout');
+// CSRF Token refresh endpoint (for preventing 419 errors)
+Route::get('/csrf-token', function () {
+    return response()->json(['token' => csrf_token()]);
+})->middleware('web');
+
+// Keep session alive endpoint
+Route::get('/keep-alive', function () {
+    return response()->json([
+        'status' => 'alive',
+        'message' => 'Session extended'
+    ]);
+})->middleware('web');
+
+
 
 // CHECK AUTHENTICATION STATUS (for preventing back button access)
 Route::get('/check-auth', function () {
@@ -287,6 +269,22 @@ Route::get('/amzn/fba-shipment/step8/confirm_transportation_options', [FBAShipme
 Route::get('/amzn/fba-shipment/step9/get_shipment', [FBAShipmentController::class, 'step9a_get_shipment']);
 Route::get('/amzn/fba-shipment/step10/print_label', [FBAShipmentController::class, 'step10a_print_label']);
 
+use App\Http\Controllers\TestTableController;
+Route::get('/test', [TestTableController::class, 'index']);
+
+use App\Http\Controllers\tblproductController;
+Route::get('/products', [tblproductController::class, 'index']);
+
+// Session management routes
+Route::get('/keep-alive', [App\Http\Controllers\UserSessionController::class, 'keepAlive'])
+    ->middleware('web');
+
+Route::get('/csrf-token', [App\Http\Controllers\UserSessionController::class, 'csrfToken'])
+    ->middleware('web');
+
+Route::middleware(['web', \App\Http\Middleware\RefreshSession::class])->group(function () {
+    // Your existing routes go here
+});
 
 // Routes for Stockroom scanner
 Route::prefix('api/stockroom')->group(function () {
