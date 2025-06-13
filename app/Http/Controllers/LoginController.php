@@ -55,7 +55,7 @@ class LoginController extends Controller
 
             // Attempt authentication with both username and email
             $loginField = filter_var($credentials['username'], FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
-            
+
             $attemptCredentials = [
                 $loginField => $credentials['username'],
                 'password' => $credentials['password']
@@ -85,7 +85,7 @@ class LoginController extends Controller
                 // FIXED: Set success message for dashboard (not login page)
                 // This will be displayed on the dashboard page after redirect
                 $request->session()->flash('login_success', 'Welcome back, ' . $user->username . '!');
-                
+
                 // Redirect to dashboard
                 return redirect()->route('dashboard.system');
             }
@@ -105,11 +105,34 @@ class LoginController extends Controller
 
     private function storeUserSession($user, $request)
     {
+        $timezoneSetting = json_decode($user->timezone_setting, true);
+        $autoSync = $timezoneSetting['auto_sync'] ?? true;
+
+        // Detect user's timezone using IP (or JS or fallback)
+        $detectedTimezone = $this->detectTimezoneFromRequest($request);
+
+        if ($autoSync && $detectedTimezone) {
+            // Update the user's timezone in DB if auto_sync is true
+            $timezoneSetting['usertimezone'] = $detectedTimezone;
+
+            DB::table('tbluser')->where('id', $user->id)->update([
+                'timezone_setting' => json_encode($timezoneSetting)
+            ]);
+        }
+
+        // Store timezone in session
         $request->session()->put([
             'user_name' => $user->username,
             'profile_picture' => $user->profile_picture,
-            'userid' => $user->id
+            'userid' => $user->id,
+            'usertimezone' => $timezoneSetting['usertimezone'] ?? 'America/Los_Angeles'
         ]);
+    }
+
+    private function detectTimezoneFromRequest(Request $request)
+    {
+        // Prefer form input first, fallback to header or default
+        return $request->input('timezone') ?? $request->header('X-Timezone') ?? date_default_timezone_get();
     }
 
     private function storeSystemDesign($request)
@@ -185,10 +208,10 @@ class LoginController extends Controller
 
         try {
             $Allusers = User::all();
-            
+
             // Get additional data for dashboard
             $user = Auth::user();
-            
+
             // Get the most recent attendance record
             $lastRecord = DB::table('tblemployeeclocks')
                 ->where('userid', $user->id)
@@ -277,7 +300,7 @@ class LoginController extends Controller
                 'employeeClocksThisweek',
                 'employeeClocks'
             ));
-            
+
         } catch (\Exception $e) {
             Log::error('Dashboard error: ' . $e->getMessage());
             return redirect()->route('login')
@@ -334,7 +357,7 @@ class LoginController extends Controller
             $this->storeSystemDesign(request());
             $this->storeModulePermissions($user, request());
             $this->storeStorePermissions($user, request());
-            
+
             try {
                 $this->userLogService->log('User LOGIN via Google');
             } catch (\Exception $e) {
@@ -346,7 +369,7 @@ class LoginController extends Controller
 
             // Redirect to dashboard
             return redirect()->route('dashboard.system');
-            
+
         } catch (\Exception $e) {
             Log::error('Google login error: ' . $e->getMessage());
             return redirect()->route('login')->with('error', 'Failed to log in with Google. Please try again.');
@@ -365,10 +388,10 @@ class LoginController extends Controller
         }
 
         Auth::logout();
-        
+
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        
+
         // FIXED: Use logout_success instead of success to avoid audio confusion
         return redirect()->route('login')->with('logout_success', 'You have been logged out successfully.');
     }

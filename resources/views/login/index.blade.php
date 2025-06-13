@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -116,6 +117,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="login-container">
         <h3>Sign in to IMS</h3>
@@ -125,14 +127,9 @@
                 <label for="username" class="form-label">
                     <strong>Username or Email</strong>
                 </label>
-                <input type="text" 
-                       class="form-control @error('username') is-invalid @enderror" 
-                       id="username" 
-                       name="username"
-                       value="{{ old('username') }}"
-                       placeholder="Enter your username or email" 
-                       required 
-                       autocomplete="username">
+                <input type="text" class="form-control @error('username') is-invalid @enderror" id="username"
+                    name="username" value="{{ old('username') }}" placeholder="Enter your username or email" required
+                    autocomplete="username">
                 @error('username')
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
@@ -141,18 +138,13 @@
                 <label for="password" class="form-label">
                     <strong>Password</strong>
                 </label>
-                <input type="password" 
-                       class="form-control @error('password') is-invalid @enderror" 
-                       id="password" 
-                       name="password"
-                       placeholder="Enter your password" 
-                       required
-                       autocomplete="current-password">
+                <input type="password" class="form-control @error('password') is-invalid @enderror" id="password"
+                    name="password" placeholder="Enter your password" required autocomplete="current-password">
                 @error('password')
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
             </div>
-            
+
             <div class="mb-3 form-check">
                 <input type="checkbox" class="form-check-input" id="remember" name="remember" {{ old('remember') ? 'checked' : '' }}>
                 <label class="form-check-label" for="remember">
@@ -160,21 +152,24 @@
                 </label>
             </div>
             
+            <!-- Timezone Value -->
+            <input type="hidden" name="timezone" id="timezone">
+
             <button type="submit" class="btn btn-primary w-100" id="loginButton">
                 <span class="login-text">Login</span>
                 <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
             </button>
-            
+
             <div class="form-text text-center mt-3">
                 Forgot your password? <a href="#">Reset here</a>
             </div>
-            
+
             <a href="{{ url('auth/google') }}" class="google-login-btn">
                 <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
                 Continue with Google
             </a>
 
-      
+
         </form>
     </div>
 
@@ -195,9 +190,9 @@
     </audio>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             console.log('Login page loaded');
-            
+
             const logoutSuccessAudio = document.getElementById('logoutSuccessAudio');
             const errorAudio = document.getElementById('errorAudio');
             const loginForm = document.getElementById('loginForm');
@@ -209,12 +204,12 @@
             function playAudio(audioElement, audioName) {
                 if (audioElement) {
                     console.log(`Attempting to play ${audioName} audio`);
-                    
+
                     // Reset audio to beginning
                     audioElement.currentTime = 0;
-                    
+
                     const playPromise = audioElement.play();
-                    
+
                     if (playPromise !== undefined) {
                         playPromise
                             .then(() => {
@@ -222,7 +217,7 @@
                             })
                             .catch(error => {
                                 console.warn(`${audioName} audio playback failed:`, error);
-                                
+
                                 // Try to play after user interaction
                                 const playOnClick = () => {
                                     audioElement.play().catch(e => console.error(`${audioName} retry failed:`, e));
@@ -237,8 +232,11 @@
             }
 
             // Handle form submission
-            loginForm.addEventListener('submit', function(e) {
+            loginForm.addEventListener('submit', function (e) {
                 console.log('Form submitted');
+
+                // Set timezone value
+                document.getElementById('timezone').value = Intl.DateTimeFormat().resolvedOptions().timeZone;
                 // Show loading state
                 loginButton.disabled = true;
                 loginText.textContent = 'Signing in...';
@@ -258,10 +256,10 @@
             // Handle LOGOUT success messages (play logout sound)
             @if(session('logout_success'))
                 console.log('Logout success detected:', "{{ session('logout_success') }}");
-                
+
                 // Play logout audio
-           //     playAudio(logoutSuccessAudio, 'Logout Success');
-                
+                //     playAudio(logoutSuccessAudio, 'Logout Success');
+
                 Swal.fire({
                     icon: 'success',
                     title: 'Logged Out Successfully',
@@ -276,9 +274,9 @@
             // Handle error messages
             @if(session('error'))
                 console.log('Error message detected:', "{{ session('error') }}");
-                
+
                 playAudio(errorAudio, 'Error');
-                
+
                 Swal.fire({
                     icon: 'error',
                     title: 'Error',
@@ -289,19 +287,19 @@
             // Handle validation errors
             @if($errors->any())
                 console.log('Validation errors detected');
-                
+
                 playAudio(errorAudio, 'Validation Error');
-                
+
                 Swal.fire({
                     icon: 'error',
                     title: 'Validation Error',
                     html: `
-                        <ul style="text-align: left; list-style: none; padding: 0;">
-                            @foreach($errors->all() as $error)
-                                <li style="margin-bottom: 5px;">• {{ $error }}</li>
-                            @endforeach
-                        </ul>
-                    `
+                            <ul style="text-align: left; list-style: none; padding: 0;">
+                                @foreach($errors->all() as $error)
+                                    <li style="margin-bottom: 5px;">• {{ $error }}</li>
+                                @endforeach
+                            </ul>
+                        `
                 });
             @endif
 
@@ -309,7 +307,7 @@
             document.getElementById('username').focus();
 
             // Handle Enter key submission
-            document.addEventListener('keypress', function(e) {
+            document.addEventListener('keypress', function (e) {
                 if (e.key === 'Enter' && !loginButton.disabled) {
                     loginForm.submit();
                 }
@@ -318,7 +316,7 @@
             // Clear previous errors when user starts typing
             const inputs = document.querySelectorAll('input');
             inputs.forEach(input => {
-                input.addEventListener('input', function() {
+                input.addEventListener('input', function () {
                     this.classList.remove('is-invalid');
                     const feedback = this.parentNode.querySelector('.invalid-feedback');
                     if (feedback) {
@@ -330,7 +328,7 @@
             // Test audio files on page load (optional - remove this in production)
             setTimeout(() => {
                 console.log('Testing audio files...');
-                
+
                 // Test logout audio
                 if (logoutSuccessAudio.canPlayType('audio/mpeg')) {
                     console.log('Logout audio: MP3 supported');
@@ -339,7 +337,7 @@
                 } else {
                     console.warn('Logout audio: No supported format');
                 }
-                
+
                 // Test error audio
                 if (errorAudio.canPlayType('audio/mpeg')) {
                     console.log('Error audio: MP3 supported');
@@ -352,7 +350,7 @@
         });
 
         // Prevent double submission
-        window.addEventListener('beforeunload', function() {
+        window.addEventListener('beforeunload', function () {
             const loginButton = document.getElementById('loginButton');
             if (loginButton) {
                 loginButton.disabled = true;
@@ -360,7 +358,7 @@
         });
 
         // Prevent back button after successful login
-        window.addEventListener('pageshow', function(event) {
+        window.addEventListener('pageshow', function (event) {
             if (event.persisted) {
                 // Check if user is logged in
                 fetch('/check-auth', {
@@ -369,17 +367,18 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 })
-                .then(response => {
-                    if (response.ok) {
-                        // User is authenticated, redirect to dashboard
-                        window.location.replace("{{ route('dashboard.system') }}");
-                    }
-                })
-                .catch(() => {
-                    // Ignore errors, stay on login page
-                });
+                    .then(response => {
+                        if (response.ok) {
+                            // User is authenticated, redirect to dashboard
+                            window.location.replace("{{ route('dashboard.system') }}");
+                        }
+                    })
+                    .catch(() => {
+                        // Ignore errors, stay on login page
+                    });
             }
         });
     </script>
 </body>
+
 </html>

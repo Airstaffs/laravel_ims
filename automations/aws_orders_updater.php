@@ -6,7 +6,7 @@ session_start();
 date_default_timezone_set('America/Los_Angeles');
 
 
-exit("RAWR");
+// exit("RAWR");
 
 $success = false;
 $strname = "RT";
@@ -79,10 +79,7 @@ if (true) {
                 }
                 $itemsShipped = $db->real_escape_string($order['NumberOfItemsShipped'] ?? '');
                 $itemsUnshipped = $db->real_escape_string($order['NumberOfItemsUnshipped'] ?? '');
-
-
                 $AddressLine1 = $db->real_escape_string($order['ShippingAddress']['AddressLine1'] ?? '');
-
                 $state = $db->real_escape_string($order['ShippingAddress']['StateOrRegion'] ?? '');
                 $postalcode = $db->real_escape_string($order['ShippingAddress']['PostalCode'] ?? '');
                 $city = $db->real_escape_string($order['ShippingAddress']['City'] ?? '');
@@ -1182,14 +1179,12 @@ function getAWSCredentials($db, $store)
     return $row;
 }
 
-function isoToMysqlDatetime($isoDate)
+function isoToMysqlDatetime($isoString)
 {
-    if (empty($isoDate))
-        return null;
-    try {
-        $dt = new DateTime($isoDate);
-        return $dt->format("Y-m-d H:i:s");
-    } catch (Exception $e) {
-        return null; // fallback if invalid format
-    }
+    if (empty($isoString)) return null;
+
+    $date = new DateTime($isoString, new DateTimeZone('UTC'));
+    $date->setTimezone(new DateTimeZone('America/Los_Angeles'));
+
+    return $date->format('Y-m-d H:i:s');
 }
