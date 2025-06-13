@@ -69,12 +69,13 @@ export default {
                 const res = await axios.post(`${API_BASE_URL}/fbm-orders-invoice`, payload);
 
                 if (res.data.success) {
-                    if (action === 'ViewInvoice') {
-                        const blob = new Blob([res.data.zpl_preview], { type: 'text/plain' });
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, '_blank');
-                    } else {
-                        alert('Invoice sent to printer!');
+                    if (action === 'ViewInvoice' && res.data.results?.length) {
+                        const pdfUrl = res.data.results[0].pdf_url;
+                        if (pdfUrl) {
+                            window.open(pdfUrl, '_blank');
+                        } else {
+                            alert('PDF not available.');
+                        }
                     }
                 } else {
                     alert('Failed: ' + (res.data.message || 'Unknown error.'));

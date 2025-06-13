@@ -22,9 +22,9 @@ use Illuminate\Support\Facades\Http;
 
 require base_path('app/Helpers/print_helpers.php');
 
-class PrintInvoiceController extends Controller
+class PrintShippingLabelController extends Controller
 {
-    public function printInvoice(Request $request)
+    public function printshippinglabel(Request $request)
     {
         $platform_order_ids = $request->input('platform_order_ids', []);
         $action = $request->input('action', ''); // 'PrintInvoice' or 'ViewInvoice'
@@ -68,55 +68,6 @@ class PrintInvoiceController extends Controller
             'items' => $items,
         ]);
 
-    }
-
-    public function printshippinglabel1(Request $request)
-    {
-        $platform_order_ids = $request->input('platform_order_ids', []);
-        $action = $request->input('action', '');
-        $note = $request->input('note', '');
-        $results = [];
-
-        foreach ($platform_order_ids as $platform_order_id) {
-            $labelRow = DB::table('tbllabelhistoryitems')
-                ->where('AmazonOrderId', $platform_order_id)
-                ->orderBy('id', 'asc')
-                ->first();
-
-            if (!$labelRow || empty($labelRow->PDFLabel)) {
-                continue;
-            }
-
-            // Decode label PDF
-            $decoded = base64_decode($labelRow->PDFLabel, true);
-            if (!$decoded)
-                continue;
-
-            $unzipped = gzdecode($decoded);
-            if (!$unzipped)
-                continue;
-
-            $pdfPath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf");
-            file_put_contents($pdfPath, $unzipped);
-
-            // Convert to ZPL
-            $zplCode = $this->convertPDFToZPL($pdfPath, $platform_order_id, ['note' => $note]);
-
-            if ($action === 'PrintShipmentLabel') {
-                $this->sendToPrinter($zplCode);
-            }
-
-            $results[] = [
-                'order_id' => $platform_order_id,
-                'pdf_url' => asset("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf"),
-                'zpl_preview' => $action === 'ViewShipmentLabel' ? $zplCode : null,
-            ];
-        }
-
-        return response()->json([
-            'success' => true,
-            'results' => $results
-        ]);
     }
 
     protected function generateHtml($settings, $orderData, $action)
@@ -763,25 +714,23 @@ class PrintInvoiceController extends Controller
             ]);
 
         } /*else {
-         // If also sending the PDF file (with save mode)
-         $response = Http::attach(
-             'pdf_file',
-             file_get_contents($pdfFile),
-             basename($pdfFile)
-         )
-             ->asMultipart()
-             ->post($printerIP, [
-                 ['name' => 'zpl', 'contents' => $zplCode],
-                 ['name' => 'printerSelect', 'contents' => $pIp],
-                 ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
-             ]);
-     }*/
+          // If also sending the PDF file (with save mode)
+          $response = Http::attach(
+              'pdf_file',
+              file_get_contents($pdfFile),
+              basename($pdfFile)
+          )
+              ->asMultipart()
+              ->post($printerIP, [
+                  ['name' => 'zpl', 'contents' => $zplCode],
+                  ['name' => 'printerSelect', 'contents' => $pIp],
+                  ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
+              ]);
+      }*/
 
         Log::info('Printer response:', [
             'status' => $response->status(),
             'body' => $response->body(),
         ]);
     }
-
-
 }
