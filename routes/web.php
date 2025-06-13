@@ -493,4 +493,5 @@ Route::get('/fbm-orders-invoice-test', function () {
     return $controller->printInvoice($request);
 });
 
-Route::post('/fbm-orders-shippinglabel', [PrintInvoiceController::class, 'printshippinglabel']);
+use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
+Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, 'printshippinglabel']);
