@@ -70,55 +70,6 @@ class PrintInvoiceController extends Controller
 
     }
 
-    public function printshippinglabel1(Request $request)
-    {
-        $platform_order_ids = $request->input('platform_order_ids', []);
-        $action = $request->input('action', '');
-        $note = $request->input('note', '');
-        $results = [];
-
-        foreach ($platform_order_ids as $platform_order_id) {
-            $labelRow = DB::table('tbllabelhistoryitems')
-                ->where('AmazonOrderId', $platform_order_id)
-                ->orderBy('id', 'asc')
-                ->first();
-
-            if (!$labelRow || empty($labelRow->PDFLabel)) {
-                continue;
-            }
-
-            // Decode label PDF
-            $decoded = base64_decode($labelRow->PDFLabel, true);
-            if (!$decoded)
-                continue;
-
-            $unzipped = gzdecode($decoded);
-            if (!$unzipped)
-                continue;
-
-            $pdfPath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf");
-            file_put_contents($pdfPath, $unzipped);
-
-            // Convert to ZPL
-            $zplCode = $this->convertPDFToZPL($pdfPath, $platform_order_id, ['note' => $note]);
-
-            if ($action === 'PrintShipmentLabel') {
-                $this->sendToPrinter($zplCode);
-            }
-
-            $results[] = [
-                'order_id' => $platform_order_id,
-                'pdf_url' => asset("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf"),
-                'zpl_preview' => $action === 'ViewShipmentLabel' ? $zplCode : null,
-            ];
-        }
-
-        return response()->json([
-            'success' => true,
-            'results' => $results
-        ]);
-    }
-
     protected function generateHtml($settings, $orderData, $action)
     {
         $itemCount = count($orderData['items']);

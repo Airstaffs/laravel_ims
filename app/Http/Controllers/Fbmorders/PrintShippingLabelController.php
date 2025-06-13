@@ -24,50 +24,53 @@ require base_path('app/Helpers/print_helpers.php');
 
 class PrintShippingLabelController extends Controller
 {
-    public function printshippinglabel(Request $request)
+    public function printshippinglabel1(Request $request)
     {
         $platform_order_ids = $request->input('platform_order_ids', []);
-        $action = $request->input('action', ''); // 'PrintInvoice' or 'ViewInvoice'
-        $settings = $request->input('settings', ''); // could be the display price, test print, or signature required
-
-
+        $action = $request->input('action', '');
+        $note = $request->input('note', '');
         $results = [];
 
         foreach ($platform_order_ids as $platform_order_id) {
-            $order = DB::table('tbloutboundorders')->where('platform_order_id', $platform_order_id)->first();
-            $items = DB::table('tbloutboundordersitem')->where('platform_order_id', $platform_order_id)->get();
+            $labelRow = DB::table('tbllabelhistoryitems')
+                ->where('AmazonOrderId', $platform_order_id)
+                ->orderBy('id', 'asc')
+                ->first();
 
-            if (!$order)
+            if (!$labelRow || empty($labelRow->PDFLabel)) {
+                continue;
+            }
+
+            // Decode label PDF
+            $decoded = base64_decode($labelRow->PDFLabel, true);
+            if (!$decoded)
                 continue;
 
-            $orderData = (array) $order;
-            $orderData['items'] = json_decode(json_encode($items), true); // ✅ force array for all items
-            $html = $this->generateHtml($settings, $orderData, $action);
-            $pdfFile = public_path("images/FBM_docs/invoices/invoice_{$platform_order_id}.pdf");
-            $this->generatePDF($html, $pdfFile, $settings);
-            $zplCode = $this->convertPDFToZPL($pdfFile, $platform_order_id, $settings);
-            $pdfUrl = asset("images/FBM_docs/invoices/invoice_{$platform_order_id}.pdf");
+            $unzipped = gzdecode($decoded);
+            if (!$unzipped)
+                continue;
 
-            if ($action === 'PrintInvoice') {
+            $pdfPath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf");
+            file_put_contents($pdfPath, $unzipped);
+
+            // Convert to ZPL
+            $zplCode = $this->convertPDFToZPL($pdfPath, $platform_order_id, ['note' => $note]);
+
+            if ($action === 'PrintShipmentLabel') {
                 $this->sendToPrinter($zplCode);
             }
 
             $results[] = [
                 'order_id' => $platform_order_id,
-                'zpl_preview' => $action === 'ViewInvoice' ? $zplCode : null,
-                'pdf_url' => $pdfUrl
+                'pdf_url' => asset("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf"),
+                'zpl_preview' => $action === 'ViewShipmentLabel' ? $zplCode : null,
             ];
         }
 
-        //return response($html)->header('Content-Type', 'text/html');
-
         return response()->json([
             'success' => true,
-            'results' => $results,
-            'orders' => $order,
-            'items' => $items,
+            'results' => $results
         ]);
-
     }
 
     protected function generateHtml($settings, $orderData, $action)
