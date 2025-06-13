@@ -631,6 +631,7 @@
 /* Mobile view styles */
 @media (max-width: 768px) {
     .fbm-order-module .mobile-btn {
+        min-width: 110px;
         padding: 8px;
         font-size: 0.8rem;
         text-align: center;
@@ -640,14 +641,6 @@
         display: flex;
         align-items: center;
         justify-content: center;
-    }
-
-    .fbm-order-module .mobile-btn:nth-child(1) {
-        background-color: #007bff;
-    }
-
-    .fbm-order-module .mobile-btn:nth-child(2) {
-        background-color: #28a745;
     }
 
     .fbm-order-module .mobile-btn i {
@@ -981,9 +974,11 @@
     /* Improved action buttons */
     .fbm-order-module .mobile-actions {
         padding: 12px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 8px;
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+        overflow: auto;
     }
 
     .fbm-order-module .mobile-btn {
@@ -1003,15 +998,6 @@
 
     .fbm-order-module .mobile-btn i {
         margin-right: 5px;
-    }
-
-    /* Specific button colors */
-    .fbm-order-module .mobile-btn:nth-child(1) {
-        background-color: #17a2b8;
-    }
-
-    .fbm-order-module .mobile-btn:nth-child(2) {
-        background-color: #28a745;
     }
 
     .fbm-order-module .mobile-btn:disabled {
