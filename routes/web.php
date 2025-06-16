@@ -477,3 +477,5 @@ Route::get('/fbm-orders-invoice-test', function () {
 
 use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
 Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, 'printshippinglabel']);
+
+echo "hello";
