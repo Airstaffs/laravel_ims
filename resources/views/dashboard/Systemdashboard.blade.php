@@ -2217,9 +2217,11 @@ function hasAccess($module, $mainModule, $subModules): bool
 
         // Show the add store modal and hide the settings modal
         document.getElementById('addStoreButton').addEventListener('click', function () {
-            // Show the add store modal
-            $('#addStoreModal').modal('show');
-            $('#settingsModal').modal('hide');
+            const modal = new bootstrap.Modal(document.getElementById('addStoreModal'));
+            modal.show();
+
+            const settingsModal = bootstrap.Modal.getInstance(document.getElementById('settingsModal'));
+            if (settingsModal) settingsModal.hide();
         });
 
         // Add Store Submission

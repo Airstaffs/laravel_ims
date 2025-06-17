@@ -117,7 +117,14 @@ export default {
                     if (action === "ViewInvoice" && res.data.results?.length) {
                         const pdfUrl = res.data.results[0].pdf_url;
                         if (pdfUrl) {
-                            window.open(pdfUrl, "_blank");
+                            // Create and click a link element
+                            const a = document.createElement('a');
+                            a.href = pdfUrl;
+                            a.target = '_blank';
+                            a.rel = 'noopener noreferrer';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
                         } else {
                             alert("PDF not available.");
                         }
@@ -152,9 +159,20 @@ export default {
                     const result = res.data.results?.[0];
 
                     if (action === 'ViewShipmentLabel') {
-                        const blob = new Blob([result.zpl_preview], { type: 'text/plain' });
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, '_blank');
+                        const pdfUrl = res.data.results[0].pdf_url;
+
+                        if (pdfUrl) {
+                            // Create and click a link element
+                            const a = document.createElement('a');
+                            a.href = pdfUrl;
+                            a.target = '_blank';
+                            a.rel = 'noopener noreferrer';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        } else {
+                            alert("PDF not available.");
+                        }
                     } else {
                         alert('Shipping label sent to printer!');
                     }

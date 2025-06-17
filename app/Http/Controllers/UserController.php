@@ -51,7 +51,7 @@ class UserController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'User privileges retrieved successfully',
-         //   'data' => $myprivileges
+            'data' => $myprivileges
         ]);
     }
 
