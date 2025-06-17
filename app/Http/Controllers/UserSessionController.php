@@ -155,47 +155,52 @@ class UserSessionController extends Controller
      * @return \Illuminate\Http\JsonResponse
      */
    public function keepAlive(Request $request)
-{
-    if (!Auth::check()) {
-        return response()->json(['authenticated' => false], 401);
-    }
-    
-    try {
-        // Update last activity timestamp
-        $request->session()->put('last_activity', time());
-        
-        // Only regenerate session after half the lifetime has passed
-        $halfLifetime = (config('session.lifetime') * 60) / 2;
-        $lastRegenerated = session('session_regenerated', 0);
-        
-        if ((time() - $lastRegenerated) > $halfLifetime) {
-            $request->session()->regenerate();
-            $request->session()->put('session_regenerated', time());
-            
-            // Log regeneration for server logs only
-            Log::info('Session regenerated during keep-alive', [
-                'user_id' => Auth::id(),
-                'new_session_id' => session()->getId()
-            ]);
-        }
-        
-        // CLEAN RESPONSE - no debug info
-        return response()->json([
-            'status' => 'alive',
-            'message' => 'Session extended'
-        ]);
-        
-    } catch (\Exception $e) {
-        Log::error('Error in keepAlive: ' . $e->getMessage(), [
-            'exception' => $e
-        ]);
-        
-        return response()->json([
-            'status' => 'error',
-            'message' => 'Failed to extend session'
-        ], 500);
-    }
-}
+   {
+       // Check if this is an AJAX request
+       if (!$request->ajax() && !$request->expectsJson()) {
+           return redirect('/dashboard'); // Redirect non-AJAX requests
+       }
+
+       if (!Auth::check()) {
+           return response()->json(['authenticated' => false], 401);
+       }
+       
+       try {
+           // Update last activity timestamp
+           $request->session()->put('last_activity', time());
+           
+           // Only regenerate session after half the lifetime has passed
+           $halfLifetime = (config('session.lifetime') * 60) / 2;
+           $lastRegenerated = session('session_regenerated', 0);
+           
+           if ((time() - $lastRegenerated) > $halfLifetime) {
+               $request->session()->regenerate();
+               $request->session()->put('session_regenerated', time());
+               
+               // Log regeneration for server logs only
+               Log::info('Session regenerated during keep-alive', [
+                   'user_id' => Auth::id(),
+                   'new_session_id' => session()->getId()
+               ]);
+           }
+           
+           // CLEAN RESPONSE - no debug info
+           return response()->json([
+               'status' => 'alive',
+               'authenticated' => true
+           ]);
+           
+       } catch (\Exception $e) {
+           Log::error('Error in keepAlive: ' . $e->getMessage(), [
+               'exception' => $e
+           ]);
+           
+           return response()->json([
+               'status' => 'error',
+               'authenticated' => false
+           ], 500);
+       }
+   }
     
     /**
      * Get a fresh CSRF token
@@ -205,8 +210,22 @@ class UserSessionController extends Controller
      */
     public function csrfToken(Request $request)
     {
-        return response()->json([
-            'token' => csrf_token()
-        ]);
+        try {
+            // Regenerate CSRF token to ensure fresh token
+            $request->session()->regenerateToken();
+            
+            return response()->json([
+                'token' => csrf_token(),
+                'success' => true
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error generating CSRF token', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to generate CSRF token'
+            ], 500);
+        }
     }
 }
