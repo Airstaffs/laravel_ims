@@ -92,10 +92,8 @@ export default {
 
         async handleInvoiceAction(action) {
             const payload = {
-                platform_order_ids: [this.order.platform_order_id], // ✅ fixed
-                platform_order_item_ids:
-                    this.order.items?.map((i) => i.platform_order_item_id) ||
-                    [],
+                platform_order_ids: [this.order.platform_order_id],
+                platform_order_item_ids: this.order.items?.map((i) => i.platform_order_item_id) || [],
                 action: action,
                 settings: {
                     displayPrice: this.displayPrice,
@@ -107,7 +105,12 @@ export default {
             try {
                 const res = await axios.post(
                     `${API_BASE_URL}/fbm-orders-invoice`,
-                    payload
+                    payload,
+                    {
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        }
+                    }
                 );
 
                 if (res.data.success) {
@@ -130,12 +133,20 @@ export default {
         async handleShippingLabelAction(action) {
             const payload = {
                 platform_order_ids: [this.order.platform_order_id],
-                action: action, // ViewShipmentLabel or PrintShipmentLabel
+                action: action,
                 note: this.note,
             };
 
             try {
-                const res = await axios.post(`${API_BASE_URL}/fbm-orders-shippinglabel`, payload);
+                const res = await axios.post(
+                    `${API_BASE_URL}/fbm-orders-shippinglabel`,
+                    payload,
+                    {
+                        headers: {
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        }
+                    }
+                );
 
                 if (res.data.success) {
                     const result = res.data.results?.[0];
