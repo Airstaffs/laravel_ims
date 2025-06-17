@@ -498,3 +498,7 @@ Route::get('/fbm-orders-shippinglabel-test', function () {
 
     return $controller->printshippinglabel($request);
 });
+
+Route::get('/session-warmup', function () {
+    return response()->noContent(); // Or just return 200 OK
+});

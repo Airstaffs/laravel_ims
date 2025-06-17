@@ -2123,6 +2123,13 @@ function hasAccess($module, $mainModule, $subModules): bool
     </div>
 
     <script>
+
+        window.addEventListener('load', function () {
+            setTimeout(() => {
+                document.querySelectorAll('button').forEach(btn => btn.disabled = false);
+            }, 250);
+        });
+
         document.addEventListener('DOMContentLoaded', function () {
             const editNotesModal = document.getElementById('editNotesModal');
             const profileModal = document.getElementById('profileModal');
@@ -3197,6 +3204,11 @@ console.log('Bulletproof logout system loaded successfully');
             updateTime();
             setInterval(updateTime, 1000);
         });
+    </script>
+
+    <script>
+        // Wake up session to prevent first-CSRF failure
+        fetch('/session-warmup'); // Create a simple route that does nothing
     </script>
 
     <script>
