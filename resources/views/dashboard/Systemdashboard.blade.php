@@ -1852,8 +1852,54 @@ function hasAccess($module, $mainModule, $subModules): bool
 
                         </div>
 
-                        <!-- Tab -->
+                        @php
+                            $tz = json_decode(session('timezone_setting', '{"auto_sync":true,"usertimezone":"UTC"}'), true);
+                            $userTz = $tz['usertimezone'] ?? 'UTC';
+
+                            $timezones = collect(timezone_identifiers_list())->map(function ($zone) {
+                                $dateTime = new DateTime('now', new DateTimeZone($zone));
+                                $offset = $dateTime->getOffset();
+                                $hours = intdiv($offset, 3600);
+                                $minutes = abs($offset % 3600) / 60;
+                                $formattedOffset = sprintf("UTC%+03d:%02d", $hours, $minutes);
+                                return [
+                                    'zone' => $zone,
+                                    'offset' => $offset,
+                                    'label' => "($formattedOffset) $zone"
+                                ];
+                            })->sortBy('offset')->values();
+                        @endphp
+
                         <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="userprofile-tab">
+                            <h3 class="text-center">User Settings</h3>
+
+                            <form action="{{ route('update-timezone') }}" method="POST" class="mb-4">
+                                @csrf
+
+                                <fieldset class="mb-3">
+                                    <label class="form-label">Auto Sync Timezone</label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="autoSyncToggle"
+                                            name="auto_sync" {{ $tz['auto_sync'] ?? true ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="autoSyncToggle">Enable Auto
+                                            Detection</label>
+                                    </div>
+                                </fieldset>
+
+                                <fieldset class="mb-3">
+                                    <label for="usertimezone" class="form-label">Preferred Timezone</label>
+                                    <select name="usertimezone" id="usertimezone" class="form-select" {{ $tz['auto_sync'] ?? true ? 'disabled' : '' }}>
+                                        @foreach ($timezones as $zone)
+                                            <option value="{{ $zone['zone'] }}" {{ $zone['zone'] === $userTz ? 'selected' : '' }}>
+                                                {{ $zone['label'] }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                </fieldset>
+
+                                <button type="submit" class="btn btn-success">Save Timezone Settings</button>
+                            </form>
+
                             <h3 class="text-center">Change Password</h3>
 
                             <form action="{{ route('update-password') }}" method="POST" class="changePwdForm">
@@ -3240,6 +3286,10 @@ console.log('Bulletproof logout system loaded successfully');
 
             // Optionally, call it once when the page loads
             updateHours();
+        });
+
+        $('#autoSyncToggle').on('change', function () {
+            $('#usertimezone').prop('disabled', this.checked);
         });
     </script>
 

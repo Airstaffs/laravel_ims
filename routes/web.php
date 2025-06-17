@@ -475,6 +475,10 @@ Route::get('/fbm-orders-invoice-test', function () {
     return $controller->printInvoice($request);
 });
 
+// print shipping label fbm orders
 use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
 Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, 'printshippinglabel']);
 
+// timezone system
+Route::post('/update-timezone', [UserController::class, 'updateTimezone'])->name('update-timezone');
+Route::get('/user/settings/timezone', [UserController::class, 'showTimezoneSettings'])->name('timezone.settings');
