@@ -482,3 +482,19 @@ Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, '
 // timezone system
 Route::post('/update-timezone', [UserController::class, 'updateTimezone'])->name('update-timezone');
 Route::get('/user/settings/timezone', [UserController::class, 'showTimezoneSettings'])->name('timezone.settings');
+
+Route::get('/fbm-orders-shippinglabel-test', function () {
+    $controller = new PrintShippingLabelController();
+
+    $request = Request::create('/fbm-orders-shippinglabel', 'POST', [
+        'platform_order_ids' => ['114-0083765-2829867'],
+        'action' => 'PrintShipmentLabel',
+        'settings' => [
+            'displayPrice' => true,
+            'testPrint' => true,
+            'signatureRequired' => true
+        ],
+    ]);
+
+    return $controller->printshippinglabel($request);
+});
