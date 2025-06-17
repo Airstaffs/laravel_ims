@@ -272,7 +272,7 @@ Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPr
 // In routes/web.php
 Route::post('/refresh-user-session', [UserSessionController::class, 'refreshSession']);
 
-/*Route::get('/keep-alive', function () {
+Route::get('/keep-alive', function () {
     // Refresh the session
     request()->session()->regenerate();
     return response()->json(['status' => 'ok']);
@@ -280,7 +280,7 @@ Route::post('/refresh-user-session', [UserSessionController::class, 'refreshSess
 
 Route::get('/csrf-token', function () {
     return response()->json(['token' => csrf_token()]);
-})->middleware('web'); */
+})->middleware('web');
 
 // Session management routes
 Route::get('/keep-alive', [App\Http\Controllers\UserSessionController::class, 'keepAlive'])
@@ -401,6 +401,7 @@ Route::prefix('api/fbm-orders')->group(function () {
 
     Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
     Route::post('/export-work-history', [WorkhistoryController::class, 'exportWorkHistory']);
+    Route::get('/debug-store-names', [FbmOrderController::class, 'debugStoreNames']);
 });
 
 
