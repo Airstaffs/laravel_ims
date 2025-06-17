@@ -31,88 +31,22 @@ use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\FbmOrderController;
 use App\Http\Controllers\notfoundController;
 use App\Http\Controllers\Fbmorders\WorkhistoryController;
-use App\Http\Middleware\PreventBackHistory;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 
 
 Route::get('/', function () {
-    return redirect()->route('login');
-});
-
-// Guest routes (accessible only when not authenticated)
-Route::middleware('guest')->group(function () {
-    // Login routes
-    Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
-    Route::post('/login', [LoginController::class, 'authenticate']);
-    
-    // Google OAuth routes
-    Route::get('/auth/google', [LoginController::class, 'googlepage'])->name('google.redirect');
-    Route::get('/auth/google/callback', [LoginController::class, 'handleGoogleCallback'])->name('google.callback');
+    return view('welcome');
 });
 
 // Secure POST route for normal logout
 Route::post('/logout', function (Request $request) {
-    try {
-        \Log::info('Logout attempt', [
-            'user_id' => auth()->id(),
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
-        ]);
-        
-        // Force logout regardless of token issues
-        if (Auth::check()) {
-            \Log::info('User logout: ' . Auth::user()->username);
-        }
-        
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-        
-        // Handle AJAX requests
-        if ($request->ajax() || $request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Logged out successfully',
-                'redirect' => route('login')
-            ]);
-        }
-        
-        // FIXED: Use 'logout_success' instead of 'success' to avoid audio confusion
-        return redirect('/login')->with('logout_success', 'You have been logged out successfully.');
-        
-    } catch (\Exception $e) {
-        \Log::error('Logout error: ' . $e->getMessage());
-        
-        // Even if there's an error, try to clear session
-        try {
-            Auth::logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-        } catch (\Exception $sessionError) {
-            \Log::error('Session clearing error: ' . $sessionError->getMessage());
-        }
-        
-        if ($request->ajax() || $request->wantsJson()) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Logged out',
-                'redirect' => route('login')
-            ]);
-        }
-        
-        return redirect('/login')->with('logout_success', 'You have been logged out.');
-    }
-})->middleware(['web'])->name('logout');
-
-Route::get('/force-logout', function (Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
-    
-    return redirect('/login')->with('logout_success', 'You have been logged out.');
-})->name('force.logout');
+    return redirect('/login')->with('message', 'You have been logged out successfully.');
+})->name('logout');
 
 // GET route only for session expiration redirect, NOT manual logout
 Route::get('/logout', function (Request $request) {
@@ -121,81 +55,6 @@ Route::get('/logout', function (Request $request) {
     $request->session()->regenerateToken();
     return redirect('/login')->with('message', 'Your session has expired. Please login again.');
 })->name('logout.expired');
-
-// CHECK AUTHENTICATION STATUS (for preventing back button access)
-Route::get('/check-auth', function () {
-    if (auth()->check()) {
-        return response()->json(['authenticated' => true]);
-    }
-    return response()->json(['authenticated' => false], 401);
-});
-
-Route::middleware(['auth', PreventBackHistory::class])->group(function () {
-    // Dashboard - PRESERVED YOUR ORIGINAL ROUTES
-    Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard.system');
-    
-    // CSRF token refresh endpoint
-    Route::get('/csrf-token', function () {
-        return response()->json(['token' => csrf_token()]);
-    });
-    
-    // Keep session alive endpoint
-    Route::get('/keep-alive', function () {
-        return response()->json(['status' => 'alive']);
-    });
-    
-    // All other authenticated routes
-    Route::get('/dashboard/Systemdashboard', [LoginController::class, 'showSystemDashboard']);
-    Route::get('/get-user-privileges/{userId}', [UserController::class, 'getUserPrivileges']);
-    Route::post('/save-user-privileges', [UserController::class, 'saveUserPrivileges'])->name('saveUserPrivileges');
-    Route::post('/refresh-user-session', [UserController::class, 'refreshUserSession'])->name('refresh.user.session');
-
-    Route::get('/fetchNewlyAddedStoreCol', [UserController::class, 'fetchNewlyAddedStoreCol']);
-    Route::get('/get-store-columns', [UserController::class, 'getStoreColumns']);
-
-    // User Routes
-    Route::post('/add-user', [UserController::class, 'store'])->name('add-user');
-    Route::post('/update-password', [UserController::class, 'updatepassword'])->name('update-password');
-    Route::get('/myprivileges', [UserController::class, 'showmyprivileges'])->name('myprivileges');
-    Route::get('/users', [UserController::class, 'createdusers'])->name('user');
-    Route::post('/update-user/{id}', [UserController::class, 'update'])->name('update-user');
-    Route::delete('/delete-user/{id}', [UserController::class, 'destroy'])->name('delete-user');
-
-    // System Design Routes
-    Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');
-
-    // Store Routes
-    Route::get('/get-stores', [StoreController::class, 'getStores']);
-    Route::get('/get-store/{id}', [StoreController::class, 'getStoreID'])->name('get-store');
-    Route::post('/update-store/{id}', [StoreController::class, 'updateStore'])->name('update-store');
-    Route::post('/add-store', [StoreController::class, 'addstore'])->name('add-store');
-    Route::delete('/delete-store/{id}', [StoreController::class, 'delete'])->name('delete-store');
-    Route::get('/fetch-marketplaces', [StoreController::class, 'fetchMarketplaces']);
-    Route::get('/fetch-marketplaces-tblstores', [StoreController::class, 'fetchMarketplacestblstores'])->name('fetchMarketplacestblstores');
-
-    // Attendance Routes
-    Route::post('/attendance/clockin', [AttendanceController::class, 'clockIn'])->name('attendance.clockin');
-    Route::post('/attendance/clockout', [AttendanceController::class, 'clockOut'])->name('attendance.clockout');
-    Route::post('/update-computed-hours', [AttendanceController::class, 'updateComputedHours'])->name('update.computed.hours');
-    Route::post('/attendance/update-hours', [AttendanceController::class, 'updateHours'])->name('attendance.update.hours');
-    Route::post('/attendance/filter', [AttendanceController::class, 'filterAttendanceAjax'])->name('attendance.filter.ajax');
-    Route::post('/attendance/auto-clockout', [AttendanceController::class, 'autoClockOut'])->name('auto-clockout');
-    Route::post('/update-notes/{id}', [AttendanceController::class, 'updateNotes'])->name('update-notes');
-
-    Route::get('/get-user-logs', [UserLogsController::class, 'getUserLogs']);
-    Route::get('/get-time-records/{user_id}', [EmployeeClockController::class, 'getUserTimeRecords']);
-
-    Route::get('/check-user-privileges', [UserSessionController::class, 'checkUserPrivileges']);
-    Route::post('/refresh-user-session', [UserSessionController::class, 'refreshSession']);
-});
-
-// Fallback route for undefined routes
-Route::fallback(function () {
-    if (auth()->check()) {
-        return redirect()->route('dashboard.system');
-    }
-    return redirect()->route('login');
-});
 
 // Login Routes
 Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
