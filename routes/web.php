@@ -503,3 +503,5 @@ Route::get('/fbm-orders-shippinglabel-test', function () {
 Route::get('/session-warmup', function () {
     return response()->noContent(); // Or just return 200 OK
 });
+
+echo "rawr";
