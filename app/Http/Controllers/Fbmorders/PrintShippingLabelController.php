@@ -38,28 +38,61 @@ class PrintShippingLabelController extends Controller
                 ->first();
 
             if (!$labelRow || empty($labelRow->PDFLabel)) {
+                Log::warning("Missing PDFLabel for order: {$platform_order_id}");
                 continue;
             }
 
-            // Decode label PDF
+            // Step 1: Decode base64
             $decoded = base64_decode($labelRow->PDFLabel, true);
-            if (!$decoded)
-                continue;
+            if (!$decoded) {
+                return response()->json([
+                    'success' => false,
+                    'error' => "Base64 decode failed for order: {$platform_order_id}"
+                ]);
+            }
 
-            $unzipped = gzdecode($decoded);
-            if (!$unzipped)
-                continue;
+            // Step 2: Try gzdecode
+            $pdfData = gzdecode($decoded);
+            if ($pdfData === false) {
+                $pdfData = $decoded; // maybe it was not gzipped
+            }
 
             $pdfPath = public_path("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf");
-            file_put_contents($pdfPath, $unzipped);
 
-            // Convert to ZPL
+            // Step 3A: If PNG, render using mPDF
+            if (substr($pdfData, 0, 4) === "\x89PNG") {
+                $tmpImagePath = tempnam(sys_get_temp_dir(), 'png');
+                file_put_contents($tmpImagePath, $pdfData);
+
+                $mpdf = new Mpdf(['margin_top' => 0, 'margin_bottom' => 0, 'margin_left' => 0, 'margin_right' => 0]);
+                $mpdf->WriteHTML('<img src="' . $tmpImagePath . '" style="width:100%; height:auto;">');
+                $mpdf->Output($pdfPath, 'F');
+
+                unlink($tmpImagePath);
+            }
+
+            // Step 3B: If real PDF
+            elseif (substr($pdfData, 0, 4) === '%PDF') {
+                file_put_contents($pdfPath, $pdfData);
+            }
+
+            // Step 3C: Invalid data
+            else {
+                return response()->json([
+                    'success' => false,
+                    'error' => "Decoded data is not a valid PNG or PDF for order: {$platform_order_id}"
+                ]);
+            }
+
+            // Step 4: Convert to ZPL
             $zplCode = $this->convertPDFToZPL($pdfPath, $platform_order_id, ['note' => $note]);
 
+            // Step 5: Optional print
             if ($action === 'PrintShipmentLabel') {
                 $this->sendToPrinter($zplCode);
             }
 
+            // Step 6: Add result
             $results[] = [
                 'order_id' => $platform_order_id,
                 'pdf_url' => asset("images/FBM_docs/shipping_label/shippinglabel_{$platform_order_id}.pdf"),
@@ -197,19 +230,19 @@ class PrintShippingLabelController extends Controller
             ]);
 
         } /*else {
-         // If also sending the PDF file (with save mode)
-         $response = Http::attach(
-             'pdf_file',
-             file_get_contents($pdfFile),
-             basename($pdfFile)
-         )
-             ->asMultipart()
-             ->post($printerIP, [
-                 ['name' => 'zpl', 'contents' => $zplCode],
-                 ['name' => 'printerSelect', 'contents' => $pIp],
-                 ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
-             ]);
-     }*/
+  // If also sending the PDF file (with save mode)
+  $response = Http::attach(
+      'pdf_file',
+      file_get_contents($pdfFile),
+      basename($pdfFile)
+  )
+      ->asMultipart()
+      ->post($printerIP, [
+          ['name' => 'zpl', 'contents' => $zplCode],
+          ['name' => 'printerSelect', 'contents' => $pIp],
+          ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
+      ]);
+}*/
 
         Log::info('Printer response:', [
             'status' => $response->status(),

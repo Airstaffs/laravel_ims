@@ -186,7 +186,7 @@ export default {
 
         async handleInvoiceAction(action) {
             const payload = {
-                platform_order_ids: [this.order.platform_order_id], // ✅ fixed
+                platform_order_ids: [this.order.platform_order_id],
                 platform_order_item_ids:
                     this.order.items?.map((i) => i.platform_order_item_id) ||
                     [],
@@ -201,14 +201,28 @@ export default {
             try {
                 const res = await axios.post(
                     `${API_BASE_URL}/fbm-orders-invoice`,
-                    payload
+                    payload,
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": document
+                                .querySelector('meta[name="csrf-token"]')
+                                .getAttribute("content"),
+                        },
+                    }
                 );
 
                 if (res.data.success) {
                     if (action === "ViewInvoice" && res.data.results?.length) {
                         const pdfUrl = res.data.results[0].pdf_url;
                         if (pdfUrl) {
-                            window.open(pdfUrl, "_blank");
+                            // Create and click a link element
+                            const a = document.createElement("a");
+                            a.href = pdfUrl;
+                            a.target = "_blank";
+                            a.rel = "noopener noreferrer";
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
                         } else {
                             alert("PDF not available.");
                         }
@@ -224,25 +238,41 @@ export default {
         async handleShippingLabelAction(action) {
             const payload = {
                 platform_order_ids: [this.order.platform_order_id],
-                action: action, // ViewShipmentLabel or PrintShipmentLabel
+                action: action,
                 note: this.note,
             };
 
             try {
                 const res = await axios.post(
                     `${API_BASE_URL}/fbm-orders-shippinglabel`,
-                    payload
+                    payload,
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": document
+                                .querySelector('meta[name="csrf-token"]')
+                                .getAttribute("content"),
+                        },
+                    }
                 );
 
                 if (res.data.success) {
                     const result = res.data.results?.[0];
 
                     if (action === "ViewShipmentLabel") {
-                        const blob = new Blob([result.zpl_preview], {
-                            type: "text/plain",
-                        });
-                        const url = URL.createObjectURL(blob);
-                        window.open(url, "_blank");
+                        const pdfUrl = res.data.results[0].pdf_url;
+
+                        if (pdfUrl) {
+                            // Create and click a link element
+                            const a = document.createElement("a");
+                            a.href = pdfUrl;
+                            a.target = "_blank";
+                            a.rel = "noopener noreferrer";
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                        } else {
+                            alert("PDF not available.");
+                        }
                     } else {
                         alert("Shipping label sent to printer!");
                     }

@@ -51,7 +51,7 @@ class UserController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'User privileges retrieved successfully',
-         //   'data' => $myprivileges
+            'data' => $myprivileges
         ]);
     }
 
@@ -606,5 +606,36 @@ class UserController extends Controller
                 ]);
             }
         }
+
+        public function updateTimezone(Request $request)
+        {
+            $userId = session('userid');
+            $autoSync = $request->has('auto_sync');
+            $timezone = $request->input('usertimezone', 'UTC');
+
+            $tzSetting = json_encode([
+                'auto_sync' => $autoSync,
+                'usertimezone' => $timezone,
+            ]);
+
+            DB::table('tbluser')->where('id', $userId)->update([
+                'timezone_setting' => $tzSetting
+            ]);
+
+            return back()->with('success', 'Timezone updated successfully!');
+        }
+
+        public function showTimezoneSettings(Request $request)
+        {
+            $userId = session('userid');
+
+            $settingJson = DB::table('tbluser')->where('id', $userId)->value('timezone_setting');
+            $setting = json_decode($settingJson, true) ?? ['auto_sync' => true, 'usertimezone' => 'UTC'];
+
+            return view('Systemdashboard', [
+                'timezone_setting' => $setting
+            ]);
+        }
+
         
 }
