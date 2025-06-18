@@ -650,7 +650,7 @@
                             "
                         >
                             <i class="fas fa-shipping-fast"></i>
-                            Print Invoice
+                            Print
                         </button>
 
                         <!-- Process Button (with integrated Auto Dispense) -->
