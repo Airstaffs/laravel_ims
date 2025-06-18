@@ -1898,7 +1898,7 @@ function hasAccess($module, $mainModule, $subModules): bool
                                     Password</button>
                             </form>
 
-                            <form action="{{ route('update-timezone') }}" method="POST" class="mt-4">
+                            <form id="timezoneForm" class="mt-4">
                                 @csrf
 
                                 <h3 class="text-center">Timezone Settings</h3>
@@ -1907,45 +1907,14 @@ function hasAccess($module, $mainModule, $subModules): bool
                                 <fieldset class="mb-3">
                                     <div class="form-check">
                                         <input class="form-check-input" type="checkbox" id="auto_sync" name="auto_sync"
-                                            {{ old('auto_sync', $timezone_setting['auto_sync'] ?? false) ? 'checked' : '' }}>
+                                            {{ $timezone_setting['auto_sync'] ?? false ? 'checked' : '' }}>
                                         <label class="form-check-label" for="auto_sync">
                                             Automatically Sync Timezone
                                         </label>
                                     </div>
                                 </fieldset>
 
-                                @php
-                                    $allTimezones = collect(timezone_identifiers_list())
-                                        ->map(function ($tz) {
-                                            $dt = new DateTime('now', new DateTimeZone($tz));
-                                            $offset = $dt->getOffset();
-                                            $hours = intdiv($offset, 3600);
-                                            $minutes = abs($offset % 3600) / 60;
-                                            $sign = $offset >= 0 ? '+' : '-';
-                                            $formattedOffset = sprintf("UTC %s%02d:%02d", $sign, abs($hours), $minutes);
-                                            return [
-                                                'tz' => $tz,
-                                                'offset' => $offset,
-                                                'label' => "($formattedOffset) $tz"
-                                            ];
-                                        });
-
-                                    $grouped = $allTimezones->sortBy('offset')->groupBy('offset');
-
-                                    $limitedTimezones = $grouped->map(function ($group) {
-                                        return $group->take(2); // Limit to 2 per offset
-                                    })->flatten(1);
-
-                                    // Ensure America/Los_Angeles is included even if not in the top 2 for its offset
-                                    if (!$limitedTimezones->pluck('tz')->contains('America/Los_Angeles')) {
-                                        $la = $allTimezones->firstWhere('tz', 'America/Los_Angeles');
-                                        $limitedTimezones->push($la);
-                                    }
-
-                                    // Final sort by offset
-                                    $timezones = $limitedTimezones->sortBy('offset');
-                                @endphp
-
+                                <!-- Timezone Dropdown -->
                                 <fieldset class="mb-3">
                                     <label for="usertimezone" class="form-label">Preferred Timezone</label>
                                     <select class="form-select" id="usertimezone" name="usertimezone" required>
@@ -1960,13 +1929,13 @@ function hasAccess($module, $mainModule, $subModules): bool
                                 <button type="submit" class="btn btn-success">Update Timezone</button>
                             </form>
 
-                            @if(session('success'))
-                                <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
-                                    {{ session('success') }}
-                                    <button type="button" class="btn-close" data-bs-dismiss="alert"
-                                        aria-label="Close"></button>
-                                </div>
-                            @endif
+                            <!-- Flash success box (initially hidden) -->
+                            <div id="timezoneSuccessBox"
+                                class="alert alert-success alert-dismissible fade show mt-3 d-none" role="alert">
+                                <span id="timezoneSuccessMsg"></span>
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                    aria-label="Close"></button>
+                            </div>
                         </div>
 
                         <!--  Tab -->
@@ -3945,6 +3914,41 @@ console.log('Complete security system loaded successfully');
 
             checkbox.addEventListener('change', toggleSelect);
             toggleSelect();
+        });
+    </script>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('timezoneForm');
+            const successBox = document.getElementById('timezoneSuccessBox');
+            const successMsg = document.getElementById('timezoneSuccessMsg');
+
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(form);
+
+                fetch("{{ route('update-timezone') }}", {
+                    method: "POST",
+                    headers: {
+                        "X-CSRF-TOKEN": document.querySelector('input[name="_token"]').value,
+                    },
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            successMsg.textContent = data.message;
+                            successBox.classList.remove('d-none');
+                        } else {
+                            alert('Update failed.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error:", error);
+                        alert('Something went wrong.');
+                    });
+            });
         });
     </script>
 

@@ -607,23 +607,26 @@ class UserController extends Controller
             }
         }
 
-        public function updateTimezone(Request $request)
-        {
-            $userId = session('userid');
-            $autoSync = $request->has('auto_sync');
-            $timezone = $request->input('usertimezone', 'UTC');
+    public function updateTimezone(Request $request)
+    {
+        $userId = session('userid');
+        $autoSync = $request->has('auto_sync');
+        $timezone = $request->input('usertimezone', 'UTC');
 
-            $tzSetting = json_encode([
-                'auto_sync' => $autoSync,
-                'usertimezone' => $timezone,
-            ]);
+        $tzSetting = json_encode([
+            'auto_sync' => $autoSync,
+            'usertimezone' => $timezone,
+        ]);
 
-            DB::table('tbluser')->where('id', $userId)->update([
-                'timezone_setting' => $tzSetting
-            ]);
+        DB::table('tbluser')->where('id', $userId)->update([
+            'timezone_setting' => $tzSetting
+        ]);
 
-            return redirect()->route('timezone.settings')->with('success', 'Timezone updated successfully!');
-        }
+        return response()->json([
+            'success' => true,
+            'message' => 'Timezone updated successfully!',
+        ]);
+    }
 
         public function showTimezoneSettings(Request $request)
         {
