@@ -110,61 +110,54 @@ class AttendanceController extends Controller
     }
 
     public function clockIn(Request $request)
-{
-    // Get the current user's ID
-    $currentUserId = Auth::user()->id;
-    $currentUsername = Auth::user()->username;
+    {
+        $currentUserId = Auth::user()->id;
+        $currentUsername = Auth::user()->username;
+        $currentDateTime = Carbon::now('America/Los_Angeles');
 
-    // Get the current date and time (set to 'America/Los_Angeles' timezone)
-    $currentDateTime = Carbon::now('America/Los_Angeles');
+        DB::table('tblemployeeclocks')->insert([
+            'userid' => $currentUserId,
+            'Employee' => $currentUsername,
+            'TimeIn' => $currentDateTime,
+        ]);
 
-    // Insert into the tblemployeeclocks table
-    DB::table('tblemployeeclocks')->insert([
-        'userid' => $currentUserId,
-        'Employee' => $currentUsername,
-        'TimeIn' => $currentDateTime, // Carbon instance will be automatically cast to DATETIME
-    ]);
-
-        // Log using service
         $this->userLogService->log('Clockin');
 
-    // Redirect back with a success message
-    return redirect()->back()->with('success_clockin', 'Clocked in successfully at ' . $currentDateTime->format('h:i A'));
-}
-
+        return response()->json([
+            'success' => true,
+            'message' => 'Clocked in successfully at ' . $currentDateTime->format('h:i A'),
+        ]);
+    }
 
     public function clockOut(Request $request)
     {
-        // Get the current user's ID
         $currentUserId = Auth::user()->id;
-        $currentUsername = Auth::user()->username;
-
-        // Get the current date and time
         $currentDateTime = Carbon::now('America/Los_Angeles');
 
-        // Get the last record for the current user with today's TimeIn and null TimeOut
         $lastRecord = DB::table('tblemployeeclocks')
             ->where('userid', $currentUserId)
-            ->whereDate('TimeIn', Carbon::today('America/Los_Angeles')) // Ensure TimeIn is today's date
-            ->whereNotNull('TimeIn') // Ensure TimeIn is not null
-            ->whereNull('TimeOut') // Ensure TimeOut is null (no clock-out yet)
-            ->orderBy('ID', 'desc') // Get the most recent record
-            ->first(); // Retrieve only the last record
+            ->whereDate('TimeIn', Carbon::today('America/Los_Angeles'))
+            ->whereNotNull('TimeIn')
+            ->whereNull('TimeOut')
+            ->orderBy('ID', 'desc')
+            ->first();
 
         if ($lastRecord) {
-            // Update the TimeOut field for the last record
             DB::table('tblemployeeclocks')
-                ->where('ID', $lastRecord->ID) // Update only the last record by ID
+                ->where('ID', $lastRecord->ID)
                 ->update(['TimeOut' => $currentDateTime]);
 
-                // Log using service
-                $this->userLogService->log('Clockout');
+            $this->userLogService->log('Clockout');
 
-            // Redirect back with a success message
-            return redirect()->back()->with('success_clockout', 'Clocked out successfully at ' . $currentDateTime->format('h:i A'));
+            return response()->json([
+                'success' => true,
+                'message' => 'Clocked out successfully at ' . $currentDateTime->format('h:i A'),
+            ]);
         } else {
-            // If no valid record found, return an error message
-            return redirect()->back()->with('error', 'No valid clock-in record found for today to clock out.');
+            return response()->json([
+                'success' => false,
+                'message' => 'No valid clock-in record found for today.',
+            ], 400);
         }
     }
 

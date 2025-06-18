@@ -996,6 +996,7 @@ function hasAccess($module, $mainModule, $subModules): bool
         }
 
         // Add this new function to refresh CSRF token
+        /*
         async function refreshCsrfToken() {
             try {
                 const response = await fetch('/csrf-token');
@@ -1007,6 +1008,7 @@ function hasAccess($module, $mainModule, $subModules): bool
                 return false;
             }
         }
+            */
 
         function collectFormData() {
             const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -1693,26 +1695,23 @@ function hasAccess($module, $mainModule, $subModules): bool
                                 </div>
 
                                 <!-- Clock In/Out Buttons -->
+                                <!-- Clock In/Out Buttons -->
                                 <div class="d-flex justify-content-center gap-3">
                                     <!-- Clock In Button -->
-                                    <form action="{{ route('attendance.clockin') }}" method="POST" id="clockin-form">
-                                        @csrf
-                                        <button type="button"
-                                            class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-clockin' : 'btn-clockout' }}"
-                                            onclick="confirmClockIn()" {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
-                                            Clock In
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                        class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-clockin' : 'btn-clockout' }}"
+                                        onclick="confirmClockIn()" data-route="{{ route('attendance.clockin') }}"
+                                        id="clockin-button" {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
+                                        Clock In
+                                    </button>
 
                                     <!-- Clock Out Button -->
-                                    <form action="{{ route('attendance.clockout') }}" method="POST" id="clockout-form">
-                                        @csrf
-                                        <button type="button"
-                                            class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-clockin' : 'btn-clockout' }}"
-                                            onclick="confirmClockOut()" {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
-                                            Clock Out
-                                        </button>
-                                    </form>
+                                    <button type="button"
+                                        class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-clockin' : 'btn-clockout' }}"
+                                        onclick="confirmClockOut()" data-route="{{ route('attendance.clockout') }}"
+                                        id="clockout-button" {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
+                                        Clock Out
+                                    </button>
                                 </div>
 
                                 <!-- Computations for Today's Hours and This Week's Hours -->
@@ -1913,6 +1912,38 @@ function hasAccess($module, $mainModule, $subModules): bool
                                         </label>
                                     </div>
                                 </fieldset>
+
+                                @php
+                                    $allTimezones = collect(timezone_identifiers_list())
+                                        ->map(function ($tz) {
+                                            $dt = new DateTime('now', new DateTimeZone($tz));
+                                            $offset = $dt->getOffset();
+                                            $hours = intdiv($offset, 3600);
+                                            $minutes = abs($offset % 3600) / 60;
+                                            $sign = $offset >= 0 ? '+' : '-';
+                                            $formattedOffset = sprintf("UTC %s%02d:%02d", $sign, abs($hours), $minutes);
+                                            return [
+                                                'tz' => $tz,
+                                                'offset' => $offset,
+                                                'label' => "($formattedOffset) $tz"
+                                            ];
+                                        });
+
+                                    $grouped = $allTimezones->sortBy('offset')->groupBy('offset');
+
+                                    $limitedTimezones = $grouped->map(function ($group) {
+                                        return $group->take(2); // Limit to 2 per offset
+                                    })->flatten(1);
+
+                                    // Ensure America/Los_Angeles is included even if not in the top 2 for its offset
+                                    if (!$limitedTimezones->pluck('tz')->contains('America/Los_Angeles')) {
+                                        $la = $allTimezones->firstWhere('tz', 'America/Los_Angeles');
+                                        $limitedTimezones->push($la);
+                                    }
+
+                                    // Final sort by offset
+                                    $timezones = $limitedTimezones->sortBy('offset');
+                                @endphp
 
                                 <!-- Timezone Dropdown -->
                                 <fieldset class="mb-3">
@@ -3334,22 +3365,50 @@ console.log('Complete security system loaded successfully');
     </script>
 
     <script>
-        const clockin_question_Sound = document.getElementById('clockin-question-sound');
-        const clockout_question_Sound = document.getElementById('clockout-question-sound');
+        document.addEventListener('DOMContentLoaded', function () {
+            const clockinSound = document.getElementById('clockin-question-sound');
+            const clockoutSound = document.getElementById('clockout-question-sound');
 
-        function confirmClockIn() {
-            clockin_question_Sound.play();
-            if (confirm('Are you sure you want to Clock In?')) {
-                document.getElementById('clockin-form').submit();
+            function sendAjaxClock(route, successCallback) {
+                fetch(route, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'same-origin'
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(data.message);
+                            if (typeof successCallback === 'function') successCallback();
+                        } else {
+                            alert(data.message || 'Something went wrong.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Server error. Please try again.');
+                    });
             }
-        }
 
-        function confirmClockOut() {
-            clockout_question_Sound.play();
-            if (confirm('Are you sure you want to Clock Out?')) {
-                document.getElementById('clockout-form').submit();
+            window.confirmClockIn = function () {
+                clockinSound.play();
+                if (confirm('Are you sure you want to Clock In?')) {
+                    const route = document.getElementById('clockin-button').getAttribute('data-route');
+                    sendAjaxClock(route, () => location.reload());
+                }
             }
-        }
+
+            window.confirmClockOut = function () {
+                clockoutSound.play();
+                if (confirm('Are you sure you want to Clock Out?')) {
+                    const route = document.getElementById('clockout-button').getAttribute('data-route');
+                    sendAjaxClock(route, () => location.reload());
+                }
+            }
+        });
     </script>
 
     <script>
