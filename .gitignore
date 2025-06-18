@@ -24,3 +24,8 @@ yarn-error.log
 /vendor/
 /node_modules/
 /public/build/
+/public/images/asinimg
+/public/images/FBM_docs/invoices
+/public/images/FBM_docs/shipping_label
+/public/images/product_images
+/public/images/thumbnails
