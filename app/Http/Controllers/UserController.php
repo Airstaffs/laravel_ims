@@ -622,7 +622,7 @@ class UserController extends Controller
                 'timezone_setting' => $tzSetting
             ]);
 
-            return back()->with('success', 'Timezone updated successfully!');
+            return redirect()->route('timezone.settings')->with('success', 'Timezone updated successfully!');
         }
 
         public function showTimezoneSettings(Request $request)
@@ -632,7 +632,7 @@ class UserController extends Controller
             $settingJson = DB::table('tbluser')->where('id', $userId)->value('timezone_setting');
             $setting = json_decode($settingJson, true) ?? ['auto_sync' => true, 'usertimezone' => 'UTC'];
 
-            return view('Systemdashboard', [
+        return view('dashboard.Systemdashboard',  [
                 'timezone_setting' => $setting
             ]);
         }
