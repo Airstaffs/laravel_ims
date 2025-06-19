@@ -32,6 +32,8 @@ class PreventBackHistory
                        ->header('X-Frame-Options', 'DENY')
                        ->header('X-Content-Type-Options', 'nosniff')
                        ->header('Referrer-Policy', 'no-referrer')
-                       ->header('Feature-Policy', 'camera \'none\'; microphone \'none\'; geolocation \'none\'');
+                       // FIXED: Allow camera and microphone instead of blocking them
+                       ->header('Permissions-Policy', 'camera=*, microphone=*, geolocation=()') // Modern syntax
+                       ->header('Feature-Policy', 'camera \'self\' *; microphone \'self\' *; geolocation \'none\''); // Legacy support
     }
 }
