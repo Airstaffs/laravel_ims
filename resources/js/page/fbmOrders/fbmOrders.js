@@ -5,6 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import ScrollFab from "../../components/ScrollFab.vue";
 import PrintInvoiceModal from "./modals/printinvoice.vue";
+import ManualShipmentLabelModal from './modals/manualshipmentlabel.vue';
 
 export default {
     name: "FbmOrderModule",
@@ -12,6 +13,7 @@ export default {
         // REMOVED ALL COMPONENT REFERENCES - USING INLINE MODALS ONLY
         PrintInvoiceModal,
         ScrollFab,
+        ManualShipmentLabelModal,
     },
     data() {
         return {
@@ -107,8 +109,12 @@ export default {
             },
             quickJumpPage: 1,
 
+            // for printing invoice
             printInvoiceVisible: false,
             selectedOrder: null,
+
+            // for manualshipmentlabel
+            manualShipmentLabelVisible: false,
         };
     },
     computed: {
@@ -2800,6 +2806,18 @@ export default {
             this.printInvoiceVisible = false;
             this.selectedOrder = null;
         },
+        openManualShipmentLabelModal() {
+            this.manualShipmentLabelVisible = true;
+            this.$nextTick(() => {
+                this.$refs.manualShipmentLabelModal?.show();
+            });
+        },
+        closeManualShipmentLabelModal() {
+            this.manualShipmentLabelVisible = false;
+            this.$nextTick(() => {
+                this.$refs.manualShipmentLabelModal?.hide();
+            });
+        },
     },
     watch: {
         searchQuery() {
@@ -2828,5 +2846,29 @@ export default {
         this.fetchStores();
         this.fetchOrders();
         this.initializeDispenseItems();
+
+        // manualshipmentlabel modal func________________________________________
+        const modalEl = document.getElementById('manualShipmentLabelModal');
+        if (!modalEl) return;
+
+        const manualLabelModal = new bootstrap.Modal(modalEl, {
+        backdrop: 'static',
+        keyboard: false
+        });
+
+        window.openManualShipmentLabel = () => {
+        manualLabelModal.show();
+        };
+
+        window.closeManualShipmentLabel = () => {
+        manualLabelModal.hide();
+        };
+
+        // Reset modal form when it’s closed by any method (X, backdrop, Cancel)
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            this.resetForm();
+        });
+        //_______________________________________________________________________
+  
     },
 };
