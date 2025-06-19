@@ -12,7 +12,7 @@ body {
 }
 
 :disabled {
-    opacity: 0.6;
+    background-color: #e9ecef !important;
     cursor: not-allowed;
 }
 
@@ -712,12 +712,6 @@ select {
     justify-content: center;
 }
 
-.btn:disabled {
-    background-color: #ccc;
-    color: #fff;
-    cursor: not-allowed;
-}
-
 .btn-clockin,
 .btn-clockout:hover {
     background-color: #007bff;
@@ -754,7 +748,8 @@ select {
 .modal .addUserForm,
 .modal .storeListContainer,
 .modal .userTimeRecord,
-.modal .userLogs {
+.modal .userLogs,
+.modal .timezoneForm {
     width: 600px;
     margin: 0 auto;
     display: flex;
@@ -838,7 +833,8 @@ hr.dashed {
 .changePwdForm .btn-process,
 .tblnDsgnForm .btn-process,
 .addUserForm .btn-process,
-.storeListContainer .btn-process {
+.storeListContainer .btn-process,
+.timezoneForm .btn-process {
     background: #007bff;
     justify-content: center;
     font-weight: 600;
@@ -864,6 +860,46 @@ hr.dashed {
     justify-content: center;
     color: #fff;
     font-weight: 600;
+}
+
+#userprofile ul.nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+#userprofile ul > li {
+    width: calc(100% / 2 - 5px);
+    height: 40px;
+}
+
+#userprofile ul > li button {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    background-color: #eee;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+#userprofile ul > li button.active {
+    background-color: #4285f4;
+    color: white;
+}
+
+.has-checkbox {
+    height: 30px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.has-checkbox .form-check-input {
+    margin: 0;
 }
 
 @media (max-width: 767px) {
@@ -986,7 +1022,8 @@ hr.dashed {
     .modal .addUserForm,
     .modal .storeListContainer,
     .modal .userTimeRecord,
-    .modal .userLogs {
+    .modal .userLogs,
+    .modal .timezoneForm {
         width: 100%;
     }
 
@@ -1008,5 +1045,11 @@ hr.dashed {
     .userTimeRecord button,
     .userLogs button {
         width: 100%;
+    }
+
+    .changePwdForm .btn-process,
+    .timezoneForm .btn-process {
+        width: 100%;
+        margin: 0;
     }
 }
