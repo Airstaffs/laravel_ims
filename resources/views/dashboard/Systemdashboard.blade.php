@@ -1878,13 +1878,11 @@ function hasAccess($module, $mainModule, $subModules): bool
                                         @csrf
                                         <fieldset>
                                             <label for="password" class="form-label">New Password</label>
-                                            <div class="input-group">
+                                            <div class="has-toggle">
                                                 <input type="password" class="form-control" id="newpassword"
                                                     name="password" placeholder="Enter password" required>
-                                                <button type="button" class="btn btn-outline-secondary toggle-password"
-                                                    data-target="#password">
-                                                    <i class="bi bi-eye"></i>
-                                                </button>
+                                                <i role="button" class="bi bi-eye toggle-password"
+                                                    id="toggleNewPassword" data-target="#password"></i>
                                             </div>
                                         </fieldset>
 
@@ -1893,14 +1891,12 @@ function hasAccess($module, $mainModule, $subModules): bool
                                         <fieldset>
                                             <label for="password_confirmation" class="form-label">Confirm
                                                 Password</label>
-                                            <div class="input-group">
-                                                <input type="password" class="form-control"
-                                                    id="newpassword_confirmation" name="password_confirmation"
-                                                    placeholder="Confirm password" required>
-                                                <button type="button" class="btn btn-outline-secondary toggle-password"
-                                                    data-target="#password_confirmation">
-                                                    <i class="bi bi-eye"></i>
-                                                </button>
+                                            <div class="has-toggle">
+                                                <input type="password" class="form-control" id="confirmpassword"
+                                                    name="password_confirmation" placeholder="Confirm password"
+                                                    required>
+                                                <i role="button" class="bi bi-eye toggle-password"
+                                                    id="toggleConfirmPassword" data-target="#password"></i>
                                             </div>
                                         </fieldset>
 
@@ -2177,6 +2173,27 @@ function hasAccess($module, $mainModule, $subModules): bool
             </div>
         </div>
     </div>
+
+    <script>
+        function setupPasswordToggle(toggleId, inputId) {
+            const toggleElement = document.getElementById(toggleId);
+            const inputElement = document.getElementById(inputId);
+
+            if (!toggleElement || !inputElement) return;
+
+            toggleElement.addEventListener('click', () => {
+                const isPasswordVisible = inputElement.type === 'text';
+                inputElement.type = isPasswordVisible ? 'password' : 'text';
+
+                toggleElement.classList.toggle('bi-eye', isPasswordVisible);
+                toggleElement.classList.toggle('bi-eye-slash', !isPasswordVisible);
+            });
+        }
+
+        // Initialize toggles
+        setupPasswordToggle('toggleNewPassword', 'newpassword');
+        setupPasswordToggle('toggleConfirmPassword', 'confirmpassword');
+    </script>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
