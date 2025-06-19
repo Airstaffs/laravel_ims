@@ -8,6 +8,7 @@
     <title>{{ session('site_title', 'IMS') }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
         body {
@@ -115,6 +116,22 @@
             width: 1rem;
             height: 1rem;
         }
+
+        .has-toggle {
+            position: relative;
+        }
+
+        i#togglePassword {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            top: 0;
+            right: 0;
+            opacity: 0.5;
+        }
     </style>
 </head>
 
@@ -134,12 +151,15 @@
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
             </div>
-            <div class="mb-3">
+            <div class="mb-3 position-relative">
                 <label for="password" class="form-label">
                     <strong>Password</strong>
                 </label>
-                <input type="password" class="form-control @error('password') is-invalid @enderror" id="password"
-                    name="password" placeholder="Enter your password" required autocomplete="current-password">
+                <div class="has-toggle">
+                    <input type="password" class="form-control @error('password') is-invalid @enderror" id="password"
+                        name="password" placeholder="Enter your password" required autocomplete="current-password">
+                    <i role="button" class="bi bi-eye" id="togglePassword"></i>
+                </div>
                 @error('password')
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
@@ -151,7 +171,7 @@
                     Remember me
                 </label>
             </div>
-            
+
             <!-- Timezone Value -->
             <input type="hidden" name="timezone" id="timezone">
 
@@ -168,14 +188,10 @@
                 <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
                 Continue with Google
             </a>
-
-
         </form>
     </div>
 
-    <footer>
-        &copy; 2025 IMS (Inventory Management System)
-    </footer>
+    <x-footer></x-footer>
 
     <!-- AUDIO ELEMENTS - Only for logout and errors (login success handled on dashboard) -->
     <audio id="logoutSuccessAudio" preload="auto">
@@ -199,6 +215,17 @@
             const loginButton = document.getElementById('loginButton');
             const loginText = loginButton.querySelector('.login-text');
             const spinner = loginButton.querySelector('.spinner-border');
+
+            const togglePassword = document.getElementById('togglePassword');
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('toggleIcon');
+
+            togglePassword.addEventListener('click', function () {
+                const isPassword = passwordInput.type === 'password';
+                passwordInput.type = isPassword ? 'text' : 'password';
+                this.classList.toggle('bi-eye');
+                this.classList.toggle('bi-eye-slash');
+            });
 
             // Function to play audio with error handling
             function playAudio(audioElement, audioName) {
@@ -293,13 +320,11 @@
                 Swal.fire({
                     icon: 'error',
                     title: 'Validation Error',
-                    html: `
-                            <ul style="text-align: left; list-style: none; padding: 0;">
-                                @foreach($errors->all() as $error)
-                                    <li style="margin-bottom: 5px;">• {{ $error }}</li>
-                                @endforeach
-                            </ul>
-                        `
+                    html: `<ul style="text-align: left; list-style: none; padding: 0;">
+                                                                                                                @foreach($errors->all() as $error)
+                                                                                                                    <li style="margin-bottom: 5px;">• {{ $error }}</li>
+                                                                                                                @endforeach
+                                                                                                            </ul>`
                 });
             @endif
 
@@ -366,16 +391,14 @@
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     }
-                })
-                    .then(response => {
-                        if (response.ok) {
-                            // User is authenticated, redirect to dashboard
-                            window.location.replace("{{ route('dashboard.system') }}");
-                        }
-                    })
-                    .catch(() => {
-                        // Ignore errors, stay on login page
-                    });
+                }).then(response => {
+                    if (response.ok) {
+                        // User is authenticated, redirect to dashboard
+                        window.location.replace("{{ route('dashboard.system') }}");
+                    }
+                }).catch(() => {
+                    // Ignore errors, stay on login page
+                });
             }
         });
     </script>
