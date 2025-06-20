@@ -15,8 +15,20 @@
           </div>
 
           <div class="mb-3">
-            <label class="form-label">LCode (Step 0.01, min 0)</label>
-            <input v-model.number="form.LCode" type="number" class="form-control" step="0.01" min="0" required>
+            <label class="form-label">Order Item IDs</label>
+            <div v-for="(item, index) in form.OrderItemIds" :key="index" class="input-group mb-2">
+              <input v-model="form.OrderItemIds[index]"  type="text" class="form-control" placeholder="Enter OrderItemId"
+                required style="width: 100%;" />
+              <button type="button" class="btn btn-danger" @click="removeOrderItemId(index)"
+                v-if="form.OrderItemIds.length > 1">×</button>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-primary mt-2" @click="addOrderItemId">+ Add
+              OrderItemId</button>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">LCode</label>
+            <input v-model.number="form.LCode" type="number" class="form-control" step="0.01" min="00.00" required>
           </div>
 
           <div class="mb-3">
@@ -65,6 +77,8 @@
 </template>
 
 <script>
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
 export default {
   name: 'ManualShipmentLabelModal',
   data() {
@@ -72,6 +86,7 @@ export default {
       bsModal: null,
       form: {
         AmazonOrderId: '',
+        OrderItemIds: [''],
         LCode: 0.01,
         ShipDate: '',
         TrackingNumber: '',
@@ -95,7 +110,12 @@ export default {
     }
   },
   methods: {
-
+    addOrderItemId() {
+      this.form.OrderItemIds.push('');
+    },
+    removeOrderItemId(index) {
+      this.form.OrderItemIds.splice(index, 1);
+    },
     show() {
       if (this.bsModal) this.bsModal.show();
     },
@@ -112,12 +132,19 @@ export default {
       }
 
       const formData = new FormData();
+
       for (const key in this.form) {
-        formData.append(key, this.form[key]);
+        if (key === 'OrderItemIds') {
+          this.form.OrderItemIds.forEach((itemId, i) => {
+            formData.append(`OrderItemIds[${i}]`, itemId);
+          });
+        } else {
+          formData.append(key, this.form[key]);
+        }
       }
 
       try {
-        const res = await axios.post('/your-api/manual-label-submit', formData, {
+        const res = await axios.post(`${API_BASE_URL}/fbm-orders-manualshipmentlabel`, formData, {
           headers: {
             'Content-Type': 'multipart/form-data',
           }
@@ -138,7 +165,7 @@ export default {
     resetForm() {
       this.form = {
         AmazonOrderId: '',
-        LCode: 0.01,
+        LCode: 0.00,
         ShipDate: '',
         TrackingNumber: '',
         Carrier: 'USPS',
