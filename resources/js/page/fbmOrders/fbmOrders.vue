@@ -27,10 +27,8 @@
                     <i class="fas fa-file-alt"></i>
                     <span>Generate Packing Slips</span>
                 </button>
-
-                <!-- Manual Shipment Label Button -->
                 <button class="btn btn-warning" @click="openManualShipmentLabelModal">
-                Manual Shipment Label
+                    <span>Manual Shipment Label</span>
                 </button>
             </div>
 
@@ -1950,7 +1948,7 @@
         />
 
         <!-- Manual Shipment Label Modal -->
-        <ManualShipmentLabelModal ref="manualShipmentLabelModal" />
+        <ManualShipmentLabelModal :visible="manualShipmentLabelVisible" @close="closeManualShipmentLabelModal" />
     </div>
 </template>
 

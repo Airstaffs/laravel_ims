@@ -5,7 +5,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 import ScrollFab from "../../components/ScrollFab.vue";
 import PrintInvoiceModal from "./modals/printinvoice.vue";
-import ManualShipmentLabelModal from './modals/manualshipmentlabel.vue';
+import ManualShipmentLabelModal from "./modals/manualshipmentlabel.vue";
 
 export default {
     name: "FbmOrderModule",
@@ -2808,15 +2808,9 @@ export default {
         },
         openManualShipmentLabelModal() {
             this.manualShipmentLabelVisible = true;
-            this.$nextTick(() => {
-                this.$refs.manualShipmentLabelModal?.show();
-            });
         },
         closeManualShipmentLabelModal() {
             this.manualShipmentLabelVisible = false;
-            this.$nextTick(() => {
-                this.$refs.manualShipmentLabelModal?.hide();
-            });
         },
     },
     watch: {
@@ -2848,27 +2842,26 @@ export default {
         this.initializeDispenseItems();
 
         // manualshipmentlabel modal func________________________________________
-        const modalEl = document.getElementById('manualShipmentLabelModal');
+        const modalEl = document.getElementById("manualShipmentLabelModal");
         if (!modalEl) return;
 
         const manualLabelModal = new bootstrap.Modal(modalEl, {
-        backdrop: 'static',
-        keyboard: false
+            backdrop: "static",
+            keyboard: false,
         });
 
         window.openManualShipmentLabel = () => {
-        manualLabelModal.show();
+            manualLabelModal.show();
         };
 
         window.closeManualShipmentLabel = () => {
-        manualLabelModal.hide();
+            manualLabelModal.hide();
         };
 
         // Reset modal form when it’s closed by any method (X, backdrop, Cancel)
-        modalEl.addEventListener('hidden.bs.modal', () => {
+        modalEl.addEventListener("hidden.bs.modal", () => {
             this.resetForm();
         });
         //_______________________________________________________________________
-  
     },
 };
