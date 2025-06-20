@@ -7,8 +7,6 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    
-
 
     <title>{{ session('site_title', 'IMS') }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -23,8 +21,6 @@
     @vite('resources/css/app.css')
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-
-    
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -147,62 +143,62 @@
 
         <h5 class="text-center">Navigation</h5>
 
-        <?php
-use Illuminate\Support\Facades\Auth;
+        @php
+            use Illuminate\Support\Facades\Auth;
 
-// Refresh user data from DB
-$currentUser = Auth::user();
-$subModules = [];
-$mainModule = '';
+            // Refresh user data from DB
+            $currentUser = Auth::user();
+            $subModules = [];
+            $mainModule = '';
 
-if ($currentUser) {
-    $freshUser = \App\Models\User::find($currentUser->id);
-    $mainModule = strtolower($freshUser->main_module ?: '');
+            if ($currentUser) {
+                $freshUser = \App\Models\User::find($currentUser->id);
+                $mainModule = strtolower($freshUser->main_module ?: '');
 
-    $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
+                $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound'];
 
-    foreach ($moduleColumns as $column) {
-        if (!empty($freshUser->{$column}) && $column !== $mainModule) {
-            $subModules[] = strtolower($column);
-        }
-    }
+                foreach ($moduleColumns as $column) {
+                    if (!empty($freshUser->{$column}) && $column !== $mainModule) {
+                        $subModules[] = strtolower($column);
+                    }
+                }
 
-    session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
-} else {
-    $mainModule = strtolower(session('main_module', ''));
-    $subModules = array_map('strtolower', session('sub_modules', []));
-}
+                session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
+            } else {
+                $mainModule = strtolower(session('main_module', ''));
+                $subModules = array_map('strtolower', session('sub_modules', []));
+            }
 
-// Remove duplication
-$subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
+            // Remove duplication
+            $subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
 
-// Fallback to first submodule or dashboard
-$defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
+            // Fallback to first submodule or dashboard
+            $defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
 
-$modules = [
-    'order' => 'Order',
-    'unreceived' => 'Unreceived',
-    'receiving' => 'Received',
-    'labeling' => 'Labeling',
-    'validation' => 'Validation',
-    'testing' => 'Testing',
-    'cleaning' => 'Cleaning',
-    'packing' => 'Packing',
-    'fnsku' => 'Fnsku',
-    'stockroom' => 'Stockroom',
-    'productionarea' => 'Production Area',
-    'fbashipmentinbound' => 'FBA Inbound Shipment',
-    'returnscanner' => 'Return Scanner',
-    'fbmorder' => 'FBM Order',
-    'notfound' => 'Not Found',
-];
+            $modules = [
+                'order' => 'Order',
+                'unreceived' => 'Unreceived',
+                'receiving' => 'Received',
+                'labeling' => 'Labeling',
+                'validation' => 'Validation',
+                'testing' => 'Testing',
+                'cleaning' => 'Cleaning',
+                'packing' => 'Packing',
+                'fnsku' => 'Fnsku',
+                'stockroom' => 'Stockroom',
+                'productionarea' => 'Production Area',
+                'fbashipmentinbound' => 'FBA Inbound Shipment',
+                'returnscanner' => 'Return Scanner',
+                'fbmorder' => 'FBM Order',
+                'notfound' => 'Not Found',
+            ];
 
-function hasAccess($module, $mainModule, $subModules): bool
-{
-    $module = strtolower($module);
-    return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
-}
-    ?>
+            function hasAccess($module, $mainModule, $subModules): bool
+            {
+                $module = strtolower($module);
+                return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
+            }
+        @endphp
 
         <!-- Client-side Setup -->
         <script>
@@ -757,6 +753,7 @@ function hasAccess($module, $mainModule, $subModules): bool
                                 fetchTimeRecords();
                             });
                         </script>
+
                         <script>
                             document.addEventListener('DOMContentLoaded', function () {
                                 const selectUser = document.getElementById('selectUserDrop_logs');
@@ -867,8 +864,6 @@ function hasAccess($module, $mainModule, $subModules): bool
                                 fetchUserLogs();
                             });
                         </script>
-
-
                     </div>
                 </div>
                 <!--   <div class="modal-footer">
@@ -921,24 +916,17 @@ function hasAccess($module, $mainModule, $subModules): bool
                 e.preventDefault();
 
                 try {
-                    // Refresh CSRF token before submitting
                     await refreshCsrfToken();
-
                     const formData = collectFormData();
                     const response = await saveUserPrivileges(formData);
 
                     if (response.success) {
                         showNotification('Success', 'User privileges saved successfully!', 'success');
 
-                        // Fetch updated user privileges
                         await fetchUserPrivileges(formData.user_id);
 
-                        // Create navigation data with proper filtering
-                        const mainModuleDb = response.main_module || formData.main_module.toLowerCase().replace(
-                            /\s+/g, '');
+                        const mainModuleDb = (response.main_module || formData.main_module || '').toLowerCase().replace(/\s+/g, '');
                         const subModulesDb = response.sub_modules || [];
-
-                        // Ensure sub_modules doesn't contain main_module
                         const filteredSubModules = subModulesDb.filter(module =>
                             module.toLowerCase().replace(/\s+/g, '') !== mainModuleDb
                         );
@@ -947,52 +935,50 @@ function hasAccess($module, $mainModule, $subModules): bool
                             main_module: mainModuleDb,
                             sub_modules: filteredSubModules,
                             modules: {
-                                'order': 'Order',
-                                'unreceived': 'Unreceived',
-                                'receiving': 'Received',
-                                'labeling': 'Labeling',
-                                'validation': 'Validation',
-                                'testing': 'Testing',
-                                'cleaning': 'Cleaning',
-                                'packing': 'Packing',
-                                'fnsku': 'FNSKU',
-                                'stockroom': 'Stockroom',
-                                'productionarea': 'Production Area',
-                                'returnscanner': 'Return Scanner',
-                                'fbmorder': 'FBM Order'
+                                order: 'Order',
+                                unreceived: 'Unreceived',
+                                receiving: 'Received',
+                                labeling: 'Labeling',
+                                validation: 'Validation',
+                                testing: 'Testing',
+                                cleaning: 'Cleaning',
+                                packing: 'Packing',
+                                fnsku: 'FNSKU',
+                                stockroom: 'Stockroom',
+                                productionarea: 'Production Area',
+                                returnscanner: 'Return Scanner',
+                                fbmorder: 'FBM Order'
                             }
                         };
 
-                        // Update navigation immediately
-                        updateUserNavigation(navigationData);
+                        // ✅ Only update navigation if selected user is the current user
+                        if (parseInt(formData.user_id) === parseInt(window.loggedInUserId)) {
+                            updateUserNavigation(navigationData);
 
-                        // Update Vue component if available
-                        if (window.appInstance) {
-                            forceComponentUpdate(mainModuleDb);
+                            if (window.appInstance) {
+                                forceComponentUpdate(mainModuleDb);
+                            }
                         }
 
-                        // Close the modal
+                        // Modal & Form Cleanup
                         const modalEl = document.getElementById('settingsModal');
-                        modalEl.style.display = 'none';
-                        document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-                        document.body.classList.remove('modal-open');
-                        document.body.style.removeProperty('padding-right');
-                        modalEl.classList.remove('show');
-
-                        // Re-bind modal trigger
-                        const settingsButton = document.querySelector(
-                            '[data-bs-toggle="modal"][data-bs-target="#settingsModal"]');
-                        if (settingsButton) {
-                            settingsButton.setAttribute('data-bs-toggle', 'modal');
-                            settingsButton.setAttribute('data-bs-target', '#settingsModal');
+                        if (modalEl) {
+                            modalEl.style.display = 'none';
+                            modalEl.classList.remove('show');
+                            document.body.classList.remove('modal-open');
+                            document.body.style.removeProperty('padding-right');
+                            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
                         }
 
-                        form.classList.remove('was-validated');
+                        if (form) {
+                            form.classList.remove('was-validated');
+                        }
                         initializeUserSelect();
 
                     } else {
                         showNotification('Error', response.message || 'Failed to save privileges', 'error');
                     }
+
                 } catch (error) {
                     console.error('Error in form submission:', error);
                     showNotification('Error', 'An unexpected error occurred', 'error');
@@ -2053,7 +2039,7 @@ function hasAccess($module, $mainModule, $subModules): bool
                             </div>
                         </div>
 
-                        <!-- Previleges Tab -->
+                        <!-- Privileges Tab -->
                         <div class="tab-pane fade show" id="myprivileges" role="tabpanel"
                             aria-labelledby="myprivileges-tab">
                             <h5 style="font-weight: bold; color: #333;">Account Privileges</h5>
