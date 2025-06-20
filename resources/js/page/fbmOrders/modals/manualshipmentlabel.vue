@@ -122,6 +122,8 @@
 </template>
 
 <script>
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+
 export default {
     name: "ManualShipmentLabelModal",
     props: {
@@ -174,7 +176,7 @@ export default {
 
             try {
                 const res = await axios.post(
-                    "/your-api/manual-label-submit",
+                    `${API_BASE_URL}/fbm-orders-manualshipmentlabel`,
                     formData,
                     {
                         headers: {

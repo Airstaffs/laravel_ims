@@ -497,3 +497,7 @@ Route::get('/fbm-orders-shippinglabel-test', function () {
 Route::get('/session-warmup', function () {
     return response()->noContent(); // Or just return 200 OK
 });
+
+// Fbm Orders Manual Shipment Label
+use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
+Route::post('/fbm-orders-manualshipmentlabel', [ManualShipmentLabelController::class, 'store']);
