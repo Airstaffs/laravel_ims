@@ -72,7 +72,7 @@ class ManualShipmentLabelController extends Controller
         // Insert into tbllabelhistoryitems and update tbloutboundordersitem
         foreach ($orderItemIds as $orderItemId) {
             DB::table('tbllabelhistoryitems')->insert([
-                'shipment' => 'Manual',
+                'shipmentid' => 'Manual',
                 'AmazonOrderId' => $AmazonOrderId,
                 'orderitemid' => $orderItemId,
                 'trackingid' => $request->TrackingNumber,
@@ -91,7 +91,7 @@ class ManualShipmentLabelController extends Controller
             DB::table('tbloutboundordersitem')
                 ->where('platform_order_item_id', $orderItemId)
                 ->update([
-                    'tracking_number' => $request->TrackingNumber,
+                    'trackingnumber' => $request->TrackingNumber,
                     'carrier' => $request->Carrier,
                     'carrier_description' => $request->DeliveryExperience,
                 ]);
@@ -102,5 +102,68 @@ class ManualShipmentLabelController extends Controller
             'message' => 'Manual label and items saved successfully.'
         ]);
     }
+
+    public function newCarrierDescription(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:255'
+        ]);
+
+        $newOption = $request->input('name');
+
+        // Get existing record or create new
+        $record = DB::table('tbladditionaldetails')
+            ->where('name', 'carrierdescription')
+            ->where('condition', 'operational')
+            ->first();
+
+        if ($record) {
+            $options = json_decode($record->value, true) ?? [];
+
+            if (!in_array($newOption, $options)) {
+                $options[] = $newOption;
+
+                DB::table('tbladditionaldetails')
+                    ->where('id', $record->id)
+                    ->update([
+                        'value' => json_encode($options),
+                        'updated_at' => now()
+                    ]);
+            }
+        } else {
+            DB::table('tbladditionaldetails')->insert([
+                'name' => 'carrierdescription',
+                'condition' => 'operational',
+                'value' => json_encode([$newOption]),
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    public function getCarrierDescriptions()
+    {
+        $record = DB::table('tbladditionaldetails')
+            ->where('name', 'carrierdescription')
+            ->where('condition', 'operational')
+            ->first();
+
+        $options = [];
+
+        if ($record && $record->value) {
+            $decoded = json_decode($record->value, true);
+            if (is_array($decoded)) {
+                $options = $decoded;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'options' => $options
+        ]);
+    }
+
 
 }

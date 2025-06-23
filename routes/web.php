@@ -501,3 +501,5 @@ Route::get('/session-warmup', function () {
 // Fbm Orders Manual Shipment Label
 use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 Route::post('/fbm-orders-manualshipmentlabel', [ManualShipmentLabelController::class, 'store']);
+Route::post('/fbm-orders-add-new-carrier', [ManualShipmentLabelController::class, 'newCarrierDescription']);
+Route::get('/fbm-orders-carrier-options', [ManualShipmentLabelController::class, 'getCarrierDescriptions']);
