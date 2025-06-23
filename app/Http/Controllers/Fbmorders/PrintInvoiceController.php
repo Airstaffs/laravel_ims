@@ -276,7 +276,10 @@ class PrintInvoiceController extends Controller
                 $html .= '                        ' . $item["platform_title"] . ' <br>';
                 $html .= '                        <strong>SKU:</strong> ' . $item["platform_sku"] . ' <br>';
                 $html .= '                        <strong>ASIN:</strong> ' . $item["platform_asin"] . ' <br>';
-                $html .= '                        <img src="data:image/png;base64,' . base64_encode($item["platform_asin"]) . '" alt="ASIN Barcode"> <br>';
+
+                $barcode_ASIN = $generator->getBarcode($item["platform_asin"], $generator::TYPE_CODE_128);
+                $html .= '                        <img src="data:image/png;base64,' . base64_encode($barcode_ASIN) . '" alt="ASIN Barcode"> <br>';
+                
                 $html .= '                        <strong>Condition:</strong> ' . $item["ConditionId"] . ' - ' . $item["ConditionSubtypeId"] . '<br>';
                 $html .= '                        <strong>Order Item ID:</strong> ' . $item["platform_order_item_id"] . '<br>';
                 $html .= '                        <strong>P Code:</strong> $' . convertNumberToCustomCode($item["unit_price"] ?? 00.00) . '<br>';
@@ -525,7 +528,10 @@ class PrintInvoiceController extends Controller
                 $html .= '                        ' . $item["platform_title"] . ' <br>';
                 $html .= '                        <strong>SKU:</strong> ' . $item["platform_sku"] . ' <br>';
                 $html .= '                        <strong>ASIN:</strong> ' . $item["platform_asin"] . ' <br>';
-                $html .= '                        <img src="data:image/png;base64,' . base64_encode($item["platform_asin"]) . '" alt="ASIN Barcode"> <br>';
+
+                $barcode_ASIN = $generator->getBarcode($item["platform_asin"], $generator::TYPE_CODE_128);
+                $html .= '                        <img src="data:image/png;base64,' . base64_encode($barcode_ASIN) . '" alt="ASIN Barcode"> <br>';
+
                 $html .= '                        <strong>Condition:</strong> ' . $item["ConditionId"] . ' - ' . $item["ConditionSubtypeId"] . '<br>';
                 $html .= '                        <strong>Order Item ID:</strong> ' . $item["platform_order_item_id"] . '<br>';
                 $html .= '                        <strong>P Code:</strong> $' . convertNumberToCustomCode($item["unit_price"] ?? 00.00) . '<br>';
@@ -714,19 +720,19 @@ class PrintInvoiceController extends Controller
             ]);
 
         } /*else {
-         // If also sending the PDF file (with save mode)
-         $response = Http::attach(
-             'pdf_file',
-             file_get_contents($pdfFile),
-             basename($pdfFile)
-         )
-             ->asMultipart()
-             ->post($printerIP, [
-                 ['name' => 'zpl', 'contents' => $zplCode],
-                 ['name' => 'printerSelect', 'contents' => $pIp],
-                 ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
-             ]);
-     }*/
+        // If also sending the PDF file (with save mode)
+        $response = Http::attach(
+            'pdf_file',
+            file_get_contents($pdfFile),
+            basename($pdfFile)
+        )
+            ->asMultipart()
+            ->post($printerIP, [
+                ['name' => 'zpl', 'contents' => $zplCode],
+                ['name' => 'printerSelect', 'contents' => $pIp],
+                ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
+            ]);
+    }*/
 
         Log::info('Printer response:', [
             'status' => $response->status(),
