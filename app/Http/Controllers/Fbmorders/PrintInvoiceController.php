@@ -275,11 +275,23 @@ class PrintInvoiceController extends Controller
                 $html .= '                    <td>';
                 $html .= '                        ' . $item["platform_title"] . ' <br>';
                 $html .= '                        <strong>SKU:</strong> ' . $item["platform_sku"] . ' <br>';
-                $html .= '                        <strong>ASIN:</strong> ' . $item["platform_asin"] . ' <br>';
+                $asin = $item["platform_asin"] ?? '';
+                $cleanAsin = preg_replace('/[^A-Za-z0-9]/', '', $asin); // Remove non-barcode-safe chars
 
-                $barcode_ASIN = $generator->getBarcode($item["platform_asin"], $generator::TYPE_CODE_128);
-                $html .= '                        <img src="data:image/png;base64,' . base64_encode($barcode_ASIN) . '" alt="ASIN Barcode"> <br>';
-                
+                $html .= '                        <strong>ASIN:</strong> ' . htmlspecialchars($asin) . ' <br>';
+
+                // Only render barcode if ASIN is valid
+                if (!empty($cleanAsin)) {
+                    try {
+                        $barcode_ASIN = $generator->getBarcode($cleanAsin, $generator::TYPE_CODE_128);
+                        $html .= '                        <img src="data:image/png;base64,' . base64_encode($barcode_ASIN) . '" alt="ASIN Barcode" style="height:40px;"> <br>';
+                    } catch (Exception $e) {
+                        $html .= '                        <em>Barcode generation failed.</em><br>';
+                    }
+                } else {
+                    $html .= '                        <em>Invalid ASIN for barcode</em><br>';
+                }
+
                 $html .= '                        <strong>Condition:</strong> ' . $item["ConditionId"] . ' - ' . $item["ConditionSubtypeId"] . '<br>';
                 $html .= '                        <strong>Order Item ID:</strong> ' . $item["platform_order_item_id"] . '<br>';
                 $html .= '                        <strong>P Code:</strong> $' . convertNumberToCustomCode($item["unit_price"] ?? 00.00) . '<br>';
@@ -527,10 +539,23 @@ class PrintInvoiceController extends Controller
                 $html .= '                    <td>';
                 $html .= '                        ' . $item["platform_title"] . ' <br>';
                 $html .= '                        <strong>SKU:</strong> ' . $item["platform_sku"] . ' <br>';
-                $html .= '                        <strong>ASIN:</strong> ' . $item["platform_asin"] . ' <br>';
+                $asin = $item["platform_asin"] ?? '';
+                $cleanAsin = preg_replace('/[^A-Za-z0-9]/', '', $asin); // Remove non-barcode-safe chars
 
-                $barcode_ASIN = $generator->getBarcode($item["platform_asin"], $generator::TYPE_CODE_128);
-                $html .= '                        <img src="data:image/png;base64,' . base64_encode($barcode_ASIN) . '" alt="ASIN Barcode"> <br>';
+                $html .= '                        <strong>ASIN:</strong> ' . htmlspecialchars($asin) . ' <br>';
+
+                // Only render barcode if ASIN is valid
+                if (!empty($cleanAsin)) {
+                    try {
+                        $barcode_ASIN = $generator->getBarcode($cleanAsin, $generator::TYPE_CODE_128);
+                        $html .= '                        <img src="data:image/png;base64,' . base64_encode($barcode_ASIN) . '" alt="ASIN Barcode" style="height:40px;"> <br>';
+                    } catch (Exception $e) {
+                        $html .= '                        <em>Barcode generation failed.</em><br>';
+                    }
+                } else {
+                    $html .= '                        <em>Invalid ASIN for barcode</em><br>';
+                }
+
 
                 $html .= '                        <strong>Condition:</strong> ' . $item["ConditionId"] . ' - ' . $item["ConditionSubtypeId"] . '<br>';
                 $html .= '                        <strong>Order Item ID:</strong> ' . $item["platform_order_item_id"] . '<br>';
@@ -720,19 +745,19 @@ class PrintInvoiceController extends Controller
             ]);
 
         } /*else {
-        // If also sending the PDF file (with save mode)
-        $response = Http::attach(
-            'pdf_file',
-            file_get_contents($pdfFile),
-            basename($pdfFile)
-        )
-            ->asMultipart()
-            ->post($printerIP, [
-                ['name' => 'zpl', 'contents' => $zplCode],
-                ['name' => 'printerSelect', 'contents' => $pIp],
-                ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
-            ]);
-    }*/
+      // If also sending the PDF file (with save mode)
+      $response = Http::attach(
+          'pdf_file',
+          file_get_contents($pdfFile),
+          basename($pdfFile)
+      )
+          ->asMultipart()
+          ->post($printerIP, [
+              ['name' => 'zpl', 'contents' => $zplCode],
+              ['name' => 'printerSelect', 'contents' => $pIp],
+              ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
+          ]);
+  }*/
 
         Log::info('Printer response:', [
             'status' => $response->status(),
