@@ -284,7 +284,7 @@ if (true) {
                                 QuantityShipped = ?,
                                 unit_price = ?,
                                 unit_tax = ?,
-                                ShippingPrice = ?
+                                ShippingPrice = ?,
                                 IsBuyerRequestedCancel = ?,
                                 BuyerCancelReason = ?
                             WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?");
