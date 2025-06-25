@@ -776,7 +776,7 @@ function dbDatabase()
             $password = '?cIk=|zRk3T';
             $database = 'u298641722_dbims';
             break;
-
+ 
         default:
             die("❌ Invalid server type: Set \$servertype properly.");
     }
