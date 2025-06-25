@@ -292,8 +292,6 @@ $AsinStatus->execute();
 */
                 }
 
-
-
                 $sqlSelect = "SELECT * FROM tblasin WHERE ASIN = ?";
                 $stmt50 = $Connect->prepare($sqlSelect);
                 $stmt50->bind_param('s', $ASIN);
@@ -325,8 +323,6 @@ $AsinStatus->execute();
                 } else {
                     echo "Failed to update ASIN $asin: " . $updateStmt_rawr_101->error . "<br>";
                 }
-
-
 
                 $number++;
             }

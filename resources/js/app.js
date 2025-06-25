@@ -33,7 +33,8 @@ const SESSION_ALWAYS_REFRESH = true; // Always refresh even during inactivity
 
 // manual routing
 const asyncComponentMap = {
-    'printcustominvoice': () => import('./page/stockroom/print_invoice/print_custom_invoice.vue')
+    'printcustominvoice': () => import('./page/stockroom/print_invoice/print_custom_invoice.vue'),
+    'mskucreation': () => import('./page/fnskucreation/creation_msku.vue'),
 };
 
 // Session logging helper
