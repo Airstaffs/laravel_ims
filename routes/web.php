@@ -241,7 +241,7 @@ Route::get('/apis/ebay-callback', function () {
 });
 
 Route::get('/apis/ebay-login', action: function () {
-    $clientId = 'JuliusSa-IMSV2-SBX-d8e9ab544-e43c0446';
+    $clientId = 'JuliusSa-IMSV2-PRD-58e8cc815-c6b0ffc8';
     $redirectUrl = 'https://test.tecniquality.com/apis/ebay-callback';
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
 
