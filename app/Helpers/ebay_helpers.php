@@ -42,7 +42,7 @@ if (!function_exists('EbayCredentials')) {
  * @return string|null Access token or null if an error occurs.
  */
 
-if (!function_exists('EbayCredentials')) {
+if (!function_exists('getAccessToken')) {
     function getAccessToken($authorizationCode)
     {
         // Hardcoded URLs
@@ -99,7 +99,7 @@ if (!function_exists('EbayCredentials')) {
  * @return void
  */
 
-if (!function_exists('EbayCredentials')) {
+if (!function_exists('saveTokens')) {
 
     function saveTokens(array $tokens)
     {
