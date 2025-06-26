@@ -170,7 +170,9 @@ class LoginController extends Controller
             'productionarea',
             'returnscanner',
             'fbmorder',
-            'notfound'
+            'notfound',
+            'asinoption',
+            'houseage'
         ];
 
         $activeSubModules = array_filter($subModules, function ($module) use ($user) {

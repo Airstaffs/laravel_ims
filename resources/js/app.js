@@ -25,6 +25,7 @@ import ReturnScanner from "./page/returnScanner/returnscanner.vue";
 import FbaInboundShipment from "./components/Stockroom/fba_inbound_shipment.vue";
 import FBMorders from "./page/fbmOrders/fbmOrders.vue";
 import Notfound from "./page/notfound/notfound.vue";
+import Houseage from "./page/houseage/houseage.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
@@ -490,6 +491,7 @@ const app = createApp({
         fbashipmentinbound: FbaInboundShipment,
         fbmorder: FBMorders,
         notfound : Notfound,
+        houseage : Houseage,
     },
 });
 
