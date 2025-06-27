@@ -42,7 +42,10 @@ class UserController extends Controller
                 'productionarea',
                 'returnscanner',
                 'fbmorder',
-                'notfound' 
+                'notfound',
+                'asinoption',
+                'houseage',
+
             )
             ->where('id', $currentUserId)
             ->first();
@@ -196,6 +199,8 @@ class UserController extends Controller
                     'returnscanner' => (bool) $selectedUser->returnscanner,
                     'fbmorder' => (bool) $selectedUser->fbmorder,
                     'notfound' => (bool) $selectedUser->notfound,
+                    'asinoption' => (bool) $selectedUser->asinoption,
+                     'houseage' => (bool) $selectedUser->houseage,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -335,7 +340,9 @@ class UserController extends Controller
             'Production Area' => 'productionarea',
             'Return Scanner' => 'returnscanner',
             'FBM Order' => 'fbmorder',
-            'Not Found' => 'notfound' 
+            'Not Found' => 'notfound',
+            'ASIN Option' => 'asinoption',
+            'Houseage' => 'houseage'
         ];
 
         // Convert main module from display name to database column name
@@ -359,7 +366,7 @@ class UserController extends Controller
         // Define all possible sub-modules
         $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
                       'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                      'productionarea', 'returnscanner', 'fbmorder','notfound'];
+                      'productionarea', 'returnscanner', 'fbmorder','notfound','asinoption','houseage'];
         
         // First reset all modules to 0
         foreach ($subModules as $module) {
@@ -467,66 +474,93 @@ class UserController extends Controller
 
 
     public function refreshUserSession(Request $request)
-    {
-        try {
-            $user = Auth::user();
-            
-            if (!$user) {
-                return response()->json(['success' => false, 'message' => 'User not authenticated']);
-            }
-            
-            // Define all possible modules as stored in the database
-            $modules = [
-                'order', 'unreceived', 'receiving', 'labeling', 'testing', 
-                'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                'productionarea', 'returnscanner', 'fbashipmentinbound','fbmorder','notfound'
-            ];
-            
-            // Get main module and ensure it's lowercase with no spaces
-            $mainModule = $user->main_module;
-            if ($mainModule) {
-                // Remove any spaces and convert to lowercase
-                $mainModule = strtolower(str_replace(' ', '', $mainModule));
-            }
-            
-            // Get active modules - ensure all are lowercase for consistency and exclude main module
-            $activeModules = [];
-            foreach ($modules as $module) {
-                // Only add to sub-modules if it's enabled AND not the main module
-                if ($user->{$module} == 1 && $module !== $mainModule) {
-                    $activeModules[] = strtolower($module);
-                }
-            }
-            
-            // Save to session
-            session(['main_module' => $mainModule]);
-            session(['sub_modules' => $activeModules]);
-            
-            // Debug log
-            Log::info('Session refreshed for user', [
-                'user_id' => $user->id,
-                'username' => $user->username,
-                'main_module' => $mainModule,
-                'sub_modules' => $activeModules
-            ]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'User session refreshed successfully',
-                'main_module' => $mainModule,
-                'sub_modules' => $activeModules
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to refresh user session: ' . $e->getMessage(), [
-                'file' => $e->getFile(),
-                'line' => $e->getLine()
-            ]);
-            return response()->json([
-                'success' => false, 
-                'message' => 'Failed to refresh user session: ' . $e->getMessage()
-            ]);
+{
+    try {
+        $user = Auth::user();
+        
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not authenticated']);
         }
+        
+        // Get fresh user data from database
+        $freshUser = User::find($user->id);
+        
+        if (!$freshUser) {
+            return response()->json(['success' => false, 'message' => 'User not found']);
+        }
+        
+        // Define all possible modules as stored in the database
+        $modules = [
+            'order', 'unreceived', 'receiving', 'labeling', 'testing', 
+            'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
+            'productionarea', 'returnscanner', 'fbashipmentinbound', 'fbmorder', 
+            'notfound', 'asinoption', 'houseage'
+        ];
+        
+        // Get main module and ensure it's lowercase with no spaces
+        $mainModule = $freshUser->main_module;
+        if ($mainModule) {
+            // Remove any spaces and convert to lowercase
+            $mainModule = strtolower(str_replace(' ', '', $mainModule));
+        }
+        
+        // Get active modules - ensure all are lowercase for consistency and exclude main module
+        $activeModules = [];
+        foreach ($modules as $module) {
+            // Only add to sub-modules if it's enabled AND not the main module
+            if ($freshUser->{$module} == 1 && $module !== $mainModule) {
+                $activeModules[] = strtolower($module);
+            }
+        }
+        
+        // Ensure main module is not duplicated in sub-modules
+        $activeModules = array_filter($activeModules, function($mod) use ($mainModule) {
+            return $mod !== $mainModule;
+        });
+        
+        // Reset array keys
+        $activeModules = array_values($activeModules);
+        
+        // Save to session
+        session()->forget(['main_module', 'sub_modules']);
+        session(['main_module' => $mainModule]);
+        session(['sub_modules' => $activeModules]);
+        session()->save();
+        
+        // Debug log
+        Log::info('Session refreshed for user', [
+            'user_id' => $freshUser->id,
+            'username' => $freshUser->username,
+            'main_module' => $mainModule,
+            'sub_modules' => $activeModules,
+            'main_module_enabled' => $freshUser->{$mainModule} ?? 'not_found'
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'User session refreshed successfully',
+            'main_module' => $mainModule,
+            'sub_modules' => $activeModules,
+            'debug' => [
+                'fresh_main_module' => $freshUser->main_module,
+                'processed_main_module' => $mainModule,
+                'all_enabled_modules' => array_filter($modules, function($mod) use ($freshUser) {
+                    return $freshUser->{$mod} == 1;
+                })
+            ]
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Failed to refresh user session: ' . $e->getMessage(), [
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'user_id' => Auth::id()
+        ]);
+        return response()->json([
+            'success' => false, 
+            'message' => 'Failed to refresh user session: ' . $e->getMessage()
+        ]);
     }
+}
 
         
     public function createdusers()

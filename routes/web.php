@@ -23,7 +23,7 @@ use App\Http\Controllers\UnreceivedController;
 use App\Http\Controllers\ReceivedController;
 use App\Http\Controllers\LabelingController;
 use App\Http\Controllers\ValidationController;
-use App\Http\Controllers\EbayAuthController;
+use App\Http\Controllers\Ebay\EbayAuthController;
 use App\Http\Controllers\OrdersController;
 use App\Http\Controllers\ProductionAreaController;
 use App\Http\Controllers\PackagingController;
@@ -407,6 +407,11 @@ Route::prefix('api/fbm-orders')->group(function () {
 Route::prefix('api/notfound')->group(function () {
     Route::get('products', [notfoundController::class, 'index']);
     Route::post('move-to-stockroom', [notfoundController::class, 'moveToStockroom']);
+});
+
+// Routes for Houseage Function 
+Route::prefix('api/houseage')->group(function () {
+    Route::get('products', [LabelingController::class, 'index']);
 });
 
 // Routes for FNSKU Function 
