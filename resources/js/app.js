@@ -491,7 +491,7 @@ const app = createApp({
         fbashipmentinbound: FbaInboundShipment,
         fbmorder: FBMorders,
         notfound : Notfound,
-        houseage : Houseage,
+        houseage :Houseage
     },
 });
 

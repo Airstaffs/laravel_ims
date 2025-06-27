@@ -233,9 +233,9 @@
 <script>
     // Make sure these functions are available globally
     (function() {
-        // Function to show ASIN Option Modal
+        // Function to show ASIN Option Modal - THIS WAS MISSING!
         window.showAsinOptionModal = function() {
-            console.log('Opening ASIN Option Modal...');
+            console.log('Showing ASIN Option Modal...');
             const asinModal = new bootstrap.Modal(document.getElementById('asinOptionModal'));
             asinModal.show();
         };
@@ -254,34 +254,32 @@
             switch(optionType) {
                 case 'asin-list':
                     console.log('Loading ASIN List component...');
-                    // Load the actual ASIN List component
+                    // Load the ASIN List component (when implemented)
                     if (typeof window.loadContent === 'function') {
                         window.loadContent('asin-list');
                     } else {
-                        // Fallback - show alert for now
-                        showAsinAlert('ASIN List', 'ASIN List functionality will be implemented here. This will show all your Amazon Standard Identification Numbers.');
+                        showAsinAlert('ASIN List', 'ASIN List functionality will be implemented here.');
                     }
                     break;
                     
                 case 'fnsku-list':
                     console.log('Loading FNSKU List component...');
-                    // Load the actual FNSKU List component
+                    // Load the FNSKU List component (when implemented)
                     if (typeof window.loadContent === 'function') {
                         window.loadContent('fnsku-list');
                     } else {
-                        // Fallback - show alert for now
-                        showAsinAlert('FNSKU List', 'FNSKU List functionality will be implemented here. This will show all your Fulfillment Network Stock Keeping Unit codes.');
+                        showAsinAlert('FNSKU List', 'FNSKU List functionality will be implemented here.');
                     }
                     break;
 
                 case 'fnsku-creation':
                     console.log('Loading FNSKU Creation component...');
-                    // Load the actual FNSKU Creation component
+                    // Load the MSKU Creation component (async loaded)
                     if (typeof window.loadContent === 'function') {
-                        window.loadContent('fnsku-creation');
+                        window.loadContent('mskucreation');
                     } else {
-                        // Fallback - show alert for now
-                        showAsinAlert('FNSKU Creation', 'FNSKU Creation functionality will be implemented here. This will allow you to create new FNSKU codes for your products.');
+                        console.error('loadContent function not available');
+                        showAsinAlert('FNSKU Creation', 'Unable to load FNSKU Creation component.');
                     }
                     break;
                     
@@ -293,7 +291,6 @@
 
         // Helper function to show styled alerts
         function showAsinAlert(title, message) {
-            // Create a styled alert
             const alertHtml = `
                 <div class="alert alert-info alert-dismissible fade show" role="alert" style="position: fixed; top: 20px; right: 20px; z-index: 9999; min-width: 300px;">
                     <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>${title}</h6>
@@ -301,11 +298,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
             `;
-            
-            // Add to body
             document.body.insertAdjacentHTML('beforeend', alertHtml);
-            
-            // Auto-remove after 5 seconds
             setTimeout(() => {
                 const alerts = document.querySelectorAll('.alert[style*="position: fixed"]');
                 alerts.forEach(alert => alert.remove());
@@ -320,6 +313,13 @@
             const modalElement = document.getElementById('asinOptionModal');
             if (modalElement) {
                 console.log('ASIN Option Modal element found');
+                
+                // Test the showAsinOptionModal function
+                if (typeof window.showAsinOptionModal === 'function') {
+                    console.log('showAsinOptionModal function is available');
+                } else {
+                    console.error('showAsinOptionModal function is not available!');
+                }
             } else {
                 console.error('ASIN Option Modal element not found!');
             }
