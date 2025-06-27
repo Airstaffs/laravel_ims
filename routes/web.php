@@ -228,8 +228,6 @@ Route::get('/apis/ebay-callback', function () {
         $authorizationCode = $_GET['code'];
         $accessToken = getAccessToken($authorizationCode);
 
-        
-
         if ($accessToken) {
             return response()->json(['access_token' => $accessToken]);
         } else {
