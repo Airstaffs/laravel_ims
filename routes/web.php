@@ -508,3 +508,25 @@ use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 Route::post('/fbm-orders-manualshipmentlabel', [ManualShipmentLabelController::class, 'store']);
 Route::post('/fbm-orders-add-new-carrier', [ManualShipmentLabelController::class, 'newCarrierDescription']);
 Route::get('/fbm-orders-carrier-options', [ManualShipmentLabelController::class, 'getCarrierDescriptions']);
+
+//Listings FNSKU Creation
+/*
+use App\Http\Controllers\Amzn\Listing\CatalogController;
+
+Route::post('/amzn/listing/search-asin-data', [CatalogController::class, 'get_asin_catalog']);
+Route::get('/amzn/test-asin-data', function () {
+    $controller = new CatalogController();
+
+    $request = Request::create('/fbm-orders-shippinglabel', 'POST', [
+        'platform_order_ids' => ['114-0083765-2829867'],
+        'action' => 'PrintShipmentLabel',
+        'settings' => [
+            'displayPrice' => true,
+            'testPrint' => true,
+            'signatureRequired' => true
+        ],
+    ]);
+
+    return $controller->printshippinglabel($request);
+});
+*/

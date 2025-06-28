@@ -14,7 +14,7 @@ if (!function_exists('AWSCredentials')) {
     function AWSCredentials($store)
     {
         try {
-            
+
 
             $credentials = (array) DB::table('tblstores')->where('storename', $store)->first();
 
@@ -49,7 +49,7 @@ if (!function_exists('fetchAccessToken')) {
                 'refresh_token' => $credentials['refresh_token'],
             ];
 
-            
+
             Log::info('Credentials:', [
                 'client_id' => $credentials['client_id'],
                 'refresh_token' => $credentials['refresh_token'],
@@ -223,6 +223,13 @@ if (!function_exists('getMarketplace')) {
     function getMarketplace()
     {
 
+    }
+}
+
+if (!function_exists('fetchCompanyDetails')) {
+    function fetchCompanyDetails()
+    {
+        return DB::table('tblcompanydetails')->where('id', 1)->first();
     }
 }
 
