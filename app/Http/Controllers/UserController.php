@@ -45,6 +45,7 @@ class UserController extends Controller
                 'notfound',
                 'asinoption',
                 'houseage',
+                'asinlist',
 
             )
             ->where('id', $currentUserId)
@@ -200,7 +201,8 @@ class UserController extends Controller
                     'fbmorder' => (bool) $selectedUser->fbmorder,
                     'notfound' => (bool) $selectedUser->notfound,
                     'asinoption' => (bool) $selectedUser->asinoption,
-                     'houseage' => (bool) $selectedUser->houseage,
+                    'houseage' => (bool) $selectedUser->houseage,
+                    'asinlist' => (bool) $selectedUser->asinlist, 
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -342,7 +344,8 @@ class UserController extends Controller
             'FBM Order' => 'fbmorder',
             'Not Found' => 'notfound',
             'ASIN Option' => 'asinoption',
-            'Houseage' => 'houseage'
+            'Houseage' => 'houseage',
+            'ASIN List' => 'asinlist',
         ];
 
         // Convert main module from display name to database column name
@@ -366,7 +369,7 @@ class UserController extends Controller
         // Define all possible sub-modules
         $subModules = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 
                       'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
-                      'productionarea', 'returnscanner', 'fbmorder','notfound','asinoption','houseage'];
+                      'productionarea', 'returnscanner', 'fbmorder','notfound','asinoption','houseage','asinlist'];
         
         // First reset all modules to 0
         foreach ($subModules as $module) {
@@ -494,7 +497,7 @@ class UserController extends Controller
             'order', 'unreceived', 'receiving', 'labeling', 'testing', 
             'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
             'productionarea', 'returnscanner', 'fbashipmentinbound', 'fbmorder', 
-            'notfound', 'asinoption', 'houseage'
+            'notfound', 'asinoption', 'houseage','asinlist'
         ];
         
         // Get main module and ensure it's lowercase with no spaces

@@ -172,7 +172,8 @@ class LoginController extends Controller
             'fbmorder',
             'notfound',
             'asinoption',
-            'houseage'
+            'houseage',
+            'asinlist',
         ];
 
         $activeSubModules = array_filter($subModules, function ($module) use ($user) {

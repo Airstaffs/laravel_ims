@@ -31,6 +31,8 @@ use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\FbmOrderController;
 use App\Http\Controllers\notfoundController;
 use App\Http\Controllers\Fbmorders\WorkhistoryController;
+use App\Http\Controllers\HouseageContoller;
+use App\Http\Controllers\ASINlistController;
 use App\Http\Middleware\PreventBackHistory;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
@@ -221,14 +223,12 @@ Route::get('/apis/upstracking', function () {
 Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])->name('UPS.trackingnumber');
 
 // eBay Routes
-Route::get('/apis/ebay-callback', function () {
+Route::get('/apis/ebay-callback', action: function () {
     require app_path('Helpers/ebay_helpers.php');
     echo "Hello";
     if (isset($_GET['code'])) {
         $authorizationCode = $_GET['code'];
         $accessToken = getAccessToken($authorizationCode);
-
-        
 
         if ($accessToken) {
             return response()->json(['access_token' => $accessToken]);
@@ -241,8 +241,8 @@ Route::get('/apis/ebay-callback', function () {
 });
 
 Route::get('/apis/ebay-login', action: function () {
-    $clientId = 'JuliusSa-IMSV2-PRD-58e8cc815-c6b0ffc8';
-    $redirectUrl = 'https://test.tecniquality.com/apis/ebay-callback';
+    $clientId = 'LevieRos-imsweb-PRD-7abfbb41d-7a45e67e';
+    $redirectUrl = 'https://ims.tecniquality.com/Admin/modules/orders/callback.php';
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
 
     $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
@@ -413,8 +413,16 @@ Route::prefix('api/notfound')->group(function () {
 
 // Routes for Houseage Function 
 Route::prefix('api/houseage')->group(function () {
-    Route::get('products', [LabelingController::class, 'index']);
+    Route::get('products', [HouseageController::class, 'index']);
 });
+
+// Routes for ASIN List Function  
+Route::prefix('api/asinlist')->group(function () {
+    Route::get('products', [ASINlistController::class, 'index']);
+    Route::get('stores', [ASINlistController::class, 'getStores']);
+});
+
+
 
 // Routes for FNSKU Function 
 use App\Http\Controllers\FnskuController;
