@@ -64,7 +64,7 @@ class CatalogController extends Controller
         // Final payload to be sent
         $data_additionale = [];
 
-        $jsonData = $this->JsonCreation('null', null, null, null);
+        $jsonData = $this->JsonCreation(null, null, null, null);
         if ($jsonData === false) {
             $returndata[] = [
                 'error' => 'Failed to construct Json Creation.',
@@ -119,7 +119,7 @@ class CatalogController extends Controller
 
         $companydetails = (array) $companydetails;
 
-        if ($action == 'get_rates') {
+        if ($action == 'empty') {
             $final_json_construct = [];
         }
 
