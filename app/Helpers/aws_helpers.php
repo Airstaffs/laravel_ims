@@ -233,3 +233,10 @@ if (!function_exists('fetchCompanyDetails')) {
     }
 }
 
+if (!function_exists('fetchtblstores')) {
+    function fetchtblstores($storename)
+    {
+        return DB::table('tblstores')->where('storename', $storename)->first();
+    }
+}
+

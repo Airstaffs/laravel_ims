@@ -17,22 +17,69 @@ require base_path('app/Helpers/aws_helpers.php');
 class ListingController extends Controller
 {
 
-    public function get_asin_catalog(Request $request)
+    public function get_product_fetch_listing_main(Request $request)
     {
-        $orders = $request->input('orders', []);
-        $forms = $request->input('forms', []);
+        $destinationMarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
+        $nextToken = $request->input('nextToken', null);
+        $store = $request->input('store', null);
+        $searchedAsin = $request->input('searchedAsin', null);
+        $producttype = $request->input('producttype', null);
 
-        if (empty($orders) || empty($forms)) {
-            return response()->json(['error' => 'Missing orders or form data'], 400);
-        }
+        $conditions = [
+            "new_new",
+            "new_open_box",
+            "new_oem",
+            "refurbished_refurbished",
+            "used_like_new",
+            "used_very_good",
+            "used_good",
+            "used_acceptable",
+            "collectible_like_new",
+            "collectible_very_good",
+            "collectible_good",
+            "collectible_acceptable",
+            "club_club"
+        ];
+
+        $result = app()->call([$this, 'get_product_type'], ['request' => $request]);
+        $result = app()->call([$this, 'fetch_listing_restrict'], ['request' => $request]);
+
+        $arrays['restrictions'] = $this->process_restrictions($result, $conditions);
+
+        $url = $arrays['ProductType']['metaSchema']['link']['resource'];
+        $method = $arrays['ProductType']['metaSchema']['link']['verb'];
+        $expectedChecksum = $arrays['ProductType']['metaSchema']['checksum'];
+        $arrays['metaSchema'] = $this->fetch_metaSchema($url, $method, $expectedChecksum);
+
+        $url = $arrays['ProductType']['schema']['link']['resource'];
+        $method = $arrays['ProductType']['schema']['link']['verb'];
+        $expectedChecksum = $arrays['ProductType']['schema']['checksum'];
+        $arrays['schema'] = $this->fetch_metaSchema($url, $method, $expectedChecksum);
+    }
+    
+    public function get_product_type(Request $request)
+    {
 
         $destinationMarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $nextToken = $request->input('nextToken', null);
+        $store = $request->input('store', null);
+        $searchedAsin = $request->input('searchedAsin', null);
+        $producttype = $request->input('producttype', null);
 
+        $ProductType = urlencode($producttype);
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
-        $path = '/catalog/2022-04-01/items/';
-        $customParams = [];
+        $path = '/definitions/2020-09-01/productTypes/' . $producttype;
+
+        // Static query parameters
+        $customParams = [
+            // 'details' => "true",
+            // 'granularityType' => "Marketplace",
+            'marketplaceIds' => $destinationMarketplace,
+            'locale' => 'en_US',
+            'requirementsEnforced' => 'NOT_ENFORCED',
+            'requirements' => 'LISTING_OFFER_ONLY',
+        ];
 
         $companydetails = fetchCompanyDetails();
 
@@ -40,143 +87,174 @@ class ListingController extends Controller
             return response()->json(['error' => 'Company not found'], 404);
         }
 
-        $allRates = [];
+        $returndata = [];
 
-        foreach ($orders as $order) {
-            $platformOrderId = $order['platform_order_id'] ?? null;
-            $store = $order['storename'] ?? '';
-            $form = $forms[$platformOrderId] ?? null;
-
-            if (!$platformOrderId || !$form)
-                continue;
-
-            $credentials = AWSCredentials($store);
-            if (!$credentials) {
-                $allRates[] = [
-                    'platform_order_id' => $platformOrderId,
-                    'error' => 'No credentials found for store: ' . $store
-                ];
-                continue;
-            }
-
-            $accessToken = fetchAccessToken($credentials, false);
-            if (!$accessToken) {
-                $allRates[] = [
-                    'platform_order_id' => $platformOrderId,
-                    'error' => 'Failed to fetch access token.',
-                    'credentials' => $credentials
-                ];
-                continue;
-            }
-
-            // Normalize weight input
-            $originalWeightValue = (float) $form['weight'];
-            $originalWeightUnit = strtolower($form['weightUnit']);
-
-            // Convert to grams or ounces
-            if ($originalWeightUnit === 'pound') {
-                $normalizedWeightUnit = 'grams';
-                $convertedWeightValue = $originalWeightValue * 453.592;
-            } elseif ($originalWeightUnit === 'kilogram') {
-                $normalizedWeightUnit = 'grams';
-                $convertedWeightValue = $originalWeightValue * 1000;
-            } else {
-                // Assume user already entered ounces or grams properly
-                $normalizedWeightUnit = $originalWeightUnit;
-                $convertedWeightValue = $originalWeightValue;
-            }
-
-            // Build item list with per-item weights
-            $itemList = collect($order['items'] ?? [])->map(function ($item) use ($convertedWeightValue, $normalizedWeightUnit) {
-                return [
-                    'OrderItemId' => $item['platform_order_item_id'],
-                    'Quantity' => $item['QuantityOrdered'] ?? 1,
-                    'ItemWeight' => [
-                        'Value' => $convertedWeightValue,
-                        'Unit' => $normalizedWeightUnit
-                    ]
-                ];
-            })->values()->all();
-
-            // Calculate total weight
-            $totalWeightValue = array_reduce($itemList, function ($carry, $item) {
-                return $carry + ($item['Quantity'] * $item['ItemWeight']['Value']);
-            }, 0);
-
-            // Final payload
-            $data_additionale = [
-                'AmazonOrderId' => $platformOrderId,
-                'orderitems' => $itemList,
-
-                // Package dimensions
-                'package_dimensions_length' => $form['length'],
-                'package_dimensions_width' => $form['width'],
-                'package_dimensions_height' => $form['height'],
-                'package_dimensions_unit' => $form['dimensionUnit'],
-
-                // Total package weight
-                'package_weight_value' => $totalWeightValue,
-                'package_weight_unit' => $normalizedWeightUnit,
-
-                // Shipping options
-                'deliveryExperience' => $form['deliveryExperience'],
-                'Shipping_valueCurrencyCode' => $form['currency'] ?? 'USD',
-
-                // Dates
-                'Shipby_Datetime' => $form['shipBy'],
-                'Delivered_Datetime' => $form['deliverBy'],
+        $credentials = AWSCredentials($store);
+        if (!$credentials) {
+            $returndata[] = [
+                'error' => 'No credentials found for store: ' . $store
             ];
+        }
 
-            $jsonData = $this->JsonCreation('get_rates', $companydetails, $destinationMarketplace, $data_additionale);
-            if ($jsonData === false) {
-                Log::error('JSON Encoding Failed for order: ' . $platformOrderId, ['error' => json_last_error_msg()]);
-                continue;
-            }
+        $accessToken = fetchAccessToken($credentials, false);
+        if (!$accessToken) {
+            $returndata[] = [
+                'error' => 'Failed to fetch access token.',
+                'credentials' => $credentials
+            ];
+        }
 
-            try {
-                $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
-                $headers['Content-Type'] = 'application/json';
-                $headers['accept'] = 'application/json';
+        // Final payload to be sent
+        $data_additionale = [];
 
-                $queryString = buildQueryString($nextToken, $customParams);
-                $url = "{$endpoint}{$path}{$queryString}";
+        $jsonData = $this->JsonCreation(null, null, null, null);
+        if ($jsonData === false) {
+            $returndata[] = [
+                'error' => 'Failed to construct Json Creation.',
+                'jsonData' => $jsonData
+            ];
+        }
 
-                $response = Http::timeout(50)
-                    ->withHeaders($headers)
-                    ->withBody($jsonData, 'application/json')
-                    ->post($url);
+        try {
+            $headers = buildHeaders($credentials, $accessToken, 'GET', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+            $headers['Content-Type'] = 'application/json';
+            $headers['accept'] = 'application/json';
 
-                $curlInfo = $response->handlerStats();
+            $queryString = buildQueryString($nextToken, $customParams);
+            $url = "{$endpoint}{$path}?{$queryString}";
 
-                if ($response->successful()) {
-                    $allRates[] = [
-                        'platform_order_id' => $platformOrderId,
-                        'rates' => $response->json(),
-                        'logs' => $curlInfo
-                    ];
-                } else {
-                    $allRates[] = [
-                        'platform_order_id' => $platformOrderId,
-                        'error' => $response->json(),
-                        'status' => $response->status(),
-                        'logs' => $curlInfo
-                    ];
-                }
-            } catch (\Exception $e) {
-                $allRates[] = [
-                    'platform_order_id' => $platformOrderId,
-                    'exception' => $e->getMessage()
+            $response = Http::timeout(50)
+                ->withHeaders($headers)
+                // ->withBody($jsonData, 'application/json')
+                ->get($url);
+
+            $curlInfo = $response->handlerStats();
+
+            if ($response->successful()) {
+                $returndata[] = [
+                    'rates' => $response->json(),
+                    'logs' => $curlInfo
+                ];
+            } else {
+                $returndata[] = [
+
+                    'error' => $response->json(),
+                    'status' => $response->status(),
+                    'logs' => $curlInfo
                 ];
             }
+        } catch (\Exception $e) {
+            $returndata[] = [
+                'exception' => $e->getMessage()
+            ];
         }
+
 
         return response()->json([
             'success' => true,
-            'results' => $allRates
+            'results' => $returndata
         ]);
     }
 
-        protected function JsonCreation($action, $companydetails, $marketplaceID, $data_additionale)
+    public function fetch_listing_restrict(Request $request)
+    {
+
+        $destinationMarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
+        $nextToken = $request->input('nextToken', null);
+        $store = $request->input('store', null);
+        $searchedAsin = $request->input('searchedAsin', null);
+
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
+        $path = '/definitions/2020-09-01/productTypes/';
+
+        $companydetails = fetchCompanyDetails();
+
+        $tblstore = fetchtblstores($store);
+
+        // Static query parameters
+        $customParams = [
+            // 'details' => "true",
+            // 'granularityType' => "Marketplace",
+            'marketplaceIds' => $destinationMarketplace,
+            'sellerId' => $tblstore->MerchantID,
+            'asin' => $searchedAsin,
+        ];
+
+        if (!$companydetails) {
+            return response()->json(['error' => 'Company not found'], 404);
+        }
+
+        $returndata = [];
+
+        $credentials = AWSCredentials($store);
+        if (!$credentials) {
+            $returndata[] = [
+                'error' => 'No credentials found for store: ' . $store
+            ];
+        }
+
+        $accessToken = fetchAccessToken($credentials, false);
+        if (!$accessToken) {
+            $returndata[] = [
+                'error' => 'Failed to fetch access token.',
+                'credentials' => $credentials
+            ];
+        }
+
+        // Final payload to be sent
+        $data_additionale = [];
+
+        $jsonData = $this->JsonCreation(null, null, null, null);
+        if ($jsonData === false) {
+            $returndata[] = [
+                'error' => 'Failed to construct Json Creation.',
+                'jsonData' => $jsonData
+            ];
+        }
+
+        try {
+            $headers = buildHeaders($credentials, $accessToken, 'GET', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+            $headers['Content-Type'] = 'application/json';
+            $headers['accept'] = 'application/json';
+
+            $queryString = buildQueryString($nextToken, $customParams);
+            $url = "{$endpoint}{$path}?{$queryString}";
+
+            $response = Http::timeout(50)
+                ->withHeaders($headers)
+                // ->withBody($jsonData, 'application/json')
+                ->get($url);
+
+            $curlInfo = $response->handlerStats();
+
+            if ($response->successful()) {
+                $returndata[] = [
+                    'rates' => $response->json(),
+                    'logs' => $curlInfo
+                ];
+            } else {
+                $returndata[] = [
+
+                    'error' => $response->json(),
+                    'status' => $response->status(),
+                    'logs' => $curlInfo
+                ];
+            }
+        } catch (\Exception $e) {
+            $returndata[] = [
+                'exception' => $e->getMessage()
+            ];
+        }
+
+
+        return response()->json([
+            'success' => true,
+            'results' => $returndata
+        ]);
+    }
+
+    protected function JsonCreation($action, $companydetails, $marketplaceID, $data_additionale)
     {
         $final_json_construct = [];
 
@@ -188,5 +266,98 @@ class ListingController extends Controller
 
         // Ensure JSON encoding before returning
         return json_encode($final_json_construct, JSON_UNESCAPED_SLASHES);
+    }
+
+    protected function process_restrictions($data, $conditions)
+    {
+        // Initialize the final result array
+        $finalArray = [
+            'restrictions' => [],
+        ];
+
+        $foundConditions = [];
+
+        // Check if 'restrictions' key exists in the result
+        if (isset($data['restrictions']) && is_array($data['restrictions'])) {
+            foreach ($data['restrictions'] as $restriction) {
+                $conditionType = $restriction['conditionType'];
+                $reason = $restriction['reasons'][0] ?? null; // Assuming only one reason per condition
+
+                // Check for both 'APPROVAL_REQUIRED' and 'NOT_ELIGIBLE'
+                if ($reason && ($reason['reasonCode'] == 'APPROVAL_REQUIRED' || $reason['reasonCode'] == 'NOT_ELIGIBLE')) {
+
+                    // Add restriction details to the final array
+                    $finalArray['restrictions'][] = [
+                        'conditionType' => $conditionType,
+                        'message' => $reason['message'],
+                        'approvalLink' => $reason['links'][0]['resource'] ?? null,
+                        'success' => false,
+                    ];
+
+                    // Track the found condition
+                    $foundConditions[] = $conditionType;
+                }
+            }
+        } else {
+            // Handle cases where 'restrictions' key is missing or not an array
+            $finalArray['success'] = false;
+        }
+
+        // Check if conditions are not found in the restrictions
+        foreach ($conditions as $condition) {
+            if (!in_array($condition, $foundConditions)) {
+                $finalArray['restrictions'][] = [
+                    'conditionType' => $condition,
+                    'success' => true,
+                    'message' => 'No probs',
+                    'approvalLink' => '' // Empty approval link
+                ];
+            }
+        }
+
+        return $finalArray;
+    }
+
+    protected function fetch_metaSchema($url, $method, $expectedChecksum)
+    {
+        // Initialize cURL session
+        $ch = curl_init();
+
+        // Set cURL options
+        curl_setopt($ch, CURLOPT_URL, $url);        // URL to send the request to
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true); // Return the response as a string
+
+        // Set the request method (in this case, GET)
+        if ($method === 'GET') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'GET');
+        }
+
+        // Execute the cURL request
+        $response = curl_exec($ch);
+
+        // Check if there was an error during execution
+        if (curl_errno($ch)) {
+            echo 'cURL error: ' . curl_error($ch);
+            return null;
+        }
+
+        // Close the cURL session
+        curl_close($ch);
+
+        // Calculate the checksum of the response
+        $computedChecksum = base64_encode(md5($response, true));
+
+        // Verify checksum
+        if ($computedChecksum === $expectedChecksum) {
+            // echo "Checksum matches. Data integrity verified.\n";
+        } else {
+            echo "Checksum mismatch. Data may be corrupted.\n";
+            return null;
+        }
+
+        $result = json_decode($response, true);
+
+        // Return the response if checksum matches
+        return $result;
     }
 }
