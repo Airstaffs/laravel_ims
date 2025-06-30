@@ -232,8 +232,8 @@
 <!-- ASIN Option Modal JavaScript -->
 <script>
     // Make sure these functions are available globally
-    (function() {
-        // Function to show ASIN Option Modal - THIS WAS MISSING!
+      (function() {
+        // Function to show ASIN Option Modal
         window.showAsinOptionModal = function() {
             console.log('Showing ASIN Option Modal...');
             const asinModal = new bootstrap.Modal(document.getElementById('asinOptionModal'));
@@ -256,7 +256,7 @@
                     console.log('Loading ASIN List component...');
                     // Load the ASIN List component (when implemented)
                     if (typeof window.loadContent === 'function') {
-                        window.loadContent('asin-list');
+                        window.loadContent('asinlist');
                     } else {
                         showAsinAlert('ASIN List', 'ASIN List functionality will be implemented here.');
                     }
@@ -264,11 +264,11 @@
                     
                 case 'fnsku-list':
                     console.log('Loading FNSKU List component...');
-                    // Load the FNSKU List component (when implemented)
+                    // Load the FNSKU component (fnsku.vue)
                     if (typeof window.loadContent === 'function') {
-                        window.loadContent('fnsku-list');
+                        window.loadContent('fnsku');
                     } else {
-                        showAsinAlert('FNSKU List', 'FNSKU List functionality will be implemented here.');
+                        showAsinAlert('FNSKU List', 'Unable to load FNSKU List component.');
                     }
                     break;
 

@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use DateTime;
 use DateTimeZone;
 
-class HouseageContoller extends BasetablesController
+class HouseageController extends BasetablesController
 {
     public function index(Request $request)
 {

@@ -26,6 +26,7 @@ import FbaInboundShipment from "./components/Stockroom/fba_inbound_shipment.vue"
 import FBMorders from "./page/fbmOrders/fbmOrders.vue";
 import Notfound from "./page/notfound/notfound.vue";
 import Houseage from "./page/houseage/houseage.vue";
+import ASINList from "./page/asinlist/asinlist.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
@@ -138,7 +139,8 @@ const componentMapping = {
     "fbashipment": "fbashipmentinbound", // Just in case another name variant is used
     "fba": "fbashipmentinbound", 
     "fbm order":"fbmorder",
-    "FBM Order":"fbmorder"// Just in case another name variant is used
+    "FBM Order":"fbmorder",
+    "ASIN List":"asinlist"
     // Add more mappings as needed
 };
 
@@ -491,7 +493,8 @@ const app = createApp({
         fbashipmentinbound: FbaInboundShipment,
         fbmorder: FBMorders,
         notfound : Notfound,
-        houseage :Houseage
+        houseage :Houseage,
+        asinlist :ASINList
     },
 });
 

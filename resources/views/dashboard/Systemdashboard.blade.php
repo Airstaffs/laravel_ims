@@ -156,7 +156,7 @@
         $freshUser = \App\Models\User::find($currentUser->id);
         $mainModule = strtolower($freshUser->main_module ?: '');
 
-        $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound','asinoption','houseage'];
+        $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound','asinoption','houseage','asinlist'];
 
         foreach ($moduleColumns as $column) {
             // Only add to subModules if it's enabled AND not the main module
@@ -179,6 +179,7 @@
 
     $modules = [
         'order' => 'Order',
+        'asinoption' => 'Asin Option',
         'unreceived' => 'Unreceived',
         'receiving' => 'Received',
         'labeling' => 'Labeling',
@@ -186,14 +187,13 @@
         'testing' => 'Testing',
         'cleaning' => 'Cleaning',
         'packing' => 'Packing',
-        'fnsku' => 'Fnsku',
+    //    'fnsku' => 'Fnsku',
         'stockroom' => 'Stockroom',
         'productionarea' => 'Production Area',
         'fbashipmentinbound' => 'FBA Inbound Shipment',
         'returnscanner' => 'Return Scanner',
         'fbmorder' => 'FBM Order',
         'notfound' => 'Not Found',
-        'asinoption' => 'Asin Option',
         'houseage' => 'Houseage'
     ];
 
@@ -988,6 +988,7 @@ function closeSidebar() {
                             main_module: mainModuleDb,
                             sub_modules: filteredSubModules,
                             modules: {
+                                asinoption: 'ASIN Option',
                                 order: 'Order',
                                 unreceived: 'Unreceived',
                                 receiving: 'Received',
@@ -1001,8 +1002,8 @@ function closeSidebar() {
                                 productionarea: 'Production Area',
                                 returnscanner: 'Return Scanner',
                                 fbmorder: 'FBM Order',
-                                asinoption: 'ASIN Option',
-                                houseage: 'Houseage'
+                                houseage: 'Houseage',
+                                asinlist: 'ASIN List',
                             }
                         };
 
@@ -1106,6 +1107,7 @@ function closeSidebar() {
                         main_module: result.main_module || formData.main_module,
                         sub_modules: result.sub_modules || [],
                         modules: {
+                            'asinoption': 'ASIN Option',
                             'order': 'Order',
                             'unreceived': 'Unreceived',
                             'receiving': 'Received',
@@ -1114,13 +1116,12 @@ function closeSidebar() {
                             'testing': 'Testing',
                             'cleaning': 'Cleaning',
                             'packing': 'Packing',
-                            'fnsku': 'FNSKU',
+                   //         'fnsku': 'FNSKU',
                             'stockroom': 'Stockroom',
                             'productionarea': 'Production Area',
                             'returnscanner': 'Return Scanner',
                             'fbmorder': 'FBM Order',
                             'notfound': 'Not Found',
-                            'asinoption': 'ASIN Option',
                             'houseage': 'Houseage',
                         }
                     };
@@ -1266,6 +1267,10 @@ function closeSidebar() {
                 display: 'FNSKU'
             },
             {
+                db: 'asinlist',
+                display: 'ASIN List'
+            },
+            {
                 db: 'productionarea',
                 display: 'Production Area'
             },
@@ -1353,6 +1358,7 @@ function closeSidebar() {
 
                     // Create proper modules object for display
                     const modules = {
+                        'asinoption': 'ASIN Option',
                         'order': 'Order',
                         'unreceived': 'Unreceived',
                         'receiving': 'Received',
@@ -1362,13 +1368,12 @@ function closeSidebar() {
                         'packing': 'Packing',
                         'stockroom': 'Stockroom',
                         'validation': 'Validation',
-                        'fnsku': 'FNSKU',
+                   //     'fnsku': 'FNSKU',
                         'productionarea': 'Production Area',
                         'returnscanner': 'Return Scanner',
                         'fbashipmentinbound': 'FBA Inbound Shipment',
                         'fbmorder': 'FBM Order',
                         'notfound': 'Not Found',
-                        'asinoption': 'ASIN Option',
                         'houseage': 'Houseage' // Add this mapping
                     };
 
@@ -1391,6 +1396,7 @@ function closeSidebar() {
 
     // Ensure modules mapping includes all lowercase keys
     const defaultModules = {
+        'asinoption': 'ASIN Option',
         'order': 'Order',
         'unreceived': 'Unreceived',
         'receiving': 'Received',
@@ -1400,13 +1406,12 @@ function closeSidebar() {
         'packing': 'Packing',
         'stockroom': 'Stockroom',
         'validation': 'Validation',
-        'fnsku': 'FNSKU',
+      //  'fnsku': 'FNSKU',
         'productionarea': 'Production Area',
         'returnscanner': 'Return Scanner',
         'fbashipmentinbound': 'FBA Inbound Shipment',
         'fbmorder': 'FBM Order',
         'notfound': 'Not Found',
-        'asinoption': 'ASIN Option',
         'houseage': 'Houseage'
     };
 
