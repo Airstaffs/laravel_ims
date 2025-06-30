@@ -155,6 +155,21 @@
         });
     }
 
+    // Add this new function to refresh CSRF token
+    /*
+    async function refreshCsrfToken() {
+        try {
+            const response = await fetch('/csrf-token');
+            const data = await response.json();
+            document.querySelector('meta[name="csrf-token"]').setAttribute('content', data.token);
+            return true;
+        } catch (error) {
+            console.error('Error refreshing CSRF token:', error);
+            return false;
+        }
+    }
+        */
+
     function collectFormData() {
         const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
@@ -214,7 +229,7 @@
                         'testing': 'Testing',
                         'cleaning': 'Cleaning',
                         'packing': 'Packing',
-                        //'fnsku': 'FNSKU',
+                        //         'fnsku': 'FNSKU',
                         'stockroom': 'Stockroom',
                         'productionarea': 'Production Area',
                         'returnscanner': 'Return Scanner',
@@ -497,7 +512,7 @@
             'packing': 'Packing',
             'stockroom': 'Stockroom',
             'validation': 'Validation',
-            //  'fnsku': 'FNSKU',
+            //'fnsku': 'FNSKU',
             'productionarea': 'Production Area',
             'returnscanner': 'Return Scanner',
             'fbashipmentinbound': 'FBA Inbound Shipment',
@@ -514,30 +529,52 @@
         // Normalize main module
         const mainModuleLower = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
 
-        // Add main module if it exists
-        if (mainModuleLower) {
-            navHTML += `
+        // ALWAYS ADD MAIN MODULE FIRST WITH ACTIVE CLASS
+        if (mainModuleLower && modules[mainModuleLower]) {
+            if (mainModuleLower === 'asinoption') {
+                // Special handling for ASIN Option main module
+                navHTML += `
+            <a class="nav-link active" href="#"
+               data-module="${mainModuleLower}"
+               onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
+                ${modules[mainModuleLower]}
+            </a>`;
+            } else {
+                // Regular main module handling
+                navHTML += `
             <a class="nav-link active" href="#"
                data-module="${mainModuleLower}"
                onclick="window.loadContent('${mainModuleLower}'); highlightNavLink(this); closeSidebar(); return false;">
-                ${modules[mainModuleLower] || capitalizeFirst(data.main_module)}
+                ${modules[mainModuleLower]}
             </a>`;
+            }
         }
 
-        // Add sub modules, explicitly filtering out the main module
+        // Then add sub modules (excluding the main module)
         if (Array.isArray(data.sub_modules)) {
-            // Filter and normalize sub_modules
+            // Filter and normalize sub_modules - ensure main module is not included
             const filteredSubModules = data.sub_modules
                 .map(m => m.toLowerCase().replace(/\s+/g, ''))
-                .filter(moduleLower => moduleLower !== mainModuleLower);
+                .filter(moduleLower => moduleLower !== mainModuleLower && modules[moduleLower]);
 
             filteredSubModules.forEach(moduleLower => {
-                navHTML += `
+                if (moduleLower === 'asinoption') {
+                    // Special handling for ASIN Option sub-module
+                    navHTML += `
+                <a class="nav-link" href="#"
+                   data-module="${moduleLower}"
+                   onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
+                    ${modules[moduleLower]}
+                </a>`;
+                } else {
+                    // Regular sub-module handling
+                    navHTML += `
                 <a class="nav-link" href="#"
                    data-module="${moduleLower}"
                    onclick="window.loadContent('${moduleLower}'); highlightNavLink(this); closeSidebar(); return false;">
-                    ${modules[moduleLower] || capitalizeFirst(moduleLower)}
+                    ${modules[moduleLower]}
                 </a>`;
+                }
             });
         }
 
@@ -549,8 +586,8 @@
             data.sub_modules.map(m => m.toLowerCase().replace(/\s+/g, '')).filter(m => m !== mainModuleLower) : [];
         window.defaultComponent = mainModuleLower;
 
-        // Update Vue component if needed
-        if (mainModuleLower && window.appInstance) {
+        // Update Vue component if needed (but not for asinoption)
+        if (mainModuleLower && mainModuleLower !== 'asinoption' && window.appInstance) {
             window.appInstance.forceUpdate(mainModuleLower);
         }
 

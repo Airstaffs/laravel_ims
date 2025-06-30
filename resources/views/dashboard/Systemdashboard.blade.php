@@ -88,6 +88,7 @@
                 $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist'];
 
                 foreach ($moduleColumns as $column) {
+                    // Only add to subModules if it's enabled AND not the main module
                     if (!empty($freshUser->{$column}) && $column !== $mainModule) {
                         $subModules[] = strtolower($column);
                     }
@@ -99,7 +100,7 @@
                 $subModules = array_map('strtolower', session('sub_modules', []));
             }
 
-            // Remove duplication
+            // Remove duplication - ensure main module is not in sub modules
             $subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
 
             // Fallback to first submodule or dashboard
@@ -115,7 +116,7 @@
                 'testing' => 'Testing',
                 'cleaning' => 'Cleaning',
                 'packing' => 'Packing',
-                //'fnsku' => 'Fnsku',
+                //    'fnsku' => 'Fnsku',
                 'stockroom' => 'Stockroom',
                 'productionarea' => 'Production Area',
                 'fbashipmentinbound' => 'FBA Inbound Shipment',
@@ -147,12 +148,30 @@
 
         <!-- Navigation Links -->
         <nav class="nav flex-column sidebar-nav">
-            @foreach ($modules as $module => $label)
-                @if (hasAccess($module, $mainModule, $subModules))
-                    <a class="nav-link {{ request()->segment(1) == $module ? 'active' : '' }}" href="/{{ $module }}"
-                        onclick="window.loadContent('{{ $module }}'); highlightNavLink(this); closeSidebar(); return false;">
-                        {{ $label }}
-                    </a>
+            {{-- Display main module if it exists --}}
+            @if ($mainModule && isset($modules[$mainModule]))
+                <a class="nav-link active" href="/{{ $mainModule }}"
+                    onclick="window.loadContent('{{ $mainModule }}'); highlightNavLink(this); closeSidebar(); return false;">
+                    {{ $modules[$mainModule] }}
+                </a>
+            @endif
+
+            {{-- Loop through sub-modules, excluding the main module --}}
+            @foreach ($subModules as $module)
+                @if (isset($modules[$module]) && $module !== $mainModule)
+                    @if ($module === 'asinoption')
+                        <!-- Special handling for ASIN Option - show modal instead of loading component -->
+                        <a class="nav-link" href="#"
+                            onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
+                            {{ $modules[$module] }}
+                        </a>
+                    @else
+                        <!-- Regular module handling -->
+                        <a class="nav-link" href="/{{ $module }}"
+                            onclick="window.loadContent('{{ $module }}'); highlightNavLink(this); closeSidebar(); return false;">
+                            {{ $modules[$module] }}
+                        </a>
+                    @endif
                 @endif
             @endforeach
         </nav>
@@ -247,7 +266,7 @@
         window.defaultComponent = "{{ strtolower(session('main_module', 'dashboard')) }}";
         window.allowedModules = @json(array_map('strtolower', session('sub_modules', [])));
         window.mainModule = "{{ strtolower(session('main_module', 'dashboard')) }}";
-        window.customModules = ['printcustominvoice', 'fbashipmentinbound'];
+        window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation'];
     </script>
 
     <div id="main-content" class="content">

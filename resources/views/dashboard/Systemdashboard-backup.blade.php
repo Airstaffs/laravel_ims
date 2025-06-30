@@ -145,195 +145,195 @@
         <h5 class="text-center">Navigation</h5>
 
         @php
-           use Illuminate\Support\Facades\Auth;
+            use Illuminate\Support\Facades\Auth;
 
-    // Refresh user data from DB
-    $currentUser = Auth::user();
-    $subModules = [];
-    $mainModule = '';
+            // Refresh user data from DB
+            $currentUser = Auth::user();
+            $subModules = [];
+            $mainModule = '';
 
-    if ($currentUser) {
-        $freshUser = \App\Models\User::find($currentUser->id);
-        $mainModule = strtolower($freshUser->main_module ?: '');
+            if ($currentUser) {
+                $freshUser = \App\Models\User::find($currentUser->id);
+                $mainModule = strtolower($freshUser->main_module ?: '');
 
-        $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound','asinoption','houseage','asinlist'];
+                $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist'];
 
-        foreach ($moduleColumns as $column) {
-            // Only add to subModules if it's enabled AND not the main module
-            if (!empty($freshUser->{$column}) && $column !== $mainModule) {
-                $subModules[] = strtolower($column);
+                foreach ($moduleColumns as $column) {
+                    // Only add to subModules if it's enabled AND not the main module
+                    if (!empty($freshUser->{$column}) && $column !== $mainModule) {
+                        $subModules[] = strtolower($column);
+                    }
+                }
+
+                session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
+            } else {
+                $mainModule = strtolower(session('main_module', ''));
+                $subModules = array_map('strtolower', session('sub_modules', []));
             }
-        }
 
-        session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
-    } else {
-        $mainModule = strtolower(session('main_module', ''));
-        $subModules = array_map('strtolower', session('sub_modules', []));
-    }
+            // Remove duplication - ensure main module is not in sub modules
+            $subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
 
-    // Remove duplication - ensure main module is not in sub modules
-    $subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
+            // Fallback to first submodule or dashboard
+            $defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
 
-    // Fallback to first submodule or dashboard
-    $defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
+            $modules = [
+                'order' => 'Order',
+                'asinoption' => 'Asin Option',
+                'unreceived' => 'Unreceived',
+                'receiving' => 'Received',
+                'labeling' => 'Labeling',
+                'validation' => 'Validation',
+                'testing' => 'Testing',
+                'cleaning' => 'Cleaning',
+                'packing' => 'Packing',
+                //    'fnsku' => 'Fnsku',
+                'stockroom' => 'Stockroom',
+                'productionarea' => 'Production Area',
+                'fbashipmentinbound' => 'FBA Inbound Shipment',
+                'returnscanner' => 'Return Scanner',
+                'fbmorder' => 'FBM Order',
+                'notfound' => 'Not Found',
+                'houseage' => 'Houseage'
+            ];
 
-    $modules = [
-        'order' => 'Order',
-        'asinoption' => 'Asin Option',
-        'unreceived' => 'Unreceived',
-        'receiving' => 'Received',
-        'labeling' => 'Labeling',
-        'validation' => 'Validation',
-        'testing' => 'Testing',
-        'cleaning' => 'Cleaning',
-        'packing' => 'Packing',
-    //    'fnsku' => 'Fnsku',
-        'stockroom' => 'Stockroom',
-        'productionarea' => 'Production Area',
-        'fbashipmentinbound' => 'FBA Inbound Shipment',
-        'returnscanner' => 'Return Scanner',
-        'fbmorder' => 'FBM Order',
-        'notfound' => 'Not Found',
-        'houseage' => 'Houseage'
-    ];
-
-    function hasAccess($module, $mainModule, $subModules): bool
-    {
-        $module = strtolower($module);
-        return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
-    }
+            function hasAccess($module, $mainModule, $subModules): bool
+            {
+                $module = strtolower($module);
+                return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
+            }
         @endphp
 
         <!-- Client-side Setup -->
         <script>
-    window.defaultComponent = "<?= $defaultModule ?>";
-    window.mainModule = "<?= $mainModule ?>";
-    window.allowedModules = <?= json_encode($subModules) ?>;
+            window.defaultComponent = "<?= $defaultModule ?>";
+            window.mainModule = "<?= $mainModule ?>";
+            window.allowedModules = <?= json_encode($subModules) ?>;
 
-    console.log('Session Modules:', {
-        defaultComponent: window.defaultComponent,
-        allowedModules: window.allowedModules,
-        mainModule: window.mainModule
-    });
-</script>
+            console.log('Session Modules:', {
+                defaultComponent: window.defaultComponent,
+                allowedModules: window.allowedModules,
+                mainModule: window.mainModule
+            });
+        </script>
 
         <!-- Navigation Links -->
-    <nav class="nav flex-column sidebar-nav">
-    <?php
-    // First, add the main module at the top if it exists
-    if ($mainModule && isset($modules[$mainModule])): ?>
-        <a class="nav-link active" href="/<?= $mainModule ?>"
-           onclick="window.loadContent('<?= $mainModule ?>'); highlightNavLink(this); closeSidebar(); return false;">
-            <?= $modules[$mainModule] ?>
-        </a>
-    <?php endif; ?>
-
-    <?php
-    // Then add sub-modules (excluding the main module)
-    foreach ($subModules as $module):
-        if (isset($modules[$module]) && $module !== $mainModule): ?>
-            <?php if ($module === 'asinoption'): ?>
-                <!-- Special handling for ASIN Option - show modal instead of loading component -->
-                <a class="nav-link" href="#"
-                   onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
-                    <?= $modules[$module] ?>
-                </a>
-            <?php else: ?>
-                <!-- Regular module handling -->
-                <a class="nav-link" href="/<?= $module ?>"
-                   onclick="window.loadContent('<?= $module ?>'); highlightNavLink(this); closeSidebar(); return false;">
-                    <?= $modules[$module] ?>
-                </a>
+        <nav class="nav flex-column sidebar-nav">
+            <?php
+// First, add the main module at the top if it exists
+if ($mainModule && isset($modules[$mainModule])): ?>
+            <a class="nav-link active" href="/<?= $mainModule ?>"
+                onclick="window.loadContent('<?= $mainModule ?>'); highlightNavLink(this); closeSidebar(); return false;">
+                <?= $modules[$mainModule] ?>
+            </a>
             <?php endif; ?>
-        <?php endif;
-    endforeach; ?>
-</nav>
+
+            <?php
+// Then add sub-modules (excluding the main module)
+foreach ($subModules as $module):
+    if (isset($modules[$module]) && $module !== $mainModule): ?>
+            <?php        if ($module === 'asinoption'): ?>
+            <!-- Special handling for ASIN Option - show modal instead of loading component -->
+            <a class="nav-link" href="#"
+                onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
+                <?= $modules[$module] ?>
+            </a>
+            <?php        else: ?>
+            <!-- Regular module handling -->
+            <a class="nav-link" href="/<?= $module ?>"
+                onclick="window.loadContent('<?= $module ?>'); highlightNavLink(this); closeSidebar(); return false;">
+                <?= $modules[$module] ?>
+            </a>
+            <?php        endif; ?>
+            <?php    endif;
+endforeach; ?>
+        </nav>
 
     </div>
 
     <script>
-      document.addEventListener('DOMContentLoaded', function () {
-    // Function to highlight the current active page based on URL
-    function setActiveNavLink() {
-        const currentPath = window.location.pathname;
-        const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+        document.addEventListener('DOMContentLoaded', function () {
+            // Function to highlight the current active page based on URL
+            function setActiveNavLink() {
+                const currentPath = window.location.pathname;
+                const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
 
-        navLinks.forEach(link => {
-            // Remove active class from all links
-            link.classList.remove('active');
+                navLinks.forEach(link => {
+                    // Remove active class from all links
+                    link.classList.remove('active');
+                });
+
+                // If we have a main module, make sure it's always active first
+                const mainModule = window.mainModule;
+                if (mainModule) {
+                    const mainModuleLink = document.querySelector(`[data-module="${mainModule}"]`);
+                    if (mainModuleLink) {
+                        mainModuleLink.classList.add('active');
+                        return; // Exit early, main module should always be active
+                    }
+                }
+
+                // Fallback: check if link href matches current path
+                navLinks.forEach(link => {
+                    if (link.getAttribute('href') === currentPath) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+
+            // Initialize active link on page load
+            setActiveNavLink();
+
+            // Set up close button functionality
+            const closeBtn = document.getElementById('close-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeSidebar);
+            }
+
+            // Ensure navigation order is correct on page load
+            setTimeout(() => {
+                const nav = document.querySelector('nav.nav.flex-column');
+                if (nav && window.mainModule) {
+                    // Force reorder navigation if needed
+                    const mainModuleLink = nav.querySelector(`[data-module="${window.mainModule}"]`);
+                    if (mainModuleLink && mainModuleLink !== nav.firstElementChild) {
+                        // Move main module to top
+                        nav.insertBefore(mainModuleLink, nav.firstElementChild);
+                        mainModuleLink.classList.add('active');
+                    }
+                }
+            }, 100);
         });
 
-        // If we have a main module, make sure it's always active first
-        const mainModule = window.mainModule;
-        if (mainModule) {
-            const mainModuleLink = document.querySelector(`[data-module="${mainModule}"]`);
-            if (mainModuleLink) {
-                mainModuleLink.classList.add('active');
-                return; // Exit early, main module should always be active
-            }
+        // Function to highlight clicked nav link
+        function highlightNavLink(element) {
+            // Remove active class from all nav links
+            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+            navLinks.forEach(link => link.classList.remove('active'));
+
+            // Add active class to clicked link
+            element.classList.add('active');
         }
 
-        // Fallback: check if link href matches current path
-        navLinks.forEach(link => {
-            if (link.getAttribute('href') === currentPath) {
-                link.classList.add('active');
-            }
-        });
-    }
+        // Function to close the sidebar
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const content = document.getElementById('main-content');
+            const burgerMenu = document.getElementById('burger-menu');
+            const navbarBrand = document.querySelector('.navbar-brand');
 
-    // Initialize active link on page load
-    setActiveNavLink();
+            // Remove visible class from sidebar
+            if (sidebar) sidebar.classList.remove('visible');
 
-    // Set up close button functionality
-    const closeBtn = document.getElementById('close-btn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeSidebar);
-    }
+            // Remove sidebar-visible class from content
+            if (content) content.classList.remove('sidebar-visible');
 
-    // Ensure navigation order is correct on page load
-    setTimeout(() => {
-        const nav = document.querySelector('nav.nav.flex-column');
-        if (nav && window.mainModule) {
-            // Force reorder navigation if needed
-            const mainModuleLink = nav.querySelector(`[data-module="${window.mainModule}"]`);
-            if (mainModuleLink && mainModuleLink !== nav.firstElementChild) {
-                // Move main module to top
-                nav.insertBefore(mainModuleLink, nav.firstElementChild);
-                mainModuleLink.classList.add('active');
-            }
+            // Show burger menu again
+            if (burgerMenu) burgerMenu.classList.remove('hidden');
+
+            // Reset navbar brand position
+            if (navbarBrand) navbarBrand.classList.remove('shifted');
         }
-    }, 100);
-});
-
-// Function to highlight clicked nav link
-function highlightNavLink(element) {
-    // Remove active class from all nav links
-    const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
-    navLinks.forEach(link => link.classList.remove('active'));
-
-    // Add active class to clicked link
-    element.classList.add('active');
-}
-
-// Function to close the sidebar
-function closeSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const content = document.getElementById('main-content');
-    const burgerMenu = document.getElementById('burger-menu');
-    const navbarBrand = document.querySelector('.navbar-brand');
-
-    // Remove visible class from sidebar
-    if (sidebar) sidebar.classList.remove('visible');
-
-    // Remove sidebar-visible class from content
-    if (content) content.classList.remove('sidebar-visible');
-
-    // Show burger menu again
-    if (burgerMenu) burgerMenu.classList.remove('hidden');
-
-    // Reset navbar brand position
-    if (navbarBrand) navbarBrand.classList.remove('shifted');
-}
     </script>
 
     <script>
@@ -1116,7 +1116,7 @@ function closeSidebar() {
                             'testing': 'Testing',
                             'cleaning': 'Cleaning',
                             'packing': 'Packing',
-                   //         'fnsku': 'FNSKU',
+                            //         'fnsku': 'FNSKU',
                             'stockroom': 'Stockroom',
                             'productionarea': 'Production Area',
                             'returnscanner': 'Return Scanner',
@@ -1196,12 +1196,12 @@ function closeSidebar() {
                 'Production Area': 'productionarea',
                 'Return Scanner': 'returnscanner',
                 'FBM Order': 'fbmorder',
-                'Not Found': 'notfound',    
+                'Not Found': 'notfound',
                 'Houseage': 'houseage',
             };
 
             const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order','Not Found','Houseage'
+                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order', 'Not Found', 'Houseage'
             ];
 
             const mainModuleHTML = `
@@ -1368,7 +1368,7 @@ function closeSidebar() {
                         'packing': 'Packing',
                         'stockroom': 'Stockroom',
                         'validation': 'Validation',
-                   //     'fnsku': 'FNSKU',
+                        //     'fnsku': 'FNSKU',
                         'productionarea': 'Production Area',
                         'returnscanner': 'Return Scanner',
                         'fbashipmentinbound': 'FBA Inbound Shipment',
@@ -1389,104 +1389,104 @@ function closeSidebar() {
         }
 
         function updateUserNavigation(data) {
-    const nav = document.querySelector('nav.nav.flex-column');
-    if (!nav) return;
+            const nav = document.querySelector('nav.nav.flex-column');
+            if (!nav) return;
 
-    console.log('Updating navigation with:', data);
+            console.log('Updating navigation with:', data);
 
-    // Ensure modules mapping includes all lowercase keys
-    const defaultModules = {
-        'asinoption': 'ASIN Option',
-        'order': 'Order',
-        'unreceived': 'Unreceived',
-        'receiving': 'Received',
-        'labeling': 'Labeling',
-        'testing': 'Testing',
-        'cleaning': 'Cleaning',
-        'packing': 'Packing',
-        'stockroom': 'Stockroom',
-        'validation': 'Validation',
-      //  'fnsku': 'FNSKU',
-        'productionarea': 'Production Area',
-        'returnscanner': 'Return Scanner',
-        'fbashipmentinbound': 'FBA Inbound Shipment',
-        'fbmorder': 'FBM Order',
-        'notfound': 'Not Found',
-        'houseage': 'Houseage'
-    };
+            // Ensure modules mapping includes all lowercase keys
+            const defaultModules = {
+                'asinoption': 'ASIN Option',
+                'order': 'Order',
+                'unreceived': 'Unreceived',
+                'receiving': 'Received',
+                'labeling': 'Labeling',
+                'testing': 'Testing',
+                'cleaning': 'Cleaning',
+                'packing': 'Packing',
+                'stockroom': 'Stockroom',
+                'validation': 'Validation',
+                //  'fnsku': 'FNSKU',
+                'productionarea': 'Production Area',
+                'returnscanner': 'Return Scanner',
+                'fbashipmentinbound': 'FBA Inbound Shipment',
+                'fbmorder': 'FBM Order',
+                'notfound': 'Not Found',
+                'houseage': 'Houseage'
+            };
 
-    // Use provided modules or default modules
-    const modules = data.modules || defaultModules;
+            // Use provided modules or default modules
+            const modules = data.modules || defaultModules;
 
-    let navHTML = '';
+            let navHTML = '';
 
-    // Normalize main module
-    const mainModuleLower = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
+            // Normalize main module
+            const mainModuleLower = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
 
-    // ALWAYS ADD MAIN MODULE FIRST WITH ACTIVE CLASS
-    if (mainModuleLower && modules[mainModuleLower]) {
-        if (mainModuleLower === 'asinoption') {
-            // Special handling for ASIN Option main module
-            navHTML += `
+            // ALWAYS ADD MAIN MODULE FIRST WITH ACTIVE CLASS
+            if (mainModuleLower && modules[mainModuleLower]) {
+                if (mainModuleLower === 'asinoption') {
+                    // Special handling for ASIN Option main module
+                    navHTML += `
             <a class="nav-link active" href="#"
                data-module="${mainModuleLower}"
                onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
                 ${modules[mainModuleLower]}
             </a>`;
-        } else {
-            // Regular main module handling
-            navHTML += `
+                } else {
+                    // Regular main module handling
+                    navHTML += `
             <a class="nav-link active" href="#"
                data-module="${mainModuleLower}"
                onclick="window.loadContent('${mainModuleLower}'); highlightNavLink(this); closeSidebar(); return false;">
                 ${modules[mainModuleLower]}
             </a>`;
-        }
-    }
+                }
+            }
 
-    // Then add sub modules (excluding the main module)
-    if (Array.isArray(data.sub_modules)) {
-        // Filter and normalize sub_modules - ensure main module is not included
-        const filteredSubModules = data.sub_modules
-            .map(m => m.toLowerCase().replace(/\s+/g, ''))
-            .filter(moduleLower => moduleLower !== mainModuleLower && modules[moduleLower]);
+            // Then add sub modules (excluding the main module)
+            if (Array.isArray(data.sub_modules)) {
+                // Filter and normalize sub_modules - ensure main module is not included
+                const filteredSubModules = data.sub_modules
+                    .map(m => m.toLowerCase().replace(/\s+/g, ''))
+                    .filter(moduleLower => moduleLower !== mainModuleLower && modules[moduleLower]);
 
-        filteredSubModules.forEach(moduleLower => {
-            if (moduleLower === 'asinoption') {
-                // Special handling for ASIN Option sub-module
-                navHTML += `
+                filteredSubModules.forEach(moduleLower => {
+                    if (moduleLower === 'asinoption') {
+                        // Special handling for ASIN Option sub-module
+                        navHTML += `
                 <a class="nav-link" href="#"
                    data-module="${moduleLower}"
                    onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
                     ${modules[moduleLower]}
                 </a>`;
-            } else {
-                // Regular sub-module handling
-                navHTML += `
+                    } else {
+                        // Regular sub-module handling
+                        navHTML += `
                 <a class="nav-link" href="#"
                    data-module="${moduleLower}"
                    onclick="window.loadContent('${moduleLower}'); highlightNavLink(this); closeSidebar(); return false;">
                     ${modules[moduleLower]}
                 </a>`;
+                    }
+                });
             }
-        });
-    }
 
-    nav.innerHTML = navHTML;
+            nav.innerHTML = navHTML;
 
-    // Ensure window variables are updated with properly filtered data
-    window.mainModule = mainModuleLower;
-    window.allowedModules = data.sub_modules ?
-        data.sub_modules.map(m => m.toLowerCase().replace(/\s+/g, '')).filter(m => m !== mainModuleLower) : [];
-    window.defaultComponent = mainModuleLower;
+            // Ensure window variables are updated with properly filtered data
+            window.mainModule = mainModuleLower;
+            window.allowedModules = data.sub_modules ?
+                data.sub_modules.map(m => m.toLowerCase().replace(/\s+/g, '')).filter(m => m !== mainModuleLower) : [];
+            window.defaultComponent = mainModuleLower;
 
-    // Update Vue component if needed (but not for asinoption)
-    if (mainModuleLower && mainModuleLower !== 'asinoption' && window.appInstance) {
-        window.appInstance.forceUpdate(mainModuleLower);
-    }
+            // Update Vue component if needed (but not for asinoption)
+            if (mainModuleLower && mainModuleLower !== 'asinoption' && window.appInstance) {
+                window.appInstance.forceUpdate(mainModuleLower);
+            }
 
-    console.log('Navigation updated. Main:', window.mainModule, 'Allowed:', window.allowedModules);
-}
+            console.log('Navigation updated. Main:', window.mainModule, 'Allowed:', window.allowedModules);
+        }
 
         function forceComponentUpdate(moduleName) {
             if (!window.appInstance) return;
