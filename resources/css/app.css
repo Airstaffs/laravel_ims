@@ -916,6 +916,87 @@ hr.dashed {
     margin: 0;
 }
 
+#userListModal .modal-body,
+#editUserModal .modal-body,
+#deleteUserModal .modal-body,
+#addStoreModal .modal-body,
+#editStoreModal .modal-body {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 10px;
+    padding: 20px;
+}
+
+#editUserForm,
+#addStoreForm,
+#editStoreForm {
+    width: 400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: 20px;
+}
+
+.has-toggle {
+    position: relative;
+}
+
+i#togglePassword {
+    position: absolute;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    top: 0;
+    right: 0;
+    opacity: 0.5;
+}
+
+#userListModal .modal-content {
+    width: 1024px;
+}
+
+#editUserModal .modal-content,
+#addStoreModal .modal-content,
+#editStoreModal .modal-content {
+    width: 800px;
+}
+
+#deleteUserModal .modal-dialog {
+    padding-top: 300px;
+}
+
+#deleteUserModal .modal-content {
+    width: 500px;
+}
+
+#editStoreForm {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+}
+
+#editStoreForm fieldset {
+    width: calc(100% / 2 - 10px);
+}
+
+.main-module__container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.main-module__container div {
+    width: calc(100% / 3 - 10px);
+}
+
 @media (max-width: 767px) {
     .desktop {
         display: none;

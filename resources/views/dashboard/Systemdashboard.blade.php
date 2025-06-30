@@ -4,35 +4,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Cache Control -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
 
+    <!-- Title and CSRF -->
     <title>{{ session('site_title', 'IMS') }}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css"
-        rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 
+    <!-- CSS Assets -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+
+    <!-- App-specific CSS via Vite -->
     @vite('resources/css/app.css')
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-
+    <!-- JS Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <!-- Tooltip Initialization -->
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-            const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-                return new bootstrap.Tooltip(tooltipTriggerEl);
-            });
+        document.addEventListener('DOMContentLoaded', () => {
+            const tooltipTriggerList = [...document.querySelectorAll('[data-bs-toggle="tooltip"]')];
+            tooltipTriggerList.forEach(el => new bootstrap.Tooltip(el));
         });
     </script>
+
+    <!-- Inline Theme Styles -->
     <style>
         .navbar {
             background-color:
@@ -55,81 +58,7 @@
 
 <body>
     <!-- Navbar -->
-    <nav id="top-navbar" class="navbar navbar-expand-lg">
-        <div class="navbar-container">
-            <div class="left-container">
-                <button id="burger-menu" class="navbar-toggler" type="button">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <a class="navbar-brand" href="#">
-                    @if (session('logo'))
-                        <img src="{{ asset('storage/' . session('logo')) }}" alt="Logo"
-                            style="max-width: 50px; max-height: 50px;">
-                    @endif
-                    {{ session('site_title', 'IMS') }}
-                </a>
-
-                <!-- Icons Always Visible on Mobile -->
-                <div class="d-flex align-items-center ms-auto d-lg-none">
-                    <!-- Profile Icon -->
-                    <a class="nav-link p-2" href="#" data-bs-toggle="modal" data-bs-target="#profileModal">
-                        <i class="bi bi-person"></i>
-                    </a>
-                    <!-- Settings Icon -->
-                    <a class="nav-link p-2" href="#" data-bs-toggle="modal" data-bs-target="#settingsModal">
-                        <i class="bi bi-gear"></i>
-                    </a>
-                    <!-- Logout Icon -->
-                    <a class="nav-link p-2" href="#" onclick="event.preventDefault(); showLogoutModal();">
-                        <i class="bi bi-box-arrow-right"></i>
-                    </a>
-                </div>
-            </div>
-
-            <div id="appsearch">
-                <searching @search="fetchInventory" />
-            </div>
-
-            <!-- Navbar Collapse for Desktop -->
-            <div class="collapse" id="navbarNav">
-                <ul class="navbar-nav text-center">
-                    <!-- Profile -->
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center justify-content-center" href="#"
-                            data-bs-toggle="modal" data-bs-target="#profileModal">
-                            <i class="bi bi-person me-2"></i>
-                            <span class="d-none d-lg-inline">Profile</span>
-                        </a>
-                    </li>
-
-                    <!-- Settings -->
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center justify-content-center" href="#"
-                            data-bs-toggle="modal" data-bs-target="#settingsModal">
-                            <i class="bi bi-gear me-2"></i>
-                            <span class="d-none d-lg-inline">Settings</span>
-                        </a>
-                    </li>
-
-                    <!-- Logout -->
-                    <li class="nav-item">
-                        <a class="nav-link d-flex align-items-center justify-content-center" href="#"
-                            onclick="event.preventDefault(); showLogoutModal();">
-                            <i class="bi bi-box-arrow-right me-2"></i>
-                            <span class="d-none d-lg-inline">Logout</span>
-                        </a>
-                    </li>
-
-                    <!-- Place this form outside of the navbar, preferably right after the closing </nav> tag -->
-                    <form id="force-logout-form" action="{{ url('/force-logout') }}" method="GET"
-                        style="display: none;">
-                    </form>
-
-                </ul>
-            </div>
-
-        </div>
-    </nav>
+    @include('dashboard.components.navbar')
 
     <!-- Sidebar -->
     <div id="sidebar" class="sidebar">
@@ -145,212 +74,190 @@
         <h5 class="text-center">Navigation</h5>
 
         @php
-           use Illuminate\Support\Facades\Auth;
+            use Illuminate\Support\Facades\Auth;
 
-    // Refresh user data from DB
-    $currentUser = Auth::user();
-    $subModules = [];
-    $mainModule = '';
+            // Refresh user data from DB
+            $currentUser = Auth::user();
+            $subModules = [];
+            $mainModule = '';
 
-    if ($currentUser) {
-        $freshUser = \App\Models\User::find($currentUser->id);
-        $mainModule = strtolower($freshUser->main_module ?: '');
+            if ($currentUser) {
+                $freshUser = \App\Models\User::find($currentUser->id);
+                $mainModule = strtolower($freshUser->main_module ?: '');
 
-        $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound','asinoption','houseage','asinlist'];
+                $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist'];
 
-        foreach ($moduleColumns as $column) {
-            // Only add to subModules if it's enabled AND not the main module
-            if (!empty($freshUser->{$column}) && $column !== $mainModule) {
-                $subModules[] = strtolower($column);
+                foreach ($moduleColumns as $column) {
+                    if (!empty($freshUser->{$column}) && $column !== $mainModule) {
+                        $subModules[] = strtolower($column);
+                    }
+                }
+
+                session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
+            } else {
+                $mainModule = strtolower(session('main_module', ''));
+                $subModules = array_map('strtolower', session('sub_modules', []));
             }
-        }
 
-        session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
-    } else {
-        $mainModule = strtolower(session('main_module', ''));
-        $subModules = array_map('strtolower', session('sub_modules', []));
-    }
+            // Remove duplication
+            $subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
 
-    // Remove duplication - ensure main module is not in sub modules
-    $subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
+            // Fallback to first submodule or dashboard
+            $defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
 
-    // Fallback to first submodule or dashboard
-    $defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
+            $modules = [
+                'order' => 'Order',
+                'asinoption' => 'Asin Option',
+                'unreceived' => 'Unreceived',
+                'receiving' => 'Received',
+                'labeling' => 'Labeling',
+                'validation' => 'Validation',
+                'testing' => 'Testing',
+                'cleaning' => 'Cleaning',
+                'packing' => 'Packing',
+                //'fnsku' => 'Fnsku',
+                'stockroom' => 'Stockroom',
+                'productionarea' => 'Production Area',
+                'fbashipmentinbound' => 'FBA Inbound Shipment',
+                'returnscanner' => 'Return Scanner',
+                'fbmorder' => 'FBM Order',
+                'notfound' => 'Not Found',
+                'houseage' => 'Houseage'
+            ];
 
-    $modules = [
-        'order' => 'Order',
-        'asinoption' => 'Asin Option',
-        'unreceived' => 'Unreceived',
-        'receiving' => 'Received',
-        'labeling' => 'Labeling',
-        'validation' => 'Validation',
-        'testing' => 'Testing',
-        'cleaning' => 'Cleaning',
-        'packing' => 'Packing',
-    //    'fnsku' => 'Fnsku',
-        'stockroom' => 'Stockroom',
-        'productionarea' => 'Production Area',
-        'fbashipmentinbound' => 'FBA Inbound Shipment',
-        'returnscanner' => 'Return Scanner',
-        'fbmorder' => 'FBM Order',
-        'notfound' => 'Not Found',
-        'houseage' => 'Houseage'
-    ];
-
-    function hasAccess($module, $mainModule, $subModules): bool
-    {
-        $module = strtolower($module);
-        return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
-    }
+            function hasAccess($module, $mainModule, $subModules): bool
+            {
+                $module = strtolower($module);
+                return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
+            }
         @endphp
 
         <!-- Client-side Setup -->
         <script>
-    window.defaultComponent = "<?= $defaultModule ?>";
-    window.mainModule = "<?= $mainModule ?>";
-    window.allowedModules = <?= json_encode($subModules) ?>;
+            window.defaultComponent = "{{ $defaultModule }}";
+            window.mainModule = "{{ $mainModule }}";
+            window.allowedModules = @json($subModules);
 
-    console.log('Session Modules:', {
-        defaultComponent: window.defaultComponent,
-        allowedModules: window.allowedModules,
-        mainModule: window.mainModule
-    });
-</script>
+            console.log('Session Modules:', {
+                defaultComponent: window.defaultComponent,
+                allowedModules: window.allowedModules,
+                mainModule: window.mainModule
+            });
+        </script>
 
         <!-- Navigation Links -->
-    <nav class="nav flex-column sidebar-nav">
-    <?php
-    // First, add the main module at the top if it exists
-    if ($mainModule && isset($modules[$mainModule])): ?>
-        <a class="nav-link active" href="/<?= $mainModule ?>"
-           onclick="window.loadContent('<?= $mainModule ?>'); highlightNavLink(this); closeSidebar(); return false;">
-            <?= $modules[$mainModule] ?>
-        </a>
-    <?php endif; ?>
-
-    <?php
-    // Then add sub-modules (excluding the main module)
-    foreach ($subModules as $module):
-        if (isset($modules[$module]) && $module !== $mainModule): ?>
-            <?php if ($module === 'asinoption'): ?>
-                <!-- Special handling for ASIN Option - show modal instead of loading component -->
-                <a class="nav-link" href="#"
-                   onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
-                    <?= $modules[$module] ?>
-                </a>
-            <?php else: ?>
-                <!-- Regular module handling -->
-                <a class="nav-link" href="/<?= $module ?>"
-                   onclick="window.loadContent('<?= $module ?>'); highlightNavLink(this); closeSidebar(); return false;">
-                    <?= $modules[$module] ?>
-                </a>
-            <?php endif; ?>
-        <?php endif;
-    endforeach; ?>
-</nav>
-
+        <nav class="nav flex-column sidebar-nav">
+            @foreach ($modules as $module => $label)
+                @if (hasAccess($module, $mainModule, $subModules))
+                    <a class="nav-link {{ request()->segment(1) == $module ? 'active' : '' }}" href="/{{ $module }}"
+                        onclick="window.loadContent('{{ $module }}'); highlightNavLink(this); closeSidebar(); return false;">
+                        {{ $label }}
+                    </a>
+                @endif
+            @endforeach
+        </nav>
     </div>
 
     <script>
-      document.addEventListener('DOMContentLoaded', function () {
-    // Function to highlight the current active page based on URL
-    function setActiveNavLink() {
-        const currentPath = window.location.pathname;
-        const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+        document.addEventListener('DOMContentLoaded', function () {
+            // Function to highlight the current active page based on URL
+            function setActiveNavLink() {
+                const currentPath = window.location.pathname;
+                const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
 
-        navLinks.forEach(link => {
-            // Remove active class from all links
-            link.classList.remove('active');
+                navLinks.forEach(link => {
+                    // Remove active class from all links
+                    link.classList.remove('active');
+                });
+
+                // If we have a main module, make sure it's always active first
+                const mainModule = window.mainModule;
+                if (mainModule) {
+                    const mainModuleLink = document.querySelector(`[data-module="${mainModule}"]`);
+                    if (mainModuleLink) {
+                        mainModuleLink.classList.add('active');
+                        return; // Exit early, main module should always be active
+                    }
+                }
+
+                // Fallback: check if link href matches current path
+                navLinks.forEach(link => {
+                    if (link.getAttribute('href') === currentPath) {
+                        link.classList.add('active');
+                    }
+                });
+            }
+
+            // Initialize active link on page load
+            setActiveNavLink();
+
+            // Set up close button functionality
+            const closeBtn = document.getElementById('close-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeSidebar);
+            }
+
+            // Ensure navigation order is correct on page load
+            setTimeout(() => {
+                const nav = document.querySelector('nav.nav.flex-column');
+                if (nav && window.mainModule) {
+                    // Force reorder navigation if needed
+                    const mainModuleLink = nav.querySelector(`[data-module="${window.mainModule}"]`);
+                    if (mainModuleLink && mainModuleLink !== nav.firstElementChild) {
+                        // Move main module to top
+                        nav.insertBefore(mainModuleLink, nav.firstElementChild);
+                        mainModuleLink.classList.add('active');
+                    }
+                }
+            }, 100);
         });
 
-        // If we have a main module, make sure it's always active first
-        const mainModule = window.mainModule;
-        if (mainModule) {
-            const mainModuleLink = document.querySelector(`[data-module="${mainModule}"]`);
-            if (mainModuleLink) {
-                mainModuleLink.classList.add('active');
-                return; // Exit early, main module should always be active
-            }
+        // Function to highlight clicked nav link
+        function highlightNavLink(element) {
+            // Remove active class from all nav links
+            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
+            navLinks.forEach(link => link.classList.remove('active'));
+
+            // Add active class to clicked link
+            element.classList.add('active');
         }
 
-        // Fallback: check if link href matches current path
-        navLinks.forEach(link => {
-            if (link.getAttribute('href') === currentPath) {
-                link.classList.add('active');
-            }
-        });
-    }
+        // Function to close the sidebar
+        function closeSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const content = document.getElementById('main-content');
+            const burgerMenu = document.getElementById('burger-menu');
+            const navbarBrand = document.querySelector('.navbar-brand');
 
-    // Initialize active link on page load
-    setActiveNavLink();
+            // Remove visible class from sidebar
+            if (sidebar) sidebar.classList.remove('visible');
 
-    // Set up close button functionality
-    const closeBtn = document.getElementById('close-btn');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeSidebar);
-    }
+            // Remove sidebar-visible class from content
+            if (content) content.classList.remove('sidebar-visible');
 
-    // Ensure navigation order is correct on page load
-    setTimeout(() => {
-        const nav = document.querySelector('nav.nav.flex-column');
-        if (nav && window.mainModule) {
-            // Force reorder navigation if needed
-            const mainModuleLink = nav.querySelector(`[data-module="${window.mainModule}"]`);
-            if (mainModuleLink && mainModuleLink !== nav.firstElementChild) {
-                // Move main module to top
-                nav.insertBefore(mainModuleLink, nav.firstElementChild);
-                mainModuleLink.classList.add('active');
-            }
+            // Show burger menu again
+            if (burgerMenu) burgerMenu.classList.remove('hidden');
+
+            // Reset navbar brand position
+            if (navbarBrand) navbarBrand.classList.remove('shifted');
         }
-    }, 100);
-});
-
-// Function to highlight clicked nav link
-function highlightNavLink(element) {
-    // Remove active class from all nav links
-    const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
-    navLinks.forEach(link => link.classList.remove('active'));
-
-    // Add active class to clicked link
-    element.classList.add('active');
-}
-
-// Function to close the sidebar
-function closeSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const content = document.getElementById('main-content');
-    const burgerMenu = document.getElementById('burger-menu');
-    const navbarBrand = document.querySelector('.navbar-brand');
-
-    // Remove visible class from sidebar
-    if (sidebar) sidebar.classList.remove('visible');
-
-    // Remove sidebar-visible class from content
-    if (content) content.classList.remove('sidebar-visible');
-
-    // Show burger menu again
-    if (burgerMenu) burgerMenu.classList.remove('hidden');
-
-    // Reset navbar brand position
-    if (navbarBrand) navbarBrand.classList.remove('shifted');
-}
     </script>
 
     <script>
-        window.defaultComponent = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-        window.allowedModules = <?= json_encode(array_map('strtolower', session('sub_modules', []))) ?>;
-        window.mainModule = "<?= session('main_module', 'dashboard') ?>".toLowerCase();
-        window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation'];
+        window.defaultComponent = "{{ strtolower(session('main_module', 'dashboard')) }}";
+        window.allowedModules = @json(array_map('strtolower', session('sub_modules', [])));
+        window.mainModule = "{{ strtolower(session('main_module', 'dashboard')) }}";
+        window.customModules = ['printcustominvoice', 'fbashipmentinbound'];
     </script>
 
     <div id="main-content" class="content">
         <div id="app">
             <!-- Hidden component triggers -->
-            <?php foreach ($modules as $module => $label): ?>
-            <a id="<?= $module ?>Link" style="display:none" href="#" @click.prevent="loadContent('<?= $module ?>')">
-                <?= $label ?>
-            </a>
-            <?php endforeach; ?>
+            @foreach ($modules as $module => $label)
+                <a id="{{ $module }}Link" style="display:none" href="#" @click.prevent="loadContent('{{ $module }}')">
+                    {{ $label }}
+                </a>
+            @endforeach
 
             <!-- Vue component with main module as default -->
             <component :is="currentComponent" :key="currentComponent">
@@ -363,1340 +270,7 @@ function closeSidebar() {
     </div>
 
     @include('dashboard.modals.asinoption')
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const settingsModal = document.getElementById('settingsModal');
-
-            settingsModal.addEventListener('shown.bs.modal', function () {
-                const defaultTab = document.querySelector('#design-tab');
-                const defaultTabPane = document.querySelector('#design');
-
-                // Ensure Bootstrap properly activates the tab
-                if (defaultTab && defaultTabPane) {
-                    new bootstrap.Tab(defaultTab).show();
-                }
-            });
-
-            settingsModal.addEventListener('hidden.bs.modal', function () {
-                // Reset all tabs
-                document.querySelectorAll('#settingsTab .nav-link').forEach(tab => {
-                    tab.classList.remove('active');
-                    tab.setAttribute('aria-selected', 'false');
-                });
-
-                document.querySelectorAll('#settingsTabContent .tab-pane').forEach(tabPane => {
-                    tabPane.classList.remove('show', 'active');
-                });
-
-                // Reapply the default tab using Bootstrap's method
-                const defaultTab = document.querySelector('#design-tab');
-                if (defaultTab) {
-                    new bootstrap.Tab(defaultTab).show();
-                }
-            });
-        });
-    </script>
-
-    <!-- Settings Modal -->
-    <div class="modal fade" id="settingsModal" tabindex="-1" aria-labelledby="settingsModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="settingsModalLabel">Admin Settings</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-
-                <div class="modal-body">
-                    <ul class="nav nav-tabs" id="settingsTab" role="tablist">
-                        <li class="nav-item active" id="design-tab" data-bs-toggle="tab" data-bs-target="#design"
-                            type="button" role="tab" aria-controls="design" aria-selected="true">
-                            <i class="bi bi-palette"></i>
-                            <span> Title & Design</span>
-                        </li>
-                        <li class="nav-item" id="user-tab" data-bs-toggle="tab" data-bs-target="#user" type="button"
-                            role="tab" aria-controls="user" aria-selected="false">
-                            <i class="bi bi-person-plus"></i>
-                            <span> Add User</span>
-                        </li>
-                        <li class="nav-item" id="store-tab" data-bs-toggle="tab" data-bs-target="#store" type="button"
-                            role="tab" aria-controls="store" aria-selected="false">
-                            <i class="bi bi-shop"></i>
-                            <span> Store List</span>
-                        </li>
-                        <li class="nav-item" id="privilege-tab" data-bs-toggle="tab" data-bs-target="#privilege"
-                            type="button" role="tab" aria-controls="privilege" aria-selected="false">
-                            <i class="bi bi-shield-lock"></i>
-                            <span> Privileges</span>
-                        </li>
-                        <li class="nav-item" id="usertimerecord-tab" data-bs-toggle="tab"
-                            data-bs-target="#usertimerecord" type="button" role="tab" aria-controls="usertimerecord"
-                            aria-selected="false">
-                            <i class="bi bi-clock"></i>
-                            <span> Time Record</span>
-                        </li>
-                        <li class="nav-item" id="userlogs-tab" data-bs-toggle="tab" data-bs-target="#userlogs"
-                            type="button" role="tab" aria-controls="userlogs" aria-selected="false">
-                            <i class="bi bi-person-lines-fill"></i>
-                            <span> User Logs</span>
-                        </li>
-                    </ul>
-
-                    <!-- Combined Tab for Title & Design -->
-                    <div class="tab-content" id="settingsTabContent">
-                        <!-- Title & Design Tab -->
-                        <div class="tab-pane fade show active" id="design" role="tabpanel" aria-labelledby="design-tab">
-                            <h3 class="text-center">Title & Design Settings</h3>
-                            <!-- Title & Design Settings Form -->
-                            <form action="{{ route('update.system.design') }}" method="POST" class="tblnDsgnForm"
-                                enctype="multipart/form-data">
-                                @csrf
-                                @method('POST')
-                                <!-- Site Title -->
-                                <fieldset>
-                                    <label for="siteTitle" class="form-label">Site Title</label>
-                                    <input type="text" class="form-control" id="siteTitle" name="site_title"
-                                        placeholder="Enter site title" value="{{ $systemDesign->site_title ?? '' }}"
-                                        required>
-                                </fieldset>
-
-                                <hr class="dashed m-0">
-
-                                <!-- Theme Color -->
-                                <fieldset>
-                                    <label for="themeColor" class="form-label">Theme Color</label>
-                                    <input type="color" class="form-control" id="themeColor" name="theme_color"
-                                        value="{{ $systemDesign->theme_color ?? '#007bff' }}" required>
-                                </fieldset>
-
-                                <hr class="dashed m-0">
-
-                                <!-- Logo Upload -->
-                                <fieldset>
-                                    <label for="logoUpload" class="form-label">Upload Logo</label>
-                                    <input type="file" class="form-control" id="logoUpload" name="logo">
-                                    @if (!empty($systemDesign->logo))
-                                        <p>Current Logo: <img src="{{ asset('storage/' . $systemDesign->logo) }}" alt="Logo"
-                                                width="100"></p>
-                                    @endif
-                                </fieldset>
-                                <button type="submit" class="btn btn-process">Save Changes</button>
-                            </form>
-                        </div>
-
-                        <!-- Add User Tab -->
-                        <div class="tab-pane fade" id="user" role="tabpanel" aria-labelledby="user-tab">
-                            <h3 class="text-center">Add User</h3>
-
-                            <form action="{{ route('add-user') }}" method="POST" class="addUserForm" id="addUserForm">
-                                @csrf
-                                <!-- Username -->
-                                <fieldset>
-                                    <label for="username" class="form-label">Username</label>
-                                    <input type="text" class="form-control w-100" id="username" name="username"
-                                        placeholder="Enter username" required>
-                                </fieldset>
-
-                                <!-- Password -->
-                                <fieldset>
-                                    <label for="password" class="form-label">Password</label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="password" name="password"
-                                            placeholder="Enter password" required>
-                                        <button type="button" class="btn btn-outline-secondary toggle-password"
-                                            data-target="#password">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                    </div>
-                                </fieldset>
-
-                                <!-- Confirm Password -->
-                                <fieldset>
-                                    <label for="password_confirmation" class="form-label">Confirm Password</label>
-                                    <div class="input-group">
-                                        <input type="password" class="form-control" id="password_confirmation"
-                                            name="password_confirmation" placeholder="Confirm password" required>
-                                        <button type="button" class="btn btn-outline-secondary toggle-password"
-                                            data-target="#password_confirmation">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                    </div>
-                                </fieldset>
-
-                                <!-- User Role -->
-                                <fieldset class="mb-3">
-                                    <label for="userRole" class="form-label">User Role</label>
-                                    <select class="form-select form-control w-100" id="userRole" name="role">
-                                        <option value="SuperAdmin">Super-Admin</option>
-                                        <option value="SubAdmin">Sub-Admin</option>
-                                        <option value="User">User</option>
-                                    </select>
-                                </fieldset>
-
-                                <div class="d-flex justify-content-between align-items-center gap-2">
-                                    <button type="submit"
-                                        class="btn btn-primary w-100 text-white justify-content-center fw-bold">Add
-                                        User</button>
-                                    <button type="button"
-                                        class="btn btn-info w-100 text-white justify-content-center fw-bold"
-                                        data-bs-toggle="modal" data-bs-target="#userListModal">
-                                        <i class="bi bi-people me-2"></i>Show User List
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-
-                        <!-- Store List Tab Content -->
-                        <div class="tab-pane fade" id="store" role="tabpanel" aria-labelledby="store-tab">
-                            <h3 class="text-center">Store List</h3>
-                            <!-- Store List Display -->
-                            <div class="storeListContainer">
-                                <div id="storeListContainer">
-                                    <ul id="storeList" class="list-group">
-                                        <!-- New stores will be appended here dynamically -->
-                                    </ul>
-                                </div>
-                                <!-- Add Store Button -->
-                                <button class="btn btn-process" id="addStoreButton">Add Store</button>
-                            </div>
-                        </div>
-
-                        <!-- User Privileges -->
-                        <div class="tab-pane fade" id="privilege" role="tabpanel" aria-labelledby="privilege-tab">
-                            <h5>User Privileges</h5>
-                            <form id="privilegeForm">
-                                @csrf
-                                <!-- Select User -->
-                                @php
-                                    // Fetch all users directly in the Blade view
-                                    $Allusers = \App\Models\User::all();
-                                    // Determine which user is selected (default to admin if no user is selected)
-                                    $selectedUser = request()->has('user_id')
-                                        ? \App\Models\User::find(request('user_id'))
-                                        : \App\Models\User::where('username', 'admin')->first();
-                                @endphp
-
-                                <label for="selectUser" class="form-label">Select User</label>
-                                <select class="form-select" id="selectUser" name="user_id" required>
-                                    <!-- Default option (Select User) -->
-
-                                    @foreach ($Allusers as $userOption)
-                                        <option value="{{ $userOption->id }}" {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
-                                            {{ $userOption->username }}
-                                        </option>
-                                    @endforeach
-                                </select>
-
-                                <!-- Main Module -->
-                                <div id="mainModuleContainer"></div>
-
-                                <!-- Sub-Modules Privileges -->
-                                <div id="subModuleContainer"></div>
-
-                                <!-- Stores -->
-                                <div id="storeContainer"></div>
-
-                                <button type="submit" class="btn btn-primary">Save Privileges</button>
-                            </form>
-                        </div>
-
-                        <!-- User Time Record -->
-                        <div class="tab-pane fade" id="usertimerecord" role="tabpanel"
-                            aria-labelledby="usertimerecord-tab">
-                            <h3 class="text-center">User Time Record</h3>
-
-                            <!-- User Selection Form -->
-                            <form id="usertimerecord" class="userTimeRecord">
-                                @csrf
-                                <fieldset>
-                                    <select class="form-select" id="selectUserDrop" name="user_id" required>
-                                        @foreach ($Allusers as $userOption)
-                                            <option value="{{ $userOption->id }}" {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
-                                                {{ $userOption->username }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </fieldset>
-
-                                <fieldset class="input-container">
-                                    <input type="date" class="form-control" id="start_date" name="start_date"
-                                        placeholder="Start Date">
-                                    <input type="date" class="form-control" id="end_date" name="end_date"
-                                        placeholder="End Date">
-                                </fieldset>
-
-                                <button type="button" class="btn btn-primary" id="filterRecords">Filter</button>
-                            </form>
-
-                            <!-- Time Records Table -->
-                            <div class="table-responsive d-none d-md-block">
-                                <table class="table table-bordered table-hover">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th>Details</th>
-                                            <th>Total Hours</th>
-                                            <th>Notes</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="timeRecordsBody" class="tbody-notes">
-                                        <!-- Data populated through JavaScript -->
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <!-- Mobile Card View -->
-                            <div class="d-block d-md-none" id="timeRecordsMobile">
-                                <!-- Cards will be populated by JS -->
-                            </div>
-                        </div>
-
-                        <div class="tab-pane fade" id="userlogs" role="tabpanel" aria-labelledby="userlogs-tab">
-                            <h3 class="text-center">User Logs</h3>
-
-                            <!-- User Selection Form -->
-                            <form id="userlogs" class="userLogs">
-                                @csrf
-                                <fieldset>
-                                    <select class="form-select" id="selectUserDrop_logs" name="user_id" required>
-                                        @foreach ($Allusers as $userOption)
-                                            <option value="{{ $userOption->id }}" {{ isset($selectedUser) && $selectedUser->id == $userOption->id ? 'selected' : '' }}>
-                                                {{ $userOption->username }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </fieldset>
-
-                                <fieldset class="input-container">
-                                    <input type="date" class="form-control" id="start_date_logs" name="start_date_logs"
-                                        placeholder="Start Date">
-
-                                    <input type="date" class="form-control" id="end_date_logs" name="end_date_logs"
-                                        placeholder="End Date">
-                                </fieldset>
-
-                                <button type="button" class="btn btn-primary" id="filter_logs">Filter</button>
-                            </form>
-
-                            <!-- Table -->
-                            <div class="table-responsive d-none d-md-block">
-                                <table class="table table-bordered table-hover">
-                                    <thead class="table-dark">
-                                        <tr>
-                                            <th>User</th>
-                                            <th>Actions</th>
-                                            <th>Date</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="userlogsData" class="tbody-notes">
-                                        <!-- Data populated through JavaScript -->
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            <div class="d-block d-md-none" id="userlogsCardView">
-                            </div>
-                        </div>
-
-                        <script>
-                            document.addEventListener('DOMContentLoaded', function () {
-                                const selectUser = document.getElementById('selectUserDrop');
-                                const startDate = document.getElementById('start_date');
-                                const endDate = document.getElementById('end_date');
-                                const filterButton = document.getElementById('filterRecords');
-                                const isMobile = window.innerWidth < 768;
-
-                                // Function to format date
-                                function formatDate(date) {
-                                    const options = {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric'
-                                    };
-                                    return new Date(date).toLocaleDateString('en-US', options);
-                                }
-
-                                // Function to format time
-                                function formatTime(date) {
-                                    const options = {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: true
-                                    };
-                                    return new Date(date).toLocaleTimeString('en-US', options);
-                                }
-
-                                // Function to fetch and display time records
-                                function fetchTimeRecords() {
-                                    const userId = selectUser.value;
-                                    const start = startDate.value;
-                                    const end = endDate.value;
-
-                                    fetch(`/get-time-records/${userId}?start_date=${start}&end_date=${end}`)
-                                        .then(response => response.json())
-                                        .then(data => {
-                                            const tbody = document.getElementById('timeRecordsBody');
-                                            const mobileContainer = document.getElementById('timeRecordsMobile');
-                                            tbody.innerHTML = '';
-                                            mobileContainer.innerHTML = '';
-
-                                            data.forEach((record, index) => {
-                                                const timeIn = new Date(record.TimeIn);
-                                                const timeOut = record.TimeOut ? new Date(record.TimeOut) : null;
-                                                const totalHours = timeOut ? calculateHours(timeIn, timeOut) : 'Active';
-                                                const formattedDate = formatDate(timeIn);
-                                                const notes = record.Notes || '-';
-                                                const timeOutStr = timeOut ? formatTime(timeOut) : 'Not clocked out';
-                                                const cardBg = index % 2 === 0 ? 'bg-light' : 'bg-white';
-
-                                                // Table row (desktop)
-                                                tbody.innerHTML += `
-                                                    <tr>
-                                                        <td>
-                                                            <ul class="list-unstyled m-0">
-                                                                <li>
-                                                                    <strong>${formattedDate}</strong>
-                                                                </li>
-                                                                <li>
-                                                                    <strong>IN: </strong>
-                                                                    <span>${formatTime(timeIn)}</span>
-                                                                </li>
-                                                                <li>
-                                                                    <strong>OUT: </strong>
-                                                                    <span>${timeOutStr}</span>
-                                                                </li>
-                                                            </ul>
-                                                        </td>
-                                                        <td> ${totalHours} </td>
-                                                        <td> ${notes} </td>
-                                                    </tr>
-                                                `;
-
-                                                // Card layout (mobile)
-                                                mobileContainer.innerHTML += `
-                                                    <div class="card mb-3 shadow-sm ${cardBg}">
-                                                        <div class="card-body">
-                                                            <h6 class="mb-1"><strong>${formattedDate}</strong></h6>
-                                                            <p class="mb-1"><strong>Time In:</strong> ${formatTime(timeIn)}</p>
-                                                            <p class="mb-1"><strong>Time Out:</strong> ${timeOutStr}</p>
-                                                            <p class="mb-1"><strong>Total Hours:</strong> ${totalHours}</p>
-                                                            <p class="mb-0"><strong>Notes:</strong> ${notes !== '-' ? `<i class="bi bi-sticky me-1"></i>${notes}` : '-'}</p>
-                                                        </div>
-                                                    </div>
-                                                `;
-                                            });
-                                        })
-                                        .catch(error => {
-                                            console.error('Error fetching time records:', error);
-                                        });
-                                }
-
-                                // Calculate hours between two dates
-                                function calculateHours(timeIn, timeOut) {
-                                    const diff = timeOut - timeIn;
-                                    const hours = Math.floor(diff / (1000 * 60 * 60));
-                                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                                    return `${hours}h ${minutes}m`;
-                                }
-
-                                // Event listeners
-                                selectUser.addEventListener('change', fetchTimeRecords);
-                                filterButton.addEventListener('click', fetchTimeRecords);
-
-                                // Initial load
-                                fetchTimeRecords();
-                            });
-                        </script>
-
-                        <script>
-                            document.addEventListener('DOMContentLoaded', function () {
-                                const selectUser = document.getElementById('selectUserDrop_logs');
-                                const startDate_logs = document.getElementById('start_date_logs');
-                                const endDate_logs = document.getElementById('end_date_logs');
-                                const filterButton_logs = document.getElementById('filter_logs');
-                                const isMobile = window.innerWidth < 768;
-
-                                // Function to format date and time
-                                function formatDateTime(dateTime) {
-                                    const date = new Date(dateTime);
-                                    return date.toLocaleString('en-US', {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        hour12: true
-                                    });
-                                }
-                                // Function to format date only
-                                function formatDate(dateTime) {
-                                    const date = new Date(dateTime);
-                                    const options = {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        year: 'numeric'
-                                    };
-                                    return date.toLocaleDateString('en-US', options);
-                                }
-
-                                // Function to fetch and display user logs
-                                function fetchUserLogs() {
-                                    const params = new URLSearchParams({
-                                        user_id: selectUser.value,
-                                        start_date_logs: startDate_logs.value,
-                                        end_date_logs: endDate_logs.value
-                                    });
-
-                                    fetch(`/get-user-logs?${params}`)
-                                        .then(response => response.json())
-                                        .then(data => {
-                                            const tbody = document.getElementById('userlogsData');
-                                            const cardContainer = document.getElementById('userlogsCardView');
-                                            tbody.innerHTML = '';
-                                            cardContainer.innerHTML = '';
-
-                                            if (data.length > 0) {
-                                                data.forEach((log, index) => {
-                                                    const formattedDate = formatDate(log.datetimelogs);
-                                                    const actions = log.actions || '-';
-                                                    const cardBg = index % 2 === 0 ? 'bg-light' : 'bg-white';
-
-                                                    // Desktop Table Row
-                                                    tbody.innerHTML += `
-                                                        <tr class="tr-notes">
-                                                            <td class="td-notes">${log.username}</td>
-                                                            <td class="td-notes notes-column">${actions}</td>
-                                                            <td class="td-notes">${formattedDate}</td>
-                                                        </tr>
-                                                    `;
-
-                                                    // Mobile Card View
-                                                    cardContainer.innerHTML += `
-                                                        <div class="card mb-3 shadow-sm ${cardBg}">
-                                                            <div class="card-body">
-                                                                <h6 class="mb-1"><strong>User:</strong> ${log.username}</h6>
-                                                                <p class="mb-1"><strong>Action:</strong> ${log.actions ? `<i class="bi bi-sticky me-1"></i>${log.actions}` : '-'}</p>
-                                                                <p class="mb-0"><strong>Date:</strong> ${formattedDate}</p>
-                                                            </div>
-                                                        </div>
-                                                    `;
-                                                });
-                                            } else {
-                                                // No logs found
-                                                tbody.innerHTML = `
-                                                    <tr class="tr-notes">
-                                                        <td colspan="3" class="td-notes text-center">No logs found</td>
-                                                    </tr>
-                                                `;
-                                                cardContainer.innerHTML = `
-                                                    <div class="alert alert-info text-center" role="alert">
-                                                        No logs found
-                                                    </div>
-                                                `;
-                                            }
-                                        })
-                                        .catch(error => {
-                                            console.error('Error fetching user logs:', error);
-                                            document.getElementById('userlogsData').innerHTML = `
-                                                <tr class="tr-notes">
-                                                    <td colspan="3" class="td-notes text-center text-danger">Error loading logs</td>
-                                                </tr>
-                                            `;
-                                            document.getElementById('userlogsCardView').innerHTML = `
-                                                <div class="alert alert-danger text-center" role="alert">
-                                                    Error loading logs
-                                                </div>
-                                            `;
-                                        });
-                                }
-
-                                // Event listeners
-                                selectUser.addEventListener('change', fetchUserLogs);
-                                filterButton_logs.addEventListener('click', fetchUserLogs);
-
-                                // Initial load
-                                fetchUserLogs();
-                            });
-                        </script>
-                    </div>
-                </div>
-                <!--   <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div> -->
-            </div>
-        </div>
-    </div>
-
-    <script>
-        // Initialize when DOM is loaded
-        document.addEventListener("DOMContentLoaded", function () {
-            const privilegeForm = document.getElementById('privilegeForm');
-            if (privilegeForm) {
-                initializeUserSelect();
-                initializePrivilegeForm();
-            } else {
-                initializePrivilegeChecker();
-            }
-        });
-
-        // Admin Functions
-        function initializeUserSelect() {
-            const selectUser = document.getElementById('selectUser');
-
-            selectUser.addEventListener('change', function () {
-                const selectedValue = this.value;
-
-                Array.from(this.options).forEach(option => {
-                    option.style.display = option.value === selectedValue ? 'none' : 'block';
-                });
-
-                if (selectedValue !== "") {
-                    const defaultOption = selectUser.querySelector('option[value=""]');
-                    if (defaultOption) {
-                        defaultOption.style.display = 'none';
-                    }
-                }
-
-                if (selectedValue) {
-                    fetchUserPrivileges(selectedValue);
-                }
-            });
-        }
-
-        function initializePrivilegeForm() {
-            const form = document.getElementById('privilegeForm');
-
-            form.addEventListener('submit', async function (e) {
-                e.preventDefault();
-
-                try {
-                    await refreshCsrfToken();
-                    const formData = collectFormData();
-                    const response = await saveUserPrivileges(formData);
-
-                    if (response.success) {
-                        showNotification('Success', 'User privileges saved successfully!', 'success');
-
-                        await fetchUserPrivileges(formData.user_id);
-
-                        const mainModuleDb = (response.main_module || formData.main_module || '').toLowerCase().replace(/\s+/g, '');
-                        const subModulesDb = response.sub_modules || [];
-                        const filteredSubModules = subModulesDb.filter(module =>
-                            module.toLowerCase().replace(/\s+/g, '') !== mainModuleDb
-                        );
-
-                        const navigationData = {
-                            main_module: mainModuleDb,
-                            sub_modules: filteredSubModules,
-                            modules: {
-                                asinoption: 'ASIN Option',
-                                order: 'Order',
-                                unreceived: 'Unreceived',
-                                receiving: 'Received',
-                                labeling: 'Labeling',
-                                validation: 'Validation',
-                                testing: 'Testing',
-                                cleaning: 'Cleaning',
-                                packing: 'Packing',
-                                fnsku: 'FNSKU',
-                                stockroom: 'Stockroom',
-                                productionarea: 'Production Area',
-                                returnscanner: 'Return Scanner',
-                                fbmorder: 'FBM Order',
-                                houseage: 'Houseage',
-                                asinlist: 'ASIN List',
-                            }
-                        };
-
-                        // ✅ Only update navigation if selected user is the current user
-                        if (parseInt(formData.user_id) === parseInt(window.loggedInUserId)) {
-                            updateUserNavigation(navigationData);
-
-                            if (window.appInstance) {
-                                forceComponentUpdate(mainModuleDb);
-                            }
-                        }
-
-                        // Modal & Form Cleanup
-                        const modalEl = document.getElementById('settingsModal');
-                        if (modalEl) {
-                            modalEl.style.display = 'none';
-                            modalEl.classList.remove('show');
-                            document.body.classList.remove('modal-open');
-                            document.body.style.removeProperty('padding-right');
-                            document.querySelectorAll('.modal-backdrop').forEach(backdrop => backdrop.remove());
-                        }
-
-                        if (form) {
-                            form.classList.remove('was-validated');
-                        }
-                        initializeUserSelect();
-
-                    } else {
-                        showNotification('Error', response.message || 'Failed to save privileges', 'error');
-                    }
-
-                } catch (error) {
-                    console.error('Error in form submission:', error);
-                    showNotification('Error', 'An unexpected error occurred', 'error');
-                }
-            });
-        }
-
-        // Add this new function to refresh CSRF token
-        /*
-        async function refreshCsrfToken() {
-            try {
-                const response = await fetch('/csrf-token');
-                const data = await response.json();
-                document.querySelector('meta[name="csrf-token"]').setAttribute('content', data.token);
-                return true;
-            } catch (error) {
-                console.error('Error refreshing CSRF token:', error);
-                return false;
-            }
-        }
-            */
-
-        function collectFormData() {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
-            // Get the main module value
-            const mainModuleRadio = document.querySelector('input[name="main_module"]:checked');
-            const mainModuleValue = mainModuleRadio ? mainModuleRadio.value : '';
-
-            // Get all checked sub-modules - these will be database column names
-            const subModuleCheckboxes = document.querySelectorAll('input[name="sub_modules[]"]:checked');
-            const subModules = Array.from(subModuleCheckboxes).map(checkbox => checkbox.value);
-
-            // Debug logging
-            console.log('Collecting form data:', {
-                main_module: mainModuleValue,
-                sub_modules: subModules,
-                main_module_radio: mainModuleRadio
-            });
-
-            return {
-                user_id: parseInt(document.getElementById('selectUser').value, 10),
-                main_module: mainModuleValue, // This will be "Received" if that's selected
-                sub_modules: subModules, // These will be database column names like "receiving"
-                privileges_stores: [...document.querySelectorAll('input[name="privileges_stores[]"]:checked')].map(input =>
-                    input.value),
-                _token: csrfToken
-            };
-        }
-
-        async function saveUserPrivileges(formData) {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-
-            try {
-                // First save the privileges
-                const response = await fetch('/save-user-privileges', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
-                    },
-                    body: JSON.stringify(formData)
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    // Update the navigation immediately with the response data
-                    const navigationData = {
-                        main_module: result.main_module || formData.main_module,
-                        sub_modules: result.sub_modules || [],
-                        modules: {
-                            'asinoption': 'ASIN Option',
-                            'order': 'Order',
-                            'unreceived': 'Unreceived',
-                            'receiving': 'Received',
-                            'labeling': 'Labeling',
-                            'validation': 'Validation',
-                            'testing': 'Testing',
-                            'cleaning': 'Cleaning',
-                            'packing': 'Packing',
-                   //         'fnsku': 'FNSKU',
-                            'stockroom': 'Stockroom',
-                            'productionarea': 'Production Area',
-                            'returnscanner': 'Return Scanner',
-                            'fbmorder': 'FBM Order',
-                            'notfound': 'Not Found',
-                            'houseage': 'Houseage',
-                        }
-                    };
-
-                    // Update navigation immediately
-                    updateUserNavigation(navigationData);
-
-                    // Force session refresh
-                    const refreshResponse = await fetch('/refresh-user-session', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRF-TOKEN': csrfToken
-                        }
-                    });
-
-                    const refreshResult = await refreshResponse.json();
-                    if (refreshResult.success) {
-                        // Update with refreshed data
-                        updateUserNavigation({
-                            main_module: refreshResult.main_module,
-                            sub_modules: refreshResult.sub_modules,
-                            modules: navigationData.modules
-                        });
-                    }
-
-                    return result;
-                }
-
-                return result;
-            } catch (error) {
-                console.error('Error in save process:', error);
-                throw error;
-            }
-        }
-
-        async function fetchUserPrivileges(userId) {
-            try {
-                const response = await fetch(`/get-user-privileges/${userId}`);
-                const data = await response.json();
-                updateForm(data);
-            } catch (error) {
-                console.error('Error fetching user privileges:', error);
-                showNotification('Error', 'Failed to fetch user privileges', 'error');
-            }
-        }
-
-        function updateForm(data) {
-            if (!data) {
-                console.error("No data received for user privileges");
-                return;
-            }
-
-            updateMainModule(data);
-            updateSubModules(data);
-            updateStores(data);
-        }
-
-        function updateMainModule(data) {
-            // Define the mapping for consistent database column names
-            const moduleMapping = {
-                'Order': 'order',
-                'Unreceived': 'unreceived',
-                'Received': 'receiving',
-                'Labeling': 'labeling',
-                'Testing': 'testing',
-                'Cleaning': 'cleaning',
-                'Packing': 'packing',
-                'Stockroom': 'stockroom',
-                'Validation': 'validation',
-                'FNSKU': 'fnsku',
-                'Production Area': 'productionarea',
-                'Return Scanner': 'returnscanner',
-                'FBM Order': 'fbmorder',
-                'Not Found': 'notfound',    
-                'Houseage': 'houseage',
-            };
-
-            const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-                'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order','Not Found','Houseage'
-            ];
-
-            const mainModuleHTML = `
-        <h6>Main Module</h6>
-        <div class="row mb-3">
-            ${mainModules.map(module => {
-                // Get the database column name for comparison
-                const dbColumnName = moduleMapping[module] || module.toLowerCase().replace(/\s+/g, '');
-                const isChecked = data.main_module === dbColumnName ? 'checked' : '';
-
-                return `
-                                                    <div class="col-4 form-check mb-2 px-10">
-                                                        <input class="form-check-input" type="radio" name="main_module"
-                                                               value="${module}" ${isChecked} required>
-                                                        <label class="form-check-label">${module}</label>
-                                                    </div>
-                                                `;
-            }).join('')}
-        </div>
-    `;
-            document.getElementById('mainModuleContainer').innerHTML = mainModuleHTML;
-        }
-
-        function updateSubModules(data) {
-            const subModules = [{
-                db: 'order',
-                display: 'Order'
-            },
-            {
-                db: 'unreceived',
-                display: 'Unreceived'
-            },
-            {
-                db: 'receiving',
-                display: 'Received'
-            },
-            {
-                db: 'labeling',
-                display: 'Labeling'
-            },
-            {
-                db: 'testing',
-                display: 'Testing'
-            },
-            {
-                db: 'cleaning',
-                display: 'Cleaning'
-            },
-            {
-                db: 'packing',
-                display: 'Packing'
-            },
-            {
-                db: 'stockroom',
-                display: 'Stockroom'
-            },
-            {
-                db: 'validation',
-                display: 'Validation'
-            },
-            {
-                db: 'fnsku',
-                display: 'FNSKU'
-            },
-            {
-                db: 'asinlist',
-                display: 'ASIN List'
-            },
-            {
-                db: 'productionarea',
-                display: 'Production Area'
-            },
-            {
-                db: 'returnscanner',
-                display: 'Return Scanner'
-            },
-            {
-                db: 'fbmorder',
-                display: 'FBM Order'
-            },
-            {
-                db: 'notfound',
-                display: 'Not Found'
-            },
-            {
-                db: 'asinoption',
-                display: 'ASIN Option'
-            },
-            {
-                db: 'houseage',
-                display: 'Houseage'
-            }
-            ];
-
-            const subModulesHTML = `
-        <h6>Sub-Modules</h6>
-        <div class="row mb-3">
-            ${subModules.map(module => `
-                                                <div class="col-4 form-check mb-2 px-10">
-                                                    <input class="form-check-input" type="checkbox" name="sub_modules[]"
-                                                           value="${module.db}"
-                                                           ${data.sub_modules && data.sub_modules[module.db] === true ? 'checked' : ''}>
-                                                    <label class="form-check-label">${module.display}</label>
-                                                </div>
-                                            `).join('')}
-        </div>
-`;
-            document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
-        }
-
-        function updateStores(data) {
-            const storeHTML = `
-    <h6>Stores</h6>
-    <div class="row mb-3">
-        ${data.privileges_stores && data.privileges_stores.length > 0
-                    ? data.privileges_stores.map(store => `
-                 <div class="col-4 form-check mb-2">
-                    <input class="form-check-input" type="checkbox" name="privileges_stores[]"
-                        value="${store.store_column}" ${store.is_checked ? 'checked' : ''}>
-                     <label class="form-check-label">${store.store_name}</label>
-                      </div>
-                       `).join('')
-                    : '<p>No stores available</p>'
-                }
-    </div>
-`;
-            document.getElementById('storeContainer').innerHTML = storeHTML;
-        }
-
-        // Navigation Update Functions
-        function initializePrivilegeChecker() {
-            setInterval(checkForUpdates, 5000);
-        }
-
-        async function checkForUpdates() {
-            try {
-                const response = await fetch('/check-user-privileges');
-                const data = await response.json();
-
-                if (data.success) {
-                    console.log('Checking for updates:', data);
-
-                    // Ensure all module names are lowercase without spaces
-                    const mainModule = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
-                    const subModules = data.sub_modules ?
-                        data.sub_modules
-                            .map(m => m.toLowerCase().replace(/\s+/g, ''))
-                            .filter(m => m !== mainModule) : // Ensure main module is not in sub modules
-                        [];
-
-                    window.defaultComponent = mainModule;
-                    window.allowedModules = subModules;
-                    window.mainModule = mainModule;
-
-                    // Create proper modules object for display
-                    const modules = {
-                        'asinoption': 'ASIN Option',
-                        'order': 'Order',
-                        'unreceived': 'Unreceived',
-                        'receiving': 'Received',
-                        'labeling': 'Labeling',
-                        'testing': 'Testing',
-                        'cleaning': 'Cleaning',
-                        'packing': 'Packing',
-                        'stockroom': 'Stockroom',
-                        'validation': 'Validation',
-                   //     'fnsku': 'FNSKU',
-                        'productionarea': 'Production Area',
-                        'returnscanner': 'Return Scanner',
-                        'fbashipmentinbound': 'FBA Inbound Shipment',
-                        'fbmorder': 'FBM Order',
-                        'notfound': 'Not Found',
-                        'houseage': 'Houseage' // Add this mapping
-                    };
-
-                    updateUserNavigation({
-                        main_module: mainModule,
-                        sub_modules: subModules,
-                        modules: modules
-                    });
-                }
-            } catch (error) {
-                console.error('Error checking privileges:', error);
-            }
-        }
-
-        function updateUserNavigation(data) {
-    const nav = document.querySelector('nav.nav.flex-column');
-    if (!nav) return;
-
-    console.log('Updating navigation with:', data);
-
-    // Ensure modules mapping includes all lowercase keys
-    const defaultModules = {
-        'asinoption': 'ASIN Option',
-        'order': 'Order',
-        'unreceived': 'Unreceived',
-        'receiving': 'Received',
-        'labeling': 'Labeling',
-        'testing': 'Testing',
-        'cleaning': 'Cleaning',
-        'packing': 'Packing',
-        'stockroom': 'Stockroom',
-        'validation': 'Validation',
-      //  'fnsku': 'FNSKU',
-        'productionarea': 'Production Area',
-        'returnscanner': 'Return Scanner',
-        'fbashipmentinbound': 'FBA Inbound Shipment',
-        'fbmorder': 'FBM Order',
-        'notfound': 'Not Found',
-        'houseage': 'Houseage'
-    };
-
-    // Use provided modules or default modules
-    const modules = data.modules || defaultModules;
-
-    let navHTML = '';
-
-    // Normalize main module
-    const mainModuleLower = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
-
-    // ALWAYS ADD MAIN MODULE FIRST WITH ACTIVE CLASS
-    if (mainModuleLower && modules[mainModuleLower]) {
-        if (mainModuleLower === 'asinoption') {
-            // Special handling for ASIN Option main module
-            navHTML += `
-            <a class="nav-link active" href="#"
-               data-module="${mainModuleLower}"
-               onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
-                ${modules[mainModuleLower]}
-            </a>`;
-        } else {
-            // Regular main module handling
-            navHTML += `
-            <a class="nav-link active" href="#"
-               data-module="${mainModuleLower}"
-               onclick="window.loadContent('${mainModuleLower}'); highlightNavLink(this); closeSidebar(); return false;">
-                ${modules[mainModuleLower]}
-            </a>`;
-        }
-    }
-
-    // Then add sub modules (excluding the main module)
-    if (Array.isArray(data.sub_modules)) {
-        // Filter and normalize sub_modules - ensure main module is not included
-        const filteredSubModules = data.sub_modules
-            .map(m => m.toLowerCase().replace(/\s+/g, ''))
-            .filter(moduleLower => moduleLower !== mainModuleLower && modules[moduleLower]);
-
-        filteredSubModules.forEach(moduleLower => {
-            if (moduleLower === 'asinoption') {
-                // Special handling for ASIN Option sub-module
-                navHTML += `
-                <a class="nav-link" href="#"
-                   data-module="${moduleLower}"
-                   onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
-                    ${modules[moduleLower]}
-                </a>`;
-            } else {
-                // Regular sub-module handling
-                navHTML += `
-                <a class="nav-link" href="#"
-                   data-module="${moduleLower}"
-                   onclick="window.loadContent('${moduleLower}'); highlightNavLink(this); closeSidebar(); return false;">
-                    ${modules[moduleLower]}
-                </a>`;
-            }
-        });
-    }
-
-    nav.innerHTML = navHTML;
-
-    // Ensure window variables are updated with properly filtered data
-    window.mainModule = mainModuleLower;
-    window.allowedModules = data.sub_modules ?
-        data.sub_modules.map(m => m.toLowerCase().replace(/\s+/g, '')).filter(m => m !== mainModuleLower) : [];
-    window.defaultComponent = mainModuleLower;
-
-    // Update Vue component if needed (but not for asinoption)
-    if (mainModuleLower && mainModuleLower !== 'asinoption' && window.appInstance) {
-        window.appInstance.forceUpdate(mainModuleLower);
-    }
-
-    console.log('Navigation updated. Main:', window.mainModule, 'Allowed:', window.allowedModules);
-}
-
-        function forceComponentUpdate(moduleName) {
-            if (!window.appInstance) return;
-
-            console.log('Forcing update to component:', moduleName);
-            window.appInstance.currentComponent = null;
-
-            setTimeout(() => {
-                window.appInstance.currentComponent = moduleName;
-                console.log('Component updated to:', moduleName);
-            }, 0);
-        }
-
-        function capitalizeFirst(string) {
-            return string.charAt(0).toUpperCase() + string.slice(1);
-        }
-
-        function showNotification(title, message, type) {
-            alert(`${title}: ${message}`);
-        }
-
-        // Initialize form when page loads
-        window.onload = function () {
-            const selectedUserId = document.getElementById('selectUser')?.value;
-            if (selectedUserId) {
-                fetchUserPrivileges(selectedUserId);
-            }
-        };
-    </script>
-
-    <!-- Add Store Modal -->
-    <div class="modal fade" id="addStoreModal" tabindex="-1" aria-labelledby="addStoreModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <form id="addStoreForm">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="addStoreModalLabel">Add New Store</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label for="newStoreName" class="form-label">Store Name</label>
-                            <input type="text" class="form-control" id="newStoreName" name="storename"
-                                placeholder="Enter store name" required>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="submit" class="btn btn-primary">Save Store</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Store Modal -->
-    <div class="modal fade" id="editStoreModal" tabindex="-1" aria-labelledby="editStoreModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editStoreModalLabel">Edit Store</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="editStoreForm">
-                        <input type='hidden' id="editStoreId">
-                        <div class="mb-3">
-                            <label for="editStoreName" class="form-label">Store Name</label>
-                            <input type="text" class="form-control" id="editStoreName" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="editClientID" class="form-label">Client ID</label>
-                            <input type="text" class="form-control" id="editClientID">
-                        </div>
-                        <div class="mb-3">
-                            <label for="editClientSecret" class="form-label">Client Secret</label>
-                            <input type="text" class="form-control" id="editClientSecret">
-                        </div>
-                        <div class="mb-3">
-                            <label for="editRefreshToken" class="form-label">Refresh Token</label>
-                            <input type="text" class="form-control" id="editRefreshToken">
-                        </div>
-                        <div class="mb-3">
-                            <label for="editMerchantID" class="form-label">Merchant ID</label>
-                            <input type="text" class="form-control" id="editMerchantID">
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="editMarketplace" class="form-label">Select Marketplace</label>
-                            <select class="form-select" id="selectMarketplace" multiple>
-                                <!-- Options will be populated dynamically -->
-                            </select>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="editMarketplace" class="form-label">Marketplace</label>
-                            <input type="text" class="form-control" id="editMarketplace">
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="editMarketplaceID" class="form-label">Marketplace ID</label>
-                            <input type="text" class="form-control" id="editMarketplaceID">
-                        </div>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- User List Modal -->
-    <div class="modal fade" id="userListModal" tabindex="-1" aria-labelledby="userListModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="userListModalLabel">User List</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Username</th>
-                                    <th>Role</th>
-                                    <th>Created At</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="userTableBody">
-                                <!-- Users will be dynamically inserted here -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit User Modal -->
-    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editUserModalLabel">Edit User</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="editUserForm">
-                        @csrf
-                        <input type="hidden" id="edit_user_id" name="user_id">
-
-                        <!-- Username -->
-                        <div class="mb-3">
-                            <label for="edit_username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="edit_username" name="username" required>
-                        </div>
-
-                        <!-- Password (Optional) -->
-                        <div class="mb-3">
-                            <label for="edit_password" class="form-label">New Password (leave blank to keep
-                                current)</label>
-                            <div class="input-group">
-                                <input type="password" class="form-control" id="edit_password" name="password">
-                                <button type="button" class="btn btn-outline-secondary toggle-password"
-                                    data-target="#edit_password">
-                                    <i class="bi bi-eye"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- User Role -->
-                        <div class="mb-3">
-                            <label for="edit_role" class="form-label">User Role</label>
-                            <select class="form-select" id="edit_role" name="role" required>
-                                <option value="SuperAdmin">Super-Admin</option>
-                                <option value="SubAdmin">Sub-Admin</option>
-                                <option value="User">User</option>
-                            </select>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary">Update User</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Delete Confirmation Modal -->
-    <div class="modal fade" id="deleteUserModal" tabindex="-1" aria-labelledby="deleteUserModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteUserModalLabel">Confirm Delete</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    Are you sure you want to delete this user?
-                    <p class="text-danger" id="delete-user-name"></p>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
-                </div>
-            </div>
-        </div>
-    </div>
+    @include('dashboard.modals.settings.settings-modal')
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -2362,381 +936,6 @@ function closeSidebar() {
                     alert('An error occurred. Please try again.');
                 });
         }
-    </script>
-
-    <script>
-        axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]').getAttribute(
-            'content');
-
-        // Show the add store modal and hide the settings modal
-        document.getElementById('addStoreButton').addEventListener('click', function () {
-            // Show the add store modal
-            $('#addStoreModal').modal('show');
-            $('#settingsModal').modal('hide');
-        });
-
-        // Add Store Submission
-        document.getElementById('addStoreForm').addEventListener('submit', function (e) {
-            e.preventDefault(); // Prevent default form submission
-
-            const storeName = document.getElementById('newStoreName').value.trim();
-
-            // Check if store name already exists in the list
-            const existingStores = Array.from(document.getElementById('storeList').getElementsByTagName('li'));
-            const storeExists = existingStores.some(store => store.textContent.includes(storeName));
-
-            if (storeExists) {
-                alert('Store name already exists. Please choose a different name.');
-                return; // Prevent adding the store if the name already exists
-            }
-
-            // Send the data to the Laravel backend
-            axios.post('/add-store', {
-                storename: storeName
-            })
-                .then(response => {
-                    if (response.data.success) {
-                        const storeList = document.getElementById('storeList');
-                        const newStoreItem = document.createElement('li');
-                        newStoreItem.classList.add('list-group-item');
-                        newStoreItem.innerHTML = `
-                    ${response.data.store.storename}
-                    <div class="d-flex justify-content-end gap-2">
-                        <button class="btn btn-secondary btn-sm edit-store-btn"
-                                data-id="${response.data.store.store_id}"
-                                data-name="${response.data.store.storename}">
-                            Edit
-                        </button>
-                        <button class="btn btn-danger btn-sm delete-store-btn"
-                                data-id="${response.data.store.store_id}">
-                            Delete
-                        </button>
-                    </div>
-                `;
-                        storeList.appendChild(newStoreItem);
-
-                        // Hide the add store modal
-                        $('#addStoreModal').modal('hide');
-
-                        // Ensure the modal is fully closed before opening settings modal
-                        $('#addStoreModal').on('hidden.bs.modal', function () {
-                            $('#settingsModal').modal('show');
-
-                            // Ensure the store tab is active
-                            $('.nav-tabs .nav-link').removeClass('active');
-                            $('.tab-content .tab-pane').removeClass('active show');
-
-                            $('#store-tab').addClass('active');
-                            $('#store-tab-pane').addClass('active show');
-                        });
-                    } else {
-                        alert('Failed to add store');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert('An error occurred while saving the store.');
-                });
-        });
-
-
-
-
-        // Fetch and display the list of stores on page load
-        document.addEventListener('DOMContentLoaded', function () {
-            fetchStoreList();
-        });
-
-        // Function to fetch and display store list from the server
-        function fetchStoreList() {
-            axios.get('/get-stores')
-                .then(response => {
-                    const storeList = document.getElementById('storeList');
-                    storeList.innerHTML = ''; // Clear the list before populating it
-
-                    response.data.stores.forEach(store => {
-                        const listItem = document.createElement('li');
-                        listItem.classList.add('list-group-item');
-                        listItem.innerHTML = `
-                    ${store.storename}
-                    <div class="d-flex justify-content-end gap-2">
-                        <button class="btn btn-secondary btn-sm edit-store-btn"
-                                data-id="${store.store_id}"
-                                data-name="${store.storename}">
-                            Edit
-                        </button>
-                        <button class="btn btn-danger btn-sm delete-store-btn"
-                                data-id="${store.store_id}">
-                            Delete
-                        </button>
-                    </div>
-                `;
-                        storeList.appendChild(listItem);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error fetching stores:', error);
-                });
-        }
-
-        // Re-fetch store list when switching to the "Store List" tab
-        $('#store-tab').on('click', function () {
-            fetchStoreList(); // Re-fetch the store list when the tab is clicked
-        });
-
-        function refreshStoreList() {
-            const userId = document.getElementById('selectUser').value;
-            if (!userId) {
-                console.warn('No user selected');
-                return;
-            }
-
-            showLoadingIndicator();
-
-            fetch(`/fetchNewlyAddedStoreCol?user_id=${userId}`)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data && data.stores) {
-                        updateStoreList(data.stores);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching store list:', error);
-                    showErrorMessage('Failed to load stores. Please try again.');
-                })
-                .finally(() => {
-                    hideLoadingIndicator();
-                });
-        }
-
-        function updateStoreList(stores) {
-            const storeContainer = document.getElementById('storeContainer');
-
-            // Save current checkbox states
-            const currentStates = new Map();
-            document.querySelectorAll('input[name="privileges_stores[]"]').forEach(input => {
-                currentStates.set(input.value, input.checked);
-            });
-
-            let storeListHTML = '<h6>Stores</h6><div class="row mb-3">';
-
-            stores.forEach(store => {
-                // Check if we have a saved state, otherwise use the server state
-                const isChecked = currentStates.has(store.store_column) ?
-                    currentStates.get(store.store_column) :
-                    store.is_checked;
-
-                storeListHTML += `
-            <div class="col-4 form-check mb-2">
-                <input class="form-check-input"
-                       type="checkbox"
-                       name="privileges_stores[]"
-                       value="${store.store_column}"
-                       ${isChecked ? 'checked' : ''}>
-                <label class="form-check-label">${store.store_name}</label>
-            </div>`;
-            });
-
-            storeListHTML += '</div>';
-            storeContainer.innerHTML = storeListHTML;
-        }
-
-        function showLoadingIndicator() {
-            const container = document.getElementById('storeContainer');
-            container.innerHTML += '<div class="loading-spinner">Loading stores...</div>';
-        }
-
-        function hideLoadingIndicator() {
-            const spinner = document.querySelector('.loading-spinner');
-            if (spinner) {
-                spinner.remove();
-            }
-        }
-
-        function showErrorMessage(message) {
-            document.getElementById('storeContainer').innerHTML =
-                `<div class="alert alert-danger">${message}</div>`;
-        }
-
-        // Event Listeners
-        document.addEventListener('DOMContentLoaded', function () {
-            // Initialize privilege tab listener
-            const privilegeTab = document.getElementById('privilege-tab');
-            if (privilegeTab) {
-                privilegeTab.addEventListener('click', function () {
-                    const userId = document.getElementById('selectUser').value;
-                    if (userId) {
-                        refreshStoreList();
-                    }
-                });
-            }
-
-            // Initialize select user change listener
-            const selectUser = document.getElementById('selectUser');
-            if (selectUser) {
-                selectUser.addEventListener('change', function () {
-                    if (this.value) {
-                        refreshStoreList();
-                    }
-                });
-            }
-        });
-        // Delete Store functionality
-        document.addEventListener('click', function (e) {
-            if (e.target.classList.contains('delete-store-btn')) {
-                const storeId = e.target.dataset.id;
-
-                // Confirm before deleting
-                if (confirm('Are you sure you want to delete this store?')) {
-                    // Send the delete request to the backend
-                    axios.delete(`/delete-store/${storeId}`)
-                        .then(response => {
-                            if (response.data.success) {
-                                const storeItem = e.target.closest('li');
-                                storeItem.remove();
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error deleting store:', error);
-                            alert('An error occurred while deleting the store. Please try again later.');
-                        });
-                }
-            }
-        });
-
-        $(document).on('click', '.edit-store-btn', function () {
-            const storeId = $(this).data('id');
-            $('#settingsModal').modal('hide');
-            // Fetch the store details using the store ID
-            axios.get(`/get-store/${storeId}`)
-                .then(response => {
-                    const store = response.data.store;
-
-                    // Populate the modal with the current store details
-                    $('#editStoreId').val(store.store_id);
-                    $('#editStoreName').val(store.storename);
-                    $('#editClientID').val(store.client_id);
-                    $('#editClientSecret').val(store.client_secret);
-                    $('#editRefreshToken').val(store.refresh_token);
-                    $('#editMerchantID').val(store.MerchantID);
-                    $('#editMarketplace').val(store.Marketplace);
-                    $('#editMarketplaceID').val(store.MarketplaceID);
-
-                    // Show the modal
-                    $('#editStoreModal').modal('show');
-                })
-                .catch(error => {
-                    console.error('Error fetching store details:', error);
-                    alert('An error occurred while fetching store details.');
-                });
-        });
-
-        document.getElementById('editStoreForm').addEventListener('submit', function (e) {
-            e.preventDefault(); // Prevent default form submission
-
-            const storeId = document.getElementById('editStoreId').value.trim();
-            if (!storeId) {
-                alert('Store ID is missing. Please try again.');
-                return;
-            }
-
-            // Gather the updated data from the form
-            const updatedStoreData = {
-                store_id: storeId, // Should match the store_id column in the database
-                storename: document.getElementById('editStoreName').value.trim() || null,
-                client_id: document.getElementById('editClientID').value.trim() || null,
-                client_secret: document.getElementById('editClientSecret').value.trim() || null,
-                refresh_token: document.getElementById('editRefreshToken').value.trim() || null,
-                MerchantID: document.getElementById('editMerchantID').value.trim() || null,
-                Marketplace: document.getElementById('editMarketplace').value.trim() || null,
-                MarketplaceID: document.getElementById('editMarketplaceID').value.trim() || null
-            };
-
-            console.log(updatedStoreData);
-
-            // Send request to update store
-            axios.post('/update-store/' + storeId, updatedStoreData, {
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute(
-                        'content')
-                }
-            })
-                .then(response => {
-                    console.log(response);
-                    if (response.data.success) {
-                        alert('Store updated successfully');
-                        fetchStoreList();
-                        $('#editStoreModal').modal('hide');
-                        $('#settingsModal').modal('show');
-                        $('#store-tab').tab('show');
-                    } else {
-                        // Display the error message returned by the server
-                        alert(response.data.message || 'Failed to update store');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error updating store:', error);
-                    alert('An error occurred while updating the store.');
-                });
-        });
-
-
-        // Alternatively, if you're using the close button explicitly, you can handle it like this:
-        document.querySelector('#editStoreModal .btn-close').addEventListener('click', function () {
-            // Show the settings modal and select the store tab after closing the edit modal
-            $('#settingsModal').modal('show');
-            $('#store-tab').tab('show'); // This activates the store tab
-        });
-
-
-        function fetchMarketplaces() {
-            console.log("Modal is shown, fetching marketplaces..."); // Check if the modal is opening
-            axios.get('/fetch-marketplaces')
-                .then(response => {
-                    const marketplaceSelect = document.getElementById('selectMarketplace');
-                    marketplaceSelect.innerHTML = ''; // Clear existing options
-
-                    response.data.forEach(marketplace => {
-                        const option = document.createElement('option');
-                        option.value = marketplace.value; // Set the 'value' field
-                        option.textContent = marketplace.name; // Display the 'name' field
-                        marketplaceSelect.appendChild(option);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error fetching marketplaces:', error);
-                });
-        }
-
-        function updateMarketplaceFields() {
-            const marketplaceSelect = document.getElementById('selectMarketplace');
-            const selectedOptions = Array.from(marketplaceSelect.selectedOptions);
-
-            // Retrieve existing values from the input fields
-            const currentNames = document.getElementById('editMarketplace').value.split(',').map(name => name.trim());
-            const currentIDs = document.getElementById('editMarketplaceID').value.split(',').map(id => id.trim());
-
-            // Add new values, avoiding duplicates
-            selectedOptions.forEach(option => {
-                if (!currentNames.includes(option.textContent)) {
-                    currentNames.push(option.textContent);
-                    currentIDs.push(option.value);
-                }
-            });
-
-            // Update the fields with the updated values
-            document.getElementById('editMarketplace').value = currentNames.filter(Boolean).join(', ');
-            document.getElementById('editMarketplaceID').value = currentIDs.filter(Boolean).join(', ');
-        }
-
-        // Attach event listeners
-        document.getElementById('editStoreModal').addEventListener('show.bs.modal', fetchMarketplaces);
-        document.getElementById('selectMarketplace').addEventListener('change', updateMarketplaceFields);
     </script>
 
     <!-- Success Notification for adding user-->
@@ -3842,264 +2041,6 @@ function closeSidebar() {
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const userListModal = document.getElementById('userListModal');
-            const settingsModal = document.getElementById('settingsModal');
-            const addUserForm = document.getElementById('addUserForm');
-
-            // Function to fetch and display users
-            function fetchUsers() {
-                fetch('{{ route('user') }}')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            const userTableBody = document.getElementById('userTableBody');
-                            let html = '';
-
-                            data.data.forEach(user => {
-                                const createdAt = new Date(user.created_at).toLocaleString();
-                                const badgeClass = user.role === 'SuperAdmin' ? 'bg-danger' :
-                                    (user.role === 'SubAdmin' ? 'bg-warning' : 'bg-info');
-
-                                html += `
-                            <tr>
-                                <td>${user.username}</td>
-                                <td><span class="badge ${badgeClass}">${user.role}</span></td>
-                                <td>${createdAt}</td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        <button type="button" class="btn btn-sm btn-outline-primary"
-                                                onclick="editUser(${user.id}, '${user.username}', '${user.role}')">
-                                            <i class="bi bi-pencil"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-outline-danger"
-                                                onclick="showDeleteConfirmation(${user.id}, '${user.username}')">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        `;
-                            });
-
-                            userTableBody.innerHTML = html ||
-                                '<tr><td colspan="4" class="text-center">No users found</td></tr>';
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        document.getElementById('userTableBody').innerHTML =
-                            '<tr><td colspan="4" class="text-center text-danger">Error loading users</td></tr>';
-                    });
-            }
-
-            // User List Modal event handlers
-            userListModal.addEventListener('hidden.bs.modal', function (event) {
-                // Check if edit modal is being shown
-                const editModalElement = document.getElementById('editUserModal');
-                if (editModalElement.classList.contains('show')) {
-                    return; // Don't do anything if edit modal is being shown
-                }
-
-                const backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) {
-                    backdrop.remove();
-                }
-            });
-
-            userListModal.addEventListener('show.bs.modal', function () {
-                const settingsModalInstance = bootstrap.Modal.getInstance(settingsModal);
-                if (settingsModalInstance) {
-                    settingsModalInstance.hide();
-                }
-                fetchUsers();
-            });
-
-            // Add User Form handler
-            if (addUserForm) {
-                addUserForm.addEventListener('submit', function (e) {
-                    e.preventDefault();
-
-                    const formData = new FormData(this);
-
-                    fetch('{{ route('add-user') }}', {
-                        method: 'POST',
-                        body: formData,
-                        // Don't manually set Content-Type when using FormData
-                        // Let the browser handle it automatically
-                    })
-                        .then(response => {
-                            if (!response.ok) {
-                                return response.json().then(data => Promise.reject(data));
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.success) {
-                                const settingsModalInstance = bootstrap.Modal.getInstance(
-                                    settingsModal);
-                                if (settingsModalInstance) {
-                                    settingsModalInstance.hide();
-                                }
-
-                                const backdrop = document.querySelector('.modal-backdrop');
-                                if (backdrop) {
-                                    backdrop.remove();
-                                }
-
-                                this.reset();
-                                alert('User added successfully!');
-
-                                const userListModalInstance = new bootstrap.Modal(userListModal);
-                                userListModalInstance.show();
-                                fetchUsers();
-                            } else {
-                                throw new Error(data.message || 'Failed to add user');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            // Improve error display
-                            let errorMessage = 'Error adding user. Please try again.';
-
-                            if (error.message) {
-                                errorMessage = error.message;
-                            } else if (error.detailed_errors && error.detailed_errors.length > 0) {
-                                errorMessage = error.detailed_errors.join('\n');
-                            }
-
-                            alert(errorMessage);
-                        });
-                });
-            }
-            // Edit User Functions
-            window.editUser = function (userId, username, role) {
-                // Get modal instances
-                const userListModalInstance = bootstrap.Modal.getInstance(document.getElementById(
-                    'userListModal'));
-                const settingsModalInstance = bootstrap.Modal.getInstance(document.getElementById(
-                    'settingsModal'));
-
-                // Hide both modals
-                if (userListModalInstance) {
-                    userListModalInstance.hide();
-                }
-                if (settingsModalInstance) {
-                    settingsModalInstance.hide();
-                }
-
-                setTimeout(() => {
-                    const backdrop = document.querySelector('.modal-backdrop');
-                    if (backdrop) {
-                        backdrop.remove();
-                    }
-                }, 100);
-
-                // Populate edit form
-                document.getElementById('edit_user_id').value = userId;
-                document.getElementById('edit_username').value = username;
-                document.getElementById('edit_role').value = role;
-                document.getElementById('edit_password').value = '';
-
-                setTimeout(() => {
-                    const editModalInstance = new bootstrap.Modal(document.getElementById(
-                        'editUserModal'));
-                    editModalInstance.show();
-                }, 150);
-            };
-
-            // Edit form submission handler
-            document.getElementById('editUserForm').addEventListener('submit', function (e) {
-                e.preventDefault();
-                const userId = document.getElementById('edit_user_id').value;
-
-                fetch(`/update-user/${userId}`, {
-                    method: 'POST',
-                    body: new FormData(this),
-                    headers: {
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')
-                            .getAttribute('content')
-                    }
-                })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert('User updated successfully!');
-                            const editModal = bootstrap.Modal.getInstance(document.getElementById(
-                                'editUserModal'));
-                            editModal.hide();
-
-                            const userListModal = new bootstrap.Modal(document.getElementById(
-                                'userListModal'));
-                            userListModal.show();
-                            fetchUsers();
-                        } else {
-                            alert(data.message || 'Error updating user');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error:', error);
-                        alert('Error updating user');
-                    });
-            });
-
-            // Edit modal hidden event handler
-            document.getElementById('editUserModal').addEventListener('hidden.bs.modal', function (event) {
-                event.stopPropagation();
-
-                const backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) {
-                    backdrop.remove();
-                }
-
-                setTimeout(() => {
-                    const userListModalInstance = new bootstrap.Modal(document.getElementById(
-                        'userListModal'));
-                    userListModalInstance.show();
-                }, 100);
-            });
-
-            // Delete User Functions
-            let deleteUserId = null;
-
-            window.showDeleteConfirmation = function (userId, username) {
-                deleteUserId = userId;
-                document.getElementById('delete-user-name').textContent = username;
-                const deleteModal = new bootstrap.Modal(document.getElementById('deleteUserModal'));
-                deleteModal.show();
-            };
-
-            document.getElementById('confirmDelete').addEventListener('click', function () {
-                if (deleteUserId) {
-                    fetch(`/delete-user/${deleteUserId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')
-                                .getAttribute('content')
-                        }
-                    })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.success) {
-                                alert('User deleted successfully!');
-                                const deleteModal = bootstrap.Modal.getInstance(document.getElementById(
-                                    'deleteUserModal'));
-                                deleteModal.hide();
-                                fetchUsers();
-                            } else {
-                                alert(data.message || 'Error deleting user');
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            alert('Error deleting user');
-                        });
-                }
-            });
-        });
-    </script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
             const checkbox = document.getElementById('auto_sync');
             const tzSelect = document.getElementById('usertimezone');
 
@@ -4146,5 +2087,17 @@ function closeSidebar() {
             });
         });
     </script>
+
+    {{-- Scripts--}}
+    <script>
+        window.routes = {
+            fetchUsers: "{{ route('user') }}",
+            addUser: "{{ route('add-user') }}",
+            updateUser: "{{ url('/update-user') }}",
+            deleteUser: "{{ url('/delete-user') }}"
+        };
+    </script>
+
+    <script src="{{ asset('js/settings-modal.js') }}"></script>
 </body>
 </html>
