@@ -253,6 +253,14 @@ Route::get('/apis/ebay-login', action: function () {
 use App\Http\Controllers\Ebay\EbayController;
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
+Route::get('/ebay/orders/cron-automation/{token}', function ($token) {
+    if ($token !== env('CRON_SECRET')) {
+        abort(403, 'Unauthorized');
+    }
+
+    return app(EbayController::class)->fetchOrders(request());
+});
+
 use App\Http\Controllers\Amzn\FBACartController;
 Route::post('/amzn/fba-cart/add', [FBACartController::class, 'addToCart']);
 Route::get('/amzn/fba-cart/list', [FBACartController::class, 'list']);
