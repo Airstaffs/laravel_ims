@@ -167,6 +167,8 @@ export default {
 
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
+
+                console.log(this.inventory);
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
             }

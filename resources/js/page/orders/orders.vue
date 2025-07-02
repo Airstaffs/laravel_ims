@@ -34,70 +34,15 @@
                                         "
                                     ></i>
                                 </span>
-
-                                <button
-                                    class="btn-showDetails"
-                                    @click="toggleDetailsVisibility"
-                                >
-                                    {{
-                                        showDetails
-                                            ? "Hide extra columns"
-                                            : "Show extra columns"
-                                    }}
-                                </button>
                             </div>
                         </th>
-                        <th class="">Location</th>
-                        <th class="">Added date</th>
-                        <th class="">Updated date</th>
-                        <th class="">Fnsku</th>
-                        <th class="">Msku</th>
-                        <th class="">Asin</th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBM
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBA
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Outbound
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Inbound
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Unfulfillable
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Reserved
-                        </th>
-                        <th class="">Fulfillment</th>
+                        <th class="">Seller Location</th>
+                        <th class="">Serial Number</th>
+                        <th class="">Tracking Number</th>
+                        <th class="">Condition</th>
                         <th class="">Status</th>
-                        <th class="">Serialnumber</th>
+                        <th class="">Ordered Date</th>
+                        <th class="">Delivered Date</th>
                         <th class="">Actions</th>
                     </tr>
                 </thead>
@@ -147,98 +92,41 @@
                                 </div>
                             </td>
                             <td>
+                                <span><strong></strong> {{ item.seller }}</span>
+                            </td>
+                            <td>
                                 <span
                                     ><strong></strong>
-                                    {{ item.warehouselocation }}</span
+                                    {{ item.itemnumber }}</span
                                 >
                             </td>
-
+                            <td>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.trackingnumber }}</span
+                                >
+                            </td>
+                            <td>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.listedcondition }}</span
+                                >
+                            </td>
+                            <td>
+                                <span><strong></strong> {{ item.Status }}</span>
+                            </td>
+                            <td>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.orderdate }}</span
+                                >
+                            </td>
                             <td>
                                 <span
                                     ><strong></strong>
                                     {{ item.datedelivered }}</span
                                 >
                             </td>
-
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.lastDateUpdate }}</span
-                                >
-                            </td>
-
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FNSKUviewer }}</span
-                                >
-                            </td>
-
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.MSKUviewer }}</span
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.ASINviewer }}</span
-                                >
-                            </td>
-                            <!-- Hidden -->
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FBMAvailable }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FbaAvailable }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Outbound }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Inbound }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Reserved }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.Unfulfillable }}</span
-                                >
-                            </td>
-                            <!-- End Hidden -->
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.Fulfilledby }}</span
-                                >
-                            </td>
-
-                            <td>
-                                <span><strong></strong> {{ item.Status }}</span>
-                            </td>
-
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.serialnumber }}</span
-                                >
-                            </td>
-
                             <!-- Button for more details -->
                             <td>
                                 <div class="action-buttons">
