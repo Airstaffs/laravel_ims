@@ -1,4 +1,4 @@
-import { eventBus } from '../../components/eventBus';
+import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./orders.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -80,6 +80,7 @@ export default {
             // Reset modal state
             this.modalImages = [];
             this.currentImageIndex = 0;
+            this.ProductTitle = item.ProductTitle;
 
             // Image field names in your data (img1 through img15)
             const imageFields = [
@@ -152,14 +153,17 @@ export default {
         // Fetch inventory data from the API
         async fetchInventory() {
             try {
-                const response = await axios.get(`${API_BASE_URL}/api/orders/products`, {
-                    params: {
-                        search: this.searchQuery,
-                        page: this.currentPage,
-                        per_page: this.perPage,
-                        location: "Orders",
-                    },
-                });
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/orders/products`,
+                    {
+                        params: {
+                            search: this.searchQuery,
+                            page: this.currentPage,
+                            per_page: this.perPage,
+                            location: "Orders",
+                        },
+                    }
+                );
 
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
