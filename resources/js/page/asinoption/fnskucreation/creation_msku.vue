@@ -115,7 +115,7 @@ export default {
   },
   methods: {
     fetchStores() {
-      fetch(`${API_BASE_URL}/api/asinlist//all/stores`)
+      fetch(`${API_BASE_URL}/api/asinlist/all/stores`)
         .then(res => res.json())
         .then(data => {
           if (Array.isArray(data)) {
