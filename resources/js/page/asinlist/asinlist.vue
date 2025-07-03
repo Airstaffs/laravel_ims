@@ -152,11 +152,7 @@
                                                         <td>{{ fnsku.MSKU || '-' }}</td>
                                                         <td>{{ fnsku.storename }}</td>
                                                         <td>{{ fnsku.Units || 0 }}</td>
-                                                        <td>
-                                                            <span class="grade-display" :class="getGradeClass(fnsku.grading)">
-                                                                {{ fnsku.grading || 'Not Graded' }}
-                                                            </span>
-                                                        </td>
+                                                        <td>{{ fnsku.grading || '-' }}</td>
                                                     </tr>
                                                     <tr v-if="!item.fnskus || item.fnskus.length === 0">
                                                         <td colspan="5" class="text-center">No FNSKUs found</td>
@@ -247,11 +243,7 @@
                                     </div>
                                     <div class="mobile-fnsku-detail">
                                         <span class="mobile-fnsku-label">Grade:</span>
-                                        <span class="mobile-fnsku-value">
-                                            <span class="grade-display" :class="getGradeClass(fnsku.grading)">
-                                                {{ fnsku.grading || 'Not Graded' }}
-                                            </span>
-                                        </span>
+                                        <span class="mobile-fnsku-value">{{ fnsku.grading || '-' }}</span>
                                     </div>
                                 </div>
                                 <div v-if="!item.fnskus || item.fnskus.length === 0" class="mobile-empty">
@@ -305,79 +297,284 @@
                     <div class="asin-details-layout">
                         <!-- Left Column: Images and Basic Info -->
                         <div class="asin-details-left">
-                            <!-- Images Section - Horizontal Layout -->
+                            <!-- Images Section -->
                             <div class="images-section">
+                                <!-- ASIN Images Container -->
                                 <div class="image-container">
-                                    <div class="asin-details-image clickable" @click="enlargeImage = !enlargeImage">
-                                        <img :src="selectedAsin.useDefaultImage ? defaultImagePath : getImagePath(selectedAsin.ASIN)"
-                                            :alt="selectedAsin.AStitle"
-                                            :class="['asin-details-thumbnail', enlargeImage ? 'enlarged' : '']"
-                                            @error="handleImageError($event, selectedAsin)" />
-                                    </div>
-                                    <div class="image-label">ASIN Image</div>
-                                </div>
-                                
-                                <div class="image-container">
-                                    <div class="instruction-card-image">
-                                        <img :src="getInstructionCardPath(selectedAsin.ASIN)"
-                                            :alt="`Instruction card for ${selectedAsin.ASIN}`"
-                                            class="instruction-card-thumbnail"
-                                            @error="handleInstructionCardError($event)" />
+                                    <div class="asin-images-main clickable" @click="openAsinImageModal">
+                                        <img :src="getMainAsinImagePath(selectedAsin.ASIN)"
+                                            :alt="`ASIN images for ${selectedAsin.ASIN}`"
+                                            class="asin-images-main-thumbnail" />
                                         
-                                        <!-- Upload Button Overlay -->
-                                        <div class="upload-overlay" v-if="editMode">
+                                        <!-- Small thumbnails overlay -->
+                                        <div class="asin-images-thumbnails">
+                                            <div class="small-thumb asin-thumb" :class="{ 'has-image': getImagePath(selectedAsin.ASIN) !== defaultImagePath }">
+                                                <img :src="getImagePath(selectedAsin.ASIN)"
+                                                     class="small-thumb-img" />
+                                                <span class="thumb-label">IMG</span>
+                                            </div>
+                                            <div class="small-thumb vector-thumb" :class="{ 'has-image': hasVectorImage(selectedAsin.ASIN) }">
+                                                <img :src="getMainVectorImagePath(selectedAsin.ASIN)"
+                                                     class="small-thumb-img" />
+                                                <span class="thumb-label">VEC</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="image-label">
+                                        ASIN Images
+                                    </div>
+                                </div>
+
+                                <!-- Instruction Card Container -->
+                                <div class="image-container">
+                                    <div class="instruction-card-main clickable" @click="openInstructionCardModal">
+                                        <img :src="getMainInstructionCardPath(selectedAsin.ASIN)"
+                                            :alt="`Instruction cards for ${selectedAsin.ASIN}`"
+                                            class="instruction-card-main-thumbnail" />
+                                        
+                                        <!-- Small thumbnails overlay -->
+                                        <div class="instruction-card-thumbnails">
+                                            <div class="small-thumb" :class="{ 'has-image': hasInstructionCard(selectedAsin.ASIN, 1) }">
+                                                <img :src="getInstructionCardPath(selectedAsin.ASIN, 1)"
+                                                     class="small-thumb-img" />
+                                                <span class="thumb-number">1</span>
+                                            </div>
+                                            <div class="small-thumb" :class="{ 'has-image': hasInstructionCard(selectedAsin.ASIN, 2) }">
+                                                <img :src="getInstructionCardPath(selectedAsin.ASIN, 2)"
+                                                     class="small-thumb-img" />
+                                                <span class="thumb-number">2</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="image-label">
+                                        Instruction Cards
+                                    </div>
+                                </div>
+
+                                <!-- User Manual Container -->
+                                <div class="image-container">
+                                    <div class="user-manual-container" :class="{ 'has-manual': hasUserManual(selectedAsin.ASIN) }">
+                                        <div class="user-manual-icon" v-if="hasUserManual(selectedAsin.ASIN)">
+                                            <a :href="getUserManualPath(selectedAsin.ASIN)" 
+                                               target="_blank" 
+                                               class="user-manual-link">
+                                                <i class="fas fa-file-pdf"></i>
+                                                <span>View Manual</span>
+                                            </a>
+                                        </div>
+                                        <div class="user-manual-icon no-manual" v-else>
+                                            <i class="fas fa-file-pdf"></i>
+                                            <span>No Manual</span>
+                                        </div>
+                                        
+                                        <!-- Upload section for edit mode -->
+                                        <div v-if="editMode" class="user-manual-upload">
                                             <input type="file" 
-                                                   ref="instructionCardInput"
-                                                   @change="handleInstructionCardUpload"
-                                                   accept="image/*"
+                                                   ref="userManualUpload"
+                                                   @change="handleUserManualUpload"
+                                                   accept="application/pdf"
                                                    style="display: none" />
-                                            <button class="btn-upload-image" @click="$refs.instructionCardInput.click()">
-                                                <i class="fas fa-camera"></i> Upload
+                                            <button class="btn-upload-manual" 
+                                                    @click="$refs.userManualUpload.click()" 
+                                                    :disabled="userManualUploading">
+                                                <i class="fas fa-upload"></i> 
+                                                {{ userManualUploading ? 'Uploading...' : 'Upload PDF' }}
                                             </button>
                                         </div>
                                     </div>
                                     <div class="image-label">
-                                        Instruction Card
-                                        <span v-if="instructionCardUploading" class="upload-status">
-                                            <i class="fas fa-spinner fa-spin"></i> Uploading...
-                                        </span>
+                                        User Manual
                                     </div>
                                 </div>
                             </div>
                             
                             <div class="asin-details-info">
                                 <h3 class="asin-details-title">{{ selectedAsin.AStitle }}</h3>
-                                <div class="asin-details-row">
-                                    <span class="asin-details-label">ASIN:</span>
-                                    <span class="asin-details-value">{{ selectedAsin.ASIN }}</span>
-                                </div>
-                                <div class="asin-details-row">
-                                    <span class="asin-details-label">EAN:</span>
-                                    <input v-if="editMode" 
-                                           v-model="editedAsin.EAN"
-                                           class="details-input"
-                                           placeholder="Enter EAN" />
-                                    <span v-else class="asin-details-value">{{ selectedAsin.EAN || '-' }}</span>
-                                </div>
-                                <div class="asin-details-row">
-                                    <span class="asin-details-label">UPC:</span>
-                                    <input v-if="editMode" 
-                                           v-model="editedAsin.UPC"
-                                           class="details-input"
-                                           placeholder="Enter UPC" />
-                                    <span v-else class="asin-details-value">{{ selectedAsin.UPC || '-' }}</span>
-                                </div>
-                                <div class="asin-details-row">
-                                    <span class="asin-details-label">Total FNSKUs:</span>
-                                    <span class="asin-details-value">{{ selectedAsin.fnsku_count }}</span>
-                                </div>
                                 
-                                <!-- Save button for ASIN details -->
-                                <div v-if="editMode" class="asin-details-actions">
-                                    <button class="btn-save-asin-details" @click="saveAsinDetails" :disabled="savingAsinDetails">
-                                        <i class="fas fa-save"></i> 
-                                        {{ savingAsinDetails ? 'Saving...' : 'Save ASIN Details' }}
-                                    </button>
+                                <!-- Basic Information Section -->
+                                <div class="details-section">
+                                    <h4 class="section-title">Basic Information</h4>
+                                    <div class="asin-details-row">
+                                        <span class="asin-details-label">ASIN:</span>
+                                        <span class="asin-details-value">{{ selectedAsin.ASIN }}</span>
+                                    </div>
+                                    <div class="asin-details-row">
+                                        <span class="asin-details-label">Meta Keyword:</span>
+                                        <textarea v-if="editMode" 
+                                                v-model="editedAsin.metakeyword"
+                                                class="details-textarea"
+                                                placeholder="Enter meta keywords"
+                                                rows="2"></textarea>
+                                        <span v-else class="asin-details-value">{{ selectedAsin.metakeyword || '-' }}</span>
+                                    </div>
+                                    <div class="asin-details-row">
+                                        <span class="asin-details-label">EAN:</span>
+                                        <input v-if="editMode" 
+                                               v-model="editedAsin.EAN"
+                                               class="details-input"
+                                               placeholder="Enter EAN" />
+                                        <span v-else class="asin-details-value">{{ selectedAsin.EAN || '-' }}</span>
+                                    </div>
+                                    <div class="asin-details-row">
+                                        <span class="asin-details-label">UPC:</span>
+                                        <input v-if="editMode" 
+                                               v-model="editedAsin.UPC"
+                                               class="details-input"
+                                               placeholder="Enter UPC" />
+                                        <span v-else class="asin-details-value">{{ selectedAsin.UPC || '-' }}</span>
+                                    </div>
+                                    <div class="asin-details-row">
+                                        <span class="asin-details-label">Instruction Link:</span>
+                                        <input v-if="editMode" 
+                                               v-model="editedAsin.instructionlink"
+                                               class="details-input instruction-link-input"
+                                               placeholder="Enter instruction link URL"
+                                               type="text" />
+                                        <span v-else class="asin-details-value">
+                                            <a v-if="selectedAsin.instructionlink" 
+                                               :href="selectedAsin.instructionlink" 
+                                               target="_blank" 
+                                               class="instruction-link">
+                                                <i class="fas fa-external-link-alt"></i> View Instructions
+                                            </a>
+                                            <span v-else>-</span>
+                                        </span>
+                                    </div>
+                                    <div class="asin-details-row">
+                                        <span class="asin-details-label">Transparency QR:</span>
+                                        <textarea v-if="editMode" 
+                                                v-model="editedAsin.TRANSPARENCY_QR_STATUS"
+                                                class="details-textarea"
+                                                placeholder="Enter transparency QR status"
+                                                rows="3"></textarea>
+                                        <span v-else class="asin-details-value">{{ selectedAsin.TRANSPARENCY_QR_STATUS || '-' }}</span>
+                                    </div>
+                                    <div class="asin-details-row">
+                                        <span class="asin-details-label">User Manual:</span>
+                                        <span class="asin-details-value">
+                                            <a v-if="hasUserManual(selectedAsin.ASIN)" 
+                                               :href="getUserManualPath(selectedAsin.ASIN)" 
+                                               target="_blank" 
+                                               class="user-manual-link-text">
+                                                <i class="fas fa-file-pdf"></i> View PDF Manual
+                                            </a>
+                                            <span v-else>-</span>
+                                        </span>
+                                    </div>
+                                    <div class="asin-details-row">
+                                        <span class="asin-details-label">Total FNSKUs:</span>
+                                        <span class="asin-details-value">{{ selectedAsin.fnsku_count }}</span>
+                                    </div>
+                                    
+                                    <!-- Save button for ASIN details -->
+                                    <div v-if="editMode" class="asin-details-actions">
+                                        <button class="btn-save-asin-details" @click="saveAsinDetails" :disabled="savingAsinDetails">
+                                            <i class="fas fa-save"></i> 
+                                            {{ savingAsinDetails ? 'Saving...' : 'Save Basic Details' }}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Amazon Dimensions Section (Read-only) -->
+                                <div class="details-section amazon-dimensions">
+                                    <h4 class="section-title">Amazon Dimensions (Read-only)</h4>
+                                    <div class="dimensions-grid">
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">AMZN Length:</div>
+                                            <div class="dimension-value">{{ selectedAsin.dimension_length || '-' }}</div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">AMZN Width:</div>
+                                            <div class="dimension-value">{{ selectedAsin.dimension_width || '-' }}</div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">AMZN Height:</div>
+                                            <div class="dimension-value">{{ selectedAsin.dimension_height || '-' }}</div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">AMZN Weight:</div>
+                                            <div class="dimension-value">
+                                                {{ selectedAsin.weight_value ? `${selectedAsin.weight_value} ${selectedAsin.weight_unit || ''}` : '-' }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Default Dimensions Section (Editable) -->
+                                <div class="details-section default-dimensions">
+                                    <h4 class="section-title">Default Dimensions (Editable)</h4>
+                                    <div class="dimensions-grid">
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">Def Length:</div>
+                                            <div class="dimension-value">
+                                                <input v-if="editMode" 
+                                                       v-model="editedAsin.def_length"
+                                                       class="dimension-input"
+                                                       type="number"
+                                                       step="0.01"
+                                                       min="0"
+                                                       placeholder="0.00" />
+                                                <span v-else>{{ selectedAsin.white_length || '-' }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">Def Width:</div>
+                                            <div class="dimension-value">
+                                                <input v-if="editMode" 
+                                                       v-model="editedAsin.def_width"
+                                                       class="dimension-input"
+                                                       type="number"
+                                                       step="0.01"
+                                                       min="0"
+                                                       placeholder="0.00" />
+                                                <span v-else>{{ selectedAsin.white_width || '-' }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">Def Height:</div>
+                                            <div class="dimension-value">
+                                                <input v-if="editMode" 
+                                                       v-model="editedAsin.def_height"
+                                                       class="dimension-input"
+                                                       type="number"
+                                                       step="0.01"
+                                                       min="0"
+                                                       placeholder="0.00" />
+                                                <span v-else>{{ selectedAsin.white_height || '-' }}</span>
+                                            </div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">Def Weight:</div>
+                                            <div class="dimension-value">
+                                                <div v-if="editMode" class="weight-input-group">
+                                                    <input v-model="editedAsin.def_weight"
+                                                           class="dimension-input weight-value"
+                                                           type="number"
+                                                           step="0.01"
+                                                           min="0"
+                                                           placeholder="0.00" />
+                                                    <select v-model="editedAsin.def_weight_unit" class="weight-unit-select">
+                                                        <option value="">Unit</option>
+                                                        <option value="kg">kg</option>
+                                                        <option value="lbs">lbs</option>
+                                                        <option value="g">g</option>
+                                                        <option value="oz">oz</option>
+                                                    </select>
+                                                </div>
+                                                <span v-else>
+                                                    {{ selectedAsin.white_value ? `${selectedAsin.white_value} ${selectedAsin.white_unit || ''}` : '-' }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Save button for default dimensions -->
+                                    <div v-if="editMode" class="dimensions-actions">
+                                        <button class="btn-save-dimensions" @click="saveDefaultDimensions" :disabled="savingDefaultDimensions">
+                                            <i class="fas fa-save"></i> 
+                                            {{ savingDefaultDimensions ? 'Saving...' : 'Save Dimensions' }}
+                                        </button>
+                                    </div>
                                 </div>
                                 
                                 <!-- Stores Section -->
@@ -390,7 +587,7 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Related ASINs Section - Editable -->
+                                <!-- Related ASINs Section -->
                                 <div class="asin-details-related-section">
                                     <h4>Related ASINs</h4>
                                     <div class="related-asins-details">
@@ -439,7 +636,7 @@
                             </div>
                         </div>
 
-                        <!-- Right Column: FNSKU Details with Grading -->
+                        <!-- Right Column: FNSKU Details -->
                         <div class="asin-details-right">
                             <div class="asin-details-section fnsku-section">
                                 <h4>FNSKU Details</h4>
@@ -459,11 +656,7 @@
                                                     <td class="fnsku-code">{{ fnsku.FNSKU }}</td>
                                                     <td>{{ fnsku.MSKU || '-' }}</td>
                                                     <td class="units-cell">{{ fnsku.Units || 0 }}</td>
-                                                    <td class="grade-cell">
-                                                        <span class="grade-display" :class="getGradeClass(fnsku.grading)">
-                                                            {{ fnsku.grading || 'Not Graded' }}
-                                                        </span>
-                                                    </td>
+                                                    <td class="grade-cell">{{ fnsku.grading || '-' }}</td>
                                                 </tr>
                                                 <tr v-if="!selectedAsin.fnskus || selectedAsin.fnskus.length === 0">
                                                     <td colspan="4" class="text-center">No FNSKUs found</td>
@@ -482,432 +675,143 @@
                 </div>
             </div>
         </div>
+
+        <!-- ASIN Image Management Modal -->
+        <div v-if="showAsinImageModal" class="asin-image-modal">
+            <div class="asin-image-modal-content">
+                <div class="asin-image-modal-header">
+                    <h3>Manage ASIN Images - {{ selectedAsin?.ASIN }}</h3>
+                    <button class="modal-close" @click="closeAsinImageModal">&times;</button>
+                </div>
+                
+                <div class="asin-image-modal-body">
+                    <div class="image-management-layout">
+                        <!-- ASIN Image -->
+                        <div class="image-slot">
+                            <div class="image-slot-header">
+                                <h4>Main ASIN Image</h4>
+                            </div>
+                            <div class="image-slot-image">
+                                <img :src="getImagePath(selectedAsin?.ASIN)"
+                                     :alt="`ASIN image for ${selectedAsin?.ASIN}`"
+                                     class="image-slot-thumbnail"
+                                     @error="handleImageError($event, null)" />
+                            </div>
+                            <div class="image-slot-actions">
+                                <input type="file" 
+                                       ref="asinImageUpload"
+                                       @change="handleAsinImageUpload"
+                                       accept="image/*"
+                                       style="display: none" />
+                                <button class="btn-upload-image" @click="$refs.asinImageUpload.click()" :disabled="asinImageUploading">
+                                    <i class="fas fa-upload"></i> 
+                                    {{ asinImageUploading ? 'Uploading...' : 'Upload/Update' }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="image-slot">
+                            <div class="image-slot-header">
+                                <h4>Vector Image</h4>
+                            </div>
+                            <div class="image-slot-image">
+                                <img :src="hasVectorImage(selectedAsin?.ASIN) ? getVectorImagePath(selectedAsin?.ASIN) : createDefaultVectorSVG()"
+                                     :alt="`Vector image for ${selectedAsin?.ASIN}`"
+                                     class="image-slot-thumbnail"
+                                     @error="handleImageError($event, null)" />
+                            </div>
+                            <div class="image-slot-actions">
+                                <input type="file" 
+                                       ref="vectorImageUpload"
+                                       @change="handleVectorImageUpload"
+                                       accept="image/png,image/jpg,image/jpeg"
+                                       style="display: none" />
+                                <button class="btn-upload-vector" @click="$refs.vectorImageUpload.click()" :disabled="vectorImageUploading">
+                                    <i class="fas fa-upload"></i> 
+                                    {{ vectorImageUploading ? 'Uploading...' : 'Upload/Update' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="asin-image-modal-footer">
+                    <button class="btn-close-modal" @click="closeAsinImageModal">Close</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Instruction Card Management Modal -->
+        <div v-if="showInstructionCardModal" class="instruction-card-modal">
+            <div class="instruction-card-modal-content">
+                <div class="instruction-card-modal-header">
+                    <h3>Manage Instruction Cards - {{ selectedAsin?.ASIN }}</h3>
+                    <button class="modal-close" @click="closeInstructionCardModal">&times;</button>
+                </div>
+                
+                <div class="instruction-card-modal-body">
+                    <div class="card-management-layout">
+                        <!-- Card 1 -->
+                        <div class="card-slot">
+                            <div class="card-slot-header">
+                                <h4>Instruction Card 1</h4>
+                            </div>
+                            <div class="card-slot-image">
+                                <img :src="getInstructionCardPath(selectedAsin?.ASIN, 1)"
+                                     :alt="`Instruction card 1 for ${selectedAsin?.ASIN}`"
+                                     class="card-slot-thumbnail"
+                                     @error="handleInstructionCardError($event, 1)" />
+                            </div>
+                            <div class="card-slot-actions">
+                                <input type="file" 
+                                       :ref="`cardUpload1`"
+                                       @change="(e) => handleInstructionCardUpload(e, 1)"
+                                       accept="image/*"
+                                       style="display: none" />
+                                <button class="btn-upload-card" @click="$refs.cardUpload1.click()" :disabled="instructionCardUploading === 1">
+                                    <i class="fas fa-upload"></i> 
+                                    {{ instructionCardUploading === 1 ? 'Uploading...' : 'Upload/Update' }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Card 2 -->
+                        <div class="card-slot">
+                            <div class="card-slot-header">
+                                <h4>Instruction Card 2</h4>
+                            </div>
+                            <div class="card-slot-image">
+                                <img :src="getInstructionCardPath(selectedAsin?.ASIN, 2)"
+                                     :alt="`Instruction card 2 for ${selectedAsin?.ASIN}`"
+                                     class="card-slot-thumbnail"
+                                     @error="handleInstructionCardError($event, 2)" />
+                            </div>
+                            <div class="card-slot-actions">
+                                <input type="file" 
+                                       :ref="`cardUpload2`"
+                                       @change="(e) => handleInstructionCardUpload(e, 2)"
+                                       accept="image/*"
+                                       style="display: none" />
+                                <button class="btn-upload-card" @click="$refs.cardUpload2.click()" :disabled="instructionCardUploading === 2">
+                                    <i class="fas fa-upload"></i> 
+                                    {{ instructionCardUploading === 2 ? 'Uploading...' : 'Upload/Update' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="instruction-card-modal-footer">
+                    <button class="btn-close-modal" @click="closeInstructionCardModal">Close</button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
 
 <script>
-import { eventBus } from '../../components/eventBus';
-import '../../../css/modules.css';
-
-const API_BASE_URL = import.meta.env.VITE_API_URL;
-
-export default {
-    name: 'AsinViewerModule',
-    data() {
-        return {
-            asinData: [],
-            currentPage: 1,
-            totalPages: 1,
-            perPage: 15,
-            expandedRows: {},
-            sortColumn: "",
-            sortOrder: "asc",
-            
-            // Store filter
-            stores: [],
-            selectedStore: '',
-            
-            // For ASIN details modal
-            showAsinDetailsModal: false,
-            selectedAsin: null,
-            enlargeImage: false,
-            
-            // Edit mode
-            editMode: false,
-            editedAsin: {},
-            
-            // Image upload
-            instructionCardUploading: false,
-            
-            // Saving states
-            savingRelatedAsins: false,
-            savingAsinDetails: false,
-            
-            // For image handling
-            defaultImagePath: '/images/default-product.png',
-
-            // Loading states
-            isLoading: false
-        };
-    },
-    computed: {
-        searchQuery() {
-            return eventBus.searchQuery;
-        },
-        sortedAsinData() {
-            if (!this.sortColumn) return this.asinData;
-            return [...this.asinData].sort((a, b) => {
-                const valueA = a[this.sortColumn];
-                const valueB = b[this.sortColumn];
-
-                if (typeof valueA === "number" && typeof valueB === "number") {
-                    return this.sortOrder === "asc"
-                        ? valueA - valueB
-                        : valueB - valueA;
-                }
-
-                return this.sortOrder === "asc"
-                    ? String(valueA).localeCompare(String(valueB))
-                    : String(valueB).localeCompare(String(valueA));
-            });
-        },
-        isMobile() {
-            return window.innerWidth <= 768;
-        }
-    },
-    methods: {
-        // Image handling methods
-        getImagePath(asin) {
-            return asin ? `/images/asinimg/${asin}_0.png` : this.defaultImagePath;
-        },
-        
-        getInstructionCardPath(asin) {
-            return asin ? `/images/instructioncard/${asin}.jpg` : this.defaultImagePath;
-        },
-        
-        handleImageError(event, item) {
-            event.target.src = this.defaultImagePath;
-            if (item) item.useDefaultImage = true;
-        },
-        
-        handleInstructionCardError(event) {
-            event.target.src = this.defaultImagePath;
-            event.target.style.opacity = '0.5';
-        },
-        
-        createDefaultImageSVG() {
-            return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' width='100' height='100'%3E%3Crect width='100' height='100' fill='%23f0f0f0'/%3E%3Cpath d='M35,30L65,30L65,70L35,70Z' fill='%23e0e0e0' stroke='%23bbbbbb' stroke-width='2'/%3E%3Cpath d='M45,40L55,40L55,60L45,60Z' fill='%23d0d0d0' stroke='%23bbbbbb'/%3E%3Cpath d='M35,80L65,80L65,85L35,85Z' fill='%23e0e0e0'/%3E%3C/svg%3E`;
-        },
-
-        // Store management
-        async fetchStores() {
-            try {
-                const response = await axios.get(`${API_BASE_URL}/api/asinlist/stores`, {
-                    withCredentials: true
-                });
-                this.stores = response.data;
-            } catch (error) {
-                console.error("Error fetching stores:", error);
-                this.stores = [];
-            }
-        },
-        
-        changeStore() {
-            this.currentPage = 1;
-            this.fetchAsinData();
-        },
-
-        // Data fetching
-        async fetchAsinData() {
-            try {
-                console.log('Fetching ASIN data...');
-                this.isLoading = true;
-                
-                const response = await axios.get(`${API_BASE_URL}/api/asinlist/products`, {
-                    params: { 
-                        search: this.searchQuery, 
-                        page: this.currentPage, 
-                        per_page: this.perPage,
-                        store: this.selectedStore
-                    },
-                    withCredentials: true
-                });
-
-                console.log('ASIN API Response:', response.data);
-
-                // Process items with flags
-                const asinItems = (response.data.data || []).map(item => ({
-                    ...item,
-                    useDefaultImage: false,
-                    fnskus: item.fnskus || []
-                }));
-
-                this.asinData = asinItems;
-                this.totalPages = response.data.last_page || 1;
-                
-            } catch (error) {
-                console.error("Error fetching ASIN data:", error);
-                this.asinData = [];
-            } finally {
-                this.isLoading = false;
-            }
-        },
-
-        // Pagination
-        changePerPage() {
-            this.currentPage = 1;
-            this.fetchAsinData();
-        },
-        
-        prevPage() {
-            if (this.currentPage > 1) {
-                this.currentPage--;
-                this.fetchAsinData();
-            }
-        },
-        
-        nextPage() {
-            if (this.currentPage < this.totalPages) {
-                this.currentPage++;
-                this.fetchAsinData();
-            }
-        },
-
-        // UI
-        toggleDetails(index) {
-            const updatedExpandedRows = { ...this.expandedRows };
-            updatedExpandedRows[index] = !updatedExpandedRows[index];
-            this.expandedRows = updatedExpandedRows;
-        },
-
-        // Sorting
-        sortBy(column) {
-            if (this.sortColumn === column) {
-                this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
-            } else {
-                this.sortColumn = column;
-                this.sortOrder = "asc";
-            }
-        },
-
-        // Modal management
-        viewAsinDetails(item) {
-            this.selectedAsin = item;
-            this.showAsinDetailsModal = true;
-        },
-        
-        // Edit Mode Management
-        toggleEditMode() {
-            this.editMode = !this.editMode;
-            if (this.editMode) {
-                // Initialize editable data
-                this.editedAsin = {
-                    ASIN: this.selectedAsin.ASIN,
-                    EAN: this.selectedAsin.EAN || '',
-                    UPC: this.selectedAsin.UPC || '',
-                    ParentAsin: this.selectedAsin.ParentAsin || '',
-                    CousinASIN: this.selectedAsin.CousinASIN || '',
-                    UpgradeASIN: this.selectedAsin.UpgradeASIN || '',
-                    GrandASIN: this.selectedAsin.GrandASIN || ''
-                };
-            } else {
-                // Reset editing state
-                this.editedAsin = {};
-            }
-        },
-
-        // Grade Management
-        getGradeClass(grade) {
-            if (!grade) return '';
-            
-            const gradeMap = {
-                'A+': 'grade-a-plus',
-                'A': 'grade-a',
-                'B+': 'grade-b-plus',
-                'B': 'grade-b',
-                'C+': 'grade-c-plus',
-                'C': 'grade-c',
-                'D': 'grade-d',
-                'F': 'grade-f'
-            };
-            
-            return gradeMap[grade] || '';
-        },
-
-        // ASIN Details Management
-        async saveAsinDetails() {
-            this.savingAsinDetails = true;
-            try {
-                const response = await axios.post(`${API_BASE_URL}/api/asinlist/update-asin-details`, {
-                    asin: this.editedAsin.ASIN,
-                    ean: this.editedAsin.EAN,
-                    upc: this.editedAsin.UPC
-                }, {
-                    withCredentials: true
-                });
-
-                if (response.data.success) {
-                    // Update local data
-                    this.selectedAsin.EAN = this.editedAsin.EAN;
-                    this.selectedAsin.UPC = this.editedAsin.UPC;
-                    
-                    // Update main table data
-                    const asinIndex = this.asinData.findIndex(item => item.ASIN === this.editedAsin.ASIN);
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].EAN = this.editedAsin.EAN;
-                        this.asinData[asinIndex].UPC = this.editedAsin.UPC;
-                    }
-                    
-                    alert('ASIN details updated successfully');
-                } else {
-                    throw new Error(response.data.message || 'Failed to update ASIN details');
-                }
-            } catch (error) {
-                console.error('Error updating ASIN details:', error);
-                alert('Failed to update ASIN details');
-            } finally {
-                this.savingAsinDetails = false;
-            }
-        },
-
-        // Related ASINs Management
-        async saveRelatedAsins() {
-            this.savingRelatedAsins = true;
-            try {
-                const response = await axios.post(`${API_BASE_URL}/api/asinlist/update-related-asins`, {
-                    asin: this.editedAsin.ASIN,
-                    parent_asin: this.editedAsin.ParentAsin,
-                    cousin_asin: this.editedAsin.CousinASIN,
-                    upgrade_asin: this.editedAsin.UpgradeASIN,
-                    grand_asin: this.editedAsin.GrandASIN
-                }, {
-                    withCredentials: true
-                });
-
-                if (response.data.success) {
-                    // Update local data
-                    this.selectedAsin.ParentAsin = this.editedAsin.ParentAsin;
-                    this.selectedAsin.CousinASIN = this.editedAsin.CousinASIN;
-                    this.selectedAsin.UpgradeASIN = this.editedAsin.UpgradeASIN;
-                    this.selectedAsin.GrandASIN = this.editedAsin.GrandASIN;
-                    
-                    // Update main table data
-                    const asinIndex = this.asinData.findIndex(item => item.ASIN === this.editedAsin.ASIN);
-                    if (asinIndex !== -1) {
-                        this.asinData[asinIndex].ParentAsin = this.editedAsin.ParentAsin;
-                        this.asinData[asinIndex].CousinASIN = this.editedAsin.CousinASIN;
-                        this.asinData[asinIndex].UpgradeASIN = this.editedAsin.UpgradeASIN;
-                        this.asinData[asinIndex].GrandASIN = this.editedAsin.GrandASIN;
-                    }
-                    
-                    alert('Related ASINs updated successfully');
-                } else {
-                    throw new Error(response.data.message || 'Failed to update related ASINs');
-                }
-            } catch (error) {
-                console.error('Error updating related ASINs:', error);
-                alert('Failed to update related ASINs');
-            } finally {
-                this.savingRelatedAsins = false;
-            }
-        },
-
-        // Instruction Card Upload
-        async handleInstructionCardUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            // Validate file type
-            if (!file.type.startsWith('image/')) {
-                alert('Please select an image file');
-                return;
-            }
-
-            // Validate file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('File size must be less than 5MB');
-                return;
-            }
-
-            this.instructionCardUploading = true;
-            
-            try {
-                const formData = new FormData();
-                formData.append('instruction_card', file);
-                formData.append('asin', this.selectedAsin.ASIN);
-
-                const response = await axios.post(`${API_BASE_URL}/api/asinlist/upload-instruction-card`, formData, {
-                    headers: {
-                        'Content-Type': 'multipart/form-data'
-                    },
-                    withCredentials: true
-                });
-
-                if (response.data.success) {
-                    alert('Instruction card uploaded successfully');
-                    // Refresh the instruction card image
-                    const imgElement = this.$el.querySelector('.instruction-card-thumbnail');
-                    if (imgElement) {
-                        imgElement.src = response.data.file_url + '?t=' + Date.now();
-                    }
-                } else {
-                    throw new Error(response.data.message || 'Failed to upload instruction card');
-                }
-            } catch (error) {
-                console.error('Error uploading instruction card:', error);
-                alert('Failed to upload instruction card');
-            } finally {
-                this.instructionCardUploading = false;
-                // Reset the file input
-                event.target.value = '';
-            }
-        },
-
-        // Enhanced modal close
-        closeAsinDetailsModal() {
-            this.showAsinDetailsModal = false;
-            this.selectedAsin = null;
-            this.enlargeImage = false;
-            this.editMode = false;
-            this.editedAsin = {};
-            this.instructionCardUploading = false;
-            this.savingAsinDetails = false;
-            this.savingRelatedAsins = false;
-        },
-
-        // Get unique stores from FNSKUs
-        getUniqueStores(fnskus) {
-            if (!fnskus || fnskus.length === 0) return [];
-            const stores = fnskus.map(fnsku => fnsku.storename).filter(store => store);
-            return [...new Set(stores)];
-        },
-
-        // Handle window resize for responsiveness
-        handleResize() {
-            // Update mobile state
-            this.$forceUpdate();
-        }
-    },
-    watch: {
-        searchQuery() {
-            this.currentPage = 1;
-            this.fetchAsinData();
-        }
-    },
-    mounted() {
-        // Configure axios
-        axios.defaults.baseURL = window.location.origin;
-        axios.defaults.withCredentials = true;
-        
-        // Set CSRF token
-        const token = document.querySelector('meta[name="csrf-token"]');
-        if (token) {
-            axios.defaults.headers.common['X-CSRF-TOKEN'] = token.getAttribute('content');
-        }
-        
-        // Add Font Awesome if not already included
-        if (!document.querySelector('link[href*="font-awesome"]')) {
-            const fontAwesome = document.createElement('link');
-            fontAwesome.rel = 'stylesheet';
-            fontAwesome.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css';
-            document.head.appendChild(fontAwesome);
-        }
-        
-        // Set default image
-        this.defaultImagePath = this.createDefaultImageSVG();
-        
-        // Fetch initial data
-        this.fetchStores();
-        this.fetchAsinData();
-
-        // Add resize listener
-        window.addEventListener('resize', this.handleResize);
-    },
-    beforeUnmount() {
-        // Clean up event listener
-        window.removeEventListener('resize', this.handleResize);
-    }
-}
+import asinlist from "./asinlist.js";
+export default asinlist;
 </script>
 
 <style scoped>
@@ -1255,10 +1159,10 @@ export default {
     max-width: 100%;
 }
 
-/* Images Section - Horizontal Layout */
+/* Images Section - Updated for uniform sizing */
 .images-section {
     display: flex;
-    gap: 20px;
+    gap: 15px;
     margin-bottom: 20px;
     flex-wrap: wrap;
 }
@@ -1266,21 +1170,19 @@ export default {
 .image-container {
     flex: 1;
     text-align: center;
-    min-width: 180px;
+    min-width: 120px;
+    max-width: 180px;
     position: relative;
 }
 
-.asin-details-image,
-.instruction-card-image {
+.asin-details-image {
     margin-bottom: 8px;
 }
 
-.asin-details-thumbnail,
-.instruction-card-thumbnail {
+.asin-details-thumbnail {
     width: 100%;
     max-width: 180px;
-    height: auto;
-    max-height: 200px;
+    height: 200px;
     object-fit: cover;
     border-radius: 8px;
     border: 1px solid #dee2e6;
@@ -1292,57 +1194,213 @@ export default {
     transform: scale(1.2);
 }
 
-.upload-overlay {
+/* Shared styles for image containers with overlays */
+.instruction-card-main,
+.asin-images-main {
+    position: relative;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.instruction-card-main:hover,
+.asin-images-main:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.instruction-card-main-thumbnail,
+.asin-images-main-thumbnail {
+    width: 100%;
+    max-width: 180px;
+    height: 200px;
+    object-fit: cover;
+    border: 1px solid #dee2e6;
+    display: block;
+    border-radius: 8px;
+}
+
+/* Small thumbnails overlay - shared styles */
+.instruction-card-thumbnails,
+.asin-images-thumbnails {
+    position: absolute;
+    bottom: 5px;
+    right: 5px;
+    display: flex;
+    gap: 3px;
+}
+
+.small-thumb {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    border: 2px solid #fff;
+    position: relative;
+    overflow: hidden;
+    background-color: #f8f9fa;
+}
+
+.small-thumb.has-image {
+    border-color: #28a745;
+}
+
+/* Specific styling for ASIN image thumbnails */
+.asin-images-thumbnails .asin-thumb.has-image {
+    border-color: #28a745;
+}
+
+.asin-images-thumbnails .vector-thumb.has-image {
+    border-color: #6f42c1;
+}
+
+.small-thumb-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.9;
+}
+
+/* Thumbnail labels and numbers */
+.thumb-number,
+.thumb-label {
     position: absolute;
     top: 0;
-    right: 0;
-    bottom: 25px;
     left: 0;
-    background-color: rgba(0, 0, 0, 0.7);
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+    background-color: rgba(0,0,0,0.7);
+    color: white;
+    font-weight: bold;
+}
+
+.thumb-number {
+    font-size: 10px;
+}
+
+.thumb-label {
+    font-size: 8px;
+}
+
+.small-thumb.has-image .thumb-number,
+.small-thumb.has-image .thumb-label {
+    display: none;
+}
+
+/* User Manual Container Styles */
+.user-manual-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    border: 1px solid #dee2e6;
     border-radius: 8px;
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    background-color: #f8f9fa;
+    transition: all 0.3s ease;
 }
 
-.image-container:hover .upload-overlay {
-    opacity: 1;
+.user-manual-container.has-manual {
+    background-color: #e8f5e8;
+    border-color: #28a745;
 }
 
-.btn-upload-image {
-    background-color: #007bff;
+.user-manual-icon {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px;
+}
+
+.user-manual-icon i {
+    font-size: 48px;
+    color: #dc3545;
+    transition: color 0.3s ease;
+}
+
+.user-manual-container.has-manual .user-manual-icon i {
+    color: #28a745;
+}
+
+.user-manual-icon.no-manual i {
+    color: #6c757d;
+    opacity: 0.5;
+}
+
+.user-manual-icon span {
+    font-size: 12px;
+    font-weight: 600;
+    color: #495057;
+    text-align: center;
+}
+
+.user-manual-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.3s ease;
+    padding: 10px;
+    border-radius: 6px;
+}
+
+.user-manual-link:hover {
+    background-color: rgba(40, 167, 69, 0.1);
+    transform: translateY(-2px);
+    text-decoration: none;
+    color: inherit;
+}
+
+.user-manual-upload {
+    margin-top: 15px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+.btn-upload-manual {
+    background-color: #dc3545;
     color: white;
     border: none;
     padding: 8px 16px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 
-.btn-upload-image:hover {
-    background-color: #0056b3;
+.btn-upload-manual:hover:not(:disabled) {
+    background-color: #c82333;
+    transform: translateY(-1px);
+}
+
+.btn-upload-manual:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .image-label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: #495057;
     text-align: center;
-    padding: 4px 8px;
+    padding: 4px 6px;
     background-color: #f8f9fa;
     border-radius: 4px;
     border: 1px solid #dee2e6;
-}
-
-.upload-status {
-    font-size: 10px;
-    margin-left: 5px;
-}
-
-.upload-status.success {
-    color: #28a745;
+    margin-top: 5px;
 }
 
 /* ASIN Details Info */
@@ -1357,6 +1415,32 @@ export default {
     color: #495057;
     font-size: 18px;
     word-wrap: break-word;
+}
+
+/* Details Sections Styling */
+.details-section {
+    margin-bottom: 25px;
+    padding: 15px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.section-title {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 16px;
+    font-weight: 600;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 8px;
+}
+
+.amazon-dimensions .section-title {
+    border-bottom-color: #28a745;
+}
+
+.default-dimensions .section-title {
+    border-bottom-color: #ffc107;
 }
 
 .asin-details-row {
@@ -1374,7 +1458,8 @@ export default {
 .asin-details-label {
     font-weight: 600;
     color: #495057;
-    min-width: 80px;
+    min-width: 120px;
+    font-size: 13px;
 }
 
 .asin-details-value {
@@ -1383,21 +1468,194 @@ export default {
     flex: 1;
     margin-left: 10px;
     word-wrap: break-word;
+    font-size: 13px;
 }
 
 /* Input styling for details */
 .details-input {
     width: 120px;
-    padding: 4px 8px;
+    padding: 6px 10px;
     border: 1px solid #dee2e6;
     border-radius: 4px;
     font-size: 12px;
+    transition: border-color 0.3s ease;
 }
 
 .details-input:focus {
     outline: none;
     border-color: #007bff;
     box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.details-textarea {
+    width: 200px;
+    padding: 6px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 12px;
+    resize: vertical;
+    min-height: 60px;
+    font-family: inherit;
+    transition: border-color 0.3s ease;
+}
+
+.details-textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.instruction-link-input {
+    width: 200px !important;
+    font-size: 11px;
+}
+
+/* Dimensions Grid Styling */
+.dimensions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.dimension-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.dimension-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.dimension-value {
+    color: #6c757d;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.dimension-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 12px;
+    transition: border-color 0.3s ease;
+}
+
+.dimension-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.weight-input-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.weight-value {
+    flex: 2;
+}
+
+.weight-unit-select {
+    flex: 1;
+    padding: 6px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 12px;
+    background-color: white;
+    transition: border-color 0.3s ease;
+}
+
+.weight-unit-select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Action buttons styling */
+.dimensions-actions {
+    text-align: center;
+    padding-top: 15px;
+    border-top: 1px solid #e9ecef;
+}
+
+.btn-save-dimensions {
+    background-color: #ffc107;
+    color: #212529;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-save-dimensions:hover:not(:disabled) {
+    background-color: #e0a800;
+    transform: translateY(-1px);
+}
+
+.btn-save-dimensions:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+    color: white;
+}
+
+/* Link styling for details */
+.instruction-link,
+.user-manual-link-text,
+.vector-image-link-text {
+    text-decoration: none;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.3s ease;
+}
+
+.instruction-link {
+    color: #007bff;
+}
+
+.instruction-link:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+.user-manual-link-text {
+    color: #dc3545;
+}
+
+.user-manual-link-text:hover {
+    color: #c82333;
+    text-decoration: underline;
+}
+
+.vector-image-link-text {
+    color: #6f42c1;
+}
+
+.vector-image-link-text:hover {
+    color: #5a32a3;
+    text-decoration: underline;
+}
+
+.instruction-link i,
+.user-manual-link-text i,
+.vector-image-link-text i {
+    font-size: 10px;
 }
 
 /* ASIN Details Actions */
@@ -1412,20 +1670,26 @@ export default {
     background-color: #007bff;
     color: white;
     border: none;
-    padding: 8px 16px;
+    padding: 10px 20px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
-    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.btn-save-asin-details:hover {
+.btn-save-asin-details:hover:not(:disabled) {
     background-color: #0056b3;
+    transform: translateY(-1px);
 }
 
 .btn-save-asin-details:disabled {
     background-color: #6c757d;
     cursor: not-allowed;
+    transform: none;
 }
 
 .asin-details-stores-section {
@@ -1481,7 +1745,7 @@ export default {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 4px 0;
+    padding: 8px 0;
     border-bottom: 1px solid #f8f9fa;
 }
 
@@ -1493,6 +1757,7 @@ export default {
     font-weight: 600;
     color: #495057;
     font-size: 12px;
+    min-width: 100px;
 }
 
 .related-asin-value {
@@ -1504,11 +1769,12 @@ export default {
 
 .related-asin-input {
     width: 150px;
-    padding: 4px 8px;
+    padding: 6px 10px;
     border: 1px solid #dee2e6;
     border-radius: 4px;
     font-size: 12px;
     font-family: 'Courier New', monospace;
+    transition: border-color 0.3s ease;
 }
 
 .related-asin-input:focus {
@@ -1526,19 +1792,26 @@ export default {
     background-color: #28a745;
     color: white;
     border: none;
-    padding: 8px 16px;
+    padding: 10px 20px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.btn-save-related:hover {
+.btn-save-related:hover:not(:disabled) {
     background-color: #218838;
+    transform: translateY(-1px);
 }
 
 .btn-save-related:disabled {
     background-color: #6c757d;
     cursor: not-allowed;
+    transform: none;
 }
 
 /* FNSKU Table Section */
@@ -1553,6 +1826,7 @@ export default {
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     overflow: hidden;
+    overflow-x: auto;
 }
 
 .asin-details-table {
@@ -1563,6 +1837,7 @@ export default {
     overflow: hidden;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     table-layout: fixed;
+    min-width: 600px;
 }
 
 .asin-details-table thead {
@@ -1579,10 +1854,11 @@ export default {
     letter-spacing: 0.5px !important;
     color: white !important;
     background-color: #1a252f !important;
+    white-space: nowrap;
 }
 
 .asin-details-table thead th:nth-child(1) {
-    width: 35%;
+    width: 40%;
 }
 
 .asin-details-table thead th:nth-child(2) {
@@ -1590,7 +1866,7 @@ export default {
 }
 
 .asin-details-table thead th:nth-child(3) {
-    width: 20%;
+    width: 15%;
 }
 
 .asin-details-table thead th:nth-child(4) {
@@ -1620,45 +1896,11 @@ export default {
     background-color: #e9ecef;
 }
 
-/* Grade Display Styles */
 .grade-cell {
     text-align: center;
     padding: 8px !important;
-}
-
-.grade-display {
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-weight: bold;
-    font-size: 12px;
-    min-width: 60px;
-    text-align: center;
-    display: inline-block;
-}
-
-/* Grade Color Classes */
-.grade-a-plus, .grade-a {
-    background-color: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-}
-
-.grade-b-plus, .grade-b {
-    background-color: #d1ecf1;
-    color: #0c5460;
-    border: 1px solid #bee5eb;
-}
-
-.grade-c-plus, .grade-c {
-    background-color: #fff3cd;
-    color: #856404;
-    border: 1px solid #ffeaa7;
-}
-
-.grade-d, .grade-f {
-    background-color: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
+    font-weight: 600;
+    color: #28a745;
 }
 
 /* Footer */
@@ -1673,9 +1915,321 @@ export default {
     background-color: #6c757d;
     color: white;
     border: none;
+    padding: 12px 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.btn-close-details:hover {
+    background-color: #5a6268;
+}
+
+/* Modal Shared Styles */
+.instruction-card-modal,
+.asin-image-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1100;
+}
+
+.instruction-card-modal-content,
+.asin-image-modal-content {
+    background-color: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.instruction-card-modal-header,
+.asin-image-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.instruction-card-modal-header h3,
+.asin-image-modal-header h3 {
+    margin: 0;
+    color: #495057;
+    font-size: 18px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+}
+
+.modal-close:hover {
+    color: #495057;
+}
+
+.instruction-card-modal-body,
+.asin-image-modal-body {
+    padding: 30px;
+}
+
+.card-management-layout,
+.image-management-layout {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+}
+
+.card-slot,
+.image-slot {
+    flex: 1;
+    max-width: 300px;
+    text-align: center;
+}
+
+.card-slot-header,
+.image-slot-header {
+    margin-bottom: 15px;
+}
+
+.card-slot-header h4,
+.image-slot-header h4 {
+    margin: 0;
+    color: #495057;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.card-slot-image,
+.image-slot-image {
+    margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 2px solid #dee2e6;
+    background-color: #f8f9fa;
+}
+
+.card-slot-thumbnail,
+.image-slot-thumbnail {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    display: block;
+}
+
+.card-slot-actions,
+.image-slot-actions {
+    text-align: center;
+}
+
+/* Upload button styles */
+.btn-upload-card,
+.btn-upload-image,
+.btn-upload-vector {
+    border: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    min-width: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin: 0 auto;
+    color: white;
+}
+
+.btn-upload-card {
+    background-color: #007bff;
+}
+
+.btn-upload-card:hover:not(:disabled) {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+}
+
+.btn-upload-image {
+    background-color: #28a745;
+}
+
+.btn-upload-image:hover:not(:disabled) {
+    background-color: #218838;
+    transform: translateY(-1px);
+}
+
+.btn-upload-vector {
+    background-color: #6f42c1;
+}
+
+.btn-upload-vector:hover:not(:disabled) {
+    background-color: #5a32a3;
+    transform: translateY(-1px);
+}
+
+.btn-upload-card:disabled,
+.btn-upload-image:disabled,
+.btn-upload-vector:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.instruction-card-modal-footer,
+.asin-image-modal-footer {
+    padding: 20px;
+    border-top: 1px solid #dee2e6;
+    text-align: right;
+    background-color: #f8f9fa;
+    border-radius: 0 0 12px 12px;
+}
+
+.btn-close-modal {
+    background-color: #6c757d;
+    color: white;
+    border: none;
     padding: 10px 20px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.btn-close-modal:hover {
+    background-color: #5a6268;
+}
+
+/* Error and success states */
+.instruction-card-thumbnail[style*="opacity: 0.5"],
+.card-slot-thumbnail[style*="opacity: 0.5"] {
+    filter: grayscale(100%);
+    border-style: dashed;
+}
+
+.instruction-card-thumbnail.uploaded,
+.card-slot-thumbnail.uploaded {
+    border-color: #28a745;
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+}
+
+/* Mobile Responsive Updates */
+@media (max-width: 768px) {
+    .images-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+    }
+    
+    .image-container {
+        max-width: 100%;
+        margin-bottom: 0;
+    }
+    
+    .user-manual-container {
+        height: 150px;
+    }
+    
+    .user-manual-icon i {
+        font-size: 36px;
+    }
+    
+    .user-manual-icon span {
+        font-size: 11px;
+    }
+    
+    .instruction-link-input {
+        width: 150px !important;
+    }
+
+    .details-textarea {
+        width: 150px !important;
+    }
+
+    .card-management-layout,
+    .image-management-layout {
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .card-slot,
+    .image-slot {
+        max-width: 100%;
+    }
+
+    .instruction-card-modal-content,
+    .asin-image-modal-content {
+        width: 95%;
+        margin: 10px;
+    }
+
+    .asin-details-layout {
+        flex-direction: column;
+    }
+
+    .asin-details-left {
+        flex: none;
+        max-width: 100%;
+        margin-bottom: 20px;
+    }
+
+    .dimensions-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .weight-input-group {
+        flex-direction: column;
+        gap: 5px;
+    }
+
+    .weight-value {
+        flex: none;
+    }
+
+    .weight-unit-select {
+        flex: none;
+    }
+
+    .asin-details-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .asin-details-label {
+        min-width: auto;
+    }
+
+    .asin-details-value {
+        text-align: left;
+        margin-left: 0;
+    }
+
+    .details-input,
+    .related-asin-input {
+        width: 100%;
+    }
 }
 </style>

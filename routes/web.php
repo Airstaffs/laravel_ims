@@ -31,7 +31,7 @@ use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\FbmOrderController;
 use App\Http\Controllers\notfoundController;
 use App\Http\Controllers\Fbmorders\WorkhistoryController;
-use App\Http\Controllers\HouseageContoller;
+use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Middleware\PreventBackHistory;
 use Illuminate\Support\Facades\Http;
@@ -418,9 +418,37 @@ Route::prefix('api/houseage')->group(function () {
 
 // Routes for ASIN List Function  
 Route::prefix('api/asinlist')->group(function () {
+    
+ // Get ASIN products list
     Route::get('products', [ASINlistController::class, 'index']);
+    
+    // Get stores for dropdown
     Route::get('stores', [ASINlistController::class, 'getStores']);
+    
+    // Update ASIN details (EAN/UPC/Instruction Link/Meta Keyword/Transparency)
+    Route::post('update-asin-details', [ASINlistController::class, 'updateAsinDetails']);
+    
+    // Update default dimensions and weight (NEW)
+    Route::post('update-default-dimensions', [ASINlistController::class, 'updateDefaultDimensions']);
+    
+    // Update related ASINs
+    Route::post('update-related-asins', [ASINlistController::class, 'updateRelatedAsins']);
+    
+    // Upload instruction card
+    Route::post('upload-instruction-card', [ASINlistController::class, 'uploadInstructionCard']);
+
+    // Upload user manual
+    Route::post('upload-user-manual', [ASINlistController::class, 'uploadUserManual']);
+
+    // Upload ASIN main image
+    Route::post('upload-asin-image', [ASINlistController::class, 'uploadAsinImage']);
+    
+    // Upload vector image
+    Route::post('upload-vector-image', [ASINlistController::class, 'uploadAsinVectorImage']);
 });
+
+
+
 
 
 
@@ -518,25 +546,3 @@ use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 Route::post('/fbm-orders-manualshipmentlabel', [ManualShipmentLabelController::class, 'store']);
 Route::post('/fbm-orders-add-new-carrier', [ManualShipmentLabelController::class, 'newCarrierDescription']);
 Route::get('/fbm-orders-carrier-options', [ManualShipmentLabelController::class, 'getCarrierDescriptions']);
-
-//Listings FNSKU Creation
-/*
-use App\Http\Controllers\Amzn\Listing\CatalogController;
-
-Route::post('/amzn/listing/search-asin-data', [CatalogController::class, 'get_asin_catalog']);
-Route::get('/amzn/test-asin-data', function () {
-    $controller = new CatalogController();
-
-    $request = Request::create('/fbm-orders-shippinglabel', 'POST', [
-        'platform_order_ids' => ['114-0083765-2829867'],
-        'action' => 'PrintShipmentLabel',
-        'settings' => [
-            'displayPrice' => true,
-            'testPrint' => true,
-            'signatureRequired' => true
-        ],
-    ]);
-
-    return $controller->printshippinglabel($request);
-});
-*/
