@@ -109,6 +109,7 @@ class EbayController extends Controller
             <OutputSelector>OrderArray.Order.ShippedTime</OutputSelector>
             <OutputSelector>OrderArray.Order.SellerUserID</OutputSelector>
             <OutputSelector>OrderArray.Order.SellerEmail</OutputSelector>
+            
             <OutputSelector>OrderArray.Order.ShippingAddress</OutputSelector>
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingDetails.ShipmentTrackingDetails.ShipmentTrackingNumber</OutputSelector>
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingDetails.ShipmentTrackingDetails.ShippingCarrierUsed</OutputSelector>
@@ -269,6 +270,11 @@ class EbayController extends Controller
             // Fetch item details
             $items = [];
 
+            echo "<br> Order Details<br>";
+            echo "<pre>";
+            print_r($order);
+            echo "</pre>";
+
             if (!empty($order['TransactionArray']['Transaction'])) {
                 // Ensure transactions are always an array
                 $transactions = $order['TransactionArray']['Transaction'];
@@ -329,10 +335,10 @@ class EbayController extends Controller
 
                     $itemDetails = $this->fetchItemDetails($itemId, $accessToken);
 
-                    //     echo "<br> Order Info Details<br>";
-                    //    echo "<pre>";
-                    //     print_r($itemDetails);
-                    //    echo "</pre>";
+                    echo "<br> Order Info Details<br>";
+                    echo "<pre>";
+                    print_r($itemDetails);
+                    echo "</pre>";
 
                     $items[] = [
                         'transaction_id' => $transaction['TransactionID'] ?? null,
