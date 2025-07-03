@@ -103,12 +103,13 @@ class EbayController extends Controller
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.Item.Title</OutputSelector>
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.QuantityPurchased</OutputSelector>
 
-            <OutputSelector>OrderArray.Order.TransactionArray.Transaction.SellerDiscounts.SellerDiscount.ItemDiscountAmount</OutputSelector>
+       <OutputSelector>OrderArray.Order.TransactionArray.Transaction.SellerDiscounts.SellerDiscount.ItemDiscountAmount</OutputSelector>
 
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.TransactionPrice</OutputSelector>
             <OutputSelector>OrderArray.Order.ShippedTime</OutputSelector>
             <OutputSelector>OrderArray.Order.SellerUserID</OutputSelector>
             <OutputSelector>OrderArray.Order.SellerEmail</OutputSelector>
+            <OutputSelector>OrderArray.Order.Seller.RegistrationAddress</OutputSelector>
             
             <OutputSelector>OrderArray.Order.ShippingAddress</OutputSelector>
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingDetails.ShipmentTrackingDetails.ShipmentTrackingNumber</OutputSelector>
