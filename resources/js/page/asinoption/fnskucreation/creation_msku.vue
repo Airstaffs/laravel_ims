@@ -8,7 +8,7 @@
       <input v-model="asinSearch" @input="fetchAsins" placeholder="Search ASIN or Title" />
       <div class="dropdown" v-if="filteredAsins.length > 0">
         <div v-for="asin in filteredAsins" :key="asin" class="dropdown-item" @click="selectAsin(asin)">
-          {{ asin.asin }} - {{ asin.title }}
+          {{ asin.ASIN }} - {{ asin.title }}
         </div>
       </div>
     </div>
@@ -17,6 +17,12 @@
       <p><strong>Selected ASIN:</strong> {{ selectedAsin.asin }}</p>
       <p><strong>Title:</strong> {{ selectedAsin.title }}</p>
     </div>
+
+    <label>Store:</label>
+    <select v-model="selectedStore">
+      <option disabled value="">Select Store</option>
+      <option v-for="store in storeOptions" :key="store" :value="store">{{ store }}</option>
+    </select>
 
     <!-- Step 2: MSKU Generation -->
     <div v-if="selectedAsin" class="step">
@@ -50,12 +56,16 @@
 
 
 <script>
+const API_BASE_URL = import.meta.env.VITE_API_URL;
+const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
 export default {
   name: "IMSListing",
   data() {
     return {
       allowedUserIds: ['Jundell', 'Admin', 'Julius', 'Fries'],
       selectedStore: '',
+      storeOptions: [],
       searchInput: '',
       dropdownOptions: [],
       selectedValue: '',
@@ -76,6 +86,26 @@ export default {
       requirements: 'LISTING_OFFER_ONLY',
       showRestrictionModal: false,
       restrictionTable: [],
+      filteredAsins: [],
+      selectedAsin: null,
+      selectedCondition: '',
+      conditionMap: {
+        "new_new": "New",
+        "new_open_box": "New - Open Box",
+        "new_oem": "New - OEM",
+        "refurbished_refurbished": "Refurbished",
+        "used_like_new": "Used - Like New",
+        "used_very_good": "Used - Very Good",
+        "used_good": "Used - Good",
+        "used_acceptable": "Used - Acceptable",
+        "collectible_like_new": "Collectible - Like New",
+        "collectible_very_good": "Collectible - Very Good",
+        "collectible_good": "Collectible - Good",
+        "collectible_acceptable": "Collectible - Acceptable",
+        "club_club": "Club"
+      },
+      generatedMsku: '',
+
     };
   },
   computed: {
@@ -84,59 +114,117 @@ export default {
     },
   },
   methods: {
+    fetchStores() {
+      fetch(`${API_BASE_URL}/api/asinlist//all/stores`)
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data)) {
+            this.storeOptions = data;
+          } else {
+            console.error('Invalid store response:', data);
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load stores:', err);
+        });
+    },
     fetchAsins() {
-      // TODO: Replace with API call
-      // Mocking for now
-      this.filteredAsins = [
-        { asin: 'B08XYZ1234', title: 'Sample Product A' },
-        { asin: 'B01ABC5678', title: 'Sample Product B' },
-      ].filter(item =>
-        item.asin.includes(this.asinSearch) || item.title.toLowerCase().includes(this.asinSearch.toLowerCase())
-      );
+      if (!this.asinSearch.trim()) return;
+
+      fetch(`${API_BASE_URL}/api/asinlist/asin/search?keyword=${encodeURIComponent(this.asinSearch)}`)
+        .then(res => res.json())
+        .then(data => {
+          this.filteredAsins = Array.isArray(data) ? data : [];
+        })
+        .catch(err => {
+          console.error("ASIN search failed:", err);
+          this.filteredAsins = [];
+        });
     },
     selectAsin(asin) {
       this.selectedAsin = asin;
       this.generatedMsku = '';
+      this.asinSearch = '';         // ✅ clear input
+      this.filteredAsins = [];      // ✅ close dropdown
     },
     generateMSKU() {
       if (!this.selectedAsin || !this.selectedCondition) return;
 
-      const map = {
-        "new_new": "NN",
-        "new_open_box": "NOB",
-        "new_oem": "NOEM",
-        "refurbished_refurbished": "RR",
-        "used_like_new": "ULN",
-        "used_very_good": "UVG",
-        "used_good": "UG",
-        "used_acceptable": "UA",
-        "collectible_like_new": "CLN",
-        "collectible_very_good": "CVG",
-        "collectible_good": "CG",
-        "collectible_acceptable": "CA",
-        "club_club": "CLUB"
-      };
-
-      const rand = Math.floor(1000 + Math.random() * 9000);
-      const conditionCode = map[this.selectedCondition] || 'UNK';
-      const msku = `${this.selectedAsin.asin}-${conditionCode}-${rand}`;
-
-      this.mskuList.push({
-        asin: this.selectedAsin.asin,
-        msku: msku,
-        condition: this.selectedCondition
-      });
-      this.generatedMsku = ''; // clear display
+      fetch(`${API_BASE_URL}/api/asinlist/msku/generate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({
+          asin: this.selectedAsin.ASIN,
+          condition: this.selectedCondition
+        })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.msku) {
+            this.generatedMsku = data.msku;
+          } else {
+            alert(data.error || 'Failed to generate MSKU');
+          }
+        })
+        .catch(err => {
+          console.error('Generate MSKU error:', err);
+          alert('Generate MSKU failed');
+        });
     },
     removeMsku(index) {
       this.mskuList.splice(index, 1);
     },
     submitAllMskus() {
-      // TODO: Replace with actual POST to API
-      console.log("Submitting MSKUs:", this.mskuList);
-      alert("Submitting MSKUs: " + this.mskuList.map(m => m.msku).join(', '));
+      if (this.mskuList.length === 0) return;
+
+      fetch(`${API_BASE_URL}/api/asinlist/msku/save`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({ mskus: this.mskuList })
+      })
+        .then(res => res.json())
+        .then(data => {
+          let message = '';
+          if (data.success?.length) {
+            message += `✅ Success: ${data.success.join(', ')}\n`;
+          }
+          if (data.duplicates?.length) {
+            message += `⚠️ Duplicates: ${data.duplicates.join(', ')}\n`;
+          }
+          if (data.failed?.length) {
+            message += `❌ Failed: ${data.failed.map(f => f.msku).join(', ')}\n`;
+          }
+          alert(message || 'Submitted!');
+          this.mskuList = [];
+        })
+        .catch(err => {
+          console.error('Submit error:', err);
+          alert('Submit failed');
+        });
     },
+    saveMsku() {
+      if (!this.generatedMsku) return;
+      this.mskuList.push({
+        asin: this.selectedAsin.ASIN,
+        msku: this.generatedMsku,
+        condition: this.selectedCondition,
+        storename: this.selectedStore || 'Renovartech' // You can make this a real selector
+      });
+      this.generatedMsku = '';
+    }
+
   },
+  mounted() {
+
+    this.fetchStores();
+
+  }
 };
 </script>
 

@@ -31,7 +31,7 @@ use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\FbmOrderController;
 use App\Http\Controllers\notfoundController;
 use App\Http\Controllers\Fbmorders\WorkhistoryController;
-use App\Http\Controllers\HouseageContoller;
+use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Middleware\PreventBackHistory;
 use Illuminate\Support\Facades\Http;
@@ -428,6 +428,11 @@ Route::prefix('api/houseage')->group(function () {
 Route::prefix('api/asinlist')->group(function () {
     Route::get('products', [ASINlistController::class, 'index']);
     Route::get('stores', [ASINlistController::class, 'getStores']);
+    Route::get('/asin/search', [ASINlistController::class, 'searchAsin']);
+    Route::post('/msku/save', [ASINlistController::class, 'saveMsku']);
+    Route::post('/msku/generate', [ASINlistController::class, 'generateMsku']);
+    Route::get('/all/stores', [ASINlistController::class, 'fetchstores']);
+
 });
 
 
@@ -527,8 +532,8 @@ Route::post('/fbm-orders-manualshipmentlabel', [ManualShipmentLabelController::c
 Route::post('/fbm-orders-add-new-carrier', [ManualShipmentLabelController::class, 'newCarrierDescription']);
 Route::get('/fbm-orders-carrier-options', [ManualShipmentLabelController::class, 'getCarrierDescriptions']);
 
-//Listings FNSKU Creation
 /*
+//Listings FNSKU Creation
 use App\Http\Controllers\Amzn\Listing\CatalogController;
 
 Route::post('/amzn/listing/search-asin-data', [CatalogController::class, 'get_asin_catalog']);
