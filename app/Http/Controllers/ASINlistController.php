@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class ASINlistController extends BasetablesController
 {
@@ -19,7 +20,7 @@ class ASINlistController extends BasetablesController
             $search = $request->input('search', '');
             $store = $request->input('store', '');
             $page = $request->input('page', 1);
-            
+
             // Build the main query - ASIN with FNSKU aggregated data
             $asinQuery = DB::table($this->asinTable . ' as asin')
                 ->select([
@@ -56,40 +57,40 @@ class ASINlistController extends BasetablesController
                 ->leftJoin($this->fnskuTable . ' as fnsku', 'asin.ASIN', '=', 'fnsku.ASIN')
                 ->where('asin.ASIN', '!=', '')
                 ->whereNotNull('asin.ASIN');
-            
+
             // Apply search filters
             if (!empty($search)) {
                 $asinQuery->where(function ($query) use ($search) {
                     $query->where('asin.ASIN', 'like', "%{$search}%")
-                          ->orWhere('asin.internal', 'like', "%{$search}%")
-                          ->orWhere('fnsku.FNSKU', 'like', "%{$search}%");
+                        ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('fnsku.FNSKU', 'like', "%{$search}%");
                 });
             }
-            
+
             // Apply store filter
             if (!empty($store)) {
                 $asinQuery->where('fnsku.storename', $store);
             }
-            
+
             // Group by ASIN and having clause to ensure we have at least one FNSKU
             $asinQuery->groupBy('asin.ASIN', 'asin.internal', 'asin.metakeyword', 'asin.EAN', 'asin.UPC', 'asin.ParentAsin', 'asin.CousinASIN', 'asin.UpgradeASIN', 'asin.GrandASIN', 'asin.instructioncard', 'asin.instructioncard2', 'asin.instructionlink', 'asin.usermanuallink', 'asin.asinimg', 'asin.vectorimage', 'asin.TRANSPARENCY_QR_STATUS', 'asin.dimension_length', 'asin.dimension_width', 'asin.dimension_height', 'asin.weight_value', 'asin.weight_unit', 'asin.white_length', 'asin.white_width', 'asin.white_height', 'asin.white_value', 'asin.white_unit')
-                     ->having('fnsku_count', '>', 0);
-            
+                ->having('fnsku_count', '>', 0);
+
             // Order by ASIN
             $asinQuery->orderBy('asin.ASIN', 'asc');
-            
+
             // Get paginated results
             $asins = $asinQuery->paginate($perPage);
-            
+
             // Get ASINs for batch loading FNSKU details
             $asinList = $asins->getCollection()->pluck('ASIN')->toArray();
-            
+
             if (empty($asinList)) {
                 $result = $asins->toArray();
                 $result['data'] = [];
                 return response()->json($result);
             }
-            
+
             // Batch load detailed FNSKU data for all ASINs including grading
             $fnskuDetails = DB::table($this->fnskuTable)
                 ->select([
@@ -104,49 +105,49 @@ class ASINlistController extends BasetablesController
                 ->orderBy('FNSKU', 'asc')
                 ->get()
                 ->groupBy('ASIN');
-            
+
             // Process results with batch-loaded FNSKU data
-            $results = $asins->getCollection()->map(function($item) use ($fnskuDetails) {
+            $results = $asins->getCollection()->map(function ($item) use ($fnskuDetails) {
                 if (empty($item->ASIN)) {
                     return null;
                 }
-                
+
                 // Add FNSKU details from batch-loaded data
-                $item->fnskus = isset($fnskuDetails[$item->ASIN]) 
-                    ? $fnskuDetails[$item->ASIN]->toArray() 
+                $item->fnskus = isset($fnskuDetails[$item->ASIN])
+                    ? $fnskuDetails[$item->ASIN]->toArray()
                     : [];
-                
+
                 // Add instruction card URLs from database
                 $item->instruction_card_urls = [
                     'card1' => $item->instructioncard ? url($item->instructioncard) : null,
                     'card2' => $item->instructioncard2 ? url($item->instructioncard2) : null
                 ];
-                
+
                 // Add user manual URL if exists
                 $item->user_manual_url = $item->usermanuallink ? url($item->usermanuallink) : null;
-                
+
                 // Add ASIN image URL if exists
                 $item->asin_image_url = $item->asinimg ? url($item->asinimg) : null;
-                
+
                 // Add vector image URL if exists
                 $item->vector_image_url = $item->vectorimage ? url($item->vectorimage) : null;
-                
+
                 // Ensure numeric values are properly typed
                 $item->fnsku_count = (int) $item->fnsku_count;
-                
+
                 return $item;
             })->filter(); // Remove null items
-            
+
             // Update the collection
             $asins->setCollection($results);
             $result = $asins->toArray();
-            
+
             return response()->json($result);
-            
+
         } catch (\Exception $e) {
             Log::error('Error in ASINlistController@index: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
-            
+
             return response()->json([
                 'error' => 'An error occurred while retrieving ASIN data',
                 'message' => $e->getMessage(),
@@ -164,7 +165,7 @@ class ASINlistController extends BasetablesController
     public function getStores()
     {
         try {
-            return response()->json(Cache::remember('asin_stores', 3600, function() {
+            return response()->json(Cache::remember('asin_stores', 3600, function () {
                 return DB::table($this->fnskuTable)
                     ->select('storename')
                     ->distinct()
@@ -175,9 +176,192 @@ class ASINlistController extends BasetablesController
             }));
         } catch (\Exception $e) {
             Log::error('Error getting stores: ' . $e->getMessage());
-            
+
             return response()->json([
                 'error' => 'An error occurred while retrieving store list',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    public function searchAsin(Request $request)
+    {
+        $keyword = strtolower(trim($request->query('keyword')));
+        $storeFilter = strtolower(str_replace(' ', '', trim($request->query('storename'))));
+
+        $results = DB::table('tblasin as a')
+            ->leftJoin('tblfnsku as f', 'a.ASIN', '=', 'f.ASIN')
+            ->select('a.ASIN', 'a.internal AS title', DB::raw('f.storename'))
+            ->where(function ($query) use ($keyword, $storeFilter) {
+                $query->whereRaw('LOWER(a.ASIN) LIKE ?', ["%{$keyword}%"])
+                    ->orWhereRaw('LOWER(a.internal) LIKE ?', ["%{$keyword}%"])
+                    ->orWhereRaw("REPLACE(LOWER(f.storename), ' ', '') LIKE ?", ["%{$keyword}%"]);
+            })
+            ->when($storeFilter, function ($query) use ($storeFilter) {
+                // Only show ASINs used in this store or with NULL (new)
+                $query->where(function ($sub) use ($storeFilter) {
+                    $sub->whereNull('f.storename')
+                        ->orWhereRaw("REPLACE(LOWER(f.storename), ' ', '') = ?", [$storeFilter]);
+                });
+            })
+            ->groupBy('a.ASIN', 'a.internal', 'f.storename')
+            ->limit(15)
+            ->get();
+
+        return response()->json($results);
+    }
+
+
+
+    public function saveMsku(Request $request)
+    {
+        $request->validate([
+            'mskus' => 'required|array',
+            'mskus.*.asin' => 'required|string',
+            'mskus.*.msku' => 'required|string',
+            'mskus.*.condition' => 'required|string',
+            'mskus.*.storename' => 'required|string',
+        ]);
+
+        $success = [];
+        $duplicate = [];
+        $failed = [];
+
+        foreach ($request->mskus as $row) {
+            $existing = DB::table('tblfnsku')->where('MSKU', $row['msku'])->exists();
+
+            if ($existing) {
+                $duplicate[] = $row['msku'];
+                continue;
+            }
+
+            try {
+                DB::table('tblfnsku')->insert([
+                    'ASIN' => $row['asin'],
+                    'MSKU' => $row['msku'],
+                    'FNSKU' => $row['msku'],
+                    'grading' => $this->convertConditionToGrading($row['condition']),
+                    'storename' => $row['storename'],
+                    'insert_date' => now(),
+                    'amazon_status' => 'Not Existed',
+                    'fnsku_status' => 'available',
+                    'LimitStatus' => 'False',
+                    'donotreplenish' => 'none',
+                    'Units' => 11,
+                ]);
+                $success[] = $row['msku'];
+            } catch (\Exception $e) {
+                $failed[] = ['msku' => $row['msku'], 'error' => $e->getMessage()];
+            }
+        }
+
+        return response()->json([
+            'success' => $success,
+            'duplicates' => $duplicate,
+            'failed' => $failed,
+            'message' => 'Processed MSKUs with duplicate and error checking.'
+        ]);
+    }
+
+    private function convertConditionToGrading($condition)
+    {
+        return match ($condition) {
+            'new_new' => 'New',
+            'new_open_box' => 'OpenBox',
+            'new_oem' => 'OEM',
+            'refurbished_refurbished' => 'Refurbished',
+            'used_like_new' => 'UsedLikeNew',
+            'used_very_good' => 'UsedVeryGood',
+            'used_good' => 'UsedGood',
+            'used_acceptable' => 'UsedAcceptable',
+            'collectible_like_new' => 'CollectibleLikeNew',
+            'collectible_very_good' => 'CollectibleVeryGood',
+            'collectible_good' => 'CollectibleGood',
+            'collectible_acceptable' => 'CollectibleAcceptable',
+            'club_club' => 'Club',
+            default => 'Unknown',
+        };
+    }
+
+
+    public function generateMsku(Request $request)
+    {
+        $request->validate([
+            'asin' => 'required|string',
+            'condition' => 'required|string',
+            'storename' => 'required|string',
+        ]);
+
+        $asin = strtoupper(trim($request->asin));
+        $store = preg_replace('/\s+/', '', trim($request->storename));
+        $condition = $request->condition;
+
+        $prefixMap = [
+            "new_new" => "NN",
+            "new_open_box" => "NOB",
+            "new_oem" => "NOEM",
+            "refurbished_refurbished" => "RR",
+            "used_like_new" => "ULN",
+            "used_very_good" => "UVG",
+            "used_good" => "UG",
+            "used_acceptable" => "UA",
+            "collectible_like_new" => "CLN",
+            "collectible_very_good" => "CVG",
+            "collectible_good" => "CG",
+            "collectible_acceptable" => "CA",
+            "club_club" => "CLUB"
+        ];
+
+        $code = $prefixMap[$condition] ?? 'UNK';
+
+        $attempt = 0;
+        $maxAttempts = 30;
+
+        do {
+            $rand4 = strtoupper(Str::random(4));
+            $msku = "{$asin}-{$store}-{$code}-{$rand4}";
+            $exists = DB::table('tblfnsku')->where('MSKU', $msku)->exists();
+            $attempt++;
+        } while ($exists && $attempt < $maxAttempts);
+
+        if ($attempt >= $maxAttempts) {
+            Log::warning('Failed to generate unique MSKU after multiple attempts', [
+                'asin' => $asin,
+                'storename' => $store,
+                'condition' => $condition
+            ]);
+
+            return response()->json([
+                'error' => 'Unable to generate unique MSKU after multiple attempts.'
+            ], 422);
+        }
+
+        Log::info('Generated MSKU', ['msku' => $msku]);
+
+        return response()->json([
+            'msku' => $msku,
+            'condition' => $condition
+        ]);
+    }
+
+
+    public function fetchStores()
+    {
+        try {
+            return response()->json(
+                DB::table('tblstores')
+                    ->select('storename')
+                    ->whereNotNull('storename')
+                    ->where('storename', '!=', '')
+                    ->distinct()
+                    ->orderBy('storename')
+                    ->pluck('storename')
+            );
+        } catch (\Exception $e) {
+            Log::error('Error fetching stores from tblstores: ' . $e->getMessage());
+
+            return response()->json([
+                'error' => 'An error occurred while fetching store list',
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -228,7 +412,7 @@ class ASINlistController extends BasetablesController
 
             if ($updated !== false) {
                 Log::info("ASIN details updated: {$validated['asin']}");
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'ASIN details updated successfully'
@@ -242,7 +426,7 @@ class ASINlistController extends BasetablesController
 
         } catch (\Exception $e) {
             Log::error('Error updating ASIN details: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while updating ASIN details',
@@ -293,7 +477,7 @@ class ASINlistController extends BasetablesController
 
             if ($updated !== false) {
                 Log::info("Default dimensions updated for: {$validated['asin']}");
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Default dimensions updated successfully'
@@ -307,7 +491,7 @@ class ASINlistController extends BasetablesController
 
         } catch (\Exception $e) {
             Log::error('Error updating default dimensions: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while updating default dimensions',
@@ -356,7 +540,7 @@ class ASINlistController extends BasetablesController
 
             if ($updated !== false) {
                 Log::info("Related ASINs updated for: {$validated['asin']}");
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Related ASINs updated successfully'
@@ -370,7 +554,7 @@ class ASINlistController extends BasetablesController
 
         } catch (\Exception $e) {
             Log::error('Error updating related ASINs: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while updating related ASINs',
@@ -406,17 +590,17 @@ class ASINlistController extends BasetablesController
             $file = $request->file('instruction_card');
             $asinCode = $validated['asin'];
             $cardSlot = $validated['card_slot'];
-            
+
             // Create instruction cards directory if it doesn't exist
             $uploadPath = public_path('images/instructioncard');
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0755, true);
             }
-            
+
             // Generate filename: {ASIN}_card{slot}.{extension}
             $extension = $file->getClientOriginalExtension();
             $filename = $asinCode . '_card' . $cardSlot . '.' . $extension;
-            
+
             // Remove old instruction card if exists (different extensions) for this slot
             $oldFiles = glob($uploadPath . '/' . $asinCode . '_card' . $cardSlot . '.*');
             foreach ($oldFiles as $oldFile) {
@@ -424,12 +608,12 @@ class ASINlistController extends BasetablesController
                     unlink($oldFile);
                 }
             }
-            
+
             // Move file to destination
             if ($file->move($uploadPath, $filename)) {
                 $relativePath = 'images/instructioncard/' . $filename;
                 $fileUrl = url($relativePath);
-                
+
                 // Update database with just the filename
                 $columnName = $cardSlot == 1 ? 'instructioncard' : 'instructioncard2';
                 DB::table($this->asinTable)
@@ -437,9 +621,9 @@ class ASINlistController extends BasetablesController
                     ->update([
                         $columnName => $filename // Store only filename
                     ]);
-                
+
                 Log::info("Instruction card {$cardSlot} uploaded for ASIN: {$asinCode}");
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Instruction card uploaded successfully',
@@ -449,7 +633,7 @@ class ASINlistController extends BasetablesController
                     'relative_path' => $relativePath
                 ]);
             }
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload file'
@@ -457,7 +641,7 @@ class ASINlistController extends BasetablesController
 
         } catch (\Exception $e) {
             Log::error('Error uploading instruction card: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while uploading instruction card',
@@ -491,36 +675,36 @@ class ASINlistController extends BasetablesController
 
             $file = $request->file('user_manual');
             $asinCode = $validated['asin'];
-            
+
             // Create user manual directory if it doesn't exist
             $uploadPath = public_path('images/usermanual');
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0755, true);
             }
-            
+
             // Generate filename: {ASIN}.pdf
             $filename = $asinCode . '.pdf';
-            
+
             // Remove old user manual if exists
             $oldFile = $uploadPath . '/' . $filename;
             if (file_exists($oldFile)) {
                 unlink($oldFile);
             }
-            
+
             // Move file to destination
             if ($file->move($uploadPath, $filename)) {
                 $relativePath = 'images/usermanual/' . $filename;
                 $fileUrl = url($relativePath);
-                
+
                 // Update database with just the filename
                 DB::table($this->asinTable)
                     ->where('ASIN', $asinCode)
                     ->update([
                         'usermanuallink' => $filename // Store only filename
                     ]);
-                
+
                 Log::info("User manual uploaded for ASIN: {$asinCode}");
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'User manual uploaded successfully',
@@ -529,7 +713,7 @@ class ASINlistController extends BasetablesController
                     'relative_path' => $relativePath
                 ]);
             }
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload user manual'
@@ -537,7 +721,7 @@ class ASINlistController extends BasetablesController
 
         } catch (\Exception $e) {
             Log::error('Error uploading user manual: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while uploading user manual',
@@ -571,17 +755,17 @@ class ASINlistController extends BasetablesController
 
             $file = $request->file('asin_image');
             $asinCode = $validated['asin'];
-            
+
             // Create ASIN image directory if it doesn't exist
             $uploadPath = public_path('images/asinimg');
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0755, true);
             }
-            
+
             // Generate filename: {ASIN}_0.{extension}
             $extension = $file->getClientOriginalExtension();
             $filename = $asinCode . '_0.' . $extension;
-            
+
             // Remove old ASIN images if exists (different extensions)
             $oldFiles = glob($uploadPath . '/' . $asinCode . '_0.*');
             foreach ($oldFiles as $oldFile) {
@@ -589,21 +773,21 @@ class ASINlistController extends BasetablesController
                     unlink($oldFile);
                 }
             }
-            
+
             // Move file to destination
             if ($file->move($uploadPath, $filename)) {
                 $relativePath = 'images/asinimg/' . $filename;
                 $fileUrl = url($relativePath);
-                
+
                 // Update database with just the filename
                 DB::table($this->asinTable)
                     ->where('ASIN', $asinCode)
                     ->update([
                         'asinimg' => $filename // Store only filename
                     ]);
-                
+
                 Log::info("ASIN image uploaded for ASIN: {$asinCode}");
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'ASIN image uploaded successfully',
@@ -612,7 +796,7 @@ class ASINlistController extends BasetablesController
                     'relative_path' => $relativePath
                 ]);
             }
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload ASIN image'
@@ -620,7 +804,7 @@ class ASINlistController extends BasetablesController
 
         } catch (\Exception $e) {
             Log::error('Error uploading ASIN image: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while uploading ASIN image',
@@ -654,17 +838,17 @@ class ASINlistController extends BasetablesController
 
             $file = $request->file('vector_image');
             $asinCode = $validated['asin'];
-            
+
             // Create vector image directory if it doesn't exist
             $uploadPath = public_path('images/asinvectorsimg');
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0755, true);
             }
-            
+
             // Generate filename: {ASIN}.{extension}
             $extension = $file->getClientOriginalExtension();
             $filename = $asinCode . '.' . $extension;
-            
+
             // Remove old vector images if exists (different extensions)
             $oldFiles = glob($uploadPath . '/' . $asinCode . '.*');
             foreach ($oldFiles as $oldFile) {
@@ -672,21 +856,21 @@ class ASINlistController extends BasetablesController
                     unlink($oldFile);
                 }
             }
-            
+
             // Move file to destination
             if ($file->move($uploadPath, $filename)) {
                 $relativePath = 'images/asinvectorsimg/' . $filename;
                 $fileUrl = url($relativePath);
-                
+
                 // Update database with the relative path
                 DB::table($this->asinTable)
                     ->where('ASIN', $asinCode)
                     ->update([
                         'vectorimage' => $relativePath
                     ]);
-                
+
                 Log::info("Vector image uploaded for ASIN: {$asinCode}");
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Vector image uploaded successfully',
@@ -695,7 +879,7 @@ class ASINlistController extends BasetablesController
                     'relative_path' => $relativePath
                 ]);
             }
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload vector image'
@@ -703,7 +887,7 @@ class ASINlistController extends BasetablesController
 
         } catch (\Exception $e) {
             Log::error('Error uploading vector image: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'An error occurred while uploading vector image',

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Amzn\Listing\CatalogController;
+namespace App\Http\Controllers\Amzn\Listing;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;

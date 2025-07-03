@@ -253,6 +253,14 @@ Route::get('/apis/ebay-login', action: function () {
 use App\Http\Controllers\Ebay\EbayController;
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
+Route::get('/ebay/orders/cron-automation/{token}', function ($token) {
+    if ($token !== env('CRON_SECRET')) {
+        abort(403, 'Unauthorized');
+    }
+
+    return app(EbayController::class)->fetchOrders(request());
+});
+
 use App\Http\Controllers\Amzn\FBACartController;
 Route::post('/amzn/fba-cart/add', [FBACartController::class, 'addToCart']);
 Route::get('/amzn/fba-cart/list', [FBACartController::class, 'list']);
@@ -424,6 +432,11 @@ Route::prefix('api/asinlist')->group(function () {
     
     // Get stores for dropdown
     Route::get('stores', [ASINlistController::class, 'getStores']);
+    Route::get('/asin/search', [ASINlistController::class, 'searchAsin']);
+    Route::post('/msku/save', [ASINlistController::class, 'saveMsku']);
+    Route::post('/msku/generate', [ASINlistController::class, 'generateMsku']);
+    Route::get('/all/stores', [ASINlistController::class, 'fetchstores']);
+
     
     // Update ASIN details (EAN/UPC/Instruction Link/Meta Keyword/Transparency)
     Route::post('update-asin-details', [ASINlistController::class, 'updateAsinDetails']);
@@ -546,3 +559,25 @@ use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 Route::post('/fbm-orders-manualshipmentlabel', [ManualShipmentLabelController::class, 'store']);
 Route::post('/fbm-orders-add-new-carrier', [ManualShipmentLabelController::class, 'newCarrierDescription']);
 Route::get('/fbm-orders-carrier-options', [ManualShipmentLabelController::class, 'getCarrierDescriptions']);
+
+/*
+//Listings FNSKU Creation
+use App\Http\Controllers\Amzn\Listing\CatalogController;
+
+Route::post('/amzn/listing/search-asin-data', [CatalogController::class, 'get_asin_catalog']);
+Route::get('/amzn/test-asin-data', function () {
+    $controller = new CatalogController();
+
+    $request = Request::create('/fbm-orders-shippinglabel', 'POST', [
+        'platform_order_ids' => ['114-0083765-2829867'],
+        'action' => 'PrintShipmentLabel',
+        'settings' => [
+            'displayPrice' => true,
+            'testPrint' => true,
+            'signatureRequired' => true
+        ],
+    ]);
+
+    return $controller->printshippinglabel($request);
+});
+*/

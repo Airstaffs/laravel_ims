@@ -96,14 +96,14 @@ foreach ($stores as $store) {
                 $skucondition = trim($summary['conditionType'] ?? '');
                 $ASIN = strtoupper(trim($summary['asin'] ?? ''));
                 $PRODUCT_NAME = trim($summary['itemName'] ?? '');
-                $asin_status = null;
+                $asin_statssus = null;
 
                 if (empty($FNSKU)) {
                     $FNSKU = $ASIN;
                 }
 
                 if ($store == 'AR') {
-                    $asin_status = (stripos($PRODUCT_NAME, 'renewed') !== false) ? 'renewed' : null;
+                    $asin_status = (stripos($PRODUCT_NAME, 'renewed') !== false) ? 'Renewed' : null;
                 }
                 $test = $PRODUCT_NAME;
 
@@ -282,14 +282,14 @@ foreach ($stores as $store) {
                         }
                     }
 
-                    /*
-if (isset($ASIN) && !empty($ASIN)) {
-// updates tblasin asin status
-$AsinStatus = $Connect->prepare("UPDATE tblasin SET asinStatus = ? WHERE ASIN = ?");
-$AsinStatus->bind_param('ss', $asin_status, $ASIN);
-$AsinStatus->execute();
-}
-*/
+
+                    if (isset($ASIN) && !empty($ASIN)) {
+                        // updates tblasin asin status
+                        $AsinStatus = $Connect->prepare("UPDATE tblasin SET asinStatus = ? WHERE ASIN = ?");
+                        $AsinStatus->bind_param('ss', $asin_status, $ASIN);
+                        $AsinStatus->execute();
+                    }
+
                 }
 
                 $sqlSelect = "SELECT * FROM tblasin WHERE ASIN = ?";
