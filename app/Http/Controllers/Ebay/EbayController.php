@@ -211,7 +211,7 @@ class EbayController extends Controller
 
         $orders = $response['OrderArray']['Order'];
 
-        echo "<br> Order Details<br>";
+        echo "<br> Order Primary<br>";
         echo "<pre>";
         print_r( $response['OrderArray']);
         echo "</pre>";
