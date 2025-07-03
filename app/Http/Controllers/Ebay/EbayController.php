@@ -210,6 +210,11 @@ class EbayController extends Controller
         }
 
         $orders = $response['OrderArray']['Order'];
+
+        echo "<br> Order Details<br>";
+        echo "<pre>";
+        print_r( $response['OrderArray']);
+        echo "</pre>";
         $processedOrders = [];
         $exchangeRates = $this->fetchExchangeRates($this->exchangeApiKey); // Fetch exchange rates
 
@@ -271,10 +276,7 @@ class EbayController extends Controller
             // Fetch item details
             $items = [];
 
-            echo "<br> Order Details<br>";
-            echo "<pre>";
-            print_r($order);
-            echo "</pre>";
+
 
             if (!empty($order['TransactionArray']['Transaction'])) {
                 // Ensure transactions are always an array
