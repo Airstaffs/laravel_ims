@@ -426,14 +426,42 @@ Route::prefix('api/houseage')->group(function () {
 
 // Routes for ASIN List Function  
 Route::prefix('api/asinlist')->group(function () {
+    
+ // Get ASIN products list
     Route::get('products', [ASINlistController::class, 'index']);
+    
+    // Get stores for dropdown
     Route::get('stores', [ASINlistController::class, 'getStores']);
     Route::get('/asin/search', [ASINlistController::class, 'searchAsin']);
     Route::post('/msku/save', [ASINlistController::class, 'saveMsku']);
     Route::post('/msku/generate', [ASINlistController::class, 'generateMsku']);
     Route::get('/all/stores', [ASINlistController::class, 'fetchstores']);
 
+    
+    // Update ASIN details (EAN/UPC/Instruction Link/Meta Keyword/Transparency)
+    Route::post('update-asin-details', [ASINlistController::class, 'updateAsinDetails']);
+    
+    // Update default dimensions and weight (NEW)
+    Route::post('update-default-dimensions', [ASINlistController::class, 'updateDefaultDimensions']);
+    
+    // Update related ASINs
+    Route::post('update-related-asins', [ASINlistController::class, 'updateRelatedAsins']);
+    
+    // Upload instruction card
+    Route::post('upload-instruction-card', [ASINlistController::class, 'uploadInstructionCard']);
+
+    // Upload user manual
+    Route::post('upload-user-manual', [ASINlistController::class, 'uploadUserManual']);
+
+    // Upload ASIN main image
+    Route::post('upload-asin-image', [ASINlistController::class, 'uploadAsinImage']);
+    
+    // Upload vector image
+    Route::post('upload-vector-image', [ASINlistController::class, 'uploadAsinVectorImage']);
 });
+
+
+
 
 
 

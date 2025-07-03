@@ -997,6 +997,75 @@ i#togglePassword {
     width: calc(100% / 3 - 10px);
 }
 
+.modal.image-modal {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-modal .modal-content {
+    max-width: 1024px;
+}
+
+.image-modal .productTitle {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.image-modal .productTitle h2 {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80%;
+    display: block;
+}
+
+.image-modal .modal-body {
+    padding: 20px;
+}
+
+.main-image-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.main-image-container button {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    border-width: 1px;
+}
+
+.main-image-container img {
+    width: 450px;
+    height: 450px;
+    overflow: hidden;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.thumbnails-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    overflow: auto;
+}
+
+.modal-thumbnail img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+}
+
+.modal-thumbnail.active {
+    border: 1px solid #f06;
+    border-radius: 6px;
+}
+
 @media (max-width: 767px) {
     .desktop {
         display: none;
@@ -1146,5 +1215,80 @@ i#togglePassword {
     .timezoneForm .btn-process {
         width: 100%;
         margin: 0;
+    }
+
+    .modal-header h2 {
+        font-size: 20px;
+        line-height: 1.2;
+    }
+
+    .btn-modal-close {
+        font-size: 28px;
+        padding: 4px 8px;
+        background: transparent;
+        border: none;
+    }
+
+    .main-image-container {
+        position: relative;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .main-image-container img {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        max-height: 60vh;
+        border-radius: 6px;
+        object-fit: contain;
+    }
+
+    .main-image-container button {
+        width: 36px;
+        height: 36px;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        background-color: rgba(255, 255, 255, 0.9);
+        z-index: 10;
+        border-radius: 6px;
+        font-size: 20px;
+    }
+
+    .main-image-container .prev {
+        left: 6px;
+    }
+
+    .main-image-container .next {
+        right: 6px;
+    }
+
+    .image-counter {
+        font-size: 16px;
+        text-align: center;
+        margin: 12px 0;
+    }
+
+    .thumbnails-container {
+        display: flex;
+        justify-content: flex-start;
+        overflow-x: auto;
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .modal-thumbnail img {
+        width: 55px;
+        height: 55px;
+        border-radius: 6px;
+        object-fit: cover;
+    }
+
+    .modal-thumbnail.active {
+        border: 2px solid #f06;
+        box-shadow: 0 0 4px rgba(240, 102, 102, 0.5);
     }
 }
