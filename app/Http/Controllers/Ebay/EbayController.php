@@ -338,9 +338,16 @@ class EbayController extends Controller
 
                     $itemDetails = $this->fetchItemDetails($itemId, $accessToken);
 
+                    $locationDetails = $this->getItemLocation($itemId, $accessToken);
+
                     echo "<br> Order Info Details<br>";
                     echo "<pre>";
                     print_r($itemDetails);
+                    echo "</pre>";
+
+                    echo "<br> Location Details Rawr sheesh";
+                    echo "<pre>";
+                    print_r($locationDetails);
                     echo "</pre>";
 
                     $items[] = [
@@ -639,60 +646,41 @@ class EbayController extends Controller
         }
     }
 
-    function getItemLocation($itemID)
+    private function getItemLocation($itemId, $accessToken)
     {
-        global $apiEndpoint;
-
-        $apiHeaders = [
-            'X-EBAY-API-SITEID: 0',
-            'X-EBAY-API-COMPATIBILITY-LEVEL: 967',
-            'X-EBAY-API-CALL-NAME: GetItem',
-        ];
+        if (!$itemId) {
+            Log::error("getItemLocation: Item ID is missing.");
+            return "N/A";
+        }
 
         $requestBody = '<?xml version="1.0" encoding="utf-8"?>
     <GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
         <RequesterCredentials>
-            <eBayAuthToken>' . getAccessToken() . '</eBayAuthToken>
+            <eBayAuthToken>' . $accessToken . '</eBayAuthToken>
         </RequesterCredentials>
-        <ItemID>' . $itemID . '</ItemID>
+        <ItemID>' . $itemId . '</ItemID>
         <DetailLevel>ReturnAll</DetailLevel>
     </GetItemRequest>';
 
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $apiEndpoint);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $requestBody);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $apiHeaders);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        $response = curl_exec($curl);
-        curl_close($curl);
+        $response = $this->sendRequest($requestBody, 'GetItem');
 
-        if ($response === false) {
+        if (!$response || !isset($response['Item']['Location'])) {
+            Log::warning("getItemLocation: Could not retrieve location for item ID: $itemId");
             return "N/A";
         }
 
-        $xml = simplexml_load_string($response);
-        if ($xml === false) {
-            return "N/A";
-        }
+        $itemLocation = $response['Item']['Location'] ?? '';
+        $itemCountry = $response['Item']['Country'] ?? '';
 
-        $location = "N/A";
-
-        // Get item location
-        if (isset($xml->Item->Location)) {
-            $itemLocation = (string) $xml->Item->Location;
-            $itemCountry = isset($xml->Item->Country) ? (string) $xml->Item->Country : "";
-
-            if (!empty($itemLocation)) {
-                if (!empty($itemCountry) && stripos($itemLocation, $itemCountry) === false) {
-                    $location = $itemLocation . ", " . $itemCountry;
-                } else {
-                    $location = $itemLocation;
-                }
+        if (!empty($itemLocation)) {
+            if (!empty($itemCountry) && stripos($itemLocation, $itemCountry) === false) {
+                return $itemLocation . ', ' . $itemCountry;
+            } else {
+                return $itemLocation;
             }
         }
 
-        return $location;
+        return "N/A";
     }
 
 
