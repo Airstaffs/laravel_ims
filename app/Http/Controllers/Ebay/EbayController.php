@@ -213,7 +213,7 @@ class EbayController extends Controller
 
         echo "<br> Order Primary<br>";
         echo "<pre>";
-        print_r( $response['OrderArray']);
+        print_r($response['OrderArray']);
         echo "</pre>";
         $processedOrders = [];
         $exchangeRates = $this->fetchExchangeRates($this->exchangeApiKey); // Fetch exchange rates
@@ -639,7 +639,61 @@ class EbayController extends Controller
         }
     }
 
+    function getItemLocation($itemID)
+    {
+        global $apiEndpoint;
 
+        $apiHeaders = [
+            'X-EBAY-API-SITEID: 0',
+            'X-EBAY-API-COMPATIBILITY-LEVEL: 967',
+            'X-EBAY-API-CALL-NAME: GetItem',
+        ];
+
+        $requestBody = '<?xml version="1.0" encoding="utf-8"?>
+    <GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+        <RequesterCredentials>
+            <eBayAuthToken>' . getAccessToken() . '</eBayAuthToken>
+        </RequesterCredentials>
+        <ItemID>' . $itemID . '</ItemID>
+        <DetailLevel>ReturnAll</DetailLevel>
+    </GetItemRequest>';
+
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, $apiEndpoint);
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $requestBody);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, $apiHeaders);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        $response = curl_exec($curl);
+        curl_close($curl);
+
+        if ($response === false) {
+            return "N/A";
+        }
+
+        $xml = simplexml_load_string($response);
+        if ($xml === false) {
+            return "N/A";
+        }
+
+        $location = "N/A";
+
+        // Get item location
+        if (isset($xml->Item->Location)) {
+            $itemLocation = (string) $xml->Item->Location;
+            $itemCountry = isset($xml->Item->Country) ? (string) $xml->Item->Country : "";
+
+            if (!empty($itemLocation)) {
+                if (!empty($itemCountry) && stripos($itemLocation, $itemCountry) === false) {
+                    $location = $itemLocation . ", " . $itemCountry;
+                } else {
+                    $location = $itemLocation;
+                }
+            }
+        }
+
+        return $location;
+    }
 
 
     function cleanTitle($text)
