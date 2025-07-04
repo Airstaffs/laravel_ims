@@ -4,35 +4,42 @@
 
     <!-- Step 1: ASIN Selection -->
     <div class="step">
-      <h4>Step 1: Search and Select ASIN</h4>
-      <input v-model="asinSearch" @input="fetchAsins" placeholder="Search ASIN or Title" />
+
+      <div class="step">
+        <h4>Step 1: Select Store</h4>
+        <select v-model="selectedStore" @change="handleStoreChange">
+          <option disabled value="">Select Store</option>
+          <option v-for="store in storeOptions" :key="store" :value="store">
+            {{ store }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+
+    <!-- Step 2: ASIN Search -->
+    <div class="step" v-if="selectedStore">
+      <h4>Step 2: Search and Select ASIN</h4>
+      <input v-model="asinSearch" @input="fetchAsins" :disabled="!selectedStore" placeholder="Search ASIN or Title" />
       <div class="dropdown" v-if="filteredAsins.length > 0">
-        <div v-for="asin in filteredAsins" :key="asin" class="dropdown-item" @click="selectAsin(asin)">
+        <div v-for="asin in filteredAsins" :key="asin.ASIN" class="dropdown-item" @click="selectAsin(asin)">
           {{ asin.ASIN }} - {{ asin.title }}
+          <span v-if="asin.storename">[Used by: {{ asin.storename }}]</span>
         </div>
       </div>
     </div>
 
-    <div v-if="selectedAsin" class="selected-asin">
-      <p><strong>Selected ASIN:</strong> {{ selectedAsin.asin }}</p>
-      <p><strong>Title:</strong> {{ selectedAsin.title }}</p>
-    </div>
-
-    <label>Store:</label>
-    <select v-model="selectedStore">
-      <option disabled value="">Select Store</option>
-      <option v-for="store in storeOptions" :key="store" :value="store">{{ store }}</option>
-    </select>
-
     <!-- Step 2: MSKU Generation -->
     <div v-if="selectedAsin" class="step">
-      <h4>Step 2: Create MSKU(s)</h4>
+      <h4>Step 3: Create MSKU(s)</h4>
       <label>Condition:</label>
       <select v-model="selectedCondition">
         <option v-for="(label, key) in conditionMap" :value="key" :key="key">{{ label }}</option>
       </select>
 
-      <button @click="generateMSKU">Generate MSKU</button>
+      <button @click="generateMSKU" :disabled="!selectedAsin || !selectedCondition || !selectedStore">
+        Generate MSKU
+      </button>
 
       <div v-if="generatedMsku">
         <p><strong>Generated MSKU:</strong> {{ generatedMsku }}</p>
@@ -129,9 +136,14 @@ export default {
         });
     },
     fetchAsins() {
-      if (!this.asinSearch.trim()) return;
+      if (!this.asinSearch.trim() || !this.selectedStore) return;
 
-      fetch(`${API_BASE_URL}/api/asinlist/asin/search?keyword=${encodeURIComponent(this.asinSearch)}`)
+      const params = new URLSearchParams({
+        keyword: this.asinSearch,
+        storename: this.selectedStore
+      });
+
+      fetch(`${API_BASE_URL}/api/asinlist/asin/search?${params.toString()}`)
         .then(res => res.json())
         .then(data => {
           this.filteredAsins = Array.isArray(data) ? data : [];
@@ -148,7 +160,7 @@ export default {
       this.filteredAsins = [];      // ✅ close dropdown
     },
     generateMSKU() {
-      if (!this.selectedAsin || !this.selectedCondition) return;
+      if (!this.selectedAsin || !this.selectedCondition || !this.selectedStore) return;
 
       fetch(`${API_BASE_URL}/api/asinlist/msku/generate`, {
         method: 'POST',
@@ -158,7 +170,8 @@ export default {
         },
         body: JSON.stringify({
           asin: this.selectedAsin.ASIN,
-          condition: this.selectedCondition
+          condition: this.selectedCondition,
+          storename: this.selectedStore
         })
       })
         .then(res => res.json())
@@ -217,7 +230,16 @@ export default {
         storename: this.selectedStore || 'Renovartech' // You can make this a real selector
       });
       this.generatedMsku = '';
-    }
+    },
+    handleStoreChange() {
+      // When store is changed, wipe all dependent selections
+      this.selectedAsin = null;
+      this.asinSearch = '';
+      this.filteredAsins = [];
+      this.selectedCondition = '';
+      this.generatedMsku = '';
+      this.mskuList = [];
+    },
 
   },
   mounted() {

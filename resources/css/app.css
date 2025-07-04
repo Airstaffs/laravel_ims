@@ -997,7 +997,8 @@ i#togglePassword {
     width: calc(100% / 3 - 10px);
 }
 
-.modal.image-modal {
+.modal.image-modal,
+.modal.fnsku-modal {
     display: flex !important;
     align-items: center;
     justify-content: center;
@@ -1064,6 +1065,33 @@ i#togglePassword {
 .modal-thumbnail.active {
     border: 1px solid #f06;
     border-radius: 6px;
+}
+
+.fnsku-modal .modal-content {
+    max-width: 800px;
+}
+
+.fnsku-modal .modal-body {
+    padding: 20px;
+}
+
+form.fnskuForm {
+    width: 600px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+    margin: 0 auto;
+}
+
+form.fnskuForm .btn-process {
+    background: #007bff;
+    justify-content: center;
+    font-weight: 600;
+    width: 50%;
+    height: 40px;
+    margin: 0 auto;
 }
 
 @media (max-width: 767px) {
@@ -1187,7 +1215,8 @@ i#togglePassword {
     .modal .storeListContainer,
     .modal .userTimeRecord,
     .modal .userLogs,
-    .modal .timezoneForm {
+    .modal .timezoneForm,
+    .modal .fnskuForm {
         width: 100%;
     }
 
@@ -1207,13 +1236,11 @@ i#togglePassword {
     }
 
     .userTimeRecord button,
-    .userLogs button {
-        width: 100%;
-    }
-
+    .userLogs button,
     .changePwdForm .btn-process,
-    .timezoneForm .btn-process {
-        width: 100%;
+    .timezoneForm .btn-process,
+    .fnskuForm .btn-process {
+        width: 100% !important;
         margin: 0;
     }
 

@@ -103,12 +103,14 @@ class EbayController extends Controller
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.Item.Title</OutputSelector>
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.QuantityPurchased</OutputSelector>
 
-            <OutputSelector>OrderArray.Order.TransactionArray.Transaction.SellerDiscounts.SellerDiscount.ItemDiscountAmount</OutputSelector>
+       <OutputSelector>OrderArray.Order.TransactionArray.Transaction.SellerDiscounts.SellerDiscount.ItemDiscountAmount</OutputSelector>
 
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.TransactionPrice</OutputSelector>
             <OutputSelector>OrderArray.Order.ShippedTime</OutputSelector>
             <OutputSelector>OrderArray.Order.SellerUserID</OutputSelector>
             <OutputSelector>OrderArray.Order.SellerEmail</OutputSelector>
+            <OutputSelector>OrderArray.Order.Seller.RegistrationAddress</OutputSelector>
+            
             <OutputSelector>OrderArray.Order.ShippingAddress</OutputSelector>
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingDetails.ShipmentTrackingDetails.ShipmentTrackingNumber</OutputSelector>
             <OutputSelector>OrderArray.Order.TransactionArray.Transaction.ShippingDetails.ShipmentTrackingDetails.ShippingCarrierUsed</OutputSelector>
@@ -208,6 +210,11 @@ class EbayController extends Controller
         }
 
         $orders = $response['OrderArray']['Order'];
+
+        echo "<br> Order Primary<br>";
+        echo "<pre>";
+        print_r( $response['OrderArray']);
+        echo "</pre>";
         $processedOrders = [];
         $exchangeRates = $this->fetchExchangeRates($this->exchangeApiKey); // Fetch exchange rates
 
@@ -269,6 +276,8 @@ class EbayController extends Controller
             // Fetch item details
             $items = [];
 
+
+
             if (!empty($order['TransactionArray']['Transaction'])) {
                 // Ensure transactions are always an array
                 $transactions = $order['TransactionArray']['Transaction'];
@@ -329,10 +338,10 @@ class EbayController extends Controller
 
                     $itemDetails = $this->fetchItemDetails($itemId, $accessToken);
 
-                    //     echo "<br> Order Info Details<br>";
-                    //    echo "<pre>";
-                    //     print_r($itemDetails);
-                    //    echo "</pre>";
+                    echo "<br> Order Info Details<br>";
+                    echo "<pre>";
+                    print_r($itemDetails);
+                    echo "</pre>";
 
                     $items[] = [
                         'transaction_id' => $transaction['TransactionID'] ?? null,
