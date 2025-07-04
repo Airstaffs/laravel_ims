@@ -37,7 +37,6 @@
                             </div>
                         </th>
                         <th class="">Seller Location</th>
-                        <th class="">Serial Number</th>
                         <th class="">Tracking Number</th>
                         <th class="">Condition</th>
                         <th class="">Status</th>
@@ -93,12 +92,6 @@
                             </td>
                             <td>
                                 <span><strong></strong> {{ item.seller }}</span>
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.itemnumber }}</span
-                                >
                             </td>
                             <td>
                                 <span
