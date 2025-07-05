@@ -22,6 +22,14 @@ export default {
             showImageModal: false,
             modalImages: [],
             currentImageIndex: 0,
+            showEditModal: false,
+            item: {
+                // For MaterialType
+                materialtype: "",
+            },
+            items: [],
+            activeIndex: 0,
+            basePath: "/images/thumbnails/",
         };
     },
     computed: {
@@ -44,6 +52,51 @@ export default {
                     ? String(valueA).localeCompare(String(valueB))
                     : String(valueB).localeCompare(String(valueA));
             });
+        },
+
+        imageList() {
+            return Object.keys(this.item)
+                .filter((key) => key.startsWith("img") && this.item[key])
+                .map((key) => this.item[key]);
+        },
+        activeImageUrl() {
+            return this.basePath + this.imageList[this.activeIndex];
+        },
+        serialKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^serialnumber[a-z]?$/.test(k)
+            );
+        },
+        trackingKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^trackingnumber\d*$/.test(k)
+            );
+        },
+        // For MaterialType
+        materialOptions() {
+            if (!Array.isArray(this.items)) return [];
+
+            const types = this.items
+                .map((entry) => entry.materialtype)
+                .filter((type) => !!type);
+
+            return [...new Set(types)].sort();
+        },
+        formattedSubtotal() {
+            const total = parseFloat(this.item.TOTAL) || 0;
+            const quantity = parseFloat(this.item.quantity) || 0;
+            return (total * quantity).toFixed(2);
+        },
+        grandTotal() {
+            const subtotal = this.formattedSubtotal;
+            const discount = parseFloat(this.item.discount) || 0;
+            return (subtotal - discount).toFixed(2);
+        },
+        unitPrice() {
+            const quantity = parseFloat(this.item.quantity);
+            if (!quantity || quantity === 0) return 0;
+
+            return (this.formattedSubtotal / quantity).toFixed(2);
         },
     },
     methods: {
@@ -134,6 +187,62 @@ export default {
             document.body.style.overflow = "auto";
         },
 
+        openEditModal(item) {
+            if (!item) return;
+
+            this.item = { ...item };
+            this.showEditModal = true;
+
+            this.autoResize();
+
+            document.body.style.overflow = "hidden";
+        },
+
+        closeEditModal() {
+            this.showEditModal = false;
+
+            setTimeout(() => {
+                document.body.style.overflow = "auto";
+            }, 300); // Match with your modal close animation
+        },
+
+        autoResize() {
+            [
+                "productTextarea",
+                "descriptionarea",
+                "supplierNotesarea",
+                "employeeNotesarea",
+            ].forEach((refName) => {
+                const el = this.$refs[refName];
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+
+        getLabel(index) {
+            // Convert 0 => A, 1 => B, etc.
+            return String.fromCharCode(65 + index);
+        },
+
+        // For MaterialType
+        fetchItems() {
+            axios
+                .get(`${this.API_BASE_URL}/api/orders/products`)
+                .then((res) => {
+                    this.items = Array.isArray(res.data)
+                        ? res.data
+                        : res.data.products || [];
+                })
+                .catch((err) => {
+                    console.error("Failed to fetch items:", err);
+                    this.items = [];
+                });
+        },
+
+        saveEditModal() {},
+
         nextImage() {
             if (this.currentImageIndex < this.modalImages.length - 1) {
                 this.currentImageIndex++;
@@ -217,14 +326,28 @@ export default {
             }
         },
     },
-
     watch: {
         searchQuery() {
             this.currentPage = 1;
             this.fetchInventory();
         },
-    },
 
+        item: {
+            immediate: true,
+            handler() {
+                this.activeIndex = 0;
+            },
+        },
+
+        "item.ProductTitle": {
+            immediate: true,
+            handler() {
+                this.$nextTick(() => {
+                    this.autoResize();
+                });
+            },
+        },
+    },
     mounted() {
         this.fetchInventory();
 
@@ -247,6 +370,15 @@ export default {
 
         window.addEventListener("keydown", handleKeyDown);
         this.handleKeyDown = handleKeyDown; // Store for cleanup
+
+        [...this.serialKeys, ...this.trackingKeys].forEach((key) => {
+            if (this.item[key] == null) {
+                this.$set(this.item, key, "");
+            }
+        });
+
+        // For MaterialType
+        this.fetchItems();
     },
 
     beforeDestroy() {

@@ -998,7 +998,8 @@ i#togglePassword {
 }
 
 .modal.image-modal,
-.modal.fnsku-modal {
+.modal.fnsku-modal,
+.modal.edit-modal {
     display: flex !important;
     align-items: center;
     justify-content: center;
@@ -1021,7 +1022,8 @@ i#togglePassword {
     display: block;
 }
 
-.image-modal .modal-body {
+.image-modal .modal-body,
+.edit-modal .modal-body {
     padding: 20px;
 }
 
@@ -1092,6 +1094,146 @@ form.fnskuForm .btn-process {
     width: 50%;
     height: 40px;
     margin: 0 auto;
+}
+
+/* ==== IMAGE GALLERY ==== */
+.product-gallery {
+    text-align: center;
+    position: relative;
+    padding-bottom: 60px; /* Ensure space for thumbnails */
+}
+
+.main-image img {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.thumbnail-carousel {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    overflow-x: auto;
+    padding: 10px;
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+}
+
+.thumbnail {
+    border: 2px solid transparent;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.thumbnail.active {
+    border-color: red;
+}
+
+.thumbnail img {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    transition: transform 0.2s ease;
+    cursor: pointer;
+}
+
+.thumbnail:hover img {
+    transform: scale(1.05);
+    border: 2px solid #999;
+}
+
+.no-resize {
+    resize: none;
+}
+
+/* ==== LAYOUT WRAPPERS ==== */
+.form-grid-wrapper {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.form-col-left,
+.form-col-center,
+.form-col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.edit-order-container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-layout-container {
+    display: grid;
+    grid-template-columns: 260px 1fr 280px;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+.form-col-left,
+.form-col-center,
+.form-col-right {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* ==== SECTION STYLES ==== */
+.form-section {
+    background-color: #f9f9f9;
+    padding: 16px 20px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.image-section {
+    background-color: #fffefc;
+    position: relative;
+}
+
+.general-info-section {
+    background-color: #f0f4f8;
+}
+
+.other-section {
+    background-color: #f9f9f9;
+}
+
+.pricing-section {
+    background-color: #f5faff;
+}
+
+.notes-section {
+    background-color: #fcfcfc;
+}
+
+/* ==== NOTES FULL WIDTH ==== */
+.form-notes {
+    width: 100%;
+}
+
+.notes-section {
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+/* ==== HEADINGS (OPTIONAL) ==== */
+.form-section h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 6px;
+    font-weight: 600;
 }
 
 @media (max-width: 767px) {
