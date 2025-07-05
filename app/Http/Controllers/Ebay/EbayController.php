@@ -213,7 +213,7 @@ class EbayController extends Controller
 
         echo "<br> Order Primary<br>";
         echo "<pre>";
-        print_r( $response['OrderArray']);
+        print_r($response['OrderArray']);
         echo "</pre>";
         $processedOrders = [];
         $exchangeRates = $this->fetchExchangeRates($this->exchangeApiKey); // Fetch exchange rates
@@ -338,9 +338,16 @@ class EbayController extends Controller
 
                     $itemDetails = $this->fetchItemDetails($itemId, $accessToken);
 
+                    $locationDetails = $this->getItemLocation($itemId, $accessToken);
+
                     echo "<br> Order Info Details<br>";
                     echo "<pre>";
                     print_r($itemDetails);
+                    echo "</pre>";
+
+                    echo "<br> Location Details Rawr sheesh";
+                    echo "<pre>";
+                    print_r($locationDetails);
                     echo "</pre>";
 
                     $items[] = [
@@ -639,7 +646,42 @@ class EbayController extends Controller
         }
     }
 
+    private function getItemLocation($itemId, $accessToken)
+    {
+        if (!$itemId) {
+            Log::error("getItemLocation: Item ID is missing.");
+            return "N/A";
+        }
 
+        $requestBody = '<?xml version="1.0" encoding="utf-8"?>
+    <GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+        <RequesterCredentials>
+            <eBayAuthToken>' . $accessToken . '</eBayAuthToken>
+        </RequesterCredentials>
+        <ItemID>' . $itemId . '</ItemID>
+        <DetailLevel>ReturnAll</DetailLevel>
+    </GetItemRequest>';
+
+        $response = $this->sendRequest($requestBody, 'GetItem');
+
+        if (!$response || !isset($response['Item']['Location'])) {
+            Log::warning("getItemLocation: Could not retrieve location for item ID: $itemId");
+            return "N/A";
+        }
+
+        $itemLocation = $response['Item']['Location'] ?? '';
+        $itemCountry = $response['Item']['Country'] ?? '';
+
+        if (!empty($itemLocation)) {
+            if (!empty($itemCountry) && stripos($itemLocation, $itemCountry) === false) {
+                return $itemLocation . ', ' . $itemCountry;
+            } else {
+                return $itemLocation;
+            }
+        }
+
+        return "N/A";
+    }
 
 
     function cleanTitle($text)
