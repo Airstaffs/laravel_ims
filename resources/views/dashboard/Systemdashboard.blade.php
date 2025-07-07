@@ -53,6 +53,8 @@
             font-weight: 500;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
+
+        
     </style>
 </head>
 
@@ -1257,24 +1259,20 @@
 
             // Method 4: Disable browser navigation buttons via CSS (add to your CSS)
             const style = document.createElement('style');
-            style.textContent = `
-        html, body {
-            -webkit-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-        
-        /* Disable right-click context menu */
-        body {
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            -khtml-user-select: none;
-            -moz-user-select: none;
-            -ms-user-select: none;
-            user-select: none;
-        }
-    `;
+          style.textContent = `
+            /* Only disable selection for UI elements, not content */
+            .sidebar, .navbar, .btn, .modal-header, .nav-link {
+                -webkit-user-select: none;
+                -moz-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
+            }
+            
+            /* Disable right-click context menu but keep text selection */
+            body {
+                -webkit-touch-callout: none;
+            }
+        `;
             document.head.appendChild(style);
 
             // Method 5: Keyboard shortcuts prevention

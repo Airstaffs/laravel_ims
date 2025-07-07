@@ -29,7 +29,7 @@ class HouseageController extends BasetablesController
         
         $perPage = $request->input('per_page', 10);
         $search = $request->input('search', '');
-        $location = '';
+      //  $location = 'Orders';
         $includeImages = $request->boolean('include_images', false);
         
         // Enhanced query with joins similar to StockroomController
@@ -45,7 +45,7 @@ class HouseageController extends BasetablesController
             ])
             ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
             ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-            ->where('prod.ProductModuleLoc', $location)
+            //->where('prod.ProductModuleLoc', $location)
             ->when($search, function($query) use ($search) {
                 return $query->where(function($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
