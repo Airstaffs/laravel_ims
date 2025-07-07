@@ -1206,6 +1206,10 @@ form.fnskuForm .btn-process {
 
 .other-section {
     background-color: #f9f9f9;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
 }
 
 .pricing-section {
@@ -1234,6 +1238,17 @@ form.fnskuForm .btn-process {
     border-bottom: 1px solid #ccc;
     padding-bottom: 6px;
     font-weight: 600;
+}
+
+.edit-modal .modal-body {
+    height: 700px;
+    overflow: auto;
+}
+
+.dates-section,
+.serial-tracking-section,
+.product-info-section {
+    flex: 1;
 }
 
 @media (max-width: 767px) {
