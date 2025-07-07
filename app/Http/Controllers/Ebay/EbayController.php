@@ -379,7 +379,8 @@ class EbayController extends Controller
                 'tracking_number4' => $trackingNumber4,  // Added fourth tracking number
                 'tracking_number5' => $trackingNumber5,  // Added fifth tracking number
                 'shipping_carrier' => $shippingCarrier,  // Added shipping carrier
-                'items' => $items
+                'items' => $items,
+                'locationdetails' => $locationDetails,
             ];
 
             // Debug the processed order
@@ -446,6 +447,7 @@ class EbayController extends Controller
                     $DiscountedPrice = 0.00;
                     $shippingPrice = $order['shipping_cost'] ?? 0.00;
                     $sellerNotes = '';
+                    $locationdetails = $order['locationdetails'];
 
 
                     // ✅ Fetch keywords from tblItemstatus
@@ -531,6 +533,7 @@ class EbayController extends Controller
                                     'Discount' => $DiscountedPrice,
                                     'priceshipping' => $shippingPrice,
                                     'tax' => $tax,
+                                    'Ebay_seller_location' => $locationdetails,
                                 ]);
                             Log::info("Updated Order ID: $orderID (Item ID: $itemID) - ProductID: $productID");
                         } else {
@@ -566,7 +569,8 @@ class EbayController extends Controller
                                 'fetchStatus' => $fetchStatus,
                                 'ProductModuleLoc' => $moduleLoc,
                                 'materialtype' => $materialType,
-                                'validation' => ''
+                                'validation' => '',
+                                'Ebay_seller_location' => $locationdetails,
                             ]);
 
                             Log::info("Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID");
