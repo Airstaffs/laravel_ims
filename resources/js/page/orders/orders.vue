@@ -38,8 +38,8 @@
                         </th>
                         <th class="">Seller Location</th>
                         <th class="">Tracking Number</th>
-                        <th class="">Condition</th>
-                        <th class="">Status</th>
+                        <th class="">Ordered Condition</th>
+                        <th class="">Condition Status</th>
                         <th class="">Ordered Date</th>
                         <th class="">Delivered Date</th>
                         <th class="">Actions</th>
@@ -91,7 +91,10 @@
                                 </div>
                             </td>
                             <td>
-                                <span><strong></strong> {{ item.seller }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.Ebay_seller_location }}</span
+                                >
                             </td>
                             <td>
                                 <span
@@ -106,7 +109,10 @@
                                 >
                             </td>
                             <td>
-                                <span><strong></strong> {{ item.Status }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.itemstatus }}</span
+                                >
                             </td>
                             <td>
                                 <span
@@ -123,7 +129,6 @@
                             <!-- Button for more details -->
                             <td>
                                 <div class="action-buttons">
-                                    {{ item.totalquantity }}
                                     <button
                                         class="btn-details"
                                         @click="toggleDetails(index)"
@@ -131,9 +136,12 @@
                                         <i class="fas fa-info-circle"></i> More
                                         Details
                                     </button>
-                                    <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
+                                    <button
+                                        class="btn-edit"
+                                        @click="openEditModal(item)"
+                                    >
+                                        Edit
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -431,6 +439,502 @@
                         >
                             <img :src="image" :alt="`Thumbnail ${index + 1}`" />
                         </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showEditModal" class="modal edit-modal">
+            <div class="modal-overlay" @click="closeEditModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2>{{ item?.rtcounter || "RT Counter" }}</h2>
+                    </div>
+                    <button class="btn btn-modal-close" @click="closeEditModal">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="edit-order-container">
+                        <form class="editOrderForm">
+                            <div class="form-grid-wrapper">
+                                <!-- LEFT: IMAGE + GENERAL INFO -->
+                                <div class="form-col-left">
+                                    <div
+                                        class="image-section"
+                                        v-if="imageList.length"
+                                    >
+                                        <!-- Main Image -->
+                                        <div class="main-image">
+                                            <img
+                                                :src="activeImageUrl"
+                                                alt="Main Product Image"
+                                            />
+                                        </div>
+                                        <!-- Thumbnails -->
+                                        <div class="thumbnail-carousel">
+                                            <div
+                                                v-for="(
+                                                    img, index
+                                                ) in imageList"
+                                                :key="index"
+                                                :class="[
+                                                    'thumbnail',
+                                                    {
+                                                        active:
+                                                            index ===
+                                                            activeIndex,
+                                                    },
+                                                ]"
+                                                @click="activeIndex = index"
+                                                @mouseenter="
+                                                    activeIndex = index
+                                                "
+                                            >
+                                                <img
+                                                    :src="basePath + img"
+                                                    alt="Thumbnail"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="form-section general-info-section"
+                                    >
+                                        <!-- SECTION: General Info -->
+                                        <div class="general-info-section">
+                                            <h3 class="form-section-heading">
+                                                General Info
+                                            </h3>
+
+                                            <fieldset>
+                                                <label><span>RT:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    :value="item.rtcounter"
+                                                    placeholder="RT Counter"
+                                                />
+                                            </fieldset>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >External Title:</span
+                                                    ></label
+                                                >
+                                                <textarea
+                                                    ref="productTextarea"
+                                                    class="form-control no-resize"
+                                                    v-model="item.ProductTitle"
+                                                    placeholder="Product Title"
+                                                    rows="1"
+                                                    @input="autoResize"
+                                                ></textarea>
+                                            </fieldset>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Order Number:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    :value="item.rtid"
+                                                    placeholder="Order Number"
+                                                />
+                                            </fieldset>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Item Number:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.itemnumber"
+                                                />
+                                            </fieldset>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
+                                <div class="form-col-center">
+                                    <div class="form-section other-section">
+                                        <!-- SECTION: Dates -->
+                                        <div class="dates-section">
+                                            <h3 class="form-section-heading">
+                                                Dates
+                                            </h3>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Order Date:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="date"
+                                                    class="form-control"
+                                                    v-model="item.orderdate"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Payment Date:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="date"
+                                                    class="form-control"
+                                                    v-model="item.paymentdate"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Shipped Date:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="date"
+                                                    class="form-control"
+                                                    v-model="item.shipdate"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Delivered Date:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="date"
+                                                    class="form-control"
+                                                    v-model="item.datedelivered"
+                                                />
+                                            </fieldset>
+                                        </div>
+
+                                        <!-- SECTION: Serial & Tracking -->
+                                        <div class="serial-tracking-section">
+                                            <h3 class="form-section-heading">
+                                                Serial & Tracking
+                                            </h3>
+
+                                            <template v-if="serialKeys.length">
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in serialKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        ><span
+                                                            >Serial Number
+                                                            {{
+                                                                getLabel(index)
+                                                            }}:</span
+                                                        ></label
+                                                    >
+                                                    <input
+                                                        type="text"
+                                                        class="form-control"
+                                                        v-model="item[key]"
+                                                    />
+                                                </fieldset>
+                                            </template>
+
+                                            <template
+                                                v-if="trackingKeys.length"
+                                            >
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in trackingKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        ><span
+                                                            >Tracking Number
+                                                            {{
+                                                                index + 1
+                                                            }}:</span
+                                                        ></label
+                                                    >
+                                                    <input
+                                                        type="text"
+                                                        class="form-control"
+                                                        v-model="item[key]"
+                                                    />
+                                                </fieldset>
+                                            </template>
+                                        </div>
+
+                                        <!-- SECTION: Product Info -->
+                                        <div class="product-info-section">
+                                            <h3 class="form-section-heading">
+                                                Product Info
+                                            </h3>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Supplier ID/Name:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.seller"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Material:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.materialtype"
+                                                >
+                                                    <option disabled value="">
+                                                        Select material type
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Source Type:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.sourceType"
+                                                >
+                                                    <option disabled value="">
+                                                        Select source type
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Carrier /
+                                                        Courier:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.carrier"
+                                                >
+                                                    <option disabled value="">
+                                                        Select courier
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Listed Condition:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="
+                                                        item.listedcondition
+                                                    "
+                                                >
+                                                    <option disabled value="">
+                                                        Select condition
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Payment Method:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.paymentmethod"
+                                                >
+                                                    <option disabled value="">
+                                                        Select Payment Method
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- RIGHT: PRICING -->
+                                <div class="form-col-right">
+                                    <div class="form-section pricing-section">
+                                        <!-- SECTION: Pricing -->
+                                        <div class="pricing-section">
+                                            <h3 class="form-section-heading">
+                                                Pricing
+                                            </h3>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Quantity:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    v-model="item.quantity"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Sub-total:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    :value="formattedSubtotal"
+                                                    readonly
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Discount:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    v-model="item.Discount"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label><span>Tax:</span></label>
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    v-model="item.tax"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Shipping:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    v-model="item.priceshipping"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span>Refund:</span></label
+                                                >
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    v-model="item.refund"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Grand Total:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    :value="grandTotal"
+                                                    readonly
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Unit Price:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="number"
+                                                    class="form-control"
+                                                    :value="unitPrice"
+                                                    readonly
+                                                />
+                                            </fieldset>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- NOTES FULL WIDTH -->
+                            <div class="form-notes">
+                                <div class="form-section notes-section">
+                                    <!-- Description, Supplier Notes, Employee Notes -->
+                                    <!-- SECTION: Notes -->
+                                    <fieldset>
+                                        <label><span>Description:</span></label>
+                                        <textarea
+                                            ref="descriptionarea"
+                                            class="form-control no-resize"
+                                            v-model="item.description"
+                                            placeholder="Description"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label
+                                            ><span>Supplier Notes:</span></label
+                                        >
+                                        <textarea
+                                            ref="supplierNotesarea"
+                                            class="form-control no-resize"
+                                            v-model="item.supplierNotes"
+                                            placeholder="Supplier Notes"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label
+                                            ><span>Employee Notes:</span></label
+                                        >
+                                        <textarea
+                                            ref="employeeNotesarea"
+                                            class="form-control no-resize"
+                                            v-model="item.employeeNotes"
+                                            placeholder="Employee Notes"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
