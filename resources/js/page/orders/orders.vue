@@ -783,107 +783,102 @@
 
                                 <!-- RIGHT: PRICING -->
                                 <div class="form-col-right">
-                                    <div class="form-section pricing-section">
-                                        <!-- SECTION: Pricing -->
-                                        <div class="pricing-section">
-                                            <h3 class="form-section-heading">
+                                    <div
+                                        class="pos-pricing-ui bg-white rounded shadow p-4"
+                                        style="max-width: 480px"
+                                    >
+                                        <!-- Header -->
+                                        <div class="border-bottom pb-2">
+                                            <h3 class="text-dark mb-0">
                                                 Pricing
                                             </h3>
-
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Quantity:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    v-model="item.quantity"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Sub-total:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    :value="formattedSubtotal"
-                                                    readonly
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Discount:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    v-model="item.Discount"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label><span>Tax:</span></label>
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    v-model="item.tax"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Shipping:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    v-model="item.priceshipping"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span>Refund:</span></label
-                                                >
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    v-model="item.refund"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Grand Total:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    :value="grandTotal"
-                                                    readonly
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Unit Price:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="number"
-                                                    class="form-control"
-                                                    :value="unitPrice"
-                                                    readonly
-                                                />
-                                            </fieldset>
                                         </div>
+
+                                        <!-- Full-width Fields -->
+                                        <fieldset>
+                                            <label><span>Quantity</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.quantity"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label
+                                                ><span>Sub-total</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light"
+                                                :value="formattedSubtotal"
+                                                readonly
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Discount</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.Discount"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Tax</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.tax"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Shipping</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.priceshipping"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Refund</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.refund"
+                                            />
+                                        </fieldset>
+
+                                        <!-- Divider -->
+                                        <hr class="my-4" />
+
+                                        <!-- Total Summary -->
+                                        <fieldset>
+                                            <label
+                                                ><span>Grand Total</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light fw-bold text-success"
+                                                :value="grandTotal"
+                                                readonly
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label
+                                                ><span>Unit Price</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light"
+                                                :value="unitPrice"
+                                                readonly
+                                            />
+                                        </fieldset>
                                     </div>
                                 </div>
                             </div>
