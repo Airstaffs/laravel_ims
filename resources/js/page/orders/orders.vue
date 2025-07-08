@@ -137,7 +137,7 @@
                                         Details
                                     </button>
                                     <button
-                                        class="btn-edit"
+                                        class="btn btn-edit"
                                         @click="openEditModal(item)"
                                     >
                                         Edit
@@ -321,9 +321,12 @@
                         >
                             <i class="fas fa-info-circle"></i> Details
                         </button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
+                        <button
+                            class="btn btn-edit"
+                            @click="openEditModal(item)"
+                        >
+                            Edit
+                        </button>
                     </div>
 
                     <hr v-if="expandedRows[index]" />
@@ -472,8 +475,11 @@
                                             <img
                                                 :src="activeImageUrl"
                                                 alt="Main Product Image"
+                                                loading="lazy"
+                                                @error="onImageErrorMain"
                                             />
                                         </div>
+
                                         <!-- Thumbnails -->
                                         <div class="thumbnail-carousel">
                                             <div
@@ -497,6 +503,10 @@
                                                 <img
                                                     :src="basePath + img"
                                                     alt="Thumbnail"
+                                                    loading="lazy"
+                                                    @error="
+                                                        onThumbnailError($event)
+                                                    "
                                                 />
                                             </div>
                                         </div>
@@ -712,7 +722,25 @@
                                                     <option disabled value="">
                                                         Select material type
                                                     </option>
+                                                    <option
+                                                        v-for="type in materialTypes"
+                                                        :key="type"
+                                                        :value="type"
+                                                    >
+                                                        {{ type }}
+                                                    </option>
                                                 </select>
+
+                                                <!-- optional loading/error messages -->
+                                                <p v-if="loading">
+                                                    Loading items...
+                                                </p>
+                                                <p
+                                                    v-if="error"
+                                                    class="text-danger"
+                                                >
+                                                    {{ error }}
+                                                </p>
                                             </fieldset>
                                             <fieldset>
                                                 <label
@@ -726,6 +754,24 @@
                                                 >
                                                     <option disabled value="">
                                                         Select source type
+                                                    </option>
+                                                    <option value="ES">
+                                                        ES
+                                                    </option>
+                                                    <option value="AS">
+                                                        AS
+                                                    </option>
+                                                    <option value="XS">
+                                                        XS
+                                                    </option>
+                                                    <option value="PS">
+                                                        PS
+                                                    </option>
+                                                    <option value="RS">
+                                                        RS
+                                                    </option>
+                                                    <option value="B&H">
+                                                        B&H
                                                     </option>
                                                 </select>
                                             </fieldset>
@@ -742,6 +788,13 @@
                                                 >
                                                     <option disabled value="">
                                                         Select courier
+                                                    </option>
+                                                    <option
+                                                        v-for="carrier in carrierOptions"
+                                                        :key="carrier"
+                                                        :value="carrier"
+                                                    >
+                                                        {{ carrier }}
                                                     </option>
                                                 </select>
                                             </fieldset>
@@ -760,6 +813,20 @@
                                                     <option disabled value="">
                                                         Select condition
                                                     </option>
+                                                    <option value="New">
+                                                        New
+                                                    </option>
+                                                    <option value="Open Box">
+                                                        Open Box
+                                                    </option>
+                                                    <option value="Used">
+                                                        Used
+                                                    </option>
+                                                    <option
+                                                        value="For parts or not working"
+                                                    >
+                                                        For parts or not working
+                                                    </option>
                                                 </select>
                                             </fieldset>
                                             <fieldset>
@@ -774,6 +841,25 @@
                                                 >
                                                     <option disabled value="">
                                                         Select Payment Method
+                                                    </option>
+                                                    <option value="PayPal">
+                                                        PayPal
+                                                    </option>
+                                                    <option
+                                                        value="Credit/Debit Card"
+                                                    >
+                                                        Credit/Debit Card
+                                                    </option>
+                                                    <option value="Cash">
+                                                        Cash
+                                                    </option>
+                                                    <option
+                                                        value="Bank Transfer"
+                                                    >
+                                                        Bank Transfer
+                                                    </option>
+                                                    <option value="Check">
+                                                        Check
                                                     </option>
                                                 </select>
                                             </fieldset>
@@ -931,6 +1017,16 @@
                             </div>
                         </form>
                     </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-lg text-white"
+                        @click="saveEditModal"
+                    >
+                        <i class="fas fa-save me-2"></i> Save
+                    </button>
                 </div>
             </div>
         </div>

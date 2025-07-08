@@ -1113,13 +1113,14 @@ form.fnskuForm .btn-process {
 
 .thumbnail-carousel {
     display: flex;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 10px;
     overflow-x: auto;
     padding: 10px;
     position: absolute;
     bottom: 0;
     width: 100%;
+    scroll-behavior: smooth;
 }
 
 .thumbnail {
@@ -1241,7 +1242,7 @@ form.fnskuForm .btn-process {
 }
 
 .edit-modal .modal-body {
-    height: 700px;
+    height: 600px;
     overflow: auto;
 }
 
@@ -1474,5 +1475,37 @@ form.fnskuForm .btn-process {
     .modal-thumbnail.active {
         border: 2px solid #f06;
         box-shadow: 0 0 4px rgba(240, 102, 102, 0.5);
+    }
+
+    .form-grid-wrapper {
+        grid-template-columns: 1fr;
+    }
+
+    .main-image img {
+        max-width: unset;
+    }
+
+    .other-section {
+        display: grid;
+        grid-template-columns: 1fr;
+        justify-content: space-between;
+        align-items: start;
+    }
+
+    .serial-tracking-section h3,
+    .product-info-section h3 {
+        margin-top: 12px;
+    }
+
+    .edit-modal .modal-footer {
+        padding: 0;
+        border: 0;
+    }
+
+    .edit-modal .modal-footer button {
+        margin: 0;
+        border-radius: 0;
+        width: 100%;
+        justify-content: center;
     }
 }

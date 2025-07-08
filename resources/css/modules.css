@@ -366,7 +366,7 @@ textarea.form-control {
     text-align: left;
     font-size: 1.5rem;
     margin-bottom: 10px;
-    background-color: #578FCA;
+    background-color: #578fca;
     padding: 5px;
     color: #111111;
     font-weight: bold;
@@ -407,7 +407,6 @@ textarea.form-control {
     font-size: 12px;
     border-radius: 2px;
     margin-bottom: 5px;
-
 }
 
 /* Sortable columns */
@@ -535,7 +534,8 @@ textarea.form-control {
 .btn-invoice,
 .btn-edit-customer,
 .btn-edit-address,
-.btn-edit-note {
+.btn-edit-note,
+.btn-edit {
     width: 150px;
     height: 40px;
     padding: 5px;
@@ -556,7 +556,8 @@ textarea.form-control {
 .btn-expand:hover,
 .btn-validation:hover,
 .btn-stockroom:hover,
-.btn-fnsku:hover {
+.btn-fnsku:hover,
+.btn-edit:hover {
     background-color: #e0e0e0;
 }
 

@@ -46,7 +46,7 @@ Route::middleware('guest')->group(function () {
     // Login routes
     Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
     Route::post('/login', [LoginController::class, 'authenticate']);
-    
+
     // Google OAuth routes
     Route::get('/auth/google', [LoginController::class, 'googlepage'])->name('google.redirect');
     Route::get('/auth/google/callback', [LoginController::class, 'handleGoogleCallback'])->name('google.callback');
@@ -60,16 +60,16 @@ Route::post('/logout', function (Request $request) {
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent()
         ]);
-        
+
         // Force logout regardless of token issues
         if (Auth::check()) {
             \Log::info('User logout: ' . Auth::user()->username);
         }
-        
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
-        
+
         // Handle AJAX requests
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
@@ -78,13 +78,12 @@ Route::post('/logout', function (Request $request) {
                 'redirect' => route('login')
             ]);
         }
-        
+
         // FIXED: Use 'logout_success' instead of 'success' to avoid audio confusion
         return redirect('/login')->with('logout_success', 'You have been logged out successfully.');
-        
     } catch (\Exception $e) {
         \Log::error('Logout error: ' . $e->getMessage());
-        
+
         // Even if there's an error, try to clear session
         try {
             Auth::logout();
@@ -93,7 +92,7 @@ Route::post('/logout', function (Request $request) {
         } catch (\Exception $sessionError) {
             \Log::error('Session clearing error: ' . $sessionError->getMessage());
         }
-        
+
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
@@ -101,7 +100,7 @@ Route::post('/logout', function (Request $request) {
                 'redirect' => route('login')
             ]);
         }
-        
+
         return redirect('/login')->with('logout_success', 'You have been logged out.');
     }
 })->middleware(['web'])->name('logout');
@@ -111,7 +110,7 @@ Route::get('/force-logout', function (Request $request) {
     Auth::logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();
-    
+
     return redirect('/login')->with('logout_success', 'You have been logged out.');
 })->name('force.logout');
 
@@ -127,17 +126,17 @@ Route::get('/check-auth', function () {
 Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     // Dashboard - PRESERVED YOUR ORIGINAL ROUTES
     Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard.system');
-    
+
     // CSRF token refresh endpoint
     Route::get('/csrf-token', function () {
         return response()->json(['token' => csrf_token()]);
     });
-    
+
     // Keep session alive endpoint
     Route::get('/keep-alive', function () {
         return response()->json(['status' => 'alive']);
     });
-    
+
     // All other authenticated routes
     Route::get('/dashboard/Systemdashboard', [LoginController::class, 'showSystemDashboard']);
     Route::get('/get-user-privileges/{userId}', [UserController::class, 'getUserPrivileges']);
@@ -251,6 +250,7 @@ Route::get('/apis/ebay-login', action: function () {
 });
 
 use App\Http\Controllers\Ebay\EbayController;
+
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
 Route::get('/ebay/orders/cron-automation/{token}', function ($token) {
@@ -262,6 +262,7 @@ Route::get('/ebay/orders/cron-automation/{token}', function ($token) {
 });
 
 use App\Http\Controllers\Amzn\FBACartController;
+
 Route::post('/amzn/fba-cart/add', [FBACartController::class, 'addToCart']);
 Route::get('/amzn/fba-cart/list', [FBACartController::class, 'list']);
 Route::get('/amzn/fba-cart/get-or-create-cart', [FBACartController::class, 'getOrCreateCart']);
@@ -269,6 +270,7 @@ Route::delete('/amzn/fba-cart/remove', [FBACartController::class, 'removeFromCar
 Route::post('/amzn/fba-cart/commit', [FBACartController::class, 'commitCart']);
 
 use App\Http\Controllers\Amzn\FBAShipmentController;
+
 Route::post('/amzn/fba-shipment/add-item', [FBAShipmentController::class, 'addItemToShipment']);
 Route::get('/amzn/fba-shipment/fetch-shipments', [FBAShipmentController::class, 'fetch_shipment']);
 Route::post('/amzn/fba-shipment/delete-item', [FBAShipmentController::class, 'deleteShipmentItem']);
@@ -298,9 +300,11 @@ Route::get('/amzn/fba-shipment/step9/get_shipment', [FBAShipmentController::clas
 Route::get('/amzn/fba-shipment/step10/print_label', [FBAShipmentController::class, 'step10a_print_label']);
 
 use App\Http\Controllers\TestTableController;
+
 Route::get('/test', [TestTableController::class, 'index']);
 
 use App\Http\Controllers\tblproductController;
+
 Route::get('/products', [tblproductController::class, 'index']);
 
 // Session management routes
@@ -349,6 +353,7 @@ Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::cl
 // Routes Orders
 Route::prefix('api/orders')->group(function () {
     Route::get('products', [OrdersController::class, 'index']);
+    Route::post('products', [OrdersController::class, 'store']);
 });
 
 // Routes Production Area
@@ -426,10 +431,10 @@ Route::prefix('api/houseage')->group(function () {
 
 // Routes for ASIN List Function  
 Route::prefix('api/asinlist')->group(function () {
-    
- // Get ASIN products list
+
+    // Get ASIN products list
     Route::get('products', [ASINlistController::class, 'index']);
-    
+
     // Get stores for dropdown
     Route::get('stores', [ASINlistController::class, 'getStores']);
     Route::get('/asin/search', [ASINlistController::class, 'searchAsin']);
@@ -437,16 +442,16 @@ Route::prefix('api/asinlist')->group(function () {
     Route::post('/msku/generate', [ASINlistController::class, 'generateMsku']);
     Route::get('/all/stores', [ASINlistController::class, 'fetchstores']);
 
-    
+
     // Update ASIN details (EAN/UPC/Instruction Link/Meta Keyword/Transparency)
     Route::post('update-asin-details', [ASINlistController::class, 'updateAsinDetails']);
-    
+
     // Update default dimensions and weight (NEW)
     Route::post('update-default-dimensions', [ASINlistController::class, 'updateDefaultDimensions']);
-    
+
     // Update related ASINs
     Route::post('update-related-asins', [ASINlistController::class, 'updateRelatedAsins']);
-    
+
     // Upload instruction card
     Route::post('upload-instruction-card', [ASINlistController::class, 'uploadInstructionCard']);
 
@@ -455,7 +460,7 @@ Route::prefix('api/asinlist')->group(function () {
 
     // Upload ASIN main image
     Route::post('upload-asin-image', [ASINlistController::class, 'uploadAsinImage']);
-    
+
     // Upload vector image
     Route::post('upload-vector-image', [ASINlistController::class, 'uploadAsinVectorImage']);
 });
@@ -528,6 +533,7 @@ Route::get('/fbm-orders-invoice-test', function () {
 
 // print shipping label fbm orders
 use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
+
 Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, 'printshippinglabel']);
 
 // timezone system
@@ -556,6 +562,7 @@ Route::get('/session-warmup', function () {
 
 // Fbm Orders Manual Shipment Label
 use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
+
 Route::post('/fbm-orders-manualshipmentlabel', [ManualShipmentLabelController::class, 'store']);
 Route::post('/fbm-orders-add-new-carrier', [ManualShipmentLabelController::class, 'newCarrierDescription']);
 Route::get('/fbm-orders-carrier-options', [ManualShipmentLabelController::class, 'getCarrierDescriptions']);
