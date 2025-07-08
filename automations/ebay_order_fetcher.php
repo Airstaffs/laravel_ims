@@ -107,7 +107,7 @@ function fetchOrdersCron()
 
 function sendEbayRequest($accessToken, $pageNumber)
 {
-    $createTimeFrom = (new DateTime('-1 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
+    $createTimeFrom = (new DateTime('-10 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
     $createTimeTo = (new DateTime('now', new DateTimeZone('UTC')))->format(DATE_ATOM);
 
     $requestBody = '<?xml version="1.0" encoding="utf-8"?>
