@@ -7,27 +7,39 @@ ini_set('max_execution_time', 600);
 session_start();
 date_default_timezone_set('America/Los_Angeles');
 
+echo "Current directory: " . __DIR__ . "<br>";
+
+echo "Working directory: " . getcwd() . "<br>";
+
+
+// === DB CONFIG ===
+$mysqli = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
+
+if ($mysqli->connect_error) {
+    die("DB connection failed: " . $mysqli->connect_error . "<br>");
+}
+
+
 // =====================================
 // MAIN ENTRY POINT (Call the Cron Flow)
 // =====================================
 fetchOrdersCron();
 
-// === DB CONFIG ===
-$mysqli = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
-if ($mysqli->connect_error) {
-    die("DB connection failed: " . $mysqli->connect_error . "<br>");
-}
+
 
 // === UTILITY REPLACEMENTS ===
-function now() {
+function now()
+{
     return date('Y-m-d H:i:s');
 }
 
-function env($key, $default = null) {
+function env($key, $default = null)
+{
     return getenv($key) ?: $default;
 }
 
-function db_query($query, $bind = []) {
+function db_query($query, $bind = [])
+{
     global $mysqli;
     $stmt = $mysqli->prepare($query);
     if ($bind) {
@@ -38,13 +50,15 @@ function db_query($query, $bind = []) {
     return $stmt;
 }
 
-function db_fetch_assoc($query, $bind = []) {
+function db_fetch_assoc($query, $bind = [])
+{
     $stmt = db_query($query, $bind);
     $result = $stmt->get_result();
     return $result ? $result->fetch_assoc() : null;
 }
 
-function db_fetch_all($query, $bind = []) {
+function db_fetch_all($query, $bind = [])
+{
     $stmt = db_query($query, $bind);
     $result = $stmt->get_result();
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
@@ -67,8 +81,8 @@ function fetchOrdersCron()
         $response = sendEbayRequest($accessToken, $pageNumber);
 
         if (!$response) {
-            echo "⚠️ Raw eBay API Response:<br>";
-            print_r($response);
+            echo "⚠️ Raw eBay API Response: Successful Ebay Request!<br>";
+            // print_r($response);
             echo "<br>❌ Failed to retrieve orders.<br>";
             return;
         }
@@ -82,7 +96,9 @@ function fetchOrdersCron()
         insertOrUpdate($processedOrders);
 
         echo "✅ Orders fetched and processed successfully.<br>";
-        echo "<pre>"; print_r($processedOrders); echo "</pre>";
+        echo "<pre>";
+        print_r($processedOrders);
+        echo "</pre>";
 
     } catch (Exception $e) {
         echo "❌ Exception in fetchOrders: " . $e->getMessage() . "<br>";
@@ -226,7 +242,7 @@ function processOrders($response, $accessToken)
     echo "</pre>";
 
     $processedOrders = [];
-    $exchangeRates = fetchExchangeRates(EXCHANGE_API_KEY); // define this constant globally
+    $exchangeRates = fetchExchangeRates('f5d29ab775a644eca3f13e4c'); // define this constant globally
 
     foreach ($orders as $order) {
         $currency = $order['AmountPaid']['@currencyID'] ?? 'USD';
@@ -266,7 +282,8 @@ function processOrders($response, $accessToken)
         // Transactions
         if (!empty($order['TransactionArray']['Transaction'])) {
             $transactions = $order['TransactionArray']['Transaction'];
-            if (!isset($transactions[0])) $transactions = [$transactions];
+            if (!isset($transactions[0]))
+                $transactions = [$transactions];
 
             foreach ($transactions as $transaction) {
                 if (!is_array($transaction) || !isset($transaction['Item'])) {
@@ -283,7 +300,7 @@ function processOrders($response, $accessToken)
                 $itemDetails = fetchItemDetails($itemId, $accessToken);
                 $locationDetails = getItemLocation($itemId, $accessToken);
 
-                echo "<br>🛍️ Item Info<br><pre>";
+                echo "<br>🛍️ Item Info of " . $order['OrderID'] . "<br><pre>";
                 print_r($itemDetails);
                 echo "</pre>";
 
@@ -343,14 +360,16 @@ function insertOrUpdate($processedOrders)
     global $mysqli;
 
     foreach ($processedOrders as $order) {
-        if ($order['order_status'] !== 'Completed') continue;
+        if ($order['order_status'] !== 'Completed')
+            continue;
 
         $orderID = $order['order_id'];
         $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
         $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
         $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
         $DeliverDate = $order['latest_delivery_date'] ?? null;
-        if ($DeliverDate) $DeliverDate = date('Y-m-d H:i:s', strtotime($DeliverDate));
+        if ($DeliverDate)
+            $DeliverDate = date('Y-m-d H:i:s', strtotime($DeliverDate));
 
         $total = $order['total'] ?? 0.00;
         $sellerName = $order['seller_user_id'];
@@ -393,7 +412,7 @@ function insertOrUpdate($processedOrders)
 
             // Check keywords
             $keywords = db_fetch_all("SELECT descriptionStatus FROM tblItemstatus");
-            $descWords = strtolower($title . ' ' . substr($itemDescription, 0, (int)(strlen($itemDescription) * 0.8)));
+            $descWords = strtolower($title . ' ' . substr($itemDescription, 0, (int) (strlen($itemDescription) * 0.8)));
             foreach ($keywords as $row) {
                 $keyword = strtolower($row['descriptionStatus']);
                 if (strpos($descWords, $keyword) !== false) {
@@ -408,20 +427,62 @@ function insertOrUpdate($processedOrders)
 
             if ($check) {
                 $productID = $check['ProductID'];
-                db_query("UPDATE tblproduct SET ProductTitle=?, orderdate=?, trackingnumber=?, trackingnumber2=?, trackingnumber3=?, trackingnumber4=?, carrier=?, listedcondition=?, seller=?, shipdate=?, paymentdate=?, paymentmethod=?, itemstatus=?, conditionStatusApplied=?, datedelivered=?, total=?, quantity=?, price=?, Discount=?, priceshipping=?, tax=?, Ebay_seller_location=? WHERE ProductID=?",
-                    [$title, $createdTime, $trackingNumber1, $trackingNumber2, $trackingNumber3, $trackingNumber4, $shippingCarrierUsed, $conditionDisplay, $sellerName, $shippedTime, $paymentDate, $PaymentMethod, $itemStatus, $appliedCondition, $DeliverDate, $total, $quantityPurchased, $transactionPrice, $DiscountedPrice, $shippingPrice, $tax, $locationdetails, $productID]);
+                db_query(
+                    "UPDATE tblproduct SET ProductTitle=?, orderdate=?, trackingnumber=?, trackingnumber2=?, trackingnumber3=?, trackingnumber4=?, carrier=?, listedcondition=?, seller=?, shipdate=?, paymentdate=?, paymentmethod=?, itemstatus=?, conditionStatusApplied=?, datedelivered=?, total=?, quantity=?, price=?, Discount=?, priceshipping=?, tax=?, Ebay_seller_location=? WHERE ProductID=?",
+                    [$title, $createdTime, $trackingNumber1, $trackingNumber2, $trackingNumber3, $trackingNumber4, $shippingCarrierUsed, $conditionDisplay, $sellerName, $shippedTime, $paymentDate, $PaymentMethod, $itemStatus, $appliedCondition, $DeliverDate, $total, $quantityPurchased, $transactionPrice, $DiscountedPrice, $shippingPrice, $tax, $locationdetails, $productID]
+                );
 
                 echo "🔁 Updated Order ID: $orderID (Item ID: $itemID) - ProductID: $productID<br>";
-
             } else {
                 $rtcounter = fetchRtCounter();
                 db_query("INSERT INTO tblproduct (rtid, itemnumber, ProductTitle, orderdate, total, quantity, price, Discount, priceshipping, tax, trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4, carrier, listedcondition, seller, shipdate, paymentdate, rtcounter, description, notes, paymentmethod, datedelivered, itemstatus, conditionStatusApplied, fetchStatus, ProductModuleLoc, materialtype, validation, Ebay_seller_location)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)", 
-                    [$orderID, $itemID, $title, $createdTime, $total, $quantityPurchased, $transactionPrice, $DiscountedPrice, $shippingPrice, $tax, $trackingNumber1, $trackingNumber2, $trackingNumber3, $trackingNumber4, $shippingCarrierUsed, $conditionDisplay, $sellerName, $shippedTime, $paymentDate, $rtcounter, $itemDescription, $sellerNotes, $PaymentMethod, $DeliverDate, $itemStatus, $appliedCondition, $fetchStatus, $moduleLoc, $materialType, $locationdetails]);
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)",
+                    [$orderID, $itemID, $title, $createdTime, $total, $quantityPurchased, $transactionPrice, $DiscountedPrice, $shippingPrice, $tax, $trackingNumber1, $trackingNumber2, $trackingNumber3, $trackingNumber4, $shippingCarrierUsed, $conditionDisplay, $sellerName, $shippedTime, $paymentDate, $rtcounter, $itemDescription, $sellerNotes, $PaymentMethod, $DeliverDate, $itemStatus, $appliedCondition, $fetchStatus, $moduleLoc, $materialType, $locationdetails]
+                );
 
                 $productID = $mysqli->insert_id;
                 echo "✅ Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID<br>";
             }
+
+            if (isset($item['item_details']['Item']['PictureDetails']['PictureURL'])) {
+                saveEbayImages($productID, $item['item_details']['Item']['PictureDetails']['PictureURL']);
+            }
+        }
+    }
+}
+
+function saveEbayImages($productID, $imageUrls)
+{
+    global $mysqli;
+
+    if (!is_array($imageUrls)) {
+        $imageUrls = [$imageUrls];
+    }
+
+    $imageUrls = array_slice($imageUrls, 0, 5); // Limit to 5
+
+    $imageDir = '/home/u298641722/domains/tecniquality.com/public_html/laravel_ims/public/images/thumbnails';
+    if (!file_exists($imageDir)) {
+        mkdir($imageDir, 0755, true);
+    }
+
+    foreach ($imageUrls as $index => $imageUrl) {
+        $imageName = $productID . ($index > 0 ? "_$index" : "") . ".jpg";
+        $imagePath = $imageDir . '/' . $imageName;
+
+        $context = stream_context_create(['http' => ['timeout' => 10]]);
+        $imageData = @file_get_contents($imageUrl, false, $context);
+
+        if ($imageData && file_put_contents($imagePath, $imageData)) {
+            $imgField = "img" . ($index + 1);
+            $stmt = $mysqli->prepare("UPDATE tblproduct SET $imgField = ? WHERE ProductID = ?");
+            $stmt->bind_param("si", $imageName, $productID);
+            $stmt->execute();
+            $stmt->close();
+
+            echo "📷 Saved image $imageName for ProductID: $productID<br>";
+        } else {
+            echo "⚠️ Failed to save image from: $imageUrl<br>";
         }
     }
 }
@@ -524,4 +585,177 @@ function fetchRtCounter()
 {
     $row = db_fetch_assoc("SELECT MAX(rtcounter) as maxval FROM tblproduct");
     return $row && $row['maxval'] ? $row['maxval'] + 1 : 1;
+}
+
+
+
+
+//// Supporting Functions
+
+function EbayCredentials()
+{
+    global $mysqli;
+
+    $id = 3;
+    $stmt = $mysqli->prepare("SELECT client_id, client_secret, access_token, refresh_token, expires_in FROM tblapis WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if (!$result || $result->num_rows === 0) {
+        echo "❌ No eBay credentials found for ID: $id<br>";
+        return [];
+    }
+
+    $credentials = $result->fetch_assoc();
+    $stmt->close();
+    return $credentials;
+}
+
+function getAccessToken($authorizationCode)
+{
+    $tokenUrl = 'https://api.ebay.com/identity/v1/oauth2/token';
+    $redirectUri = 'https://test.tecniquality.com/apis/ebay-callback';
+
+    $credentials = EbayCredentials();
+    if (!$credentials) {
+        echo "❌ Failed to retrieve credentials for token request.<br>";
+        return null;
+    }
+
+    $authHeader = base64_encode("{$credentials['client_id']}:{$credentials['client_secret']}");
+    $data = http_build_query([
+        'grant_type' => 'authorization_code',
+        'code' => $authorizationCode,
+        'redirect_uri' => $redirectUri,
+    ]);
+
+    $opts = [
+        'http' => [
+            'method' => 'POST',
+            'header' => "Authorization: Basic $authHeader\r\nContent-Type: application/x-www-form-urlencoded",
+            'content' => $data,
+            'timeout' => 10,
+        ]
+    ];
+
+    $context = stream_context_create($opts);
+    $response = file_get_contents($tokenUrl, false, $context);
+
+    if ($response === false) {
+        echo "❌ Error during token request.<br>";
+        return null;
+    }
+
+    $results = json_decode($response, true);
+    if (isset($results['access_token'], $results['refresh_token'])) {
+        saveTokens($results);
+        return $results['access_token'];
+    } else {
+        echo "❌ Failed to obtain token:<br>";
+        print_r($results);
+        echo "<br>";
+        return null;
+    }
+}
+
+function saveTokens(array $tokens)
+{
+    global $mysqli;
+
+    $stmt = $mysqli->prepare("UPDATE tblapis SET access_token=?, refresh_token=?, expires_in=?, updated_at=? WHERE id=3");
+    $now = date('Y-m-d H:i:s');
+    $stmt->bind_param("ssis", $tokens['access_token'], $tokens['refresh_token'], $tokens['expires_in'], $now);
+
+    if ($stmt->execute()) {
+        echo "✅ Tokens saved to DB.<br>";
+    } else {
+        echo "❌ Failed to save tokens: " . $stmt->error . "<br>";
+    }
+
+    $stmt->close();
+}
+
+function refreshEbayAccessToken($credentials)
+{
+    global $mysqli;
+
+    $stmt = $mysqli->prepare("SELECT refresh_token FROM tblapis WHERE api_name = 'EBAY'");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $apiRecord = $result ? $result->fetch_assoc() : null;
+    $stmt->close();
+
+    if (!$apiRecord || !$apiRecord['refresh_token']) {
+        echo "❌ No refresh token found for EBAY.<br>";
+        return null;
+    }
+
+    $tokenUrl = 'https://api.ebay.com/identity/v1/oauth2/token';
+    $authHeader = base64_encode("{$credentials['client_id']}:{$credentials['client_secret']}");
+
+    $data = http_build_query([
+        'grant_type' => 'refresh_token',
+        'refresh_token' => $apiRecord['refresh_token'],
+        'scope' => implode(' ', [
+            'https://api.ebay.com/oauth/api_scope',
+            'https://api.ebay.com/oauth/api_scope/sell.marketing.readonly',
+            'https://api.ebay.com/oauth/api_scope/sell.inventory.readonly',
+            'https://api.ebay.com/oauth/api_scope/sell.account.readonly',
+            'https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly',
+        ])
+    ]);
+
+    $opts = [
+        'http' => [
+            'method' => 'POST',
+            'header' => "Authorization: Basic $authHeader\r\nContent-Type: application/x-www-form-urlencoded",
+            'content' => $data,
+            'timeout' => 10,
+        ]
+    ];
+
+    $context = stream_context_create($opts);
+    $response = file_get_contents($tokenUrl, false, $context);
+
+    if ($response === false) {
+        echo "❌ Failed to contact eBay token server.<br>";
+        return null;
+    }
+
+    $results = json_decode($response, true);
+    if (isset($results['access_token'])) {
+        $newAccessToken = $results['access_token'];
+        $expiresIn = $results['expires_in'] ?? 3600;
+        $refreshTokenExpiresIn = $results['refresh_token_expires_in'] ?? '';
+
+        $stmt = $mysqli->prepare("UPDATE tblapis SET access_token = ?, updated_at = ? WHERE api_name = 'EBAY'");
+        $now = date('Y-m-d H:i:s');
+        $stmt->bind_param("ss", $newAccessToken, $now);
+        $stmt->execute();
+        $stmt->close();
+
+        $filePath = "/home/u298641722/public_html/ims/Admin/modules/orders/tokens.json";
+        $jsonData = json_encode([
+            'access_token' => $newAccessToken,
+            'expires_in' => $expiresIn,
+            'refresh_token' => $apiRecord['refresh_token'],
+            'refresh_token_expires_in' => $refreshTokenExpiresIn,
+            'token_type' => 'User Access Token',
+            'expiration_time' => time() + $expiresIn,
+        ], JSON_PRETTY_PRINT);
+
+        if (file_put_contents($filePath, $jsonData) !== false) {
+            echo "✅ Tokens saved to file.<br>";
+        } else {
+            echo "❌ Failed to write tokens.json<br>";
+        }
+
+        return $newAccessToken;
+    } else {
+        echo "❌ Token refresh failed:<br>";
+        print_r($results);
+        echo "<br>";
+        return null;
+    }
 }
