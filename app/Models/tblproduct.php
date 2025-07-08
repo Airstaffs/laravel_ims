@@ -9,6 +9,45 @@ use Illuminate\Support\Facades\Auth;
 class tblproduct extends Model
 {
     use HasFactory;
+    protected $table = 'tblproduct';
+
+    protected $primaryKey = 'itemnumber';
+
+    public $incrementing = false;
+    public $timestamps = false;
+
+    protected $fillable = [
+        'itemnumber',
+        'ProductID',
+        'ProductTitle',
+        'rtid',
+        'orderdate',
+        'paymentdate',
+        'shipdate',
+        'datedelivered',
+        'seller',
+        'materialtype',
+        'carrier',
+        'listedcondition',
+        'paymentmethod',
+        'quantity',
+        'Discount',
+        'tax',
+        'priceshipping',
+        'refund',
+        'description',
+        'serialnumber',
+        'serialnumberb',
+        'serialnumberc',
+        'serialnumberd',
+        'trackingnumber',
+        'trackingnumber2',
+        'trackingnumber3',
+        'trackingnumber4',
+        'trackingnumber5',
+        'validation'
+    ];
+
 
     /**
      * Create a new instance of the model.
@@ -19,17 +58,17 @@ class tblproduct extends Model
     public function __construct(array $attributes = [])
     {
         parent::__construct($attributes);
-        
+
         // Get the logged in user
         $user = Auth::user();
-        
+
         // Get company data - assuming user has a company relation or attribute
         $companyColumn = $user ? $user->company : '';
-        
+
         // Set the table name dynamically
-        $this->setTable('tblproducttemp' . $companyColumn);
+        $this->setTable('tblproduct' . $companyColumn);
     }
-    
+
     /**
      * Get the current logged-in username
      *
@@ -39,8 +78,8 @@ class tblproduct extends Model
     {
         return Auth::user() ? Auth::user()->username : null;
     }
-    
-     /**
+
+    /**
      * Get the user that is associated with this product
      */
     public function user()

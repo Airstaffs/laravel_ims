@@ -1,6 +1,8 @@
 import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./orders.css";
+import Swal from "sweetalert2";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -26,10 +28,13 @@ export default {
             item: {
                 // For MaterialType
                 materialtype: "",
+                carrier: "",
             },
             items: [],
             activeIndex: 0,
             basePath: "/images/thumbnails/",
+            loading: false,
+            error: null,
         };
     },
     computed: {
@@ -72,16 +77,6 @@ export default {
                 /^trackingnumber\d*$/.test(k)
             );
         },
-        // For MaterialType
-        materialOptions() {
-            if (!Array.isArray(this.items)) return [];
-
-            const types = this.items
-                .map((entry) => entry.materialtype)
-                .filter((type) => !!type);
-
-            return [...new Set(types)].sort();
-        },
         formattedSubtotal() {
             const total = parseFloat(this.item.TOTAL) || 0;
             const quantity = parseFloat(this.item.quantity) || 0;
@@ -97,6 +92,38 @@ export default {
             if (!quantity || quantity === 0) return 0;
 
             return (this.formattedSubtotal / quantity).toFixed(2);
+        },
+
+        materialTypes() {
+            if (!Array.isArray(this.items)) return []; // safeguard
+
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.materialtype)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        sourceTypes() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.sourceType)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        carrierOptions() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.carrier)
+                        .filter((c) => c && c.trim() !== "")
+                ),
+            ].sort();
         },
     },
     methods: {
@@ -226,22 +253,73 @@ export default {
             return String.fromCharCode(65 + index);
         },
 
-        // For MaterialType
-        fetchItems() {
-            axios
-                .get(`${this.API_BASE_URL}/api/orders/products`)
-                .then((res) => {
-                    this.items = Array.isArray(res.data)
-                        ? res.data
-                        : res.data.products || [];
-                })
-                .catch((err) => {
-                    console.error("Failed to fetch items:", err);
-                    this.items = [];
-                });
+        async fetchItems() {
+            this.loading = true;
+            try {
+                const response = await axios.get("/api/orders/products");
+                const payload = response.data;
+
+                // handle both array or wrapped array
+                this.items = Array.isArray(payload)
+                    ? payload
+                    : payload.data || [];
+            } catch (err) {
+                console.error("Fetch failed:", err);
+                this.items = []; // fallback
+                this.error = "Failed to load items.";
+            } finally {
+                this.loading = false;
+            }
         },
 
-        saveEditModal() {},
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImage;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImage;
+        },
+
+        async saveEditModal() {
+            this.loading = true;
+            try {
+                const payload = { ...this.item };
+                const response = await axios.post(
+                    "/api/orders/products",
+                    payload
+                );
+                const updated = response.data.product;
+
+                const index = this.items.findIndex(
+                    (p) => p.itemnumber === updated.itemnumber
+                );
+                if (index !== -1) {
+                    this.items.splice(index, 1, updated);
+                } else {
+                    this.items.unshift(updated);
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Saved!",
+                    text: "The order product has been saved successfully.",
+                    confirmButtonText: "OK",
+                });
+
+                this.showModal = false;
+                window.location.reload();
+            } catch (error) {
+                console.error("Save failed:", error);
+
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text: "An error occurred while saving. Please check the input or try again later.",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.loading = false;
+            }
+        },
 
         nextImage() {
             if (this.currentImageIndex < this.modalImages.length - 1) {
