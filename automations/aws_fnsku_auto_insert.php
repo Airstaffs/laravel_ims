@@ -593,10 +593,10 @@ function connectDatabase($servertype)
         $database = 'ims';
         $port = null;
     } else if ($servertype === "hostinger") {
-        $hostname = 'localhost';
-        $username = 'u298641722_web_ims';
-        $password = 'ImsHosting!11923';
-        $database = 'u298641722_ims';
+            $hostname = 'localhost';
+            $username = 'u298641722_dbims_user';
+            $password = '?cIk=|zRk3T';
+            $database = 'u298641722_dbims';
         $port = null;
     } else if ($servertype === "test") {
         $hostname = 'localhost';

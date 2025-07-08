@@ -19,10 +19,11 @@ if ($Connect->connect_error) {
 $url = 'https://api.17track.net/track/v2.2/gettrackinfo';
 $apiKey = '5EC4C3FCD4929687DC76822C8D154C20';
 
+
 // === Step 2: Fetch pending trackings === //
 $query = "
     SELECT trackingnumber
-    FROM tbltrack
+    FROM tblinboundorders
     WHERE tracking_status != 'Delivered' OR tracking_status IS NULL OR tracking_status = ''
 ";
 $result = mysqli_query($Connect, $query);
@@ -109,9 +110,9 @@ while ($processed < $totalTracking) {
         $final_carrierSafe = mysqli_real_escape_string($Connect, $final_carrier);
         $estimated_from_safe = mysqli_real_escape_string($Connect, (string) $estimated_from);
 
-        // Update tbltrack
+        // Update tblinboundorders
         $updateQuery = "
-            UPDATE tbltrack
+            UPDATE tblinboundorders
             SET 
                 tracking_status = '$tracking_statusSafe',
                 last_update = '$last_updateSafe',
