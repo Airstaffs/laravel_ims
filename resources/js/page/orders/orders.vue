@@ -462,7 +462,7 @@
 
                 <div class="modal-body">
                     <div class="edit-order-container">
-                        <form class="editOrderForm">
+                        <form method="POST" class="editOrderForm">
                             <div class="form-grid-wrapper">
                                 <!-- LEFT: IMAGE + GENERAL INFO -->
                                 <div class="form-col-left">
@@ -730,17 +730,6 @@
                                                         {{ type }}
                                                     </option>
                                                 </select>
-
-                                                <!-- optional loading/error messages -->
-                                                <p v-if="loading">
-                                                    Loading items...
-                                                </p>
-                                                <p
-                                                    v-if="error"
-                                                    class="text-danger"
-                                                >
-                                                    {{ error }}
-                                                </p>
                                             </fieldset>
                                             <fieldset>
                                                 <label

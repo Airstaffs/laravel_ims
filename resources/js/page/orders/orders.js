@@ -214,12 +214,17 @@ export default {
             document.body.style.overflow = "auto";
         },
 
-        openEditModal(item) {
+        async openEditModal(item) {
             if (!item) return;
 
-            this.item = { ...item };
-            this.showEditModal = true;
+            await this.fetchItems();
 
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
+            this.item = { ...(freshItem || item) };
+
+            this.showEditModal = true;
             this.autoResize();
 
             document.body.style.overflow = "hidden";
@@ -282,7 +287,13 @@ export default {
         async saveEditModal() {
             this.loading = true;
             try {
-                const payload = { ...this.item };
+                const payload = {
+                    ...this.item,
+                    _token: document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
+                };
+
                 const response = await axios.post(
                     "/api/orders/products",
                     payload
@@ -305,8 +316,8 @@ export default {
                     confirmButtonText: "OK",
                 });
 
-                this.showModal = false;
-                window.location.reload();
+                this.closeEditModal();
+                await this.fetchInventory();
             } catch (error) {
                 console.error("Save failed:", error);
 
