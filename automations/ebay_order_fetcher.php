@@ -251,6 +251,7 @@ function processOrders($response, $accessToken)
         $amountPaidInUSD = convertToUSD($amountPaid, $currency, $exchangeRates);
 
         $preshippingServiceCost = $order['ShippingServiceSelected']['ShippingServiceCost'] ?? 0;
+        $deliveredDate = $order['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'] ?? 0;
         $shipping_currency = $currency;
         $shippingServiceCost = convertToUSD($preshippingServiceCost, $shipping_currency, $exchangeRates);
 
@@ -339,6 +340,7 @@ function processOrders($response, $accessToken)
             'shipping_carrier' => $shippingCarrier,
             'items' => $items,
             'locationdetails' => $locationDetails,
+            'estimatedDeliveryTime' => $deliveredDate,
         ];
 
         echo "<br>📦 Processed Order:<br><pre>";
@@ -367,10 +369,7 @@ function insertOrUpdate($processedOrders)
         $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
         $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
         $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
-        $DeliverDate = $order['latest_delivery_date'] ?? null;
-        if ($DeliverDate)
-            $DeliverDate = date('Y-m-d H:i:s', strtotime($DeliverDate));
-
+        $DeliverDate = isset($order['estimatedDeliveryTime']) ? date('Y-m-d H:i:s', strtotime($order['estimatedDeliveryTime'])) : null;
         $total = $order['total'] ?? 0.00;
         $sellerName = $order['seller_user_id'];
         $moduleLoc = 'Orders';
