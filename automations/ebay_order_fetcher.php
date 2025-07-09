@@ -64,6 +64,7 @@ function db_fetch_all($query, $bind = [])
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+// === MAIN AFUNCTION ===
 function fetchOrdersCron()
 {
     $serverconfig = env('EBAY_SERVER_CONFIG', 'LIVE');
@@ -105,7 +106,6 @@ function fetchOrdersCron()
     }
 }
 
-// === MAIN AFUNCTION ===
 function sendEbayRequest($accessToken, $pageNumber)
 {
     $createTimeFrom = (new DateTime('-10 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
