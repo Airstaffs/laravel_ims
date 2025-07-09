@@ -370,7 +370,14 @@ function insertOrUpdate($processedOrders)
         $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
         $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
         $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
-        $DeliverDate = isset($order['estimatedDeliveryTime']) ? date('Y-m-d H:i:s', strtotime($order['estimatedDeliveryTime'])) : null;
+        $DeliverDate = null;
+
+        if (!empty($order['estimatedDeliveryTime'])) {
+            $timestamp = strtotime($order['estimatedDeliveryTime']);
+            if ($timestamp !== false) {
+                $DeliverDate = date('Y-m-d H:i:s', $timestamp);
+            }
+        }
         $total = $order['total'] ?? 0.00;
         $sellerName = $order['seller_user_id'];
         $moduleLoc = 'Orders';
