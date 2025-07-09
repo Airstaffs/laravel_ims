@@ -105,6 +105,7 @@ function fetchOrdersCron()
     }
 }
 
+// === MAIN AFUNCTION ===
 function sendEbayRequest($accessToken, $pageNumber)
 {
     $createTimeFrom = (new DateTime('-10 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
@@ -390,7 +391,7 @@ function insertOrUpdate($processedOrders)
             $trackingNumber4 = $order['tracking_number4'] ?? null;
             $shippingCarrierUsed = $order['shipping_carrier'] ?? null;
             $PaymentMethod = $order['payment_method'] ?? 'eBay';
-            $itemStatus = $order['item_status'] ?? 'Shipped';
+            $itemStatus = $order['item_status'] ?? null;
             $appliedCondition = $order['condition_status_applied'] ?? 'Applied';
             $tax = 0.00;
             $DiscountedPrice = 0.00;
@@ -589,7 +590,7 @@ function fetchRtCounter()
 
 
 
-//// Supporting Functions
+//// === Supporting Functions ===
 
 function EbayCredentials()
 {
