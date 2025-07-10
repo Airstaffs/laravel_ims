@@ -40,7 +40,13 @@ export default {
             currentItemForAction: null, // Store the item to be processed
 
             showEditModal: false,
-            item: {},
+            item: {
+                materialtype: "",
+                carrier: "",
+                storename: "",
+                priorityrank: "",
+                validation_status: "",
+            },
             items: [],
             activeIndex: 0,
             basePath: "/images/thumbnails/",
@@ -77,6 +83,95 @@ export default {
         },
         activeImageUrl() {
             return this.basePath + this.imageList[this.activeIndex];
+        },
+
+        serialKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^serialnumber[a-z]?$/.test(k)
+            );
+        },
+        trackingKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^trackingnumber\d*$/.test(k)
+            );
+        },
+
+        formattedSubtotal() {
+            const total = parseFloat(this.item.TOTAL) || 0;
+            const quantity = parseFloat(this.item.quantity) || 0;
+            return (total * quantity).toFixed(2);
+        },
+        grandTotal() {
+            const subtotal = this.formattedSubtotal;
+            const discount = parseFloat(this.item.discount) || 0;
+            return (subtotal - discount).toFixed(2);
+        },
+        unitPrice() {
+            const quantity = parseFloat(this.item.quantity);
+            if (!quantity || quantity === 0) return 0;
+
+            return (this.formattedSubtotal / quantity).toFixed(2);
+        },
+
+        materialTypes() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.materialtype)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        sourceTypes() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.sourceType)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        carrierOptions() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.carrier)
+                        .filter((c) => c && c.trim() !== "")
+                ),
+            ].sort();
+        },
+        storeNames() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.storename)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        priorityRanks() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.priorityrank)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        validationStatuses() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.validation_status)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
         },
     },
 
@@ -639,6 +734,46 @@ export default {
         onThumbnailError(event, index) {
             event.target.src = this.defaultImage;
         },
+
+        autoResize() {
+            [
+                "productTextarea",
+                "descriptionarea",
+                "supplierNotesarea",
+                "employeeNotesarea",
+                "stickerNotesarea",
+            ].forEach((refName) => {
+                const el = this.$refs[refName];
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+
+        getLabel(index) {
+            // Convert 0 => A, 1 => B, etc.
+            return String.fromCharCode(65 + index);
+        },
+
+        async fetchItems() {
+            this.loading = true;
+            try {
+                const response = await axios.get("/api/houseage/products");
+                const payload = response.data;
+
+                // handle both array or wrapped array
+                this.items = Array.isArray(payload)
+                    ? payload
+                    : payload.data || [];
+            } catch (err) {
+                console.error("Fetch failed:", err);
+                this.items = []; // fallback
+                this.error = "Failed to load items.";
+            } finally {
+                this.loading = false;
+            }
+        },
     },
 
     watch: {
@@ -670,6 +805,14 @@ export default {
 
         window.addEventListener("keydown", handleKeyDown);
         this.handleKeyDown = handleKeyDown; // Store for cleanup
+
+        [...this.serialKeys, ...this.trackingKeys].forEach((key) => {
+            if (this.item[key] == null) {
+                this.$set(this.item, key, "");
+            }
+        });
+
+        this.fetchItems();
     },
 
     beforeDestroy() {

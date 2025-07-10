@@ -790,7 +790,531 @@
                                                 />
                                             </fieldset>
                                         </div>
+
+                                        <!-- SECTION: Serial & Tracking -->
+                                        <div class="serial-tracking-section">
+                                            <h3 class="form-section-heading">
+                                                Serial & Tracking
+                                            </h3>
+
+                                            <template v-if="serialKeys.length">
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in serialKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        ><span
+                                                            >Serial Number
+                                                            {{
+                                                                getLabel(index)
+                                                            }}:</span
+                                                        ></label
+                                                    >
+                                                    <input
+                                                        type="text"
+                                                        class="form-control"
+                                                        v-model="item[key]"
+                                                    />
+                                                </fieldset>
+                                            </template>
+
+                                            <template
+                                                v-if="trackingKeys.length"
+                                            >
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in trackingKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        ><span
+                                                            >Tracking Number
+                                                            {{
+                                                                index + 1
+                                                            }}:</span
+                                                        ></label
+                                                    >
+                                                    <input
+                                                        type="text"
+                                                        class="form-control"
+                                                        v-model="item[key]"
+                                                    />
+                                                </fieldset>
+                                            </template>
+                                        </div>
+
+                                        <!-- SECTION: Product Info -->
+                                        <div class="product-info-section">
+                                            <h3 class="form-section-heading">
+                                                Product Info
+                                            </h3>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span>ASIN:</span></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.ASIN"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span>FNSKU:</span></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.FNSKU"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Supplier ID/Name:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.seller"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Material:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.materialtype"
+                                                >
+                                                    <option disabled value="">
+                                                        Select material type
+                                                    </option>
+                                                    <option
+                                                        v-for="type in materialTypes"
+                                                        :key="type"
+                                                        :value="type"
+                                                    >
+                                                        {{ type }}
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Source Type:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.sourceType"
+                                                >
+                                                    <option disabled value="">
+                                                        Select source type
+                                                    </option>
+                                                    <option value="ES">
+                                                        ES
+                                                    </option>
+                                                    <option value="AS">
+                                                        AS
+                                                    </option>
+                                                    <option value="XS">
+                                                        XS
+                                                    </option>
+                                                    <option value="PS">
+                                                        PS
+                                                    </option>
+                                                    <option value="RS">
+                                                        RS
+                                                    </option>
+                                                    <option value="B&H">
+                                                        B&H
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Carrier /
+                                                        Courier:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.carrier"
+                                                >
+                                                    <option disabled value="">
+                                                        Select courier
+                                                    </option>
+                                                    <option
+                                                        v-for="carrier in carrierOptions"
+                                                        :key="carrier"
+                                                        :value="carrier"
+                                                    >
+                                                        {{ carrier }}
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Listed Condition:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="
+                                                        item.listedcondition
+                                                    "
+                                                >
+                                                    <option disabled value="">
+                                                        Select condition
+                                                    </option>
+                                                    <option value="New">
+                                                        New
+                                                    </option>
+                                                    <option value="Open Box">
+                                                        Open Box
+                                                    </option>
+                                                    <option value="Used">
+                                                        Used
+                                                    </option>
+                                                    <option
+                                                        value="For parts or not working"
+                                                    >
+                                                        For parts or not working
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Payment Method:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.paymentmethod"
+                                                >
+                                                    <option disabled value="">
+                                                        Select Payment Method
+                                                    </option>
+                                                    <option value="PayPal">
+                                                        PayPal
+                                                    </option>
+                                                    <option
+                                                        value="Credit/Debit Card"
+                                                    >
+                                                        Credit/Debit Card
+                                                    </option>
+                                                    <option value="Cash">
+                                                        Cash
+                                                    </option>
+                                                    <option
+                                                        value="Bank Transfer"
+                                                    >
+                                                        Bank Transfer
+                                                    </option>
+                                                    <option value="Check">
+                                                        Check
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                        </div>
+
+                                        <!-- SECTION: Other Info -->
+                                        <div class="other-info-section">
+                                            <h3 class="form-section-heading">
+                                                Other Info
+                                            </h3>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span>Module:</span></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="
+                                                        item.ProductModuleLoc
+                                                    "
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Store Name:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.storename"
+                                                >
+                                                    <option disabled value="">
+                                                        Select Store Name
+                                                    </option>
+                                                    <option
+                                                        v-for="type in storeNames"
+                                                        :key="type"
+                                                        :value="type"
+                                                    >
+                                                        {{ type }}
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label><span>RPN:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.RPN"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label><span>PRD:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.PRD"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label><span>PCN:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.PCN"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Basket Number:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.basketnumber"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Priority Rank:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.priorityrank"
+                                                >
+                                                    <option disabled value="">
+                                                        Select Priority Rank
+                                                    </option>
+                                                    <option
+                                                        v-for="type in priorityRanks"
+                                                        :key="type"
+                                                        :value="type"
+                                                    >
+                                                        {{ type }}
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Validation
+                                                        Status:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="
+                                                        item.validation_status
+                                                    "
+                                                >
+                                                    <option disabled value="">
+                                                        Select Validation Status
+                                                    </option>
+                                                    <option
+                                                        v-for="type in validationStatuses"
+                                                        :key="type"
+                                                        :value="type"
+                                                    >
+                                                        {{ type }}
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                        </div>
                                     </div>
+                                </div>
+
+                                <!-- RIGHT: PRICING -->
+                                <div class="form-col-right">
+                                    <div
+                                        class="pos-pricing-ui bg-white rounded shadow p-4"
+                                        style="max-width: 480px"
+                                    >
+                                        <!-- Header -->
+                                        <div class="border-bottom pb-2">
+                                            <h3 class="text-dark mb-0">
+                                                Pricing
+                                            </h3>
+                                        </div>
+
+                                        <!-- Full-width Fields -->
+                                        <fieldset>
+                                            <label><span>Quantity</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.quantity"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label
+                                                ><span>Sub-total</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light"
+                                                :value="formattedSubtotal"
+                                                readonly
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Discount</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.Discount"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Tax</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.tax"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Shipping</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.priceshipping"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Refund</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.refund"
+                                            />
+                                        </fieldset>
+
+                                        <!-- Divider -->
+                                        <hr class="my-4" />
+
+                                        <!-- Total Summary -->
+                                        <fieldset>
+                                            <label
+                                                ><span>Grand Total</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light fw-bold text-success"
+                                                :value="grandTotal"
+                                                readonly
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label
+                                                ><span>Unit Price</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light"
+                                                :value="unitPrice"
+                                                readonly
+                                            />
+                                        </fieldset>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-notes">
+                                <div class="form-section notes-section">
+                                    <!-- Description, Supplier Notes, Employee Notes -->
+                                    <!-- SECTION: Notes -->
+                                    <fieldset>
+                                        <label><span>Description:</span></label>
+                                        <textarea
+                                            ref="descriptionarea"
+                                            class="form-control no-resize"
+                                            v-model="item.description"
+                                            placeholder="Description"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label
+                                            ><span>Supplier Notes:</span></label
+                                        >
+                                        <textarea
+                                            ref="supplierNotesarea"
+                                            class="form-control no-resize"
+                                            v-model="item.supplierNotes"
+                                            placeholder="Supplier Notes"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label
+                                            ><span>Employee Notes:</span></label
+                                        >
+                                        <textarea
+                                            ref="employeeNotesarea"
+                                            class="form-control no-resize"
+                                            v-model="item.employeeNotes"
+                                            placeholder="Employee Notes"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label
+                                            ><span>Sticker Notes:</span></label
+                                        >
+                                        <textarea
+                                            ref="stickerNotesarea"
+                                            class="form-control no-resize"
+                                            v-model="item.stickerNotes"
+                                            placeholder="Employee Notes"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
                                 </div>
                             </div>
                         </form>
