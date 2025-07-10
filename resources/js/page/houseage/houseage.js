@@ -38,6 +38,14 @@ export default {
             confirmationMessage: "",
             confirmationActionType: "", // 'validation' or 'stockroom'
             currentItemForAction: null, // Store the item to be processed
+
+            showEditModal: false,
+            item: {},
+            items: [],
+            activeIndex: 0,
+            basePath: "/images/thumbnails/",
+            loading: false,
+            error: null,
         };
     },
     computed: {
@@ -61,7 +69,17 @@ export default {
                     : String(valueB).localeCompare(String(valueA));
             });
         },
+
+        imageList() {
+            return Object.keys(this.item)
+                .filter((key) => key.startsWith("img") && this.item[key])
+                .map((key) => this.item[key]);
+        },
+        activeImageUrl() {
+            return this.basePath + this.imageList[this.activeIndex];
+        },
     },
+
     methods: {
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
@@ -93,7 +111,7 @@ export default {
             if (!item || !item.capturedImages) return 0;
 
             // For debugging
-            console.log("Checking capturedImages:", item.capturedImages);
+            // console.log("Checking capturedImages:", item.capturedImages);
 
             let count = 0;
             // Check capturedimg1 through capturedimg12
@@ -280,6 +298,8 @@ export default {
                 // Process the returned data
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
+
+                console.log(this.inventory);
 
                 // Debug first item to see structure
                 if (this.inventory.length > 0) {
@@ -588,6 +608,36 @@ export default {
 
             // Re-enable scrolling
             document.body.style.overflow = "auto";
+        },
+
+        async openEditModal(item) {
+            if (!item) return;
+
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
+            this.item = { ...(freshItem || item) };
+
+            console.log(this.item);
+
+            this.showEditModal = true;
+
+            document.body.style.overflow = "hidden";
+        },
+
+        closeEditModal() {
+            this.showEditModal = false;
+
+            setTimeout(() => {
+                document.body.style.overflow = "auto";
+            }, 300); // Match with your modal close animation
+        },
+
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImage;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImage;
         },
     },
 
