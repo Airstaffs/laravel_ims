@@ -64,6 +64,7 @@ function db_fetch_all($query, $bind = [])
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
+// === MAIN AFUNCTION ===
 function fetchOrdersCron()
 {
     $serverconfig = env('EBAY_SERVER_CONFIG', 'LIVE');
@@ -369,7 +370,14 @@ function insertOrUpdate($processedOrders)
         $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
         $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
         $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
-        $DeliverDate = isset($order['estimatedDeliveryTime']) ? date('Y-m-d H:i:s', strtotime($order['estimatedDeliveryTime'])) : null;
+        $DeliverDate = null;
+
+        if (!empty($order['estimatedDeliveryTime'])) {
+            $timestamp = strtotime($order['estimatedDeliveryTime']);
+            if ($timestamp !== false) {
+                $DeliverDate = date('Y-m-d H:i:s', $timestamp);
+            }
+        }
         $total = $order['total'] ?? 0.00;
         $sellerName = $order['seller_user_id'];
         $moduleLoc = 'Orders';
@@ -390,7 +398,7 @@ function insertOrUpdate($processedOrders)
             $trackingNumber4 = $order['tracking_number4'] ?? null;
             $shippingCarrierUsed = $order['shipping_carrier'] ?? null;
             $PaymentMethod = $order['payment_method'] ?? 'eBay';
-            $itemStatus = $order['item_status'] ?? 'Shipped';
+            $itemStatus = $order['item_status'] ?? null;
             $appliedCondition = $order['condition_status_applied'] ?? 'Applied';
             $tax = 0.00;
             $DiscountedPrice = 0.00;
@@ -589,7 +597,7 @@ function fetchRtCounter()
 
 
 
-//// Supporting Functions
+//// === Supporting Functions ===
 
 function EbayCredentials()
 {
