@@ -1,6 +1,7 @@
 import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./houseage.css";
+import Swal from "sweetalert2";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -770,6 +771,54 @@ export default {
                 console.error("Fetch failed:", err);
                 this.items = []; // fallback
                 this.error = "Failed to load items.";
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async saveEditModal() {
+            this.loading = true;
+            try {
+                const payload = {
+                    ...this.item,
+                    _token: document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
+                };
+
+                const response = await axios.post(
+                    "/api/houseage/products",
+                    payload
+                );
+                const updated = response.data.product;
+
+                const index = this.items.findIndex(
+                    (p) => p.itemnumber === updated.itemnumber
+                );
+                if (index !== -1) {
+                    this.items.splice(index, 1, updated);
+                } else {
+                    this.items.unshift(updated);
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Saved!",
+                    text: "The houseage product has been saved successfully.",
+                    confirmButtonText: "OK",
+                });
+
+                this.closeEditModal();
+                await this.fetchInventory();
+            } catch (error) {
+                console.error("Save failed:", error);
+
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text: "An error occurred while saving. Please check the input or try again later.",
+                    confirmButtonText: "OK",
+                });
             } finally {
                 this.loading = false;
             }

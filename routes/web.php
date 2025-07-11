@@ -427,6 +427,7 @@ Route::prefix('api/notfound')->group(function () {
 // Routes for Houseage Function 
 Route::prefix('api/houseage')->group(function () {
     Route::get('products', [HouseageController::class, 'index']);
+    Route::post('products', [HouseageController::class, 'store']);
 });
 
 // Routes for ASIN List Function  
