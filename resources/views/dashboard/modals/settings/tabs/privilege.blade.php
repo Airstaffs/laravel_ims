@@ -117,6 +117,7 @@
                             fbmorder: 'FBM Order',
                             houseage: 'Houseage',
                             asinlist: 'ASIN List',
+                            printer: 'Printer',
                         }
                     };
 
@@ -198,78 +199,87 @@
         };
     }
 
-    async function saveUserPrivileges(formData) {
-        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+   async function saveUserPrivileges(formData) {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 
-        try {
-            // First save the privileges
-            const response = await fetch('/save-user-privileges', {
+    try {
+        console.log('=== SAVING USER PRIVILEGES ===');
+        console.log('Form data being sent:', formData);
+        
+        // First save the privileges
+        const response = await fetch('/save-user-privileges', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': csrfToken
+            },
+            body: JSON.stringify(formData)
+        });
+
+        const result = await response.json();
+        console.log('Server response:', result);
+
+        if (result.success) {
+            console.log('=== PRIVILEGES SAVED SUCCESSFULLY ===');
+            
+            // 🔴 FIXED: Only update navigation once with the server response
+            // The server response contains the correct data
+            const navigationData = {
+                main_module: result.main_module || formData.main_module,
+                sub_modules: result.sub_modules || [],
+                modules: {
+                    'asinoption': 'ASIN Option',
+                    'order': 'Order',
+                    'unreceived': 'Unreceived',
+                    'receiving': 'Received',
+                    'labeling': 'Labeling',
+                    'validation': 'Validation',
+                    'testing': 'Testing',
+                    'cleaning': 'Cleaning',
+                    'packing': 'Packing',
+                    'stockroom': 'Stockroom',
+                    'productionarea': 'Production Area',
+                    'returnscanner': 'Return Scanner',
+                    'fbmorder': 'FBM Order',
+                    'notfound': 'Not Found',
+                    'houseage': 'Houseage',
+                    'printer': 'Printer', // 🔴 MAKE SURE THIS IS HERE
+                }
+            };
+
+            console.log('Navigation data being passed:', navigationData);
+
+            // Update navigation with the server response data
+            updateUserNavigation(navigationData);
+
+            // 🔴 REMOVED: Don't call session refresh here as it's causing the issue
+            // The server response already contains the correct data
+            
+            // 🔴 OPTIONAL: If you really need session refresh, do it without updating navigation
+            /*
+            console.log('=== REFRESHING SESSION (without navigation update) ===');
+            const refreshResponse = await fetch('/refresh-user-session', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': csrfToken
-                },
-                body: JSON.stringify(formData)
+                }
             });
 
-            const result = await response.json();
-
-            if (result.success) {
-                // Update the navigation immediately with the response data
-                const navigationData = {
-                    main_module: result.main_module || formData.main_module,
-                    sub_modules: result.sub_modules || [],
-                    modules: {
-                        'asinoption': 'ASIN Option',
-                        'order': 'Order',
-                        'unreceived': 'Unreceived',
-                        'receiving': 'Received',
-                        'labeling': 'Labeling',
-                        'validation': 'Validation',
-                        'testing': 'Testing',
-                        'cleaning': 'Cleaning',
-                        'packing': 'Packing',
-                        //         'fnsku': 'FNSKU',
-                        'stockroom': 'Stockroom',
-                        'productionarea': 'Production Area',
-                        'returnscanner': 'Return Scanner',
-                        'fbmorder': 'FBM Order',
-                        'notfound': 'Not Found',
-                        'houseage': 'Houseage',
-                    }
-                };
-
-                // Update navigation immediately
-                updateUserNavigation(navigationData);
-
-                // Force session refresh
-                const refreshResponse = await fetch('/refresh-user-session', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': csrfToken
-                    }
-                });
-
-                const refreshResult = await refreshResponse.json();
-                if (refreshResult.success) {
-                    // Update with refreshed data
-                    updateUserNavigation({
-                        main_module: refreshResult.main_module,
-                        sub_modules: refreshResult.sub_modules,
-                        modules: navigationData.modules
-                    });
-                }
-
-                return result;
-            }
+            const refreshResult = await refreshResponse.json();
+            console.log('Session refresh result (navigation not updated):', refreshResult);
+            */
 
             return result;
-        } catch (error) {
-            console.error('Error in save process:', error);
-            throw error;
         }
+
+        return result;
+    } catch (error) {
+        console.error('Error in save process:', error);
+        throw error;
     }
+}
+
 
     async function fetchUserPrivileges(userId) {
         try {
@@ -311,10 +321,11 @@
             'FBM Order': 'fbmorder',
             'Not Found': 'notfound',
             'Houseage': 'houseage',
+            'Printer': 'printer',
         };
 
         const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-            'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order', 'Not Found', 'Houseage'
+            'Stockroom', 'Validation', 'FNSKU', 'Production Area', 'Return Scanner', 'FBM Order', 'Not Found', 'Houseage','Printer'
         ];
 
         const mainModuleHTML = `
@@ -336,77 +347,81 @@
     }
 
     function updateSubModules(data) {
-        const subModules = [{
-            db: 'order',
-            display: 'Order'
-        },
-        {
-            db: 'unreceived',
-            display: 'Unreceived'
-        },
-        {
-            db: 'receiving',
-            display: 'Received'
-        },
-        {
-            db: 'labeling',
-            display: 'Labeling'
-        },
-        {
-            db: 'testing',
-            display: 'Testing'
-        },
-        {
-            db: 'cleaning',
-            display: 'Cleaning'
-        },
-        {
-            db: 'packing',
-            display: 'Packing'
-        },
-        {
-            db: 'stockroom',
-            display: 'Stockroom'
-        },
-        {
-            db: 'validation',
-            display: 'Validation'
-        },
-        {
-            db: 'fnsku',
-            display: 'FNSKU'
-        },
-        {
-            db: 'asinlist',
-            display: 'ASIN List'
-        },
-        {
-            db: 'productionarea',
-            display: 'Production Area'
-        },
-        {
-            db: 'returnscanner',
-            display: 'Return Scanner'
-        },
-        {
-            db: 'fbmorder',
-            display: 'FBM Order'
-        },
-        {
-            db: 'notfound',
-            display: 'Not Found'
-        },
-        {
-            db: 'asinoption',
-            display: 'ASIN Option'
-        },
-        {
-            db: 'houseage',
-            display: 'Houseage'
-        }
-        ];
+    const subModules = [{
+        db: 'order',
+        display: 'Order'
+    },
+    {
+        db: 'unreceived',
+        display: 'Unreceived'
+    },
+    {
+        db: 'receiving',
+        display: 'Received'
+    },
+    {
+        db: 'labeling',
+        display: 'Labeling'
+    },
+    {
+        db: 'testing',
+        display: 'Testing'
+    },
+    {
+        db: 'cleaning',
+        display: 'Cleaning'
+    },
+    {
+        db: 'packing',
+        display: 'Packing'
+    },
+    {
+        db: 'stockroom',
+        display: 'Stockroom'
+    },
+    {
+        db: 'validation',
+        display: 'Validation'
+    },
+    {
+        db: 'fnsku',
+        display: 'FNSKU'
+    },
+    {
+        db: 'asinlist',
+        display: 'ASIN List'
+    },
+    {
+        db: 'productionarea',
+        display: 'Production Area'
+    },
+    {
+        db: 'returnscanner',
+        display: 'Return Scanner'
+    },
+    {
+        db: 'fbmorder',
+        display: 'FBM Order'
+    },
+    {
+        db: 'notfound',
+        display: 'Not Found'
+    },
+    {
+        db: 'asinoption',
+        display: 'ASIN Option'
+    },
+    {
+        db: 'houseage',
+        display: 'Houseage'
+    },
+    {
+        db: 'printer',
+        display: 'Printer'
+    }
+    ];
 
-        const subModulesHTML = `
+    const subModulesHTML = `
         <label>Sub-Modules</label>
         <div class="main-module__container">
             ${subModules.map(module => `<div>
@@ -416,8 +431,8 @@
                     <span>${module.display}</span>
                 </div>`).join('')}
         </div>`;
-        document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
-    }
+    document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
+}
 
     function updateStores(data) {
         const storeHTML = `
@@ -480,7 +495,8 @@
                     'fbashipmentinbound': 'FBA Inbound Shipment',
                     'fbmorder': 'FBM Order',
                     'notfound': 'Not Found',
-                    'houseage': 'Houseage' // Add this mapping
+                    'houseage': 'Houseage', // Add this mapping
+                    'printer': 'Printer',
                 };
 
                 updateUserNavigation({
@@ -512,13 +528,13 @@
             'packing': 'Packing',
             'stockroom': 'Stockroom',
             'validation': 'Validation',
-            //'fnsku': 'FNSKU',
             'productionarea': 'Production Area',
             'returnscanner': 'Return Scanner',
             'fbashipmentinbound': 'FBA Inbound Shipment',
             'fbmorder': 'FBM Order',
             'notfound': 'Not Found',
-            'houseage': 'Houseage'
+            'houseage': 'Houseage',
+            'printer' : 'Printer',
         };
 
         // Use provided modules or default modules

@@ -174,6 +174,7 @@ class LoginController extends Controller
             'asinoption',
             'houseage',
             'asinlist',
+            'printer',
         ];
 
         $activeSubModules = array_filter($subModules, function ($module) use ($user) {

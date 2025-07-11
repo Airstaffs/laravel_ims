@@ -194,7 +194,7 @@
                 'returnscanner' => 'Return Scanner',
                 'fbmorder' => 'FBM Order',
                 'notfound' => 'Not Found',
-                'houseage' => 'Houseage'
+                'houseage' => 'Houseage',
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool
