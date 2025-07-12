@@ -1,6 +1,7 @@
-.labeling-module th:nth-child(2),
-.labeling-module td:nth-child(2) {
+.houseage-module .second-sticky {
     min-width: 310px;
+    max-width: 310px;
+    width: 310px;
 }
 
 .modal.fnsku-modal,
@@ -156,4 +157,3 @@ button.btn.btn-fnsku-select:hover {
         overflow-x: hidden;
     }
 }
-

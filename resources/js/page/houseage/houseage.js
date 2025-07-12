@@ -1,6 +1,7 @@
 import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./houseage.css";
+import Swal from "sweetalert2";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -38,6 +39,20 @@ export default {
             confirmationMessage: "",
             confirmationActionType: "", // 'validation' or 'stockroom'
             currentItemForAction: null, // Store the item to be processed
+
+            showEditModal: false,
+            item: {
+                materialtype: "",
+                carrier: "",
+                storename: "",
+                priorityrank: "",
+                validation_status: "",
+            },
+            items: [],
+            activeIndex: 0,
+            basePath: "/images/thumbnails/",
+            loading: false,
+            error: null,
         };
     },
     computed: {
@@ -61,7 +76,106 @@ export default {
                     : String(valueB).localeCompare(String(valueA));
             });
         },
+
+        imageList() {
+            return Object.keys(this.item)
+                .filter((key) => key.startsWith("img") && this.item[key])
+                .map((key) => this.item[key]);
+        },
+        activeImageUrl() {
+            return this.basePath + this.imageList[this.activeIndex];
+        },
+
+        serialKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^serialnumber[a-z]?$/.test(k)
+            );
+        },
+        trackingKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^trackingnumber\d*$/.test(k)
+            );
+        },
+
+        formattedSubtotal() {
+            const total = parseFloat(this.item.TOTAL) || 0;
+            const quantity = parseFloat(this.item.quantity) || 0;
+            return (total * quantity).toFixed(2);
+        },
+        grandTotal() {
+            const subtotal = this.formattedSubtotal;
+            const discount = parseFloat(this.item.discount) || 0;
+            return (subtotal - discount).toFixed(2);
+        },
+        unitPrice() {
+            const quantity = parseFloat(this.item.quantity);
+            if (!quantity || quantity === 0) return 0;
+
+            return (this.formattedSubtotal / quantity).toFixed(2);
+        },
+
+        materialTypes() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.materialtype)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        sourceTypes() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.sourceType)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        carrierOptions() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.carrier)
+                        .filter((c) => c && c.trim() !== "")
+                ),
+            ].sort();
+        },
+        storeNames() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.storename)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        priorityRanks() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.priorityrank)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        validationStatuses() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.validation_status)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
     },
+
     methods: {
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
@@ -93,7 +207,7 @@ export default {
             if (!item || !item.capturedImages) return 0;
 
             // For debugging
-            console.log("Checking capturedImages:", item.capturedImages);
+            // console.log("Checking capturedImages:", item.capturedImages);
 
             let count = 0;
             // Check capturedimg1 through capturedimg12
@@ -280,6 +394,8 @@ export default {
                 // Process the returned data
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
+
+                console.log(this.inventory);
 
                 // Debug first item to see structure
                 if (this.inventory.length > 0) {
@@ -589,6 +705,124 @@ export default {
             // Re-enable scrolling
             document.body.style.overflow = "auto";
         },
+
+        async openEditModal(item) {
+            if (!item) return;
+
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
+            this.item = { ...(freshItem || item) };
+
+            console.log(this.item);
+
+            this.showEditModal = true;
+
+            document.body.style.overflow = "hidden";
+        },
+
+        closeEditModal() {
+            this.showEditModal = false;
+
+            setTimeout(() => {
+                document.body.style.overflow = "auto";
+            }, 300); // Match with your modal close animation
+        },
+
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImage;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImage;
+        },
+
+        autoResize() {
+            [
+                "productTextarea",
+                "descriptionarea",
+                "supplierNotesarea",
+                "employeeNotesarea",
+                "stickerNotesarea",
+            ].forEach((refName) => {
+                const el = this.$refs[refName];
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+
+        getLabel(index) {
+            // Convert 0 => A, 1 => B, etc.
+            return String.fromCharCode(65 + index);
+        },
+
+        async fetchItems() {
+            this.loading = true;
+            try {
+                const response = await axios.get("/api/houseage/products");
+                const payload = response.data;
+
+                // handle both array or wrapped array
+                this.items = Array.isArray(payload)
+                    ? payload
+                    : payload.data || [];
+            } catch (err) {
+                console.error("Fetch failed:", err);
+                this.items = []; // fallback
+                this.error = "Failed to load items.";
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async saveEditModal() {
+            this.loading = true;
+            try {
+                const payload = {
+                    ...this.item,
+                    _token: document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
+                };
+
+                const response = await axios.post(
+                    "/api/houseage/products",
+                    payload
+                );
+                const updated = response.data.product;
+
+                const index = this.items.findIndex(
+                    (p) => p.itemnumber === updated.itemnumber
+                );
+                if (index !== -1) {
+                    this.items.splice(index, 1, updated);
+                } else {
+                    this.items.unshift(updated);
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Saved!",
+                    text: "The houseage product has been saved successfully.",
+                    confirmButtonText: "OK",
+                });
+
+                this.closeEditModal();
+                await this.fetchInventory();
+            } catch (error) {
+                console.error("Save failed:", error);
+
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text: "An error occurred while saving. Please check the input or try again later.",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.loading = false;
+            }
+        },
     },
 
     watch: {
@@ -620,6 +854,14 @@ export default {
 
         window.addEventListener("keydown", handleKeyDown);
         this.handleKeyDown = handleKeyDown; // Store for cleanup
+
+        [...this.serialKeys, ...this.trackingKeys].forEach((key) => {
+            if (this.item[key] == null) {
+                this.$set(this.item, key, "");
+            }
+        });
+
+        this.fetchItems();
     },
 
     beforeDestroy() {
