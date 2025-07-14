@@ -1,35 +1,45 @@
 <?php
-require_once 'amazon_auth.php'; // defines $access_token, $marketplace_id, $merchant_id
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+set_time_limit(600);
+ini_set('max_execution_time', 600);
 
 $authEndpoint = 'https://api.amazon.com/auth/o2/token';
-$Connect = new mysqli("localhost", "username", "password", "database");
+
+$Connect = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
 
 // Step 1: Get the oldest ASIN to process
-$asinResult = $Connect->query("SELECT ASIN FROM tblfnsku WHERE amazon_status = 'Not Existed' ORDER BY insert_date ASC LIMIT 1");
+$asinResult = $Connect->query("SELECT ASIN, storename FROM tblfnsku WHERE amazon_status = 'Not Existed' ORDER BY insert_date ASC LIMIT 1");
 if ($asinResult->num_rows == 0)
     exit("No ASINs to process.<br>");
-$asin = $asinResult->fetch_assoc()['ASIN'];
+$row = $asinResult->fetch_assoc();
+$filterasin = $row['ASIN'];
+$filterstore = $row['storename'];
 
 // Step 2: Get all MSKUs for that ASIN
-$mskuResult = $Connect->query("SELECT * FROM tblfnsku WHERE amazon_status = 'Not Existed' AND ASIN = '$asin'");
+$mskuResult = $Connect->query("SELECT * FROM tblfnsku WHERE amazon_status = 'Not Existed' AND ASIN = '$filterasin' AND storename = '$filterstore'");
 $mskus = [];
 $conditions = [];
+
 
 while ($row = $mskuResult->fetch_assoc()) {
     $condition = strtolower(str_replace(' ', '_', $row['Condition'] ?? 'new_new'));
     $conditions[] = $condition;
     $mskus[] = [
-        'sku' => $row['SKU'],
-        'asin' => $asin,
+        'sku' => $row['MSKU'],
+        'asin' => $filterasin,
         'condition' => $condition,
+        'storename' => $row['storename'],
     ];
 }
+
 $conditions = array_unique($conditions);
 if (empty($mskus))
     exit("No MSKUs found for ASIN: $asin<br>");
 
 // Step 3: Fetch listing restrictions
-$restrictions = fetch_listing_restrict_plain($asin, $merchant_id, $marketplace_id, $access_token);
+$restrictions = fetch_listing_restrict_plain($filterstore, $filterasin);
 
 foreach ($restrictedResult['restrictions'] as $r) {
     if (!$r['success']) {
@@ -169,7 +179,6 @@ function fetch_listing_restrict_plain($store, $searchedAsin, $destinationMarketp
     }
 }
 
-
 function AWSCredentials($store)
 {
     global $Connect;
@@ -255,6 +264,15 @@ function fetchtblstores($storename)
     $stmt->execute();
     $result = $stmt->get_result();
     return $result->fetch_assoc() ?: null;
+}
+
+function fetchallstores()
+{
+    global $Connect;
+    $stmt = $Connect->prepare("SELECT * FROM tblstores");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_all(MYSQLI_ASSOC); // returns array of all rows
 }
 
 function buildQueryString($nextToken = null, $customParams = [])
