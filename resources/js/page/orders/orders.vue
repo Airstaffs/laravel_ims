@@ -46,7 +46,19 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr v-if="loading">
+                        <td colspan="9" class="text-center">
+                            <div class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Loading...
+                            </div>
+                        </td>
+                    </tr>
+                    <tr v-else-if="sortedInventory.length === 0">
+                        <td colspan="9" class="text-center">No data found</td>
+                    </tr>
                     <template
+                        v-else
                         v-for="(item, index) in sortedInventory"
                         :key="item.id"
                     >

@@ -33,87 +33,106 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr v-for="(item, index) in inventory" :key="item.FNSKUID">
-                        <td class="sticky-col first-col">
-                            <input type="checkbox" v-model="item.checked" />
-                        </td>
-                        <td>
-                            <span>
-                                <strong>{{ item.ASIN }}</strong>
-                            </span>
-                        </td>
-                        <td>
-                            <span>
-                                <strong>{{ item.FNSKU }}</strong>
-                            </span>
-                        </td>
-                        <td>
-                            <span>
-                                <strong>{{ item.MSKU }}</strong>
-                            </span>
-                        </td>
-                        <td>
-                            <span
-                                class="badge text-white"
-                                :class="{
-                                    'bg-primary':
-                                        item.grading === 'UsedVeryGood',
-                                    'bg-warning': item.grading === 'UsedGood',
-                                    'bg-info': item.grading === 'UsedLikeNew',
-                                    'bg-secondary': ![
-                                        'UsedVeryGood',
-                                        'UsedGood',
-                                        'UsedLikeNew',
-                                    ].includes(item.grading),
-                                }"
-                            >
-                                {{ item.grading }}
-                            </span>
-                        </td>
-                        <td>
-                            <span
-                                class="badge text-white"
-                                :class="
-                                    item.fnsku_status === 'available'
-                                        ? 'bg-success'
-                                        : 'bg-danger'
-                                "
-                            >
-                                {{ item.fnsku_status }}
-                            </span>
-                        </td>
-                        <td>
-                            <span>
-                                <strong>{{ item.storename }}</strong>
-                            </span>
-                        </td>
-                        <td>
-                            <span>
-                                <strong>{{ item.Units }}</strong>
-                            </span>
-                        </td>
-                        <td>
-                            {{ item.totalquantity }}
-                            <button
-                                @click="toggleDetails(index)"
-                                class="more-details-btn"
-                            >
-                                {{
-                                    expandedRows[index]
-                                        ? "Less Details"
-                                        : "More Details"
-                                }}
-                            </button>
-                        </td>
-                    </tr>
-                    <tr v-if="expandedRows[index]" class="expanded-row">
-                        <td colspan="4">
-                            <div class="expanded-content">
-                                <strong>Product Name:</strong>
-                                {{ item.astitle }}
+                    <tr v-if="loading">
+                        <td colspan="9" class="text-center">
+                            <div class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Loading...
                             </div>
                         </td>
                     </tr>
+                    <tr v-else-if="inventory.length === 0">
+                        <td colspan="9" class="text-center">No orders found</td>
+                    </tr>
+                    <template
+                        v-else
+                        v-for="(item, index) in inventory"
+                        :key="item.FNSKUID"
+                    >
+                        <tr>
+                            <td class="sticky-col first-col">
+                                <input type="checkbox" v-model="item.checked" />
+                            </td>
+                            <td>
+                                <span>
+                                    <strong>{{ item.ASIN }}</strong>
+                                </span>
+                            </td>
+                            <td>
+                                <span>
+                                    <strong>{{ item.FNSKU }}</strong>
+                                </span>
+                            </td>
+                            <td>
+                                <span>
+                                    <strong>{{ item.MSKU }}</strong>
+                                </span>
+                            </td>
+                            <td>
+                                <span
+                                    class="badge text-white"
+                                    :class="{
+                                        'bg-primary':
+                                            item.grading === 'UsedVeryGood',
+                                        'bg-warning':
+                                            item.grading === 'UsedGood',
+                                        'bg-info':
+                                            item.grading === 'UsedLikeNew',
+                                        'bg-secondary': ![
+                                            'UsedVeryGood',
+                                            'UsedGood',
+                                            'UsedLikeNew',
+                                        ].includes(item.grading),
+                                    }"
+                                >
+                                    {{ item.grading }}
+                                </span>
+                            </td>
+                            <td>
+                                <span
+                                    class="badge text-white"
+                                    :class="
+                                        item.fnsku_status === 'available'
+                                            ? 'bg-success'
+                                            : 'bg-danger'
+                                    "
+                                >
+                                    {{ item.fnsku_status }}
+                                </span>
+                            </td>
+                            <td>
+                                <span>
+                                    <strong>{{ item.storename }}</strong>
+                                </span>
+                            </td>
+                            <td>
+                                <span>
+                                    <strong>{{ item.Units }}</strong>
+                                </span>
+                            </td>
+                            <td>
+                                {{ item.totalquantity }}
+                                <button
+                                    @click="toggleDetails(index)"
+                                    class="more-details-btn"
+                                >
+                                    {{
+                                        expandedRows[index]
+                                            ? "Less Details"
+                                            : "More Details"
+                                    }}
+                                </button>
+                            </td>
+                        </tr>
+                        <tr v-if="expandedRows[index]" class="expanded-row">
+                            <td colspan="4">
+                                <div class="expanded-content">
+                                    <strong>Product Name:</strong>
+                                    {{ item.astitle }}
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
                 </tbody>
             </table>
         </div>
