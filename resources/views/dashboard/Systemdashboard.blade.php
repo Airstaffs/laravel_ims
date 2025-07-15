@@ -87,7 +87,7 @@
                 $freshUser = \App\Models\User::find($currentUser->id);
                 $mainModule = strtolower($freshUser->main_module ?: '');
 
-                $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist'];
+                $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist','printer'];
 
                 foreach ($moduleColumns as $column) {
                     // Only add to subModules if it's enabled AND not the main module
@@ -118,14 +118,14 @@
                 'testing' => 'Testing',
                 'cleaning' => 'Cleaning',
                 'packing' => 'Packing',
-                //    'fnsku' => 'Fnsku',
                 'stockroom' => 'Stockroom',
                 'productionarea' => 'Production Area',
                 'fbashipmentinbound' => 'FBA Inbound Shipment',
                 'returnscanner' => 'Return Scanner',
                 'fbmorder' => 'FBM Order',
                 'notfound' => 'Not Found',
-                'houseage' => 'Houseage'
+                'houseage' => 'Houseage',
+                'printer' => 'Printer'
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool
@@ -149,34 +149,40 @@
         </script>
 
         <!-- Navigation Links -->
-        <nav class="nav flex-column sidebar-nav">
-            {{-- Display main module if it exists --}}
-            @if ($mainModule && isset($modules[$mainModule]))
-                <a class="nav-link active" href="/{{ $mainModule }}"
-                    onclick="window.loadContent('{{ $mainModule }}'); highlightNavLink(this); closeSidebar(); return false;">
-                    {{ $modules[$mainModule] }}
+       <nav class="nav flex-column sidebar-nav">
+    {{-- Display main module if it exists --}}
+    @if ($mainModule && isset($modules[$mainModule]))
+        <a class="nav-link active" href="/{{ $mainModule }}"
+            onclick="window.loadContent('{{ $mainModule }}'); highlightNavLink(this); closeSidebar(); return false;">
+            {{ $modules[$mainModule] }}
+        </a>
+    @endif
+
+    {{-- Loop through sub-modules, excluding the main module --}}
+    @foreach ($subModules as $module)
+        @if (isset($modules[$module]) && $module !== $mainModule)
+            @if ($module === 'asinoption')
+                <!-- Special handling for ASIN Option - show modal instead of loading component -->
+                <a class="nav-link" href="#"
+                    onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
+                    {{ $modules[$module] }}
+                </a>
+           @elseif ($module === 'printer')
+                <!-- Regular module handling for printer -->
+                <a class="nav-link" href="/{{ $module }}"
+                    onclick="window.loadContent('{{ $module }}'); highlightNavLink(this); closeSidebar(); return false;">
+                    {{ $modules[$module] }}
+                </a>
+            @else
+                <!-- Regular module handling -->
+                <a class="nav-link" href="/{{ $module }}"
+                    onclick="window.loadContent('{{ $module }}'); highlightNavLink(this); closeSidebar(); return false;">
+                    {{ $modules[$module] }}
                 </a>
             @endif
-
-            {{-- Loop through sub-modules, excluding the main module --}}
-            @foreach ($subModules as $module)
-                @if (isset($modules[$module]) && $module !== $mainModule)
-                    @if ($module === 'asinoption')
-                        <!-- Special handling for ASIN Option - show modal instead of loading component -->
-                        <a class="nav-link" href="#"
-                            onclick="showAsinOptionModal(); highlightNavLink(this); closeSidebar(); return false;">
-                            {{ $modules[$module] }}
-                        </a>
-                    @else
-                        <!-- Regular module handling -->
-                        <a class="nav-link" href="/{{ $module }}"
-                            onclick="window.loadContent('{{ $module }}'); highlightNavLink(this); closeSidebar(); return false;">
-                            {{ $modules[$module] }}
-                        </a>
-                    @endif
-                @endif
-            @endforeach
-        </nav>
+        @endif
+    @endforeach
+</nav>
     </div>
 
     <script>
@@ -291,6 +297,7 @@
     </div>
 
     @include('dashboard.modals.asinoption')
+    @include('dashboard.modals.printer')
     @include('dashboard.modals.settings.settings-modal')
 
     <script>
