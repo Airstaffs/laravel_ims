@@ -4,7 +4,12 @@
         <div class="top-header">
             <div class="store-filter">
                 <label for="store-select">Store:</label>
-                <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
+                <select
+                    id="store-select"
+                    v-model="selectedStore"
+                    @change="changeStore"
+                    class="store-select"
+                >
                     <option value="">All Stores</option>
                     <option v-for="store in stores" :key="store" :value="store">
                         {{ store }}
@@ -20,111 +25,215 @@
             <table>
                 <thead>
                     <tr>
-                        <th class="sticky-header first-col" style="width: 350px; min-width: 350px;">
+                        <th
+                            class="sticky-header first-col"
+                            style="width: 350px; min-width: 350px"
+                        >
                             <div class="product-name">
-                                <span class="sortable" @click="sortBy('AStitle')">
+                                <span
+                                    class="sortable"
+                                    @click="sortBy('AStitle')"
+                                >
                                     Product Name
-                                    <i v-if="sortColumn === 'AStitle'"
-                                        :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
+                                    <i
+                                        v-if="sortColumn === 'AStitle'"
+                                        :class="
+                                            sortOrder === 'asc'
+                                                ? 'fas fa-sort-up'
+                                                : 'fas fa-sort-down'
+                                        "
+                                    ></i>
                                 </span>
                             </div>
                         </th>
-                        <th style="width: 120px; min-width: 120px;">
+                        <th style="width: 120px; min-width: 120px">
                             <div class="sortable" @click="sortBy('ASIN')">
                                 ASIN
-                                <i v-if="sortColumn === 'ASIN'"
-                                    :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
+                                <i
+                                    v-if="sortColumn === 'ASIN'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
                             </div>
                         </th>
-                        <th style="width: 180px; min-width: 180px;">
-                            <div class="">
-                                EAN / UPC
-                            </div>
+                        <th style="width: 180px; min-width: 180px">
+                            <div class="">EAN / UPC</div>
                         </th>
-                        <th style="width: 250px; min-width: 250px;">
-                            <div class="">
-                                Related ASINs
-                            </div>
+                        <th style="width: 250px; min-width: 250px">
+                            <div class="">Related ASINs</div>
                         </th>
-                        <th style="width: 120px; min-width: 120px;">
-                            <div class="">
-                                FNSKUs
-                            </div>
+                        <th style="width: 120px; min-width: 120px">
+                            <div class="">FNSKUs</div>
                         </th>
-                        <th style="width: 200px; min-width: 200px;">
-                            <div class="th-content">
-                                Actions
-                            </div>
+                        <th style="width: 200px; min-width: 200px">
+                            <div class="th-content">Actions</div>
                         </th>
                     </tr>
                 </thead>
                 <tbody>
-                    <template v-for="(item, index) in sortedAsinData" :key="item.ASIN">
+                    <tr v-if="loading">
+                        <td colspan="6" class="text-center">
+                            <div class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Loading...
+                            </div>
+                        </td>
+                    </tr>
+                    <tr v-else-if="sortedAsinData.length === 0">
+                        <td colspan="6" class="text-center">No data found</td>
+                    </tr>
+                    <template
+                        v-else
+                        v-for="(item, index) in sortedAsinData"
+                        :key="item.ASIN"
+                    >
                         <tr>
-                            <td class="sticky-col first-col" style="width: 350px; min-width: 350px;">
+                            <td
+                                class="sticky-col first-col"
+                                style="width: 350px; min-width: 350px"
+                            >
                                 <div class="product-container">
-                                    <div class="product-image-container clickable" @click="viewAsinDetails(item)">
-                                        <img :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)"
-                                            :alt="item.AStitle" class="product-thumbnail"
-                                            @error="handleImageError($event, item)" />
+                                    <div
+                                        class="product-image-container clickable"
+                                        @click="viewAsinDetails(item)"
+                                    >
+                                        <img
+                                            :src="
+                                                item.useDefaultImage
+                                                    ? defaultImagePath
+                                                    : getImagePath(item.ASIN)
+                                            "
+                                            :alt="item.AStitle"
+                                            class="product-thumbnail"
+                                            @error="
+                                                handleImageError($event, item)
+                                            "
+                                        />
                                     </div>
                                     <div class="product-info">
-                                        <p class="product-name clickable" @click="viewAsinDetails(item)">
+                                        <p
+                                            class="product-name clickable"
+                                            @click="viewAsinDetails(item)"
+                                        >
                                             {{ item.AStitle }}
                                         </p>
-                                        <p class="product-title" v-if="item.metakeyword">
+                                        <p
+                                            class="product-title"
+                                            v-if="item.metakeyword"
+                                        >
                                             {{ item.metakeyword }}
                                         </p>
                                     </div>
                                 </div>
                             </td>
-                            <td style="width: 120px;">{{ item.ASIN }}</td>
-                            <td style="width: 180px;">
+                            <td style="width: 120px">{{ item.ASIN }}</td>
+                            <td style="width: 180px">
                                 <div class="codes-container">
                                     <div v-if="item.EAN" class="code-item">
                                         <span class="code-label">EAN:</span>
-                                        <span class="code-value">{{ item.EAN }}</span>
+                                        <span class="code-value">{{
+                                            item.EAN
+                                        }}</span>
                                     </div>
                                     <div v-if="item.UPC" class="code-item">
                                         <span class="code-label">UPC:</span>
-                                        <span class="code-value">{{ item.UPC }}</span>
+                                        <span class="code-value">{{
+                                            item.UPC
+                                        }}</span>
                                     </div>
-                                    <div v-if="!item.EAN && !item.UPC" class="no-codes">-</div>
+                                    <div
+                                        v-if="!item.EAN && !item.UPC"
+                                        class="no-codes"
+                                    >
+                                        -
+                                    </div>
                                 </div>
                             </td>
-                            <td style="width: 250px;">
+                            <td style="width: 250px">
                                 <div class="related-asins">
-                                    <div v-if="item.ParentAsin" class="related-item">
-                                        <span class="related-label">Parent:</span>
-                                        <span class="related-value">{{ item.ParentAsin }}</span>
+                                    <div
+                                        v-if="item.ParentAsin"
+                                        class="related-item"
+                                    >
+                                        <span class="related-label"
+                                            >Parent:</span
+                                        >
+                                        <span class="related-value">{{
+                                            item.ParentAsin
+                                        }}</span>
                                     </div>
-                                    <div v-if="item.CousinASIN" class="related-item">
-                                        <span class="related-label">Cousin:</span>
-                                        <span class="related-value">{{ item.CousinASIN }}</span>
+                                    <div
+                                        v-if="item.CousinASIN"
+                                        class="related-item"
+                                    >
+                                        <span class="related-label"
+                                            >Cousin:</span
+                                        >
+                                        <span class="related-value">{{
+                                            item.CousinASIN
+                                        }}</span>
                                     </div>
-                                    <div v-if="item.UpgradeASIN" class="related-item">
-                                        <span class="related-label">Upgrade:</span>
-                                        <span class="related-value">{{ item.UpgradeASIN }}</span>
+                                    <div
+                                        v-if="item.UpgradeASIN"
+                                        class="related-item"
+                                    >
+                                        <span class="related-label"
+                                            >Upgrade:</span
+                                        >
+                                        <span class="related-value">{{
+                                            item.UpgradeASIN
+                                        }}</span>
                                     </div>
-                                    <div v-if="item.GrandASIN" class="related-item">
-                                        <span class="related-label">Grand:</span>
-                                        <span class="related-value">{{ item.GrandASIN }}</span>
+                                    <div
+                                        v-if="item.GrandASIN"
+                                        class="related-item"
+                                    >
+                                        <span class="related-label"
+                                            >Grand:</span
+                                        >
+                                        <span class="related-value">{{
+                                            item.GrandASIN
+                                        }}</span>
                                     </div>
-                                    <div v-if="!item.ParentAsin && !item.CousinASIN && !item.UpgradeASIN && !item.GrandASIN" class="no-related">-</div>
+                                    <div
+                                        v-if="
+                                            !item.ParentAsin &&
+                                            !item.CousinASIN &&
+                                            !item.UpgradeASIN &&
+                                            !item.GrandASIN
+                                        "
+                                        class="no-related"
+                                    >
+                                        -
+                                    </div>
                                 </div>
                             </td>
-                            <td style="width: 120px;">
+                            <td style="width: 120px">
                                 <div class="fnsku-count">
                                     {{ item.fnsku_count }} FNSKUs
                                 </div>
                             </td>
-                            <td style="width: 200px;">
+                            <td style="width: 200px">
                                 <div class="action-buttons">
-                                    <button class="btn-expand" @click="toggleDetails(index)">
-                                        {{ expandedRows[index] ? 'Hide FNSKUs' : 'Show FNSKUs' }}
+                                    <button
+                                        class="btn-expand"
+                                        @click="toggleDetails(index)"
+                                    >
+                                        {{
+                                            expandedRows[index]
+                                                ? "Hide FNSKUs"
+                                                : "Show FNSKUs"
+                                        }}
                                     </button>
-                                    <button class="btn-details" @click="viewAsinDetails(item)">
-                                        <i class="fas fa-info-circle"></i> Full Details
+                                    <button
+                                        class="btn-details"
+                                        @click="viewAsinDetails(item)"
+                                    >
+                                        <i class="fas fa-info-circle"></i> Full
+                                        Details
                                     </button>
                                 </div>
                             </td>
@@ -134,7 +243,9 @@
                             <td colspan="6">
                                 <div class="expanded-content">
                                     <div class="expanded-fnskus">
-                                        <strong>FNSKUs for {{ item.ASIN }}:</strong>
+                                        <strong
+                                            >FNSKUs for {{ item.ASIN }}:</strong
+                                        >
                                         <div class="fnsku-table-container">
                                             <table class="fnsku-detail-table">
                                                 <thead>
@@ -147,15 +258,49 @@
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <tr v-for="fnsku in item.fnskus" :key="fnsku.FNSKU">
-                                                        <td class="fnsku-code">{{ fnsku.FNSKU }}</td>
-                                                        <td>{{ fnsku.MSKU || '-' }}</td>
-                                                        <td>{{ fnsku.storename }}</td>
-                                                        <td>{{ fnsku.Units || 0 }}</td>
-                                                        <td>{{ fnsku.grading || '-' }}</td>
+                                                    <tr
+                                                        v-for="fnsku in item.fnskus"
+                                                        :key="fnsku.FNSKU"
+                                                    >
+                                                        <td class="fnsku-code">
+                                                            {{ fnsku.FNSKU }}
+                                                        </td>
+                                                        <td>
+                                                            {{
+                                                                fnsku.MSKU ||
+                                                                "-"
+                                                            }}
+                                                        </td>
+                                                        <td>
+                                                            {{
+                                                                fnsku.storename
+                                                            }}
+                                                        </td>
+                                                        <td>
+                                                            {{
+                                                                fnsku.Units || 0
+                                                            }}
+                                                        </td>
+                                                        <td>
+                                                            {{
+                                                                fnsku.grading ||
+                                                                "-"
+                                                            }}
+                                                        </td>
                                                     </tr>
-                                                    <tr v-if="!item.fnskus || item.fnskus.length === 0">
-                                                        <td colspan="5" class="text-center">No FNSKUs found</td>
+                                                    <tr
+                                                        v-if="
+                                                            !item.fnskus ||
+                                                            item.fnskus
+                                                                .length === 0
+                                                        "
+                                                    >
+                                                        <td
+                                                            colspan="5"
+                                                            class="text-center"
+                                                        >
+                                                            No FNSKUs found
+                                                        </td>
                                                     </tr>
                                                 </tbody>
                                             </table>
@@ -172,12 +317,34 @@
         <!-- Mobile Cards View -->
         <div class="mobile-view">
             <div class="mobile-cards">
-                <div v-for="(item, index) in sortedAsinData" :key="item.ASIN" class="mobile-card">
+                <div v-if="loading" class="loading-spinner-mobile">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Loading...
+                </div>
+                <div
+                    v-else-if="sortedAsinData.length === 0"
+                    class="no-data-mobile"
+                >
+                    No data found
+                </div>
+                <div
+                    class="mobile-card"
+                    v-else
+                    v-for="(item, index) in sortedAsinData"
+                    :key="item.ASIN"
+                >
                     <div class="mobile-card-header">
                         <div class="mobile-product-image">
-                            <img :src="item.useDefaultImage ? defaultImagePath : getImagePath(item.ASIN)"
-                                :alt="item.AStitle" class="product-thumbnail-mobile"
-                                @error="handleImageError($event, item)" />
+                            <img
+                                :src="
+                                    item.useDefaultImage
+                                        ? defaultImagePath
+                                        : getImagePath(item.ASIN)
+                                "
+                                :alt="item.AStitle"
+                                class="product-thumbnail-mobile"
+                                @error="handleImageError($event, item)"
+                            />
                         </div>
                         <div class="mobile-product-info">
                             <h3 class="mobile-product-name">
@@ -186,67 +353,115 @@
                         </div>
                     </div>
 
-                    <hr>
+                    <hr />
 
                     <div class="mobile-card-details">
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">ASIN:</span>
-                            <span class="mobile-detail-value">{{ item.ASIN }}</span>
+                            <span class="mobile-detail-value">{{
+                                item.ASIN
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">EAN:</span>
-                            <span class="mobile-detail-value">{{ item.EAN || '-' }}</span>
+                            <span class="mobile-detail-value">{{
+                                item.EAN || "-"
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">UPC:</span>
-                            <span class="mobile-detail-value">{{ item.UPC || '-' }}</span>
+                            <span class="mobile-detail-value">{{
+                                item.UPC || "-"
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">FNSKUs:</span>
-                            <span class="mobile-detail-value">{{ item.fnsku_count }}</span>
+                            <span class="mobile-detail-value">{{
+                                item.fnsku_count
+                            }}</span>
                         </div>
                     </div>
 
-                    <hr>
+                    <hr />
 
                     <div class="mobile-card-actions">
-                        <button class="btn btn-expand" @click="toggleDetails(index)">
-                            <i class="fas fa-list"></i> {{ expandedRows[index] ? 'Hide' : 'FNSKUs' }}
+                        <button
+                            class="btn btn-expand"
+                            @click="toggleDetails(index)"
+                        >
+                            <i class="fas fa-list"></i>
+                            {{ expandedRows[index] ? "Hide" : "FNSKUs" }}
                         </button>
-                        <button class="btn btn-details" @click="viewAsinDetails(item)">
+                        <button
+                            class="btn btn-details"
+                            @click="viewAsinDetails(item)"
+                        >
                             <i class="fas fa-info-circle"></i> Details
                         </button>
                     </div>
 
-                    <hr v-if="expandedRows[index]">
+                    <hr v-if="expandedRows[index]" />
 
-                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
+                    <div
+                        v-if="expandedRows[index]"
+                        class="mobile-expanded-content"
+                    >
                         <div class="mobile-section">
                             <h4>FNSKUs:</h4>
                             <div class="mobile-fnsku-list">
-                                <div v-for="fnsku in item.fnskus" :key="fnsku.FNSKU" class="mobile-fnsku-item">
+                                <div
+                                    v-for="fnsku in item.fnskus"
+                                    :key="fnsku.FNSKU"
+                                    class="mobile-fnsku-item"
+                                >
                                     <div class="mobile-fnsku-detail">
-                                        <span class="mobile-fnsku-label">FNSKU:</span>
-                                        <span class="mobile-fnsku-value fnsku-code">{{ fnsku.FNSKU }}</span>
+                                        <span class="mobile-fnsku-label"
+                                            >FNSKU:</span
+                                        >
+                                        <span
+                                            class="mobile-fnsku-value fnsku-code"
+                                            >{{ fnsku.FNSKU }}</span
+                                        >
                                     </div>
                                     <div class="mobile-fnsku-detail">
-                                        <span class="mobile-fnsku-label">MSKU:</span>
-                                        <span class="mobile-fnsku-value">{{ fnsku.MSKU || '-' }}</span>
+                                        <span class="mobile-fnsku-label"
+                                            >MSKU:</span
+                                        >
+                                        <span class="mobile-fnsku-value">{{
+                                            fnsku.MSKU || "-"
+                                        }}</span>
                                     </div>
                                     <div class="mobile-fnsku-detail">
-                                        <span class="mobile-fnsku-label">Store:</span>
-                                        <span class="mobile-fnsku-value">{{ fnsku.storename }}</span>
+                                        <span class="mobile-fnsku-label"
+                                            >Store:</span
+                                        >
+                                        <span class="mobile-fnsku-value">{{
+                                            fnsku.storename
+                                        }}</span>
                                     </div>
                                     <div class="mobile-fnsku-detail">
-                                        <span class="mobile-fnsku-label">Units:</span>
-                                        <span class="mobile-fnsku-value">{{ fnsku.Units || 0 }}</span>
+                                        <span class="mobile-fnsku-label"
+                                            >Units:</span
+                                        >
+                                        <span class="mobile-fnsku-value">{{
+                                            fnsku.Units || 0
+                                        }}</span>
                                     </div>
                                     <div class="mobile-fnsku-detail">
-                                        <span class="mobile-fnsku-label">Grade:</span>
-                                        <span class="mobile-fnsku-value">{{ fnsku.grading || '-' }}</span>
+                                        <span class="mobile-fnsku-label"
+                                            >Grade:</span
+                                        >
+                                        <span class="mobile-fnsku-value">{{
+                                            fnsku.grading || "-"
+                                        }}</span>
                                     </div>
                                 </div>
-                                <div v-if="!item.fnskus || item.fnskus.length === 0" class="mobile-empty">
+                                <div
+                                    v-if="
+                                        !item.fnskus || item.fnskus.length === 0
+                                    "
+                                    class="mobile-empty"
+                                >
                                     No FNSKUs found
                                 </div>
                             </div>
@@ -261,19 +476,37 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+                    <select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        class="per-page-select"
+                    >
+                        <option
+                            v-for="option in [10, 15, 20, 50, 100]"
+                            :key="option"
+                            :value="option"
+                        >
                             {{ option }}
                         </option>
                     </select>
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+                    <button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                    >
                         <i class="fas fa-chevron-left"></i> Back
                     </button>
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                    >
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -286,10 +519,20 @@
                 <div class="asin-details-header">
                     <h2>ASIN Details</h2>
                     <div class="header-actions">
-                        <button class="btn-edit" @click="toggleEditMode" :class="{ active: editMode }">
-                            <i class="fas fa-edit"></i> {{ editMode ? 'Cancel Edit' : 'Edit' }}
+                        <button
+                            class="btn-edit"
+                            @click="toggleEditMode"
+                            :class="{ active: editMode }"
+                        >
+                            <i class="fas fa-edit"></i>
+                            {{ editMode ? "Cancel Edit" : "Edit" }}
                         </button>
-                        <button class="asin-details-close" @click="closeAsinDetailsModal">&times;</button>
+                        <button
+                            class="asin-details-close"
+                            @click="closeAsinDetailsModal"
+                        >
+                            &times;
+                        </button>
                     </div>
                 </div>
 
@@ -301,48 +544,133 @@
                             <div class="images-section">
                                 <!-- ASIN Images Container -->
                                 <div class="image-container">
-                                    <div class="asin-images-main clickable" @click="openAsinImageModal">
-                                        <img :src="getMainAsinImagePath(selectedAsin.ASIN)"
+                                    <div
+                                        class="asin-images-main clickable"
+                                        @click="openAsinImageModal"
+                                    >
+                                        <img
+                                            :src="
+                                                getMainAsinImagePath(
+                                                    selectedAsin.ASIN
+                                                )
+                                            "
                                             :alt="`ASIN images for ${selectedAsin.ASIN}`"
-                                            class="asin-images-main-thumbnail" />
-                                        
+                                            class="asin-images-main-thumbnail"
+                                        />
+
                                         <!-- Small thumbnails overlay -->
                                         <div class="asin-images-thumbnails">
-                                            <div class="small-thumb asin-thumb" :class="{ 'has-image': getImagePath(selectedAsin.ASIN) !== defaultImagePath }">
-                                                <img :src="getImagePath(selectedAsin.ASIN)"
-                                                     class="small-thumb-img" />
-                                                <span class="thumb-label">IMG</span>
+                                            <div
+                                                class="small-thumb asin-thumb"
+                                                :class="{
+                                                    'has-image':
+                                                        getImagePath(
+                                                            selectedAsin.ASIN
+                                                        ) !== defaultImagePath,
+                                                }"
+                                            >
+                                                <img
+                                                    :src="
+                                                        getImagePath(
+                                                            selectedAsin.ASIN
+                                                        )
+                                                    "
+                                                    class="small-thumb-img"
+                                                />
+                                                <span class="thumb-label"
+                                                    >IMG</span
+                                                >
                                             </div>
-                                            <div class="small-thumb vector-thumb" :class="{ 'has-image': hasVectorImage(selectedAsin.ASIN) }">
-                                                <img :src="getMainVectorImagePath(selectedAsin.ASIN)"
-                                                     class="small-thumb-img" />
-                                                <span class="thumb-label">VEC</span>
+                                            <div
+                                                class="small-thumb vector-thumb"
+                                                :class="{
+                                                    'has-image': hasVectorImage(
+                                                        selectedAsin.ASIN
+                                                    ),
+                                                }"
+                                            >
+                                                <img
+                                                    :src="
+                                                        getMainVectorImagePath(
+                                                            selectedAsin.ASIN
+                                                        )
+                                                    "
+                                                    class="small-thumb-img"
+                                                />
+                                                <span class="thumb-label"
+                                                    >VEC</span
+                                                >
                                             </div>
                                         </div>
                                     </div>
-                                    <div class="image-label">
-                                        ASIN Images
-                                    </div>
+                                    <div class="image-label">ASIN Images</div>
                                 </div>
 
                                 <!-- Instruction Card Container -->
                                 <div class="image-container">
-                                    <div class="instruction-card-main clickable" @click="openInstructionCardModal">
-                                        <img :src="getMainInstructionCardPath(selectedAsin.ASIN)"
+                                    <div
+                                        class="instruction-card-main clickable"
+                                        @click="openInstructionCardModal"
+                                    >
+                                        <img
+                                            :src="
+                                                getMainInstructionCardPath(
+                                                    selectedAsin.ASIN
+                                                )
+                                            "
                                             :alt="`Instruction cards for ${selectedAsin.ASIN}`"
-                                            class="instruction-card-main-thumbnail" />
-                                        
+                                            class="instruction-card-main-thumbnail"
+                                        />
+
                                         <!-- Small thumbnails overlay -->
-                                        <div class="instruction-card-thumbnails">
-                                            <div class="small-thumb" :class="{ 'has-image': hasInstructionCard(selectedAsin.ASIN, 1) }">
-                                                <img :src="getInstructionCardPath(selectedAsin.ASIN, 1)"
-                                                     class="small-thumb-img" />
-                                                <span class="thumb-number">1</span>
+                                        <div
+                                            class="instruction-card-thumbnails"
+                                        >
+                                            <div
+                                                class="small-thumb"
+                                                :class="{
+                                                    'has-image':
+                                                        hasInstructionCard(
+                                                            selectedAsin.ASIN,
+                                                            1
+                                                        ),
+                                                }"
+                                            >
+                                                <img
+                                                    :src="
+                                                        getInstructionCardPath(
+                                                            selectedAsin.ASIN,
+                                                            1
+                                                        )
+                                                    "
+                                                    class="small-thumb-img"
+                                                />
+                                                <span class="thumb-number"
+                                                    >1</span
+                                                >
                                             </div>
-                                            <div class="small-thumb" :class="{ 'has-image': hasInstructionCard(selectedAsin.ASIN, 2) }">
-                                                <img :src="getInstructionCardPath(selectedAsin.ASIN, 2)"
-                                                     class="small-thumb-img" />
-                                                <span class="thumb-number">2</span>
+                                            <div
+                                                class="small-thumb"
+                                                :class="{
+                                                    'has-image':
+                                                        hasInstructionCard(
+                                                            selectedAsin.ASIN,
+                                                            2
+                                                        ),
+                                                }"
+                                            >
+                                                <img
+                                                    :src="
+                                                        getInstructionCardPath(
+                                                            selectedAsin.ASIN,
+                                                            2
+                                                        )
+                                                    "
+                                                    class="small-thumb-img"
+                                                />
+                                                <span class="thumb-number"
+                                                    >2</span
+                                                >
                                             </div>
                                         </div>
                                     </div>
@@ -353,148 +681,302 @@
 
                                 <!-- User Manual Container -->
                                 <div class="image-container">
-                                    <div class="user-manual-container" :class="{ 'has-manual': hasUserManual(selectedAsin.ASIN) }">
-                                        <div class="user-manual-icon" v-if="hasUserManual(selectedAsin.ASIN)">
-                                            <a :href="getUserManualPath(selectedAsin.ASIN)" 
-                                               target="_blank" 
-                                               class="user-manual-link">
+                                    <div
+                                        class="user-manual-container"
+                                        :class="{
+                                            'has-manual': hasUserManual(
+                                                selectedAsin.ASIN
+                                            ),
+                                        }"
+                                    >
+                                        <div
+                                            class="user-manual-icon"
+                                            v-if="
+                                                hasUserManual(selectedAsin.ASIN)
+                                            "
+                                        >
+                                            <a
+                                                :href="
+                                                    getUserManualPath(
+                                                        selectedAsin.ASIN
+                                                    )
+                                                "
+                                                target="_blank"
+                                                class="user-manual-link"
+                                            >
                                                 <i class="fas fa-file-pdf"></i>
                                                 <span>View Manual</span>
                                             </a>
                                         </div>
-                                        <div class="user-manual-icon no-manual" v-else>
+                                        <div
+                                            class="user-manual-icon no-manual"
+                                            v-else
+                                        >
                                             <i class="fas fa-file-pdf"></i>
                                             <span>No Manual</span>
                                         </div>
-                                        
+
                                         <!-- Upload section for edit mode -->
-                                        <div v-if="editMode" class="user-manual-upload">
-                                            <input type="file" 
-                                                   ref="userManualUpload"
-                                                   @change="handleUserManualUpload"
-                                                   accept="application/pdf"
-                                                   style="display: none" />
-                                            <button class="btn-upload-manual" 
-                                                    @click="$refs.userManualUpload.click()" 
-                                                    :disabled="userManualUploading">
-                                                <i class="fas fa-upload"></i> 
-                                                {{ userManualUploading ? 'Uploading...' : 'Upload PDF' }}
+                                        <div
+                                            v-if="editMode"
+                                            class="user-manual-upload"
+                                        >
+                                            <input
+                                                type="file"
+                                                ref="userManualUpload"
+                                                @change="handleUserManualUpload"
+                                                accept="application/pdf"
+                                                style="display: none"
+                                            />
+                                            <button
+                                                class="btn-upload-manual"
+                                                @click="
+                                                    $refs.userManualUpload.click()
+                                                "
+                                                :disabled="userManualUploading"
+                                            >
+                                                <i class="fas fa-upload"></i>
+                                                {{
+                                                    userManualUploading
+                                                        ? "Uploading..."
+                                                        : "Upload PDF"
+                                                }}
                                             </button>
                                         </div>
                                     </div>
-                                    <div class="image-label">
-                                        User Manual
-                                    </div>
+                                    <div class="image-label">User Manual</div>
                                 </div>
                             </div>
-                            
+
                             <div class="asin-details-info">
-                                <h3 class="asin-details-title">{{ selectedAsin.AStitle }}</h3>
-                                
+                                <h3 class="asin-details-title">
+                                    {{ selectedAsin.AStitle }}
+                                </h3>
+
                                 <!-- Basic Information Section -->
                                 <div class="details-section">
-                                    <h4 class="section-title">Basic Information</h4>
+                                    <h4 class="section-title">
+                                        Basic Information
+                                    </h4>
                                     <div class="asin-details-row">
-                                        <span class="asin-details-label">ASIN:</span>
-                                        <span class="asin-details-value">{{ selectedAsin.ASIN }}</span>
+                                        <span class="asin-details-label"
+                                            >ASIN:</span
+                                        >
+                                        <span class="asin-details-value">{{
+                                            selectedAsin.ASIN
+                                        }}</span>
                                     </div>
                                     <div class="asin-details-row">
-                                        <span class="asin-details-label">Meta Keyword:</span>
-                                        <textarea v-if="editMode" 
-                                                v-model="editedAsin.metakeyword"
-                                                class="details-textarea"
-                                                placeholder="Enter meta keywords"
-                                                rows="2"></textarea>
-                                        <span v-else class="asin-details-value">{{ selectedAsin.metakeyword || '-' }}</span>
+                                        <span class="asin-details-label"
+                                            >Meta Keyword:</span
+                                        >
+                                        <textarea
+                                            v-if="editMode"
+                                            v-model="editedAsin.metakeyword"
+                                            class="details-textarea"
+                                            placeholder="Enter meta keywords"
+                                            rows="2"
+                                        ></textarea>
+                                        <span
+                                            v-else
+                                            class="asin-details-value"
+                                            >{{
+                                                selectedAsin.metakeyword || "-"
+                                            }}</span
+                                        >
                                     </div>
                                     <div class="asin-details-row">
-                                        <span class="asin-details-label">EAN:</span>
-                                        <input v-if="editMode" 
-                                               v-model="editedAsin.EAN"
-                                               class="details-input"
-                                               placeholder="Enter EAN" />
-                                        <span v-else class="asin-details-value">{{ selectedAsin.EAN || '-' }}</span>
+                                        <span class="asin-details-label"
+                                            >EAN:</span
+                                        >
+                                        <input
+                                            v-if="editMode"
+                                            v-model="editedAsin.EAN"
+                                            class="details-input"
+                                            placeholder="Enter EAN"
+                                        />
+                                        <span
+                                            v-else
+                                            class="asin-details-value"
+                                            >{{ selectedAsin.EAN || "-" }}</span
+                                        >
                                     </div>
                                     <div class="asin-details-row">
-                                        <span class="asin-details-label">UPC:</span>
-                                        <input v-if="editMode" 
-                                               v-model="editedAsin.UPC"
-                                               class="details-input"
-                                               placeholder="Enter UPC" />
-                                        <span v-else class="asin-details-value">{{ selectedAsin.UPC || '-' }}</span>
+                                        <span class="asin-details-label"
+                                            >UPC:</span
+                                        >
+                                        <input
+                                            v-if="editMode"
+                                            v-model="editedAsin.UPC"
+                                            class="details-input"
+                                            placeholder="Enter UPC"
+                                        />
+                                        <span
+                                            v-else
+                                            class="asin-details-value"
+                                            >{{ selectedAsin.UPC || "-" }}</span
+                                        >
                                     </div>
                                     <div class="asin-details-row">
-                                        <span class="asin-details-label">Instruction Link:</span>
-                                        <input v-if="editMode" 
-                                               v-model="editedAsin.instructionlink"
-                                               class="details-input instruction-link-input"
-                                               placeholder="Enter instruction link URL"
-                                               type="text" />
+                                        <span class="asin-details-label"
+                                            >Instruction Link:</span
+                                        >
+                                        <input
+                                            v-if="editMode"
+                                            v-model="editedAsin.instructionlink"
+                                            class="details-input instruction-link-input"
+                                            placeholder="Enter instruction link URL"
+                                            type="text"
+                                        />
                                         <span v-else class="asin-details-value">
-                                            <a v-if="selectedAsin.instructionlink" 
-                                               :href="selectedAsin.instructionlink" 
-                                               target="_blank" 
-                                               class="instruction-link">
-                                                <i class="fas fa-external-link-alt"></i> View Instructions
+                                            <a
+                                                v-if="
+                                                    selectedAsin.instructionlink
+                                                "
+                                                :href="
+                                                    selectedAsin.instructionlink
+                                                "
+                                                target="_blank"
+                                                class="instruction-link"
+                                            >
+                                                <i
+                                                    class="fas fa-external-link-alt"
+                                                ></i>
+                                                View Instructions
                                             </a>
                                             <span v-else>-</span>
                                         </span>
                                     </div>
                                     <div class="asin-details-row">
-                                        <span class="asin-details-label">Transparency QR:</span>
-                                        <textarea v-if="editMode" 
-                                                v-model="editedAsin.TRANSPARENCY_QR_STATUS"
-                                                class="details-textarea"
-                                                placeholder="Enter transparency QR status"
-                                                rows="3"></textarea>
-                                        <span v-else class="asin-details-value">{{ selectedAsin.TRANSPARENCY_QR_STATUS || '-' }}</span>
+                                        <span class="asin-details-label"
+                                            >Transparency QR:</span
+                                        >
+                                        <textarea
+                                            v-if="editMode"
+                                            v-model="
+                                                editedAsin.TRANSPARENCY_QR_STATUS
+                                            "
+                                            class="details-textarea"
+                                            placeholder="Enter transparency QR status"
+                                            rows="3"
+                                        ></textarea>
+                                        <span
+                                            v-else
+                                            class="asin-details-value"
+                                            >{{
+                                                selectedAsin.TRANSPARENCY_QR_STATUS ||
+                                                "-"
+                                            }}</span
+                                        >
                                     </div>
                                     <div class="asin-details-row">
-                                        <span class="asin-details-label">User Manual:</span>
+                                        <span class="asin-details-label"
+                                            >User Manual:</span
+                                        >
                                         <span class="asin-details-value">
-                                            <a v-if="hasUserManual(selectedAsin.ASIN)" 
-                                               :href="getUserManualPath(selectedAsin.ASIN)" 
-                                               target="_blank" 
-                                               class="user-manual-link-text">
-                                                <i class="fas fa-file-pdf"></i> View PDF Manual
+                                            <a
+                                                v-if="
+                                                    hasUserManual(
+                                                        selectedAsin.ASIN
+                                                    )
+                                                "
+                                                :href="
+                                                    getUserManualPath(
+                                                        selectedAsin.ASIN
+                                                    )
+                                                "
+                                                target="_blank"
+                                                class="user-manual-link-text"
+                                            >
+                                                <i class="fas fa-file-pdf"></i>
+                                                View PDF Manual
                                             </a>
                                             <span v-else>-</span>
                                         </span>
                                     </div>
                                     <div class="asin-details-row">
-                                        <span class="asin-details-label">Total FNSKUs:</span>
-                                        <span class="asin-details-value">{{ selectedAsin.fnsku_count }}</span>
+                                        <span class="asin-details-label"
+                                            >Total FNSKUs:</span
+                                        >
+                                        <span class="asin-details-value">{{
+                                            selectedAsin.fnsku_count
+                                        }}</span>
                                     </div>
-                                    
+
                                     <!-- Save button for ASIN details -->
-                                    <div v-if="editMode" class="asin-details-actions">
-                                        <button class="btn-save-asin-details" @click="saveAsinDetails" :disabled="savingAsinDetails">
-                                            <i class="fas fa-save"></i> 
-                                            {{ savingAsinDetails ? 'Saving...' : 'Save Basic Details' }}
+                                    <div
+                                        v-if="editMode"
+                                        class="asin-details-actions"
+                                    >
+                                        <button
+                                            class="btn-save-asin-details"
+                                            @click="saveAsinDetails"
+                                            :disabled="savingAsinDetails"
+                                        >
+                                            <i class="fas fa-save"></i>
+                                            {{
+                                                savingAsinDetails
+                                                    ? "Saving..."
+                                                    : "Save Basic Details"
+                                            }}
                                         </button>
                                     </div>
                                 </div>
 
                                 <!-- Amazon Dimensions Section (Read-only) -->
                                 <div class="details-section amazon-dimensions">
-                                    <h4 class="section-title">Amazon Dimensions (Read-only)</h4>
+                                    <h4 class="section-title">
+                                        Amazon Dimensions (Read-only)
+                                    </h4>
                                     <div class="dimensions-grid">
                                         <div class="dimension-item">
-                                            <div class="dimension-label">AMZN Length:</div>
-                                            <div class="dimension-value">{{ selectedAsin.dimension_length || '-' }}</div>
-                                        </div>
-                                        <div class="dimension-item">
-                                            <div class="dimension-label">AMZN Width:</div>
-                                            <div class="dimension-value">{{ selectedAsin.dimension_width || '-' }}</div>
-                                        </div>
-                                        <div class="dimension-item">
-                                            <div class="dimension-label">AMZN Height:</div>
-                                            <div class="dimension-value">{{ selectedAsin.dimension_height || '-' }}</div>
-                                        </div>
-                                        <div class="dimension-item">
-                                            <div class="dimension-label">AMZN Weight:</div>
+                                            <div class="dimension-label">
+                                                AMZN Length:
+                                            </div>
                                             <div class="dimension-value">
-                                                {{ selectedAsin.weight_value ? `${selectedAsin.weight_value} ${selectedAsin.weight_unit || ''}` : '-' }}
+                                                {{
+                                                    selectedAsin.dimension_length ||
+                                                    "-"
+                                                }}
+                                            </div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">
+                                                AMZN Width:
+                                            </div>
+                                            <div class="dimension-value">
+                                                {{
+                                                    selectedAsin.dimension_width ||
+                                                    "-"
+                                                }}
+                                            </div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">
+                                                AMZN Height:
+                                            </div>
+                                            <div class="dimension-value">
+                                                {{
+                                                    selectedAsin.dimension_height ||
+                                                    "-"
+                                                }}
+                                            </div>
+                                        </div>
+                                        <div class="dimension-item">
+                                            <div class="dimension-label">
+                                                AMZN Weight:
+                                            </div>
+                                            <div class="dimension-value">
+                                                {{
+                                                    selectedAsin.weight_value
+                                                        ? `${
+                                                              selectedAsin.weight_value
+                                                          } ${
+                                                              selectedAsin.weight_unit ||
+                                                              ""
+                                                          }`
+                                                        : "-"
+                                                }}
                                             </div>
                                         </div>
                                     </div>
@@ -502,134 +984,274 @@
 
                                 <!-- Default Dimensions Section (Editable) -->
                                 <div class="details-section default-dimensions">
-                                    <h4 class="section-title">Default Dimensions (Editable)</h4>
+                                    <h4 class="section-title">
+                                        Default Dimensions (Editable)
+                                    </h4>
                                     <div class="dimensions-grid">
                                         <div class="dimension-item">
-                                            <div class="dimension-label">Def Length:</div>
+                                            <div class="dimension-label">
+                                                Def Length:
+                                            </div>
                                             <div class="dimension-value">
-                                                <input v-if="editMode" 
-                                                       v-model="editedAsin.def_length"
-                                                       class="dimension-input"
-                                                       type="number"
-                                                       step="0.01"
-                                                       min="0"
-                                                       placeholder="0.00" />
-                                                <span v-else>{{ selectedAsin.white_length || '-' }}</span>
+                                                <input
+                                                    v-if="editMode"
+                                                    v-model="
+                                                        editedAsin.def_length
+                                                    "
+                                                    class="dimension-input"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0.00"
+                                                />
+                                                <span v-else>{{
+                                                    selectedAsin.white_length ||
+                                                    "-"
+                                                }}</span>
                                             </div>
                                         </div>
                                         <div class="dimension-item">
-                                            <div class="dimension-label">Def Width:</div>
+                                            <div class="dimension-label">
+                                                Def Width:
+                                            </div>
                                             <div class="dimension-value">
-                                                <input v-if="editMode" 
-                                                       v-model="editedAsin.def_width"
-                                                       class="dimension-input"
-                                                       type="number"
-                                                       step="0.01"
-                                                       min="0"
-                                                       placeholder="0.00" />
-                                                <span v-else>{{ selectedAsin.white_width || '-' }}</span>
+                                                <input
+                                                    v-if="editMode"
+                                                    v-model="
+                                                        editedAsin.def_width
+                                                    "
+                                                    class="dimension-input"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0.00"
+                                                />
+                                                <span v-else>{{
+                                                    selectedAsin.white_width ||
+                                                    "-"
+                                                }}</span>
                                             </div>
                                         </div>
                                         <div class="dimension-item">
-                                            <div class="dimension-label">Def Height:</div>
+                                            <div class="dimension-label">
+                                                Def Height:
+                                            </div>
                                             <div class="dimension-value">
-                                                <input v-if="editMode" 
-                                                       v-model="editedAsin.def_height"
-                                                       class="dimension-input"
-                                                       type="number"
-                                                       step="0.01"
-                                                       min="0"
-                                                       placeholder="0.00" />
-                                                <span v-else>{{ selectedAsin.white_height || '-' }}</span>
+                                                <input
+                                                    v-if="editMode"
+                                                    v-model="
+                                                        editedAsin.def_height
+                                                    "
+                                                    class="dimension-input"
+                                                    type="number"
+                                                    step="0.01"
+                                                    min="0"
+                                                    placeholder="0.00"
+                                                />
+                                                <span v-else>{{
+                                                    selectedAsin.white_height ||
+                                                    "-"
+                                                }}</span>
                                             </div>
                                         </div>
                                         <div class="dimension-item">
-                                            <div class="dimension-label">Def Weight:</div>
+                                            <div class="dimension-label">
+                                                Def Weight:
+                                            </div>
                                             <div class="dimension-value">
-                                                <div v-if="editMode" class="weight-input-group">
-                                                    <input v-model="editedAsin.def_weight"
-                                                           class="dimension-input weight-value"
-                                                           type="number"
-                                                           step="0.01"
-                                                           min="0"
-                                                           placeholder="0.00" />
-                                                    <select v-model="editedAsin.def_weight_unit" class="weight-unit-select">
-                                                        <option value="">Unit</option>
-                                                        <option value="kg">kg</option>
-                                                        <option value="lbs">lbs</option>
-                                                        <option value="g">g</option>
-                                                        <option value="oz">oz</option>
+                                                <div
+                                                    v-if="editMode"
+                                                    class="weight-input-group"
+                                                >
+                                                    <input
+                                                        v-model="
+                                                            editedAsin.def_weight
+                                                        "
+                                                        class="dimension-input weight-value"
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder="0.00"
+                                                    />
+                                                    <select
+                                                        v-model="
+                                                            editedAsin.def_weight_unit
+                                                        "
+                                                        class="weight-unit-select"
+                                                    >
+                                                        <option value="">
+                                                            Unit
+                                                        </option>
+                                                        <option value="kg">
+                                                            kg
+                                                        </option>
+                                                        <option value="lbs">
+                                                            lbs
+                                                        </option>
+                                                        <option value="g">
+                                                            g
+                                                        </option>
+                                                        <option value="oz">
+                                                            oz
+                                                        </option>
                                                     </select>
                                                 </div>
                                                 <span v-else>
-                                                    {{ selectedAsin.white_value ? `${selectedAsin.white_value} ${selectedAsin.white_unit || ''}` : '-' }}
+                                                    {{
+                                                        selectedAsin.white_value
+                                                            ? `${
+                                                                  selectedAsin.white_value
+                                                              } ${
+                                                                  selectedAsin.white_unit ||
+                                                                  ""
+                                                              }`
+                                                            : "-"
+                                                    }}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
-                                    
+
                                     <!-- Save button for default dimensions -->
-                                    <div v-if="editMode" class="dimensions-actions">
-                                        <button class="btn-save-dimensions" @click="saveDefaultDimensions" :disabled="savingDefaultDimensions">
-                                            <i class="fas fa-save"></i> 
-                                            {{ savingDefaultDimensions ? 'Saving...' : 'Save Dimensions' }}
+                                    <div
+                                        v-if="editMode"
+                                        class="dimensions-actions"
+                                    >
+                                        <button
+                                            class="btn-save-dimensions"
+                                            @click="saveDefaultDimensions"
+                                            :disabled="savingDefaultDimensions"
+                                        >
+                                            <i class="fas fa-save"></i>
+                                            {{
+                                                savingDefaultDimensions
+                                                    ? "Saving..."
+                                                    : "Save Dimensions"
+                                            }}
                                         </button>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Stores Section -->
-                                <div class="asin-details-stores-section" v-if="getUniqueStores(selectedAsin.fnskus).length > 0">
+                                <div
+                                    class="asin-details-stores-section"
+                                    v-if="
+                                        getUniqueStores(selectedAsin.fnskus)
+                                            .length > 0
+                                    "
+                                >
                                     <h4>Stores</h4>
                                     <div class="stores-list">
-                                        <div v-for="store in getUniqueStores(selectedAsin.fnskus)" :key="store" class="store-item">
+                                        <div
+                                            v-for="store in getUniqueStores(
+                                                selectedAsin.fnskus
+                                            )"
+                                            :key="store"
+                                            class="store-item"
+                                        >
                                             {{ store }}
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <!-- Related ASINs Section -->
                                 <div class="asin-details-related-section">
                                     <h4>Related ASINs</h4>
                                     <div class="related-asins-details">
                                         <div class="related-asin-item">
-                                            <span class="related-asin-label">Parent ASIN:</span>
-                                            <input v-if="editMode" 
-                                                   v-model="editedAsin.ParentAsin"
-                                                   class="related-asin-input"
-                                                   placeholder="Enter Parent ASIN" />
-                                            <span v-else class="related-asin-value">{{ selectedAsin.ParentAsin || '-' }}</span>
+                                            <span class="related-asin-label"
+                                                >Parent ASIN:</span
+                                            >
+                                            <input
+                                                v-if="editMode"
+                                                v-model="editedAsin.ParentAsin"
+                                                class="related-asin-input"
+                                                placeholder="Enter Parent ASIN"
+                                            />
+                                            <span
+                                                v-else
+                                                class="related-asin-value"
+                                                >{{
+                                                    selectedAsin.ParentAsin ||
+                                                    "-"
+                                                }}</span
+                                            >
                                         </div>
                                         <div class="related-asin-item">
-                                            <span class="related-asin-label">Cousin ASIN:</span>
-                                            <input v-if="editMode" 
-                                                   v-model="editedAsin.CousinASIN"
-                                                   class="related-asin-input"
-                                                   placeholder="Enter Cousin ASIN" />
-                                            <span v-else class="related-asin-value">{{ selectedAsin.CousinASIN || '-' }}</span>
+                                            <span class="related-asin-label"
+                                                >Cousin ASIN:</span
+                                            >
+                                            <input
+                                                v-if="editMode"
+                                                v-model="editedAsin.CousinASIN"
+                                                class="related-asin-input"
+                                                placeholder="Enter Cousin ASIN"
+                                            />
+                                            <span
+                                                v-else
+                                                class="related-asin-value"
+                                                >{{
+                                                    selectedAsin.CousinASIN ||
+                                                    "-"
+                                                }}</span
+                                            >
                                         </div>
                                         <div class="related-asin-item">
-                                            <span class="related-asin-label">Upgrade ASIN:</span>
-                                            <input v-if="editMode" 
-                                                   v-model="editedAsin.UpgradeASIN"
-                                                   class="related-asin-input"
-                                                   placeholder="Enter Upgrade ASIN" />
-                                            <span v-else class="related-asin-value">{{ selectedAsin.UpgradeASIN || '-' }}</span>
+                                            <span class="related-asin-label"
+                                                >Upgrade ASIN:</span
+                                            >
+                                            <input
+                                                v-if="editMode"
+                                                v-model="editedAsin.UpgradeASIN"
+                                                class="related-asin-input"
+                                                placeholder="Enter Upgrade ASIN"
+                                            />
+                                            <span
+                                                v-else
+                                                class="related-asin-value"
+                                                >{{
+                                                    selectedAsin.UpgradeASIN ||
+                                                    "-"
+                                                }}</span
+                                            >
                                         </div>
                                         <div class="related-asin-item">
-                                            <span class="related-asin-label">Grand ASIN:</span>
-                                            <input v-if="editMode" 
-                                                   v-model="editedAsin.GrandASIN"
-                                                   class="related-asin-input"
-                                                   placeholder="Enter Grand ASIN" />
-                                            <span v-else class="related-asin-value">{{ selectedAsin.GrandASIN || '-' }}</span>
+                                            <span class="related-asin-label"
+                                                >Grand ASIN:</span
+                                            >
+                                            <input
+                                                v-if="editMode"
+                                                v-model="editedAsin.GrandASIN"
+                                                class="related-asin-input"
+                                                placeholder="Enter Grand ASIN"
+                                            />
+                                            <span
+                                                v-else
+                                                class="related-asin-value"
+                                                >{{
+                                                    selectedAsin.GrandASIN ||
+                                                    "-"
+                                                }}</span
+                                            >
                                         </div>
                                     </div>
-                                    
+
                                     <!-- Save button for related ASINs -->
-                                    <div v-if="editMode" class="related-asins-actions">
-                                        <button class="btn-save-related" @click="saveRelatedAsins" :disabled="savingRelatedAsins">
-                                            <i class="fas fa-save"></i> 
-                                            {{ savingRelatedAsins ? 'Saving...' : 'Save Related ASINs' }}
+                                    <div
+                                        v-if="editMode"
+                                        class="related-asins-actions"
+                                    >
+                                        <button
+                                            class="btn-save-related"
+                                            @click="saveRelatedAsins"
+                                            :disabled="savingRelatedAsins"
+                                        >
+                                            <i class="fas fa-save"></i>
+                                            {{
+                                                savingRelatedAsins
+                                                    ? "Saving..."
+                                                    : "Save Related ASINs"
+                                            }}
                                         </button>
                                     </div>
                                 </div>
@@ -652,14 +1274,38 @@
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                <tr v-for="fnsku in selectedAsin.fnskus" :key="fnsku.FNSKU">
-                                                    <td class="fnsku-code">{{ fnsku.FNSKU }}</td>
-                                                    <td>{{ fnsku.MSKU || '-' }}</td>
-                                                    <td class="units-cell">{{ fnsku.Units || 0 }}</td>
-                                                    <td class="grade-cell">{{ fnsku.grading || '-' }}</td>
+                                                <tr
+                                                    v-for="fnsku in selectedAsin.fnskus"
+                                                    :key="fnsku.FNSKU"
+                                                >
+                                                    <td class="fnsku-code">
+                                                        {{ fnsku.FNSKU }}
+                                                    </td>
+                                                    <td>
+                                                        {{ fnsku.MSKU || "-" }}
+                                                    </td>
+                                                    <td class="units-cell">
+                                                        {{ fnsku.Units || 0 }}
+                                                    </td>
+                                                    <td class="grade-cell">
+                                                        {{
+                                                            fnsku.grading || "-"
+                                                        }}
+                                                    </td>
                                                 </tr>
-                                                <tr v-if="!selectedAsin.fnskus || selectedAsin.fnskus.length === 0">
-                                                    <td colspan="4" class="text-center">No FNSKUs found</td>
+                                                <tr
+                                                    v-if="
+                                                        !selectedAsin.fnskus ||
+                                                        selectedAsin.fnskus
+                                                            .length === 0
+                                                    "
+                                                >
+                                                    <td
+                                                        colspan="4"
+                                                        class="text-center"
+                                                    >
+                                                        No FNSKUs found
+                                                    </td>
                                                 </tr>
                                             </tbody>
                                         </table>
@@ -671,7 +1317,12 @@
                 </div>
 
                 <div class="asin-details-footer">
-                    <button class="btn-close-details" @click="closeAsinDetailsModal">Close</button>
+                    <button
+                        class="btn-close-details"
+                        @click="closeAsinDetailsModal"
+                    >
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
@@ -681,9 +1332,11 @@
             <div class="asin-image-modal-content">
                 <div class="asin-image-modal-header">
                     <h3>Manage ASIN Images - {{ selectedAsin?.ASIN }}</h3>
-                    <button class="modal-close" @click="closeAsinImageModal">&times;</button>
+                    <button class="modal-close" @click="closeAsinImageModal">
+                        &times;
+                    </button>
                 </div>
-                
+
                 <div class="asin-image-modal-body">
                     <div class="image-management-layout">
                         <!-- ASIN Image -->
@@ -692,20 +1345,32 @@
                                 <h4>Main ASIN Image</h4>
                             </div>
                             <div class="image-slot-image">
-                                <img :src="getImagePath(selectedAsin?.ASIN)"
-                                     :alt="`ASIN image for ${selectedAsin?.ASIN}`"
-                                     class="image-slot-thumbnail"
-                                     @error="handleImageError($event, null)" />
+                                <img
+                                    :src="getImagePath(selectedAsin?.ASIN)"
+                                    :alt="`ASIN image for ${selectedAsin?.ASIN}`"
+                                    class="image-slot-thumbnail"
+                                    @error="handleImageError($event, null)"
+                                />
                             </div>
                             <div class="image-slot-actions">
-                                <input type="file" 
-                                       ref="asinImageUpload"
-                                       @change="handleAsinImageUpload"
-                                       accept="image/*"
-                                       style="display: none" />
-                                <button class="btn-upload-image" @click="$refs.asinImageUpload.click()" :disabled="asinImageUploading">
-                                    <i class="fas fa-upload"></i> 
-                                    {{ asinImageUploading ? 'Uploading...' : 'Upload/Update' }}
+                                <input
+                                    type="file"
+                                    ref="asinImageUpload"
+                                    @change="handleAsinImageUpload"
+                                    accept="image/*"
+                                    style="display: none"
+                                />
+                                <button
+                                    class="btn-upload-image"
+                                    @click="$refs.asinImageUpload.click()"
+                                    :disabled="asinImageUploading"
+                                >
+                                    <i class="fas fa-upload"></i>
+                                    {{
+                                        asinImageUploading
+                                            ? "Uploading..."
+                                            : "Upload/Update"
+                                    }}
                                 </button>
                             </div>
                         </div>
@@ -715,28 +1380,51 @@
                                 <h4>Vector Image</h4>
                             </div>
                             <div class="image-slot-image">
-                                <img :src="hasVectorImage(selectedAsin?.ASIN) ? getVectorImagePath(selectedAsin?.ASIN) : createDefaultVectorSVG()"
-                                     :alt="`Vector image for ${selectedAsin?.ASIN}`"
-                                     class="image-slot-thumbnail"
-                                     @error="handleImageError($event, null)" />
+                                <img
+                                    :src="
+                                        hasVectorImage(selectedAsin?.ASIN)
+                                            ? getVectorImagePath(
+                                                  selectedAsin?.ASIN
+                                              )
+                                            : createDefaultVectorSVG()
+                                    "
+                                    :alt="`Vector image for ${selectedAsin?.ASIN}`"
+                                    class="image-slot-thumbnail"
+                                    @error="handleImageError($event, null)"
+                                />
                             </div>
                             <div class="image-slot-actions">
-                                <input type="file" 
-                                       ref="vectorImageUpload"
-                                       @change="handleVectorImageUpload"
-                                       accept="image/png,image/jpg,image/jpeg"
-                                       style="display: none" />
-                                <button class="btn-upload-vector" @click="$refs.vectorImageUpload.click()" :disabled="vectorImageUploading">
-                                    <i class="fas fa-upload"></i> 
-                                    {{ vectorImageUploading ? 'Uploading...' : 'Upload/Update' }}
+                                <input
+                                    type="file"
+                                    ref="vectorImageUpload"
+                                    @change="handleVectorImageUpload"
+                                    accept="image/png,image/jpg,image/jpeg"
+                                    style="display: none"
+                                />
+                                <button
+                                    class="btn-upload-vector"
+                                    @click="$refs.vectorImageUpload.click()"
+                                    :disabled="vectorImageUploading"
+                                >
+                                    <i class="fas fa-upload"></i>
+                                    {{
+                                        vectorImageUploading
+                                            ? "Uploading..."
+                                            : "Upload/Update"
+                                    }}
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="asin-image-modal-footer">
-                    <button class="btn-close-modal" @click="closeAsinImageModal">Close</button>
+                    <button
+                        class="btn-close-modal"
+                        @click="closeAsinImageModal"
+                    >
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
@@ -746,9 +1434,14 @@
             <div class="instruction-card-modal-content">
                 <div class="instruction-card-modal-header">
                     <h3>Manage Instruction Cards - {{ selectedAsin?.ASIN }}</h3>
-                    <button class="modal-close" @click="closeInstructionCardModal">&times;</button>
+                    <button
+                        class="modal-close"
+                        @click="closeInstructionCardModal"
+                    >
+                        &times;
+                    </button>
                 </div>
-                
+
                 <div class="instruction-card-modal-body">
                     <div class="card-management-layout">
                         <!-- Card 1 -->
@@ -757,20 +1450,41 @@
                                 <h4>Instruction Card 1</h4>
                             </div>
                             <div class="card-slot-image">
-                                <img :src="getInstructionCardPath(selectedAsin?.ASIN, 1)"
-                                     :alt="`Instruction card 1 for ${selectedAsin?.ASIN}`"
-                                     class="card-slot-thumbnail"
-                                     @error="handleInstructionCardError($event, 1)" />
+                                <img
+                                    :src="
+                                        getInstructionCardPath(
+                                            selectedAsin?.ASIN,
+                                            1
+                                        )
+                                    "
+                                    :alt="`Instruction card 1 for ${selectedAsin?.ASIN}`"
+                                    class="card-slot-thumbnail"
+                                    @error="
+                                        handleInstructionCardError($event, 1)
+                                    "
+                                />
                             </div>
                             <div class="card-slot-actions">
-                                <input type="file" 
-                                       :ref="`cardUpload1`"
-                                       @change="(e) => handleInstructionCardUpload(e, 1)"
-                                       accept="image/*"
-                                       style="display: none" />
-                                <button class="btn-upload-card" @click="$refs.cardUpload1.click()" :disabled="instructionCardUploading === 1">
-                                    <i class="fas fa-upload"></i> 
-                                    {{ instructionCardUploading === 1 ? 'Uploading...' : 'Upload/Update' }}
+                                <input
+                                    type="file"
+                                    :ref="`cardUpload1`"
+                                    @change="
+                                        (e) => handleInstructionCardUpload(e, 1)
+                                    "
+                                    accept="image/*"
+                                    style="display: none"
+                                />
+                                <button
+                                    class="btn-upload-card"
+                                    @click="$refs.cardUpload1.click()"
+                                    :disabled="instructionCardUploading === 1"
+                                >
+                                    <i class="fas fa-upload"></i>
+                                    {{
+                                        instructionCardUploading === 1
+                                            ? "Uploading..."
+                                            : "Upload/Update"
+                                    }}
                                 </button>
                             </div>
                         </div>
@@ -781,28 +1495,54 @@
                                 <h4>Instruction Card 2</h4>
                             </div>
                             <div class="card-slot-image">
-                                <img :src="getInstructionCardPath(selectedAsin?.ASIN, 2)"
-                                     :alt="`Instruction card 2 for ${selectedAsin?.ASIN}`"
-                                     class="card-slot-thumbnail"
-                                     @error="handleInstructionCardError($event, 2)" />
+                                <img
+                                    :src="
+                                        getInstructionCardPath(
+                                            selectedAsin?.ASIN,
+                                            2
+                                        )
+                                    "
+                                    :alt="`Instruction card 2 for ${selectedAsin?.ASIN}`"
+                                    class="card-slot-thumbnail"
+                                    @error="
+                                        handleInstructionCardError($event, 2)
+                                    "
+                                />
                             </div>
                             <div class="card-slot-actions">
-                                <input type="file" 
-                                       :ref="`cardUpload2`"
-                                       @change="(e) => handleInstructionCardUpload(e, 2)"
-                                       accept="image/*"
-                                       style="display: none" />
-                                <button class="btn-upload-card" @click="$refs.cardUpload2.click()" :disabled="instructionCardUploading === 2">
-                                    <i class="fas fa-upload"></i> 
-                                    {{ instructionCardUploading === 2 ? 'Uploading...' : 'Upload/Update' }}
+                                <input
+                                    type="file"
+                                    :ref="`cardUpload2`"
+                                    @change="
+                                        (e) => handleInstructionCardUpload(e, 2)
+                                    "
+                                    accept="image/*"
+                                    style="display: none"
+                                />
+                                <button
+                                    class="btn-upload-card"
+                                    @click="$refs.cardUpload2.click()"
+                                    :disabled="instructionCardUploading === 2"
+                                >
+                                    <i class="fas fa-upload"></i>
+                                    {{
+                                        instructionCardUploading === 2
+                                            ? "Uploading..."
+                                            : "Upload/Update"
+                                    }}
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="instruction-card-modal-footer">
-                    <button class="btn-close-modal" @click="closeInstructionCardModal">Close</button>
+                    <button
+                        class="btn-close-modal"
+                        @click="closeInstructionCardModal"
+                    >
+                        Close
+                    </button>
                 </div>
             </div>
         </div>
@@ -816,7 +1556,7 @@ export default asinlist;
 
 <style scoped>
 /* Import base module styles */
-@import '../../../css/modules.css';
+@import "../../../css/modules.css";
 
 /* Simple ASIN viewer styles */
 .asin-viewer-module {
@@ -860,7 +1600,7 @@ export default asinlist;
 
 .code-value {
     color: #007bff;
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
 }
 
 .no-codes {
@@ -889,7 +1629,7 @@ export default asinlist;
 
 .related-value {
     color: #007bff;
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
     font-size: 10px;
     word-break: break-all;
 }
@@ -911,7 +1651,7 @@ export default asinlist;
     left: 0;
     background-color: white;
     z-index: 10;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
 }
 
 /* Product container fixed width */
@@ -975,7 +1715,7 @@ export default asinlist;
     overflow-x: auto;
     margin-top: 10px;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .fnsku-detail-table {
@@ -1018,7 +1758,7 @@ export default asinlist;
 }
 
 .fnsku-code {
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
     font-weight: 600;
     color: #007bff;
 }
@@ -1208,7 +1948,7 @@ export default asinlist;
 .instruction-card-main:hover,
 .asin-images-main:hover {
     transform: scale(1.02);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
 .instruction-card-main-thumbnail,
@@ -1273,7 +2013,7 @@ export default asinlist;
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: rgba(0,0,0,0.7);
+    background-color: rgba(0, 0, 0, 0.7);
     color: white;
     font-weight: bold;
 }
@@ -1762,7 +2502,7 @@ export default asinlist;
 
 .related-asin-value {
     color: #007bff;
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
     font-size: 12px;
     text-align: right;
 }
@@ -1773,7 +2513,7 @@ export default asinlist;
     border: 1px solid #dee2e6;
     border-radius: 4px;
     font-size: 12px;
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
     transition: border-color 0.3s ease;
 }
 
@@ -1824,7 +2564,7 @@ export default asinlist;
 .responsive-table-container {
     width: 100%;
     border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     overflow: hidden;
     overflow-x: auto;
 }
@@ -1835,7 +2575,7 @@ export default asinlist;
     font-size: 13px;
     border-radius: 6px;
     overflow: hidden;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     table-layout: fixed;
     min-width: 600px;
 }
@@ -2142,24 +2882,24 @@ export default asinlist;
         grid-template-columns: 1fr 1fr;
         gap: 15px;
     }
-    
+
     .image-container {
         max-width: 100%;
         margin-bottom: 0;
     }
-    
+
     .user-manual-container {
         height: 150px;
     }
-    
+
     .user-manual-icon i {
         font-size: 36px;
     }
-    
+
     .user-manual-icon span {
         font-size: 11px;
     }
-    
+
     .instruction-link-input {
         width: 150px !important;
     }
