@@ -12,15 +12,15 @@ use Illuminate\Support\Facades\Cache;
 
 class StockroomController extends BasetablesController
 {
-    
+
     /**
      * Find related ASINs with full recursive search - exact conversion from original function
      */
     private function findRelatedAsins($searchTerm)
     {
         $cacheKey = "related_asins_" . md5($searchTerm);
-        
-        return Cache::remember($cacheKey, 300, function() use ($searchTerm) { // Cache for 5 minutes
+
+        return Cache::remember($cacheKey, 300, function () use ($searchTerm) { // Cache for 5 minutes
             $related = [$searchTerm]; // Start with the search term in the array
             $checked = [];
 
@@ -30,19 +30,20 @@ class StockroomController extends BasetablesController
 
             while (!empty($related) && $iterations < $maxIterations) {
                 $asinToCheck = array_pop($related);
-                if (in_array($asinToCheck, $checked)) continue;
+                if (in_array($asinToCheck, $checked))
+                    continue;
                 $checked[] = $asinToCheck;
 
                 // Query that matches your original exactly - including internal field
                 $results = DB::table($this->asinTable)
                     ->select('ASIN', 'ParentAsin', 'CousinASIN', 'UpgradeASIN', 'GrandASIN')
-                    ->where(function($query) use ($asinToCheck) {
+                    ->where(function ($query) use ($asinToCheck) {
                         $query->where('ASIN', $asinToCheck)
-                              ->orWhere('ParentAsin', $asinToCheck)
-                              ->orWhere('CousinASIN', $asinToCheck)
-                              ->orWhere('UpgradeASIN', $asinToCheck)
-                              ->orWhere('GrandASIN', $asinToCheck)
-                              ->orWhere('internal', $asinToCheck); // Added this field that was missing
+                            ->orWhere('ParentAsin', $asinToCheck)
+                            ->orWhere('CousinASIN', $asinToCheck)
+                            ->orWhere('UpgradeASIN', $asinToCheck)
+                            ->orWhere('GrandASIN', $asinToCheck)
+                            ->orWhere('internal', $asinToCheck); // Added this field that was missing
                     })
                     ->get();
 
@@ -54,7 +55,7 @@ class StockroomController extends BasetablesController
                         }
                     }
                 }
-                
+
                 $iterations++;
             }
 
@@ -72,10 +73,10 @@ class StockroomController extends BasetablesController
             $search = $request->input('search', '');
             $store = $request->input('store', '');
             $page = $request->input('page', 1);
-            
+
             // Create cache key based on parameters
             $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_" . md5($search);
-            
+
             // Try to get from cache first (cache for 30 seconds)
             if (empty($search)) { // Only cache non-search results
                 $cachedResult = Cache::get($cacheKey);
@@ -83,13 +84,13 @@ class StockroomController extends BasetablesController
                     return response()->json($cachedResult);
                 }
             }
-            
+
             // Optimized main query with eager loading
             $asinQuery = DB::table($this->asinTable . ' as asin')
                 ->select([
                     'asin.ASIN',
                     'asin.internal as AStitle',
-                     'asin.asinStatus', 
+                    'asin.asinStatus',
                     DB::raw('MIN(fnsku.storename) as storename'),
                     DB::raw('SUM(CASE WHEN prod.ProductModuleLoc = "Stockroom" THEN prod.FBMAvailable ELSE 0 END) as FBMAvailable'),
                     DB::raw('SUM(CASE WHEN prod.ProductModuleLoc = "Stockroom" THEN prod.FbaAvailable ELSE 0 END) as FbaAvailable'),
@@ -102,34 +103,34 @@ class StockroomController extends BasetablesController
                 ->leftJoin($this->fnskuTable . ' as fnsku', 'asin.ASIN', '=', 'fnsku.ASIN')
                 ->leftJoin($this->productTable . ' as prod', function ($join) {
                     $join->on('fnsku.FNSKU', '=', 'prod.FNSKUviewer')
-                         ->where('prod.ProductModuleLoc', '=', 'Stockroom'); // Move condition to join for better performance
+                        ->where('prod.ProductModuleLoc', '=', 'Stockroom'); // Move condition to join for better performance
                 })
                 ->where('asin.ASIN', '!=', '')
                 ->whereNotNull('asin.ASIN');
-            
+
             // Optimize search with indexed fields first
             if (!empty($search)) {
                 $asinQuery->where(function ($query) use ($search) {
                     // Start with most selective searches (indexed fields)
                     $query->where('asin.ASIN', 'like', "%{$search}%")
-                          ->orWhere('fnsku.FNSKU', 'like', "%{$search}%");
-                    
+                        ->orWhere('fnsku.FNSKU', 'like', "%{$search}%");
+
                     // Only add expensive searches if search term is long enough
                     if (strlen($search) > 3) {
                         $query->orWhere('asin.internal', 'like', "%{$search}%")
-                              ->orWhere('prod.serialnumber', 'like', "%{$search}%")
-                              ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                            ->orWhere('prod.serialnumber', 'like', "%{$search}%")
+                            ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                     }
-                    
+
                     // Handle ASIN relationship search - THIS IS THE KEY FIX
                     if (preg_match('/^B0[A-Z0-9]{8}$/i', $search)) {
                         $relatedAsins = $this->findRelatedAsins($search);
                         if (!empty($relatedAsins)) {
                             // Filter out empty or null ASINs from related ASINs
-                            $relatedAsins = array_filter($relatedAsins, function($asin) {
+                            $relatedAsins = array_filter($relatedAsins, function ($asin) {
                                 return !empty($asin) && $asin !== null;
                             });
-                            
+
                             if (!empty($relatedAsins)) {
                                 // Search for related ASINs in the ASIN table directly - not limited by store
                                 $query->orWhereIn('asin.ASIN', $relatedAsins);
@@ -141,53 +142,53 @@ class StockroomController extends BasetablesController
                     }
                 });
             }
-            
+
             // Apply store filter
             if (!empty($store)) {
                 $asinQuery->where('fnsku.storename', $store);
             }
-            
+
             // Add having clause to filter out items with no stockroom products
             // BUT - if we're searching for related ASINs, we want to show all related ones even if they have 0 inventory
             if (!empty($search) && preg_match('/^B0[A-Z0-9]{8}$/i', $search)) {
-            $asinQuery->groupBy('asin.ASIN', 'asin.internal', 'asin.asinStatus') // ADD asinStatus here
-                     ->having('item_count', '>=', 0);
-        } else {
-            $asinQuery->groupBy('asin.ASIN', 'asin.internal', 'asin.asinStatus') // ADD asinStatus here
-                     ->having('item_count', '>', 0);
-        }
-            
+                $asinQuery->groupBy('asin.ASIN', 'asin.internal', 'asin.asinStatus') // ADD asinStatus here
+                    ->having('item_count', '>=', 0);
+            } else {
+                $asinQuery->groupBy('asin.ASIN', 'asin.internal', 'asin.asinStatus') // ADD asinStatus here
+                    ->having('item_count', '>', 0);
+            }
+
             // Get paginated results
             $asins = $asinQuery->paginate($perPage);
-            
+
             // Get ASINs for batch loading related data
             $asinList = $asins->getCollection()->pluck('ASIN')->toArray();
-            
+
             if (empty($asinList)) {
                 $result = $asins->toArray();
                 $result['data'] = [];
-                
+
                 if (empty($search)) {
                     Cache::put($cacheKey, $result, 30);
                 }
-                
+
                 return response()->json($result);
             }
-            
+
             // Batch load FNSKUs for all ASINs
             $fnskuData = DB::table($this->fnskuTable)
                 ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
                 ->whereIn('ASIN', $asinList)
                 ->get()
                 ->groupBy('ASIN');
-            
+
             // Batch load serials for all ASINs
             $serialData = DB::table($this->productTable . ' as prod')
                 ->select(
                     'fnsku.ASIN',
-                    'prod.serialnumber', 
-                    'prod.ProductID', 
-                    'prod.rtcounter', 
+                    'prod.serialnumber',
+                    'prod.ProductID',
+                    'prod.rtcounter',
                     'prod.warehouselocation',
                     'prod.FNSKUviewer',
                     'fnsku.MSKU',
@@ -198,19 +199,19 @@ class StockroomController extends BasetablesController
                 ->where('prod.ProductModuleLoc', 'Stockroom')
                 ->get()
                 ->groupBy('ASIN');
-            
+
             // Process results with batch-loaded data
-            $results = $asins->getCollection()->map(function($item) use ($fnskuData, $serialData) {
+            $results = $asins->getCollection()->map(function ($item) use ($fnskuData, $serialData) {
                 if (empty($item->ASIN)) {
                     return null;
                 }
-                
+
                 // Get FNSKUs from batch-loaded data
                 $item->fnskus = isset($fnskuData[$item->ASIN]) ? $fnskuData[$item->ASIN]->toArray() : [];
-                
+
                 // Get serials from batch-loaded data
                 $item->serials = isset($serialData[$item->ASIN]) ? $serialData[$item->ASIN]->toArray() : [];
-                
+
                 // Extract pack size and adjust counts
                 $packSize = $this->extractPackSizeFromTitle($item->AStitle);
                 if ($packSize > 1) {
@@ -221,25 +222,25 @@ class StockroomController extends BasetablesController
                     $item->box_count = $item->item_count;
                     $item->pack_size = 1;
                 }
-                
+
                 return $item;
             })->filter();
-            
+
             // Update the collection
             $asins->setCollection($results);
             $result = $asins->toArray();
-            
+
             // Cache non-search results
             if (empty($search)) {
                 Cache::put($cacheKey, $result, 30);
             }
-            
+
             return response()->json($result);
-            
+
         } catch (\Exception $e) {
             Log::error('Error in StockroomController@index: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
-            
+
             return response()->json([
                 'error' => 'An error occurred while retrieving stockroom data',
                 'message' => $e->getMessage(),
@@ -255,18 +256,18 @@ class StockroomController extends BasetablesController
     private function extractPackSizeFromTitle($title)
     {
         static $packSizeCache = [];
-        
+
         if (isset($packSizeCache[$title])) {
             return $packSizeCache[$title];
         }
-        
+
         $packSize = 1;
         if (preg_match('/(\d+)-Pack/i', $title, $matches)) {
             if (isset($matches[1]) && is_numeric($matches[1])) {
-                $packSize = (int)$matches[1];
+                $packSize = (int) $matches[1];
             }
         }
-        
+
         $packSizeCache[$title] = $packSize;
         return $packSize;
     }
@@ -277,7 +278,7 @@ class StockroomController extends BasetablesController
     public function getStores()
     {
         try {
-            return response()->json(Cache::remember('stockroom_stores', 3600, function() { // Cache for 1 hour
+            return response()->json(Cache::remember('stockroom_stores', 3600, function () { // Cache for 1 hour
                 return DB::table($this->fnskuTable)
                     ->select('storename')
                     ->distinct()
@@ -288,89 +289,89 @@ class StockroomController extends BasetablesController
             }));
         } catch (\Exception $e) {
             Log::error('Error getting stores: ' . $e->getMessage());
-            
+
             return response()->json([
                 'error' => 'An error occurred while retrieving store list',
                 'message' => $e->getMessage()
             ], 500);
         }
     }
-    
-private function normalizeFnsku($fnsku)
-   {
-    if (empty($fnsku)) {
+
+    private function normalizeFnsku($fnsku)
+    {
+        if (empty($fnsku)) {
+            return $fnsku;
+        }
+
+        $fnsku = trim($fnsku);
+
+        // If FNSKU is longer than 10 characters, check if it starts with 2 letters
+        // More flexible pattern to catch cases like "B3X0049KMM09"
+        if (strlen($fnsku) > 10 && preg_match('/^[A-Z0-9]{2}[X0-9]/', strtoupper($fnsku))) {
+            $normalizedFnsku = substr($fnsku, 2);
+            Log::info('FNSKU normalized', [
+                'original' => $fnsku,
+                'normalized' => $normalizedFnsku
+            ]);
+            return $normalizedFnsku;
+        }
+
         return $fnsku;
     }
-    
-    $fnsku = trim($fnsku);
-    
-    // If FNSKU is longer than 10 characters, check if it starts with 2 letters
-    // More flexible pattern to catch cases like "B3X0049KMM09"
-    if (strlen($fnsku) > 10 && preg_match('/^[A-Z0-9]{2}[X0-9]/', strtoupper($fnsku))) {
-        $normalizedFnsku = substr($fnsku, 2);
-        Log::info('FNSKU normalized', [
-            'original' => $fnsku,
-            'normalized' => $normalizedFnsku
-        ]);
-        return $normalizedFnsku;
-    }
-    
-    return $fnsku;
-}
 
-//check FNSKU
-public function checkFnsku(Request $request)
-{
-    $fnsku = $request->input('fnsku');
+    //check FNSKU
+    public function checkFnsku(Request $request)
+    {
+        $fnsku = $request->input('fnsku');
 
-    if (empty($fnsku)) {
-        return response()->json([
-            'exists' => false,
-            'status' => 'invalid',
-            'message' => 'FNSKU is required'
-        ]);
-    }
-
-    try {
-        // Normalize the FNSKU first
-        $normalizedFnsku = $this->normalizeFnsku($fnsku);
-        
-        // Check in tblfnsku table with normalized FNSKU
-        $result = DB::table($this->fnskuTable)
-            ->where('FNSKU', $normalizedFnsku)
-            ->first();
-
-        if ($result) {
-            // Found the FNSKU, now check its status
-            $isAvailable = strtolower($result->fnsku_status) === 'available';
-
-            return response()->json([
-                'exists' => true,
-                'status' => $isAvailable ? 'available' : 'unavailable',
-                'message' => $isAvailable ? 'FNSKU is available' : 'FNSKU exists but is not available',
-                'normalized_fnsku' => $normalizedFnsku, // Return the normalized FNSKU
-                'original_fnsku' => $fnsku
-            ]);
-        } else {
-            // FNSKU not found
+        if (empty($fnsku)) {
             return response()->json([
                 'exists' => false,
-                'status' => 'not_found',
-                'message' => 'FNSKU not found in the database',
-                'normalized_fnsku' => $normalizedFnsku,
-                'original_fnsku' => $fnsku
+                'status' => 'invalid',
+                'message' => 'FNSKU is required'
             ]);
         }
-    } catch (\Exception $e) {
-        $this->logError('Error checking FNSKU', $e, ['fnsku' => $fnsku]);
 
-        return response()->json([
-            'exists' => false,
-            'status' => 'error',
-            'message' => 'Error checking FNSKU status'
-        ], 500);
+        try {
+            // Normalize the FNSKU first
+            $normalizedFnsku = $this->normalizeFnsku($fnsku);
+
+            // Check in tblfnsku table with normalized FNSKU
+            $result = DB::table($this->fnskuTable)
+                ->where('FNSKU', $normalizedFnsku)
+                ->first();
+
+            if ($result) {
+                // Found the FNSKU, now check its status
+                $isAvailable = strtolower($result->fnsku_status) === 'available';
+
+                return response()->json([
+                    'exists' => true,
+                    'status' => $isAvailable ? 'available' : 'unavailable',
+                    'message' => $isAvailable ? 'FNSKU is available' : 'FNSKU exists but is not available',
+                    'normalized_fnsku' => $normalizedFnsku, // Return the normalized FNSKU
+                    'original_fnsku' => $fnsku
+                ]);
+            } else {
+                // FNSKU not found
+                return response()->json([
+                    'exists' => false,
+                    'status' => 'not_found',
+                    'message' => 'FNSKU not found in the database',
+                    'normalized_fnsku' => $normalizedFnsku,
+                    'original_fnsku' => $fnsku
+                ]);
+            }
+        } catch (\Exception $e) {
+            $this->logError('Error checking FNSKU', $e, ['fnsku' => $fnsku]);
+
+            return response()->json([
+                'exists' => false,
+                'status' => 'error',
+                'message' => 'Error checking FNSKU status'
+            ], 500);
+        }
     }
-}
     /**
      * Process scanner data
      */
@@ -378,7 +379,7 @@ public function checkFnsku(Request $request)
     {
         // Start the database transaction at the very beginning
         DB::beginTransaction();
-        
+
         try {
             // Validate input with robust error handling
             try {
@@ -403,7 +404,7 @@ public function checkFnsku(Request $request)
             $FNSKU = trim($request->input('FNSKU', ''));
 
 
-             if (!empty($FNSKU)) {
+            if (!empty($FNSKU)) {
                 $FNSKU = $this->normalizeFnsku($FNSKU);
                 Log::info('Processing scan with normalized FNSKU', [
                     'original_fnsku' => $request->input('FNSKU', ''),
@@ -503,14 +504,14 @@ public function checkFnsku(Request $request)
                             'message' => 'Data Already in Production Area',
                             'reason' => 'Duplicate Data not allowed'
                         ]);
-                    } 
+                    }
                     // Moving from Production to Stockroom
                     else {
                         // Find FNSKU in main fnsku table
                         $fnsku_data = DB::table($this->fnskuTable)
                             ->where('FNSKU', $FNSKU)
                             ->first();
-                            
+
                         if (!$fnsku_data) {
                             DB::rollBack();
                             return response()->json([
@@ -519,7 +520,7 @@ public function checkFnsku(Request $request)
                                 'reason' => 'fnsku_not_found'
                             ]);
                         }
-                        
+
                         $Status = $fnsku_data->fnsku_status;
                         $getCondition = $fnsku_data->grading;
                         $Unitavailable = $fnsku_data->Units;
@@ -544,10 +545,10 @@ public function checkFnsku(Request $request)
                             ->update([
                                 'ProductModuleLoc' => $modulelocation,
                                 'warehouselocation' => $location,
-                                'validation_status'=>'validated',
+                                'validation_status' => 'validated',
                                 'stockroom_insert_date' => $curentDatetimeString
                             ]);
-                        
+
                         // Insert history record
                         DB::table($this->itemProcessHistoryTable)->insert([
                             'rtcounter' => $rt,
@@ -563,7 +564,7 @@ public function checkFnsku(Request $request)
                             'message' => "Scanned and insert to {$modulelocation}"
                         ]);
                     }
-                } 
+                }
                 // Case: Duplicate serial in stockroom
                 else {
                     DB::rollBack();
@@ -599,7 +600,7 @@ public function checkFnsku(Request $request)
                     $fnsku_data = DB::table($this->fnskuTable)
                         ->where('FNSKU', $FNSKU)
                         ->first();
-                        
+
                     if (!$fnsku_data) {
                         DB::rollBack();
                         return response()->json([
@@ -608,7 +609,7 @@ public function checkFnsku(Request $request)
                             'reason' => 'fnsku_not_found'
                         ]);
                     }
-                    
+
                     $checkFNSKUstatus = $fnsku_data->fnsku_status;
                     $getFNSKU = $fnsku_data->FNSKU;
                     $getCondition = $fnsku_data->grading;
@@ -631,7 +632,7 @@ public function checkFnsku(Request $request)
                                 'FNSKUviewer' => $FNSKU,
                                 'stockroom_insert_date' => $curentDatetimeString
                             ]);
-                        
+
                         // Update FNSKU units
                         $UdpatedUnitavailable = $Unitavailable - 1;
                         DB::table($this->fnskuTable)
@@ -641,15 +642,14 @@ public function checkFnsku(Request $request)
                                 'fnsku_status' => 'available',
                                 'Units' => $UdpatedUnitavailable
                             ]);
-                    } 
-                    else {
+                    } else {
                         // Look for an alternative available FNSKU
                         $FindavailableFnsku = DB::table($this->fnskuTable)
                             ->where('fnsku_status', 'Available')
                             ->where('ASIN', $getASIN)
                             ->where('grading', $getCondition)
                             ->first();
-                        
+
                         if (!$FindavailableFnsku) {
                             DB::rollBack();
                             return response()->json([
@@ -658,10 +658,10 @@ public function checkFnsku(Request $request)
                                 'reason' => 'no_available_fnsku'
                             ]);
                         }
-                        
+
                         $getAvailableFNSKU = $FindavailableFnsku->FNSKU;
                         $Unitavailable = $FindavailableFnsku->Units;
-                        
+
                         // Update product with the available FNSKU
                         DB::table($this->productTable)
                             ->where('ProductID', $id)
@@ -671,7 +671,7 @@ public function checkFnsku(Request $request)
                                 'FNSKUviewer' => $getAvailableFNSKU,
                                 'stockroom_insert_date' => $curentDatetimeString
                             ]);
-                        
+
                         // Update FNSKU units
                         $UdpatedUnitavailable = $Unitavailable - 1;
                         DB::table($this->fnskuTable)
@@ -682,7 +682,7 @@ public function checkFnsku(Request $request)
                                 'Units' => $UdpatedUnitavailable
                             ]);
                     }
-                    
+
                     // Insert history record
                     DB::table($this->itemProcessHistoryTable)->insert([
                         'rtcounter' => $rtnumberofitem,
@@ -691,30 +691,30 @@ public function checkFnsku(Request $request)
                         'Module' => "Scanned and insert to {$modulelocation}",
                         'Action' => 'Return Item'
                     ]);
-                    
+
                     DB::commit();
-                    if($validationSTATUS === 'validated'){
-                    return response()->json([
-                        'success' => true,
-                        'message' => "Scanned and Forwarded to {$modulelocation} Successfully",
-                        'needReprint' => $needReprint,
-                        'productId' => $needReprint ? $id : null
-                    ]);
-                    }else{
+                    if ($validationSTATUS === 'validated') {
                         return response()->json([
                             'success' => true,
-                            'message' => "Data not validated but forwarded to Stockroom", 
-                            'reason' => "Data not validated", 
+                            'message' => "Scanned and Forwarded to {$modulelocation} Successfully",
+                            'needReprint' => $needReprint,
+                            'productId' => $needReprint ? $id : null
+                        ]);
+                    } else {
+                        return response()->json([
+                            'success' => true,
+                            'message' => "Data not validated but forwarded to Stockroom",
+                            'reason' => "Data not validated",
                         ]);
                     }
-             } 
+                }
                 // No existing record, create new entry
                 else {
                     // Find FNSKU in main fnsku table
                     $fnsku_data = DB::table($this->fnskuTable)
                         ->where('FNSKU', $FNSKU)
                         ->first();
-                        
+
                     if (!$fnsku_data) {
                         DB::rollBack();
                         return response()->json([
@@ -723,7 +723,7 @@ public function checkFnsku(Request $request)
                             'reason' => 'fnsku_not_found'
                         ]);
                     }
-                    
+
                     $checkFNSKUstatus = $fnsku_data->fnsku_status;
                     $getFNSKU = $fnsku_data->FNSKU;
                     $getCondition = $fnsku_data->grading;
@@ -745,7 +745,7 @@ public function checkFnsku(Request $request)
                             'FNSKUviewer' => $getFNSKU,
                             'FbmAvailable' => 1,
                             'Fulfilledby' => 'FBM',
-                            'validation_status'=>'validated',
+                            'validation_status' => 'validated',
                             'quantity' => 1,
                             'stockroom_insert_date' => $curentDatetimeString,
                         ]);
@@ -759,7 +759,7 @@ public function checkFnsku(Request $request)
                                 'fnsku_status' => 'available',
                                 'Units' => $UdpatedUnitavailable
                             ]);
-                        
+
                         // Insert history record
                         DB::table($this->itemProcessHistoryTable)->insert([
                             'rtcounter' => $newrt,
@@ -768,15 +768,14 @@ public function checkFnsku(Request $request)
                             'Module' => $Module,
                             'Action' => $Action
                         ]);
-                    } 
-                    else {
+                    } else {
                         // Look for an alternative available FNSKU
                         $FindavailableFnsku = DB::table($this->fnskuTable)
                             ->where('fnsku_status', 'Available')
                             ->where('ASIN', $getASIN)
                             ->where('grading', $getCondition)
                             ->first();
-                        
+
                         if (!$FindavailableFnsku) {
                             DB::rollBack();
                             return response()->json([
@@ -785,10 +784,10 @@ public function checkFnsku(Request $request)
                                 'reason' => 'no_available_fnsku'
                             ]);
                         }
-                        
+
                         $getAvailableFNSKU = $FindavailableFnsku->FNSKU;
                         $Unitavailable = $FindavailableFnsku->Units;
-                        
+
                         // Get next RT counter
                         $maxxrt = DB::table($this->productTable)->max('rtcounter');
                         $newrt = $maxxrt + 1;
@@ -802,7 +801,7 @@ public function checkFnsku(Request $request)
                             'FNSKUviewer' => $getAvailableFNSKU,
                             'FbmAvailable' => 1,
                             'Fulfilledby' => 'FBM',
-                            'validation_status'=>'validated',
+                            'validation_status' => 'validated',
                             'quantity' => 1,
                             'stockroom_insert_date' => $curentDatetimeString,
                         ]);
@@ -816,7 +815,7 @@ public function checkFnsku(Request $request)
                                 'fnsku_status' => 'available',
                                 'Units' => $UdpatedUnitavailable
                             ]);
-                        
+
                         // Insert history record
                         DB::table($this->itemProcessHistoryTable)->insert([
                             'rtcounter' => $newrt,
@@ -826,7 +825,7 @@ public function checkFnsku(Request $request)
                             'Action' => $Action
                         ]);
                     }
-                    
+
                     DB::commit();
                     return response()->json([
                         'success' => true,
@@ -865,7 +864,7 @@ public function checkFnsku(Request $request)
 
         if (empty($selectedIds)) {
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'No selected items to merge.'
             ]);
         }
@@ -881,7 +880,7 @@ public function checkFnsku(Request $request)
 
             if ($serialNumberResults->isEmpty()) {
                 return response()->json([
-                    'success' => false, 
+                    'success' => false,
                     'message' => 'No records found for selected IDs.'
                 ]);
             }
@@ -892,7 +891,7 @@ public function checkFnsku(Request $request)
             $serialNumberD = null;
             $totalPrice = 0;
             $index = 0;
-            
+
             // Get data directly from the request if provided
             $title = $request->title ?? '';
             $productAsin = $request->asin ?? '';
@@ -900,20 +899,20 @@ public function checkFnsku(Request $request)
             $providedFnsku = $request->fnsku ?? '';
 
 
-             if (!empty($providedFnsku)) {
+            if (!empty($providedFnsku)) {
                 $providedFnsku = $this->normalizeFnsku($providedFnsku);
                 Log::info('Merge items with normalized FNSKU', [
                     'original_fnsku' => $request->fnsku ?? '',
                     'normalized_fnsku' => $providedFnsku
                 ]);
             }
-    
-            
+
+
             // Process each selected item
             foreach ($serialNumberResults as $row) {
                 $serialNumber = $row->serialnumber;
                 $price = $row->price ?? 0;
-                
+
                 // If title wasn't provided from the frontend, get it from the first product
                 if (empty($title) && $index === 0) {
                     $title = $row->AStitle ?? '';
@@ -935,7 +934,7 @@ public function checkFnsku(Request $request)
                         $serialNumberD = $serialNumber;
                         break;
                 }
-                
+
                 $index++;
                 $totalPrice += $price;
             }
@@ -943,26 +942,26 @@ public function checkFnsku(Request $request)
             // Extract color from the product title
             preg_match('/\((.*?)\)/', $title, $matches);
             $color = isset($matches[1]) ? $matches[1] : '';
-            
+
             // Get the base title without the color and without any existing pack information
             $baseTitle = trim(preg_replace('/\s*\(.*?\)\s*/', '', $title)); // Remove color
             $baseTitle = trim(preg_replace('/\s+\d+-Pack\s*/', ' ', $baseTitle)); // Remove existing pack info
-            
+
             // Create exact title pattern to search for with the correct pack size
             $exactTitlePattern = $baseTitle;
             if ($numOfSerial > 1) {
                 $exactTitlePattern .= ' ' . $numOfSerial . '-Pack';
             }
             $exactTitlePattern .= ' (' . $color . ')';
-            
+
             // For logging
             $exactTitlePatternForLike = '%' . $exactTitlePattern . '%';
-            
+
             // Get base title for like query - used in less strict searches
             $baseTitleForLike = '%' . $baseTitle . '%';
             $colorForLike = '%(' . $color . ')%';
             $packTextForLike = $numOfSerial > 1 ? '%' . $numOfSerial . '-Pack%' : '';
-            
+
             // Log search parameters for debugging
             Log::info('Searching for ASIN with parameters:', [
                 'originalTitle' => $title,
@@ -977,12 +976,12 @@ public function checkFnsku(Request $request)
 
             // If no ASIN found by direct lookup, try searching for exact match first
             $asinResult = null;
-            
+
             // Try to match the exact title pattern with pack size and color
             $asinResult = DB::table($this->asinTable)
                 ->where('internal', 'like', $exactTitlePatternForLike)
                 ->first();
-                
+
             if ($asinResult) {
                 Log::info('Found ASIN by exact title pattern', [
                     'ASIN' => $asinResult->ASIN,
@@ -998,7 +997,7 @@ public function checkFnsku(Request $request)
                     ->where('internal', 'like', $packTextForLike)
                     ->where('internal', 'like', $colorForLike)
                     ->first();
-                    
+
                 if ($asinResult) {
                     Log::info('Found ASIN by base title, pack size and color', [
                         'ASIN' => $asinResult->ASIN,
@@ -1014,7 +1013,7 @@ public function checkFnsku(Request $request)
                     ->where('internal', 'like', $baseTitleForLike)
                     ->where('internal', 'like', $colorForLike)
                     ->first();
-                    
+
                 if ($asinResult) {
                     Log::info('Found ASIN by base title and color', [
                         'ASIN' => $asinResult->ASIN,
@@ -1028,7 +1027,7 @@ public function checkFnsku(Request $request)
                 $asinResult = DB::table($this->asinTable)
                     ->where('internal', 'like', $baseTitleForLike)
                     ->first();
-                    
+
                 if ($asinResult) {
                     Log::info('Found ASIN by base title only', [
                         'ASIN' => $asinResult->ASIN,
@@ -1046,7 +1045,7 @@ public function checkFnsku(Request $request)
             $asinTitle = $asinResult->internal;
             $containsBaseTitle = stripos($asinTitle, $baseTitle) !== false;
             $containsColor = stripos($asinTitle, $color) !== false;
-            
+
             if (!$containsBaseTitle || !$containsColor) {
                 Log::warning('Found ASIN may not be a good match', [
                     'searchTitle' => $baseTitle,
@@ -1055,7 +1054,7 @@ public function checkFnsku(Request $request)
                     'containsBaseTitle' => $containsBaseTitle,
                     'containsColor' => $containsColor
                 ]);
-                
+
                 // If we really can't find a good match, construct our own title
                 if (!$containsBaseTitle || !$containsColor) {
                     $constructedTitle = $baseTitle;
@@ -1063,11 +1062,11 @@ public function checkFnsku(Request $request)
                         $constructedTitle .= ' ' . $numOfSerial . '-Pack';
                     }
                     $constructedTitle .= ' (' . $color . ')';
-                    
+
                     Log::info('Using constructed title instead', [
                         'constructedTitle' => $constructedTitle
                     ]);
-                    
+
                     $asinTitle = $constructedTitle;
                 }
             }
@@ -1078,12 +1077,12 @@ public function checkFnsku(Request $request)
             // Handle FNSKU assignment
             $getfnsku = null;
             $getFNSKUID = null;
-            
+
             // Look up an available FNSKU based on the ASIN
             $fnskuResult = DB::table($this->fnskuTable)
                 ->where('ASIN', $getAsin)
                 ->where('fnsku_status', 'available')
-            //    ->orderBy('dateFreeUp', 'asc')
+                //    ->orderBy('dateFreeUp', 'asc')
                 ->first();
 
             if (!$fnskuResult) {
@@ -1092,7 +1091,7 @@ public function checkFnsku(Request $request)
                     'message' => 'No available FNSKU found for ASIN: ' . $getAsin
                 ]);
             }
-            
+
             $getfnsku = $fnskuResult->FNSKU;
             $getFNSKUID = $fnskuResult->FNSKUID;
 
@@ -1134,23 +1133,23 @@ public function checkFnsku(Request $request)
             $currentUnits = $fnskuResult->Units ?? 0;
             $newUnits = $currentUnits + $numOfSerial;
             $newUnits = $currentUnits - 1;
-            if($newUnits === 0){
-            // Update FNSKU with new Units count
-            DB::table($this->fnskuTable)
-                ->where('FNSKU', $getfnsku)
-                ->update([
-                    'fnsku_status' => 'unavailable',
-                    'productid' => $productId,
-                    'Units' => $newUnits // Update the Units count
-                ]);
-            }else{
+            if ($newUnits === 0) {
+                // Update FNSKU with new Units count
                 DB::table($this->fnskuTable)
-                ->where('FNSKU', $getfnsku)
-                ->update([
-                    'fnsku_status' => 'available',
-                    'productid' => $productId,
-                    'Units' => $newUnits // Update the Units count
-                ]);
+                    ->where('FNSKU', $getfnsku)
+                    ->update([
+                        'fnsku_status' => 'unavailable',
+                        'productid' => $productId,
+                        'Units' => $newUnits // Update the Units count
+                    ]);
+            } else {
+                DB::table($this->fnskuTable)
+                    ->where('FNSKU', $getfnsku)
+                    ->update([
+                        'fnsku_status' => 'available',
+                        'productid' => $productId,
+                        'Units' => $newUnits // Update the Units count
+                    ]);
             }
             // Log the Units update
             Log::info('Updated FNSKU Units count', [
@@ -1168,25 +1167,25 @@ public function checkFnsku(Request $request)
                     'mergedTO' => $newRt
                 ]);
 
-             // If FNSKU was directly provided, use it
+            // If FNSKU was directly provided, use it
             if (!empty($providedFnsku)) {
                 // Check if the provided FNSKU exists and is available
                 $fnskuResult1 = DB::table($this->fnskuTable)
                     ->where('FNSKU', $providedFnsku)
                     ->first();
-                    
+
                 $oldfnsku = $fnskuResult1->FNSKU;
                 $oldfnsku = $fnskuResult1->FNSKU;
-                $oldunit = $fnskuResult1 -> Units ?? 0;
-                $returnOldUNIT = $oldunit + $numOfSerial ;
-                
+                $oldunit = $fnskuResult1->Units ?? 0;
+                $returnOldUNIT = $oldunit + $numOfSerial;
+
                 DB::table($this->fnskuTable)
-                ->where('FNSKU', $providedFnsku)
-                ->update([
-                    'fnsku_status' => 'available',
-                    'Units' => $returnOldUNIT
-                ]);
-            }   
+                    ->where('FNSKU', $providedFnsku)
+                    ->update([
+                        'fnsku_status' => 'available',
+                        'Units' => $returnOldUNIT
+                    ]);
+            }
 
             // Commit transaction
             DB::commit();
@@ -1195,7 +1194,7 @@ public function checkFnsku(Request $request)
             $finalTitle = isset($asinTitle) ? $asinTitle : $title;
 
             return response()->json([
-                'success' => true, 
+                'success' => true,
                 'message' => 'Items merged successfully.',
                 'newrt' => $newRt,
                 'SERIAL' => $serialNumberA,
@@ -1211,9 +1210,9 @@ public function checkFnsku(Request $request)
             DB::rollBack();
             Log::error('Error in mergeItems: ' . $e->getMessage());
             Log::error($e->getTraceAsString());
-            
+
             return response()->json([
-                'success' => false, 
+                'success' => false,
                 'message' => 'Error during merge operation: ' . $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -1232,33 +1231,33 @@ public function checkFnsku(Request $request)
         try {
             // Start database transaction
             DB::beginTransaction();
-            
+
             // Determine which IDs to update
             $idsToUpdate = [];
-            
+
             if ($request->has('itemIds') && is_array($request->itemIds)) {
                 $idsToUpdate = $request->itemIds;
             } elseif ($request->has('itemId')) {
                 $idsToUpdate = [$request->itemId];
             }
-            
+
             if (empty($idsToUpdate)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No valid item IDs provided.'
                 ]);
             }
-            
+
             // Update location for all selected items
             DB::table($this->productTable)
                 ->whereIn('ProductID', $idsToUpdate)
                 ->update([
                     'warehouselocation' => $request->newLocation
                 ]);
-                
+
             // Commit transaction
             DB::commit();
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Location updated successfully.',
@@ -1267,11 +1266,63 @@ public function checkFnsku(Request $request)
         } catch (\Exception $e) {
             // Rollback in case of error
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Error updating location: ' . $e->getMessage()
             ]);
         }
+    }
+
+    public function PostItemstoAmazon(Request $request)
+    {
+        $selectedItems = $request->input('selectedItems', []);
+
+        if (empty($selectedItems)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No items selected.'
+            ]);
+        }
+
+        $products = DB::table('tblproduct')
+            ->whereIn('ProductID', $selectedItems)
+            ->get();
+
+        $alreadyPosted = [];
+        $readyToPost = [];
+        $invalid = [];
+
+        foreach ($products as $product) {
+            // Step 1: Check if already posted
+            if (trim($product->amzn_status) === 'POSTED') {
+                $alreadyPosted[] = $product->ProductID;
+                continue;
+            }
+
+            // Step 2: Check FNSKU
+            $fnsku = DB::table('tblfnsku')
+                ->where('MSKU', $product->FNSKUviewer)
+                ->first();
+
+            if (!$fnsku) {
+                $invalid[] = $product->ProductID;
+                continue;
+            }
+
+            if ($fnsku->amazon_status === 'Not Existed') {
+                $readyToPost[] = $product;
+            } else {
+                $alreadyPosted[] = $product->ProductID;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Check complete.',
+            'ready_to_post' => $readyToPost,
+            'already_posted' => $alreadyPosted,
+            'invalid' => $invalid // Optional
+        ]);
     }
 }
