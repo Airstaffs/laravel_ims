@@ -10,18 +10,23 @@ $authEndpoint = 'https://api.amazon.com/auth/o2/token';
 $Connect = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
 
 // Step 1: Get the oldest ASIN to process
-$asinResult = $Connect->query("SELECT ASIN, storename FROM tblfnsku WHERE amazon_status = 'Not Existed' ORDER BY insert_date ASC LIMIT 1");
+$asinResult = $Connect->query("SELECT ASIN, storename, grading FROM tblfnsku WHERE amazon_status = 'Not Existed' ORDER BY insert_date ASC LIMIT 1");
 if ($asinResult->num_rows == 0)
     exit("No ASINs to process.<br>");
 $row = $asinResult->fetch_assoc();
 $filterasin = $row['ASIN'];
 $filterstore = $row['storename'];
+$filtercondition = $row['grading'];
+$amzncondition = normalize_db_condition($filtercondition);
+
+echo "<pre>";
+print_r($row);
+echo "</pre>";
 
 // Step 2: Get all MSKUs for that ASIN
-$mskuResult = $Connect->query("SELECT * FROM tblfnsku WHERE amazon_status = 'Not Existed' AND ASIN = '$filterasin' AND storename = '$filterstore'");
+$mskuResult = $Connect->query("SELECT * FROM tblfnsku WHERE amazon_status = 'Not Existed' AND ASIN = '$filterasin' AND storename = '$filterstore' AND grading = '$filtercondition'");
 $mskus = [];
 $conditions = [];
-
 
 while ($row = $mskuResult->fetch_assoc()) {
     $condition = strtolower(str_replace(' ', '_', $row['Condition'] ?? 'new_new'));
@@ -38,8 +43,24 @@ $conditions = array_unique($conditions);
 if (empty($mskus))
     exit("No MSKUs found for ASIN: $asin<br>");
 
-// Step 3: Fetch listing restrictions
-$restrictions = fetch_listing_restrict_plain($filterstore, $filterasin);
+
+// step 3 all about checking the item if eligible for listing
+// Step 3a: Fetch listing restrictions
+$producttype = fetch_listing_product_type($filterstore, $filterasin);
+
+// step 3b: check restriction for the condition
+$listing_restrict = fetch_listing_retrict($filterstore, $filterasin);
+
+// step 3c: now check current condition to amzn listing condition 
+//   if the condition is restricted 
+//     it will execute notification, and skip current item
+if ($listing_restrict['status'] === '200') {
+    $checking = $
+}
+
+echo "<pre>";
+print_r($listing_restrict);
+echo "</pre>";
 
 foreach ($restrictedResult['restrictions'] as $r) {
     if (!$r['success']) {
@@ -68,10 +89,11 @@ foreach ($mskus as $item) {
         ]
     ];
 }
-
+/*
 echo "<pre>";
 print_r($feedItems);
 echo "</pre>";
+*/
 
 $feedData = json_encode($feedItems, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 
@@ -103,8 +125,9 @@ $Connect->query("UPDATE tblfnsku SET amazon_status='Submitted', feedId='$feedId'
 echo "Feed submitted for ASIN $asin: $feedId<br>";
 
 */
+// gets product type of the ASIN
 
-function fetch_listing_restrict_plain($store, $searchedAsin, $destinationMarketplace = 'ATVPDKIKX0DER', $nextToken = null)
+function fetch_listing_product_type($store, $searchedAsin, $destinationMarketplace = 'ATVPDKIKX0DER', $nextToken = null)
 {
     $endpoint = 'https://sellingpartnerapi-na.amazon.com';
     $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
@@ -124,7 +147,7 @@ function fetch_listing_restrict_plain($store, $searchedAsin, $destinationMarketp
 
     $customParams = [
         'marketplaceIds' => $destinationMarketplace,
-        'sellerId' => $tblstore->MerchantID,
+        'sellerId' => $tblstore['MerchantID'],
         'asin' => $searchedAsin,
     ];
 
@@ -164,18 +187,95 @@ function fetch_listing_restrict_plain($store, $searchedAsin, $destinationMarketp
     $decoded = json_decode($response, true);
 
     if ($statusCode === 200) {
-        echo "<b>Success</b><br>";
-        echo "<pre>" . print_r([
-            'rates' => $decoded,
+        echo "<b>Success get product type<br><br>";
+        return [
+            'status' => $statusCode,
+            'data' => $decoded,
             'logs' => $stats
-        ], true) . "</pre>";
+        ];
     } else {
         echo "<b>Error [$statusCode]</b><br>";
-        echo "<pre>" . print_r([
-            'error' => $decoded,
+        return [
+            'data' => $decoded,
             'status' => $statusCode,
             'logs' => $stats
-        ], true) . "</pre>";
+        ];
+    }
+}
+
+function fetch_listing_retrict($store, $searchedAsin, $destinationMarketplace = 'ATVPDKIKX0DER', $nextToken = null)
+{
+    $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+    $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
+    $path = '/listings/2021-08-01/restrictions';
+
+    $companydetails = fetchCompanyDetails();
+    if (!$companydetails) {
+        echo json_encode(['error' => 'Company not found']) . "<br>";
+        return;
+    }
+
+    $tblstore = fetchtblstores($store);
+    if (!$tblstore) {
+        echo json_encode(['error' => "Store config not found for $store"]) . "<br>";
+        return;
+    }
+
+    $customParams = [
+        'marketplaceIds' => $destinationMarketplace,
+        'sellerId' => $tblstore['MerchantID'],
+        'asin' => $searchedAsin,
+    ];
+
+    $credentials = AWSCredentials($store);
+    if (!$credentials) {
+        echo json_encode(['error' => "No credentials for store $store"]) . "<br>";
+        return;
+    }
+
+    $accessToken = fetchAccessToken($credentials, false);
+    if (!$accessToken) {
+        echo json_encode(['error' => "Access token fetch failed"]) . "<br>";
+        return;
+    }
+
+    $jsonData = JsonCreation(null, null, null, null);
+
+    $headers = buildHeaders($credentials, $accessToken, 'GET', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+    $headers['Content-Type'] = 'application/json';
+    $headers['accept'] = 'application/json';
+
+    $queryString = buildQueryString($nextToken, $customParams);
+    $url = "{$endpoint}{$path}?{$queryString}";
+
+    // Convert headers array to format required by cURL
+    $curlHeaders = array_map(fn($k, $v) => "$k: $v", array_keys($headers), $headers);
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $curlHeaders);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 50);
+    $response = curl_exec($ch);
+    $statusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $stats = curl_getinfo($ch);
+    curl_close($ch);
+
+    $decoded = json_decode($response, true);
+
+    if ($statusCode === 200) {
+        echo "<b>Success listing restrict<br><br>";
+        return [
+            'status' => $statusCode,
+            'data' => $decoded,
+            'logs' => $stats
+        ];
+    } else {
+        echo "<b>Error [$statusCode]</b><br>";
+        return [
+            'data' => $decoded,
+            'status' => $statusCode,
+            'logs' => $stats
+        ];
     }
 }
 
@@ -396,4 +496,26 @@ function fetch_metaSchema($url, $method, $expectedChecksum)
         return null;
     }
     return json_decode($response, true);
+}
+
+function normalize_db_condition($condition)
+{
+    $map = [
+        'New' => 'new_new',
+        'UsedLikeNew' => 'used_like_new',
+        'UsedVeryGood' => 'used_very_good',
+        'UsedGood' => 'used_good',
+        'UsedAcceptable' => 'used_acceptable',
+        'CollectibleLikeNew' => 'collectible_like_new',
+        'CollectibleVeryGood' => 'collectible_very_good',
+        'CollectibleGood' => 'collectible_good',
+        'CollectibleAcceptable' => 'collectible_acceptable',
+        'RefurbishedRefurbished' => 'refurbished_refurbished',
+        'Club' => 'club_club'
+    ];
+
+    // Remove spaces and capitalize to normalize inputs
+    $key = preg_replace('/[^A-Za-z]/', '', $condition);
+
+    return $map[$key] ?? strtolower(str_replace(' ', '_', $condition));
 }
