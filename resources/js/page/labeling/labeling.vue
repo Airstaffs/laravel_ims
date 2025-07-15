@@ -12,36 +12,86 @@
                 <thead>
                     <tr>
                         <th class="sticky-header first-col">
-                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
+                            <input
+                                type="checkbox"
+                                @click="toggleAll"
+                                v-model="selectAll"
+                            />
                         </th>
                         <th class="sticky-header second-sticky">
                             <div class="product-name">
-                                <span class="sortable" @click="sortBy('AStitle')">
+                                <span
+                                    class="sortable"
+                                    @click="sortBy('AStitle')"
+                                >
                                     Product Name
-                                    <i v-if="sortColumn === 'AStitle'"
-                                        :class="sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down'"></i>
+                                    <i
+                                        v-if="sortColumn === 'AStitle'"
+                                        :class="
+                                            sortOrder === 'asc'
+                                                ? 'fas fa-sort-up'
+                                                : 'fas fa-sort-down'
+                                        "
+                                    ></i>
                                 </span>
 
-                                <button class="btn-showDetails"
-                                    @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
+                                <button
+                                    class="btn-showDetails"
+                                    @click="toggleDetailsVisibility"
+                                >
+                                    {{
+                                        showDetails
+                                            ? "Hide extra columns"
+                                            : "Show extra columns"
+                                    }}
                                 </button>
                             </div>
                         </th>
                         <th class="">ASIN</th>
                         <th class="">FNSKU</th>
                         <th class="">MSKU</th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">FBM
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            FBM
                         </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">FBA
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            FBA
                         </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
-                            Outbound</th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">Inbound
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            Outbound
                         </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
-                            Unfulfillable</th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite;" v-if="showDetails">
-                            Reserved</th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            Inbound
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            Unfulfillable
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            Reserved
+                        </th>
                         <th class="">Fulfillment</th>
                         <th class="">Status</th>
                         <th class="">Serialnumber</th>
@@ -49,21 +99,51 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <template v-for="(item, index) in sortedInventory" :key="item.id">
+                    <tr v-if="loading">
+                        <td colspan="9" class="text-center">
+                            <div class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Loading...
+                            </div>
+                        </td>
+                    </tr>
+                    <tr v-else-if="sortedInventory.length === 0">
+                        <td colspan="9" class="text-center">No data found</td>
+                    </tr>
+                    <template
+                        v-else
+                        v-for="(item, index) in sortedInventory"
+                        :key="item.id"
+                    >
                         <tr>
                             <td class="sticky-col first-col">
                                 <input type="checkbox" v-model="item.checked" />
-                                <span class="placeholder-date">{{ item.shipBy || '' }}</span>
+                                <span class="placeholder-date">{{
+                                    item.shipBy || ""
+                                }}</span>
                             </td>
                             <td class="sticky-col second-sticky">
                                 <div class="product-container">
-                                    <div class="product-image-container" @click="openImageModal(item)">
+                                    <div
+                                        class="product-image-container"
+                                        @click="openImageModal(item)"
+                                    >
                                         <!-- Use the actual file path for the main image -->
-                                        <img :src="'/images/thumbnails/' + item.img1"
-                                            :alt="item.ProductTitle || 'Product'"
+                                        <img
+                                            :src="
+                                                '/images/thumbnails/' +
+                                                item.img1
+                                            "
+                                            :alt="
+                                                item.ProductTitle || 'Product'
+                                            "
                                             class="product-thumbnail clickable-image"
-                                            @error="handleImageError($event)" />
-                                        <div class="image-count-badge" v-if="countAllImages(item) > 0">
+                                            @error="handleImageError($event)"
+                                        />
+                                        <div
+                                            class="image-count-badge"
+                                            v-if="countAllImages(item) > 0"
+                                        >
                                             +{{ countAllImages(item) }}
                                         </div>
                                     </div>
@@ -79,33 +159,54 @@
                             </td>
 
                             <td>
-                                <span><strong></strong> {{ item.FNSKUviewer  }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.FNSKUviewer }}</span
+                                >
                             </td>
                             <td>
-                                <span><strong></strong> {{ item.MSKU  }}</span>
+                                <span><strong></strong> {{ item.MSKU }}</span>
                             </td>
                             <!-- Hidden -->
                             <td v-if="showDetails">
-                                <span><strong></strong> {{ item.FBMAvailable }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.FBMAvailable }}</span
+                                >
                             </td>
                             <td v-if="showDetails">
-                                <span><strong></strong> {{ item.FbaAvailable }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.FbaAvailable }}</span
+                                >
                             </td>
                             <td v-if="showDetails">
-                                <span><strong></strong> {{ item.Outbound }}</span>
+                                <span
+                                    ><strong></strong> {{ item.Outbound }}</span
+                                >
                             </td>
                             <td v-if="showDetails">
-                                <span><strong></strong> {{ item.Inbound }}</span>
+                                <span
+                                    ><strong></strong> {{ item.Inbound }}</span
+                                >
                             </td>
                             <td v-if="showDetails">
-                                <span><strong></strong> {{ item.Reserved }}</span>
+                                <span
+                                    ><strong></strong> {{ item.Reserved }}</span
+                                >
                             </td>
                             <td v-if="showDetails">
-                                <span><strong></strong> {{ item.Unfulfillable }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.Unfulfillable }}</span
+                                >
                             </td>
                             <!-- End Hidden -->
                             <td>
-                                <span><strong></strong> {{ item.Fulfilledby }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.Fulfilledby }}</span
+                                >
                             </td>
 
                             <td>
@@ -113,30 +214,52 @@
                             </td>
 
                             <td>
-                                <span><strong></strong> {{ item.serialnumber }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.serialnumber }}</span
+                                >
                             </td>
 
                             <!-- Button for more details -->
                             <td>
                                 <div class="action-buttons">
                                     {{ item.totalquantity }}
-                                    <button class="btn-details" @click="toggleDetails(index)">
-                                        <i class="fas fa-info-circle"></i> More Details
+                                    <button
+                                        class="btn-details"
+                                        @click="toggleDetails(index)"
+                                    >
+                                        <i class="fas fa-info-circle"></i> More
+                                        Details
                                     </button>
 
-                                    <span><strong></strong> {{ item.actions }}</span>
-                                    <button @click="showFnskuModal(item)" class="btn btn-fnsku">
-                                        <i class="bi bi-clipboard-check"></i> SET FNSKU
+                                    <span
+                                        ><strong></strong>
+                                        {{ item.actions }}</span
+                                    >
+                                    <button
+                                        @click="showFnskuModal(item)"
+                                        class="btn btn-fnsku"
+                                    >
+                                        <i class="bi bi-clipboard-check"></i>
+                                        SET FNSKU
                                     </button>
 
-                                    <button @click="confirmMoveToValidation(item)" class="btn btn-validation"
-                                        :disabled="isProcessing">
-                                        <i class="bi bi-check-circle"></i> Move to Validation
+                                    <button
+                                        @click="confirmMoveToValidation(item)"
+                                        class="btn btn-validation"
+                                        :disabled="isProcessing"
+                                    >
+                                        <i class="bi bi-check-circle"></i> Move
+                                        to Validation
                                     </button>
 
-                                    <button @click="confirmMoveToStockroom(item)" class="btn btn-stockroom"
-                                        :disabled="isProcessing">
-                                        <i class="bi bi-box-seam"></i> Move to Stockroom
+                                    <button
+                                        @click="confirmMoveToStockroom(item)"
+                                        class="btn btn-stockroom"
+                                        :disabled="isProcessing"
+                                    >
+                                        <i class="bi bi-box-seam"></i> Move to
+                                        Stockroom
                                     </button>
 
                                     <button class="btn-example">example</button>
@@ -145,9 +268,20 @@
                         </tr>
                         <tr v-if="expandedRows[index]">
                             <td :colspan="showDetails ? 18 : 12">
-                                <div class="expanded-content p-3 border rounded">
-                                    <p><strong>External Title provided by Supplier:</strong> {{ item.ProductTitle }}</p>
-                                    <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
+                                <div
+                                    class="expanded-content p-3 border rounded"
+                                >
+                                    <p>
+                                        <strong
+                                            >External Title provided by
+                                            Supplier:</strong
+                                        >
+                                        {{ item.ProductTitle }}
+                                    </p>
+                                    <p>
+                                        <strong>Product Name:</strong>
+                                        {{ item.AStitle }}
+                                    </p>
                                 </div>
                             </td>
                         </tr>
@@ -158,20 +292,31 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button class="btn-showDetailsM"
-                @click="toggleDetailsVisibility">{{ showDetails ? 'Hide extra columns' : 'Show extra columns' }}
+            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
+                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
             </button>
 
             <div class="mobile-cards">
-                <div class="mobile-card" v-for="(item, index) in sortedInventory" :key="item.id">
+                <div
+                    class="mobile-card"
+                    v-for="(item, index) in sortedInventory"
+                    :key="item.id"
+                >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
                         <div class="mobile-product-image clickable">
-                            <img :src="'/images/thumbnails/' + item.img1" :alt="item.ProductTitle || 'Product'"
-                                class="product-thumbnail clickable-image" @error="handleImageError($event)" />
-                            <div class="image-count-badge" v-if="countAllImages(item) > 0">
+                            <img
+                                :src="'/images/thumbnails/' + item.img1"
+                                :alt="item.ProductTitle || 'Product'"
+                                class="product-thumbnail clickable-image"
+                                @error="handleImageError($event)"
+                            />
+                            <div
+                                class="image-count-badge"
+                                v-if="countAllImages(item) > 0"
+                            >
                                 +{{ countAllImages(item) }}
                             </div>
                         </div>
@@ -183,100 +328,159 @@
                         </div>
                     </div>
 
-                    <hr>
+                    <hr />
 
                     <div class="mobile-card-details">
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Location:</span>
-                            <span class="mobile-detal-value"> {{ item.warehouselocation }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.warehouselocation }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Added date:</span>
-                            <span class="mobile-detal-value"> {{ item.datedelivered }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.datedelivered }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Updated date:</span>
-                            <span class="mobile-detal-value"> {{ item.lastDateUpdate }}</span>
+                            <span class="mobile-detail-label"
+                                >Updated date:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.lastDateUpdate }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">FNSKU:</span>
-                            <span class="mobile-detal-value"> {{ item.FNSKUviewer }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FNSKUviewer }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">MSKU:</span>
-                            <span class="mobile-detal-value"> {{ item.MSKUviewer }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.MSKUviewer }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">ASIN:</span>
-                            <span class="mobile-detal-value"> {{ item.ASINviewer }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.ASINviewer }}</span
+                            >
                         </div>
                         <!-- Insert Hidden Here -->
                         <div class="mobile-detail-row" v-if="showDetails">
                             <span class="mobile-detail-label">FBM:</span>
-                            <span class="mobile-detal-value"> {{ item.FBMAvailable }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FBMAvailable }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row" v-if="showDetails">
                             <span class="mobile-detail-label">FBA:</span>
-                            <span class="mobile-detal-value"> {{ item.FbaAvailable }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FbaAvailable }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row" v-if="showDetails">
                             <span class="mobile-detail-label">Outbound:</span>
-                            <span class="mobile-detal-value"> {{ item.Outbound }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Outbound }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row" v-if="showDetails">
                             <span class="mobile-detail-label">Inbound:</span>
-                            <span class="mobile-detal-value"> {{ item.Inbound }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Inbound }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">Unfulfillable:</span>
-                            <span class="mobile-detal-value"> {{ item.Unfulfillable }}</span>
+                            <span class="mobile-detail-label"
+                                >Unfulfillable:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.Unfulfillable }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row" v-if="showDetails">
                             <span class="mobile-detail-label">Reserved:</span>
-                            <span class="mobile-detal-value"> {{ item.Reserved }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Reserved }}</span
+                            >
                         </div>
                         <!--  -->
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Fullfilment:</span>
-                            <span class="mobile-detal-value"> {{ item.Fulfilledby }}</span>
+                            <span class="mobile-detail-label"
+                                >Fullfilment:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.Fulfilledby }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Status:</span>
-                            <span class="mobile-detal-value"> {{ item.status }}</span>
+                            <span class="mobile-detal-value">
+                                {{ item.status }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Serial Number:</span>
-                            <span class="mobile-detal-value"> {{ item.serialnumber }}</span>
+                            <span class="mobile-detail-label"
+                                >Serial Number:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.serialnumber }}</span
+                            >
                         </div>
                     </div>
 
-                    <hr>
+                    <hr />
 
                     <div class="mobile-card-actions">
-                        <button class="btn btn-details" @click="toggleDetails(index)">
+                        <button
+                            class="btn btn-details"
+                            @click="toggleDetails(index)"
+                        >
                             <i class="fas fa-info-circle"></i> Details
                         </button>
 
                         <!-- <span><strong></strong> {{ item.actions }}</span> -->
-                        <button @click="showFnskuModal(item)" class="btn btn-fnsku">
+                        <button
+                            @click="showFnskuModal(item)"
+                            class="btn btn-fnsku"
+                        >
                             <i class="bi bi-clipboard-check"></i> SET FNSKU
                         </button>
 
-                        <button @click="confirmMoveToValidation(item)" class="btn btn-validation"
-                            :disabled="isProcessing">
-                            <i class="bi bi-check-circle"></i> Move to Validation
+                        <button
+                            @click="confirmMoveToValidation(item)"
+                            class="btn btn-validation"
+                            :disabled="isProcessing"
+                        >
+                            <i class="bi bi-check-circle"></i> Move to
+                            Validation
                         </button>
 
-                        <button @click="confirmMoveToStockroom(item)" class="btn btn-stockroom"
-                            :disabled="isProcessing">
+                        <button
+                            @click="confirmMoveToStockroom(item)"
+                            class="btn btn-stockroom"
+                            :disabled="isProcessing"
+                        >
                             <i class="bi bi-box-seam"></i> Move to Stockroom
                         </button>
                     </div>
 
-                    <hr v-if="expandedRows[index]">
+                    <hr v-if="expandedRows[index]" />
 
-                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
-                        <p><strong>External Title provided by Supplier:</strong> {{ item.ProductTitle }}</p>
+                    <div
+                        v-if="expandedRows[index]"
+                        class="mobile-expanded-content"
+                    >
+                        <p>
+                            <strong
+                                >External Title provided by Supplier:</strong
+                            >
+                            {{ item.ProductTitle }}
+                        </p>
                         <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
                     </div>
                 </div>
@@ -288,19 +492,37 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
+                    <select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        class="per-page-select"
+                    >
+                        <option
+                            v-for="option in [10, 15, 20, 50, 100]"
+                            :key="option"
+                            :value="option"
+                        >
                             {{ option }}
                         </option>
                     </select>
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
+                    <button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                    >
                         <i class="fas fa-chevron-left"></i> Back
                     </button>
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                    >
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -311,31 +533,63 @@
         <div v-if="showImageModal" class="image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
             <div class="modal-content">
-                <button class="close-button" @click="closeImageModal">&times;</button>
+                <button class="close-button" @click="closeImageModal">
+                    &times;
+                </button>
 
                 <!-- Tabs for switching between regular and captured images -->
                 <div class="image-tabs">
-                    <button class="tab-button" :class="{ active: activeTab === 'regular' }"
-                        @click="switchTab('regular')" :disabled="regularImages.length === 0">
+                    <button
+                        class="tab-button"
+                        :class="{ active: activeTab === 'regular' }"
+                        @click="switchTab('regular')"
+                        :disabled="regularImages.length === 0"
+                    >
                         Product Images ({{ regularImages.length }})
                     </button>
-                    <button class="tab-button" :class="{ active: activeTab === 'captured' }"
-                        @click="switchTab('captured')" :disabled="capturedImages.length === 0">
+                    <button
+                        class="tab-button"
+                        :class="{ active: activeTab === 'captured' }"
+                        @click="switchTab('captured')"
+                        :disabled="capturedImages.length === 0"
+                    >
                         Captured Images ({{ capturedImages.length }})
                     </button>
                 </div>
 
                 <!-- Display message if no images in current category -->
-                <div v-if="currentImageSet.length === 0" class="no-images-message">
+                <div
+                    v-if="currentImageSet.length === 0"
+                    class="no-images-message"
+                >
                     No images available in this category
                 </div>
 
                 <!-- Main image display (only shown if we have images) -->
-                <div v-if="currentImageSet.length > 0" class="main-image-container">
-                    <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">&lt;</button>
-                    <img :src="currentImageSet[currentImageIndex]" alt="Product Image" class="modal-main-image"
-                        @error="handleImageError" />
-                    <button class="nav-button next" @click="nextImage" v-if="currentImageSet.length > 1">&gt;</button>
+                <div
+                    v-if="currentImageSet.length > 0"
+                    class="main-image-container"
+                >
+                    <button
+                        class="nav-button prev"
+                        @click="prevImage"
+                        v-if="currentImageSet.length > 1"
+                    >
+                        &lt;
+                    </button>
+                    <img
+                        :src="currentImageSet[currentImageIndex]"
+                        alt="Product Image"
+                        class="modal-main-image"
+                        @error="handleImageError"
+                    />
+                    <button
+                        class="nav-button next"
+                        @click="nextImage"
+                        v-if="currentImageSet.length > 1"
+                    >
+                        &gt;
+                    </button>
                 </div>
 
                 <div class="image-counter" v-if="currentImageSet.length > 0">
@@ -343,182 +597,298 @@
                 </div>
 
                 <!-- Thumbnails for the current image set -->
-                <div class="thumbnails-container" v-if="currentImageSet.length > 1">
-                    <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
-                        :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
-                        <img :src="image" :alt="`Thumbnail ${index + 1}`" @error="handleImageError" />
+                <div
+                    class="thumbnails-container"
+                    v-if="currentImageSet.length > 1"
+                >
+                    <div
+                        v-for="(image, index) in currentImageSet"
+                        :key="index"
+                        class="modal-thumbnail"
+                        :class="{ active: index === currentImageIndex }"
+                        @click="currentImageIndex = index"
+                    >
+                        <img
+                            :src="image"
+                            :alt="`Thumbnail ${index + 1}`"
+                            @error="handleImageError"
+                        />
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- FNSKU Selection Modal - Moved outside image modal and now has proper styling -->
-     <!-- FNSKU Selection Modal - Updated with hidden fields and loading -->
-<div v-if="isFnskuModalVisible" class="modal fnsku-modal">
-    <!-- Overlay -->
-    <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
+        <!-- FNSKU Selection Modal - Updated with hidden fields and loading -->
+        <div v-if="isFnskuModalVisible" class="modal fnsku-modal">
+            <!-- Overlay -->
+            <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
 
-    <!-- Modal Content -->
-    <div class="fnsku-modal-content">
-        <!-- Header -->
-        <div class="fnsku-modal-header">
-            <h2>Select FNSKU</h2>
-            <button class="fnsku-close" @click="hideFnskuModal">&times;</button>
-        </div>
-
-        <!-- Body -->
-        <div class="fnsku-modal-body">
-            <!-- Product Info - Updated to hide ID -->
-            <div class="fnsku-product-info">
-                <h4>{{ currentItem?.ProductTitle }}</h4>
-                <div class="fnsku-product-details">
-                    <!-- ID and Serial are now hidden -->
-                    <!-- <p><strong>ID:</strong> {{ currentItem?.ProductID }}</p> -->
-                    <!-- <p><strong>Serial#:</strong> {{ currentItem?.serialnumber }}</p> -->
-                    <p><strong>Current FNSKU:</strong> {{ currentItem?.FNSKUviewer || 'None' }}</p>
-                    <p><strong>RT#:</strong> {{ currentItem?.rtcounter }}</p>
-                </div>
-            </div>
-
-            <!-- Search with Loading -->
-            <div class="fnsku-search-container">
-                <div class="search-input-wrapper">
-                    <input 
-                        type="text" 
-                        v-model="fnskuSearch" 
-                        placeholder="Search FNSKU, ASIN, title, or grading..."
-                        class="fnsku-search-input form-control" 
-                        @input="filterFnskuList"
-                        :disabled="isSearching" />
-                    
-                    <!-- Loading spinner inside search input -->
-                    <div v-if="isSearching" class="search-loading-spinner">
-                        <div class="spinner"></div>
-                    </div>
-                </div>
-                
-                <!-- Loading text below search -->
-                <div v-if="isSearching" class="search-loading-text">
-                    Searching FNSKUs...
-                </div>
-            </div>
-
-            <!-- FNSKU List - Desktop Table -->
-            <div class="fnsku-list-container d-none d-md-block">
-                <!-- Show loading overlay when searching -->
-                <div v-if="isSearching" class="fnsku-loading-overlay">
-                    <div class="loading-content">
-                        <div class="loading-spinner-large"></div>
-                        <p>Loading FNSKUs...</p>
-                    </div>
+            <!-- Modal Content -->
+            <div class="fnsku-modal-content">
+                <!-- Header -->
+                <div class="fnsku-modal-header">
+                    <h2>Select FNSKU</h2>
+                    <button class="fnsku-close" @click="hideFnskuModal">
+                        &times;
+                    </button>
                 </div>
 
-                <table class="table" :class="{ 'loading-blur': isSearching }">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>FNSKU Details</th>
-                            <th>Title & Inventory</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <template v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU">
-                            <tr>
-                                <td>
-                                    <ul class="list-unstyled m-0 fnsku-details">
-                                        <li>{{ fnsku.FNSKU }}</li>
-                                        <li><strong>ASIN:</strong> {{ fnsku.ASIN }}</li>
-                                        <li>
-                                            <div class="badge badge-pill badge-secondary fnsku-badge"
-                                                :class="{ 'badge-success': fnsku.grading.includes('New') }">
-                                                {{ fnsku.grading }}
-                                            </div>
-                                        </li>
-                                    </ul>
-                                </td>
-                                <td>
-                                    <ul class="list-unstyled m-0 fnsku-title">
-                                        <li>{{ fnsku.astitle }}</li>
-                                        <li>{{ fnsku.Units }} in inventory</li>
-                                    </ul>
-                                </td>
-                                <td>
-                                    <div class="fnsku-action">
-                                        <button @click="selectFnsku(fnsku)" class="btn btn-fnsku-select"
-                                            :class="{ 'fnsku-recommended': fnsku.ASIN === currentItem?.ASINviewer }"
-                                            :disabled="isSearching">
-                                            {{ fnsku.ASIN === currentItem?.ASINviewer ? 'Recommended' : 'Select' }}
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </template>
-                        
-                        <!-- No results row -->
-                        <tr v-if="filteredFnskuList.length === 0 && !isSearching">
-                            <td colspan="3" class="text-center">
-                                <span class="fnsku-no-results">No matching FNSKUs found</span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Mobile FNSKU Card View -->
-            <div class="fnsku-card-container d-block d-md-none">
-                <!-- Mobile loading overlay -->
-                <div v-if="isSearching" class="fnsku-loading-overlay mobile">
-                    <div class="loading-content">
-                        <div class="loading-spinner-large"></div>
-                        <p>Loading FNSKUs...</p>
-                    </div>
-                </div>
-
-                <div :class="{ 'loading-blur': isSearching }">
-                    <div v-for="(fnsku, index) in filteredFnskuList" :key="fnsku.FNSKU" class="card mb-3 shadow-sm"
-                        :class="index % 2 === 0 ? 'bg-light' : 'bg-white'">
-                        <div class="card-body d-flex flex-column gap-3">
-                            <!-- Section 1: FNSKU Details -->
-                            <div class="d-flex justify-content-between">
-                                <div class="fnsku-details">
-                                    <h6>{{ fnsku.FNSKU }}</h6>
-                                    <p><strong>ASIN:</strong> {{ fnsku.ASIN }}</p>
-                                </div>
-                                <span class="badge fnsku-badge" :class="{
-                                    'bg-success': fnsku.grading.includes('New'),
-                                    'bg-secondary': !fnsku.grading.includes('New')
-                                }">
-                                    {{ fnsku.grading }}
-                                </span>
-                            </div>
-
-                            <!-- Section 2: Title & Inventory -->
-                            <div class="d-flex flex-column align-items-start gap-1">
-                                <span><strong>{{ fnsku.astitle }}</strong></span>
-                                <span class="text-muted mb-0">{{ fnsku.Units }} in inventory</span>
-                            </div>
-
-                            <!-- Section 3: Action Button -->
-                            <div>
-                                <button @click="selectFnsku(fnsku)" class="btn btn-sm" :class="{
-                                    'btn-success': fnsku.ASIN === currentItem?.ASINviewer,
-                                    'btn-outline-primary': fnsku.ASIN !== currentItem?.ASINviewer
-                                }" :disabled="isSearching">
-                                    {{ fnsku.ASIN === currentItem?.ASINviewer ? 'Recommended' : 'Select' }}
-                                </button>
-                            </div>
+                <!-- Body -->
+                <div class="fnsku-modal-body">
+                    <!-- Product Info - Updated to hide ID -->
+                    <div class="fnsku-product-info">
+                        <h4>{{ currentItem?.ProductTitle }}</h4>
+                        <div class="fnsku-product-details">
+                            <!-- ID and Serial are now hidden -->
+                            <!-- <p><strong>ID:</strong> {{ currentItem?.ProductID }}</p> -->
+                            <!-- <p><strong>Serial#:</strong> {{ currentItem?.serialnumber }}</p> -->
+                            <p>
+                                <strong>Current FNSKU:</strong>
+                                {{ currentItem?.FNSKUviewer || "None" }}
+                            </p>
+                            <p>
+                                <strong>RT#:</strong>
+                                {{ currentItem?.rtcounter }}
+                            </p>
                         </div>
                     </div>
 
-                    <!-- No results message -->
-                    <div v-if="filteredFnskuList.length === 0 && !isSearching" class="alert alert-info text-center">
-                        No matching FNSKUs found
+                    <!-- Search with Loading -->
+                    <div class="fnsku-search-container">
+                        <div class="search-input-wrapper">
+                            <input
+                                type="text"
+                                v-model="fnskuSearch"
+                                placeholder="Search FNSKU, ASIN, title, or grading..."
+                                class="fnsku-search-input form-control"
+                                @input="filterFnskuList"
+                                :disabled="isSearching"
+                            />
+
+                            <!-- Loading spinner inside search input -->
+                            <div
+                                v-if="isSearching"
+                                class="search-loading-spinner"
+                            >
+                                <div class="spinner"></div>
+                            </div>
+                        </div>
+
+                        <!-- Loading text below search -->
+                        <div v-if="isSearching" class="search-loading-text">
+                            Searching FNSKUs...
+                        </div>
+                    </div>
+
+                    <!-- FNSKU List - Desktop Table -->
+                    <div class="fnsku-list-container d-none d-md-block">
+                        <!-- Show loading overlay when searching -->
+                        <div v-if="isSearching" class="fnsku-loading-overlay">
+                            <div class="loading-content">
+                                <div class="loading-spinner-large"></div>
+                                <p>Loading FNSKUs...</p>
+                            </div>
+                        </div>
+
+                        <table
+                            class="table"
+                            :class="{ 'loading-blur': isSearching }"
+                        >
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>FNSKU Details</th>
+                                    <th>Title & Inventory</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template
+                                    v-for="(fnsku, index) in filteredFnskuList"
+                                    :key="fnsku.FNSKU"
+                                >
+                                    <tr>
+                                        <td>
+                                            <ul
+                                                class="list-unstyled m-0 fnsku-details"
+                                            >
+                                                <li>{{ fnsku.FNSKU }}</li>
+                                                <li>
+                                                    <strong>ASIN:</strong>
+                                                    {{ fnsku.ASIN }}
+                                                </li>
+                                                <li>
+                                                    <div
+                                                        class="badge badge-pill badge-secondary fnsku-badge"
+                                                        :class="{
+                                                            'badge-success':
+                                                                fnsku.grading.includes(
+                                                                    'New'
+                                                                ),
+                                                        }"
+                                                    >
+                                                        {{ fnsku.grading }}
+                                                    </div>
+                                                </li>
+                                            </ul>
+                                        </td>
+                                        <td>
+                                            <ul
+                                                class="list-unstyled m-0 fnsku-title"
+                                            >
+                                                <li>{{ fnsku.astitle }}</li>
+                                                <li>
+                                                    {{ fnsku.Units }} in
+                                                    inventory
+                                                </li>
+                                            </ul>
+                                        </td>
+                                        <td>
+                                            <div class="fnsku-action">
+                                                <button
+                                                    @click="selectFnsku(fnsku)"
+                                                    class="btn btn-fnsku-select"
+                                                    :class="{
+                                                        'fnsku-recommended':
+                                                            fnsku.ASIN ===
+                                                            currentItem?.ASINviewer,
+                                                    }"
+                                                    :disabled="isSearching"
+                                                >
+                                                    {{
+                                                        fnsku.ASIN ===
+                                                        currentItem?.ASINviewer
+                                                            ? "Recommended"
+                                                            : "Select"
+                                                    }}
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+
+                                <!-- No results row -->
+                                <tr
+                                    v-if="
+                                        filteredFnskuList.length === 0 &&
+                                        !isSearching
+                                    "
+                                >
+                                    <td colspan="3" class="text-center">
+                                        <span class="fnsku-no-results"
+                                            >No matching FNSKUs found</span
+                                        >
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Mobile FNSKU Card View -->
+                    <div class="fnsku-card-container d-block d-md-none">
+                        <!-- Mobile loading overlay -->
+                        <div
+                            v-if="isSearching"
+                            class="fnsku-loading-overlay mobile"
+                        >
+                            <div class="loading-content">
+                                <div class="loading-spinner-large"></div>
+                                <p>Loading FNSKUs...</p>
+                            </div>
+                        </div>
+
+                        <div :class="{ 'loading-blur': isSearching }">
+                            <div
+                                v-for="(fnsku, index) in filteredFnskuList"
+                                :key="fnsku.FNSKU"
+                                class="card mb-3 shadow-sm"
+                                :class="
+                                    index % 2 === 0 ? 'bg-light' : 'bg-white'
+                                "
+                            >
+                                <div class="card-body d-flex flex-column gap-3">
+                                    <!-- Section 1: FNSKU Details -->
+                                    <div class="d-flex justify-content-between">
+                                        <div class="fnsku-details">
+                                            <h6>{{ fnsku.FNSKU }}</h6>
+                                            <p>
+                                                <strong>ASIN:</strong>
+                                                {{ fnsku.ASIN }}
+                                            </p>
+                                        </div>
+                                        <span
+                                            class="badge fnsku-badge"
+                                            :class="{
+                                                'bg-success':
+                                                    fnsku.grading.includes(
+                                                        'New'
+                                                    ),
+                                                'bg-secondary':
+                                                    !fnsku.grading.includes(
+                                                        'New'
+                                                    ),
+                                            }"
+                                        >
+                                            {{ fnsku.grading }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Section 2: Title & Inventory -->
+                                    <div
+                                        class="d-flex flex-column align-items-start gap-1"
+                                    >
+                                        <span
+                                            ><strong>{{
+                                                fnsku.astitle
+                                            }}</strong></span
+                                        >
+                                        <span class="text-muted mb-0"
+                                            >{{ fnsku.Units }} in
+                                            inventory</span
+                                        >
+                                    </div>
+
+                                    <!-- Section 3: Action Button -->
+                                    <div>
+                                        <button
+                                            @click="selectFnsku(fnsku)"
+                                            class="btn btn-sm"
+                                            :class="{
+                                                'btn-success':
+                                                    fnsku.ASIN ===
+                                                    currentItem?.ASINviewer,
+                                                'btn-outline-primary':
+                                                    fnsku.ASIN !==
+                                                    currentItem?.ASINviewer,
+                                            }"
+                                            :disabled="isSearching"
+                                        >
+                                            {{
+                                                fnsku.ASIN ===
+                                                currentItem?.ASINviewer
+                                                    ? "Recommended"
+                                                    : "Select"
+                                            }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- No results message -->
+                            <div
+                                v-if="
+                                    filteredFnskuList.length === 0 &&
+                                    !isSearching
+                                "
+                                class="alert alert-info text-center"
+                            >
+                                No matching FNSKUs found
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-    </div>
-</div>
 
         <!-- Add this confirmation modal HTML to your template section -->
         <!-- Confirmation Modal -->
@@ -527,7 +897,12 @@
             <div class="confirmation-modal-content">
                 <div class="confirmation-modal-header">
                     <h3>{{ confirmationTitle }}</h3>
-                    <button class="confirmation-close" @click="cancelConfirmation">&times;</button>
+                    <button
+                        class="confirmation-close"
+                        @click="cancelConfirmation"
+                    >
+                        &times;
+                    </button>
                 </div>
                 <div class="confirmation-modal-body">
                     <p>{{ confirmationMessage }}</p>
@@ -536,24 +911,30 @@
                     <button class="btn-cancel" @click="cancelConfirmation">
                         Cancel
                     </button>
-                    <button class="btn-confirm" @click="confirmAction"
-                        :class="{ 'btn-validation': confirmationActionType === 'validation', 'btn-stockroom': confirmationActionType === 'stockroom' }">
+                    <button
+                        class="btn-confirm"
+                        @click="confirmAction"
+                        :class="{
+                            'btn-validation':
+                                confirmationActionType === 'validation',
+                            'btn-stockroom':
+                                confirmationActionType === 'stockroom',
+                        }"
+                    >
                         Yes, Proceed
                     </button>
                 </div>
             </div>
         </div>
-
     </div>
 </template>
 
 <script>
-    import Labeling from "./labeling.js";
-    export default Labeling;
+import Labeling from "./labeling.js";
+export default Labeling;
 </script>
 
 <style>
-
 /* Loading Animation CSS - Add this to your labeling.css file */
 
 /* Search input wrapper for positioning */
@@ -643,8 +1024,12 @@
 
 /* Spinner animation */
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* Disabled state for buttons during loading */
@@ -723,17 +1108,17 @@ button:disabled {
     .fnsku-loading-overlay {
         border-radius: 0;
     }
-    
+
     .loading-spinner-large {
         width: 32px;
         height: 32px;
         border-width: 3px;
     }
-    
+
     .loading-content {
         padding: 15px;
     }
-    
+
     .loading-content p {
         font-size: 0.9em;
         margin-top: 10px;

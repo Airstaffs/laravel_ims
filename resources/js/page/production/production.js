@@ -1,4 +1,4 @@
-import { eventBus } from '../../components/eventBus';
+import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./production.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -8,6 +8,7 @@ export default {
     data() {
         return {
             inventory: [],
+            loading: true,
             currentPage: 1,
             totalPages: 1,
             perPage: 10, // Default rows per page
@@ -151,20 +152,26 @@ export default {
 
         // Fetch inventory data from the API
         async fetchInventory() {
+            this.loading = true;
             try {
-                const response = await axios.get(`${API_BASE_URL}/api/productionArea/products`, {
-                    params: {
-                        search: this.searchQuery,
-                        page: this.currentPage,
-                        per_page: this.perPage,
-                        location: "Production Area",
-                    },
-                });
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/productionArea/products`,
+                    {
+                        params: {
+                            search: this.searchQuery,
+                            page: this.currentPage,
+                            per_page: this.perPage,
+                            location: "Production Area",
+                        },
+                    }
+                );
 
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
+            } finally {
+                this.loading = false;
             }
         },
 

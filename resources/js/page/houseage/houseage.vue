@@ -92,7 +92,19 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr v-if="loading">
+                        <td colspan="9" class="text-center">
+                            <div class="loading-spinner">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Loading...
+                            </div>
+                        </td>
+                    </tr>
+                    <tr v-else-if="sortedInventory.length === 0">
+                        <td colspan="9" class="text-center">No orders found</td>
+                    </tr>
                     <template
+                        v-else
                         v-for="(item, index) in sortedInventory"
                         :key="item.id"
                     >
@@ -656,7 +668,30 @@
                                                     placeholder="RT Counter"
                                                 />
                                             </fieldset>
-
+                                            <fieldset>
+                                                <label
+                                                    ><span>ASIN:</span></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.ASIN"
+                                                    readonly
+                                                    disabled
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span>FNSKU:</span></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.FNSKU"
+                                                    readonly
+                                                    disabled
+                                                />
+                                            </fieldset>
                                             <fieldset>
                                                 <label
                                                     ><span
@@ -672,7 +707,6 @@
                                                     @input="autoResize"
                                                 ></textarea>
                                             </fieldset>
-
                                             <fieldset>
                                                 <label
                                                     ><span
@@ -686,47 +720,9 @@
                                                     placeholder="Product Title"
                                                     rows="1"
                                                     @input="autoResize"
+                                                    readonly
+                                                    disabled
                                                 ></textarea>
-                                            </fieldset>
-
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Sub-variant:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.itemnumber"
-                                                />
-                                            </fieldset>
-
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Order Number:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    :value="item.rtid"
-                                                    placeholder="Order Number"
-                                                />
-                                            </fieldset>
-
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Item Number:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.itemnumber"
-                                                />
                                             </fieldset>
                                         </div>
                                     </div>
@@ -854,22 +850,39 @@
 
                                             <fieldset>
                                                 <label
-                                                    ><span>ASIN:</span></label
+                                                    ><span
+                                                        >Sub-variant:</span
+                                                    ></label
                                                 >
                                                 <input
                                                     type="text"
                                                     class="form-control"
-                                                    v-model="item.ASIN"
+                                                    v-model="item.itemnumber"
                                                 />
                                             </fieldset>
                                             <fieldset>
                                                 <label
-                                                    ><span>FNSKU:</span></label
+                                                    ><span
+                                                        >Order Number:</span
+                                                    ></label
                                                 >
                                                 <input
                                                     type="text"
                                                     class="form-control"
-                                                    v-model="item.FNSKU"
+                                                    :value="item.rtid"
+                                                    placeholder="Order Number"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Item Number:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.itemnumber"
                                                 />
                                             </fieldset>
                                             <fieldset>
@@ -1045,6 +1058,8 @@
                                                     v-model="
                                                         item.ProductModuleLoc
                                                     "
+                                                    readonly
+                                                    disabled
                                                 />
                                             </fieldset>
                                             <fieldset>
@@ -1322,7 +1337,13 @@
                 </div>
 
                 <div class="modal-footer">
-                    <h5>Submit Button Here</h5>
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-lg text-white"
+                        @click="saveEditModal"
+                    >
+                        <i class="fas fa-save me-2"></i> Save
+                    </button>
                 </div>
             </div>
         </div>
