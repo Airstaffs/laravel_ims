@@ -20,19 +20,16 @@ function loadPrinterComponent() {
     
     // Function to check if everything is ready
     function checkReady() {
-        // Check if main app is ready
         if (!window.appInstance) {
             console.log('Main app not ready yet...');
             return false;
         }
         
-        // Check if createApp is available
         if (!window.createApp) {
             console.log('createApp not available yet...');
             return false;
         }
         
-        // Check if printer component is registered
         if (!window.appInstance.$options.components.printer) {
             console.log('Printer component not registered yet...');
             return false;
@@ -52,20 +49,18 @@ function loadPrinterComponent() {
     createPrinterApp(printerComponent);
 }
 
-// Create the printer app - directly mount the component
+// Create the printer app
 function createPrinterApp(PrinterComponent) {
     console.log('Creating printer app with component');
     
-    // Use the globally exposed createApp
     const createApp = window.createApp;
     
     if (!createApp) {
-        showErrorInContainer('createApp function not available');
+        console.error('createApp function not available');
         return;
     }
     
     try {
-        // Create and mount the app directly with the printer component
         window.printerApp = createApp(PrinterComponent);
         
         // Copy global properties from main app if available
@@ -82,31 +77,10 @@ function createPrinterApp(PrinterComponent) {
         console.log('Printer app mounted successfully');
     } catch (error) {
         console.error('Failed to mount printer app:', error);
-        showErrorInContainer('Failed to initialize printer component: ' + error.message);
     }
 }
 
-// Show error message in container
-function showErrorInContainer(message) {
-    document.getElementById('printer-app-container').innerHTML = `
-        <div class="alert alert-danger m-3">
-            <h5>Error Loading Printer</h5>
-            <p>${message}</p>
-            <small>Check the browser console for more details.</small>
-            <hr>
-            <p><strong>Troubleshooting:</strong></p>
-            <ul>
-                <li>Ensure Vite dev server is running: <code>npm run dev</code></li>
-                <li>Check that the printer component exists at: <code>resources/js/page/printer/printer.vue</code></li>
-                <li>Verify the component is properly imported in app.js</li>
-                <li>Check browser console for import errors</li>
-                <li>Make sure the main app loads before opening the printer modal</li>
-            </ul>
-        </div>
-    `;
-}
-
-// Clean up function (can be called manually if needed)
+// Clean up function
 function cleanupPrinterApp() {
     console.log('Cleaning up printer app...');
     if (window.printerApp) {
@@ -119,29 +93,6 @@ function cleanupPrinterApp() {
         document.getElementById('printer-app-container').innerHTML = '';
     }
 }
-
-// Debug function to check what's available
-function debugPrinterSetup() {
-    console.log('=== Printer Debug Info ===');
-    console.log('createApp available:', typeof window.createApp !== 'undefined');
-    console.log('Main app available:', typeof window.appInstance !== 'undefined');
-    
-    if (window.appInstance && window.appInstance.$options && window.appInstance.$options.components) {
-        console.log('Available components:', Object.keys(window.appInstance.$options.components));
-        console.log('Printer component available:', !!window.appInstance.$options.components.printer);
-    }
-    
-    console.log('asyncComponentMap available:', typeof window.asyncComponentMap !== 'undefined');
-    if (window.asyncComponentMap) {
-        console.log('asyncComponentMap keys:', Object.keys(window.asyncComponentMap));
-    }
-    console.log('========================');
-}
-
-// Run debug on page load
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(debugPrinterSetup, 2000);
-});
 
 // Expose cleanup function globally
 window.cleanupPrinterApp = cleanupPrinterApp;

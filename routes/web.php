@@ -34,6 +34,8 @@ use App\Http\Controllers\Fbmorders\WorkhistoryController;
 use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Middleware\PreventBackHistory;
+use App\Http\Controllers\PrinterController;
+use App\Http\Controllers\FnskuController;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 
@@ -466,13 +468,23 @@ Route::prefix('api/asinlist')->group(function () {
 });
 
 
+// Printer API routes
+Route::prefix('api/printer')->middleware(['auth', 'web'])->group(function () {
+    // Check if serial number meets print conditions
+    Route::post('/check-serial', [PrinterController::class, 'checkSerial']);
+    
+    // Print label for a product
+    Route::post('/print-label', [PrinterController::class, 'printLabel']);
+    
+    // Get printer status
+    Route::get('/status', [PrinterController::class, 'getStatus']);
+    
+    // Get print history for a serial number
+    Route::post('/print-history', [PrinterController::class, 'getPrintHistory']);
+});
 
 
-
-
-// Routes for FNSKU Function 
-use App\Http\Controllers\FnskuController;
-
+// Routes for FNSKU List Function  
 Route::get('/fnsku-list', [FnskuController::class, 'getFnskuList']);
 Route::post('/update-fnsku', [FnskuController::class, 'updateFnsku']);
 Route::get('/fnsku', [FnskuController::class, 'index']);
