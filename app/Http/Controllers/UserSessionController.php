@@ -47,7 +47,14 @@ class UserSessionController extends Controller
             if ($user->asinoption) $subModules[] = 'asinoption';
             if ($user->houseage) $subModules[] = 'houseage';
             if ($user->asinlist) $subModules[] = 'asinlist';
-
+              // 🔴 ADDED: Check printer module explicitly
+            if ($user->printer) {
+                $subModules[] = 'printer';
+                Log::info('Printer module added to user privileges', [
+                    'user_id' => $user->id, 
+                    'printer_value' => $user->printer
+                ]);
+            } 
             // Important: Make explicit check for returnscanner and log for debugging
             if ($user->returnscanner) {
                 $subModules[] = 'returnscanner';
@@ -101,7 +108,8 @@ class UserSessionController extends Controller
                     'notfound' => 'Not Found',
                     'asinoption' => 'ASIN Option',
                     'houseage'=> 'Houseage',
-                    'asinlist' => 'ASIN List'
+                    'asinlist' => 'ASIN List',
+                    'printer' => 'Printer'
                 ]
             ]);
     

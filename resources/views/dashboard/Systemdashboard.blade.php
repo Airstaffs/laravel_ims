@@ -87,7 +87,7 @@
                 $freshUser = \App\Models\User::find($currentUser->id);
                 $mainModule = strtolower($freshUser->main_module ?: '');
 
-                $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist'];
+                $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist','printer'];
 
                 foreach ($moduleColumns as $column) {
                     // Only add to subModules if it's enabled AND not the main module
@@ -118,14 +118,14 @@
                 'testing' => 'Testing',
                 'cleaning' => 'Cleaning',
                 'packing' => 'Packing',
-                //    'fnsku' => 'Fnsku',
                 'stockroom' => 'Stockroom',
                 'productionarea' => 'Production Area',
                 'fbashipmentinbound' => 'FBA Inbound Shipment',
                 'returnscanner' => 'Return Scanner',
                 'fbmorder' => 'FBM Order',
                 'notfound' => 'Not Found',
-                'houseage' => 'Houseage'
+                'houseage' => 'Houseage',
+                'printer' => 'Printer'
             ];
 
             function hasAccess($module, $mainModule, $subModules): bool

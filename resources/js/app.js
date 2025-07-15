@@ -33,10 +33,11 @@ const SESSION_DEBUG = true; // Set to false in production
 const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const SESSION_ALWAYS_REFRESH = true; // Always refresh even during inactivity
 
-// manual routing
+// manual routing - 🔴 UPDATED: Added printer async loader
 const asyncComponentMap = {
     'printcustominvoice': () => import('./page/stockroom/print_invoice/print_custom_invoice.vue'),
     'mskucreation': () => import('./page/asinoption/fnskucreation/creation_msku.vue'),
+    'printer': () => import('./page/printer/printer.vue'), // 🔴 NEW: Async printer loader
 };
 
 // Session logging helper
@@ -140,7 +141,9 @@ const componentMapping = {
     "fba": "fbashipmentinbound", 
     "fbm order":"fbmorder",
     "FBM Order":"fbmorder",
-    "ASIN List":"asinlist"
+    "ASIN List":"asinlist",
+    "printer": "printer", // 🔴 NEW: Add printer mapping
+    "Printer": "printer"  // 🔴 NEW: Add capitalized version
     // Add more mappings as needed
 };
 
@@ -387,7 +390,7 @@ const app = createApp({
             }
         },
 
-        // A safer component update method
+        // A safer component update method - 🔴 ENHANCED: Better async handling
         safeComponentUpdate(componentName, originalNavName = null) {
             try {
                 // Record activity when switching components
@@ -397,21 +400,21 @@ const app = createApp({
                 const name = String(componentName).toLowerCase();
 
                 // Check if we've got a registered component with this name
-                /*
-                if (!this.$options.components[name]) {
-                    console.warn(`Component "${name}" not registered!`);
-                    return;
-                }
-                */
-
                 if (!this.$options.components[name]) {
                     if (asyncComponentMap[name]) {
                         logSession(`Loading async component: ${name}`);
+                        
+                        // Show loading indicator for async components
+                        this.currentComponent = 'loading'; // You might want to create a loading component
+                        
                         asyncComponentMap[name]().then(module => {
+                            logSession(`Successfully loaded async component: ${name}`);
                             this.$options.components[name] = module.default;
-                            this.safeComponentUpdate(name); // Try again after registering
+                            this.safeComponentUpdate(name, originalNavName); // Try again after registering
                         }).catch(err => {
                             console.error(`Failed to load async component "${name}":`, err);
+                            // Handle error - maybe show error component or fallback
+                            alert(`Failed to load ${name} component. Please try again.`);
                         });
                         return;
                     }
@@ -495,6 +498,7 @@ const app = createApp({
         notfound : Notfound,
         houseage :Houseage,
         asinlist :ASINList
+        // 🔴 REMOVED: printer component registration (now loaded async)
     },
 });
 
