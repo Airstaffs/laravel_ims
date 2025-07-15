@@ -15,6 +15,7 @@ export default {
             inventory: [],
             returnHistory: [], // Added this missing property
             stores: [],
+            loading: true,
             selectedStore: "",
             currentPage: 1,
             totalPages: 1,
@@ -51,10 +52,11 @@ export default {
             autoVerifyTimeout: null,
 
             // Default image path and image modal states
-            defaultImagePath: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=",
+            defaultImagePath:
+                "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=",
             showImageModal: false,
             modalImages: [],
-            currentImageIndex: 0
+            currentImageIndex: 0,
         };
     },
     computed: {
@@ -74,8 +76,8 @@ export default {
                 }
 
                 return this.sortOrder === "asc"
-                    ? String(valueA || '').localeCompare(String(valueB || ''))
-                    : String(valueB || '').localeCompare(String(valueA || ''));
+                    ? String(valueA || "").localeCompare(String(valueB || ""))
+                    : String(valueB || "").localeCompare(String(valueA || ""));
             });
         },
         // Add a computed property to detect mobile
@@ -84,8 +86,10 @@ export default {
         },
         // Check if serial or return ID is provided
         hasIdentifier() {
-            return this.serialNumber.trim() !== "" || this.returnId.trim() !== "";
-        }
+            return (
+                this.serialNumber.trim() !== "" || this.returnId.trim() !== ""
+            );
+        },
     },
     methods: {
         // Simple image error handler that uses default image
@@ -129,7 +133,9 @@ export default {
                 this.modalImages.push(mainImagePath);
             } else {
                 // If no main image, use a default or product ID based image
-                const defaultPath = `/images/thumbnails/${item.ProductID || 'default.jpg'}`;
+                const defaultPath = `/images/thumbnails/${
+                    item.ProductID || "default.jpg"
+                }`;
                 this.modalImages.push(defaultPath);
             }
 
@@ -183,34 +189,34 @@ export default {
         },
 
         // Toggle ReturnID field
-       toggleReturnIdField() {
-        this.showReturnIdField = !this.showReturnIdField;
+        toggleReturnIdField() {
+            this.showReturnIdField = !this.showReturnIdField;
 
-        // If we're hiding the ReturnID field, also clear its value
-        if (!this.showReturnIdField) {
-            this.returnId = ""; // Clear the ReturnID value when hiding
-            console.log("ReturnID field hidden and value cleared");
-        } else {
-            // If shown, focus on the field
-            this.$nextTick(() => {
-                if (this.$refs.returnIdInput) {
-                    this.$refs.returnIdInput.focus();
-                }
-            });
-        }
-    },
+            // If we're hiding the ReturnID field, also clear its value
+            if (!this.showReturnIdField) {
+                this.returnId = ""; // Clear the ReturnID value when hiding
+                console.log("ReturnID field hidden and value cleared");
+            } else {
+                // If shown, focus on the field
+                this.$nextTick(() => {
+                    if (this.$refs.returnIdInput) {
+                        this.$refs.returnIdInput.focus();
+                    }
+                });
+            }
+        },
 
-     clearReturnId() {
-      this.returnId = "";
-      this.$refs.returnIdInput.focus();
+        clearReturnId() {
+            this.returnId = "";
+            this.$refs.returnIdInput.focus();
 
-      // Play a click sound if available
-      if (SoundService && SoundService.click) {
-        SoundService.click();
-      } else if (SoundService && SoundService.success) {
-        SoundService.success();
-      }
-    },
+            // Play a click sound if available
+            if (SoundService && SoundService.click) {
+                SoundService.click();
+            } else if (SoundService && SoundService.success) {
+                SoundService.success();
+            }
+        },
 
         // Hide the second serial input and focus on location field
         hideSecondSerial() {
@@ -228,19 +234,21 @@ export default {
 
         // Format date for display
         formatDate(dateString) {
-            if (!dateString) return 'N/A';
+            if (!dateString) return "N/A";
             try {
                 const date = new Date(dateString);
-                return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+                return (
+                    date.toLocaleDateString() + " " + date.toLocaleTimeString()
+                );
             } catch (e) {
                 console.error("Error formatting date:", e);
-                return 'Invalid Date';
+                return "Invalid Date";
             }
         },
 
         // Format status for display
         formatStatus(status) {
-            if (!status) return 'Unknown';
+            if (!status) return "Unknown";
             const statusMap = {
                 pending: "Pending",
                 processed: "Processed",
@@ -253,12 +261,12 @@ export default {
 
         // Format RT number based on store name
         formatRTNumber(rtCounter, storeName) {
-            if (!rtCounter) return 'N/A';
-            const paddedCounter = String(rtCounter).padStart(5, '0');
+            if (!rtCounter) return "N/A";
+            const paddedCounter = String(rtCounter).padStart(5, "0");
 
-            if (storeName === 'RenovarTech') {
+            if (storeName === "RenovarTech") {
                 return `RT ${paddedCounter}`;
-            } else if (storeName === 'Allrenewed') {
+            } else if (storeName === "Allrenewed") {
                 return `AR ${paddedCounter}`;
             } else {
                 // Default format if store doesn't match known patterns
@@ -271,34 +279,41 @@ export default {
             if (!item) return;
 
             // Use defensive coding to handle potentially missing fields
-            const rtNumber = item.rtcounter ? this.formatRTNumber(item.rtcounter, item.storename || '') : 'N/A';
-            const returnId = item.LPN || 'N/A';
+            const rtNumber = item.rtcounter
+                ? this.formatRTNumber(item.rtcounter, item.storename || "")
+                : "N/A";
+            const returnId = item.LPN || "N/A";
             const returnDate = this.formatDate(item.LPNDATE || null);
-            const serial = item.serialnumber || 'N/A';
-            const secondSerial = item.serialnumberb || '';
-            const location = item.warehouselocation || 'Floor';
-            const status = this.formatStatus(item.returnstatus || 'unknown');
-            const fnsku = item.FNSKUviewer || 'N/A';
-            const asin = item.ASINviewer || 'N/A';
-            const buyer = item.BuyerName || item.costumer_name || 'Unknown';
+            const serial = item.serialnumber || "N/A";
+            const secondSerial = item.serialnumberb || "";
+            const location = item.warehouselocation || "Floor";
+            const status = this.formatStatus(item.returnstatus || "unknown");
+            const fnsku = item.FNSKUviewer || "N/A";
+            const asin = item.ASINviewer || "N/A";
+            const buyer = item.BuyerName || item.costumer_name || "Unknown";
 
             alert(
                 `Return Details\n` +
-                `RT#: ${rtNumber}\n` +
-                `Return ID: ${returnId}\n` +
-                `Return Date: ${returnDate}\n` +
-                `Serial: ${serial}\n` +
-                `${secondSerial ? "Second Serial: " + secondSerial + "\n" : ""}` +
-                `Location: ${location}\n` +
-                `Status: ${status}\n` +
-                `FNSKU: ${fnsku}\n` +
-                `ASIN: ${asin}\n` +
-                `Buyer: ${buyer}`
+                    `RT#: ${rtNumber}\n` +
+                    `Return ID: ${returnId}\n` +
+                    `Return Date: ${returnDate}\n` +
+                    `Serial: ${serial}\n` +
+                    `${
+                        secondSerial
+                            ? "Second Serial: " + secondSerial + "\n"
+                            : ""
+                    }` +
+                    `Location: ${location}\n` +
+                    `Status: ${status}\n` +
+                    `FNSKU: ${fnsku}\n` +
+                    `ASIN: ${asin}\n` +
+                    `Buyer: ${buyer}`
             );
         },
 
         // Store dropdown functions
         async fetchStores() {
+            this.loading = true;
             try {
                 const response = await axios.get(
                     `${API_BASE_URL}/api/returns/stores`,
@@ -309,6 +324,8 @@ export default {
                 this.stores = response.data;
             } catch (error) {
                 console.error("Error fetching stores:", error);
+            } finally {
+                this.loading = false;
             }
         },
 
@@ -363,6 +380,7 @@ export default {
 
         // Fetch inventory with location = 'Returnlist'
         async fetchInventory() {
+            this.loading = true;
             try {
                 console.log("Fetching inventory data...");
                 const response = await axios.get(
@@ -373,7 +391,7 @@ export default {
                             page: this.currentPage,
                             per_page: this.perPage,
                             store: this.selectedStore,
-                            location: 'Returnlist'
+                            location: "Returnlist",
                         },
                         withCredentials: true,
                     }
@@ -382,7 +400,10 @@ export default {
                 console.log("Response received:", response);
 
                 if (!response.data || !response.data.data) {
-                    console.warn("Response data or data.data is missing", response);
+                    console.warn(
+                        "Response data or data.data is missing",
+                        response
+                    );
                     this.inventory = [];
                     this.returnHistory = [];
                     this.totalPages = 1;
@@ -390,11 +411,11 @@ export default {
                 }
 
                 // Initialize items with checked property and useDefaultImage flag
-                this.inventory = (response.data.data || []).map(item => {
+                this.inventory = (response.data.data || []).map((item) => {
                     return {
                         ...item,
                         checked: false,
-                        useDefaultImage: false
+                        useDefaultImage: false,
                     };
                 });
 
@@ -420,10 +441,10 @@ export default {
                 if (SoundService && SoundService.error) {
                     SoundService.error();
                 }
+            } finally {
+                this.loading = false;
             }
         },
-
-
 
         // Check for dual serial based on serial number
         async checkDualSerial() {
@@ -449,15 +470,17 @@ export default {
                     this.productId = response.data.productId || null;
                     this.fnskuViewer = response.data.fnskuViewer || "";
                     this.asin = response.data.productInfo?.ASIN || "";
-                    this.originalProductLocation = response.data.productInfo?.location || "";
-                    this.scannedSerialPosition = response.data.scannedSerialPosition || null;
+                    this.originalProductLocation =
+                        response.data.productInfo?.location || "";
+                    this.scannedSerialPosition =
+                        response.data.scannedSerialPosition || null;
 
                     console.log("Product info retrieved:", {
                         productId: this.productId,
                         fnskuViewer: this.fnskuViewer,
                         asin: this.asin,
                         originalLocation: this.originalProductLocation,
-                        scannedSerialPosition: this.scannedSerialPosition
+                        scannedSerialPosition: this.scannedSerialPosition,
                     });
 
                     // Check if this is a dual serial product
@@ -469,13 +492,16 @@ export default {
 
                         // If the second serial is already populated from the DB
                         if (response.data.secondSerial) {
-                            this.secondSerialNumber = response.data.secondSerial;
+                            this.secondSerialNumber =
+                                response.data.secondSerial;
 
                             // Add highlighting class on next tick
                             this.$nextTick(() => {
                                 if (this.$refs.secondSerialInput) {
                                     // Add highlight class
-                                    this.$refs.secondSerialInput.classList.add('highlight-input');
+                                    this.$refs.secondSerialInput.classList.add(
+                                        "highlight-input"
+                                    );
 
                                     // Select all text to make it easy to delete if needed
                                     this.$refs.secondSerialInput.select();
@@ -483,7 +509,9 @@ export default {
                                     // Remove highlight class after animation completes
                                     setTimeout(() => {
                                         if (this.$refs.secondSerialInput) {
-                                            this.$refs.secondSerialInput.classList.remove('highlight-input');
+                                            this.$refs.secondSerialInput.classList.remove(
+                                                "highlight-input"
+                                            );
                                         }
                                     }, 3000);
                                 }
@@ -515,9 +543,18 @@ export default {
                     // Display the specific error from the API
                     if (response.data.message) {
                         // Use standard error display
-                        if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                            this.$refs.scanner.showScanError(response.data.message);
-                        } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
+                        if (
+                            this.$refs.scanner &&
+                            typeof this.$refs.scanner.showScanError ===
+                                "function"
+                        ) {
+                            this.$refs.scanner.showScanError(
+                                response.data.message
+                            );
+                        } else if (
+                            this.$refs.scanner &&
+                            typeof this.$refs.scanner.showError === "function"
+                        ) {
                             this.$refs.scanner.showError(response.data.message);
                         } else {
                             console.error(response.data.message);
@@ -547,10 +584,20 @@ export default {
                 this.scannedSerialPosition = null;
 
                 // Use standard error display
-                if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                    this.$refs.scanner.showScanError("Network error checking serial");
-                } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                    this.$refs.scanner.showError("Network error checking serial");
+                if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.showScanError === "function"
+                ) {
+                    this.$refs.scanner.showScanError(
+                        "Network error checking serial"
+                    );
+                } else if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.showError === "function"
+                ) {
+                    this.$refs.scanner.showError(
+                        "Network error checking serial"
+                    );
                 }
 
                 return false;
@@ -582,10 +629,20 @@ export default {
 
             if (!isValid && this.serialNumber.trim() !== "") {
                 // Show error for invalid serial
-                if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                    this.$refs.scanner.showScanError("Invalid Serial Number format");
-                } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                    this.$refs.scanner.showError("Invalid Serial Number format");
+                if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.showScanError === "function"
+                ) {
+                    this.$refs.scanner.showScanError(
+                        "Invalid Serial Number format"
+                    );
+                } else if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.showError === "function"
+                ) {
+                    this.$refs.scanner.showError(
+                        "Invalid Serial Number format"
+                    );
                 }
 
                 this.$refs.serialNumberInput.select();
@@ -629,10 +686,20 @@ export default {
 
             if (!isValid && this.secondSerialNumber.trim() !== "") {
                 // Show error for invalid serial
-                if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                    this.$refs.scanner.showScanError("Invalid Second Serial Number format");
-                } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                    this.$refs.scanner.showError("Invalid Second Serial Number format");
+                if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.showScanError === "function"
+                ) {
+                    this.$refs.scanner.showScanError(
+                        "Invalid Second Serial Number format"
+                    );
+                } else if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.showError === "function"
+                ) {
+                    this.$refs.scanner.showError(
+                        "Invalid Second Serial Number format"
+                    );
                 }
 
                 this.$refs.secondSerialInput.select();
@@ -672,10 +739,20 @@ export default {
                 this.locationInput.trim() === "L800G";
 
             if (!isValid && this.locationInput.trim() !== "") {
-                if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                    this.$refs.scanner.showScanError("Invalid Location Format (use L###X, Floor, or L800G)");
-                } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                    this.$refs.scanner.showError("Invalid Location Format (use L###X, Floor, or L800G)");
+                if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.showScanError === "function"
+                ) {
+                    this.$refs.scanner.showScanError(
+                        "Invalid Location Format (use L###X, Floor, or L800G)"
+                    );
+                } else if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.showError === "function"
+                ) {
+                    this.$refs.scanner.showError(
+                        "Invalid Location Format (use L###X, Floor, or L800G)"
+                    );
                 }
 
                 this.$refs.locationInput.select();
@@ -719,258 +796,353 @@ export default {
 
         // Process scan with validation
 
-async processScan(scannedCode = null) {
-    try {
-        // Use either the scanned code or input fields
-        let scanSerial, scanSecondSerial, scanLocation, scanReturnId;
-        scanReturnId = this.showReturnIdField ? this.returnId : null;
+        async processScan(scannedCode = null) {
+            try {
+                // Use either the scanned code or input fields
+                let scanSerial, scanSecondSerial, scanLocation, scanReturnId;
+                scanReturnId = this.showReturnIdField ? this.returnId : null;
 
-        if (scannedCode) {
-            // External code passed (from hardware scanner)
-            // Determine if it's a return ID, serial, or location based on format
-            const isLocation =
-                /^L\d{3}[A-G]$/i.test(scannedCode) ||
-                scannedCode === "Floor" ||
-                scannedCode === "L800G";
+                if (scannedCode) {
+                    // External code passed (from hardware scanner)
+                    // Determine if it's a return ID, serial, or location based on format
+                    const isLocation =
+                        /^L\d{3}[A-G]$/i.test(scannedCode) ||
+                        scannedCode === "Floor" ||
+                        scannedCode === "L800G";
 
-            const isReturnId = /^R\d{5,}$/i.test(scannedCode);
+                    const isReturnId = /^R\d{5,}$/i.test(scannedCode);
 
-            if (isLocation) {
-                scanLocation = scannedCode;
-                scanSerial = this.serialNumber;
-                scanSecondSerial = this.secondSerialNumber;
-                scanReturnId = this.returnId;
-            } else if (isReturnId) {
-                scanReturnId = scannedCode;
-                scanSerial = this.serialNumber;
-                scanSecondSerial = this.secondSerialNumber;
-                scanLocation = this.locationInput;
-            } else {
-                // Assume it's a serial
-                scanSerial = scannedCode;
-                scanSecondSerial = this.secondSerialNumber;
-                scanLocation = this.locationInput;
-                scanReturnId = this.returnId;
+                    if (isLocation) {
+                        scanLocation = scannedCode;
+                        scanSerial = this.serialNumber;
+                        scanSecondSerial = this.secondSerialNumber;
+                        scanReturnId = this.returnId;
+                    } else if (isReturnId) {
+                        scanReturnId = scannedCode;
+                        scanSerial = this.serialNumber;
+                        scanSecondSerial = this.secondSerialNumber;
+                        scanLocation = this.locationInput;
+                    } else {
+                        // Assume it's a serial
+                        scanSerial = scannedCode;
+                        scanSecondSerial = this.secondSerialNumber;
+                        scanLocation = this.locationInput;
+                        scanReturnId = this.returnId;
 
-                // Check if this is a dual serial product
-                await this.checkDualSerial();
-            }
-        } else {
-            // Use the input fields
-            scanSerial = this.serialNumber;
-            scanSecondSerial = this.secondSerialNumber;
-            scanLocation = this.locationInput;
-            scanReturnId = this.returnId;
-        }
+                        // Check if this is a dual serial product
+                        await this.checkDualSerial();
+                    }
+                } else {
+                    // Use the input fields
+                    scanSerial = this.serialNumber;
+                    scanSecondSerial = this.secondSerialNumber;
+                    scanLocation = this.locationInput;
+                    scanReturnId = this.returnId;
+                }
 
-        // Basic validation - need at least a serial
-        if (!scanSerial) {
-            if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                this.$refs.scanner.showScanError("Serial Number is required");
-            } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                this.$refs.scanner.showError("Serial Number is required");
-            }
+                // Basic validation - need at least a serial
+                if (!scanSerial) {
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showScanError === "function"
+                    ) {
+                        this.$refs.scanner.showScanError(
+                            "Serial Number is required"
+                        );
+                    } else if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showError === "function"
+                    ) {
+                        this.$refs.scanner.showError(
+                            "Serial Number is required"
+                        );
+                    }
 
-            if (SoundService && SoundService.error) {
-                SoundService.error();
-            }
-            this.focusNextField("serialNumberInput");
-            return;
-        }
+                    if (SoundService && SoundService.error) {
+                        SoundService.error();
+                    }
+                    this.focusNextField("serialNumberInput");
+                    return;
+                }
 
-        // Validate dual serial if detected and second serial input is visible
-        if (this.dualSerialProduct && this.showSecondSerialInput && !scanSecondSerial) {
-            if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                this.$refs.scanner.showScanError(`${this.secondSerialLabel} is required for this product`);
-            } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                this.$refs.scanner.showError(`${this.secondSerialLabel} is required for this product`);
-            }
+                // Validate dual serial if detected and second serial input is visible
+                if (
+                    this.dualSerialProduct &&
+                    this.showSecondSerialInput &&
+                    !scanSecondSerial
+                ) {
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showScanError === "function"
+                    ) {
+                        this.$refs.scanner.showScanError(
+                            `${this.secondSerialLabel} is required for this product`
+                        );
+                    } else if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showError === "function"
+                    ) {
+                        this.$refs.scanner.showError(
+                            `${this.secondSerialLabel} is required for this product`
+                        );
+                    }
 
-            if (SoundService && SoundService.error) {
-                SoundService.error();
-            }
-            this.focusNextField("secondSerialInput");
-            return;
-        }
+                    if (SoundService && SoundService.error) {
+                        SoundService.error();
+                    }
+                    this.focusNextField("secondSerialInput");
+                    return;
+                }
 
-        // Validate location format if provided
-        const locationRegex = /^L\d{3}[A-G]$/i;
-        const isValidLocation =
-            !scanLocation ||
-            locationRegex.test(scanLocation) ||
-            scanLocation === "Floor" ||
-            scanLocation === "L800G";
+                // Validate location format if provided
+                const locationRegex = /^L\d{3}[A-G]$/i;
+                const isValidLocation =
+                    !scanLocation ||
+                    locationRegex.test(scanLocation) ||
+                    scanLocation === "Floor" ||
+                    scanLocation === "L800G";
 
-        if (!isValidLocation) {
-            if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                this.$refs.scanner.showScanError("Invalid Location Format (use L###X, Floor, or L800G)");
-            } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                this.$refs.scanner.showError("Invalid Location Format (use L###X, Floor, or L800G)");
-            }
+                if (!isValidLocation) {
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showScanError === "function"
+                    ) {
+                        this.$refs.scanner.showScanError(
+                            "Invalid Location Format (use L###X, Floor, or L800G)"
+                        );
+                    } else if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showError === "function"
+                    ) {
+                        this.$refs.scanner.showError(
+                            "Invalid Location Format (use L###X, Floor, or L800G)"
+                        );
+                    }
 
-            if (SoundService && SoundService.error) {
-                SoundService.error();
-            }
-            return;
-        }
+                    if (SoundService && SoundService.error) {
+                        SoundService.error();
+                    }
+                    return;
+                }
 
-        // Get images from scanner if available
-        const imageData = this.$refs.scanner.capturedImages ?
-            this.$refs.scanner.capturedImages.map(img => img.data) : [];
+                // Get images from scanner if available
+                const imageData = this.$refs.scanner.capturedImages
+                    ? this.$refs.scanner.capturedImages.map((img) => img.data)
+                    : [];
 
-        // Show loading state
-        this.$refs.scanner.startLoading("Processing Return Scan");
+                // Show loading state
+                this.$refs.scanner.startLoading("Processing Return Scan");
 
-        // If in single serial mode for a dual serial product, set a flag in scanData
-        const singleSerialMode = this.dualSerialProduct && !this.showSecondSerialInput;
+                // If in single serial mode for a dual serial product, set a flag in scanData
+                const singleSerialMode =
+                    this.dualSerialProduct && !this.showSecondSerialInput;
 
-        // Track which serials are being used
-        const scannedPrimarySerial = this.scannedSerialPosition === 'primary' ? scanSerial : scanSecondSerial;
-        const scannedSecondarySerial = this.scannedSerialPosition === 'secondary' ? scanSerial : scanSecondSerial;
+                // Track which serials are being used
+                const scannedPrimarySerial =
+                    this.scannedSerialPosition === "primary"
+                        ? scanSerial
+                        : scanSecondSerial;
+                const scannedSecondarySerial =
+                    this.scannedSerialPosition === "secondary"
+                        ? scanSerial
+                        : scanSecondSerial;
 
-        // Send data to server
-        const scanData = {
-            ReturnId: scanReturnId || null,
-            SerialNumber: scanSerial,
-            SecondSerial: scanSecondSerial || null,
-            Location: scanLocation || "L800G", // Default to Floor if not provided
-            Store: this.selectedStore,
-            Images: imageData,
-            SingleSerialMode: singleSerialMode, // Add this flag for the backend
-            ProductID: this.productId,
-            FNSKUviewer: this.fnskuViewer,
-            OriginalLocation: this.originalProductLocation,
-            ScannedSerialPosition: this.scannedSerialPosition,
-            ScannedPrimarySerial: scannedPrimarySerial,
-            ScannedSecondarySerial: scannedSecondarySerial
-        };
+                // Send data to server
+                const scanData = {
+                    ReturnId: scanReturnId || null,
+                    SerialNumber: scanSerial,
+                    SecondSerial: scanSecondSerial || null,
+                    Location: scanLocation || "L800G", // Default to Floor if not provided
+                    Store: this.selectedStore,
+                    Images: imageData,
+                    SingleSerialMode: singleSerialMode, // Add this flag for the backend
+                    ProductID: this.productId,
+                    FNSKUviewer: this.fnskuViewer,
+                    OriginalLocation: this.originalProductLocation,
+                    ScannedSerialPosition: this.scannedSerialPosition,
+                    ScannedPrimarySerial: scannedPrimarySerial,
+                    ScannedSecondarySerial: scannedSecondarySerial,
+                };
 
-        console.log("Sending scan data:", scanData);
+                console.log("Sending scan data:", scanData);
 
-        // SIMPLIFIED API CALL - exactly like in Stockroom Scanner
-        const response = await axios.post(
-            `${API_BASE_URL}/api/returns/process-scan`,
-            scanData,
-            {
-                withCredentials: true,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content
+                // SIMPLIFIED API CALL - exactly like in Stockroom Scanner
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/returns/process-scan`,
+                    scanData,
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            )?.content,
+                        },
+                    }
+                );
+
+                // Hide loading
+                this.$refs.scanner.stopLoading();
+
+                const data = response.data;
+
+                if (data.success) {
+                    // Success case
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showScanSuccess === "function"
+                    ) {
+                        this.$refs.scanner.showScanSuccess(
+                            data.message || "Return processed successfully"
+                        );
+                    } else if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showSuccess === "function"
+                    ) {
+                        this.$refs.scanner.showSuccess(
+                            data.message || "Return processed successfully"
+                        );
+                    }
+
+                    if (SoundService && SoundService.successScan) {
+                        SoundService.successScan(true);
+                    }
+
+                    // Add to scan history if method exists - FIX: Use ReturnID instead of ReturnId
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.addSuccessScan === "function"
+                    ) {
+                        this.$refs.scanner.addSuccessScan({
+                            ReturnID: scanReturnId || "N/A", // CHANGED: ReturnId → ReturnID
+                            Serial: scanSerial,
+                            SecondSerial: scanSecondSerial || "N/A",
+                            Location: scanLocation || "Floor",
+                            FNSKU: this.fnskuViewer || "N/A",
+                            SingleSerialMode: singleSerialMode,
+                        });
+                    }
+
+                    // Reset fields and dual serial flag
+                    this.clearScanFields();
+
+                    // Refresh inventory
+                    this.fetchInventory();
+                } else {
+                    // Error case
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showScanError === "function"
+                    ) {
+                        this.$refs.scanner.showScanError(
+                            data.message || "Error processing return"
+                        );
+                    } else if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showError === "function"
+                    ) {
+                        this.$refs.scanner.showError(
+                            data.message || "Error processing return"
+                        );
+                    }
+
+                    if (SoundService && SoundService.scanRejected) {
+                        SoundService.scanRejected(true);
+                    }
+
+                    // Add to error scan history if method exists - FIX: Use ReturnID instead of ReturnId
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.addErrorScan === "function"
+                    ) {
+                        this.$refs.scanner.addErrorScan(
+                            {
+                                ReturnID: scanReturnId || "N/A", // CHANGED: ReturnId → ReturnID
+                                Serial: scanSerial,
+                                SecondSerial: scanSecondSerial || "N/A",
+                                Location: scanLocation || "N/A",
+                                FNSKU: this.fnskuViewer || "N/A",
+                                SingleSerialMode: singleSerialMode,
+                            },
+                            data.reason || "error"
+                        );
+                    }
+                }
+
+                // Clear input fields and focus on Return ID or Serial
+                this.clearScanFields();
+                if (this.showReturnIdField) {
+                    this.focusNextField("returnIdInput");
+                } else {
+                    this.focusNextField("serialNumberInput");
+                }
+            } catch (error) {
+                // Hide loading
+                this.$refs.scanner.stopLoading();
+
+                console.error("Error processing scan:", error);
+
+                // If it's a 419 error, show a specific message about CSRF token
+                if (error.response && error.response.status === 419) {
+                    console.error(
+                        "CSRF token mismatch. Try refreshing the page."
+                    );
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showScanError === "function"
+                    ) {
+                        this.$refs.scanner.showScanError(
+                            "Session expired. Please refresh the page and try again."
+                        );
+                    } else if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showError === "function"
+                    ) {
+                        this.$refs.scanner.showError(
+                            "Session expired. Please refresh the page and try again."
+                        );
+                    }
+                } else {
+                    if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showScanError === "function"
+                    ) {
+                        this.$refs.scanner.showScanError(
+                            "Network or server error"
+                        );
+                    } else if (
+                        this.$refs.scanner &&
+                        typeof this.$refs.scanner.showError === "function"
+                    ) {
+                        this.$refs.scanner.showError("Network or server error");
+                    }
+                }
+
+                if (SoundService && SoundService.scanRejected) {
+                    SoundService.scanRejected(true);
+                }
+
+                // Add failed scan to history if method exists - FIX: Use ReturnID instead of ReturnId
+                if (
+                    this.$refs.scanner &&
+                    typeof this.$refs.scanner.addErrorScan === "function"
+                ) {
+                    this.$refs.scanner.addErrorScan(
+                        {
+                            ReturnID: this.returnId || "N/A", // CHANGED: ReturnId → ReturnID
+                            Serial: this.serialNumber || "",
+                            SecondSerial: this.secondSerialNumber || "N/A",
+                            Location: this.locationInput || "N/A",
+                            FNSKU: this.fnskuViewer || "N/A",
+                        },
+                        error.response && error.response.status === 419
+                            ? "session_expired"
+                            : "network_error"
+                    );
                 }
             }
-        );
-
-        // Hide loading
-        this.$refs.scanner.stopLoading();
-
-        const data = response.data;
-
-        if (data.success) {
-            // Success case
-            if (this.$refs.scanner && typeof this.$refs.scanner.showScanSuccess === 'function') {
-                this.$refs.scanner.showScanSuccess(data.message || "Return processed successfully");
-            } else if (this.$refs.scanner && typeof this.$refs.scanner.showSuccess === 'function') {
-                this.$refs.scanner.showSuccess(data.message || "Return processed successfully");
-            }
-
-            if (SoundService && SoundService.successScan) {
-                SoundService.successScan(true);
-            }
-
-            // Add to scan history if method exists - FIX: Use ReturnID instead of ReturnId
-            if (this.$refs.scanner && typeof this.$refs.scanner.addSuccessScan === 'function') {
-                this.$refs.scanner.addSuccessScan({
-                    ReturnID: scanReturnId || "N/A", // CHANGED: ReturnId → ReturnID
-                    Serial: scanSerial,
-                    SecondSerial: scanSecondSerial || "N/A",
-                    Location: scanLocation || "Floor",
-                    FNSKU: this.fnskuViewer || "N/A",
-                    SingleSerialMode: singleSerialMode
-                });
-            }
-
-            // Reset fields and dual serial flag
-            this.clearScanFields();
-
-            // Refresh inventory
-            this.fetchInventory();
-        } else {
-            // Error case
-            if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                this.$refs.scanner.showScanError(data.message || "Error processing return");
-            } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                this.$refs.scanner.showError(data.message || "Error processing return");
-            }
-
-            if (SoundService && SoundService.scanRejected) {
-                SoundService.scanRejected(true);
-            }
-
-            // Add to error scan history if method exists - FIX: Use ReturnID instead of ReturnId
-            if (this.$refs.scanner && typeof this.$refs.scanner.addErrorScan === 'function') {
-                this.$refs.scanner.addErrorScan(
-                    {
-                        ReturnID: scanReturnId || "N/A", // CHANGED: ReturnId → ReturnID
-                        Serial: scanSerial,
-                        SecondSerial: scanSecondSerial || "N/A",
-                        Location: scanLocation || "N/A",
-                        FNSKU: this.fnskuViewer || "N/A",
-                        SingleSerialMode: singleSerialMode
-                    },
-                    data.reason || "error"
-                );
-            }
-        }
-
-        // Clear input fields and focus on Return ID or Serial
-        this.clearScanFields();
-        if (this.showReturnIdField) {
-            this.focusNextField("returnIdInput");
-        } else {
-            this.focusNextField("serialNumberInput");
-        }
-    } catch (error) {
-        // Hide loading
-        this.$refs.scanner.stopLoading();
-
-        console.error("Error processing scan:", error);
-
-        // If it's a 419 error, show a specific message about CSRF token
-        if (error.response && error.response.status === 419) {
-            console.error("CSRF token mismatch. Try refreshing the page.");
-            if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                this.$refs.scanner.showScanError("Session expired. Please refresh the page and try again.");
-            } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                this.$refs.scanner.showError("Session expired. Please refresh the page and try again.");
-            }
-        } else {
-            if (this.$refs.scanner && typeof this.$refs.scanner.showScanError === 'function') {
-                this.$refs.scanner.showScanError("Network or server error");
-            } else if (this.$refs.scanner && typeof this.$refs.scanner.showError === 'function') {
-                this.$refs.scanner.showError("Network or server error");
-            }
-        }
-
-        if (SoundService && SoundService.scanRejected) {
-            SoundService.scanRejected(true);
-        }
-
-        // Add failed scan to history if method exists - FIX: Use ReturnID instead of ReturnId
-        if (this.$refs.scanner && typeof this.$refs.scanner.addErrorScan === 'function') {
-            this.$refs.scanner.addErrorScan(
-                {
-                    ReturnID: this.returnId || "N/A", // CHANGED: ReturnId → ReturnID
-                    Serial: this.serialNumber || "",
-                    SecondSerial: this.secondSerialNumber || "N/A",
-                    Location: this.locationInput || "N/A",
-                    FNSKU: this.fnskuViewer || "N/A"
-                },
-                error.response && error.response.status === 419 ? "session_expired" : "network_error"
-            );
-        }
-    }
-},
+        },
         // Clear scan fields
         clearScanFields() {
             this.returnId = "";
@@ -1031,7 +1203,9 @@ async processScan(scannedCode = null) {
         handleResize() {
             // If we're on mobile and dropdowns are open, we might want to close them
             if (this.isMobile) {
-                const hasOpenDropdowns = Object.values(this.serialDropdowns).some(isOpen => isOpen);
+                const hasOpenDropdowns = Object.values(
+                    this.serialDropdowns
+                ).some((isOpen) => isOpen);
                 if (hasOpenDropdowns) {
                     this.serialDropdowns = {};
                 }
@@ -1040,17 +1214,17 @@ async processScan(scannedCode = null) {
 
         closeDropdownsOnClickOutside(event) {
             // Check if click is outside any dropdown
-            const isOutside = !event.target.closest('.serial-dropdown');
+            const isOutside = !event.target.closest(".serial-dropdown");
             if (isOutside) {
                 this.serialDropdowns = {};
             }
-        }
+        },
     },
     watch: {
         searchQuery() {
             this.currentPage = 1;
             this.fetchInventory();
-        }
+        },
     },
     mounted() {
         // Configure axios
@@ -1060,7 +1234,8 @@ async processScan(scannedCode = null) {
         // Set CSRF token
         const token = document.querySelector('meta[name="csrf-token"]');
         if (token) {
-            axios.defaults.headers.common["X-CSRF-TOKEN"] = token.getAttribute("content");
+            axios.defaults.headers.common["X-CSRF-TOKEN"] =
+                token.getAttribute("content");
         }
 
         // Add Font Awesome if not already included
@@ -1079,7 +1254,7 @@ async processScan(scannedCode = null) {
         this.fetchInventory();
 
         // Listen for window resize to update isMobile
-        window.addEventListener('resize', this.handleResize);
+        window.addEventListener("resize", this.handleResize);
 
         // Initialize serialDropdowns
         this.inventory.forEach((_, index) => {
@@ -1087,7 +1262,7 @@ async processScan(scannedCode = null) {
         });
 
         // Close dropdowns when clicking outside
-        document.addEventListener('click', this.closeDropdownsOnClickOutside);
+        document.addEventListener("click", this.closeDropdownsOnClickOutside);
 
         // Handle keyboard navigation for the image modal
         const handleKeyDown = (e) => {
@@ -1116,8 +1291,11 @@ async processScan(scannedCode = null) {
         }
 
         // Remove event listeners
-        window.removeEventListener('resize', this.handleResize);
-        document.removeEventListener('click', this.closeDropdownsOnClickOutside);
+        window.removeEventListener("resize", this.handleResize);
+        document.removeEventListener(
+            "click",
+            this.closeDropdownsOnClickOutside
+        );
 
         // Remove keyboard event listener for image modal
         if (this.handleKeyDown) {

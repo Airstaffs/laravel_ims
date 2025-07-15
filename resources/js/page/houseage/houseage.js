@@ -9,6 +9,7 @@ export default {
     data() {
         return {
             inventory: [],
+            loading: true,
             currentPage: 1,
             totalPages: 1,
             perPage: 10, // Default rows per page
@@ -367,6 +368,7 @@ export default {
 
         // Fetch inventory data from the API
         async fetchInventory() {
+            this.loading = true;
             try {
                 console.log("Fetching inventory with params:", {
                     search: this.searchQuery,
@@ -409,6 +411,8 @@ export default {
                 }
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
+            } finally {
+                this.loading = false;
             }
         },
 

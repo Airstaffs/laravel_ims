@@ -13,6 +13,7 @@ export default {
     data() {
         return {
             inventory: [],
+            loading: true,
             currentPage: 1,
             totalPages: 1,
             perPage: 10, // Default rows per page
@@ -184,6 +185,7 @@ export default {
         },
 
         async fetchInventory() {
+            this.loading = true;
             try {
                 const response = await axios.get(
                     `${API_BASE_URL}/api/unreceived/products`,
@@ -201,6 +203,8 @@ export default {
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
                 SoundService.error(); // Error vibration for fetch failure
+            } finally {
+                this.loading = false;
             }
         },
 

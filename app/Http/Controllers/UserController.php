@@ -478,7 +478,8 @@ class UserController extends Controller
 
 
 
-  public function refreshUserSession(Request $request)
+ 
+public function refreshUserSession(Request $request)
 {
     try {
         $user = Auth::user();
@@ -494,22 +495,13 @@ class UserController extends Controller
             return response()->json(['success' => false, 'message' => 'User not found']);
         }
         
-        // Define all possible modules as stored in the database
-        // 🔴 FIXED: Removed 'fbashipmentinbound' which doesn't exist in database
+        // 🔴 FIXED: Make sure 'printer' is included in the modules array
         $modules = [
             'order', 'unreceived', 'receiving', 'labeling', 'testing', 
             'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 
             'productionarea', 'returnscanner', 'fbmorder', 
-            'notfound', 'asinoption', 'houseage', 'asinlist', 'printer'
+            'notfound', 'asinoption', 'houseage', 'asinlist', 'printer'  // 🔴 MAKE SURE printer is here
         ];
-        
-        Log::info('=== REFRESH SESSION DEBUG ===', [
-            'user_id' => $freshUser->id,
-            'main_module_raw' => $freshUser->main_module,
-            'printer_value' => $freshUser->printer,
-            'printer_type' => gettype($freshUser->printer),
-            'available_modules' => $modules
-        ]);
         
         // Get main module and ensure it's lowercase with no spaces
         $mainModule = $freshUser->main_module;
@@ -518,29 +510,14 @@ class UserController extends Controller
             $mainModule = strtolower(str_replace(' ', '', $mainModule));
         }
         
-        Log::info('Main module processed:', [
-            'original' => $freshUser->main_module,
-            'processed' => $mainModule
-        ]);
-        
         // Get active modules - ensure all are lowercase for consistency and exclude main module
         $activeModules = [];
         foreach ($modules as $module) {
-            // Check if property exists and is enabled
-            if (property_exists($freshUser, $module) && $freshUser->{$module} == 1 && $module !== $mainModule) {
+            // Only add to sub-modules if it's enabled AND not the main module
+            if ($freshUser->{$module} == 1 && $module !== $mainModule) {
                 $activeModules[] = strtolower($module);
-                Log::info("✓ Added module to activeModules: {$module}");
-            } else {
-                Log::info("✗ Skipped module: {$module}", [
-                    'exists' => property_exists($freshUser, $module),
-                    'value' => $freshUser->{$module} ?? 'property_not_found',
-                    'enabled' => ($freshUser->{$module} ?? 0) == 1,
-                    'not_main' => $module !== $mainModule
-                ]);
             }
         }
-        
-        Log::info('Active modules before final filtering:', $activeModules);
         
         // Ensure main module is not duplicated in sub-modules
         $activeModules = array_filter($activeModules, function($mod) use ($mainModule) {
@@ -550,13 +527,21 @@ class UserController extends Controller
         // Reset array keys
         $activeModules = array_values($activeModules);
         
-        Log::info('Final active modules:', $activeModules);
-        
         // Save to session
         session()->forget(['main_module', 'sub_modules']);
         session(['main_module' => $mainModule]);
         session(['sub_modules' => $activeModules]);
         session()->save();
+        
+        // Debug log - 🔴 ADDED: Better logging to see what's happening
+        Log::info('Session refreshed for user', [
+            'user_id' => $freshUser->id,
+            'username' => $freshUser->username,
+            'main_module' => $mainModule,
+            'sub_modules' => $activeModules,
+            'printer_enabled' => $freshUser->printer ?? 'not_found',
+            'main_module_enabled' => $freshUser->{$mainModule} ?? 'not_found'
+        ]);
         
         return response()->json([
             'success' => true,
@@ -566,14 +551,10 @@ class UserController extends Controller
             'debug' => [
                 'fresh_main_module' => $freshUser->main_module,
                 'processed_main_module' => $mainModule,
+                'printer_value' => $freshUser->printer,  // 🔴 ADDED: Debug printer value
                 'all_enabled_modules' => array_filter($modules, function($mod) use ($freshUser) {
-                    return property_exists($freshUser, $mod) && $freshUser->{$mod} == 1;
-                }),
-                'printer_debug' => [
-                    'exists' => property_exists($freshUser, 'printer'),
-                    'value' => $freshUser->printer ?? 'not_found',
-                    'enabled' => ($freshUser->printer ?? 0) == 1
-                ]
+                    return $freshUser->{$mod} == 1;
+                })
             ]
         ]);
     } catch (\Exception $e) {

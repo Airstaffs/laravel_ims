@@ -27,17 +27,22 @@ import FBMorders from "./page/fbmOrders/fbmOrders.vue";
 import Notfound from "./page/notfound/notfound.vue";
 import Houseage from "./page/houseage/houseage.vue";
 import ASINList from "./page/asinlist/asinlist.vue";
+import PrinterModule from "./page/printer/printer.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
 const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const SESSION_ALWAYS_REFRESH = true; // Always refresh even during inactivity
 
-// manual routing
+// manual routing - 🔴 UPDATED: Keep other async loaders, but make printer synchronous
 const asyncComponentMap = {
     'printcustominvoice': () => import('./page/stockroom/print_invoice/print_custom_invoice.vue'),
     'mskucreation': () => import('./page/asinoption/fnskucreation/creation_msku.vue'),
+    // Remove printer from async loading since it's now imported directly
 };
+
+// Make it globally accessible for the modal
+window.asyncComponentMap = asyncComponentMap;
 
 // Session logging helper
 function logSession(message, data) {
@@ -140,7 +145,9 @@ const componentMapping = {
     "fba": "fbashipmentinbound", 
     "fbm order":"fbmorder",
     "FBM Order":"fbmorder",
-    "ASIN List":"asinlist"
+    "ASIN List":"asinlist",
+    "printer": "printer", // 🔴 UPDATED: Add printer mapping
+    "Printer": "printer"  // 🔴 UPDATED: Add capitalized version
     // Add more mappings as needed
 };
 
@@ -355,11 +362,44 @@ const app = createApp({
             return componentName;
         },
 
+        // 🔴 UPDATED: Enhanced loadContent method with better printer handling
         loadContent(module) {
             this.lastActivityTime = Date.now();
             this.extendSession();
 
             const navName = String(module).toLowerCase();
+            
+            // Special handling for modal-based modules
+            if (navName === 'printer') {
+                // Don't change the component, just show the modal
+                if (typeof showPrinterModal === 'function') {
+                    showPrinterModal();
+                } else {
+                    console.error('showPrinterModal function not found');
+                    // Try to load the function from the blade file after a short delay
+                    setTimeout(() => {
+                        if (typeof showPrinterModal === 'function') {
+                            showPrinterModal();
+                        } else {
+                            // Show more helpful error message
+                            alert('Printer modal not available. Please ensure:\n1. The printer.blade.php is included in your layout\n2. The Vite dev server is running\n3. The printer component exists');
+                        }
+                    }, 100);
+                }
+                return;
+            }
+            
+            if (navName === 'asinoption') {
+                // Don't change the component, just show the modal
+                if (typeof showAsinOptionModal === 'function') {
+                    showAsinOptionModal();
+                } else {
+                    console.error('showAsinOptionModal function not found');
+                }
+                return;
+            }
+            
+            // Continue with regular component loading for other modules...
             const allowedModules = window.allowedModules ? window.allowedModules.map(m => m.toLowerCase()) : [];
             const mainModule = window.mainModule ? window.mainModule.toLowerCase() : '';
             const customModules = window.customModules ? window.customModules.map(m => m.toLowerCase()) : [];
@@ -368,7 +408,7 @@ const app = createApp({
                 navName === "fbashipmentinbound" ||
                 allowedModules.includes(navName) ||
                 navName === mainModule ||
-                customModules.includes(navName); // ✅ NEW check
+                customModules.includes(navName);
 
             logSession('Checking permissions:', {
                 requested: navName,
@@ -387,7 +427,7 @@ const app = createApp({
             }
         },
 
-        // A safer component update method
+        // A safer component update method - 🔴 ENHANCED: Better async handling
         safeComponentUpdate(componentName, originalNavName = null) {
             try {
                 // Record activity when switching components
@@ -397,21 +437,29 @@ const app = createApp({
                 const name = String(componentName).toLowerCase();
 
                 // Check if we've got a registered component with this name
-                /*
-                if (!this.$options.components[name]) {
-                    console.warn(`Component "${name}" not registered!`);
-                    return;
-                }
-                */
-
                 if (!this.$options.components[name]) {
                     if (asyncComponentMap[name]) {
                         logSession(`Loading async component: ${name}`);
+                        
+                        // Show loading indicator for async components
+                        this.currentComponent = 'loading'; // You might want to create a loading component
+                        
                         asyncComponentMap[name]().then(module => {
+                            logSession(`Successfully loaded async component: ${name}`);
                             this.$options.components[name] = module.default;
-                            this.safeComponentUpdate(name); // Try again after registering
+                            this.safeComponentUpdate(name, originalNavName); // Try again after registering
                         }).catch(err => {
                             console.error(`Failed to load async component "${name}":`, err);
+                            
+                            // Handle specific error cases
+                            if (err.message.includes('Printer component not found')) {
+                                alert(`Failed to load ${name} component. Please check:\n1. The file exists at resources/js/page/printer/printer.vue\n2. The Vite dev server is running\n3. The component is properly exported`);
+                            } else {
+                                alert(`Failed to load ${name} component. Please try again or check the console for details.`);
+                            }
+                            
+                            // Fallback to a safe component or stay on current
+                            logSession(`Staying on current component due to load failure: ${name}`);
                         });
                         return;
                     }
@@ -494,7 +542,8 @@ const app = createApp({
         fbmorder: FBMorders,
         notfound : Notfound,
         houseage :Houseage,
-        asinlist :ASINList
+        asinlist :ASINList,
+        printer: PrinterModule // 🔴 ADDED: Register printer component directly
     },
 });
 
@@ -536,6 +585,10 @@ app.mixin({
 
 // Mount the main app
 window.appInstance = app.mount("#app");
+
+// Expose Vue and createApp globally after mounting
+window.Vue = { createApp };
+window.createApp = createApp;
 
 // Expose component loading function globally
 window.loadContent = (module) => {
