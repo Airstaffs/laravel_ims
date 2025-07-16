@@ -332,6 +332,9 @@ Route::prefix('api/stockroom')->group(function () {
     Route::post('/process-items', [StockroomController::class, 'processItems']);
     Route::post('merge-items', [StockroomController::class, 'mergeItems']);
     Route::post('update-location', [StockroomController::class, 'updateLocation']);
+
+    // amazon items post
+    Route::post('post-items-to-amazon', [StockroomController::class, 'PostItemstoAmazon']);
 });
 
 // Routes for Unreceived scanner

@@ -832,6 +832,13 @@
                     >
                         <i class="fas fa-check"></i> Submit Process
                     </button>
+                                        <button
+                        class="btn-post-selected"
+                        @click="postItemstoAmzn"
+                        :disabled="!hasSelectedItems"
+                    >
+                        <i class="fas fa-print"></i> Post to Amazon
+                    </button>
                 </div>
             </div>
         </div>
