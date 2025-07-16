@@ -1,6 +1,7 @@
 import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./labeling.css";
+import Swal from "sweetalert2";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -683,6 +684,68 @@ export default {
         getLabel(index) {
             // Convert 0 => A, 1 => B, etc.
             return String.fromCharCode(65 + index);
+        },
+
+        async saveEditModal() {
+            this.loading = true;
+            try {
+                const payload = {
+                    ...this.item,
+                    _token: document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
+                };
+
+                const response = await axios.post(
+                    "/api/labeling/products",
+                    payload
+                );
+                const updated = response.data.product;
+
+                // Update item in list if exists, else add on top
+                const index = this.items.findIndex(
+                    (p) => p.ProductID === updated.ProductID
+                );
+                if (index !== -1) {
+                    this.items.splice(index, 1, updated);
+                } else {
+                    this.items.unshift(updated);
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Saved!",
+                    text:
+                        response.data.message ||
+                        "The product has been saved successfully.",
+                    confirmButtonText: "OK",
+                });
+
+                this.closeEditModal();
+                await this.fetchInventory(); // refresh your list/table
+            } catch (error) {
+                console.error("Save failed:", error);
+
+                let message =
+                    "An error occurred while saving. Please try again.";
+                if (error.response && error.response.data) {
+                    if (error.response.status === 422) {
+                        const errors = error.response.data.errors;
+                        message = Object.values(errors).flat().join("\n");
+                    } else if (error.response.data.message) {
+                        message = error.response.data.message;
+                    }
+                }
+
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text: message,
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.loading = false;
+            }
         },
     },
 

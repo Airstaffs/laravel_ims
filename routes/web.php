@@ -382,7 +382,9 @@ Route::prefix('api/returns')->group(function () {
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {
     Route::get('products', [LabelingController::class, 'index']);
+    Route::post('products', [LabelingController::class, 'store']);
 });
+
 Route::post('/api/labeling/move-to-validation', [LabelingController::class, 'moveToValidation']);
 Route::post('/api/labeling/move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
 Route::get('/test-labeling-controller', function () {
@@ -476,13 +478,13 @@ Route::prefix('api/asinlist')->group(function () {
 Route::prefix('api/printer')->middleware(['auth', 'web'])->group(function () {
     // Check if serial number meets print conditions
     Route::post('/check-serial', [PrinterController::class, 'checkSerial']);
-    
+
     // Print label for a product
     Route::post('/print-label', [PrinterController::class, 'printLabel']);
-    
+
     // Get printer status
     Route::get('/status', [PrinterController::class, 'getStatus']);
-    
+
     // Get print history for a serial number
     Route::post('/print-history', [PrinterController::class, 'getPrintHistory']);
 });
