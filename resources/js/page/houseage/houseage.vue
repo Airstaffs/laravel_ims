@@ -1178,6 +1178,20 @@
                                                     </option>
                                                 </select>
                                             </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Return Status:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.returnstatus"
+                                                    readonly
+                                                    disabled
+                                                />
+                                            </fieldset>
                                         </div>
                                     </div>
                                 </div>
