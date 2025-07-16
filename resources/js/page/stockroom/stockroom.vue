@@ -451,10 +451,21 @@
         <!-- Mobile Cards View -->
         <div class="mobile-view">
             <div class="mobile-cards">
+                <div v-if="loading" class="loading-spinner-mobile">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Loading...
+                </div>
                 <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
+                    No data found
+                </div>
+                <div
+                    class="mobile-card"
+                    v-else
                     v-for="(item, index) in sortedInventory"
                     :key="item.ASIN"
-                    class="mobile-card"
                 >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
@@ -820,6 +831,13 @@
                         :disabled="!isProcessFormValid"
                     >
                         <i class="fas fa-check"></i> Submit Process
+                    </button>
+                                        <button
+                        class="btn-post-selected"
+                        @click="postItemstoAmzn"
+                        :disabled="!hasSelectedItems"
+                    >
+                        <i class="fas fa-print"></i> Post to Amazon
                     </button>
                 </div>
             </div>

@@ -260,7 +260,7 @@ class ListingController extends Controller
 
         $companydetails = (array) $companydetails;
 
-        if ($action == 'get_rates') {
+        if ($action == 'fetch_listing_restrict') {
             $final_json_construct = [];
         }
 
@@ -299,7 +299,7 @@ class ListingController extends Controller
                 }
             }
         } else {
-            // Handle cases where 'restrictions' key is missing or not an array
+            // Handle cases where 'restrictions' key is missing or not an arrays
             $finalArray['success'] = false;
         }
 

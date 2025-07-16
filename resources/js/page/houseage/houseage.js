@@ -9,7 +9,6 @@ export default {
     data() {
         return {
             inventory: [],
-            loading: true,
             currentPage: 1,
             totalPages: 1,
             perPage: 10, // Default rows per page

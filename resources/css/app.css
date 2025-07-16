@@ -995,6 +995,9 @@ i#togglePassword {
 
 .main-module__container div {
     width: calc(100% / 3 - 10px);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .modal.image-modal,

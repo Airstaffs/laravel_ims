@@ -292,8 +292,19 @@
                 {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
             </button>
             <div class="mobile-cards">
+                <div v-if="loading" class="loading-spinner-mobile">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Loading...
+                </div>
+                <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
+                    No data found
+                </div>
                 <div
                     class="mobile-card"
+                    v-else
                     v-for="(item, index) in sortedInventory"
                     :key="item.id"
                 >

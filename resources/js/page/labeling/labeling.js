@@ -39,6 +39,15 @@ export default {
             confirmationMessage: "",
             confirmationActionType: "", // 'validation' or 'stockroom'
             currentItemForAction: null, // Store the item to be processed
+
+            showEditModal: false,
+            item: {
+                priorityrank: "",
+            },
+            items: [],
+            activeIndex: 0,
+            basePath: "/images/thumbnails/",
+            error: null,
         };
     },
     computed: {
@@ -61,6 +70,36 @@ export default {
                     ? String(valueA).localeCompare(String(valueB))
                     : String(valueB).localeCompare(String(valueA));
             });
+        },
+
+        imageList() {
+            return Object.keys(this.item)
+                .filter((key) => key.startsWith("img") && this.item[key])
+                .map((key) => this.item[key]);
+        },
+        activeImageUrl() {
+            return this.basePath + this.imageList[this.activeIndex];
+        },
+
+        serialKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^serialnumber[a-z]?$/.test(k)
+            );
+        },
+        trackingKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^trackingnumber\d*$/.test(k)
+            );
+        },
+        priorityRanks() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.priorityrank)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
         },
     },
     methods: {
@@ -593,6 +632,57 @@ export default {
 
             // Re-enable scrolling
             document.body.style.overflow = "auto";
+        },
+
+        async openEditModal(item) {
+            if (!item) return;
+
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
+            this.item = { ...(freshItem || item) };
+
+            console.log(this.item);
+
+            this.showEditModal = true;
+
+            document.body.style.overflow = "hidden";
+        },
+
+        closeEditModal() {
+            this.showEditModal = false;
+
+            setTimeout(() => {
+                document.body.style.overflow = "auto";
+            }, 300); // Match with your modal close animation
+        },
+
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImage;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImage;
+        },
+
+        autoResize() {
+            [
+                "productTextarea",
+                "descriptionarea",
+                "supplierNotesarea",
+                "employeeNotesarea",
+                "stickerNotesarea",
+            ].forEach((refName) => {
+                const el = this.$refs[refName];
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+
+        getLabel(index) {
+            // Convert 0 => A, 1 => B, etc.
+            return String.fromCharCode(65 + index);
         },
     },
 
