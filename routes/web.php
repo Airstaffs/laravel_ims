@@ -426,11 +426,7 @@ Route::prefix('api/notfound')->group(function () {
     Route::post('move-to-stockroom', [notfoundController::class, 'moveToStockroom']);
 });
 
-// Routes for Houseage Function 
-Route::prefix('api/houseage')->group(function () {
-    Route::get('products', [HouseageController::class, 'index']);
-    Route::post('products', [HouseageController::class, 'store']);
-});
+
 
 // Routes for ASIN List Function  
 Route::prefix('api/asinlist')->group(function () {
@@ -469,21 +465,29 @@ Route::prefix('api/asinlist')->group(function () {
 });
 
 
-// Printer API routes
-Route::prefix('api/printer')->middleware(['auth', 'web'])->group(function () {
-    // Check if serial number meets print conditions
-    Route::post('/check-serial', [PrinterController::class, 'checkSerial']);
-    
-    // Print label for a product
-    Route::post('/print-label', [PrinterController::class, 'printLabel']);
-    
-    // Get printer status
-    Route::get('/status', [PrinterController::class, 'getStatus']);
-    
-    // Get print history for a serial number
-    Route::post('/print-history', [PrinterController::class, 'getPrintHistory']);
+// Routes for Houseage Function 
+Route::prefix('api/houseage')->group(function () {
+    Route::get('products', [HouseageController::class, 'index']);
+    Route::post('products', [HouseageController::class, 'store']);
 });
 
+// Printer API routes 
+Route::prefix('api/printer')->group(function () {
+    // Check if serial number meets print conditions
+    Route::post('check-serial', [PrinterController::class, 'checkSerial']);
+    // Print label for a product
+    Route::post('print-label', [PrinterController::class, 'printLabel']);
+    // Get printer status
+    Route::get('status', [PrinterController::class, 'getStatus']);
+    // Get print history for a serial number
+    Route::post('print-history', [PrinterController::class, 'getPrintHistory']);
+    // Test printer connection
+    Route::get('test-connection', [PrinterController::class, 'testConnection']);
+    // Get printing statistics
+    Route::get('stats', [PrinterController::class, 'getStats']);  
+    // Test print functionality
+    Route::post('test-print', [PrinterController::class, 'testPrint']);
+});
 
 // Routes for FNSKU List Function  
 Route::get('/fnsku-list', [FnskuController::class, 'getFnskuList']);

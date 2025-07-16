@@ -22,6 +22,7 @@ class BasetablesController extends Controller
     protected $doneShippingTable;
     protected $capturedImagesTable;   // Added for image management
     protected $rpnStickerTable;   // Added for image management
+    
     /**
      * Constructor to set up company from the authenticated user
      */
@@ -77,9 +78,20 @@ class BasetablesController extends Controller
     {
         if (Auth::check()) {
             $user = Auth::user();
-            return $user->company ?? '';
+            $company = $user->company ?? '';
+            
+            // Log what we're getting from the user
+            Log::debug('User company data:', [
+                'user_id' => $user->id ?? 'unknown',
+                'company' => $company,
+                'user_attributes' => $user->getAttributes()
+            ]);
+            
+            return $company;
         }
         
+        // If no user is authenticated, return empty string
+        Log::warning('No authenticated user found when getting company');
         return '';
     }
     
@@ -91,8 +103,15 @@ class BasetablesController extends Controller
      */
     protected function getTableName($baseTable)
     {
-        $tableName = $this->tablePrefix . $baseTable . $this->company;
-        Log::debug('Generated table name: ' . $tableName . ' from base: ' . $baseTable);
+        // If company is empty, use tables without company suffix
+        if (empty($this->company)) {
+            $tableName = $this->tablePrefix . $baseTable;
+            Log::warning('Company is empty, using table name without suffix: ' . $tableName);
+        } else {
+            $tableName = $this->tablePrefix . $baseTable . $this->company;
+        }
+        
+        Log::debug('Generated table name: ' . $tableName . ' from base: ' . $baseTable . ' with company: ' . $this->company);
         return $tableName;
     }
     
