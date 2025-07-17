@@ -240,6 +240,7 @@
                                 :alt="item.ProductTitle || 'Product'"
                                 class="product-thumbnail clickable-image"
                                 @error="handleImageError($event)"
+                                @click="openImageModal(item)"
                             />
                             <div
                                 class="image-count-badge"
@@ -461,86 +462,106 @@
         <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
             <div class="modal-content">
-                <button class="close-button" @click="closeImageModal">
-                    &times;
-                </button>
-
-                <!-- Tabs for switching between regular and captured images -->
-                <div class="image-tabs">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2>{{ ProductTitle }}</h2>
+                    </div>
                     <button
-                        class="tab-button"
-                        :class="{ active: activeTab === 'regular' }"
-                        @click="switchTab('regular')"
-                        :disabled="regularImages.length === 0"
+                        class="btn btn-modal-close"
+                        @click="closeImageModal"
                     >
-                        Product Images ({{ regularImages.length }})
-                    </button>
-                    <button
-                        class="tab-button"
-                        :class="{ active: activeTab === 'captured' }"
-                        @click="switchTab('captured')"
-                        :disabled="capturedImages.length === 0"
-                    >
-                        Captured Images ({{ capturedImages.length }})
+                        &times;
                     </button>
                 </div>
 
-                <!-- Display message if no images in current category -->
-                <div
-                    v-if="currentImageSet.length === 0"
-                    class="no-images-message"
-                >
-                    No images available in this category
-                </div>
+                <div class="modal-body">
+                    <!-- Tabs for switching between regular and captured images -->
+                    <div class="image-tabs">
+                        <button
+                            class="tab-button"
+                            :class="{ active: activeTab === 'regular' }"
+                            @click="switchTab('regular')"
+                            :disabled="regularImages.length === 0"
+                        >
+                            <span>Product Images</span>
+                            <span class="badge img-badge">{{
+                                regularImages.length
+                            }}</span>
+                        </button>
+                        <button
+                            class="tab-button"
+                            :class="{ active: activeTab === 'captured' }"
+                            @click="switchTab('captured')"
+                            :disabled="capturedImages.length === 0"
+                        >
+                            <span>Captured Images</span>
+                            <span class="badge img-badge">{{
+                                capturedImages.length
+                            }}</span>
+                        </button>
+                    </div>
 
-                <!-- Main image display (only shown if we have images) -->
-                <div
-                    v-if="currentImageSet.length > 0"
-                    class="main-image-container"
-                >
-                    <button
-                        class="nav-button prev"
-                        @click="prevImage"
-                        v-if="currentImageSet.length > 1"
-                    >
-                        &lt;
-                    </button>
-                    <img
-                        :src="currentImageSet[currentImageIndex]"
-                        alt="Product Image"
-                        class="modal-main-image"
-                        @error="handleImageError"
-                    />
-                    <button
-                        class="nav-button next"
-                        @click="nextImage"
-                        v-if="currentImageSet.length > 1"
-                    >
-                        &gt;
-                    </button>
-                </div>
-
-                <div class="image-counter" v-if="currentImageSet.length > 0">
-                    {{ currentImageIndex + 1 }} / {{ currentImageSet.length }}
-                </div>
-
-                <!-- Thumbnails for the current image set -->
-                <div
-                    class="thumbnails-container"
-                    v-if="currentImageSet.length > 1"
-                >
+                    <!-- Display message if no images in current category -->
                     <div
-                        v-for="(image, index) in currentImageSet"
-                        :key="index"
-                        class="modal-thumbnail"
-                        :class="{ active: index === currentImageIndex }"
-                        @click="currentImageIndex = index"
+                        v-if="currentImageSet.length === 0"
+                        class="no-images-message"
                     >
+                        No images available in this category
+                    </div>
+
+                    <!-- Main image display (only shown if we have images) -->
+                    <div
+                        v-if="currentImageSet.length > 0"
+                        class="main-image-container"
+                    >
+                        <button
+                            class="nav-button prev"
+                            @click="prevImage"
+                            v-if="currentImageSet.length > 1"
+                        >
+                            <i class="bi bi-arrow-left-short"></i>
+                        </button>
                         <img
-                            :src="image"
-                            :alt="`Thumbnail ${index + 1}`"
+                            :src="currentImageSet[currentImageIndex]"
+                            alt="Product Image"
+                            class="modal-main-image"
                             @error="handleImageError"
                         />
+                        <button
+                            class="nav-button next"
+                            @click="nextImage"
+                            v-if="currentImageSet.length > 1"
+                        >
+                            <i class="bi bi-arrow-right-short"></i>
+                        </button>
+                    </div>
+
+                    <div
+                        class="image-counter"
+                        v-if="currentImageSet.length > 0"
+                    >
+                        {{ currentImageIndex + 1 }} /
+                        {{ currentImageSet.length }}
+                    </div>
+
+                    <!-- Thumbnails for the current image set -->
+                    <div
+                        class="thumbnails-container"
+                        v-if="currentImageSet.length > 1"
+                    >
+                        <div
+                            v-for="(image, index) in currentImageSet"
+                            :key="index"
+                            class="modal-thumbnail"
+                            :class="{ active: index === currentImageIndex }"
+                            @click="currentImageIndex = index"
+                        >
+                            <img
+                                :src="image"
+                                :alt="`Thumbnail ${index + 1}`"
+                                @error="handleImageError"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>

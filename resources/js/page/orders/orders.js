@@ -188,7 +188,7 @@ export default {
                     item[field].trim() !== ""
                 ) {
                     // Use the direct image field value as the path
-                    const imagePath = `/images/thumbnails/${item[field]}`;
+                    const imagePath = this.defaultImage;
                     this.modalImages.push(imagePath);
                 }
             });

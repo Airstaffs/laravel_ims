@@ -170,6 +170,7 @@ export default {
             this.regularImages = [];
             this.capturedImages = [];
             this.currentImageIndex = 0;
+            this.ProductTitle = item.ProductTitle;
 
             // First collect regular images (img1-img15)
             if (item.img1 && item.img1 !== "NULL" && item.img1.trim() !== "") {

@@ -1030,6 +1030,28 @@ i#togglePassword {
     padding: 20px;
 }
 
+.image-tabs {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.image-tabs .tab-button {
+    flex: 1;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.img-badge {
+    background: red;
+    border-radius: 50%;
+}
+
 .main-image-container {
     display: flex;
     justify-content: center;
