@@ -382,7 +382,9 @@ Route::prefix('api/returns')->group(function () {
 // Routes for Labeling Function 
 Route::prefix('api/labeling')->group(function () {
     Route::get('products', [LabelingController::class, 'index']);
+    Route::post('products', [LabelingController::class, 'store']);
 });
+
 Route::post('/api/labeling/move-to-validation', [LabelingController::class, 'moveToValidation']);
 Route::post('/api/labeling/move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
 Route::get('/test-labeling-controller', function () {
