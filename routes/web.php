@@ -474,7 +474,7 @@ Route::prefix('api/houseage')->group(function () {
     Route::post('products', [HouseageController::class, 'store']);
 });
 
-// Printer API routes 
+// Printer API routes  
 Route::prefix('api/printer')->group(function () {
     // Check if serial number meets print conditions
     Route::post('check-serial', [PrinterController::class, 'checkSerial']);
@@ -487,9 +487,12 @@ Route::prefix('api/printer')->group(function () {
     // Test printer connection
     Route::get('test-connection', [PrinterController::class, 'testConnection']);
     // Get printing statistics
-    Route::get('stats', [PrinterController::class, 'getStats']);  
+    Route::get('stats', [PrinterController::class, 'getStats']);
     // Test print functionality
     Route::post('test-print', [PrinterController::class, 'testPrint']);
+    
+    // Get all printers - FIXED: removed the extra /printer/
+    Route::get('get-printers', [PrinterController::class, 'getPrinters']);
 });
 
 // Routes for FNSKU List Function  

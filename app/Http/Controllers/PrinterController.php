@@ -21,23 +21,6 @@ class PrinterController extends BasetablesController
     }
 
     /**
-     * Get the correct FNSKU column name from the database
-     */
-    private function getFnskuColumnName()
-    {
-        $productColumns = DB::getSchemaBuilder()->getColumnListing($this->productTable);
-        $possibleFnskuColumns = ['FNSKUviewer', 'fnsku', 'FNSKU', 'fnsku_viewer', 'FnskuViewer'];
-        
-        foreach ($possibleFnskuColumns as $column) {
-            if (in_array($column, $productColumns)) {
-                return $column;
-            }
-        }
-        
-        return null; // No FNSKU column found
-    }
-
-    /**
      * Check if a serial number meets print conditions
      *
      * @param Request $request
@@ -52,106 +35,43 @@ class PrinterController extends BasetablesController
 
             $serialNumber = trim($request->serial_number);
             
-            // Get the correct FNSKU column name
-            $fnskuColumn = $this->getFnskuColumnName();
-            
-            if (!$fnskuColumn) {
-                Log::error('No FNSKU column found in product table');
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Database configuration error: FNSKU column not found',
-                    'meets_print_conditions' => false
-                ], 500);
-            }
-
-            // Build the query with the correct column name
-            $query = DB::table($this->productTable . ' as prod');
-            
-            // Add joins only if tables exist
-            if (DB::getSchemaBuilder()->hasTable($this->fnskuTable)) {
-                $query->leftJoin($this->fnskuTable . ' as fnsku', 'prod.' . $fnskuColumn, '=', 'fnsku.FNSKU');
-            }
-            
-            if (DB::getSchemaBuilder()->hasTable($this->asinTable)) {
-                $query->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN');
-            }
-            
-            // Get available columns for each table
-            $productColumns = DB::getSchemaBuilder()->getColumnListing($this->productTable);
-            $fnskuColumns = DB::getSchemaBuilder()->hasTable($this->fnskuTable) ? 
-                DB::getSchemaBuilder()->getColumnListing($this->fnskuTable) : [];
-            $asinColumns = DB::getSchemaBuilder()->hasTable($this->asinTable) ? 
-                DB::getSchemaBuilder()->getColumnListing($this->asinTable) : [];
-            
-            // Build select array with only existing columns
-            $selectColumns = [
-                'prod.ProductID',
-                'prod.rtcounter',
-                'prod.serialnumber',
-                'prod.' . $fnskuColumn . ' as FNSKUviewer'
-            ];
-            
-            // Add optional product columns if they exist
-            $optionalProductColumns = [
-                'serialnumberb', 'serialnumberc', 'serialnumberd', 'ProductModuleLoc',
-                'printCount', 'warehouselocation', 'notes', 'stickernote', 'basketnumber',
-                'priorityrank', 'returnstatus', 'validation_status'
-            ];
-            
-            foreach ($optionalProductColumns as $column) {
-                if (in_array($column, $productColumns)) {
-                    $selectColumns[] = 'prod.' . $column;
-                }
-            }
-            
-            // Add FNSKU table columns if they exist
-            if (in_array('grading', $fnskuColumns)) {
-                $selectColumns[] = 'fnsku.grading as fnsku_grading';
-            }
-            if (in_array('storename', $fnskuColumns)) {
-                $selectColumns[] = 'fnsku.storename as fnsku_storename';
-            }
-            if (in_array('FNSKU', $fnskuColumns)) {
-                $selectColumns[] = 'fnsku.FNSKU';
-            }
-            
-            // Add ASIN table columns if they exist
-            if (in_array('ASIN', $asinColumns)) {
-                $selectColumns[] = 'asin.ASIN as ASINviewer';
-            }
-            if (in_array('internal', $asinColumns)) {
-                $selectColumns[] = 'asin.internal as AStitle';
-            }
-            if (in_array('asinStatus', $asinColumns)) {
-                $selectColumns[] = 'asin.asinStatus';
-            }
-            
-            $query->select($selectColumns);
-            
-            // Add where conditions for serial number search
-            $query->where(function ($q) use ($serialNumber, $productColumns) {
-                $q->where('prod.serialnumber', $serialNumber);
-                
-                if (in_array('serialnumberb', $productColumns)) {
-                    $q->orWhere('prod.serialnumberb', $serialNumber);
-                }
-                if (in_array('serialnumberc', $productColumns)) {
-                    $q->orWhere('prod.serialnumberc', $serialNumber);
-                }
-                if (in_array('serialnumberd', $productColumns)) {
-                    $q->orWhere('prod.serialnumberd', $serialNumber);
-                }
-            });
-            
-            // Add status conditions if columns exist
-            if (in_array('returnstatus', $productColumns)) {
-                $query->where('prod.returnstatus', 'Not Returned');
-            }
-            if (in_array('ProductModuleLoc', $productColumns)) {
-                $query->where('prod.ProductModuleLoc', '!=', 'Migrated');
-            }
-            
-            $product = $query->first();
+            // Search for the product by serial number with proper joins to get all needed data
+            $product = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.ProductID',
+                    'prod.rtcounter',
+                    'prod.serialnumber',
+                    'prod.serialnumberb',
+                    'prod.serialnumberc',
+                    'prod.serialnumberd',
+                    'prod.ProductModuleLoc',
+                    'prod.printCount',
+                    'prod.warehouselocation',
+                    'prod.notes',
+                    'prod.stickernote',
+                    'prod.basketnumber',
+                    'prod.priorityrank',
+                    'prod.returnstatus',
+                    'prod.validation_status',
+                    'prod.FNSKUviewer', // FIX: Add this field back - it was missing in paste-2.txt
+                    'fnsku.FNSKU',
+                    'fnsku.grading as fnsku_grading',
+                    'fnsku.storename as fnsku_storename',
+                    'asin.ASIN as ASINviewer',
+                    'asin.internal as AStitle',
+                    'asin.asinStatus'
+                ])
+                ->where(function ($query) use ($serialNumber) {
+                    $query->where('prod.serialnumber', $serialNumber)
+                          ->orWhere('prod.serialnumberb', $serialNumber)
+                          ->orWhere('prod.serialnumberc', $serialNumber)
+                          ->orWhere('prod.serialnumberd', $serialNumber);
+                })
+                ->where('prod.returnstatus', 'Not Returned')
+                ->where('prod.ProductModuleLoc', '!=', 'Migrated')
+                ->first();
 
             if (!$product) {
                 return response()->json([
@@ -172,24 +92,24 @@ class PrinterController extends BasetablesController
                     'product_data' => [
                         'ProductID' => $product->ProductID,
                         'rtcounter' => $product->rtcounter,
-                        'FNSKUviewer' => $product->FNSKUviewer ?? null,
-                        'ASINviewer' => $product->ASINviewer ?? null,
-                        'AStitle' => $product->AStitle ?? null,
-                        'fnsku_grading' => $product->fnsku_grading ?? null,
-                        'fnsku_storename' => $product->fnsku_storename ?? null,
+                        'FNSKUviewer' => $product->FNSKUviewer, // This should now work
+                        'ASINviewer' => $product->ASINviewer,
+                        'AStitle' => $product->AStitle,
+                        'fnsku_grading' => $product->fnsku_grading,
+                        'fnsku_storename' => $product->fnsku_storename,
                         'serialnumber' => $product->serialnumber,
-                        'serialnumberb' => $product->serialnumberb ?? null,
-                        'serialnumberc' => $product->serialnumberc ?? null,
-                        'serialnumberd' => $product->serialnumberd ?? null,
-                        'ProductModuleLoc' => $product->ProductModuleLoc ?? null,
+                        'serialnumberb' => $product->serialnumberb,
+                        'serialnumberc' => $product->serialnumberc,
+                        'serialnumberd' => $product->serialnumberd,
+                        'ProductModuleLoc' => $product->ProductModuleLoc,
                         'printCount' => $product->printCount ?? 0,
-                        'warehouselocation' => $product->warehouselocation ?? null,
-                        'notes' => $product->notes ?? null,
-                        'stickernote' => $product->stickernote ?? null,
-                        'basketnumber' => $product->basketnumber ?? null,
-                        'priorityrank' => $product->priorityrank ?? null,
-                        'validation_status' => $product->validation_status ?? null,
-                        'asinStatus' => $product->asinStatus ?? null,
+                        'warehouselocation' => $product->warehouselocation,
+                        'notes' => $product->notes,
+                        'stickernote' => $product->stickernote,
+                        'basketnumber' => $product->basketnumber,
+                        'priorityrank' => $product->priorityrank,
+                        'validation_status' => $product->validation_status,
+                        'asinStatus' => $product->asinStatus,
                     ]
                 ]);
             } else {
@@ -200,11 +120,11 @@ class PrinterController extends BasetablesController
                     'product_data' => [
                         'ProductID' => $product->ProductID,
                         'rtcounter' => $product->rtcounter,
-                        'ProductModuleLoc' => $product->ProductModuleLoc ?? null,
+                        'ProductModuleLoc' => $product->ProductModuleLoc,
                         'current_status' => $conditions['current_status'],
                         'AStitle' => $product->AStitle ?? 'Unknown Title',
-                        'ASINviewer' => $product->ASINviewer ?? null,
-                        'FNSKUviewer' => $product->FNSKUviewer ?? null
+                        'ASINviewer' => $product->ASINviewer,
+                        'FNSKUviewer' => $product->FNSKUviewer // This should now work
                     ]
                 ]);
             }
@@ -224,162 +144,153 @@ class PrinterController extends BasetablesController
         }
     }
 
-    /**
-     * Print label for a product
-     *
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function printLabel(Request $request)
-    {
-        try {
-            // Validate request
-            $request->validate([
-                'serial_number' => 'required|string',
-                'print_data' => 'required|array'
+  /**
+ * Print label for a product
+ *
+ * @param Request $request
+ * @return \Illuminate\Http\JsonResponse
+ */
+public function printLabel(Request $request)
+{
+    try {
+        // Validate request
+        $request->validate([
+            'serial_number' => 'required|string',
+            'printer_id' => 'required|integer',
+            'print_data' => 'required|array'
+        ]);
+
+        $serialNumber = trim($request->serial_number);
+        $printerId = $request->printer_id;
+        $printData = $request->print_data;
+        
+        // Get selected printer info
+        $selectedPrinter = DB::table('tblprinters')
+            ->where('printerid', $printerId)
+            ->first();
+
+            // Add this debug logging:
+            Log::info('Selected printer details:', [
+                'printer_id' => $printerId,
+                'printer_data' => $selectedPrinter,
+                'printer_ip' => $selectedPrinter->printerip ?? 'NOT FOUND'
             ]);
-
-            $serialNumber = trim($request->serial_number);
-            $printData = $request->print_data;
             
-            // Get username safely
-            $user = Auth::user();
-            $username = $user ? ($user->username ?? $user->name ?? 'Unknown') : 'System';
-
-            // Get the ProductID from the print data
-            $productId = $printData['product_data']['ProductID'] ?? null;
-            
-            if (!$productId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Product ID not found in print data'
-                ], 400);
-            }
-
-            // Get the correct FNSKU column name
-            $fnskuColumn = $this->getFnskuColumnName();
-            
-            if (!$fnskuColumn) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Database configuration error: FNSKU column not found'
-                ], 500);
-            }
-
-            // Double-check the product still exists and meets conditions
-            $query = DB::table($this->productTable . ' as prod');
-            
-            // Add joins only if tables exist
-            if (DB::getSchemaBuilder()->hasTable($this->fnskuTable)) {
-                $query->leftJoin($this->fnskuTable . ' as fnsku', 'prod.' . $fnskuColumn, '=', 'fnsku.FNSKU');
-            }
-            
-            if (DB::getSchemaBuilder()->hasTable($this->asinTable)) {
-                $query->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN');
-            }
-            
-            // Get available columns
-            $productColumns = DB::getSchemaBuilder()->getColumnListing($this->productTable);
-            $fnskuColumns = DB::getSchemaBuilder()->hasTable($this->fnskuTable) ? 
-                DB::getSchemaBuilder()->getColumnListing($this->fnskuTable) : [];
-            $asinColumns = DB::getSchemaBuilder()->hasTable($this->asinTable) ? 
-                DB::getSchemaBuilder()->getColumnListing($this->asinTable) : [];
-            
-            // Build select array
-            $selectColumns = [
-                'prod.ProductID',
-                'prod.rtcounter',
-                'prod.' . $fnskuColumn . ' as FNSKUviewer',
-                'prod.serialnumber'
-            ];
-            
-            // Add optional columns
-            $optionalColumns = [
-                'serialnumberb', 'serialnumberc', 'serialnumberd', 'ProductModuleLoc',
-                'printCount', 'warehouselocation', 'notes', 'stickernote', 'basketnumber',
-                'priorityrank', 'returnstatus', 'validation_status'
-            ];
-            
-            foreach ($optionalColumns as $column) {
-                if (in_array($column, $productColumns)) {
-                    $selectColumns[] = 'prod.' . $column;
-                }
-            }
-            
-            // Add FNSKU table columns if they exist
-            if (in_array('grading', $fnskuColumns)) {
-                $selectColumns[] = 'fnsku.grading as fnsku_grading';
-            }
-            if (in_array('storename', $fnskuColumns)) {
-                $selectColumns[] = 'fnsku.storename as fnsku_storename';
-            }
-            
-            // Add ASIN table columns if they exist
-            if (in_array('ASIN', $asinColumns)) {
-                $selectColumns[] = 'asin.ASIN as ASINviewer';
-            }
-            if (in_array('internal', $asinColumns)) {
-                $selectColumns[] = 'asin.internal as AStitle';
-            }
-            if (in_array('asinStatus', $asinColumns)) {
-                $selectColumns[] = 'asin.asinStatus';
-            }
-            
-            $product = $query->select($selectColumns)
-                ->where('prod.ProductID', $productId)
-                ->first();
-
-            if (!$product) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Product not found or status changed'
-                ], 404);
-            }
-
-            // Check conditions again before printing
-            $conditions = $this->checkPrintConditions($product);
-            
-            if (!$conditions['meets_conditions']) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Product no longer meets print conditions: ' . $conditions['message']
-                ], 400);
-            }
-
-            // Use the PrintLabelService to print the label
-            $printResult = $this->printLabelService->printLabel($productId, $username);
-
-            if ($printResult['status'] === 'success') {
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Label printed successfully',
-                    'serial_number' => $serialNumber,
-                    'print_count' => ($product->printCount ?? 0) + 1,
-                    'product_title' => $product->AStitle ?? 'Unknown Title',
-                    'asin' => $product->ASINviewer ?? null,
-                    'fnsku' => $product->FNSKUviewer ?? null
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => $printResult['message']
-                ], 500);
-            }
-
-        } catch (Exception $e) {
-            Log::error('Error printing label:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'serial_number' => $request->serial_number ?? 'unknown',
-                'request_data' => $request->all()
-            ]);
-
+        if (!$selectedPrinter) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error printing label: ' . $e->getMessage()
+                'message' => 'Selected printer not found'
+            ], 404);
+        }
+        
+        // Get username safely
+        $user = Auth::user();
+        $username = $user ? ($user->username ?? $user->name ?? 'Unknown') : 'System';
+
+        // Get the ProductID from the print data
+        $productId = $printData['product_data']['ProductID'] ?? null;
+        
+        if (!$productId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product ID not found in print data'
+            ], 400);
+        }
+
+        // Double-check the product still exists and meets conditions
+        $product = DB::table($this->productTable . ' as prod')
+            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+            ->select([
+                'prod.ProductID',
+                'prod.rtcounter',
+                'prod.serialnumber',
+                'prod.serialnumberb',
+                'prod.serialnumberc',
+                'prod.serialnumberd',
+                'prod.ProductModuleLoc',
+                'prod.printCount',
+                'prod.warehouselocation',
+                'prod.notes',
+                'prod.stickernote',
+                'prod.basketnumber',
+                'prod.priorityrank',
+                'prod.returnstatus',
+                'prod.validation_status',
+                'prod.FNSKUviewer',
+                'fnsku.FNSKU',
+                'fnsku.grading as fnsku_grading',
+                'fnsku.storename as fnsku_storename',
+                'asin.ASIN as ASINviewer',
+                'asin.internal as AStitle',
+                'asin.asinStatus'
+            ])
+            ->where('prod.ProductID', $productId)
+            ->where('prod.returnstatus', 'Not Returned')
+            ->where('prod.ProductModuleLoc', '!=', 'Migrated')
+            ->first();
+
+        if (!$product) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found or status changed'
+            ], 404);
+        }
+
+        // Check conditions again before printing
+        $conditions = $this->checkPrintConditions($product);
+        
+        if (!$conditions['meets_conditions']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Product no longer meets print conditions: ' . $conditions['message']
+            ], 400);
+        }
+
+        // Use the PrintLabelService to print the label with selected printer
+        $printResult = $this->printLabelService->printLabel($productId, $username, $selectedPrinter);
+
+        // Check if the print service returned a successful result
+        if ($printResult['status'] === 'success') {
+            return response()->json([
+                'success' => true,
+                'message' => 'Label printed successfully to ' . $selectedPrinter->printername,
+                'serial_number' => $serialNumber,
+                'printer_name' => $selectedPrinter->printername,
+                'print_count' => ($product->printCount ?? 0) + 1,
+                'product_title' => $product->AStitle ?? 'Unknown Title',
+                'asin' => $product->ASINviewer,
+                'fnsku' => $product->FNSKUviewer,
+                'product_data' => [
+                    'ProductID' => $product->ProductID,
+                    'rtcounter' => $product->rtcounter,
+                    'ProductModuleLoc' => $product->ProductModuleLoc,
+                    'current_status' => $conditions['current_status'],
+                    'printCount' => ($product->printCount ?? 0) + 1
+                ]
+            ], 200);
+        } else {
+            // Print service failed
+            return response()->json([
+                'success' => false,
+                'message' => 'Print failed: ' . ($printResult['message'] ?? 'Unknown error')
             ], 500);
         }
+
+    } catch (Exception $e) {
+        Log::error('Error printing label:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'serial_number' => $request->serial_number ?? 'unknown',
+            'request_data' => $request->all()
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Error printing label: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     /**
      * Check if a product meets the conditions for printing
@@ -401,7 +312,7 @@ class PrinterController extends BasetablesController
                 'Labeling',
             ];
             
-            if (isset($product->ProductModuleLoc) && !in_array($product->ProductModuleLoc, $validLocations)) {
+            if (!in_array($product->ProductModuleLoc, $validLocations)) {
                 return [
                     'meets_conditions' => false,
                     'message' => 'Item is not in a valid location for printing. Current location: ' . $product->ProductModuleLoc . '. Valid locations: ' . implode(', ', $validLocations),
@@ -419,7 +330,7 @@ class PrinterController extends BasetablesController
             }
 
             // 3. Check if item is migrated
-            if (isset($product->ProductModuleLoc) && $product->ProductModuleLoc === 'Migrated') {
+            if ($product->ProductModuleLoc === 'Migrated') {
                 return [
                     'meets_conditions' => false,
                     'message' => 'Cannot print label for migrated items',
@@ -428,7 +339,11 @@ class PrinterController extends BasetablesController
             }
 
             // 4. Check if required FNSKU or ASIN information is present
-            if (empty($product->FNSKUviewer) && empty($product->ASINviewer)) {
+            // FIX: Use the correct field names that are selected in the query
+            $fnskuValue = $product->FNSKUviewer ?? null;
+            $asinValue = $product->ASINviewer ?? null;
+            
+            if (empty($fnskuValue) && empty($asinValue)) {
                 return [
                     'meets_conditions' => false,
                     'message' => 'Item missing required FNSKU or ASIN information for printing',
@@ -446,8 +361,8 @@ class PrinterController extends BasetablesController
                 ];
             }
 
-            // 6. Check if grading is complete (optional check)
-            if (isset($product->fnsku_grading) && empty($product->fnsku_grading)) {
+            // 6. Check if grading is complete
+            if (empty($product->fnsku_grading)) {
                 return [
                     'meets_conditions' => false,
                     'message' => 'Item grading is not complete - required for label printing',
@@ -465,7 +380,7 @@ class PrinterController extends BasetablesController
             }
 
             // 8. Check validation status for certain modules
-            if (isset($product->ProductModuleLoc) && $product->ProductModuleLoc === 'Validation' && 
+            if ($product->ProductModuleLoc === 'Validation' && 
                 isset($product->validation_status) && 
                 $product->validation_status !== 'validated') {
                 return [
@@ -525,8 +440,6 @@ class PrinterController extends BasetablesController
         }
     }
 
-
-
     /**
      * Test printer connection
      *
@@ -583,8 +496,6 @@ class PrinterController extends BasetablesController
         }
     }
 
-
-
     /**
      * Add test endpoint to verify printer functionality
      *
@@ -629,7 +540,7 @@ class PrinterController extends BasetablesController
         try {
             $serialNumber = $request->input('serial_number', 'test123');
             
-            // Check table existence
+            // First, let's check if the tables exist and what columns they have
             $productTableExists = DB::getSchemaBuilder()->hasTable($this->productTable);
             $fnskuTableExists = DB::getSchemaBuilder()->hasTable($this->fnskuTable);
             $asinTableExists = DB::getSchemaBuilder()->hasTable($this->asinTable);
@@ -661,9 +572,6 @@ class PrinterController extends BasetablesController
                 $debug['asin_columns'] = DB::getSchemaBuilder()->getColumnListing($this->asinTable);
             }
             
-            // Test the FNSKU column detection
-            $debug['fnsku_column_detected'] = $this->getFnskuColumnName();
-            
             // Test a simple query on the product table
             if ($productTableExists) {
                 try {
@@ -678,8 +586,70 @@ class PrinterController extends BasetablesController
                         
                     $debug['sample_product'] = $sampleProduct;
                     
+                    // Test the complex query with a known serial or just the first product
+                    if ($sampleProduct) {
+                        $testSerial = $sampleProduct->serialnumber ?? $serialNumber;
+                        
+                        $testQuery = DB::table($this->productTable . ' as prod')
+                            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+                            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                            ->select([
+                                'prod.ProductID',
+                                'prod.rtcounter',
+                                'prod.serialnumber',
+                                'prod.serialnumberb',
+                                'prod.serialnumberc',
+                                'prod.serialnumberd',
+                                'prod.ProductModuleLoc',
+                                'prod.printCount',
+                                'prod.warehouselocation',
+                                'prod.notes',
+                                'prod.stickernote',
+                                'prod.basketnumber',
+                                'prod.priorityrank',
+                                'prod.returnstatus',
+                                'prod.FNSKUviewer',
+                                'prod.validation_status',
+                                'fnsku.grading as fnsku_grading',
+                                'fnsku.storename as fnsku_storename',
+                                'asin.ASIN as ASINviewer',
+                                'asin.internal as AStitle',
+                                'asin.asinStatus'
+                            ])
+                            ->where('prod.serialnumber', $testSerial)
+                            ->first();
+                            
+                        $debug['test_query_result'] = $testQuery;
+                        $debug['test_serial'] = $testSerial;
+                    }
+                    
                 } catch (Exception $e) {
                     $debug['product_query_error'] = $e->getMessage();
+                }
+            }
+            
+            // Test connection to each table individually
+            foreach (['product', 'fnsku', 'asin'] as $tableType) {
+                $tableName = $this->{$tableType . 'Table'};
+                try {
+                    if (DB::getSchemaBuilder()->hasTable($tableName)) {
+                        $count = DB::table($tableName)->count();
+                        $debug[$tableType . '_table_test'] = [
+                            'success' => true,
+                            'count' => $count,
+                            'message' => 'Table accessible'
+                        ];
+                    } else {
+                        $debug[$tableType . '_table_test'] = [
+                            'success' => false,
+                            'message' => 'Table does not exist'
+                        ];
+                    }
+                } catch (Exception $e) {
+                    $debug[$tableType . '_table_test'] = [
+                        'success' => false,
+                        'error' => $e->getMessage()
+                    ];
                 }
             }
             
@@ -693,6 +663,29 @@ class PrinterController extends BasetablesController
                 'success' => false,
                 'message' => 'Debug error: ' . $e->getMessage(),
                 'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    }
+
+        /**
+     * Get all available printers
+     */
+    public function getPrinters()
+    {
+        try {
+            $printers = DB::table('tblprinters')
+                ->select('printerid', 'printername')
+                ->orderBy('printername')
+                ->get();
+            
+            return response()->json([
+                'success' => true,
+                'printers' => $printers
+            ]);
+        } catch (Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch printers: ' . $e->getMessage()
             ], 500);
         }
     }
