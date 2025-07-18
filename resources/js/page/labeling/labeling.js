@@ -165,9 +165,6 @@ export default {
             this.ProductTitle = item.ProductTitle;
             const companyFolder = item.company || "Airstaffs";
 
-            console.log(this.regularImages);
-            console.log(this.capturedImages);
-
             // Load regular images (img1 - img15)
             for (let i = 1; i <= 15; i++) {
                 const fieldName = `img${i}`;
