@@ -545,28 +545,21 @@ function getMerchantIDorSID($store)
 
 function sheesh_fetchCompanyDetails()
 {
-    global $Connect;
-    $stmt = $Connect->query("SELECT * FROM tblcompanydetails WHERE id = 1 LIMIT 1");
-    return $stmt->fetch_assoc() ?: null;
+    $row = DB::table('tblcompanydetails')->where('id', 1)->first();
+    return $row ? (array) $row : null;
 }
 
 function sheesh_fetchtblstores($storename)
 {
-    global $Connect;
-    $stmt = $Connect->prepare("SELECT * FROM tblstores WHERE storename = ? LIMIT 1");
-    $stmt->bind_param("s", $storename);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    return $result->fetch_assoc() ?: null;
+    $row = DB::table('tblstores')
+        ->where('storename', $storename)
+        ->first();
+    return $row ? (array) $row : null;
 }
 
 function fetchallstores()
 {
-    global $Connect;
-    $stmt = $Connect->prepare("SELECT * FROM tblstores");
-    $stmt->execute();
-    $result = $stmt->get_result();
-    return $result->fetch_all(MYSQLI_ASSOC); // returns array of all rows
+    return DB::table('tblstores')->get()->map(fn($row) => (array) $row)->toArray();
 }
 
 function buildQueryString_Sheesh($nextToken = null, $customParams = [])
