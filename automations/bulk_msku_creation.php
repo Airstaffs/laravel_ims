@@ -194,7 +194,7 @@ function fetch_listing_product_type($store, $searchedAsin, $destinationMarketpla
         'asin' => $searchedAsin,
     ];
 
-    $credentials = AWSCredentials($store);
+    $credentials = aws_sheesh_credentials($store);
     if (!$credentials) {
         echo json_encode(['error' => "No credentials for store $store"]) . "<br>";
         return;
@@ -270,7 +270,7 @@ function fetch_listing_retrict($store, $searchedAsin, $destinationMarketplace = 
         'asin' => $searchedAsin,
     ];
 
-    $credentials = AWSCredentials($store);
+    $credentials = aws_sheesh_credentials($store);
     if (!$credentials) {
         echo json_encode(['error' => "No credentials for store $store"]) . "<br>";
         return;
@@ -346,7 +346,7 @@ function Create_feed_document_passing_json($store, $searchedAsin, $destinationMa
         // 'asin' => $searchedAsin,
     ];
 
-    $credentials = AWSCredentials($store);
+    $credentials = aws_sheesh_credentials($store);
     if (!$credentials) {
         echo json_encode(['error' => "No credentials for store $store"]) . "<br>";
         return;
@@ -433,7 +433,7 @@ function create_feed_from_document($store, $feedDocumentId)
     $path = '/feeds/2021-06-30/feeds';
     $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
 
-    $credentials = AWSCredentials($store);
+    $credentials = aws_sheesh_credentials($store);
     $accessToken = fetchAccessToken($credentials, false);
 
     $payload = [
@@ -472,7 +472,7 @@ function create_feed_from_document($store, $feedDocumentId)
 }
 
 // ______ Utility Functions ______
-function AWSCredentials($store)
+function aws_sheesh_credentials($store)
 {
     global $Connect;
     $stmt = $Connect->prepare("SELECT * FROM tblstores WHERE storename = ? LIMIT 1");
