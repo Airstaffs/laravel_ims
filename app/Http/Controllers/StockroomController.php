@@ -1285,6 +1285,8 @@ class StockroomController extends BasetablesController
             ]);
         }
 
+
+
         $products = DB::table('tblproduct')
             ->whereIn('ProductID', $selectedItems)
             ->get();
@@ -1317,6 +1319,8 @@ class StockroomController extends BasetablesController
             }
         }
 
+        $this->msku_post_to_amazon($readyToPost);
+
         return response()->json([
             'success' => true,
             'message' => 'Check complete.',
@@ -1324,5 +1328,46 @@ class StockroomController extends BasetablesController
             'already_posted' => $alreadyPosted,
             'invalid' => $invalid // Optional
         ]);
+    }
+
+    private function mskuPostToAmazon(array $items = [])
+    {
+        require_once base_path('automations/bulk_msku_creation.php');
+
+        // Step 1: Get the oldest ASIN to process
+        $row = DB::table('tblfnsku')
+            ->where('amazon_status', 'Not Existed')
+            ->orderBy('insert_date', 'asc')
+            ->first();
+
+        if (!$row) {
+            echo "No ASINs to process.<br>";
+            return;
+        }
+
+        $filterAsin = $row->ASIN;
+        $filterStore = $row->storename;
+        $filterCondition = $row->grading;
+        $amznCondition = normalize_db_condition($filterCondition);
+
+        // Example of fetching matching MSKUs for this ASIN (adjust table name and logic if needed)
+        $mskuResult = DB::table('your_msku_table') // replace with actual table
+            ->where('ASIN', $filterAsin)
+            ->where('storename', $filterStore)
+            ->get();
+
+        $mskus = [];
+
+        foreach ($mskuResult as $mskuRow) {
+            $condition = strtolower(str_replace(' ', '_', $mskuRow->Condition ?? 'new_new'));
+            $mskus[] = [
+                'sku' => $mskuRow->MSKU,
+                'asin' => $filterAsin,
+                'condition' => $condition,
+                'storename' => $mskuRow->storename,
+            ];
+        }
+
+        // Continue your processing logic (e.g., pass $mskus to bulk_msku_creation.php or SP-API)
     }
 }
