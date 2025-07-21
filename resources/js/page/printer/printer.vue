@@ -295,18 +295,18 @@ export default {
         
         // Use the existing API endpoint and include printer info
        const response = await fetch('/api/printer/print-label', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-  },
-  body: JSON.stringify({
-    serial_number: this.serialNumber,
-    printer_id: this.selectedPrinter,
-    printer_name: printerName,
-    print_data: data
-  })
-});
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+          },
+          body: JSON.stringify({
+            serial_number: this.serialNumber,
+            printer_id: this.selectedPrinter,
+            printer_name: printerName,
+            print_data: data
+          })
+        });
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
