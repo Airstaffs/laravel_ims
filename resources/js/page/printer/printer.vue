@@ -17,6 +17,29 @@
       <!-- Input fields slot -->
       <template #input-fields>
         <div class="printer-input-section">
+          <!-- Printer Selection Dropdown -->
+          <div class="input-group">
+            <label for="printerSelect">Select Printer</label>
+            <select 
+              id="printerSelect"
+              v-model="selectedPrinter"
+              @change="onPrinterChange"
+              :disabled="isProcessing || loadingPrinters"
+              class="printer-select"
+            >
+              <option :value="null" disabled>
+                {{ loadingPrinters ? 'Loading printers...' : 'Choose a printer' }}
+              </option>
+              <option 
+                v-for="printer in printers" 
+                :key="printer.printerid" 
+                :value="parseInt(printer.printerid)"
+              >
+                {{ printer.printername }}
+              </option>
+            </select>
+          </div>
+          
           <div class="input-group">
             <label for="printerSerial">Serial Number</label>
             <input 
@@ -26,7 +49,7 @@
               placeholder="Scan or enter serial number"
               @keyup.enter="processPrintScan"
               @input="onSerialInput"
-              :disabled="isProcessing"
+              :disabled="isProcessing || !selectedPrinter"
               ref="serialInput"
             >
           </div>
@@ -36,7 +59,7 @@
             v-if="isManualMode" 
             @click="processPrintScan" 
             class="submit-button"
-            :disabled="!serialNumber || isProcessing"
+            :disabled="!serialNumber || isProcessing || !selectedPrinter"
           >
             <i class="fas fa-print"></i> Print Label
           </button>
@@ -56,19 +79,105 @@ export default {
   components: {
     ScannerComponent
   },
+  computed: {
+    selectedPrinterName() {
+      if (!this.selectedPrinter) return '';
+      const printer = this.printers.find(p => p.printerid == this.selectedPrinter);
+      return printer ? printer.printername : '';
+    }
+  },
   emits: ['close-modal'], // Declare the emit for Vue 3
   data() {
     return {
       serialNumber: '',
       isProcessing: false,
-      isManualMode: false
+      isManualMode: false,
+      selectedPrinter: null, // Changed from empty string to null
+      printers: [],
+      loadingPrinters: false
     };
   },
   mounted() {
-    // Auto-open the scanner when component mounts
-    this.openPrinterScanner();
+    // Load printers first, then open scanner
+    this.loadPrinters().then(() => {
+      this.openPrinterScanner();
+    });
   },
   methods: {
+    async loadPrinters() {
+      this.loadingPrinters = true;
+      try {
+        const response = await fetch('/api/printer/get-printers', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Response error:', errorText);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          const responseText = await response.text();
+          console.error('Non-JSON response:', responseText);
+          throw new Error('Server returned non-JSON response');
+        }
+        
+        const data = await response.json();
+        console.log('Raw API response:', data); // Debug log
+        
+        if (data.success) {
+          this.printers = data.printers || [];
+          console.log('Loaded printers:', this.printers); // Debug log
+          console.log('First printer structure:', this.printers[0]); // Debug log
+          
+          // Load saved printer selection
+          this.loadSavedPrinter();
+        } else {
+          console.error('Failed to load printers:', data.message);
+          this.showError('Failed to load printers: ' + data.message);
+        }
+        
+      } catch (error) {
+        console.error('Error loading printers:', error);
+        this.showError('Error loading printers: ' + error.message);
+      } finally {
+        this.loadingPrinters = false;
+      }
+    },
+    
+    loadSavedPrinter() {
+      // Load saved printer from localStorage
+      const savedPrinter = localStorage.getItem('selectedPrinter');
+      if (savedPrinter && this.printers.find(p => p.printerid == savedPrinter)) {
+        // Convert to number to match option values
+        this.selectedPrinter = parseInt(savedPrinter);
+        console.log('Loaded saved printer:', this.selectedPrinter);
+      }
+    },
+    
+    onPrinterChange() {
+      // Save selected printer to localStorage
+      if (this.selectedPrinter) {
+        localStorage.setItem('selectedPrinter', this.selectedPrinter.toString());
+        
+        // Get printer name for display
+        const selectedPrinterData = this.printers.find(p => p.printerid == this.selectedPrinter);
+        console.log('Printer selected:', {
+          id: this.selectedPrinter,
+          name: selectedPrinterData ? selectedPrinterData.printername : 'Unknown'
+        });
+        
+        // Focus on serial input after printer selection
+        this.focusInput();
+      }
+    },
+    
     openPrinterScanner() {
       // Open the scanner modal
       if (this.$refs.scannerComponent) {
@@ -94,7 +203,7 @@ export default {
     
     onSerialInput() {
       // Auto-process if in auto mode and serial looks complete
-      if (!this.isManualMode && this.serialNumber.length >= 8) {
+      if (!this.isManualMode && this.serialNumber.length >= 8 && this.selectedPrinter) {
         this.processPrintScan();
       }
     },
@@ -102,6 +211,11 @@ export default {
     async processPrintScan() {
       if (!this.serialNumber.trim()) {
         this.showError('Please enter a serial number');
+        return;
+      }
+      
+      if (!this.selectedPrinter) {
+        this.showError('Please select a printer first');
         return;
       }
       
@@ -175,18 +289,24 @@ export default {
     
     async printLabel(data) {
       try {
-        // Use the new API endpoint
-        const response = await fetch('/api/printer/print-label', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-          },
-          body: JSON.stringify({
-            serial_number: this.serialNumber,
-            print_data: data
-          })
-        });
+        // Get selected printer info
+        const selectedPrinterData = this.printers.find(p => p.printerid == this.selectedPrinter);
+        const printerName = selectedPrinterData ? selectedPrinterData.printername : 'Unknown Printer';
+        
+        // Use the existing API endpoint and include printer info
+       const response = await fetch('/api/printer/print-label', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+  },
+  body: JSON.stringify({
+    serial_number: this.serialNumber,
+    printer_id: this.selectedPrinter,
+    printer_name: printerName,
+    print_data: data
+  })
+});
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -251,7 +371,7 @@ export default {
     
     focusInput() {
       this.$nextTick(() => {
-        if (this.$refs.serialInput) {
+        if (this.$refs.serialInput && this.selectedPrinter) {
           this.$refs.serialInput.focus();
         }
       });
@@ -299,7 +419,8 @@ export default {
   color: #333;
 }
 
-.input-group input {
+.input-group input,
+.printer-select {
   padding: 12px;
   border: 2px solid #ddd;
   border-radius: 6px;
@@ -307,15 +428,44 @@ export default {
   transition: border-color 0.3s ease;
 }
 
-.input-group input:focus {
+.input-group input:focus,
+.printer-select:focus {
   border-color: #4CAF50;
   outline: none;
   box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
 }
 
-.input-group input:disabled {
+.input-group input:disabled,
+.printer-select:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.printer-select {
+  background-color: white;
+  cursor: pointer;
+}
+
+.printer-select:disabled {
+  cursor: not-allowed;
+}
+
+.selected-printer-info {
+  margin-top: 5px;
+  padding: 8px 12px;
+  background-color: #e8f5e8;
+  border: 1px solid #4CAF50;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #2d5a2d;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selected-printer-info i {
+  color: #4CAF50;
+  font-size: 16px;
 }
 
 .submit-button {
@@ -351,7 +501,8 @@ export default {
 
 /* Mobile responsive */
 @media (max-width: 600px) {
-  .input-group input {
+  .input-group input,
+  .printer-select {
     padding: 15px;
     font-size: 16px;
   }

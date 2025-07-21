@@ -34,67 +34,14 @@
                                         "
                                     ></i>
                                 </span>
-
-                                <button
-                                    class="btn-showDetails"
-                                    @click="toggleDetailsVisibility"
-                                >
-                                    {{
-                                        showDetails
-                                            ? "Hide extra columns"
-                                            : "Show extra columns"
-                                    }}
-                                </button>
                             </div>
                         </th>
+                        <th class="">Date Delivered</th>
+                        <th class="">Serial Number</th>
                         <th class="">ASIN</th>
                         <th class="">FNSKU</th>
-                        <th class="">MSKU</th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBM
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBA
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Outbound
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Inbound
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Unfulfillable
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Reserved
-                        </th>
-                        <th class="">Fulfillment</th>
-                        <th class="">Status</th>
-                        <th class="">Serialnumber</th>
+                        <th class="">Tracking Number</th>
+                        <th class="">Quantity</th>
                         <th class="">Actions</th>
                     </tr>
                 </thead>
@@ -155,68 +102,33 @@
                             </td>
 
                             <td>
-                                <span><strong></strong> {{ item.ASIN }}</span>
-                            </td>
-
-                            <td>
                                 <span
                                     ><strong></strong>
-                                    {{ item.FNSKUviewer }}</span
+                                    {{ item.datedelivered }}</span
                                 >
                             </td>
-                            <td>
-                                <span><strong></strong> {{ item.MSKU }}</span>
-                            </td>
-                            <!-- Hidden -->
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FBMAvailable }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FbaAvailable }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Outbound }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Inbound }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Reserved }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.Unfulfillable }}</span
-                                >
-                            </td>
-                            <!-- End Hidden -->
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.Fulfilledby }}</span
-                                >
-                            </td>
-
-                            <td>
-                                <span><strong></strong> {{ item.Status }}</span>
-                            </td>
-
                             <td>
                                 <span
                                     ><strong></strong>
                                     {{ item.serialnumber }}</span
+                                >
+                            </td>
+                            <td>
+                                <span><strong></strong> {{ item.ASIN }}</span>
+                            </td>
+                            <td>
+                                <span><strong></strong> {{ item.FNSKU }}</span>
+                            </td>
+                            <td>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.trackingnumber }}</span
+                                >
+                            </td>
+                            <td>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.quantity }} unit</span
                                 >
                             </td>
 
@@ -262,7 +174,12 @@
                                         Stockroom
                                     </button>
 
-                                    <button class="btn-example">example</button>
+                                    <button
+                                        @click="openEditModal(item)"
+                                        class="btn btn-edit"
+                                    >
+                                        <i class="bi bi-pencil"></i>Edit
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -323,6 +240,7 @@
                                 :alt="item.ProductTitle || 'Product'"
                                 class="product-thumbnail clickable-image"
                                 @error="handleImageError($event)"
+                                @click="openImageModal(item)"
                             />
                             <div
                                 class="image-count-badge"
@@ -541,90 +459,564 @@
         </div>
 
         <!-- Image Modal with Tabs -->
-        <div v-if="showImageModal" class="image-modal">
+        <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
             <div class="modal-content">
-                <button class="close-button" @click="closeImageModal">
-                    &times;
-                </button>
-
-                <!-- Tabs for switching between regular and captured images -->
-                <div class="image-tabs">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2>{{ ProductTitle }}</h2>
+                    </div>
                     <button
-                        class="tab-button"
-                        :class="{ active: activeTab === 'regular' }"
-                        @click="switchTab('regular')"
-                        :disabled="regularImages.length === 0"
+                        class="btn btn-modal-close"
+                        @click="closeImageModal"
                     >
-                        Product Images ({{ regularImages.length }})
-                    </button>
-                    <button
-                        class="tab-button"
-                        :class="{ active: activeTab === 'captured' }"
-                        @click="switchTab('captured')"
-                        :disabled="capturedImages.length === 0"
-                    >
-                        Captured Images ({{ capturedImages.length }})
+                        &times;
                     </button>
                 </div>
 
-                <!-- Display message if no images in current category -->
-                <div
-                    v-if="currentImageSet.length === 0"
-                    class="no-images-message"
-                >
-                    No images available in this category
-                </div>
+                <div class="modal-body">
+                    <!-- Tabs for switching between regular and captured images -->
+                    <div class="image-tabs">
+                        <button
+                            class="tab-button"
+                            :class="{ active: activeTab === 'regular' }"
+                            @click="switchTab('regular')"
+                            :disabled="regularImages.length === 0"
+                        >
+                            <span>Product Images</span>
+                            <span class="badge img-badge">{{
+                                regularImages.length
+                            }}</span>
+                        </button>
+                        <button
+                            class="tab-button"
+                            :class="{ active: activeTab === 'captured' }"
+                            @click="switchTab('captured')"
+                            :disabled="capturedImages.length === 0"
+                        >
+                            <span>Captured Images</span>
+                            <span class="badge img-badge">{{
+                                capturedImages.length
+                            }}</span>
+                        </button>
+                    </div>
 
-                <!-- Main image display (only shown if we have images) -->
-                <div
-                    v-if="currentImageSet.length > 0"
-                    class="main-image-container"
-                >
-                    <button
-                        class="nav-button prev"
-                        @click="prevImage"
-                        v-if="currentImageSet.length > 1"
-                    >
-                        &lt;
-                    </button>
-                    <img
-                        :src="currentImageSet[currentImageIndex]"
-                        alt="Product Image"
-                        class="modal-main-image"
-                        @error="handleImageError"
-                    />
-                    <button
-                        class="nav-button next"
-                        @click="nextImage"
-                        v-if="currentImageSet.length > 1"
-                    >
-                        &gt;
-                    </button>
-                </div>
-
-                <div class="image-counter" v-if="currentImageSet.length > 0">
-                    {{ currentImageIndex + 1 }} / {{ currentImageSet.length }}
-                </div>
-
-                <!-- Thumbnails for the current image set -->
-                <div
-                    class="thumbnails-container"
-                    v-if="currentImageSet.length > 1"
-                >
+                    <!-- Display message if no images in current category -->
                     <div
-                        v-for="(image, index) in currentImageSet"
-                        :key="index"
-                        class="modal-thumbnail"
-                        :class="{ active: index === currentImageIndex }"
-                        @click="currentImageIndex = index"
+                        v-if="currentImageSet.length === 0"
+                        class="no-images-message"
                     >
+                        No images available in this category
+                    </div>
+
+                    <!-- Main image display (only shown if we have images) -->
+                    <div
+                        v-if="currentImageSet.length > 0"
+                        class="main-image-container"
+                    >
+                        <button
+                            class="nav-button prev"
+                            @click="prevImage"
+                            v-if="currentImageSet.length > 1"
+                        >
+                            <i class="bi bi-arrow-left-short"></i>
+                        </button>
                         <img
-                            :src="image"
-                            :alt="`Thumbnail ${index + 1}`"
+                            :src="currentImageSet[currentImageIndex]"
+                            alt="Product Image"
+                            class="modal-main-image"
                             @error="handleImageError"
                         />
+                        <button
+                            class="nav-button next"
+                            @click="nextImage"
+                            v-if="currentImageSet.length > 1"
+                        >
+                            <i class="bi bi-arrow-right-short"></i>
+                        </button>
                     </div>
+
+                    <div
+                        class="image-counter"
+                        v-if="currentImageSet.length > 0"
+                    >
+                        {{ currentImageIndex + 1 }} /
+                        {{ currentImageSet.length }}
+                    </div>
+
+                    <!-- Thumbnails for the current image set -->
+                    <div
+                        class="thumbnails-container"
+                        v-if="currentImageSet.length > 1"
+                    >
+                        <div
+                            v-for="(image, index) in currentImageSet"
+                            :key="index"
+                            class="modal-thumbnail"
+                            :class="{ active: index === currentImageIndex }"
+                            @click="currentImageIndex = index"
+                        >
+                            <img
+                                :src="image"
+                                :alt="`Thumbnail ${index + 1}`"
+                                @error="handleImageError"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showEditModal" class="modal edit-modal">
+            <div class="modal-overlay" @click="closeEditModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2>Header Here</h2>
+                    </div>
+                    <button class="btn btn-modal-close" @click="closeEditModal">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="edit-order-container">
+                        <form method="POST" class="editOrderForm">
+                            <div class="form-grid-wrapper">
+                                <div class="form-col-left">
+                                    <div
+                                        class="image-section"
+                                        v-if="imageList.length"
+                                    >
+                                        <!-- Main Image -->
+                                        <div class="main-image">
+                                            <img
+                                                :src="activeImageUrl"
+                                                alt="Main Product Image"
+                                                loading="lazy"
+                                                @error="onImageErrorMain"
+                                            />
+                                        </div>
+
+                                        <!-- Thumbnails -->
+                                        <div class="thumbnail-carousel">
+                                            <div
+                                                v-for="(
+                                                    img, index
+                                                ) in imageList"
+                                                :key="index"
+                                                :class="[
+                                                    'thumbnail',
+                                                    {
+                                                        active:
+                                                            index ===
+                                                            activeIndex,
+                                                    },
+                                                ]"
+                                                @click="activeIndex = index"
+                                                @mouseenter="
+                                                    activeIndex = index
+                                                "
+                                            >
+                                                <img
+                                                    :src="basePath + img"
+                                                    alt="Thumbnail"
+                                                    loading="lazy"
+                                                    @error="
+                                                        onThumbnailError($event)
+                                                    "
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="form-section general-info-section"
+                                    >
+                                        <!-- SECTION: General Info -->
+                                        <div class="general-info-section">
+                                            <h3 class="form-section-heading">
+                                                General Info
+                                            </h3>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span>ASIN:</span></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    :value="item.ASIN"
+                                                    readonly
+                                                    disabled
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >External Title:</span
+                                                    ></label
+                                                >
+                                                <textarea
+                                                    ref="productTextarea"
+                                                    class="form-control no-resize"
+                                                    v-model="item.ProductTitle"
+                                                    placeholder="Product Title"
+                                                    rows="1"
+                                                    @input="autoResize"
+                                                ></textarea>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Internal Title:</span
+                                                    ></label
+                                                >
+                                                <textarea
+                                                    ref="productTextarea"
+                                                    class="form-control no-resize"
+                                                    v-model="item.ProductTitle"
+                                                    placeholder="Product Title"
+                                                    rows="1"
+                                                    @input="autoResize"
+                                                    readonly
+                                                    disabled
+                                                ></textarea>
+                                            </fieldset>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
+                                <div class="form-col-center">
+                                    <div class="form-section other-section">
+                                        <!-- SECTION: Dates -->
+                                        <div class="dates-section">
+                                            <h3 class="form-section-heading">
+                                                Dates
+                                            </h3>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Order Date:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="date"
+                                                    class="form-control"
+                                                    v-model="item.orderdate"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Payment Date:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="date"
+                                                    class="form-control"
+                                                    v-model="item.paymentdate"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Shipped Date:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="date"
+                                                    class="form-control"
+                                                    v-model="item.shipdate"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Delivered Date:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="date"
+                                                    class="form-control"
+                                                    v-model="item.datedelivered"
+                                                />
+                                            </fieldset>
+                                        </div>
+
+                                        <!-- SECTION: Serial & Tracking -->
+                                        <div class="serial-tracking-section">
+                                            <h3 class="form-section-heading">
+                                                Serial & Tracking
+                                            </h3>
+
+                                            <template v-if="serialKeys.length">
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in serialKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        ><span
+                                                            >Serial Number
+                                                            {{
+                                                                getLabel(index)
+                                                            }}:</span
+                                                        ></label
+                                                    >
+                                                    <input
+                                                        type="text"
+                                                        class="form-control"
+                                                        v-model="item[key]"
+                                                    />
+                                                </fieldset>
+                                            </template>
+
+                                            <template
+                                                v-if="trackingKeys.length"
+                                            >
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in trackingKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        ><span
+                                                            >Tracking Number
+                                                            {{
+                                                                index + 1
+                                                            }}:</span
+                                                        ></label
+                                                    >
+                                                    <input
+                                                        type="text"
+                                                        class="form-control"
+                                                        v-model="item[key]"
+                                                    />
+                                                </fieldset>
+                                            </template>
+                                        </div>
+
+                                        <!-- SECTION: Product Info -->
+                                        <div class="product-info-section">
+                                            <h3 class="form-section-heading">
+                                                Product Info
+                                            </h3>
+
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Order Number:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    :value="item.rtid"
+                                                    placeholder="Order Number"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Item Number:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.itemnumber"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Basket Number:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.basketnumber"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label><span>RPN:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.RPN"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label><span>PRD:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.PRD"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label><span>PCN:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.PCN"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Priority Rank:</span
+                                                    ></label
+                                                >
+                                                <select
+                                                    class="form-control"
+                                                    v-model="item.priorityrank"
+                                                >
+                                                    <option disabled value="">
+                                                        Select Priority Rank
+                                                    </option>
+                                                    <option
+                                                        v-for="type in priorityRanks"
+                                                        :key="type"
+                                                        :value="type"
+                                                    >
+                                                        {{ type }}
+                                                    </option>
+                                                </select>
+                                            </fieldset>
+                                            <fieldset>
+                                                <label
+                                                    ><span
+                                                        >Return Status:</span
+                                                    ></label
+                                                >
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    v-model="item.returnstatus"
+                                                    readonly
+                                                    disabled
+                                                />
+                                            </fieldset>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- RIGHT: PRICING -->
+                                <div class="form-col-right">
+                                    <div
+                                        class="pos-pricing-ui bg-white rounded shadow p-4"
+                                        style="max-width: 480px"
+                                    >
+                                        <!-- Header -->
+                                        <div class="border-bottom pb-2">
+                                            <h3 class="text-dark mb-0">
+                                                Pricing
+                                            </h3>
+                                        </div>
+
+                                        <fieldset>
+                                            <label><span>Quantity</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.quantity"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label
+                                                ><span>Unit Price</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light"
+                                                :value="item.price"
+                                                readonly
+                                            />
+                                        </fieldset>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-notes">
+                                <div class="form-section notes-section">
+                                    <!-- Description, Supplier Notes, Employee Notes -->
+                                    <!-- SECTION: Notes -->
+                                    <fieldset>
+                                        <label><span>Description:</span></label>
+                                        <textarea
+                                            ref="descriptionarea"
+                                            class="form-control no-resize"
+                                            v-model="item.description"
+                                            placeholder="Description"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label
+                                            ><span>Supplier Notes:</span></label
+                                        >
+                                        <textarea
+                                            ref="supplierNotesarea"
+                                            class="form-control no-resize"
+                                            v-model="item.supplierNotes"
+                                            placeholder="Supplier Notes"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label
+                                            ><span>Employee Notes:</span></label
+                                        >
+                                        <textarea
+                                            ref="employeeNotesarea"
+                                            class="form-control no-resize"
+                                            v-model="item.employeeNotes"
+                                            placeholder="Employee Notes"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label
+                                            ><span>Sticker Notes:</span></label
+                                        >
+                                        <textarea
+                                            ref="stickerNotesarea"
+                                            class="form-control no-resize"
+                                            v-model="item.stickerNotes"
+                                            placeholder="Sticker Notes"
+                                            rows="1"
+                                            @input="autoResize"
+                                        ></textarea>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-lg text-white"
+                        @click="saveEditModal"
+                    >
+                        <i class="fas fa-save me-2"></i> Save
+                    </button>
                 </div>
             </div>
         </div>

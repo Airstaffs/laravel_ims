@@ -1,6 +1,7 @@
 import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./labeling.css";
+import Swal from "sweetalert2";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -8,6 +9,7 @@ export default {
     data() {
         return {
             inventory: [],
+            isProcessing: false,
             loading: true,
             currentPage: 1,
             totalPages: 1,
@@ -39,6 +41,15 @@ export default {
             confirmationMessage: "",
             confirmationActionType: "", // 'validation' or 'stockroom'
             currentItemForAction: null, // Store the item to be processed
+
+            showEditModal: false,
+            item: {
+                priorityrank: "",
+            },
+            items: [],
+            activeIndex: 0,
+            basePath: "/images/thumbnails/",
+            error: null,
         };
     },
     computed: {
@@ -62,6 +73,36 @@ export default {
                     : String(valueB).localeCompare(String(valueA));
             });
         },
+
+        imageList() {
+            return Object.keys(this.item)
+                .filter((key) => key.startsWith("img") && this.item[key])
+                .map((key) => this.item[key]);
+        },
+        activeImageUrl() {
+            return this.basePath + this.imageList[this.activeIndex];
+        },
+
+        serialKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^serialnumber[a-z]?$/.test(k)
+            );
+        },
+        trackingKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^trackingnumber\d*$/.test(k)
+            );
+        },
+        priorityRanks() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.priorityrank)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
     },
     methods: {
         handleImageError(event) {
@@ -70,47 +111,41 @@ export default {
             event.target.onerror = null; // Prevent infinite error loop
         },
 
-        // Count additional images based on the image fields (img2-img15)
-        countRegularImages(item) {
+        // Helper to validate image fields
+        isValidImage(path) {
+            return path && path !== "NULL" && path.trim() !== "";
+        },
+
+        // Generic image counter for any image type
+        countImages(item, prefix, start, end, container = null) {
             if (!item) return 0;
+            const source = container ? item[container] : item;
+            if (!source) return 0;
 
             let count = 0;
-            // Check fields img2 through img15
-            for (let i = 2; i <= 15; i++) {
-                const fieldName = `img${i}`;
-                if (
-                    item[fieldName] &&
-                    item[fieldName] !== "NULL" &&
-                    item[fieldName].trim() !== ""
-                ) {
+            for (let i = start; i <= end; i++) {
+                const fieldName = `${prefix}${i}`;
+                if (this.isValidImage(source[fieldName])) {
                     count++;
                 }
             }
-
             return count;
         },
 
+        // Count regular images (img2 - img15)
+        countRegularImages(item) {
+            return this.countImages(item, "img", 2, 15);
+        },
+
+        // Count captured images (capturedimg1 - capturedimg12)
         countCapturedImages(item) {
-            if (!item || !item.capturedImages) return 0;
-
-            // For debugging
-            console.log("Checking capturedImages:", item.capturedImages);
-
-            let count = 0;
-            // Check capturedimg1 through capturedimg12
-            for (let i = 1; i <= 12; i++) {
-                const fieldName = `capturedimg${i}`;
-                if (
-                    item.capturedImages &&
-                    item.capturedImages[fieldName] &&
-                    item.capturedImages[fieldName] !== "NULL" &&
-                    item.capturedImages[fieldName].trim() !== ""
-                ) {
-                    count++;
-                }
-            }
-
-            return count;
+            return this.countImages(
+                item,
+                "capturedimg",
+                1,
+                12,
+                "capturedImages"
+            );
         },
 
         // Count all images (regular + captured)
@@ -120,101 +155,54 @@ export default {
             );
         },
 
-        // Open image modal with all available images in separate categories
+        // Open the image modal and prepare images
         openImageModal(item) {
             if (!item) return;
 
-            console.log("Opening modal for item:", item);
-
-            // Reset modal state
             this.regularImages = [];
             this.capturedImages = [];
             this.currentImageIndex = 0;
-
-            // First collect regular images (img1-img15)
-            if (item.img1 && item.img1 !== "NULL" && item.img1.trim() !== "") {
-                const mainImagePath = `/images/thumbnails/${item.img1}`;
-                this.regularImages.push(mainImagePath);
-                console.log("Added main image:", mainImagePath);
-            }
-
-            // Add regular additional images
-            for (let i = 2; i <= 15; i++) {
-                const fieldName = `img${i}`;
-                if (
-                    item[fieldName] &&
-                    item[fieldName] !== "NULL" &&
-                    item[fieldName].trim() !== ""
-                ) {
-                    const imagePath = `/images/thumbnails/${item[fieldName]}`;
-                    this.regularImages.push(imagePath);
-                    console.log("Added additional image:", imagePath);
-                }
-            }
-
-            // Get company folder for captured image paths
+            this.ProductTitle = item.ProductTitle;
             const companyFolder = item.company || "Airstaffs";
 
-            // Then collect captured images if available
-            if (item.capturedImages) {
-                console.log(
-                    "Processing captured images data:",
-                    item.capturedImages
-                );
-
-                // Check if capturedImages is empty or not a proper object
-                const hasCapturedImages =
-                    typeof item.capturedImages === "object" &&
-                    Object.keys(item.capturedImages).length > 0;
-
-                if (hasCapturedImages) {
-                    for (let i = 1; i <= 12; i++) {
-                        const fieldName = `capturedimg${i}`;
-                        if (
-                            item.capturedImages[fieldName] &&
-                            item.capturedImages[fieldName] !== "NULL" &&
-                            item.capturedImages[fieldName].trim() !== ""
-                        ) {
-                            // Use the exact path based on your server structure
-                            const imagePath = `/images/product_images/${companyFolder}/${item.capturedImages[fieldName]}`;
-                            console.log(
-                                `Adding captured image path: ${imagePath}`
-                            );
-                            this.capturedImages.push(imagePath);
-                        }
-                    }
-                } else {
-                    console.log(
-                        "Captured images object exists but is empty or invalid"
-                    );
+            // Load regular images (img1 - img15)
+            for (let i = 1; i <= 15; i++) {
+                const fieldName = `img${i}`;
+                if (this.isValidImage(item[fieldName])) {
+                    const path = `/images/thumbnails/${item[fieldName]}`;
+                    this.regularImages.push(path);
                 }
-            } else {
-                console.log("No captured images data found for item:", item);
             }
 
-            // If no images were found in either category, add a default image to regularImages
+            // Load captured images (capturedimg1 - capturedimg12)
+            if (
+                item.capturedImages &&
+                typeof item.capturedImages === "object"
+            ) {
+                for (let i = 1; i <= 12; i++) {
+                    const filename = `${item.rtcounter}_img${i}.jpg`;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                }
+            }
+
+            // Fallback if no images exist
             if (
                 this.regularImages.length === 0 &&
                 this.capturedImages.length === 0
             ) {
-                const defaultPath = this.defaultImage;
-                this.regularImages.push(defaultPath);
-                console.log("No images found, using default:", defaultPath);
+                this.regularImages.push(this.defaultImage);
             }
 
-            // Set initial tab based on which images are available
-            if (this.regularImages.length > 0) {
-                this.activeTab = "regular";
-                this.currentImageSet = this.regularImages;
-            } else if (this.capturedImages.length > 0) {
-                this.activeTab = "captured";
-                this.currentImageSet = this.capturedImages;
-            }
+            // Set default active tab
+            this.activeTab = this.regularImages.length ? "regular" : "captured";
+            this.currentImageSet =
+                this.activeTab === "regular"
+                    ? this.regularImages
+                    : this.capturedImages;
 
-            // Show the modal
+            // Show modal and disable page scrolling
             this.showImageModal = true;
-
-            // Prevent scrolling when modal is open
             document.body.style.overflow = "hidden";
         },
 
@@ -593,6 +581,119 @@ export default {
 
             // Re-enable scrolling
             document.body.style.overflow = "auto";
+        },
+
+        async openEditModal(item) {
+            if (!item) return;
+
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
+            this.item = { ...(freshItem || item) };
+
+            console.log(this.item);
+
+            this.showEditModal = true;
+
+            document.body.style.overflow = "hidden";
+        },
+
+        closeEditModal() {
+            this.showEditModal = false;
+
+            setTimeout(() => {
+                document.body.style.overflow = "auto";
+            }, 300); // Match with your modal close animation
+        },
+
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImage;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImage;
+        },
+
+        autoResize() {
+            [
+                "productTextarea",
+                "descriptionarea",
+                "supplierNotesarea",
+                "employeeNotesarea",
+                "stickerNotesarea",
+            ].forEach((refName) => {
+                const el = this.$refs[refName];
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+
+        getLabel(index) {
+            // Convert 0 => A, 1 => B, etc.
+            return String.fromCharCode(65 + index);
+        },
+
+        async saveEditModal() {
+            this.loading = true;
+            try {
+                const payload = {
+                    ...this.item,
+                    _token: document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
+                };
+
+                const response = await axios.post(
+                    "/api/labeling/products",
+                    payload
+                );
+                const updated = response.data.product;
+
+                // Update item in list if exists, else add on top
+                const index = this.items.findIndex(
+                    (p) => p.ProductID === updated.ProductID
+                );
+                if (index !== -1) {
+                    this.items.splice(index, 1, updated);
+                } else {
+                    this.items.unshift(updated);
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Saved!",
+                    text:
+                        response.data.message ||
+                        "The product has been saved successfully.",
+                    confirmButtonText: "OK",
+                });
+
+                this.closeEditModal();
+                await this.fetchInventory(); // refresh your list/table
+            } catch (error) {
+                console.error("Save failed:", error);
+
+                let message =
+                    "An error occurred while saving. Please try again.";
+                if (error.response && error.response.data) {
+                    if (error.response.status === 422) {
+                        const errors = error.response.data.errors;
+                        message = Object.values(errors).flat().join("\n");
+                    } else if (error.response.data.message) {
+                        message = error.response.data.message;
+                    }
+                }
+
+                Swal.fire({
+                    icon: "error",
+                    title: "Save Failed",
+                    text: message,
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.loading = false;
+            }
         },
     },
 

@@ -22,40 +22,20 @@ class BasetablesController extends Controller
     protected $doneShippingTable;
     protected $capturedImagesTable;   // Added for image management
     protected $rpnStickerTable;   // Added for image management
+    
     /**
      * Constructor to set up company from the authenticated user
      */
     public function __construct()
     {
+        // Initialize tables immediately instead of in middleware
+        $this->initializeTables();
+        
         // Use parent::middleware to avoid IDE warnings
         parent::middleware(function ($request, $next) {
             try {
-                // Get the company from the logged-in user
-                $this->company = $this->getCompanyFromUser();
-                
-                // Log the company for debugging
-                Log::debug('Company from user: ' . $this->company);
-                
-                // Initialize common table names - simplified table structure
-                $this->productTable = $this->getTableName('product');
-                $this->fnskuTable = $this->getTableName('fnsku');        // Single FNSKU table
-                $this->asinTable = $this->getTableName('asin');
-                $this->lpnTable = $this->getTableName('lpn');
-                $this->itemProcessHistoryTable = $this->getTableName('itemprocesshistory');
-                $this->addItemStockroomLogsTable = $this->getTableName('additemstockroomlogs');
-                $this->doneShippingTable = $this->getTableName('doneshipping');
-                $this->capturedImagesTable = $this->getTableName('capturedimages'); // Initialize captured images table
-                
-                $this->rpnStickerTable = $this->getTableName('rpnsticker');
-                
-                // Log table names for debugging
-                Log::debug('Table names: ', [
-                    'productTable' => $this->productTable,
-                    'fnskuTable' => $this->fnskuTable,
-                    'asinTable' => $this->asinTable,
-                    'capturedImagesTable' => $this->capturedImagesTable,
-                    'rpnStickerTable' => $this->rpnStickerTable
-                ]);
+                // Re-initialize tables in case auth context changed
+                $this->initializeTables();
                 
                 return $next($request);
             } catch (\Exception $e) {
@@ -69,6 +49,46 @@ class BasetablesController extends Controller
     }
     
     /**
+     * Initialize all table names
+     */
+    protected function initializeTables()
+    {
+        try {
+            // Get the company from the logged-in user
+            $this->company = $this->getCompanyFromUser();
+            
+            // Log the company for debugging
+            Log::debug('Company from user: ' . $this->company);
+            
+            // Initialize common table names - simplified table structure
+            $this->productTable = $this->getTableName('product');
+            $this->fnskuTable = $this->getTableName('fnsku');        // Single FNSKU table
+            $this->asinTable = $this->getTableName('asin');
+            $this->lpnTable = $this->getTableName('lpn');
+            $this->itemProcessHistoryTable = $this->getTableName('itemprocesshistory');
+            $this->addItemStockroomLogsTable = $this->getTableName('additemstockroomlogs');
+            $this->doneShippingTable = $this->getTableName('doneshipping');
+            $this->capturedImagesTable = $this->getTableName('capturedimages'); // Initialize captured images table
+            
+            $this->rpnStickerTable = $this->getTableName('rpnsticker');
+            
+            // Log table names for debugging
+            Log::debug('Table names: ', [
+                'productTable' => $this->productTable,
+                'fnskuTable' => $this->fnskuTable,
+                'asinTable' => $this->asinTable,
+                'capturedImagesTable' => $this->capturedImagesTable,
+                'rpnStickerTable' => $this->rpnStickerTable
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Error initializing tables: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+    
+    /**
      * Get company name from the logged-in user
      * 
      * @return string The company name or empty string
@@ -77,9 +97,14 @@ class BasetablesController extends Controller
     {
         if (Auth::check()) {
             $user = Auth::user();
-            return $user->company ?? '';
+            $company = $user->company ?? '';
+            Log::debug('User company: ' . $company);
+            return $company;
         }
         
+        // If no user is authenticated, return empty string
+        // This might happen in service classes
+        Log::warning('No authenticated user found for company determination');
         return '';
     }
     
@@ -91,8 +116,10 @@ class BasetablesController extends Controller
      */
     protected function getTableName($baseTable)
     {
-        $tableName = $this->tablePrefix . $baseTable . $this->company;
-        Log::debug('Generated table name: ' . $tableName . ' from base: ' . $baseTable);
+        // If company is empty, you might want to use a default or handle this case
+        $company = $this->company ?: '';
+        $tableName = $this->tablePrefix . $baseTable . $company;
+        Log::debug('Generated table name: ' . $tableName . ' from base: ' . $baseTable . ' with company: ' . $company);
         return $tableName;
     }
     
