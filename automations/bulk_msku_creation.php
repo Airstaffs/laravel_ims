@@ -474,12 +474,11 @@ function create_feed_from_document($store, $feedDocumentId)
 // ______ Utility Functions ______
 function aws_sheesh_credentials($store)
 {
-    global $Connect;
-    $stmt = $Connect->prepare("SELECT * FROM tblstores WHERE storename = ? LIMIT 1");
-    $stmt->bind_param("s", $store);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    return $result->fetch_assoc() ?: null;
+    $row = DB::table('tblstores')
+        ->where('storename', $store)
+        ->first();
+
+    return $row ? (array) $row : null;
 }
 
 function fetch_sheesh_AccessToken($credentials, $returnRaw = false)
@@ -713,32 +712,27 @@ function normalize_db_condition($condition)
 
 function create_notification($data)
 {
-    global $Connect;
-
-    $stmt = $Connect->prepare("INSERT INTO tblnotifications (module, title, subtitle, content, severity, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-    $stmt->bind_param(
-        "sssss",
-        $data['module'],
-        $data['title'],
-        $data['subtitle'],
-        $data['content'],
-        $data['severity']
-    );
-    $stmt->execute();
+    DB::table('tblnotifications')->insert([
+        'module' => $data['module'],
+        'title' => $data['title'],
+        'subtitle' => $data['subtitle'],
+        'content' => $data['content'],
+        'severity' => $data['severity'],
+        'created_at' => now(),
+    ]);
 }
+
 
 function insert_created_feed($feedId, $feedType, $feedDocumentId, $store)
 {
-    global $Connect;
-
-    $stmt = $Connect->prepare("
-        INSERT INTO tblamazon_feeds (
-            feed_id, type, store, status, input_document_id, submitted_at
-        ) VALUES (?, ?, ?, 'IN_PROGRESS', ?, NOW())
-    ");
-
-    $stmt->bind_param("ssss", $feedId, $feedType, $store, $feedDocumentId);
-    $stmt->execute();
+    DB::table('tblamazon_feeds')->insert([
+        'feed_id' => $feedId,
+        'type' => $feedType,
+        'store' => $store,
+        'status' => 'IN_PROGRESS',
+        'input_document_id' => $feedDocumentId,
+        'submitted_at' => now(),
+    ]);
 
     echo "✅ Feed $feedId inserted into tblamazon_feeds.<br>";
 }
