@@ -200,7 +200,7 @@ function fetch_listing_product_type($store, $searchedAsin, $destinationMarketpla
         return;
     }
 
-    $accessToken = fetchAccessToken($credentials, false);
+    $accessToken = fetch_sheesh_AccessToken($credentials, false);
     if (!$accessToken) {
         echo json_encode(['error' => "Access token fetch failed"]) . "<br>";
         return;
@@ -276,7 +276,7 @@ function fetch_listing_retrict($store, $searchedAsin, $destinationMarketplace = 
         return;
     }
 
-    $accessToken = fetchAccessToken($credentials, false);
+    $accessToken = fetch_sheesh_AccessToken($credentials, false);
     if (!$accessToken) {
         echo json_encode(['error' => "Access token fetch failed"]) . "<br>";
         return;
@@ -352,7 +352,7 @@ function Create_feed_document_passing_json($store, $searchedAsin, $destinationMa
         return;
     }
 
-    $accessToken = fetchAccessToken($credentials, false);
+    $accessToken = fetch_sheesh_AccessToken($credentials, false);
     if (!$accessToken) {
         echo json_encode(['error' => "Access token fetch failed"]) . "<br>";
         return;
@@ -434,7 +434,7 @@ function create_feed_from_document($store, $feedDocumentId)
     $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
 
     $credentials = aws_sheesh_credentials($store);
-    $accessToken = fetchAccessToken($credentials, false);
+    $accessToken = fetch_sheesh_AccessToken($credentials, false);
 
     $payload = [
         "feedType" => "JSON_LISTINGS_FEED",
@@ -482,7 +482,7 @@ function aws_sheesh_credentials($store)
     return $result->fetch_assoc() ?: null;
 }
 
-function fetchAccessToken($credentials, $returnRaw = false)
+function fetch_sheesh_AccessToken($credentials, $returnRaw = false)
 {
     $url = 'https://api.amazon.com/auth/o2/token';
     $postfields = http_build_query([
