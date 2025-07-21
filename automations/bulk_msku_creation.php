@@ -5,6 +5,8 @@ error_reporting(E_ALL);
 set_time_limit(600);
 ini_set('max_execution_time', 600);
 
+/*
+
 $authEndpoint = 'https://api.amazon.com/auth/o2/token';
 
 $Connect = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
@@ -34,7 +36,7 @@ while ($row = $mskuResult->fetch_assoc()) {
     $mskus[] = [
         'sku' => $row['MSKU'],
         'asin' => $filterasin,
-        'condition' => $condition,
+        'condition' => $condition,eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
         'storename' => $row['storename'],
     ];
 }
@@ -50,12 +52,12 @@ $producttype = fetch_listing_product_type($filterstore, $filterasin);
 
 // step 3b: check restriction for the condition
 $listing_restrict = fetch_listing_retrict($filterstore, $filterasin);
-/*
+
 echo "Product Type";
 echo "<pre>";
 print_r($producttype);
 echo "</pre>";
-*/
+
 
 // step 3c: now check current condition to amzn listing condition 
 //   if the condition is restricted 
@@ -154,9 +156,11 @@ if ($listing_restrict['status'] == '200') {
     }
 }
 
-echo "<pre>";
+*/
+
+// echo "<pre>";
 // print_r($listing_restrict);
-echo "</pre>";
+// echo "</pre>";
 
 /*
 echo "<pre>";
