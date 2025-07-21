@@ -176,13 +176,13 @@ function fetch_listing_product_type($store, $searchedAsin, $destinationMarketpla
     $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
     $path = '/definitions/2020-09-01/productTypes/';
 
-    $companydetails = fetchCompanyDetails();
+    $companydetails = sheesh_fetchCompanyDetails();
     if (!$companydetails) {
         echo json_encode(['error' => 'Company not found']) . "<br>";
         return;
     }
 
-    $tblstore = fetchtblstores($store);
+    $tblstore = sheesh_fetchtblstores($store);
     if (!$tblstore) {
         echo json_encode(['error' => "Store config not found for $store"]) . "<br>";
         return;
@@ -208,11 +208,11 @@ function fetch_listing_product_type($store, $searchedAsin, $destinationMarketpla
 
     $jsonData = JsonCreation(null, null, null, null);
 
-    $headers = buildHeaders($credentials, $accessToken, 'GET', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+    $headers = sheesh_buildHeaders($credentials, $accessToken, 'GET', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
     $headers['Content-Type'] = 'application/json';
     $headers['accept'] = 'application/json';
 
-    $queryString = buildQueryString($nextToken, $customParams);
+    $queryString = buildQueryString_Sheesh($nextToken, $customParams);
     $url = "{$endpoint}{$path}?{$queryString}";
 
     // Convert headers array to format required by cURL
@@ -252,13 +252,13 @@ function fetch_listing_retrict($store, $searchedAsin, $destinationMarketplace = 
     $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
     $path = '/listings/2021-08-01/restrictions';
 
-    $companydetails = fetchCompanyDetails();
+    $companydetails = sheesh_fetchCompanyDetails();
     if (!$companydetails) {
         echo json_encode(['error' => 'Company not found']) . "<br>";
         return;
     }
 
-    $tblstore = fetchtblstores($store);
+    $tblstore = sheesh_fetchtblstores($store);
     if (!$tblstore) {
         echo json_encode(['error' => "Store config not found for $store"]) . "<br>";
         return;
@@ -284,11 +284,11 @@ function fetch_listing_retrict($store, $searchedAsin, $destinationMarketplace = 
 
     $jsonData = JsonCreation(null, null, null, null);
 
-    $headers = buildHeaders($credentials, $accessToken, 'GET', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+    $headers = sheesh_buildHeaders($credentials, $accessToken, 'GET', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
     $headers['Content-Type'] = 'application/json';
     $headers['accept'] = 'application/json';
 
-    $queryString = buildQueryString($nextToken, $customParams);
+    $queryString = buildQueryString_Sheesh($nextToken, $customParams);
     $url = "{$endpoint}{$path}?{$queryString}";
 
     // Convert headers array to format required by cURL
@@ -328,13 +328,13 @@ function Create_feed_document_passing_json($store, $searchedAsin, $destinationMa
     $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
     $path = '/feeds/2021-06-30/documents';
 
-    $companydetails = fetchCompanyDetails();
+    $companydetails = sheesh_fetchCompanyDetails();
     if (!$companydetails) {
         echo json_encode(['error' => 'Company not found']) . "<br>";
         return;
     }
 
-    $tblstore = fetchtblstores($store);
+    $tblstore = sheesh_fetchtblstores($store);
     if (!$tblstore) {
         echo json_encode(['error' => "Store config not found for $store"]) . "<br>";
         return;
@@ -360,11 +360,11 @@ function Create_feed_document_passing_json($store, $searchedAsin, $destinationMa
 
     $jsonData = JsonCreation('createDocumentID', null, null, null);
 
-    $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
+    $headers = sheesh_buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, $nextToken, $customParams, $endpoint, $canonicalHeaders);
     $headers['Content-Type'] = 'application/json';
     $headers['accept'] = 'application/json';
 
-    $queryString = buildQueryString($nextToken, $customParams);
+    $queryString = buildQueryString_Sheesh($nextToken, $customParams);
     $url = "{$endpoint}{$path}?{$queryString}";
 
     // Convert headers array to format required by cURL
@@ -443,7 +443,7 @@ function create_feed_from_document($store, $feedDocumentId)
     ];
     $jsonData = json_encode($payload, JSON_UNESCAPED_SLASHES);
 
-    $headers = buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, null, [], $endpoint, $canonicalHeaders);
+    $headers = sheesh_buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, null, [], $endpoint, $canonicalHeaders);
     $headers['Content-Type'] = 'application/json';
     $headers['accept'] = 'application/json';
     $curlHeaders = array_map(fn($k, $v) => "$k: $v", array_keys($headers), $headers);
@@ -505,7 +505,7 @@ function fetch_sheesh_AccessToken($credentials, $returnRaw = false)
 
     return $decoded['access_token'] ?? false;
 }
-
+/*
 function fetchGrantlessAccessToken($credentials, $scope)
 {
     $url = "https://api.amazon.com/auth/o2/token";
@@ -541,15 +541,16 @@ function getMerchantIDorSID($store)
     $row = $result->fetch_assoc();
     return $row ? $row['SID'] : null;
 }
+    */
 
-function fetchCompanyDetails()
+function sheesh_fetchCompanyDetails()
 {
     global $Connect;
     $stmt = $Connect->query("SELECT * FROM tblcompanydetails WHERE id = 1 LIMIT 1");
     return $stmt->fetch_assoc() ?: null;
 }
 
-function fetchtblstores($storename)
+function sheesh_fetchtblstores($storename)
 {
     global $Connect;
     $stmt = $Connect->prepare("SELECT * FROM tblstores WHERE storename = ? LIMIT 1");
@@ -568,15 +569,17 @@ function fetchallstores()
     return $result->fetch_all(MYSQLI_ASSOC); // returns array of all rows
 }
 
-function buildQueryString($nextToken = null, $customParams = [])
+function buildQueryString_Sheesh($nextToken = null, $customParams = [])
 {
     return http_build_query($customParams, '', '&', PHP_QUERY_RFC3986);
 }
 
-function buildHeaders($credentials, $accessToken, $method, $service, $region, $path, $nextToken, $customParams, $endpoint, $canonicalHeaders)
+
+
+function sheesh_buildHeaders($credentials, $accessToken, $method, $service, $region, $path, $nextToken, $customParams, $endpoint, $canonicalHeaders)
 {
     $amzDate = gmdate('Ymd\THis\Z');
-    $signatureDetails = calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams, $canonicalHeaders);
+    $signatureDetails = sheesh_calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams, $canonicalHeaders);
 
     $authorizationHeader = "{$signatureDetails['algorithm']} Credential={$credentials['client_id']}/{$signatureDetails['dateStamp']}/{$signatureDetails['region']}/{$signatureDetails['service']}/aws4_request, SignedHeaders={$signatureDetails['signedHeaders']}, Signature={$signatureDetails['signature']}";
 
@@ -587,7 +590,7 @@ function buildHeaders($credentials, $accessToken, $method, $service, $region, $p
     ];
 }
 
-function calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams, $canonicalHeaders)
+function sheesh_calculateSignature($credentials, $amzDate, $method, $service, $region, $path, $nextToken, $customParams, $canonicalHeaders)
 {
     $canonicalUri = $path;
     $canonicalQueryString = ""; // Adjust if needed
@@ -601,7 +604,7 @@ function calculateSignature($credentials, $amzDate, $method, $service, $region, 
     $credentialScope = "$dateStamp/$region/$service/aws4_request";
     $stringToSign = "$algorithm\n$amzDate\n$credentialScope\n" . hash('sha256', $canonicalRequest);
 
-    $signatureKey = getSignatureKey($credentials['client_secret'], $dateStamp, $region, $service);
+    $signatureKey = sheesh_getSignatureKey($credentials['client_secret'], $dateStamp, $region, $service);
     $signature = hash_hmac('sha256', $stringToSign, $signatureKey);
 
     return [
@@ -614,7 +617,7 @@ function calculateSignature($credentials, $amzDate, $method, $service, $region, 
     ];
 }
 
-function getSignatureKey($key, $dateStamp, $regionName, $serviceName)
+function sheesh_getSignatureKey($key, $dateStamp, $regionName, $serviceName)
 {
     $kSecret = 'AWS4' . $key;
     $kDate = hash_hmac('sha256', $dateStamp, $kSecret, true);
