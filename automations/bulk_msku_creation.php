@@ -4,12 +4,12 @@ ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 set_time_limit(600);
 ini_set('max_execution_time', 600);
-
+$Connect = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
 /*
 
 $authEndpoint = 'https://api.amazon.com/auth/o2/token';
 
-$Connect = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
+
 
 // Step 1: Get the oldest ASIN to process
 $asinResult = $Connect->query("SELECT ASIN, storename, grading FROM tblfnsku WHERE amazon_status = 'Not Existed' ORDER BY insert_date ASC LIMIT 1");
