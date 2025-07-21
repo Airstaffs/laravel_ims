@@ -71,6 +71,15 @@ export default {
                 fbm: 0,
                 fba: 0,
             },
+
+            // for post to AMazon
+            isPosting: false,
+            postForm: {
+                marketplace: "ATVPDKIKX0DER",
+                fulfillmentChannel: "DEFAULT",
+                currency: "USD",
+                price: 19.99,
+            },
         };
     },
     computed: {
@@ -813,43 +822,6 @@ export default {
                 }
             } finally {
                 this.isProcessing = false;
-            }
-        },
-        async postItemstoAmzn() {
-            if (!this.hasSelectedItems) {
-                alert("Please select at least one item to post to Amazon.");
-                return;
-            }
-            console.log(this.selectedItems);
-            this.loading = true;
-            try {
-                const response = await axios.post(
-                    "/api/stockroom/post-items-to-amazon",
-                    {
-                        selectedItems: this.selectedItems,
-                    },
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            )?.content,
-                        },
-                    }
-                );
-
-                if (response.data.status === "success") {
-                    alert("Item Posted.");
-                } else {
-                    alert("Error: " + response.data.message);
-                }
-            } catch (error) {
-                console.error("Error printing label:", error);
-                alert("Failed to print label. Please try again.");
-            } finally {
-                this.loading = false;
             }
         },
 
@@ -1618,6 +1590,90 @@ export default {
             const isOutside = !event.target.closest(".serial-dropdown");
             if (isOutside) {
                 this.serialDropdowns = {};
+            }
+        },
+
+        async postItemstoAmzn() {
+            if (!this.hasSelectedItems) {
+                alert("Please select at least one item to post to Amazon.");
+                return;
+            }
+            console.log(this.selectedItems);
+            this.loading = true;
+            try {
+                const response = await axios.post(
+                    "/api/stockroom/post-items-to-amazon",
+                    {
+                        selectedItems: this.selectedItems,
+                    },
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            )?.content,
+                        },
+                    }
+                );
+
+                if (response.data.status === "success") {
+                    alert("Item Posted.");
+                } else {
+                    alert("Error: " + response.data.message);
+                }
+            } catch (error) {
+                console.error("Error printing label:", error);
+                alert("Failed to print label. Please try again.");
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        openPostAmazonModal() {
+            if (!this.hasSelectedItems) {
+                alert("Please select at least one item.");
+                return;
+            }
+            $(this.$refs.postAmazonModal).modal("show");
+        },
+        closePostAmazonModal() {
+            $(this.$refs.postAmazonModal).modal("hide");
+        },
+        async submitPostToAmazon() {
+            this.isPosting = true;
+            try {
+                const response = await axios.post(
+                    "/api/stockroom/post-items-to-amazon",
+                    {
+                        selectedItems: this.selectedItems,
+                        ...this.postForm,
+                    },
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            )?.content,
+                        },
+                    }
+                );
+
+                if (response.data.status === "success") {
+                    alert("Items successfully posted to Amazon.");
+                } else {
+                    alert(
+                        "Error: " + (response.data.message || "Unknown error.")
+                    );
+                }
+            } catch (err) {
+                console.error(err);
+                alert("An error occurred.");
+            } finally {
+                this.isPosting = false;
             }
         },
     },

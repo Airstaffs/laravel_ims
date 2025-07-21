@@ -230,19 +230,19 @@ class PrintShippingLabelController extends Controller
             ]);
 
         } /*else {
-  // If also sending the PDF file (with save mode)
-  $response = Http::attach(
-      'pdf_file',
-      file_get_contents($pdfFile),
-      basename($pdfFile)
-  )
-      ->asMultipart()
-      ->post($printerIP, [
-          ['name' => 'zpl', 'contents' => $zplCode],
-          ['name' => 'printerSelect', 'contents' => $pIp],
-          ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
-      ]);
-}*/
+            // If also sending the PDF file (with save mode)
+            $response = Http::attach(
+                'pdf_file',
+                file_get_contents($pdfFile),
+                basename($pdfFile)
+            )
+                ->asMultipart()
+                ->post($printerIP, [
+                    ['name' => 'zpl', 'contents' => $zplCode],
+                    ['name' => 'printerSelect', 'contents' => $pIp],
+                    ['name' => 'savemode', 'contents' => 'ShipmentInvoice'],
+                ]);
+        } */
 
         Log::info('Printer response:', [
             'status' => $response->status(),

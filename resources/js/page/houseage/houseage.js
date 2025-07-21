@@ -183,6 +183,10 @@ export default {
             event.target.onerror = null; // Prevent infinite error loop
         },
 
+        isValidImage(path) {
+            return path && path !== "NULL" && path.trim() !== "";
+        },
+
         // Count additional images based on the image fields (img2-img15)
         countRegularImages(item) {
             if (!item) return 0;
@@ -237,98 +241,50 @@ export default {
         openImageModal(item) {
             if (!item) return;
 
-            console.log("Opening modal for item:", item);
-
-            // Reset modal state
             this.regularImages = [];
             this.capturedImages = [];
             this.currentImageIndex = 0;
             this.ProductTitle = item.ProductTitle;
-
-            // First collect regular images (img1-img15)
-            if (item.img1 && item.img1 !== "NULL" && item.img1.trim() !== "") {
-                const mainImagePath = `/images/thumbnails/${item.img1}`;
-                this.regularImages.push(mainImagePath);
-                console.log("Added main image:", mainImagePath);
-            }
-
-            // Add regular additional images
-            for (let i = 2; i <= 15; i++) {
-                const fieldName = `img${i}`;
-                if (
-                    item[fieldName] &&
-                    item[fieldName] !== "NULL" &&
-                    item[fieldName].trim() !== ""
-                ) {
-                    const imagePath = `/images/thumbnails/${item[fieldName]}`;
-                    this.regularImages.push(imagePath);
-                    console.log("Added additional image:", imagePath);
-                }
-            }
-
-            // Get company folder for captured image paths
             const companyFolder = item.company || "Airstaffs";
 
-            // Then collect captured images if available
-            if (item.capturedImages) {
-                console.log(
-                    "Processing captured images data:",
-                    item.capturedImages
-                );
-
-                // Check if capturedImages is empty or not a proper object
-                const hasCapturedImages =
-                    typeof item.capturedImages === "object" &&
-                    Object.keys(item.capturedImages).length > 0;
-
-                if (hasCapturedImages) {
-                    for (let i = 1; i <= 12; i++) {
-                        const fieldName = `capturedimg${i}`;
-                        if (
-                            item.capturedImages[fieldName] &&
-                            item.capturedImages[fieldName] !== "NULL" &&
-                            item.capturedImages[fieldName].trim() !== ""
-                        ) {
-                            // Use the exact path based on your server structure
-                            const imagePath = `/images/product_images/${companyFolder}/${item.capturedImages[fieldName]}`;
-                            console.log(
-                                `Adding captured image path: ${imagePath}`
-                            );
-                            this.capturedImages.push(imagePath);
-                        }
-                    }
-                } else {
-                    console.log(
-                        "Captured images object exists but is empty or invalid"
-                    );
+            // Load regular images (img1 - img15)
+            for (let i = 1; i <= 15; i++) {
+                const fieldName = `img${i}`;
+                if (this.isValidImage(item[fieldName])) {
+                    const path = `/images/thumbnails/${item[fieldName]}`;
+                    this.regularImages.push(path);
                 }
-            } else {
-                console.log("No captured images data found for item:", item);
             }
 
-            // If no images were found in either category, add a default image to regularImages
+            // Load captured images (capturedimg1 - capturedimg12)
+            if (
+                item.capturedImages &&
+                typeof item.capturedImages === "object"
+            ) {
+                for (let i = 1; i <= 12; i++) {
+                    const filename = `${item.rtcounter}_img${i}.jpg`;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                }
+            }
+
+            // Fallback if no images exist
             if (
                 this.regularImages.length === 0 &&
                 this.capturedImages.length === 0
             ) {
-                const defaultPath = this.defaultImage;
-                this.regularImages.push(defaultPath);
-                console.log("No images found, using default:", defaultPath);
+                this.regularImages.push(this.defaultImage);
             }
 
-            // Set initial tab based on which images are available
-            if (this.regularImages.length > 0) {
-                this.activeTab = "regular";
-                this.currentImageSet = this.regularImages;
-            } else if (this.capturedImages.length > 0) {
-                this.activeTab = "captured";
-                this.currentImageSet = this.capturedImages;
-            }
+            // Set default active tab
+            this.activeTab = this.regularImages.length ? "regular" : "captured";
+            this.currentImageSet =
+                this.activeTab === "regular"
+                    ? this.regularImages
+                    : this.capturedImages;
 
-            // Show the modal
+            // Show modal and disable page scrolling
             this.showImageModal = true;
-
-            // Prevent scrolling when modal is open
             document.body.style.overflow = "hidden";
         },
 

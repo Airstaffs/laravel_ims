@@ -832,13 +832,13 @@
                     >
                         <i class="fas fa-check"></i> Submit Process
                     </button>
-                                        <button
-                        class="btn-post-selected"
-                        @click="postItemstoAmzn"
-                        :disabled="!hasSelectedItems"
-                    >
-                        <i class="fas fa-print"></i> Post to Amazon
-                    </button>
+<button
+    class="btn-post-selected"
+    @click="openPostAmazonModal"
+    :disabled="!hasSelectedItems"
+>
+    <i class="fas fa-print"></i> Post to Amazon
+</button>
                 </div>
             </div>
         </div>
@@ -1085,6 +1085,48 @@
                 </div>
             </div>
         </div>
+
+        <!-- Post to Amazon Modal -->
+        <div class="modal" tabindex="-1" role="dialog" ref="postAmazonModal">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Post to Amazon</h5>
+                <button type="button" class="close" @click="closePostAmazonModal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" v-if="!isPosting">
+                <form @submit.prevent="submitPostToAmazon">
+                    <div class="form-group">
+                        <label>Marketplace</label>
+                        <input v-model="postForm.marketplace" class="form-control" required>
+                    </div>
+<select v-model="postForm.fulfillmentChannel" class="form-control" required>
+    <option disabled value="">Select Fulfillment Channel</option>
+    <option value="AMAZON_NA">FBA</option>
+    <option value="DEFAULT">FBM</option>
+</select>
+                    <div class="form-group">
+                        <label>Currency</label>
+                        <input v-model="postForm.currency" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Price</label>
+                        <input type="number" v-model="postForm.price" class="form-control" required>
+                    </div>
+                    <button class="btn btn-primary" type="submit">Submit</button>
+                </form>
+            </div>
+            <div class="modal-body" v-else>
+                <p>Processing... Please wait.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @click="closePostAmazonModal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
     </div>
 </template>
 
