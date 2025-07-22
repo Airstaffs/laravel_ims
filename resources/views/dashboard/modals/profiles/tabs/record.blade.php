@@ -1,7 +1,7 @@
 <div class="tab-pane fade show text-center" id="timerecord" role="tabpanel" aria-labelledby="timerecord-tab">
 
     <!-- Date Range Filter -->
-    <form id="filter-form" class="filterForm">
+    <form id="filter-form" class="filterForm" data-route="{{ route('attendance.filter.ajax') }}">
         <!-- Start Date -->
         <div class="form-group">
             <label for="start-date" class="form-label visually-hidden">Start Date:</label>

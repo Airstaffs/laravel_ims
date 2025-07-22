@@ -9,6 +9,8 @@
             <div id="current-date" style="display:none;"></div>
         </div>
 
+        <input type="hidden" id="last-record-timein" value="{{ $verylastRecord ? $verylastRecord->TimeIn : '' }}">
+
         <!-- Clock In/Out Buttons -->
         <div class="d-flex justify-content-center gap-3">
             <button type="button" id="clockin-button" onclick="confirmClockIn()"

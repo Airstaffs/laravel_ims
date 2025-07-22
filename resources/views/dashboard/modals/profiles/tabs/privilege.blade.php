@@ -2,7 +2,6 @@
     <h5 style="font-weight: bold; color: #333;">Account Privileges</h5>
 
     <div class="d-flex justify-content-start align-items-center gap-2" style="flex-wrap: wrap;">
-
         @php
             $privileges = [
                 ['key' => 'order', 'label' => 'Order'],
@@ -24,21 +23,19 @@
                 ['key' => 'houseage', 'label' => 'Houseage'],
                 ['key' => 'printer', 'label' => 'Printer'],
             ];
-            $chunks = array_chunk($privileges, 1);
         @endphp
 
-        @foreach($chunks as $chunk)
+        @foreach($privileges as $privilege)
             <div class="privileges__container">
-                @foreach($chunk as $privilege)
-                    <div>
-                        <input type="checkbox" id="{{ $privilege['key'] }}" name="{{ $privilege['key'] }}" value="1" disabled>
-                        <label for="{{ $privilege['key'] }}" style="font-size: 16px; font-weight: 500; color: #000;">
-                            {{ $privilege['label'] }}
-                        </label>
-                    </div>
-                @endforeach
+                <input type="checkbox" id="{{ $privilege['key'] }}" name="{{ $privilege['key'] }}" value="1" disabled>
+                <label for="{{ $privilege['key'] }}" style="font-size: 16px; font-weight: 500; color: #000;">
+                    {{ $privilege['label'] }}
+                </label>
             </div>
         @endforeach
-
     </div>
 </div>
+
+<script>
+    const privilegesRoute = "{{ route('myprivileges') }}";
+</script>
