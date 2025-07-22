@@ -1449,7 +1449,15 @@ class StockroomController extends BasetablesController
             $createdocumentid_data = Create_feed_document_passing_json($filterstore, null);
             $feeddocumentid = $createdocumentid_data['data']['feedDocumentId'];
 
-            $feedDataJson = json_encode($feedItems, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            $payload = [
+                'header' => [
+                    'version' => '2.0',
+                    'feedType' => 'JSON_LISTINGS_FEED'
+                ],
+                'records' => $feedItems
+            ];
+
+            $feedDataJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
             $uploadSuccess = upload_feed_to_amazon_s3($createdocumentid_data['data']['url'], $feedDataJson);
 
             if ($uploadSuccess) {
