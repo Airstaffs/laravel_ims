@@ -1443,7 +1443,7 @@ class StockroomController extends BasetablesController
                                 "marketplace_id" => "ATVPDKIKX0DER"
                             ]
                         ],
-                        "merchant" => [
+                        "Merchant" => [
                             [
                                 "value" => $tblstore['MerchantID'],
                                 "marketplace_id" => "ATVPDKIKX0DER",
