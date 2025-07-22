@@ -1428,6 +1428,7 @@ class StockroomController extends BasetablesController
                 $feedItems[] = [
                     "sku" => $item['sku'],
                     "productType" => "generic",
+                        "requirements" => "LISTING_OFFER_ONLY",
                     "attributes" => [
                         'condition_type' => [
                             [
