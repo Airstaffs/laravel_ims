@@ -1475,6 +1475,10 @@ class StockroomController extends BasetablesController
                 'records' => $feedItems
             ];
 
+            echo "<pre>";
+            print_r($payload);
+            echo "</pre>";
+
             $feedDataJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
             $uploadSuccess = upload_feed_to_amazon_s3($createdocumentid_data['data']['url'], $feedDataJson);
 
