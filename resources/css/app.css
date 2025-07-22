@@ -1277,6 +1277,10 @@ form.fnskuForm .btn-process {
     flex: 1;
 }
 
+.privileges__container {
+    flex: 1 30%;
+}
+
 @media (max-width: 767px) {
     .desktop {
         display: none;

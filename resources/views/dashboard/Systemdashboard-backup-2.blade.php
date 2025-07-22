@@ -4,7 +4,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <!-- Cache Control -->
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
@@ -297,7 +296,6 @@
     @include('dashboard.modals.asinoption')
     @include('dashboard.modals.printer')
     @include('dashboard.modals.settings.settings-modal')
-    @include('dashboard.modals.profiles.profiles-modal')
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -332,6 +330,512 @@
             });
         });
     </script>
+
+    <!-- PROFILE Modal -->
+    <div class="modal profile fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="profileModalLabel">Profile</h5>
+                    <button type="button" class="btn btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <ul class="nav nav-tabs" id="profileTab" role="tablist">
+                        <li class="nav-item active" id="attendance-tab" data-bs-toggle="tab"
+                            data-bs-target="#attendance" type="button" role="tab" aria-controls="attendance"
+                            aria-selected="true">
+                            <i class="bi bi-calendar-check"></i>
+                            <span>Attendance</span>
+                        </li>
+                        <li class="nav-item" id="userprofile-tab" data-bs-toggle="tab" data-bs-target="#userprofile"
+                            type="button" role="tab" aria-controls="userprofile" aria-selected="false">
+                            <i class="bi bi-person"></i>
+                            <span>Account</span>
+                        </li>
+                        <li class="nav-item" id="timerecord-tab" data-bs-toggle="tab" data-bs-target="#timerecord"
+                            type="button" role="tab" aria-controls="timerecord" aria-selected="false">
+                            <i class="bi bi-clock"></i>
+                            <span>Record</span>
+                        </li>
+                        <li class="nav-item" id="myprivileges-tab" data-bs-toggle="tab" data-bs-target="#myprivileges"
+                            type="button" role="tab" aria-controls="myprivileges" aria-selected="false">
+                            <i class="bi bi-shield-lock"></i>
+                            <span>My Privileges</span>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content" id="settingsTabContent">
+                        <!-- Attendance Tab -->
+                        <div class="tab-pane fade show active text-center" id="attendance" role="tabpanel"
+                            aria-labelledby="attendance-tab">
+                            <h3>Attendance / Clock-in & Clock-out</h3>
+
+                            <!-- Time, Day, and Date Display -->
+                            <div
+                                class="attendance-info-container d-flex flex-column justify-content-start align-items-stretch">
+                                <div class="date-container">
+                                    <div id="current-time"></div>
+                                    <div id="current-day"></div>
+                                    <div style="display:none;" id="current-date"></div>
+                                </div>
+
+                                <!-- Clock In/Out Buttons -->
+                                <!-- Clock In/Out Buttons -->
+                                <div class="d-flex justify-content-center gap-3">
+                                    <!-- Clock In Button -->
+                                    <button type="button"
+                                        class="btn {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? 'btn-clockin' : 'btn-clockout' }}"
+                                        onclick="confirmClockIn()" data-route="{{ route('attendance.clockin') }}"
+                                        id="clockin-button" {{ !$lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut) ? '' : 'disabled' }}>
+                                        Clock In
+                                    </button>
+
+                                    <!-- Clock Out Button -->
+                                    <button type="button"
+                                        class="btn {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? 'btn-clockin' : 'btn-clockout' }}"
+                                        onclick="confirmClockOut()" data-route="{{ route('attendance.clockout') }}"
+                                        id="clockout-button" {{ $lastRecord && $lastRecord->TimeIn && !$lastRecord->TimeOut ? '' : 'disabled' }}>
+                                        Clock Out
+                                    </button>
+                                </div>
+
+                                <!-- Computations for Today's Hours and This Week's Hours -->
+                                <div class="p-3 bg-light border rounded">
+                                    <p><strong>Today's Hours:</strong>
+                                        <span id="today-hours">{{ $todayHoursFormatted ?? '0:00' }}
+                                        </span>
+                                    </p>
+                                    <p><strong>This Week's Hours:</strong> <span
+                                            id="week-hours">{{ $weekHoursFormatted ?? '0:00' }}</span></p>
+                                </div>
+                            </div>
+
+                            <!-- Attendance Table -->
+                            <div class="attendance-table">
+                                <table class="table table-bordered table-hover desktop">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Time In</th>
+                                            <th>Time Out</th>
+                                            <th>Computed Hours</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($employeeClocksThisweek as $clockwk)
+                                            <tr data-bs-toggle="tooltip" data-bs-placement="top"
+                                                title="{{ $clockwk->Notes }}">
+
+                                                <!-- Time In -->
+                                                <td>
+                                                    <div
+                                                        class="d-flex flex-column justify-content-start align-items-center gap-2">
+                                                        <span>{{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}</span>
+                                                        <sup><b> {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}
+                                                            </b></sup>
+                                                    </div>
+                                                </td>
+
+                                                <!-- Time Out -->
+                                                <td>
+                                                    <div
+                                                        class="d-flex flex-column justify-content-start align-items-center gap-2">
+                                                        @if ($clockwk->TimeOut)
+                                                            <span>{{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('h:i A') }}</span>
+                                                            <sup><b> {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('M d, Y') }}
+                                                                </b></sup>
+                                                        @else
+                                                            <span class="badge badge-danger">Not yet timed out</span>
+                                                        @endif
+                                                    </div>
+                                                </td>
+
+                                                <!-- Computed Hours -->
+                                                <td>
+                                                    <div id="computed-hours-{{ $clockwk->ID }}"
+                                                        class="d-flex flex-column justify-content-start align-items-center gap-2">
+                                                        <sup><b> Not yet calculated </b></sup>
+                                                    </div>
+                                                </td>
+
+                                                <!-- Update Button -->
+                                                <td style="display:none;">
+                                                    <button class="btn btn-primary update-computed-hours d-none"
+                                                        data-id="{{ $clockwk->ID }}" data-timein="{{ $clockwk->TimeIn }}"
+                                                        data-timeout="{{ $clockwk->TimeOut }}">
+                                                        Update
+                                                    </button>
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex justify-content-center align-items-center">
+                                                        <button class="btn btn-sm btn-primary m-0 text-white"
+                                                            data-bs-toggle="modal" data-bs-target="#editNotesModal"
+                                                            onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
+                                                            <i class="bi bi-pencil-square"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Mobile Attendance -->
+                            <div class="container mobile">
+                                @foreach ($employeeClocksThisweek as $index => $clockwk)
+                                    <div class="mobile-card mb-3 shadow-sm {{ $index % 2 == 0 ? 'bg-light' : 'bg-white' }}"
+                                        data-bs-toggle="tooltip" data-bs-placement="top" title="{{ $clockwk->Notes }}">
+                                        <div class="card-body">
+                                            <div>
+                                                <h6 class="mb-0">Date :</h6>
+                                                <p class="mb-0">
+                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('M d, Y') }}
+                                                </p>
+                                            </div>
+                                            <!-- Time In -->
+                                            <div>
+                                                <h6 class="mb-0">Time In :</h6>
+                                                <p class="mb-0">
+                                                    {{ \Carbon\Carbon::parse($clockwk->TimeIn)->format('h:i A') }}
+                                                </p>
+                                            </div>
+
+                                            <!-- Time Out -->
+                                            <div>
+                                                <h6 class="mb-0">Time Out :</h6>
+                                                @if ($clockwk->TimeOut)
+                                                    <p class="mb-0">
+                                                        {{ \Carbon\Carbon::parse($clockwk->TimeOut)->format('h:i A') }}
+                                                    </p>
+                                                @else
+                                                    <span class="badge bg-danger">Not yet timed out</span>
+                                                @endif
+                                            </div>
+
+                                            <!-- Computed Hours -->
+                                            <div>
+                                                <h6 class="mb-0">Computed Hours :</h6>
+                                                <div id="computed-hours-{{ $clockwk->ID }}">
+                                                    <small><strong>Not yet calculated</strong></small>
+                                                </div>
+                                            </div>
+
+                                            <!-- Notes Edit -->
+                                            <div class="notes-container">
+                                                <button class="btn btn-sm btn-primary text-white" data-bs-toggle="modal"
+                                                    data-bs-target="#editNotesModal"
+                                                    onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+
+                        </div>
+
+                        <!-- Account Tab -->
+                        <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="userprofile-tab">
+                            <ul class="nav list-unstyled" id="accountTab" role="tablist">
+                                <li role="presentation">
+                                    <button class="btn btn-account active" id="changepass-tab" data-bs-toggle="tab"
+                                        data-bs-target="#changepass" type="button" role="tab" aria-controls="changepass"
+                                        aria-selected="true">
+                                        Change Password
+                                    </button>
+                                </li>
+                                <li role="presentation">
+                                    <button class="btn btn-account" id="timezone-tab" data-bs-toggle="tab"
+                                        data-bs-target="#timezone" type="button" role="tab" aria-controls="timezone"
+                                        aria-selected="false">
+                                        Timezone Settings
+                                    </button>
+                                </li>
+                            </ul>
+
+                            <div class="tab-content" id="accountTabContent">
+                                <div class="tab-pane fade show active" id="changepass" role="tabpanel"
+                                    aria-labelledby="changepass-tab">
+                                    <form action="{{ route('update-password') }}" method="POST" class="changePwdForm">
+                                        @csrf
+                                        <fieldset>
+                                            <label for="password" class="form-label">New Password</label>
+                                            <div class="has-toggle">
+                                                <input type="password" class="form-control" id="newpassword"
+                                                    name="password" placeholder="Enter password" required>
+                                                <i role="button" class="bi bi-eye toggle-password"
+                                                    id="toggleNewPassword" data-target="#password"></i>
+                                            </div>
+                                        </fieldset>
+
+                                        <hr class="dashed m-0">
+
+                                        <fieldset>
+                                            <label for="password_confirmation" class="form-label">Confirm
+                                                Password</label>
+                                            <div class="has-toggle">
+                                                <input type="password" class="form-control" id="confirmpassword"
+                                                    name="password_confirmation" placeholder="Confirm password"
+                                                    required>
+                                                <i role="button" class="bi bi-eye toggle-password"
+                                                    id="toggleConfirmPassword" data-target="#password"></i>
+                                            </div>
+                                        </fieldset>
+
+                                        <button type="submit" class="btn btn-primary btn-process text-white">Change
+                                            Password</button>
+                                    </form>
+                                </div>
+
+                                <div class="tab-pane fade" id="timezone" role="tabpanel" aria-labelledby="timezone-tab">
+                                    <form id="timezoneForm" class="timezoneForm">
+                                        @csrf
+                                        @php
+                                            $allTimezones = collect(timezone_identifiers_list())
+                                                ->map(function ($tz) {
+                                                    $dt = new DateTime('now', new DateTimeZone($tz));
+                                                    $offset = $dt->getOffset();
+                                                    $hours = intdiv($offset, 3600);
+                                                    $minutes = abs($offset % 3600) / 60;
+                                                    $sign = $offset >= 0 ? '+' : '-';
+                                                    $formattedOffset = sprintf("UTC %s%02d:%02d", $sign, abs($hours), $minutes);
+                                                    return [
+                                                        'tz' => $tz,
+                                                        'offset' => $offset,
+                                                        'label' => "($formattedOffset) $tz"
+                                                    ];
+                                                });
+
+                                            $grouped = $allTimezones->sortBy('offset')->groupBy('offset');
+
+                                            $limitedTimezones = $grouped->map(function ($group) {
+                                                return $group->take(2);
+                                            })->flatten(1);
+
+                                            if (!$limitedTimezones->pluck('tz')->contains('America/Los_Angeles')) {
+                                                $la = $allTimezones->firstWhere('tz', 'America/Los_Angeles');
+                                                $limitedTimezones->push($la);
+                                            }
+
+                                            $timezones = $limitedTimezones->sortBy('offset');
+                                        @endphp
+
+                                        <!-- Timezone Dropdown -->
+                                        <fieldset>
+                                            <label for="usertimezone">Preferred Timezone</label>
+                                            <select class="form-select" id="usertimezone" name="usertimezone" required>
+                                                @foreach($timezones as $tz)
+                                                    <option value="{{ $tz['tz'] }}" {{ ($timezone_setting['usertimezone'] ?? 'UTC') === $tz['tz'] ? 'selected' : '' }}>
+                                                        {{ $tz['label'] }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+
+                                            <div class="has-checkbox">
+                                                <input class="form-check-input" type="checkbox" id="auto_sync"
+                                                    name="auto_sync" {{ $timezone_setting['auto_sync'] ?? false ? 'checked' : '' }}>
+                                                <label class="form-check-label" for="auto_sync">
+                                                    Automatically Sync Timezone
+                                                </label>
+                                            </div>
+                                        </fieldset>
+
+                                        <button type="submit" class="btn btn-process">Update Timezone</button>
+                                    </form>
+
+                                    <!-- Flash success box -->
+                                    <div id="timezoneSuccessBox"
+                                        class="alert alert-success alert-dismissible fade show mt-3 d-none"
+                                        role="alert">
+                                        <span id="timezoneSuccessMsg"></span>
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"
+                                            aria-label="Close"></button>
+                                    </div>
+
+                                    <!-- JavaScript to control timezone logic -->
+                                    <script>
+                                        document.addEventListener("DOMContentLoaded", function () {
+                                            const autoSyncCheckbox = document.getElementById('auto_sync');
+                                            const timezoneSelect = document.getElementById('usertimezone');
+
+                                            const setSelectState = () => {
+                                                if (autoSyncCheckbox.checked) {
+                                                    timezoneSelect.disabled = true;
+                                                    timezoneSelect.value = 'America/Los_Angeles';
+                                                } else {
+                                                    timezoneSelect.disabled = false;
+                                                }
+                                            };
+
+                                            // Initial check on load
+                                            setSelectState();
+
+                                            // Event listener for toggle
+                                            autoSyncCheckbox.addEventListener('change', setSelectState);
+                                        });
+                                    </script>
+
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Record Tab -->
+                        <div class="tab-pane fade show text-center" id="timerecord" role="tabpanel"
+                            aria-labelledby="timerecord-tab">
+
+                            <!-- Date Range Filter -->
+                            <form id="filter-form" class="filterForm">
+                                <!-- Start Date -->
+                                <div class="form-group">
+                                    <label for="start-date" class="form-label visually-hidden">Start Date:</label>
+                                    <input type="date" class="form-control" id="start-date" name="start_date"
+                                        placeholder="Start Date">
+                                </div>
+
+                                <!-- End Date -->
+                                <div class="form-group">
+                                    <label for="end-date" class="form-label visually-hidden">End Date:</label>
+                                    <input type="date" class="form-control" id="end-date" name="end_date"
+                                        placeholder="End Date">
+                                </div>
+
+                                <!-- Filter Button -->
+                                <button type="button" id="filter-button" class="btn btn-primary">Filter</button>
+                            </form>
+
+                            <!-- Computations -->
+                            <strong>
+                                <p>Total Hours: <span id="total-hours">0:00</span></p>
+                            </strong>
+
+                            <!-- Attendance Table -->
+                            <div class="table-responsive d-none d-md-block">
+                                <table class="table table-bordered table-hover">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Time In</th>
+                                            <th>Time Out</th>
+                                            <th>Computed Hours</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="attendance-table-body">
+                                        <!-- Default Rows Will Be Loaded Dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Mobile Card View -->
+                            <div class="container d-block d-md-none" id="attendance-card-container">
+                                <!-- Cards will be injected dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Privileges Tab -->
+                        <div class="tab-pane fade show" id="myprivileges" role="tabpanel"
+                            aria-labelledby="myprivileges-tab">
+                            <h5 style="font-weight: bold; color: #333;">Account Privileges</h5>
+                            <div class="row">
+
+                                <!-- First Column -->
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="order" name="order"
+                                            value="1" disabled>
+                                        <label class="" for="order"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Order
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="unreceived"
+                                            name="unreceived" value="1" disabled>
+                                        <label class="" for="unreceived"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Unreceived
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="receiving" name="receiving"
+                                            value="1" disabled>
+                                        <label class="" for="receiving"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Receiving
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="labeling" name="labeling"
+                                            value="1" disabled>
+                                        <label class="" for="labeling"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Labeling
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="fnsku" name="fnsku"
+                                            value="1" disabled>
+                                        <label class="" for="fnsku"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            FNSKU
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <!-- Second Column -->
+                                <div class="col-md-6">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="testing" name="testing"
+                                            value="1" disabled>
+                                        <label class="" for="testing"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Testing
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="cleaning" name="cleaning"
+                                            value="1" disabled>
+                                        <label class="" for="cleaning"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Cleaning
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="packing" name="packing"
+                                            value="1" disabled>
+                                        <label class="" for="packing"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Packing
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="stockroom" name="stockroom"
+                                            value="1" disabled>
+                                        <label class="" for="stockroom"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Stockroom
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="validation"
+                                            name="validation" value="1" disabled>
+                                        <label class="" for="validation"
+                                            style="font-size: 16px; font-weight: 500; color: #000;">
+                                            Validation
+                                        </label>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- NOTES Modal -->
     <div class="modal fade" id="editNotesModal" tabindex="-1" aria-labelledby="editNotesModalLabel" aria-hidden="true">
