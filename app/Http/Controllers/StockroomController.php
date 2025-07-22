@@ -1353,6 +1353,7 @@ class StockroomController extends BasetablesController
         $filterstore = $row->storename;
         $filtercondition = $row->grading;
         $amzncondition = normalize_db_condition($filtercondition);
+        $tblstore = sheesh_fetchtblstores($filterstore);
 
         $mskuResult = DB::table('tblfnsku')
             ->where('amazon_status', 'Not Existed')
@@ -1440,6 +1441,12 @@ class StockroomController extends BasetablesController
                                 "currency" => $currency,
                                 "value" => $price,
                                 "marketplace_id" => "ATVPDKIKX0DER"
+                            ]
+                        ],
+                        "merchant" => [
+                            [
+                                "value" => $tblstore['MerchantID'],
+                                "marketplace_id" => "ATVPDKIKX0DER",
                             ]
                         ]
                     ]
