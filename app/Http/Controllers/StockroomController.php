@@ -1277,6 +1277,11 @@ class StockroomController extends BasetablesController
     public function PostItemstoAmazon(Request $request)
     {
         $selectedItems = $request->input('selectedItems', []);
+        $marketplace = $request->input('marketplace');
+        $fulfillmentChannel = $request->input('fulfillmentChannel');
+        $currency = $request->input('currency');
+        $price = $request->input('price');
+
 
         if (empty($selectedItems)) {
             return response()->json([
@@ -1284,6 +1289,8 @@ class StockroomController extends BasetablesController
                 'message' => 'No items selected.'
             ]);
         }
+
+
 
         $products = DB::table('tblproduct')
             ->whereIn('ProductID', $selectedItems)
@@ -1317,6 +1324,8 @@ class StockroomController extends BasetablesController
             }
         }
 
+        $this->mskuPostToAmazon($readyToPost, $marketplace, $fulfillmentChannel, $currency, $price);
+
         return response()->json([
             'success' => true,
             'message' => 'Check complete.',
@@ -1324,5 +1333,167 @@ class StockroomController extends BasetablesController
             'already_posted' => $alreadyPosted,
             'invalid' => $invalid // Optional
         ]);
+    }
+
+    private function mskuPostToAmazon(array $items = [], $marketplace, $fulfillmentChannel, $currency, $price)
+    {
+        require_once base_path('automations/bulk_msku_creation.php');
+
+        $row = DB::table('tblfnsku')
+            ->where('amazon_status', 'Not Existed')
+            ->orderBy('insert_date', 'asc')
+            ->first();
+
+        if (!$row) {
+            echo "No ASINs to process.<br>";
+            return;
+        }
+
+        $filterasin = $row->ASIN;
+        $filterstore = $row->storename;
+        $filtercondition = $row->grading;
+        $amzncondition = normalize_db_condition($filtercondition);
+        $tblstore = sheesh_fetchtblstores($filterstore);
+
+        $mskuResult = DB::table('tblfnsku')
+            ->where('amazon_status', 'Not Existed')
+            ->where('ASIN', $filterasin)
+            ->where('storename', $filterstore)
+            ->where('grading', $filtercondition)
+            ->get();
+
+        $mskus = [];
+        $conditions = [];
+
+        foreach ($mskuResult as $row) {
+            $condition = strtolower(str_replace(' ', '_', $row->Condition ?? 'new_new'));
+            $conditions[] = $condition;
+            $mskus[] = [
+                'sku' => $row->MSKU,
+                'asin' => $filterasin,
+                'condition' => $condition,
+                'storename' => $row->storename,
+            ];
+        }
+
+        $conditions = array_unique($conditions);
+
+        if (empty($mskus)) {
+            echo "No MSKUs found for ASIN: $filterasin<br>";
+            return;
+        }
+
+        $producttype = fetch_listing_product_type($filterstore, $filterasin);
+        $listing_restrict = fetch_listing_retrict($filterstore, $filterasin);
+
+        $productTypeName = $producttype['data']['productType'] ?? null;
+        /*
+        if (!$productTypeName) {
+            echo "❌ No productType found for ASIN: $filterasin<br>";
+            echo "<pre>";
+            // print_r($producttype);
+            echo "</pre>";
+            return;
+        }
+            */
+
+        if ($listing_restrict['status'] == '200') {
+            $restrictions = $listing_restrict['data']['restrictions'] ?? [];
+
+            foreach ($restrictions as $r) {
+                if ($r['conditionType'] === $amzncondition) {
+                    $reason = $r['reasons'][0]['reasonCode'] ?? null;
+
+                    if ($reason === 'NOT_ELIGIBLE') {
+                        create_notification([
+                            'module' => 'listing',
+                            'title' => "Blocked: $filterasin",
+                            'subtitle' => $amzncondition,
+                            'content' => $r['reasons'][0]['message'] ?? 'Blocked by Amazon',
+                            'severity' => 'action_required'
+                        ]);
+
+                        DB::table('tblfnsku')
+                            ->where('ASIN', $filterasin)
+                            ->where('storename', $filterstore)
+                            ->where('grading', $filtercondition)
+                            ->update(['amazon_status' => 'Blocked']);
+
+                        return;
+                    }
+                }
+            }
+
+            foreach ($mskus as $item) {
+                $feedItems[] = [
+                    "sku" => $item['sku'],
+                    "productType" => "generic",
+                    "requirements" => "LISTING_OFFER_ONLY",
+                    "attributes" => [
+                        'condition_type' => [
+                            [
+                                'value' => $amzncondition,
+                                'marketplace_id' => $marketplace,
+                            ]
+                        ],
+                        'fulfillment_availability' => [
+                            [
+                                'fulfillment_channel_code' => $fulfillmentChannel,
+                                'marketplace_id' => $marketplace
+                            ]
+                        ],
+                        "merchant_suggested_asin" => [
+                            [
+                                "value" => $item['asin'],
+                                "marketplace_id" => "ATVPDKIKX0DER"
+                            ]
+                        ],
+                        "list_price" => [
+                            [
+                                "currency" => $currency,
+                                "value" => $price,
+                                "marketplace_id" => "ATVPDKIKX0DER"
+                            ]
+                        ],
+                        "Merchant" => [
+                            [
+                                "value" => $tblstore['MerchantID'],
+                                "marketplace_id" => "ATVPDKIKX0DER",
+                            ]
+                        ]
+                    ]
+                ];
+            }
+
+            $createdocumentid_data = Create_feed_document_passing_json($filterstore, null);
+            $feeddocumentid = $createdocumentid_data['data']['feedDocumentId'];
+
+            $payload = [
+                'header' => [
+                    'version' => '2.0',
+                    'feedType' => 'JSON_LISTINGS_FEED'
+                ],
+                'records' => $feedItems
+            ];
+
+            echo "<pre>";
+            print_r($payload);
+            echo "</pre>";
+
+            $feedDataJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            $uploadSuccess = upload_feed_to_amazon_s3($createdocumentid_data['data']['url'], $feedDataJson);
+
+            if ($uploadSuccess) {
+                $feedId = create_feed_from_document($filterstore, $feeddocumentid);
+                if ($feedId) {
+                    insert_created_feed(
+                        $feedId,
+                        'JSON_LISTINGS_FEED',
+                        $feeddocumentid,
+                        $filterstore
+                    );
+                }
+            }
+        }
     }
 }

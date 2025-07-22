@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use Illuminate\Support\Facades\Auth;
@@ -34,7 +33,7 @@ use App\Http\Controllers\Fbmorders\WorkhistoryController;
 use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Middleware\PreventBackHistory;
-use App\Http\Controllers\PrinterController;
+use App\Http\Controllers\printer\PrinterController;
 use App\Http\Controllers\FnskuController;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;

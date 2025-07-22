@@ -1,23 +1,26 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\printer;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Services\PrintLabelService;
+use App\Services\ImageProcessingService; 
 use App\Http\Controllers\BasetablesController;
 use Exception;
 
 class PrinterController extends BasetablesController
 {
-    protected $printLabelService;
+    protected $imageProcessingService;
+    protected $printLabelService; 
 
-    public function __construct(PrintLabelService $printLabelService)
+public function __construct()
     {
         parent::__construct();
-        $this->printLabelService = $printLabelService;
+        $this->imageProcessingService = new ImageProcessingService();
+        $this->printLabelService = new PrintLabelService();       
     }
 
     /**
@@ -55,7 +58,7 @@ class PrinterController extends BasetablesController
                     'prod.priorityrank',
                     'prod.returnstatus',
                     'prod.validation_status',
-                    'prod.FNSKUviewer', // FIX: Add this field back - it was missing in paste-2.txt
+                    'prod.FNSKUviewer', 
                     'fnsku.FNSKU',
                     'fnsku.grading as fnsku_grading',
                     'fnsku.storename as fnsku_storename',
