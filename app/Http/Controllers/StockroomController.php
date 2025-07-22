@@ -1426,7 +1426,7 @@ class StockroomController extends BasetablesController
             foreach ($mskus as $item) {
                 $feedItems[] = [
                     "sku" => $item['sku'],
-                    "productType" => $productTypeName,
+                    "productType" => "generic",
                     "attributes" => [
                         'condition_type' => [
                             [
