@@ -1387,14 +1387,15 @@ class StockroomController extends BasetablesController
         $listing_restrict = fetch_listing_retrict($filterstore, $filterasin);
 
         $productTypeName = $producttype['data']['productType'] ?? null;
-
+        /*
         if (!$productTypeName) {
             echo "❌ No productType found for ASIN: $filterasin<br>";
             echo "<pre>";
-            print_r($producttype);
+            // print_r($producttype);
             echo "</pre>";
             return;
         }
+            */
 
         if ($listing_restrict['status'] == '200') {
             $restrictions = $listing_restrict['data']['restrictions'] ?? [];
