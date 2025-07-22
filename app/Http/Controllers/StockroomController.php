@@ -1386,6 +1386,13 @@ class StockroomController extends BasetablesController
         $producttype = fetch_listing_product_type($filterstore, $filterasin);
         $listing_restrict = fetch_listing_retrict($filterstore, $filterasin);
 
+        $productTypeName = $producttype['data']['productType'] ?? null;
+
+        if (!$productTypeName) {
+            echo "❌ No productType found for ASIN: $filterasin<br>";
+            return;
+        }
+
         if ($listing_restrict['status'] == '200') {
             $restrictions = $listing_restrict['data']['restrictions'] ?? [];
 
@@ -1416,7 +1423,7 @@ class StockroomController extends BasetablesController
             foreach ($mskus as $item) {
                 $feedItems[] = [
                     "sku" => $item['sku'],
-                    "productType" => "generic",
+                    "productType" => $productTypeName,
                     "attributes" => [
                         'condition_type' => [
                             [
