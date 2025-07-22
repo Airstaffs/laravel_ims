@@ -13,6 +13,8 @@ if ($Connect->connect_error) {
     die("Connection failed: " . $Connect->connect_error);
 }
 
+echo "hello";
+
 $feeds = get_pending_feeds();
 
 foreach ($feeds as $feed) {

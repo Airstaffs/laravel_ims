@@ -1390,6 +1390,9 @@ class StockroomController extends BasetablesController
 
         if (!$productTypeName) {
             echo "❌ No productType found for ASIN: $filterasin<br>";
+            echo "<pre>";
+            print_r($producttype);
+            echo "</pre>";
             return;
         }
 
