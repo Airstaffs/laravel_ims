@@ -1471,7 +1471,9 @@ class StockroomController extends BasetablesController
             $payload = [
                 'header' => [
                     'version' => '2.0',
-                    'feedType' => 'JSON_LISTINGS_FEED'
+                    'feedType' => 'JSON_LISTINGS_FEED',
+                    'marketplaceIds' => [$marketplace],
+                    'sellerId' => $tblstore['MerchantID'], // must not be empty
                 ],
                 'records' => $feedItems
             ];
