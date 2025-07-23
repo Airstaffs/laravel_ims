@@ -1481,7 +1481,7 @@ class StockroomController extends BasetablesController
                     'marketplaceIds' => [$marketplace],
                     'sellerId' => $tblstore['MerchantID'],
                 ],
-                'records' => $feedItems
+                'messages' => $feedItems
             ];
 
             echo "<pre>";
