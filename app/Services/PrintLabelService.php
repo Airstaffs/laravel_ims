@@ -13,6 +13,7 @@ class PrintLabelService extends BasetablesController
 {
     protected $printerIp;
     protected $printServerUrl;
+    protected $instructionCardPrinterIp;
     protected $imageProcessingService;
 
     public function __construct()
@@ -22,6 +23,7 @@ class PrintLabelService extends BasetablesController
         // Set printer settings - these should be configurable
         $this->printerIp = config('app.printer_ip', '192.168.1.109');
         $this->printServerUrl = config('app.print_server_url', 'http://99.0.87.190:1450/ims/Admin/modules/PRD-RPN-PCN/print.php');
+        $this->instructionCardPrinterIp = config('app.instruction_card_printer_ip', '192.168.1.246');
         $this->imageProcessingService = new ImageProcessingService();
     }
 
@@ -54,7 +56,9 @@ class PrintLabelService extends BasetablesController
                     'asin.asinStatus',
                     'asin.TRANSPARENCY_QR_STATUS',
                     'asin.vectorimage',
-                    'asin.card_id'
+                    'asin.instructioncard',
+                    'asin.instructioncard2',
+                    'asin.instructioncard3'
                 ])
                 ->where('prod.ProductID', $productId)
                 ->where('prod.returnstatus', 'Not Returned')
@@ -77,10 +81,26 @@ class PrintLabelService extends BasetablesController
             $condition = $this->formatCondition($product->gradingviewer, $product->StoreName, $product->ASINviewer, $product->asinStatus);
             
             // Generate ZPL code with all functions - COMPLETE VERSION
-            $zpl = $this->generateCompleteZplCode($product, $condition, $returnCounts, $username);
+            $zplData = $this->generateCompleteZplCode($product, $condition, $returnCounts, $username);
             
-            // Send to printer
-            $result = $this->sendToPrinter($zpl);
+            // Separate main ZPL from instruction card ZPL
+            $mainZpl = $zplData['mainZpl'];
+            $instructionCardZpl = $zplData['instructionCardZpl'];
+            
+            // Send main labels to selected printer
+            $result = $this->sendToPrinter($mainZpl);
+            
+            // Send instruction cards to dedicated printer if available
+            if (!empty($instructionCardZpl)) {
+                $instructionCardResult = $this->sendToInstructionCardPrinter($instructionCardZpl);
+                
+                // Update result message to include instruction card printing status
+                if ($result['status'] === 'success' && $instructionCardResult['status'] === 'success') {
+                    $result['message'] = 'Printing All Labels...';
+                } else if ($result['status'] === 'success') {
+                    $result['message'] = 'Printing Small labels only...';
+                }
+            }
             
             // Update print count if successful
             if ($result['status'] === 'success') {
@@ -129,6 +149,7 @@ class PrintLabelService extends BasetablesController
     /**
      * Generate complete ZPL code with all label functions - COMPLETE VERSION
      * This integrates ALL functions from the original PHP code
+     * Returns separate main ZPL and instruction card ZPL
      */
     protected function generateCompleteZplCode($product, $condition, $returnCounts, $username)
     {
@@ -276,14 +297,16 @@ class PrintLabelService extends BasetablesController
                 $zpl .= $this->generateValidationStatusLabel($product->validation_status);
             }
 
-            // Instruction card processing - EXACT replication from original
-            if (!empty($product->ASINviewer) && !empty($product->card_id)) {
-                $nonNullCount++;
-                $zplIC .= $this->generateInstructionCardLabels($product);
-                $zpl .= $zplIC; // Add instruction card ZPL to main ZPL
+            // Instruction card processing - Generate separately for different printer
+            if (!empty($product->ASINviewer)) {
+                $zplIC = $this->generateInstructionCardLabels($product);
             }
 
-            return $zpl;
+            // Return both main ZPL and instruction card ZPL separately
+            return [
+                'mainZpl' => $zpl,
+                'instructionCardZpl' => $zplIC
+            ];
             
         } catch (Exception $e) {
             Log::error('Error generating complete ZPL code:', [
@@ -291,7 +314,10 @@ class PrintLabelService extends BasetablesController
                 'trace' => $e->getTraceAsString()
             ]);
             
-            return "^XA^FO50,50^ADN,18,18^FDError generating complete label^FS^XZ";
+            return [
+                'mainZpl' => "^XA^FO50,50^ADN,18,18^FDError generating complete label^FS^XZ",
+                'instructionCardZpl' => ''
+            ];
         }
     }
 
@@ -663,100 +689,172 @@ class PrintLabelService extends BasetablesController
     }
 
     /**
-     * Generate instruction card labels - EXACT replication from original with complete logic
+     * Generate instruction card labels - MODIFIED to use instructioncard, instructioncard2, and instructioncard3 columns
+     * Based on ASIN naming convention: {ASIN}_card1.png, {ASIN}_card2.png, {ASIN}_card3.png
      */
     protected function generateInstructionCardLabels($product)
     {
         try {
             $zplIC = '';
+            $asinfind = $product->ASINviewer ?? '';
+            $basketnumber = $product->basketnumber ?? '';
+            $Wserial = $product->serialnumber ?? '';
             
-            // Get instruction card details - EXACT replication
-            $instructionCard = DB::table('tblinstructioncard')
-                ->where('id', $product->card_id)
-                ->first();
+            // Check if we have instruction card data in the asin table columns
+            $hasInstructionCard1 = !empty($product->instructioncard) && $product->instructioncard == 1;
+            $hasInstructionCard2 = !empty($product->instructioncard2) && $product->instructioncard2 == 1;
+            $hasInstructionCard3 = !empty($product->instructioncard3) && $product->instructioncard3 == 1;
             
-            if ($instructionCard) {
-                $Page1 = $instructionCard->page1 ?? '';
-                $Page2 = $instructionCard->page2 ?? '';
-                $Page3 = $instructionCard->page3 ?? '';
-                $Wserial = $product->serialnumber ?? '';
-                $Page4 = $Wserial . "_page_1.png";
-                $Page5 = $Wserial . "_page_2.png";
-                $asinfind = $product->ASINviewer ?? '';
-                $basketnumber = $product->basketnumber ?? '';
+            if (!$hasInstructionCard1 && !$hasInstructionCard2 && !$hasInstructionCard3) {
+                // No instruction cards to process
+                return '';
+            }
+            
+            Log::info('Processing instruction cards:', [
+                'asin' => $asinfind,
+                'card1' => $hasInstructionCard1 ? 'yes' : 'no',
+                'card2' => $hasInstructionCard2 ? 'yes' : 'no',
+                'card3' => $hasInstructionCard3 ? 'yes' : 'no',
+                'serial' => $Wserial
+            ]);
+            
+            // Generate file paths based on ASIN naming convention
+            $card1FileName = $asinfind . '_card1.png';
+            $card2FileName = $asinfind . '_card2.png';
+            $card3FileName = $asinfind . '_card3.png';
+            
+            // Define base paths
+            $instructionCardBasePath = public_path('images/instructioncard/');
+            $monochromeBasePath = storage_path('app/public/images/monochrome/');
+            
+            // Process Card 1 if enabled
+            if ($hasInstructionCard1) {
+                $card1Path = $instructionCardBasePath . $card1FileName;
+                
+                Log::info('Checking card 1 path:', ['path' => $card1Path, 'exists' => file_exists($card1Path)]);
+                
+                if (file_exists($card1Path)) {
+                    $newWidth = 800;
+                    $newHeight = 1200;
+                    
+                    if ($this->imageProcessingService->safeConvertImage($card1Path, $monochromeBasePath, $newWidth, $newHeight)) {
+                        $monochromeImagePath = $monochromeBasePath . $card1FileName;
+                        $zplIC .= $this->imageProcessingService->enhanceAndConvertToZPL($monochromeImagePath, $asinfind, $basketnumber);
+                        
+                        Log::info('Successfully processed card 1', ['file' => $card1FileName]);
+                    } else {
+                        Log::warning('Failed to convert card 1 to monochrome', ['file' => $card1FileName]);
+                    }
+                } else {
+                    Log::warning('Card 1 file not found', [
+                        'expected_path' => $card1Path,
+                        'asin' => $asinfind
+                    ]);
+                    
+                    // Add error label to ZPL
+                    $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 1 not found: " . $card1FileName . "^FS^XZ";
+                }
+            }
+            
+            // Process Card 2 if enabled
+            if ($hasInstructionCard2) {
+                $card2Path = $instructionCardBasePath . $card2FileName;
+                
+                Log::info('Checking card 2 path:', ['path' => $card2Path, 'exists' => file_exists($card2Path)]);
+                
+                if (file_exists($card2Path)) {
+                    $newWidth = 800;
+                    $newHeight = 1200;
+                    
+                    if ($this->imageProcessingService->safeConvertImage($card2Path, $monochromeBasePath, $newWidth, $newHeight)) {
+                        $monochromeImagePath = $monochromeBasePath . $card2FileName;
+                        $zplIC .= $this->imageProcessingService->enhanceAndConvertToZPL($monochromeImagePath, $asinfind, $basketnumber);
+                        
+                        Log::info('Successfully processed card 2', ['file' => $card2FileName]);
+                    } else {
+                        Log::warning('Failed to convert card 2 to monochrome', ['file' => $card2FileName]);
+                    }
+                } else {
+                    Log::warning('Card 2 file not found', [
+                        'expected_path' => $card2Path,
+                        'asin' => $asinfind
+                    ]);
+                    
+                    // Add error label to ZPL
+                    $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 2 not found: " . $card2FileName . "^FS^XZ";
+                }
+            }
+            
+            // Process Card 3 if enabled - EXACT replication from original with convertImageLayout
+            if ($hasInstructionCard3) {
+                $card3Path = $instructionCardBasePath . $card3FileName;
+                
+                Log::info('Checking card 3 path:', ['path' => $card3Path, 'exists' => file_exists($card3Path)]);
+                
+                if (file_exists($card3Path)) {
+                    $newWidth = 800;
+                    $newHeight = 1200;
+                    
+                    if ($this->imageProcessingService->safeConvertImage($card3Path, $monochromeBasePath, $newWidth, $newHeight)) {
+                        $monochromeImagePath = $monochromeBasePath . $card3FileName;
+                        $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
+                        
+                        Log::info('Successfully processed card 3', ['file' => $card3FileName]);
+                    } else {
+                        Log::warning('Failed to convert card 3 to monochrome', ['file' => $card3FileName]);
+                    }
+                } else {
+                    Log::warning('Card 3 file not found', [
+                        'expected_path' => $card3Path,
+                        'asin' => $asinfind
+                    ]);
+                    
+                    // Add error label to ZPL
+                    $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 3 not found: " . $card3FileName . "^FS^XZ";
+                }
+            }
+            
+            // Process serial-specific warranty cards if serial number exists
+            if (!empty($Wserial)) {
+                $serialCard1FileName = $Wserial . "_page_1.png";
+                $serialCard2FileName = $Wserial . "_page_2.png";
+                
+                $templatePath1 = storage_path('app/public/instructioncard/warranty/templates/6_1st.png');
+                $templatePath2 = storage_path('app/public/instructioncard/warranty/templates/6_2nd.png');
+                $generatedImagesPath = storage_path('app/public/instructioncard/generated_images/');
                 
                 // Generate serial-specific images from templates if they don't exist
-                if (!empty($Wserial)) {
-                    $templatePath1 = storage_path('app/public/instructioncard/warranty/templates/6_1st.png');
-                    $templatePath2 = storage_path('app/public/instructioncard/warranty/templates/6_2nd.png');
+                $serialCard1Path = $generatedImagesPath . $serialCard1FileName;
+                $serialCard2Path = $generatedImagesPath . $serialCard2FileName;
+                
+                if (!file_exists($serialCard1Path) || !file_exists($serialCard2Path)) {
+                    Log::info('Generating serial-specific warranty cards', ['serial' => $Wserial]);
+                    $this->imageProcessingService->generateSerialImagesFromTemplates($Wserial, $templatePath1, $templatePath2);
+                }
+                
+                // Process serial card 1
+                if (file_exists($serialCard1Path)) {
+                    $newWidth = 800;
+                    $newHeight = 1200;
                     
-                    // Check if serial pages exist, if not generate them
-                    if (!file_exists(storage_path('app/public/instructioncard/generated_images/' . $Page4)) || 
-                        !file_exists(storage_path('app/public/instructioncard/generated_images/' . $Page5))) {
+                    if ($this->imageProcessingService->safeConvertImage($serialCard1Path, $monochromeBasePath, $newWidth, $newHeight)) {
+                        $monochromeImagePath = $monochromeBasePath . $serialCard1FileName;
+                        $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
                         
-                        $this->imageProcessingService->generateSerialImagesFromTemplates($Wserial, $templatePath1, $templatePath2);
+                        Log::info('Successfully processed serial card 1', ['file' => $serialCard1FileName]);
                     }
                 }
                 
-                // Process ASIN pages - EXACT replication
-                if (!empty($Page1)) {
-                    $inputPath = storage_path('app/public/instructioncard/' . $Page1);
-                    $outputPath = storage_path('app/public/images/monochrome/');
+                // Process serial card 2
+                if (file_exists($serialCard2Path)) {
                     $newWidth = 800;
                     $newHeight = 1200;
                     
-                    if ($this->imageProcessingService->safeConvertImage($inputPath, $outputPath, $newWidth, $newHeight)) {
-                        $monochromeImagePath = storage_path('app/public/images/monochrome/' . $Page1);
-                        $zplIC .= $this->imageProcessingService->enhanceAndConvertToZPL($monochromeImagePath, $asinfind, $basketnumber);
-                    }
-                }
-                
-                if (!empty($Page2)) {
-                    $inputPath = storage_path('app/public/instructioncard/' . $Page2);
-                    $outputPath = storage_path('app/public/images/monochrome/');
-                    $newWidth = 800;
-                    $newHeight = 1200;
-                    
-                    if ($this->imageProcessingService->safeConvertImage($inputPath, $outputPath, $newWidth, $newHeight)) {
-                        $monochromeImagePath = storage_path('app/public/images/monochrome/' . $Page2);
-                        $zplIC .= $this->imageProcessingService->enhanceAndConvertToZPL($monochromeImagePath, $asinfind, $basketnumber);
-                    }
-                }
-                
-                if (!empty($Page3)) {
-                    $inputPath = storage_path('app/public/instructioncard/' . $Page3);
-                    $outputPath = storage_path('app/public/images/monochrome/');
-                    $newWidth = 800;
-                    $newHeight = 1200;
-                    
-                    if ($this->imageProcessingService->safeConvertImage($inputPath, $outputPath, $newWidth, $newHeight)) {
-                        $monochromeImagePath = storage_path('app/public/images/monochrome/' . $Page3);
+                    if ($this->imageProcessingService->safeConvertImage($serialCard2Path, $monochromeBasePath, $newWidth, $newHeight)) {
+                        $monochromeImagePath = $monochromeBasePath . $serialCard2FileName;
                         $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
-                    }
-                }
-                
-                // Process serial-specific pages
-                if (!empty($Page4)) {
-                    $inputPath = storage_path('app/public/instructioncard/generated_images/' . $Page4);
-                    $outputPath = storage_path('app/public/images/monochrome/');
-                    $newWidth = 800;
-                    $newHeight = 1200;
-                    
-                    if ($this->imageProcessingService->safeConvertImage($inputPath, $outputPath, $newWidth, $newHeight)) {
-                        $monochromeImagePath = storage_path('app/public/images/monochrome/' . $Page4);
-                        $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
-                    }
-                }
-                
-                if (!empty($Page5)) {
-                    $inputPath = storage_path('app/public/instructioncard/generated_images/' . $Page5);
-                    $outputPath = storage_path('app/public/images/monochrome/');
-                    $newWidth = 800;
-                    $newHeight = 1200;
-                    
-                    if ($this->imageProcessingService->safeConvertImage($inputPath, $outputPath, $newWidth, $newHeight)) {
-                        $monochromeImagePath = storage_path('app/public/images/monochrome/' . $Page5);
-                        $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
+                        
+                        Log::info('Successfully processed serial card 2', ['file' => $serialCard2FileName]);
                     }
                 }
             }
@@ -766,7 +864,9 @@ class PrintLabelService extends BasetablesController
         } catch (Exception $e) {
             Log::error('Error generating instruction card labels:', [
                 'error' => $e->getMessage(),
-                'product_id' => $product->ProductID ?? 'unknown'
+                'trace' => $e->getTraceAsString(),
+                'product_id' => $product->ProductID ?? 'unknown',
+                'asin' => $product->ASINviewer ?? 'unknown'
             ]);
             
             return "^XA^FO50,50^ADN,18,18^FDError processing instruction cards^FS^XZ";
@@ -1022,6 +1122,71 @@ class PrintLabelService extends BasetablesController
             return [
                 'status' => 'error',
                 'message' => 'Error sending to printer ' . $this->printerIp . ': ' . $e->getMessage()
+            ];
+        }
+    }
+    
+    /**
+     * Send ZPL code to instruction card printer - Dedicated printer for instruction cards
+     */
+    protected function sendToInstructionCardPrinter($zpl)
+    {
+        try {
+            Log::info('Sending instruction card print job to printer:', [
+                'printer_ip' => $this->instructionCardPrinterIp,
+                'server_url' => $this->printServerUrl
+            ]);
+            
+            // Send to dedicated instruction card printer
+            $postData = http_build_query([
+                'zpl' => $zpl,
+                'printerSelect' => $this->instructionCardPrinterIp
+            ]);
+            
+            $ch = curl_init($this->printServerUrl);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+            curl_setopt($ch, CURLOPT_HEADER, false);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/x-www-form-urlencoded']);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+            
+            $response = curl_exec($ch);
+            $error = curl_error($ch);
+            $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            
+            curl_close($ch);
+            
+            Log::info('Instruction card printer response:', [
+                'response' => $response,
+                'status' => $status,
+                'error' => $error,
+                'printer_ip' => $this->instructionCardPrinterIp
+            ]);
+            
+            if ($response === "Message sent to printer successfully." || $status === 200) {
+                return [
+                    'status' => 'success',
+                    'message' => 'Instruction cards printed successfully to printer ' . $this->instructionCardPrinterIp
+                ];
+            } else {
+                return [
+                    'status' => 'error',
+                    'message' => 'Failed to print instruction cards to printer ' . $this->instructionCardPrinterIp . ': ' . ($response ?: $error)
+                ];
+            }
+            
+        } catch (Exception $e) {
+            Log::error('Error sending instruction cards to printer:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'printer_ip' => $this->instructionCardPrinterIp
+            ]);
+            
+            return [
+                'status' => 'error',
+                'message' => 'Error sending instruction cards to printer ' . $this->instructionCardPrinterIp . ': ' . $e->getMessage()
             ];
         }
     }

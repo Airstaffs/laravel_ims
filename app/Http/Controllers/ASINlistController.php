@@ -35,6 +35,7 @@ class ASINlistController extends BasetablesController
                     'asin.GrandASIN',
                     'asin.instructioncard',
                     'asin.instructioncard2',
+                    'asin.instructioncard3', // Added instruction card 3
                     'asin.instructionlink',
                     'asin.usermanuallink',
                     'asin.asinimg',
@@ -72,9 +73,18 @@ class ASINlistController extends BasetablesController
                 $asinQuery->where('fnsku.storename', $store);
             }
 
-            // Group by ASIN and having clause to ensure we have at least one FNSKU
-            $asinQuery->groupBy('asin.ASIN', 'asin.internal', 'asin.metakeyword', 'asin.EAN', 'asin.UPC', 'asin.ParentAsin', 'asin.CousinASIN', 'asin.UpgradeASIN', 'asin.GrandASIN', 'asin.instructioncard', 'asin.instructioncard2', 'asin.instructionlink', 'asin.usermanuallink', 'asin.asinimg', 'asin.vectorimage', 'asin.TRANSPARENCY_QR_STATUS', 'asin.dimension_length', 'asin.dimension_width', 'asin.dimension_height', 'asin.weight_value', 'asin.weight_unit', 'asin.white_length', 'asin.white_width', 'asin.white_height', 'asin.white_value', 'asin.white_unit')
-                ->having('fnsku_count', '>', 0);
+            // Group by ASIN - Updated to include instructioncard3
+            $asinQuery->groupBy(
+                'asin.ASIN', 'asin.internal', 'asin.metakeyword', 'asin.EAN', 'asin.UPC', 
+                'asin.ParentAsin', 'asin.CousinASIN', 'asin.UpgradeASIN', 'asin.GrandASIN', 
+                'asin.instructioncard', 'asin.instructioncard2', 'asin.instructioncard3',
+                'asin.instructionlink', 'asin.usermanuallink', 'asin.asinimg', 'asin.vectorimage', 
+                'asin.TRANSPARENCY_QR_STATUS', 'asin.dimension_length', 'asin.dimension_width', 
+                'asin.dimension_height', 'asin.weight_value', 'asin.weight_unit', 
+                'asin.white_length', 'asin.white_width', 'asin.white_height', 
+                'asin.white_value', 'asin.white_unit'
+            )
+            ->having('fnsku_count', '>', 0);
 
             // Order by ASIN
             $asinQuery->orderBy('asin.ASIN', 'asc');
@@ -117,10 +127,11 @@ class ASINlistController extends BasetablesController
                     ? $fnskuDetails[$item->ASIN]->toArray()
                     : [];
 
-                // Add instruction card URLs from database
+                // Add instruction card URLs from database - Updated to include card 3
                 $item->instruction_card_urls = [
                     'card1' => $item->instructioncard ? url($item->instructioncard) : null,
-                    'card2' => $item->instructioncard2 ? url($item->instructioncard2) : null
+                    'card2' => $item->instructioncard2 ? url($item->instructioncard2) : null,
+                    'card3' => $item->instructioncard3 ? url($item->instructioncard3) : null // Added card 3
                 ];
 
                 // Add user manual URL if exists
@@ -211,8 +222,6 @@ class ASINlistController extends BasetablesController
         return response()->json($results);
     }
 
-
-
     public function saveMsku(Request $request)
     {
         $request->validate([
@@ -283,7 +292,6 @@ class ASINlistController extends BasetablesController
         };
     }
 
-
     public function generateMsku(Request $request)
     {
         $request->validate([
@@ -343,7 +351,6 @@ class ASINlistController extends BasetablesController
             'condition' => $condition
         ]);
     }
-
 
     public function fetchStores()
     {
@@ -564,7 +571,7 @@ class ASINlistController extends BasetablesController
     }
 
     /**
-     * Upload instruction card image
+     * Upload instruction card image - Updated to support cards 1, 2, and 3
      */
     public function uploadInstructionCard(Request $request)
     {
@@ -572,7 +579,7 @@ class ASINlistController extends BasetablesController
             $validated = $request->validate([
                 'instruction_card' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
                 'asin' => 'required|string',
-                'card_slot' => 'required|in:1,2' // Which instruction card slot (1 or 2)
+                'card_slot' => 'required|in:1,2,3' // Updated to include card 3
             ]);
 
             // Check if ASIN exists
@@ -614,8 +621,14 @@ class ASINlistController extends BasetablesController
                 $relativePath = 'images/instructioncard/' . $filename;
                 $fileUrl = url($relativePath);
 
-                // Update database with just the filename
-                $columnName = $cardSlot == 1 ? 'instructioncard' : 'instructioncard2';
+                // Update database with just the filename - Updated to handle card 3
+                $columnName = match($cardSlot) {
+                    '1' => 'instructioncard',
+                    '2' => 'instructioncard2',
+                    '3' => 'instructioncard3', // Added card 3 support
+                    default => 'instructioncard'
+                };
+
                 DB::table($this->asinTable)
                     ->where('ASIN', $asinCode)
                     ->update([
@@ -895,4 +908,152 @@ class ASINlistController extends BasetablesController
             ], 500);
         }
     }
+
+
+    public function bulkUploadInstructionCards(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'asin_list' => 'required|string',
+                'instruction_cards' => 'array|min:1|max:3',
+                'instruction_cards.*' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max per image
+            ]);
+
+            // Parse ASIN list
+            $asinList = array_filter(
+                array_map(
+                    fn($asin) => trim(strtoupper($asin)),
+                    explode(',', $validated['asin_list'])
+                )
+            );
+
+            if (empty($asinList)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No valid ASINs provided'
+                ], 400);
+            }
+
+            if (count($asinList) > 50) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Maximum 50 ASINs allowed per bulk upload'
+                ], 400);
+            }
+
+            // Check which ASINs exist in database
+            $existingAsins = DB::table($this->asinTable)
+                ->whereIn('ASIN', $asinList)
+                ->pluck('ASIN')
+                ->toArray();
+
+            $nonExistentAsins = array_diff($asinList, $existingAsins);
+
+            $results = [
+                'success' => [],
+                'failed' => [],
+                'skipped' => $nonExistentAsins
+            ];
+
+            // Create instruction cards directory if it doesn't exist
+            $uploadPath = public_path('images/instructioncard');
+            if (!file_exists($uploadPath)) {
+                mkdir($uploadPath, 0755, true);
+            }
+
+            // Process uploads for existing ASINs
+            foreach ($existingAsins as $asin) {
+                $asinResults = [];
+                $asinErrors = [];
+
+                // Process each uploaded card
+                foreach ($request->file('instruction_cards', []) as $cardSlot => $file) {
+                    $cardNumber = $cardSlot + 1; // Convert 0,1,2 to 1,2,3
+                    
+                    try {
+                        // Generate filename: {ASIN}_card{slot}.{extension}
+                        $extension = $file->getClientOriginalExtension();
+                        $filename = $asin . '_card' . $cardNumber . '.' . $extension;
+
+                        // Remove old instruction card if exists (different extensions) for this slot
+                        $oldFiles = glob($uploadPath . '/' . $asin . '_card' . $cardNumber . '.*');
+                        foreach ($oldFiles as $oldFile) {
+                            if (file_exists($oldFile)) {
+                                unlink($oldFile);
+                            }
+                        }
+
+                        // Copy file to destination (we need to copy since multiple ASINs use same file)
+                        if (copy($file->getPathname(), $uploadPath . '/' . $filename)) {
+                            $relativePath = 'images/instructioncard/' . $filename;
+                            
+                            // Update database
+                            $columnName = match($cardNumber) {
+                                1 => 'instructioncard',
+                                2 => 'instructioncard2',
+                                3 => 'instructioncard3',
+                                default => 'instructioncard'
+                            };
+
+                            DB::table($this->asinTable)
+                                ->where('ASIN', $asin)
+                                ->update([
+                                    $columnName => $filename
+                                ]);
+
+                            $asinResults[] = "Card {$cardNumber}";
+                        } else {
+                            $asinErrors[] = "Failed to upload Card {$cardNumber}";
+                        }
+                    } catch (\Exception $e) {
+                        $asinErrors[] = "Card {$cardNumber}: " . $e->getMessage();
+                    }
+                }
+
+                // Record results for this ASIN
+                if (!empty($asinResults)) {
+                    $results['success'][] = [
+                        'asin' => $asin,
+                        'cards' => implode(', ', $asinResults)
+                    ];
+                }
+
+                if (!empty($asinErrors)) {
+                    $results['failed'][] = [
+                        'asin' => $asin,
+                        'errors' => $asinErrors
+                    ];
+                }
+            }
+
+            Log::info('Bulk instruction card upload completed', [
+                'total_asins' => count($asinList),
+                'successful' => count($results['success']),
+                'failed' => count($results['failed']),
+                'skipped' => count($results['skipped'])
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Bulk upload completed',
+                'results' => $results,
+                'summary' => [
+                    'total_asins' => count($asinList),
+                    'successful' => count($results['success']),
+                    'failed' => count($results['failed']),
+                    'skipped' => count($results['skipped'])
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error in bulk instruction card upload: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred during bulk upload',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
 }
