@@ -1,33 +1,12 @@
-function setupPasswordToggle(toggleId, inputId) {
-    const toggleElement = document.getElementById(toggleId);
-    const inputElement = document.getElementById(inputId);
-
-    if (!toggleElement || !inputElement) return;
-
-    toggleElement.addEventListener("click", () => {
-        const isPasswordVisible = inputElement.type === "text";
-        inputElement.type = isPasswordVisible ? "password" : "text";
-
-        toggleElement.classList.toggle("bi-eye", isPasswordVisible);
-        toggleElement.classList.toggle("bi-eye-slash", !isPasswordVisible);
-    });
-}
-
-// Initialize toggles
-setupPasswordToggle("toggleNewPassword", "newpassword");
-setupPasswordToggle("toggleConfirmPassword", "confirmpassword");
-
 document.addEventListener("DOMContentLoaded", function () {
     const form = document.getElementById("timezoneForm");
-    const successBox = document.getElementById("timezoneSuccessBox");
-    const successMsg = document.getElementById("timezoneSuccessMsg");
 
     form.addEventListener("submit", function (e) {
         e.preventDefault();
 
         const formData = new FormData(form);
 
-        fetch("{{ route('update-timezone') }}", {
+        fetch(updateTimezoneUrl, {
             method: "POST",
             headers: {
                 "X-CSRF-TOKEN": document.querySelector('input[name="_token"]')
@@ -64,6 +43,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 
+// auto-disable logic
 document.addEventListener("DOMContentLoaded", function () {
     const checkbox = document.getElementById("auto_sync");
     const tzSelect = document.getElementById("usertimezone");

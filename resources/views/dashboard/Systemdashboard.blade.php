@@ -1070,7 +1070,6 @@
     <script src="{{ asset('js/settings-modal.js') }}"></script>
     <script src="{{ asset('js/profiles-modal.js') }}"></script>
     <script src="{{ asset('js/attendance.js') }}"></script>
-    <script src="{{ asset('js/account-timezone.js') }}"></script>
     <script src="{{ asset('js/account-record.js') }}"></script>
     <script src="{{ asset('js/account-privilege.js') }}"></script>
 </body>

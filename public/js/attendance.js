@@ -204,4 +204,34 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("An error occurred. Please try again.");
             });
     };
+
+    function calculateAndDisplayHours(recordId, timeInStr, timeOutStr) {
+        if (!timeInStr || !timeOutStr) return;
+
+        const timeIn = new Date(timeInStr);
+        const timeOut = new Date(timeOutStr);
+
+        if (isNaN(timeIn.getTime()) || isNaN(timeOut.getTime())) return;
+
+        const diffMs = timeOut - timeIn;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60);
+
+        const displayText = `${diffHours}:${diffMinutes
+            .toString()
+            .padStart(2, "0")} hrs`;
+        const container = document.getElementById(`computed-hours-${recordId}`);
+        if (container) container.innerHTML = `<strong>${displayText}</strong>`;
+    }
+
+    // Loop through hidden update buttons to extract data and compute hours
+    document.querySelectorAll(".update-computed-hours").forEach((btn) => {
+        const timeIn = btn.dataset.timein;
+        const timeOut = btn.dataset.timeout;
+        const recordId = btn.dataset.id;
+
+        if (timeIn && timeOut) {
+            calculateAndDisplayHours(recordId, timeIn, timeOut);
+        }
+    });
 });
