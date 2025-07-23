@@ -1424,46 +1424,52 @@ class StockroomController extends BasetablesController
                 }
             }
 
+            $messageId = 1;
+            $feedItems = [];
+
             foreach ($mskus as $item) {
                 $feedItems[] = [
+                    "messageId" => $messageId++,
+                    "operationType" => "UPDATE", // or "PARTIAL_UPDATE", "DELETE", "PATCH" based on use case
                     "sku" => $item['sku'],
-                    "productType" => "generic",
+                    "productType" => "generic", // or replace with dynamic $productTypeName
                     "requirements" => "LISTING_OFFER_ONLY",
                     "attributes" => [
-                        'condition_type' => [
+                        "condition_type" => [
                             [
-                                'value' => $amzncondition,
-                                'marketplace_id' => $marketplace,
+                                "value" => $amzncondition,
+                                "marketplace_id" => $marketplace,
                             ]
                         ],
-                        'fulfillment_availability' => [
+                        "fulfillment_availability" => [
                             [
-                                'fulfillment_channel_code' => $fulfillmentChannel,
-                                'marketplace_id' => $marketplace
+                                "fulfillment_channel_code" => $fulfillmentChannel,
+                                "marketplace_id" => $marketplace
                             ]
                         ],
                         "merchant_suggested_asin" => [
                             [
                                 "value" => $item['asin'],
-                                "marketplace_id" => "ATVPDKIKX0DER"
+                                "marketplace_id" => $marketplace
                             ]
                         ],
                         "list_price" => [
                             [
                                 "currency" => $currency,
                                 "value" => $price,
-                                "marketplace_id" => "ATVPDKIKX0DER"
+                                "marketplace_id" => $marketplace
                             ]
                         ],
                         "merchant" => [
                             [
                                 "value" => $tblstore['MerchantID'],
-                                "marketplace_id" => "ATVPDKIKX0DER",
+                                "marketplace_id" => $marketplace,
                             ]
                         ]
                     ]
                 ];
             }
+
 
             $createdocumentid_data = Create_feed_document_passing_json($filterstore, null);
             $feeddocumentid = $createdocumentid_data['data']['feedDocumentId'];
@@ -1471,9 +1477,11 @@ class StockroomController extends BasetablesController
             $payload = [
                 'header' => [
                     'version' => '2.0',
-                    'feedType' => 'JSON_LISTINGS_FEED'
+                    'feedType' => 'JSON_LISTINGS_FEED',
+                    'marketplaceIds' => [$marketplace],
+                    'sellerId' => $tblstore['MerchantID'],
                 ],
-                'records' => $feedItems
+                'messages' => $feedItems
             ];
 
             echo "<pre>";

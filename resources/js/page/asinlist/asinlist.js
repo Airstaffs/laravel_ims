@@ -31,12 +31,29 @@ export default {
             // For ASIN image management modal
             showAsinImageModal: false,
 
+            // For bulk instruction card upload modal
+            showBulkInstructionCardModal: false,
+            bulkUploadData: {
+                asinList: '',
+                files: {
+                    card1: null,
+                    card2: null,
+                    card3: null
+                },
+                uploading: false,
+                uploadResults: {
+                    success: [],
+                    failed: [],
+                    skipped: []
+                }
+            },
+
             // Edit mode
             editMode: false,
             editedAsin: {},
 
-            // Image upload - now supports multiple cards
-            instructionCardUploading: false, // Can be false, 1, or 2
+            // Image upload - now supports multiple cards (1, 2, 3)
+            instructionCardUploading: false, // Can be false, 1, 2, or 3
             instructionCardUrls: {}, // Store uploaded image URLs per ASIN
 
             // User manual upload
@@ -59,6 +76,9 @@ export default {
             // For image handling
             defaultImagePath: "/images/default-product.png",
             isLoading: false,
+
+            // NEW: For dynamic image updates
+            imageCacheBuster: {}, // Track cache busters per ASIN and image type
         };
     },
     computed: {
@@ -87,22 +107,52 @@ export default {
         },
     },
     methods: {
-        // Image handling
+        // NEW: Method to force image refresh - Vue 3 Compatible
+        forceImageRefresh(asin, imageType, cardSlot = null) {
+            const cacheBuster = Date.now();
+            let keys = [];
+            
+            if (imageType === 'instruction_card' && cardSlot) {
+                keys.push(`${asin}_card${cardSlot}`);
+            } else if (imageType === 'instruction_card_main') {
+                // Refresh all instruction card cache busters
+                keys.push(`${asin}_card1`, `${asin}_card2`, `${asin}_card3`);
+            } else if (imageType === 'main') {
+                keys.push(`${asin}_main`);
+            } else if (imageType === 'vector') {
+                keys.push(`${asin}_vector`);
+            }
+
+            // Vue 3 compatible reactivity - direct assignment triggers reactivity
+            keys.forEach(key => {
+                this.imageCacheBuster[key] = cacheBuster;
+            });
+            
+            // Force Vue to re-render
+            this.$nextTick(() => {
+                this.$forceUpdate();
+            });
+        },
+
+        // Updated Image handling methods with cache busting
         getImagePath(asin) {
             if (!asin) return this.defaultImagePath;
 
+            const cacheBuster = this.imageCacheBuster[`${asin}_main`] || '';
+            const cacheParam = cacheBuster ? `?t=${cacheBuster}` : '';
+
             // Check if we have a stored URL for this ASIN from recent upload
             if (this.asinImageUrls[asin]) {
-                return this.asinImageUrls[asin];
+                return `${this.asinImageUrls[asin]}${cacheParam}`;
             }
 
             // Check if the selected ASIN has image from the API
             if (this.selectedAsin && this.selectedAsin.ASIN === asin) {
                 if (this.selectedAsin.asinimg) {
-                    return `${window.location.origin}/images/asinimg/${this.selectedAsin.asinimg}`;
+                    return `${window.location.origin}/images/asinimg/${this.selectedAsin.asinimg}${cacheParam}`;
                 }
                 if (this.selectedAsin.asin_image_url) {
-                    return this.selectedAsin.asin_image_url;
+                    return `${this.selectedAsin.asin_image_url}${cacheParam}`;
                 }
             }
 
@@ -110,42 +160,47 @@ export default {
             const asinData = this.asinData.find((item) => item.ASIN === asin);
             if (asinData) {
                 if (asinData.asinimg) {
-                    return `${window.location.origin}/images/asinimg/${asinData.asinimg}`;
+                    return `${window.location.origin}/images/asinimg/${asinData.asinimg}${cacheParam}`;
                 }
                 if (asinData.asin_image_url) {
-                    return asinData.asin_image_url;
+                    return `${asinData.asin_image_url}${cacheParam}`;
                 }
             }
 
             // Default fallback to the old pattern
-            return `/images/asinimg/${asin}_0.png`;
+            return `/images/asinimg/${asin}_0.png${cacheParam}`;
         },
 
+        // Updated to handle card 3 with cache busting
         getInstructionCardPath(asin, cardSlot = 1) {
             if (!asin) return this.defaultImagePath;
+
+            const cacheKey = `${asin}_card${cardSlot}`;
+            const cacheBuster = this.imageCacheBuster[cacheKey] || '';
+            const cacheParam = cacheBuster ? `?t=${cacheBuster}` : '';
 
             // Check if we have a stored URL for this ASIN and card slot from recent upload
             const uploadKey = `${asin}_card${cardSlot}`;
             if (this.instructionCardUrls[uploadKey]) {
-                return this.instructionCardUrls[uploadKey];
+                return `${this.instructionCardUrls[uploadKey]}${cacheParam}`;
             }
 
             // Check if the selected ASIN has instruction card URLs from the API
             if (this.selectedAsin && this.selectedAsin.ASIN === asin) {
                 if (cardSlot === 1 && this.selectedAsin.instructioncard) {
-                    return `${window.location.origin}/images/instructioncard/${this.selectedAsin.instructioncard}`;
+                    return `${window.location.origin}/images/instructioncard/${this.selectedAsin.instructioncard}${cacheParam}`;
                 }
                 if (cardSlot === 2 && this.selectedAsin.instructioncard2) {
-                    return `${window.location.origin}/images/instructioncard/${this.selectedAsin.instructioncard2}`;
+                    return `${window.location.origin}/images/instructioncard/${this.selectedAsin.instructioncard2}${cacheParam}`;
+                }
+                if (cardSlot === 3 && this.selectedAsin.instructioncard3) {
+                    return `${window.location.origin}/images/instructioncard/${this.selectedAsin.instructioncard3}${cacheParam}`;
                 }
 
                 // Check instruction_card_urls if available
                 if (this.selectedAsin.instruction_card_urls) {
-                    const cardUrl =
-                        cardSlot === 1
-                            ? this.selectedAsin.instruction_card_urls.card1
-                            : this.selectedAsin.instruction_card_urls.card2;
-                    if (cardUrl) return cardUrl;
+                    const cardUrl = this.selectedAsin.instruction_card_urls[`card${cardSlot}`];
+                    if (cardUrl) return `${cardUrl}${cacheParam}`;
                 }
             }
 
@@ -153,19 +208,19 @@ export default {
             const asinData = this.asinData.find((item) => item.ASIN === asin);
             if (asinData) {
                 if (cardSlot === 1 && asinData.instructioncard) {
-                    return `${window.location.origin}/images/instructioncard/${asinData.instructioncard}`;
+                    return `${window.location.origin}/images/instructioncard/${asinData.instructioncard}${cacheParam}`;
                 }
                 if (cardSlot === 2 && asinData.instructioncard2) {
-                    return `${window.location.origin}/images/instructioncard/${asinData.instructioncard2}`;
+                    return `${window.location.origin}/images/instructioncard/${asinData.instructioncard2}${cacheParam}`;
+                }
+                if (cardSlot === 3 && asinData.instructioncard3) {
+                    return `${window.location.origin}/images/instructioncard/${asinData.instructioncard3}${cacheParam}`;
                 }
 
                 // Check instruction_card_urls if available
                 if (asinData.instruction_card_urls) {
-                    const cardUrl =
-                        cardSlot === 1
-                            ? asinData.instruction_card_urls.card1
-                            : asinData.instruction_card_urls.card2;
-                    if (cardUrl) return cardUrl;
+                    const cardUrl = asinData.instruction_card_urls[`card${cardSlot}`];
+                    if (cardUrl) return `${cardUrl}${cacheParam}`;
                 }
             }
 
@@ -173,8 +228,9 @@ export default {
             return this.defaultImagePath;
         },
 
+        // Updated to check card 3
         getMainInstructionCardPath(asin) {
-            // Show card 1 if available, otherwise card 2, otherwise default
+            // Show card 1 if available, otherwise card 2, otherwise card 3, otherwise default
             const card1Path = this.getInstructionCardPath(asin, 1);
             if (card1Path !== this.defaultImagePath) {
                 return card1Path;
@@ -185,24 +241,32 @@ export default {
                 return card2Path;
             }
 
+            const card3Path = this.getInstructionCardPath(asin, 3);
+            if (card3Path !== this.defaultImagePath) {
+                return card3Path;
+            }
+
             return this.defaultImagePath;
         },
 
         getVectorImagePath(asin) {
             if (!asin) return null;
 
+            const cacheBuster = this.imageCacheBuster[`${asin}_vector`] || '';
+            const cacheParam = cacheBuster ? `?t=${cacheBuster}` : '';
+
             // Check if we have a stored URL for this ASIN from recent upload
             if (this.vectorImageUrls[asin]) {
-                return this.vectorImageUrls[asin];
+                return `${this.vectorImageUrls[asin]}${cacheParam}`;
             }
 
             // Check if the selected ASIN has vector image from the API
             if (this.selectedAsin && this.selectedAsin.ASIN === asin) {
                 if (this.selectedAsin.vectorimage) {
-                    return `${window.location.origin}/images/asinvectorsimg/${this.selectedAsin.vectorimage}`;
+                    return `${window.location.origin}/images/asinvectorsimg/${this.selectedAsin.vectorimage}${cacheParam}`;
                 }
                 if (this.selectedAsin.vector_image_url) {
-                    return this.selectedAsin.vector_image_url;
+                    return `${this.selectedAsin.vector_image_url}${cacheParam}`;
                 }
             }
 
@@ -210,10 +274,10 @@ export default {
             const asinData = this.asinData.find((item) => item.ASIN === asin);
             if (asinData) {
                 if (asinData.vectorimage) {
-                    return `${window.location.origin}/images/asinvectorsimg/${asinData.vectorimage}`;
+                    return `${window.location.origin}/images/asinvectorsimg/${asinData.vectorimage}${cacheParam}`;
                 }
                 if (asinData.vector_image_url) {
-                    return asinData.vector_image_url;
+                    return `${asinData.vector_image_url}${cacheParam}`;
                 }
             }
 
@@ -401,12 +465,13 @@ export default {
             this.showAsinDetailsModal = true;
         },
 
+        // Updated to handle card 3
         closeAsinDetailsModal() {
             this.showAsinDetailsModal = false;
             this.selectedAsin = null;
             this.editMode = false;
             this.editedAsin = {};
-            this.instructionCardUploading = false;
+            this.instructionCardUploading = false; // Can be false, 1, 2, or 3
             this.userManualUploading = false;
             this.asinImageUploading = false;
             this.vectorImageUploading = false;
@@ -420,9 +485,10 @@ export default {
             this.showInstructionCardModal = true;
         },
 
+        // Updated to handle card 3
         closeInstructionCardModal() {
             this.showInstructionCardModal = false;
-            this.instructionCardUploading = false;
+            this.instructionCardUploading = false; // Can be false, 1, 2, or 3
         },
 
         // ASIN Image Modal Management
@@ -434,6 +500,34 @@ export default {
             this.showAsinImageModal = false;
             this.asinImageUploading = false;
             this.vectorImageUploading = false;
+        },
+
+        // Bulk Instruction Card Modal Management
+        openBulkInstructionCardModal() {
+            this.showBulkInstructionCardModal = true;
+            this.resetBulkUploadData();
+        },
+
+        closeBulkInstructionCardModal() {
+            this.showBulkInstructionCardModal = false;
+            this.resetBulkUploadData();
+        },
+
+        resetBulkUploadData() {
+            this.bulkUploadData = {
+                asinList: '',
+                files: {
+                    card1: null,
+                    card2: null,
+                    card3: null
+                },
+                uploading: false,
+                uploadResults: {
+                    success: [],
+                    failed: [],
+                    skipped: []
+                }
+            };
         },
 
         // Edit Mode
@@ -671,7 +765,7 @@ export default {
             }
         },
 
-        // Instruction Card Upload - Updated to support multiple cards
+        // UPDATED: Instruction Card Upload - with dynamic refresh
         async handleInstructionCardUpload(event, cardSlot) {
             const file = event.target.files[0];
             if (!file) return;
@@ -710,12 +804,18 @@ export default {
 
                     // Store the uploaded file URL for this ASIN and card slot
                     const uploadKey = `${this.selectedAsin.ASIN}_card${cardSlot}`;
-                    this.instructionCardUrls[uploadKey] =
-                        response.data.file_url;
+                    this.instructionCardUrls[uploadKey] = response.data.file_url;
 
                     // Update the selected ASIN data
-                    const columnName =
-                        cardSlot === 1 ? "instructioncard" : "instructioncard2";
+                    let columnName;
+                    if (cardSlot === 1) {
+                        columnName = "instructioncard";
+                    } else if (cardSlot === 2) {
+                        columnName = "instructioncard2";
+                    } else if (cardSlot === 3) {
+                        columnName = "instructioncard3";
+                    }
+                    
                     this.selectedAsin[columnName] = response.data.filename;
 
                     // Update the main data array
@@ -723,27 +823,22 @@ export default {
                         (item) => item.ASIN === this.selectedAsin.ASIN
                     );
                     if (asinIndex !== -1) {
-                        this.asinData[asinIndex][columnName] =
-                            this.selectedAsin[columnName];
+                        this.asinData[asinIndex][columnName] = this.selectedAsin[columnName];
                     }
 
-                    // Force refresh of images by updating all relevant image elements
-                    setTimeout(() => {
-                        const imgElements = document.querySelectorAll(
-                            `img[alt*="card ${cardSlot}"], img[alt*="cards"]`
-                        );
-                        imgElements.forEach((img) => {
-                            const currentSrc = img.src.split("?")[0]; // Remove any existing cache busters
-                            img.src = currentSrc + "?t=" + Date.now();
-                            img.style.opacity = "1";
-                            img.style.filter = "none";
-                            img.style.borderStyle = "solid";
-                            img.classList.add("uploaded");
-                        });
+                    // CRITICAL: Force immediate image refresh
+                    this.forceImageRefresh(this.selectedAsin.ASIN, 'instruction_card', cardSlot);
+                    this.forceImageRefresh(this.selectedAsin.ASIN, 'instruction_card_main');
 
-                        // Force Vue to re-render the instruction card thumbnails
-                        this.$forceUpdate();
-                    }, 100);
+                    // Add visual feedback
+                    this.$nextTick(() => {
+                        const images = document.querySelectorAll(`img[alt*="card ${cardSlot}"], img[alt*="Instruction card ${cardSlot}"]`);
+                        images.forEach(img => {
+                            img.classList.add('image-uploaded');
+                            setTimeout(() => img.classList.remove('image-uploaded'), 600);
+                        });
+                    });
+
                 } else {
                     throw new Error(
                         response.data.message ||
@@ -836,7 +931,7 @@ export default {
             }
         },
 
-        // ASIN Image Upload
+        // UPDATED: ASIN Image Upload - with dynamic refresh
         async handleAsinImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -891,18 +986,18 @@ export default {
                             this.selectedAsin.asin_image_url;
                     }
 
-                    // Force refresh of images
-                    setTimeout(() => {
-                        const imgElements = document.querySelectorAll(
-                            `img[alt*="ASIN image"], img[alt*="asin"]`
-                        );
-                        imgElements.forEach((img) => {
-                            const currentSrc = img.src.split("?")[0];
-                            img.src = currentSrc + "?t=" + Date.now();
-                            img.classList.add("uploaded");
+                    // CRITICAL: Force immediate image refresh
+                    this.forceImageRefresh(this.selectedAsin.ASIN, 'main');
+
+                    // Add visual feedback
+                    this.$nextTick(() => {
+                        const images = document.querySelectorAll(`img[alt*="ASIN image"], img[alt*="${this.selectedAsin.ASIN}"]`);
+                        images.forEach(img => {
+                            img.classList.add('image-uploaded');
+                            setTimeout(() => img.classList.remove('image-uploaded'), 600);
                         });
-                        this.$forceUpdate();
-                    }, 100);
+                    });
+
                 } else {
                     throw new Error(
                         response.data.message || "Failed to upload ASIN image"
@@ -920,7 +1015,7 @@ export default {
             }
         },
 
-        // Vector Image Upload
+        // UPDATED: Vector Image Upload - with dynamic refresh
         async handleVectorImageUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -981,18 +1076,18 @@ export default {
                             this.selectedAsin.vector_image_url;
                     }
 
-                    // Force refresh of images
-                    setTimeout(() => {
-                        const imgElements = document.querySelectorAll(
-                            `img[alt*="vector"], img[alt*="Vector"]`
-                        );
-                        imgElements.forEach((img) => {
-                            const currentSrc = img.src.split("?")[0];
-                            img.src = currentSrc + "?t=" + Date.now();
-                            img.classList.add("uploaded");
+                    // CRITICAL: Force immediate image refresh
+                    this.forceImageRefresh(this.selectedAsin.ASIN, 'vector');
+
+                    // Add visual feedback
+                    this.$nextTick(() => {
+                        const images = document.querySelectorAll(`img[alt*="vector"], img[alt*="Vector"]`);
+                        images.forEach(img => {
+                            img.classList.add('image-uploaded');
+                            setTimeout(() => img.classList.remove('image-uploaded'), 600);
                         });
-                        this.$forceUpdate();
-                    }, 100);
+                    });
+
                 } else {
                     throw new Error(
                         response.data.message || "Failed to upload vector image"
@@ -1029,6 +1124,217 @@ export default {
             if (path.startsWith("http")) return path;
             return `${window.location.origin}/${path}`;
         },
+
+        // NEW: File preview and utility methods for bulk upload
+        getFilePreviewUrl(file) {
+            if (!file) return null;
+            return URL.createObjectURL(file);
+        },
+
+        removeBulkFile(cardSlot) {
+            this.bulkUploadData.files[cardSlot] = null;
+            // Clear the file input
+            const inputRef = this.$refs[`bulkFileUploadCard${cardSlot.slice(-1)}`];
+            if (inputRef) {
+                inputRef.value = '';
+            }
+        },
+
+        formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        },
+
+        // Bulk Instruction Card Upload Methods
+        handleBulkFileSelect(event, cardSlot) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            if (!file.type.startsWith("image/")) {
+                alert("Please select an image file");
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                alert("File size must be less than 5MB");
+                return;
+            }
+
+            this.bulkUploadData.files[cardSlot] = file;
+        },
+
+        validateBulkUpload() {
+            if (!this.bulkUploadData.asinList.trim()) {
+                alert("Please enter at least one ASIN");
+                return false;
+            }
+
+            const hasAtLeastOneFile = this.bulkUploadData.files.card1 || 
+                                    this.bulkUploadData.files.card2 || 
+                                    this.bulkUploadData.files.card3;
+
+            if (!hasAtLeastOneFile) {
+                alert("Please select at least one instruction card image");
+                return false;
+            }
+
+            return true;
+        },
+
+        getSelectedCardCount() {
+            let count = 0;
+            if (this.bulkUploadData.files.card1) count++;
+            if (this.bulkUploadData.files.card2) count++;
+            if (this.bulkUploadData.files.card3) count++;
+            return count;
+        },
+
+        parseAsinList() {
+            return this.bulkUploadData.asinList
+                .split(',')
+                .map(asin => asin.trim().toUpperCase())
+                .filter(asin => asin.length > 0)
+                .filter((asin, index, arr) => arr.indexOf(asin) === index); // Remove duplicates
+        },
+
+        async processBulkInstructionCardUpload() {
+            if (!this.validateBulkUpload()) return;
+
+            const asinList = this.parseAsinList();
+            
+            if (asinList.length === 0) {
+                alert("No valid ASINs found");
+                return;
+            }
+
+            if (asinList.length > 50) {
+                alert("Maximum 50 ASINs allowed per bulk upload");
+                return;
+            }
+
+            const selectedCards = this.getSelectedCardCount();
+            const confirmMessage = `Upload ${selectedCards} instruction card${selectedCards > 1 ? 's' : ''} to ${asinList.length} ASINs?\n\nASINs: ${asinList.slice(0, 10).join(', ')}${asinList.length > 10 ? '...' : ''}`;
+            if (!confirm(confirmMessage)) return;
+
+            this.bulkUploadData.uploading = true;
+            this.bulkUploadData.uploadResults = {
+                success: [],
+                failed: [],
+                skipped: []
+            };
+
+            try {
+                const formData = new FormData();
+                formData.append('asin_list', asinList.join(','));
+                
+                // Add selected files to form data
+                const fileMapping = [];
+                if (this.bulkUploadData.files.card1) {
+                    formData.append('instruction_cards[0]', this.bulkUploadData.files.card1);
+                    fileMapping[0] = 1;
+                }
+                if (this.bulkUploadData.files.card2) {
+                    const index = fileMapping.length;
+                    formData.append(`instruction_cards[${index}]`, this.bulkUploadData.files.card2);
+                    fileMapping[index] = 2;
+                }
+                if (this.bulkUploadData.files.card3) {
+                    const index = fileMapping.length;
+                    formData.append(`instruction_cards[${index}]`, this.bulkUploadData.files.card3);
+                    fileMapping[index] = 3;
+                }
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/asinlist/bulk-upload-instruction-cards`,
+                    formData,
+                    {
+                        headers: {
+                            "Content-Type": "multipart/form-data",
+                        },
+                        withCredentials: true,
+                    }
+                );
+
+                if (response.data.success) {
+                    this.bulkUploadData.uploadResults = response.data.results;
+                    
+                    // Update local data for successful uploads
+                    response.data.results.success.forEach(result => {
+                        const asinIndex = this.asinData.findIndex(item => item.ASIN === result.asin);
+                        if (asinIndex !== -1) {
+                            // Force refresh of current view data
+                            this.fetchAsinData();
+                        }
+
+                        // Force image refresh for all uploaded cards
+                        if (this.bulkUploadData.files.card1) {
+                            this.forceImageRefresh(result.asin, 'instruction_card', 1);
+                        }
+                        if (this.bulkUploadData.files.card2) {
+                            this.forceImageRefresh(result.asin, 'instruction_card', 2);
+                        }
+                        if (this.bulkUploadData.files.card3) {
+                            this.forceImageRefresh(result.asin, 'instruction_card', 3);
+                        }
+                        this.forceImageRefresh(result.asin, 'instruction_card_main');
+                    });
+
+                    this.showBulkUploadResults();
+                } else {
+                    throw new Error(response.data.message || "Bulk upload failed");
+                }
+            } catch (error) {
+                console.error("Bulk upload error:", error);
+                alert("Bulk upload failed: " + (error.response?.data?.message || error.message));
+                this.bulkUploadData.uploadResults.failed = [{
+                    asin: "ALL",
+                    errors: [error.response?.data?.message || error.message]
+                }];
+            } finally {
+                this.bulkUploadData.uploading = false;
+            }
+        },
+
+        showBulkUploadResults() {
+            const { success, failed, skipped } = this.bulkUploadData.uploadResults;
+            
+            let message = `Bulk Upload Complete!\n\n`;
+            message += `✅ Successfully uploaded: ${success.length} ASINs\n`;
+            message += `❌ Failed uploads: ${failed.length} ASINs\n`;
+            message += `⚠️ Skipped (ASIN not found): ${skipped.length} ASINs\n`;
+
+            if (success.length > 0) {
+                message += `\nSuccessful ASINs:\n`;
+                success.forEach(item => {
+                    message += `• ${item.asin}: ${item.cards}\n`;
+                });
+            }
+
+            if (failed.length > 0) {
+                message += `\nFailed ASINs:\n`;
+                failed.forEach(item => {
+                    message += `• ${item.asin}: ${item.errors.join(', ')}\n`;
+                });
+            }
+
+            if (skipped.length > 0) {
+                message += `\nSkipped ASINs:\n`;
+                skipped.forEach(item => {
+                    message += `• ${item}\n`;
+                });
+            }
+
+            alert(message);
+        },
+
+        // Optional: Method to clear all cache busters (useful for debugging)
+        clearImageCache() {
+            this.imageCacheBuster = {};
+            this.$forceUpdate();
+        }
     },
     watch: {
         searchQuery() {
