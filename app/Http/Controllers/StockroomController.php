@@ -1353,6 +1353,7 @@ class StockroomController extends BasetablesController
         $filterstore = $row->storename;
         $filtercondition = $row->grading;
         $amzncondition = normalize_db_condition($filtercondition);
+        $tblstore = sheesh_fetchtblstores($filterstore);
 
         $mskuResult = DB::table('tblfnsku')
             ->where('amazon_status', 'Not Existed')
@@ -1385,6 +1386,17 @@ class StockroomController extends BasetablesController
         $producttype = fetch_listing_product_type($filterstore, $filterasin);
         $listing_restrict = fetch_listing_retrict($filterstore, $filterasin);
 
+        $productTypeName = $producttype['data']['productType'] ?? null;
+        /*
+        if (!$productTypeName) {
+            echo "❌ No productType found for ASIN: $filterasin<br>";
+            echo "<pre>";
+            // print_r($producttype);
+            echo "</pre>";
+            return;
+        }
+            */
+
         if ($listing_restrict['status'] == '200') {
             $restrictions = $listing_restrict['data']['restrictions'] ?? [];
 
@@ -1412,44 +1424,71 @@ class StockroomController extends BasetablesController
                 }
             }
 
+            $messageId = 1;
+            $feedItems = [];
+
             foreach ($mskus as $item) {
                 $feedItems[] = [
+                    "messageId" => $messageId++,
+                    "operationType" => "UPDATE", // or "PARTIAL_UPDATE", "DELETE", "PATCH" based on use case
                     "sku" => $item['sku'],
-                    "productType" => "generic",
+                    "productType" => "generic", // or replace with dynamic $productTypeName
+                    "requirements" => "LISTING_OFFER_ONLY",
                     "attributes" => [
-                        'condition_type' => [
+                        "condition_type" => [
                             [
-                                'value' => $amzncondition,
-                                'marketplace_id' => $marketplace,
+                                "value" => $amzncondition,
+                                "marketplace_id" => $marketplace,
                             ]
                         ],
-                        'fulfillment_availability' => [
+                        "fulfillment_availability" => [
                             [
-                                'fulfillment_channel_code' => $fulfillmentChannel,
-                                'marketplace_id' => $marketplace
+                                "fulfillment_channel_code" => $fulfillmentChannel,
+                                "marketplace_id" => $marketplace
                             ]
                         ],
                         "merchant_suggested_asin" => [
                             [
                                 "value" => $item['asin'],
-                                "marketplace_id" => "ATVPDKIKX0DER"
+                                "marketplace_id" => $marketplace
                             ]
                         ],
                         "list_price" => [
                             [
                                 "currency" => $currency,
                                 "value" => $price,
-                                "marketplace_id" => "ATVPDKIKX0DER"
+                                "marketplace_id" => $marketplace
+                            ]
+                        ],
+                        "merchant" => [
+                            [
+                                "value" => $tblstore['MerchantID'],
+                                "marketplace_id" => $marketplace,
                             ]
                         ]
                     ]
                 ];
             }
 
+
             $createdocumentid_data = Create_feed_document_passing_json($filterstore, null);
             $feeddocumentid = $createdocumentid_data['data']['feedDocumentId'];
 
-            $feedDataJson = json_encode($feedItems, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+            $payload = [
+                'header' => [
+                    'version' => '2.0',
+                    'feedType' => 'JSON_LISTINGS_FEED',
+                    'marketplaceIds' => [$marketplace],
+                    'sellerId' => $tblstore['MerchantID'],
+                ],
+                'messages' => $feedItems
+            ];
+
+            echo "<pre>";
+            print_r($payload);
+            echo "</pre>";
+
+            $feedDataJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
             $uploadSuccess = upload_feed_to_amazon_s3($createdocumentid_data['data']['url'], $feedDataJson);
 
             if ($uploadSuccess) {

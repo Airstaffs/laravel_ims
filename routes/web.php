@@ -615,3 +615,9 @@ Route::get('/amzn/test-asin-data', function () {
     return $controller->printshippinglabel($request);
 });
 */
+
+use App\Http\Controllers\NotificationController;
+Route::post('/notifications/create', [NotificationController::class, 'create']);
+Route::get('/notifications/user/{id}', [NotificationController::class, 'getByUser']);
+Route::post('/notifications/mark-read', [NotificationController::class, 'markAsRead']);
+Route::post('/notifications/mark-unread', [NotificationController::class, 'markAsUnread']);

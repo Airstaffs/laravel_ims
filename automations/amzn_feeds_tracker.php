@@ -13,10 +13,20 @@ if ($Connect->connect_error) {
     die("Connection failed: " . $Connect->connect_error);
 }
 
+echo "hello";
+
 $feeds = get_pending_feeds();
 
 foreach ($feeds as $feed) {
+    echo "Feed Data";
+    echo "<pre>";
+    print_r($feed);
+    echo "</pre>";
     $statusCheck = get_feed_status($feed['store'], $feed['feed_id']);
+
+    echo "<pre>";
+    print_r($statusCheck);
+    echo "</pre>";
     $status = $statusCheck['processingStatus'] ?? 'UNKNOWN';
 
     if ($status === 'DONE') {
@@ -114,10 +124,45 @@ function fetch_feed_processing_report($store, $docId)
     curl_close($ch);
 
     $decoded = json_decode($response, true);
+    echo "Fetch feed";
+    echo "<pre>";
+    print_r($decoded);
+    echo "</pre>";
     $downloadUrl = $decoded['url'];
 
     // Download and parse the actual report content (usually TSV or JSON)
-    $reportContent = file_get_contents($downloadUrl);
+    $compressed = file_get_contents($downloadUrl);
+    $reportContent = gzdecode($compressed); // decompress
+
+    if (!$reportContent) {
+        echo "❌ Failed to decode GZIP feed content.\n";
+        return [];
+    }
+
+    // Try to detect if content is JSON or TSV
+    $decodedJson = json_decode($reportContent, true);
+    if (is_array($decodedJson)) {
+        echo "<pre>📄 Feed Returned JSON (not TSV):\n";
+        print_r($decodedJson);
+        echo "</pre>";
+
+        // Optional: Handle JSON format results differently
+        if (isset($decodedJson['issues'])) {
+            foreach ($decodedJson['issues'] as $issue) {
+                create_notification([
+                    'module' => 'listing',
+                    'title' => "{$issue['severity']}: {$issue['code']}",
+                    'subtitle' => "Feed {$decodedJson['header']['feedId']}",
+                    'content' => $issue['message'] ?? 'Unknown issue',
+                    'severity' => strtolower($issue['severity']),
+                ]);
+            }
+        }
+
+        return []; // Skip TSV parsing
+    }
+
+    // If not JSON, fallback to TSV parsing
     return parse_feed_report($reportContent);
 }
 
@@ -129,7 +174,8 @@ function parse_feed_report($content)
     $results = [];
     foreach ($lines as $line) {
         $row = array_combine($headers, str_getcsv($line, "\t"));
-        if ($row) $results[] = $row;
+        if ($row)
+            $results[] = $row;
     }
     return $results;
 }
