@@ -636,6 +636,39 @@ export default {
 
         async saveEditModal() {
             this.loading = true;
+
+            // Validate required prefixes
+            const errors = [];
+
+            if (!/^RPN\d+$/i.test(this.item.RPN)) {
+                errors.push("RPN must start with 'RPN' followed by numbers.");
+            }
+
+            if (!/^PRD\d+$/i.test(this.item.PRD)) {
+                errors.push("PRD must start with 'PRD' followed by numbers.");
+            }
+
+            if (!/^PCN\d+$/i.test(this.item.PCN)) {
+                errors.push("PCN must start with 'PCN' followed by numbers.");
+            }
+
+            if (!/^BKT\d+$/i.test(this.item.basketnumber)) {
+                errors.push(
+                    "Basket Number must start with 'BKT' followed by numbers."
+                );
+            }
+
+            if (errors.length > 0) {
+                this.loading = false;
+                await Swal.fire({
+                    icon: "error",
+                    title: "Validation Error",
+                    html: errors.join("<br>"),
+                    confirmButtonText: "OK",
+                });
+                return;
+            }
+
             try {
                 const payload = {
                     ...this.item,
