@@ -9,7 +9,9 @@
             <div id="current-date" style="display:none;"></div>
         </div>
 
-        <input type="hidden" id="last-record-timein" value="{{ $verylastRecord ? $verylastRecord->TimeIn : '' }}">
+        <!-- Hidden clock-in time for auto-clock-out -->
+        <input type="hidden" id="last-record-timein"
+            value="{{ $verylastRecord ? \Carbon\Carbon::parse($verylastRecord->TimeIn)->toIso8601String() : '' }}">
 
         <!-- Clock In/Out Buttons -->
         <div class="d-flex justify-content-center gap-3">
@@ -28,14 +30,14 @@
             </button>
         </div>
 
-        <!-- Computed Hours Summary -->
+        <!-- Hours Summary -->
         <div class="p-3 bg-light border rounded">
             <p><strong>Today's Hours:</strong> <span id="today-hours">{{ $todayHoursFormatted ?? '0:00' }}</span></p>
             <p><strong>This Week's Hours:</strong> <span id="week-hours">{{ $weekHoursFormatted ?? '0:00' }}</span></p>
         </div>
     </div>
 
-    <!-- Desktop Attendance Table -->
+    <!-- Attendance Table (Desktop) -->
     <div class="attendance-table">
         <table class="table table-bordered table-hover desktop">
             <thead class="table-dark">
@@ -71,12 +73,6 @@
                                 data-bs-target="#editNotesModal"
                                 onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
                                 <i class="bi bi-pencil-square"></i>
-                            </button>
-                        </td>
-                        <td style="display: none;">
-                            <button class="btn btn-primary update-computed-hours d-none" data-id="{{ $clockwk->ID }}"
-                                data-timein="{{ $clockwk->TimeIn }}" data-timeout="{{ $clockwk->TimeOut }}">
-                                Update
                             </button>
                         </td>
                     </tr>
@@ -118,3 +114,50 @@
         @endforeach
     </div>
 </div>
+
+<script>
+    function autoClockOut() {
+        const lastRecordTimeInInput = document.getElementById("last-record-timein");
+        const lastRecordTimeIn = lastRecordTimeInInput?.value;
+
+        if (!lastRecordTimeIn) {
+            console.warn("No valid clock-in record found.");
+            return;
+        }
+
+        const timeInDate = new Date(lastRecordTimeIn);
+        const currentDate = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+
+        const isSameDate = timeInDate.toLocaleDateString() === currentDate.toLocaleDateString();
+        if (!isSameDate) {
+            console.warn("Clock-in record is not from today.");
+            return;
+        }
+
+        const eightHoursLater = new Date(timeInDate.getTime() + 8 * 60 * 60 * 1000);
+        if (currentDate < eightHoursLater) {
+            console.info("Less than 8 hours since clock-in. Not auto clocking out.");
+            return;
+        }
+
+        console.log("Auto Clocking Out...");
+        fetch("{{ route('auto-clockout') }}", {
+            method: "POST",
+            headers: {
+                "X-CSRF-TOKEN": document.querySelector('meta[name=csrf-token]').getAttribute("content"),
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({}),
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Auto Clockout response:", data);
+                if (data.success) setTimeout(() => location.reload(), 1000);
+            })
+            .catch(error => console.error("Auto clock-out failed:", error));
+    }
+
+    // Run once immediately and once after 30s
+    autoClockOut();
+    setTimeout(autoClockOut, 30000);
+</script>
