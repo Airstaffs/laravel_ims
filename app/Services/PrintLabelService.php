@@ -92,6 +92,11 @@ class PrintLabelService extends BasetablesController
             
             // Send instruction cards to dedicated printer if available
             if (!empty($instructionCardZpl)) {
+                Log::info('Sending instruction cards to printer', [
+                    'zpl_length' => strlen($instructionCardZpl),
+                    'printer_ip' => $this->instructionCardPrinterIp
+                ]);
+                
                 $instructionCardResult = $this->sendToInstructionCardPrinter($instructionCardZpl);
                 
                 // Update result message to include instruction card printing status
@@ -100,6 +105,10 @@ class PrintLabelService extends BasetablesController
                 } else if ($result['status'] === 'success') {
                     $result['message'] = 'Printing Small labels only...';
                 }
+                
+                Log::info('Instruction card result:', $instructionCardResult);
+            } else {
+                Log::info('No instruction cards to print - ZPL is empty');
             }
             
             // Update print count if successful
@@ -299,7 +308,33 @@ class PrintLabelService extends BasetablesController
 
             // Instruction card processing - Generate separately for different printer
             if (!empty($product->ASINviewer)) {
+                Log::info('Checking instruction cards for ASIN:', [
+                    'asin' => $product->ASINviewer,
+                    'instructioncard' => $product->instructioncard ?? 'null',
+                    'instructioncard2' => $product->instructioncard2 ?? 'null',
+                    'instructioncard3' => $product->instructioncard3 ?? 'null'
+                ]);
+                
+                Log::info('About to call generateInstructionCardLabels...');
                 $zplIC = $this->generateInstructionCardLabels($product);
+                Log::info('Returned from generateInstructionCardLabels', ['zpl_length' => strlen($zplIC)]);
+                
+                if (!empty($zplIC)) {
+                    Log::info('Generated instruction card ZPL', ['length' => strlen($zplIC)]);
+                } else {
+                    Log::info('No instruction card ZPL generated - investigating why...');
+                    Log::info('Product data for debugging:', [
+                        'ASINviewer' => $product->ASINviewer,
+                        'basketnumber' => $product->basketnumber ?? 'null',
+                        'serialnumber' => $product->serialnumber ?? 'null',
+                        'instructioncard_type' => gettype($product->instructioncard),
+                        'instructioncard2_type' => gettype($product->instructioncard2),
+                        'instructioncard3_type' => gettype($product->instructioncard3)
+                    ]);
+                }
+            } else {
+                Log::info('No ASIN found - skipping instruction cards');
+                $zplIC = '';
             }
 
             // Return both main ZPL and instruction card ZPL separately
@@ -689,7 +724,7 @@ class PrintLabelService extends BasetablesController
     }
 
     /**
-     * Generate instruction card labels - MODIFIED to use instructioncard, instructioncard2, and instructioncard3 columns
+     * Generate instruction card labels - FIXED to handle filename strings
      * Based on ASIN naming convention: {ASIN}_card1.png, {ASIN}_card2.png, {ASIN}_card3.png
      */
     protected function generateInstructionCardLabels($product)
@@ -700,13 +735,17 @@ class PrintLabelService extends BasetablesController
             $basketnumber = $product->basketnumber ?? '';
             $Wserial = $product->serialnumber ?? '';
             
-            // Check if we have instruction card data in the asin table columns
-            $hasInstructionCard1 = !empty($product->instructioncard) && $product->instructioncard == 1;
-            $hasInstructionCard2 = !empty($product->instructioncard2) && $product->instructioncard2 == 1;
-            $hasInstructionCard3 = !empty($product->instructioncard3) && $product->instructioncard3 == 1;
+            // FIXED: Check if we have instruction card data - handle both filename strings and boolean values
+            $hasInstructionCard1 = !empty($product->instructioncard) && 
+                ($product->instructioncard == 1 || !is_numeric($product->instructioncard));
+            $hasInstructionCard2 = !empty($product->instructioncard2) && 
+                ($product->instructioncard2 == 1 || !is_numeric($product->instructioncard2));
+            $hasInstructionCard3 = !empty($product->instructioncard3) && 
+                ($product->instructioncard3 == 1 || !is_numeric($product->instructioncard3));
             
             if (!$hasInstructionCard1 && !$hasInstructionCard2 && !$hasInstructionCard3) {
                 // No instruction cards to process
+                Log::info('No instruction cards to process - all conditions false');
                 return '';
             }
             
@@ -715,7 +754,10 @@ class PrintLabelService extends BasetablesController
                 'card1' => $hasInstructionCard1 ? 'yes' : 'no',
                 'card2' => $hasInstructionCard2 ? 'yes' : 'no',
                 'card3' => $hasInstructionCard3 ? 'yes' : 'no',
-                'serial' => $Wserial
+                'serial' => $Wserial,
+                'card1_value' => $product->instructioncard ?? 'null',
+                'card2_value' => $product->instructioncard2 ?? 'null',
+                'card3_value' => $product->instructioncard3 ?? 'null'
             ]);
             
             // Generate file paths based on ASIN naming convention
@@ -819,9 +861,9 @@ class PrintLabelService extends BasetablesController
                 $serialCard1FileName = $Wserial . "_page_1.png";
                 $serialCard2FileName = $Wserial . "_page_2.png";
                 
-                $templatePath1 = storage_path('app/public/instructioncard/warranty/templates/6_1st.png');
-                $templatePath2 = storage_path('app/public/instructioncard/warranty/templates/6_2nd.png');
-                $generatedImagesPath = storage_path('app/public/instructioncard/generated_images/');
+                $templatePath1 = public_path('images/warranty/templates/6_1st.png');
+                $templatePath2 = public_path('images/warranty/templates/6_2nd.png');
+                $generatedImagesPath = storage_path('app/public/images/warranty/generated_images/');
                 
                 // Generate serial-specific images from templates if they don't exist
                 $serialCard1Path = $generatedImagesPath . $serialCard1FileName;
@@ -859,6 +901,7 @@ class PrintLabelService extends BasetablesController
                 }
             }
             
+            Log::info('Final instruction card ZPL length:', ['length' => strlen($zplIC)]);
             return $zplIC;
             
         } catch (Exception $e) {
@@ -879,7 +922,9 @@ class PrintLabelService extends BasetablesController
     protected function processVectorImage($vectorImage)
     {
         try {
-            $inputPath = storage_path('app/public/images/vector/' . $vectorImage);
+            // Handle both just filename and path with directories
+            $filename = basename($vectorImage);
+            $inputPath = public_path('images/asinvectorsimg/' . $filename);
             $outputPath = storage_path('app/public/images/monochrome');
             $newWidth = 400;
             $newHeight = 300;
@@ -888,7 +933,8 @@ class PrintLabelService extends BasetablesController
             $success = $this->imageProcessingService->convertImageToMonochrome($inputPath, $outputPath, $newWidth, $newHeight);
             
             if ($success) {
-                $monochromeImagePath = $outputPath . '/' . $vectorImage;
+                // Use just the filename for the monochrome path
+                $monochromeImagePath = $outputPath . '/' . $filename;
                 return $this->imageProcessingService->convertMonochromeImageToZPL($monochromeImagePath);
             } else {
                 return "^XA^FO50,50^ADN,18,18^FDVector image processing failed^FS^XZ";

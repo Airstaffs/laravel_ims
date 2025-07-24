@@ -118,8 +118,8 @@ class ImageProcessingService
             imagecopy($image, $scaledQrCodeImage, $dstX, $dstY, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight);
             imagedestroy($scaledQrCodeImage);
             
-            $bottomText1 = "Scan QR to see Saved Photos";
-            $bottomText2 = "of this Item on the Cloud.";
+            $bottomText1 = "Photos of this item is saved on the cloud.";
+            $bottomText2 = "Scan to view.";
             
             $black = imagecolorallocate($image, 0, 0, 0);
             $bottomFontSize = 14;
