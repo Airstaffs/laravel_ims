@@ -67,6 +67,13 @@
                             <div id="computed-hours-{{ $clockwk->ID }}">
                                 <sup><b>Not yet calculated</b></sup>
                             </div>
+
+                            @if ($clockwk->TimeIn && $clockwk->TimeOut)
+                                <span class="update-computed-hours d-none" data-id="{{ $clockwk->ID }}"
+                                    data-timein="{{ \Carbon\Carbon::parse($clockwk->TimeIn)->toIso8601String() }}"
+                                    data-timeout="{{ \Carbon\Carbon::parse($clockwk->TimeOut)->toIso8601String() }}">
+                                </span>
+                            @endif
                         </td>
                         <td class="text-center">
                             <button class="btn btn-sm btn-primary text-white" data-bs-toggle="modal"
@@ -102,6 +109,12 @@
                     <div id="computed-hours-{{ $clockwk->ID }}">
                         <small><strong>Not yet calculated</strong></small>
                     </div>
+                    @if ($clockwk->TimeIn && $clockwk->TimeOut)
+                        <span class="update-computed-hours d-none" data-id="{{ $clockwk->ID }}"
+                            data-timein="{{ \Carbon\Carbon::parse($clockwk->TimeIn)->toIso8601String() }}"
+                            data-timeout="{{ \Carbon\Carbon::parse($clockwk->TimeOut)->toIso8601String() }}">
+                        </span>
+                    @endif
                     <div class="notes-container mt-2">
                         <button class="btn btn-sm btn-primary text-white" data-bs-toggle="modal"
                             data-bs-target="#editNotesModal"
