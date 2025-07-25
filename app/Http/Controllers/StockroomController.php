@@ -1434,8 +1434,7 @@ class StockroomController extends BasetablesController
             $productType = null;
             if ($response->successful()) {
                 $result = $response->json();
-                $productTypes = $result['results'][0]['rates']['productTypes'] ?? [];
-                $productType = $productTypes[0]['productType'] ?? null;
+                $productType = $result['results']['rates']['productTypes']['productType'] ?? [];
 
                 echo "<pre>";
                 print_r($result);
@@ -1479,12 +1478,6 @@ class StockroomController extends BasetablesController
                                 "marketplace_id" => $marketplace
                             ]
                         ],
-                        "merchant" => [
-                            [
-                                "value" => $tblstore['MerchantID'],
-                                "marketplace_id" => $marketplace,
-                            ]
-                        ]
                     ]
                 ];
             }
