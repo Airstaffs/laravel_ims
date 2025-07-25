@@ -1426,8 +1426,8 @@ class StockroomController extends BasetablesController
             }
 
             $response = Http::get(url('/amzn/catalog/get_asin_catalog'), [
-                'searchedAsin' => $asin,
-                'store' => $storeName,
+                'searchedAsin' => $filterasin,
+                'store' => $filterstore,
                 'destinationMarketplace' => $marketplace
             ]);
 
