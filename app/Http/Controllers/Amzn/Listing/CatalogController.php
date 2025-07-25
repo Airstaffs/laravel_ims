@@ -78,7 +78,7 @@ class CatalogController extends Controller
             $headers['accept'] = 'application/json';
 
             $queryString = buildQueryString($nextToken, $customParams);
-            $url = "{$endpoint}{$path}{$queryString}";
+            $url = "{$endpoint}{$path}?{$queryString}";
 
             $response = Http::timeout(50)
                 ->withHeaders($headers)
