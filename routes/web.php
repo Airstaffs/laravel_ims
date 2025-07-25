@@ -617,7 +617,7 @@ Route::get('/amzn/test-asin-data', function () {
 */
 
 use App\Http\Controllers\Amzn\Listing\CatalogController;
-Route::get('amzn/catalog/get_asin_catalog', [CatalogController::class, 'get_asin_catalog']);
+Route::get('/amzn/catalog/get_asin_catalog', [CatalogController::class, 'get_asin_catalog']);
 
 use App\Http\Controllers\NotificationController;
 Route::post('/notifications/create', [NotificationController::class, 'create']);
