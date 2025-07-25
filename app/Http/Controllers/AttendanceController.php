@@ -14,7 +14,8 @@ class AttendanceController extends Controller
 
     protected $userLogService;
 
-    public function __construct(UserLogService $userLogService) {
+    public function __construct(UserLogService $userLogService)
+    {
         $this->userLogService = $userLogService;
     }
 
@@ -25,40 +26,40 @@ class AttendanceController extends Controller
 
         // Query the attendance data for the logged-in user, ordered by TimeIn
         $employeeClocks = DB::table('tblemployeeclocks')
-        ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
-        ->select(
-            'tblemployeeclocks.ID as clock_id', // Alias for ID
-            'tblemployeeclocks.userid as user_id', // Alias for userid
-            'tblemployeeclocks.Employee as employee_name', // Alias for Employee
-            'tblemployeeclocks.TimeIn as time_in', // Alias for TimeIn
-            'tblemployeeclocks.TimeOut as time_out', // Alias for TimeOut
-            'tbluser.username as user_name',
-            'tblemployeeclocks.Notes as notes_' 
-        )
-        ->where('tblemployeeclocks.userid', $currentUserId) // Filter by the current user's ID
-        ->orderBy('tblemployeeclocks.TimeIn', 'desc') // Order by TimeIn (descending)
-        ->get();
+            ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
+            ->select(
+                'tblemployeeclocks.ID as clock_id', // Alias for ID
+                'tblemployeeclocks.userid as user_id', // Alias for userid
+                'tblemployeeclocks.Employee as employee_name', // Alias for Employee
+                'tblemployeeclocks.TimeIn as time_in', // Alias for TimeIn
+                'tblemployeeclocks.TimeOut as time_out', // Alias for TimeOut
+                'tbluser.username as user_name',
+                'tblemployeeclocks.Notes as notes_'
+            )
+            ->where('tblemployeeclocks.userid', $currentUserId) // Filter by the current user's ID
+            ->orderBy('tblemployeeclocks.TimeIn', 'desc') // Order by TimeIn (descending)
+            ->get();
 
 
-            // Query the attendance data for the logged-in user, where TimeIn is in the current week
+        // Query the attendance data for the logged-in user, where TimeIn is in the current week
         $employeeClocksThisweek = DB::table('tblemployeeclocks')
-        ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
-        ->select(
-            'tblemployeeclocks.ID as ID',
-            'tblemployeeclocks.userid',
-            'tblemployeeclocks.Employee',
-            'TimeIn',
-            'TimeOut',
-            'Notes',
-            'tbluser.username'
-        )
-        ->where('tblemployeeclocks.userid', $currentUserId) // Filter by the current user's ID
-        ->whereBetween('tblemployeeclocks.TimeIn', [
-            Carbon::now('America/Los_Angeles')->startOfWeek(),
-            Carbon::now('America/Los_Angeles')->endOfWeek(),
-        ]) // Filter records where TimeIn is this week
-        ->orderBy('tblemployeeclocks.TimeIn', 'desc') // Order by TimeIn (descending)
-        ->get();
+            ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
+            ->select(
+                'tblemployeeclocks.ID as ID',
+                'tblemployeeclocks.userid',
+                'tblemployeeclocks.Employee',
+                'TimeIn',
+                'TimeOut',
+                'Notes',
+                'tbluser.username'
+            )
+            ->where('tblemployeeclocks.userid', $currentUserId) // Filter by the current user's ID
+            ->whereBetween('tblemployeeclocks.TimeIn', [
+                Carbon::now('America/Los_Angeles')->startOfWeek(),
+                Carbon::now('America/Los_Angeles')->endOfWeek(),
+            ]) // Filter records where TimeIn is this week
+            ->orderBy('tblemployeeclocks.TimeIn', 'desc') // Order by TimeIn (descending)
+            ->get();
 
         // Fetch the most recent clock-in record for today with no clock-out
         $lastRecord = DB::table('tblemployeeclocks')
@@ -74,9 +75,9 @@ class AttendanceController extends Controller
 
         // Calculate Today's Hours
         $todayHours = DB::table('tblemployeeclocks')
-        ->where('userid', $currentUserId)
-        ->whereDate('TimeIn', Carbon::today('America/Los_Angeles'))
-        ->sum(DB::raw("
+            ->where('userid', $currentUserId)
+            ->whereDate('TimeIn', Carbon::today('America/Los_Angeles'))
+            ->sum(DB::raw("
             TIMESTAMPDIFF(
                 MINUTE,
                 TimeIn,
@@ -105,8 +106,10 @@ class AttendanceController extends Controller
         $weekHoursFormatted = sprintf('%d hrs %02d mins', intdiv($weekHours, 60), $weekHours % 60);
 
         // Pass the data to the Blade view
-        return view('dashboard.Systemdashboard', 
-            compact('employeeClocks', 'lastRecord', 'verylastRecord', 'todayHoursFormatted', 'weekHoursFormatted', 'employeeClocksThisweek'));
+        return view(
+            'dashboard.Systemdashboard',
+            compact('employeeClocks', 'lastRecord', 'verylastRecord', 'todayHoursFormatted', 'weekHoursFormatted', 'employeeClocksThisweek')
+        );
     }
 
     public function clockIn(Request $request)
@@ -163,48 +166,61 @@ class AttendanceController extends Controller
 
     public function autoClockOut(Request $request)
     {
-        // Get the current user's ID
         $currentUserId = Auth::user()->id;
-    
-        // Get the last record for the current user with null TimeOut
-        $lastRecord = DB::table('tblemployeeclocks')
-            ->where('userid', $currentUserId)
-            ->whereNotNull('TimeIn') // Ensure TimeIn is not null
-            ->whereNull('TimeOut') // Ensure TimeOut is null (no clock-out yet)
-            ->orderBy('ID', 'desc') // Get the most recent record
-            ->first(); // Retrieve only the last record
-    
-        if ($lastRecord) {
-            // Update the TimeOut field to match the TimeIn field
-            DB::table('tblemployeeclocks')
-                ->where('ID', $lastRecord->ID) // Update only the last record by ID
-                ->update([
-                    'TimeOut' => $lastRecord->TimeIn,
-                    'Notes' => 'System Automatically Clocked out with TimeOut matching TimeIn at ' . $lastRecord->TimeIn,
-                ]);
+        $timezone = 'America/Los_Angeles';
 
-                // Log using service
-                $this->userLogService->log('System Auto Clockout');
-    
-            // Return success response as JSON
-            return response()->json([
-                'success' => true,
-                'message' => 'System Automatically Clocked out with TimeOut matching TimeIn at ' . $lastRecord->TimeIn,
-            ]);
-        } else {
-            // Return error response as JSON
+        // Get all unclosed records
+        $unclosedRecords = DB::table('tblemployeeclocks')
+            ->where('userid', $currentUserId)
+            ->whereNotNull('TimeIn')
+            ->whereNull('TimeOut')
+            ->orderBy('ID', 'asc')
+            ->get();
+
+        if ($unclosedRecords->isEmpty()) {
             return response()->json([
                 'success' => false,
-                'message' => 'No valid clock-in record found to clock out.',
+                'message' => 'No unclosed clock-in records found.',
             ]);
         }
+
+        $updatedCount = 0;
+        foreach ($unclosedRecords as $record) {
+            $timeIn = \Carbon\Carbon::parse($record->TimeIn)->setTimezone($timezone);
+            $now = now()->setTimezone($timezone);
+
+            // Only close records older than 8 hours
+            if ($timeIn->diffInHours($now) >= 8) {
+                DB::table('tblemployeeclocks')
+                    ->where('ID', $record->ID)
+                    ->update([
+                        'TimeOut' => $record->TimeIn,
+                        'Notes' => 'System Auto Clock-out applied. TimeOut matched TimeIn at ' . $record->TimeIn,
+                    ]);
+
+                $this->userLogService->log("Auto Clockout: User ID {$currentUserId} clocked out record ID {$record->ID} at {$record->TimeIn}");
+                $updatedCount++;
+            }
+        }
+
+        if ($updatedCount > 0) {
+            return response()->json([
+                'success' => true,
+                'message' => "{$updatedCount} record(s) auto clocked out successfully.",
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'No eligible records found (less than 8 hours old).',
+        ]);
     }
-    
+
     public function updateComputedHours(Request $request)
     {
         // Parse TimeIn and TimeOut values
         $timeIn = Carbon::parse($request->timeIn)->setTimezone('America/Los_Angeles');
-        $timeOut = $request->timeOut 
+        $timeOut = $request->timeOut
             ? Carbon::parse($request->timeOut)->setTimezone('America/Los_Angeles')
             : now()->setTimezone('America/Los_Angeles')->subHours(8);
 
@@ -309,11 +325,11 @@ class AttendanceController extends Controller
         $validatedData = $request->validate([
             'notes' => 'required|string|max:255',
         ]);
-    
+
         $updated = DB::table('tblemployeeclocks')
             ->where('ID', $id)
             ->update(['Notes' => $validatedData['notes']]);
-    
+
         if ($updated) {
 
             // Log using service
@@ -330,7 +346,4 @@ class AttendanceController extends Controller
             ]);
         }
     }
-
-    
-
 }

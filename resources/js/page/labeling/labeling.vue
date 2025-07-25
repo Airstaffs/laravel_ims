@@ -1021,16 +1021,11 @@
             </div>
         </div>
 
-        <!-- FNSKU Selection Modal - Moved outside image modal and now has proper styling -->
-        <!-- FNSKU Selection Modal - Updated with hidden fields and loading -->
         <div v-if="isFnskuModalVisible" class="modal fnsku-modal">
-            <!-- Overlay -->
-            <div class="fnsku-modal-overlay" @click="hideFnskuModal"></div>
+            <div class="modal-overlay" @click="hideFnskuModal"></div>
 
-            <!-- Modal Content -->
-            <div class="fnsku-modal-content">
-                <!-- Header -->
-                <div class="fnsku-modal-header">
+            <div class="modal-content">
+                <div class="modal-header">
                     <h2>Select FNSKU</h2>
                     <button class="fnsku-close" @click="hideFnskuModal">
                         &times;
@@ -1038,7 +1033,7 @@
                 </div>
 
                 <!-- Body -->
-                <div class="fnsku-modal-body">
+                <div class="modal-body">
                     <!-- Product Info - Updated to hide ID -->
                     <div class="fnsku-product-info">
                         <h4>{{ currentItem?.ProductTitle }}</h4>

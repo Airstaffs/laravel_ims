@@ -52,6 +52,86 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     };
 
+    function autoClockOut() {
+        const lastRecordTimeInInput =
+            document.getElementById("last-record-timein");
+        const lastRecordTimeIn = lastRecordTimeInInput?.value;
+
+        if (!lastRecordTimeIn) {
+            console.warn("No clock-in record found.");
+            return;
+        }
+
+        if (localStorage.getItem("autoClockedOut")) {
+            console.info("Auto clock-out already done this session.");
+            return;
+        }
+
+        const timeInDate = new Date(lastRecordTimeIn);
+        const currentDate = new Date(
+            new Date().toLocaleString("en-US", {
+                timeZone: "America/Los_Angeles",
+            })
+        );
+
+        const eightHoursLater = new Date(
+            timeInDate.getTime() + 8 * 60 * 60 * 1000
+        );
+        if (currentDate < eightHoursLater) {
+            console.info(
+                "Less than 8 hours since clock-in. Not auto clocking out."
+            );
+            return;
+        }
+
+        console.log("Auto Clocking Out...");
+
+        fetch("/attendance/auto-clockout", {
+            method: "POST",
+            headers: {
+                "X-CSRF-TOKEN": document
+                    .querySelector("meta[name=csrf-token]")
+                    .getAttribute("content"),
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({}),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log("Auto Clockout response:", data);
+
+                if (data.success) {
+                    localStorage.setItem("autoClockedOut", "1");
+                    showAutoClockoutToast(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showAutoClockoutToast(
+                        "No eligible record found. Nothing was changed."
+                    );
+                }
+            })
+            .catch((error) => {
+                console.error("Auto clock-out failed:", error);
+                showAutoClockoutToast(
+                    "Auto clock-out failed due to a network or server error."
+                );
+            });
+    }
+
+    function showAutoClockoutToast(message) {
+        const toastEl = document.getElementById("autoClockoutToast");
+        const toastMsg = document.getElementById("autoClockoutToastMessage");
+        toastMsg.textContent = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+
+    // Trigger once immediately and again after 30s
+    window.addEventListener("DOMContentLoaded", () => {
+        autoClockOut();
+        setTimeout(autoClockOut, 30000);
+    });
+
     // ========== REAL-TIME PACIFIC CLOCK ==========
     function updateTime() {
         const currentTimeElement = document.getElementById("current-time");
