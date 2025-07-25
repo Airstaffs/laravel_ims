@@ -1434,7 +1434,7 @@ class StockroomController extends BasetablesController
             $productType = null;
             if ($response->successful()) {
                 $result = $response->json();
-                $productType = $result['results']['rates']['productTypes']['productType'] ?? [];
+$productType = $result['results'][0]['rates']['productTypes'][0]['productType'] ?? 'generic';
 
                 echo "<pre>";
                 print_r($result);
