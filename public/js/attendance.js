@@ -1,9 +1,8 @@
 document.addEventListener("DOMContentLoaded", function () {
-    // ========== SOUND ELEMENTS ==========
+    // ========== CLOCK-IN / CLOCK-OUT CONFIRMATION ==========
     const clockinSound = document.getElementById("clockin-question-sound");
     const clockoutSound = document.getElementById("clockout-question-sound");
 
-    // ========== GENERIC AJAX CLOCK FUNCTION ==========
     function sendAjaxClock(route, successCallback) {
         fetch(route, {
             method: "POST",
@@ -33,7 +32,6 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     }
 
-    // ========== CLOCK IN / CLOCK OUT CONFIRMATION ==========
     window.confirmClockIn = function () {
         clockinSound?.play();
         if (confirm("Are you sure you want to Clock In?")) {
@@ -54,55 +52,20 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     };
 
-    // ========== REAL-TIME CLOCK (PACIFIC TIME) ==========
-    function updateTime() {
-        const currentTimeElement = document.getElementById("current-time");
-        const currentDayElement = document.getElementById("current-day");
-        const currentDateElement = document.getElementById("current-date");
-
-        if (currentTimeElement && currentDayElement && currentDateElement) {
-            const now = new Date();
-
-            const timeParts = new Intl.DateTimeFormat("en-US", {
-                timeZone: "America/Los_Angeles",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-            }).formatToParts(now);
-
-            const formattedTime = `${
-                timeParts.find((p) => p.type === "hour").value
-            }:${timeParts.find((p) => p.type === "minute").value}:${
-                timeParts.find((p) => p.type === "second").value
-            } ${timeParts.find((p) => p.type === "dayPeriod").value}`;
-
-            const pacificDay = new Intl.DateTimeFormat("en-US", {
-                timeZone: "America/Los_Angeles",
-                weekday: "long",
-            }).format(now);
-
-            const pacificDate = new Intl.DateTimeFormat("en-US", {
-                timeZone: "America/Los_Angeles",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-            }).format(now);
-
-            currentTimeElement.textContent = formattedTime;
-            currentDayElement.textContent = `${pacificDay} , ${pacificDate}`;
-            currentDateElement.textContent = pacificDate;
-        }
-    }
-    updateTime();
-    setInterval(updateTime, 1000);
-
-    // ========== AUTO CLOCK OUT ==========
     function autoClockOut() {
-        const lastRecordTimeIn = document
-            .querySelector('meta[name="last-record-timein"]')
-            ?.getAttribute("content");
-        if (!lastRecordTimeIn) return;
+        const lastRecordTimeInInput =
+            document.getElementById("last-record-timein");
+        const lastRecordTimeIn = lastRecordTimeInInput?.value;
+
+        if (!lastRecordTimeIn) {
+            console.warn("No clock-in record found.");
+            return;
+        }
+
+        if (localStorage.getItem("autoClockedOut")) {
+            console.info("Auto clock-out already done this session.");
+            return;
+        }
 
         const timeInDate = new Date(lastRecordTimeIn);
         const currentDate = new Date(
@@ -111,40 +74,100 @@ document.addEventListener("DOMContentLoaded", function () {
             })
         );
 
-        const isNotToday =
-            timeInDate.toLocaleDateString() !==
-            currentDate.toLocaleDateString();
-        const eightHoursAgo = new Date(
-            currentDate.getTime() - 8 * 60 * 60 * 1000
+        const eightHoursLater = new Date(
+            timeInDate.getTime() + 8 * 60 * 60 * 1000
         );
-        const isMoreThan8HoursAgo = timeInDate < eightHoursAgo;
-
-        if (isNotToday || isMoreThan8HoursAgo) {
-            console.log(
-                "Auto Clocking Out: TimeIn is not today or more than 8 hours ago."
+        if (currentDate < eightHoursLater) {
+            console.info(
+                "Less than 8 hours since clock-in. Not auto clocking out."
             );
-            fetch("/your-auto-clockout-route", {
-                method: "POST",
-                headers: {
-                    "X-CSRF-TOKEN": document
-                        .querySelector('meta[name="csrf-token"]')
-                        .getAttribute("content"),
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({}),
-            })
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.success) setTimeout(() => location.reload(), 1000);
-                })
-                .catch((error) =>
-                    console.error("Error during auto clock-out:", error)
-                );
+            return;
         }
+
+        console.log("Auto Clocking Out...");
+
+        fetch("/attendance/auto-clockout", {
+            method: "POST",
+            headers: {
+                "X-CSRF-TOKEN": document
+                    .querySelector("meta[name=csrf-token]")
+                    .getAttribute("content"),
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({}),
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                console.log("Auto Clockout response:", data);
+
+                if (data.success) {
+                    localStorage.setItem("autoClockedOut", "1");
+                    showAutoClockoutToast(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showAutoClockoutToast(
+                        "No eligible record found. Nothing was changed."
+                    );
+                }
+            })
+            .catch((error) => {
+                console.error("Auto clock-out failed:", error);
+                showAutoClockoutToast(
+                    "Auto clock-out failed due to a network or server error."
+                );
+            });
     }
 
-    setTimeout(autoClockOut, 30000);
-    autoClockOut();
+    function showAutoClockoutToast(message) {
+        const toastEl = document.getElementById("autoClockoutToast");
+        const toastMsg = document.getElementById("autoClockoutToastMessage");
+        toastMsg.textContent = message;
+        const toast = new bootstrap.Toast(toastEl);
+        toast.show();
+    }
+
+    // Trigger once immediately and again after 30s
+    window.addEventListener("DOMContentLoaded", () => {
+        autoClockOut();
+        setTimeout(autoClockOut, 30000);
+    });
+
+    // ========== REAL-TIME PACIFIC CLOCK ==========
+    function updateTime() {
+        const currentTimeElement = document.getElementById("current-time");
+        const currentDayElement = document.getElementById("current-day");
+        const currentDateElement = document.getElementById("current-date");
+
+        const now = new Date();
+        const options = { timeZone: "America/Los_Angeles" };
+
+        const timeParts = new Intl.DateTimeFormat("en-US", {
+            ...options,
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+        }).formatToParts(now);
+
+        const formattedTime = `${
+            timeParts.find((p) => p.type === "hour").value
+        }:${timeParts.find((p) => p.type === "minute").value}:${
+            timeParts.find((p) => p.type === "second").value
+        } ${timeParts.find((p) => p.type === "dayPeriod").value}`;
+
+        currentTimeElement.textContent = formattedTime;
+        currentDayElement.textContent = new Intl.DateTimeFormat("en-US", {
+            ...options,
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+        }).format(now);
+        currentDateElement.textContent = currentDayElement.textContent;
+    }
+
+    updateTime();
+    setInterval(updateTime, 1000);
 
     // ========== NOTES MODAL BEHAVIOR ==========
     const editNotesModal = document.getElementById("editNotesModal");
@@ -204,4 +227,34 @@ document.addEventListener("DOMContentLoaded", function () {
                 alert("An error occurred. Please try again.");
             });
     };
+
+    function calculateAndDisplayHours(recordId, timeInStr, timeOutStr) {
+        if (!timeInStr || !timeOutStr) return;
+
+        const timeIn = new Date(timeInStr);
+        const timeOut = new Date(timeOutStr);
+
+        if (isNaN(timeIn.getTime()) || isNaN(timeOut.getTime())) return;
+
+        const diffMs = timeOut - timeIn;
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60);
+
+        const displayText = `${diffHours}:${diffMinutes
+            .toString()
+            .padStart(2, "0")} hrs`;
+        const container = document.getElementById(`computed-hours-${recordId}`);
+        if (container) container.innerHTML = `<strong>${displayText}</strong>`;
+    }
+
+    // Loop through hidden update buttons to extract data and compute hours
+    document.querySelectorAll(".update-computed-hours").forEach((btn) => {
+        const timeIn = btn.dataset.timein;
+        const timeOut = btn.dataset.timeout;
+        const recordId = btn.dataset.id;
+
+        if (timeIn && timeOut) {
+            calculateAndDisplayHours(recordId, timeIn, timeOut);
+        }
+    });
 });

@@ -2,6 +2,17 @@
     <div class="vue-container asin-viewer-module">
         <!-- Top header bar -->
         <div class="top-header">
+            <div class="header-buttons">
+                <button 
+                    class="btn btn-header bulk-upload-btn" 
+                    @click="openBulkInstructionCardModal"
+                    title="Bulk upload instruction cards for multiple ASINs"
+                >
+                    <i class="fas fa-upload"></i>
+                    <span>+ Instruction Card Bulk</span>
+                </button>
+            </div>
+
             <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select
@@ -670,6 +681,29 @@
                                                 />
                                                 <span class="thumb-number"
                                                     >2</span
+                                                >
+                                            </div>
+                                            <div
+                                                class="small-thumb"
+                                                :class="{
+                                                    'has-image':
+                                                        hasInstructionCard(
+                                                            selectedAsin.ASIN,
+                                                            3
+                                                        ),
+                                                }"
+                                            >
+                                                <img
+                                                    :src="
+                                                        getInstructionCardPath(
+                                                            selectedAsin.ASIN,
+                                                            3
+                                                        )
+                                                    "
+                                                    class="small-thumb-img"
+                                                />
+                                                <span class="thumb-number"
+                                                    >3</span
                                                 >
                                             </div>
                                         </div>
@@ -1533,6 +1567,51 @@
                                 </button>
                             </div>
                         </div>
+
+                        <!-- Card 3 -->
+                        <div class="card-slot">
+                            <div class="card-slot-header">
+                                <h4>Instruction Card 3</h4>
+                            </div>
+                            <div class="card-slot-image">
+                                <img
+                                    :src="
+                                        getInstructionCardPath(
+                                            selectedAsin?.ASIN,
+                                            3
+                                        )
+                                    "
+                                    :alt="`Instruction card 3 for ${selectedAsin?.ASIN}`"
+                                    class="card-slot-thumbnail"
+                                    @error="
+                                        handleInstructionCardError($event, 3)
+                                    "
+                                />
+                            </div>
+                            <div class="card-slot-actions">
+                                <input
+                                    type="file"
+                                    :ref="`cardUpload3`"
+                                    @change="
+                                        (e) => handleInstructionCardUpload(e, 3)
+                                    "
+                                    accept="image/*"
+                                    style="display: none"
+                                />
+                                <button
+                                    class="btn-upload-card"
+                                    @click="$refs.cardUpload3.click()"
+                                    :disabled="instructionCardUploading === 3"
+                                >
+                                    <i class="fas fa-upload"></i>
+                                    {{
+                                        instructionCardUploading === 3
+                                            ? "Uploading..."
+                                            : "Upload/Update"
+                                    }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1546,8 +1625,291 @@
                 </div>
             </div>
         </div>
+
+        <!-- Bulk Instruction Card Upload Modal -->
+        <div v-if="showBulkInstructionCardModal" class="bulk-instruction-card-modal">
+            <div class="bulk-instruction-card-modal-content">
+                <div class="bulk-instruction-card-modal-header">
+                    <h3><i class="fas fa-upload"></i> Bulk Instruction Card Upload</h3>
+                    <button class="modal-close" @click="closeBulkInstructionCardModal">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="bulk-instruction-card-modal-body">
+                    <div class="bulk-upload-form">
+                        <!-- ASIN List Input -->
+                        <div class="form-group">
+                            <label for="bulk-asin-list">
+                                <i class="fas fa-list"></i> ASIN List (comma separated):
+                            </label>
+                            <textarea
+                                id="bulk-asin-list"
+                                v-model="bulkUploadData.asinList"
+                                class="bulk-asin-textarea"
+                                placeholder="Enter ASINs separated by commas, e.g.: B07XYZ123, B08ABC456, B09DEF789"
+                                rows="4"
+                                :disabled="bulkUploadData.uploading"
+                            ></textarea>
+                            <div class="asin-count-info">
+                                ASINs to process: {{ parseAsinList().length }}
+                                <span v-if="parseAsinList().length > 50" class="error-text">
+                                    (Maximum 50 ASINs allowed)
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- File Upload Cards with Preview -->
+                        <div class="form-group">
+                            <label>
+                                <i class="fas fa-file-image"></i> Select Instruction Card Images:
+                            </label>
+                            
+                            <div class="bulk-cards-grid">
+                                <!-- Card 1 Upload -->
+                                <div class="bulk-card-upload-slot">
+                                    <div class="bulk-card-header">
+                                        <h4>Instruction Card 1</h4>
+                                        <span class="optional-badge">Optional</span>
+                                    </div>
+                                    
+                                    <div class="bulk-card-preview" :class="{ 'has-image': bulkUploadData.files.card1 }">
+                                        <img 
+                                            v-if="bulkUploadData.files.card1" 
+                                            :src="getFilePreviewUrl(bulkUploadData.files.card1)"
+                                            alt="Card 1 Preview"
+                                            class="bulk-card-preview-image"
+                                        />
+                                        <div v-else class="bulk-card-placeholder">
+                                            <i class="fas fa-image"></i>
+                                            <span>No image selected</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bulk-card-actions">
+                                        <input
+                                            type="file"
+                                            ref="bulkFileUploadCard1"
+                                            @change="(e) => handleBulkFileSelect(e, 'card1')"
+                                            accept="image/*"
+                                            class="bulk-file-input-hidden"
+                                            :disabled="bulkUploadData.uploading"
+                                        />
+                                        <button 
+                                            class="btn-select-file"
+                                            @click="$refs.bulkFileUploadCard1.click()"
+                                            :disabled="bulkUploadData.uploading"
+                                        >
+                                            <i class="fas fa-folder-open"></i>
+                                            {{ bulkUploadData.files.card1 ? 'Change' : 'Select' }}
+                                        </button>
+                                        <button 
+                                            v-if="bulkUploadData.files.card1"
+                                            class="btn-remove-file"
+                                            @click="removeBulkFile('card1')"
+                                            :disabled="bulkUploadData.uploading"
+                                        >
+                                            <i class="fas fa-times"></i>
+                                            Remove
+                                        </button>
+                                    </div>
+                                    
+                                    <div v-if="bulkUploadData.files.card1" class="file-info">
+                                        <div class="file-name">{{ bulkUploadData.files.card1.name }}</div>
+                                        <div class="file-size">{{ formatFileSize(bulkUploadData.files.card1.size) }}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Card 2 Upload -->
+                                <div class="bulk-card-upload-slot">
+                                    <div class="bulk-card-header">
+                                        <h4>Instruction Card 2</h4>
+                                        <span class="optional-badge">Optional</span>
+                                    </div>
+                                    
+                                    <div class="bulk-card-preview" :class="{ 'has-image': bulkUploadData.files.card2 }">
+                                        <img 
+                                            v-if="bulkUploadData.files.card2" 
+                                            :src="getFilePreviewUrl(bulkUploadData.files.card2)"
+                                            alt="Card 2 Preview"
+                                            class="bulk-card-preview-image"
+                                        />
+                                        <div v-else class="bulk-card-placeholder">
+                                            <i class="fas fa-image"></i>
+                                            <span>No image selected</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bulk-card-actions">
+                                        <input
+                                            type="file"
+                                            ref="bulkFileUploadCard2"
+                                            @change="(e) => handleBulkFileSelect(e, 'card2')"
+                                            accept="image/*"
+                                            class="bulk-file-input-hidden"
+                                            :disabled="bulkUploadData.uploading"
+                                        />
+                                        <button 
+                                            class="btn-select-file"
+                                            @click="$refs.bulkFileUploadCard2.click()"
+                                            :disabled="bulkUploadData.uploading"
+                                        >
+                                            <i class="fas fa-folder-open"></i>
+                                            {{ bulkUploadData.files.card2 ? 'Change' : 'Select' }}
+                                        </button>
+                                        <button 
+                                            v-if="bulkUploadData.files.card2"
+                                            class="btn-remove-file"
+                                            @click="removeBulkFile('card2')"
+                                            :disabled="bulkUploadData.uploading"
+                                        >
+                                            <i class="fas fa-times"></i>
+                                            Remove
+                                        </button>
+                                    </div>
+                                    
+                                    <div v-if="bulkUploadData.files.card2" class="file-info">
+                                        <div class="file-name">{{ bulkUploadData.files.card2.name }}</div>
+                                        <div class="file-size">{{ formatFileSize(bulkUploadData.files.card2.size) }}</div>
+                                    </div>
+                                </div>
+
+                                <!-- Card 3 Upload -->
+                                <div class="bulk-card-upload-slot">
+                                    <div class="bulk-card-header">
+                                        <h4>Instruction Card 3</h4>
+                                        <span class="optional-badge">Optional</span>
+                                    </div>
+                                    
+                                    <div class="bulk-card-preview" :class="{ 'has-image': bulkUploadData.files.card3 }">
+                                        <img 
+                                            v-if="bulkUploadData.files.card3" 
+                                            :src="getFilePreviewUrl(bulkUploadData.files.card3)"
+                                            alt="Card 3 Preview"
+                                            class="bulk-card-preview-image"
+                                        />
+                                        <div v-else class="bulk-card-placeholder">
+                                            <i class="fas fa-image"></i>
+                                            <span>No image selected</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="bulk-card-actions">
+                                        <input
+                                            type="file"
+                                            ref="bulkFileUploadCard3"
+                                            @change="(e) => handleBulkFileSelect(e, 'card3')"
+                                            accept="image/*"
+                                            class="bulk-file-input-hidden"
+                                            :disabled="bulkUploadData.uploading"
+                                        />
+                                        <button 
+                                            class="btn-select-file"
+                                            @click="$refs.bulkFileUploadCard3.click()"
+                                            :disabled="bulkUploadData.uploading"
+                                        >
+                                            <i class="fas fa-folder-open"></i>
+                                            {{ bulkUploadData.files.card3 ? 'Change' : 'Select' }}
+                                        </button>
+                                        <button 
+                                            v-if="bulkUploadData.files.card3"
+                                            class="btn-remove-file"
+                                            @click="removeBulkFile('card3')"
+                                            :disabled="bulkUploadData.uploading"
+                                        >
+                                            <i class="fas fa-times"></i>
+                                            Remove
+                                        </button>
+                                    </div>
+                                    
+                                    <div v-if="bulkUploadData.files.card3" class="file-info">
+                                        <div class="file-name">{{ bulkUploadData.files.card3.name }}</div>
+                                        <div class="file-size">{{ formatFileSize(bulkUploadData.files.card3.size) }}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="cards-selected-summary">
+                                <i class="fas fa-info-circle"></i>
+                                <strong>{{ getSelectedCardCount() }}</strong> card{{ getSelectedCardCount() !== 1 ? 's' : '' }} selected
+                                <span v-if="getSelectedCardCount() === 0" class="error-text">
+                                    - Please select at least one card
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Upload Instructions -->
+                        <div class="bulk-upload-instructions">
+                            <h4><i class="fas fa-info-circle"></i> Instructions:</h4>
+                            <ul>
+                                <li>Enter ASINs separated by commas (maximum 50 ASINs per bulk upload)</li>
+                                <li>Select 1, 2, or all 3 instruction card images</li>
+                                <li>Each image file must be less than 5MB (JPG, PNG, GIF supported)</li>
+                                <li>Selected images will be uploaded to ALL ASINs in the list</li>
+                                <li>Non-existent ASINs will be skipped</li>
+                                <li>Existing instruction cards will be replaced</li>
+                            </ul>
+                        </div>
+
+                        <!-- Upload Progress -->
+                        <div v-if="bulkUploadData.uploading" class="bulk-upload-progress">
+                            <div class="progress-spinner">
+                                <i class="fas fa-spinner fa-spin"></i>
+                            </div>
+                            <div class="progress-text">
+                                Uploading instruction cards...
+                            </div>
+                            <div class="progress-details">
+                                Processing {{ parseAsinList().length }} ASINs with {{ getSelectedCardCount() }} card{{ getSelectedCardCount() !== 1 ? 's' : '' }}
+                            </div>
+                        </div>
+
+                        <!-- Upload Results Summary -->
+                        <div v-if="!bulkUploadData.uploading && (bulkUploadData.uploadResults.success.length > 0 || bulkUploadData.uploadResults.failed.length > 0 || bulkUploadData.uploadResults.skipped.length > 0)" class="bulk-upload-results">
+                            <h4><i class="fas fa-chart-bar"></i> Upload Results:</h4>
+                            
+                            <div class="results-summary">
+                                <div class="result-item success" v-if="bulkUploadData.uploadResults.success.length > 0">
+                                    <i class="fas fa-check-circle"></i>
+                                    <span>{{ bulkUploadData.uploadResults.success.length }} successful</span>
+                                </div>
+                                
+                                <div class="result-item failed" v-if="bulkUploadData.uploadResults.failed.length > 0">
+                                    <i class="fas fa-times-circle"></i>
+                                    <span>{{ bulkUploadData.uploadResults.failed.length }} failed</span>
+                                </div>
+                                
+                                <div class="result-item skipped" v-if="bulkUploadData.uploadResults.skipped.length > 0">
+                                    <i class="fas fa-exclamation-triangle"></i>
+                                    <span>{{ bulkUploadData.uploadResults.skipped.length }} skipped</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bulk-instruction-card-modal-footer">
+                    <button 
+                        class="btn-cancel-bulk" 
+                        @click="closeBulkInstructionCardModal"
+                        :disabled="bulkUploadData.uploading"
+                    >
+                        {{ bulkUploadData.uploading ? 'Uploading...' : 'Cancel' }}
+                    </button>
+                    <button 
+                        class="btn-upload-bulk" 
+                        @click="processBulkInstructionCardUpload"
+                        :disabled="bulkUploadData.uploading || !bulkUploadData.asinList.trim() || getSelectedCardCount() === 0 || parseAsinList().length > 50"
+                    >
+                        <i class="fas fa-upload"></i>
+                        {{ bulkUploadData.uploading ? 'Uploading...' : `Upload ${getSelectedCardCount()} Card${getSelectedCardCount() > 1 ? 's' : ''} to ${parseAsinList().length} ASIN${parseAsinList().length > 1 ? 's' : ''}` }}
+                    </button>
+                </div>
+            </div>
+        </div>
     </div>
 </template>
+
 
 <script>
 import asinlist from "./asinlist.js";
@@ -1558,6 +1920,471 @@ export default asinlist;
 /* Import base module styles */
 @import "../../../css/modules.css";
 
+
+.top-header {
+    background-color: #f8f9fa;
+    padding: 15px 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.btn-header {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-header:hover {
+    background-color: #0056b3;
+    transform: translateY(-1px);
+}
+
+.bulk-upload-btn {
+    background-color: #28a745 !important;
+}
+
+.bulk-upload-btn:hover {
+    background-color: #218838 !important;
+}
+
+.store-filter {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.store-filter label {
+    font-weight: 600;
+    color: #495057;
+    margin: 0;
+}
+
+.store-select {
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    background-color: white;
+    font-size: 14px;
+    min-width: 150px;
+}
+
+/* Bulk Instruction Card Upload Modal Styles */
+.bulk-instruction-card-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1200;
+}
+
+.bulk-instruction-card-modal-content {
+    background-color: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 700px;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.bulk-instruction-card-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-radius: 12px 12px 0 0;
+}
+
+.bulk-instruction-card-modal-header h3 {
+    margin: 0;
+    color: #495057;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.bulk-instruction-card-modal-body {
+    padding: 30px;
+}
+
+.bulk-upload-form {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bulk-asin-textarea {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: 'Courier New', monospace;
+    resize: vertical;
+    transition: border-color 0.3s ease;
+}
+
+.bulk-asin-textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.asin-count-info {
+    font-size: 12px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.asin-count-info .error-text {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.bulk-card-select {
+    padding: 10px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 14px;
+    background-color: white;
+    transition: border-color 0.3s ease;
+}
+
+.bulk-card-select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.file-upload-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bulk-file-input {
+    padding: 10px;
+    border: 2px dashed #dee2e6;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.bulk-file-input:hover {
+    border-color: #007bff;
+    background-color: #e9ecef;
+}
+
+.selected-file-info {
+    padding: 8px 12px;
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+    border-radius: 4px;
+    color: #155724;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.text-success {
+    color: #28a745;
+}
+
+.bulk-upload-instructions {
+    background-color: #e9ecef;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #007bff;
+}
+
+.bulk-upload-instructions h4 {
+    margin: 0 0 10px 0;
+    color: #495057;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bulk-upload-instructions ul {
+    margin: 0;
+    padding-left: 20px;
+    color: #6c757d;
+    font-size: 13px;
+    line-height: 1.6;
+}
+
+.bulk-upload-instructions li {
+    margin-bottom: 4px;
+}
+
+.card-upload-section {
+    margin-bottom: 15px;
+    padding: 15px;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    background-color: #f8f9fa;
+}
+
+.card-upload-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.cards-selected-info {
+    font-size: 13px;
+    color: #6c757d;
+    font-weight: 600;
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    text-align: center;
+    margin-top: 15px;
+}
+
+.cards-selected-info .error-text {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.bulk-upload-progress {
+    text-align: center;
+    padding: 30px;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.progress-spinner {
+    font-size: 24px;
+    color: #007bff;
+    margin-bottom: 15px;
+}
+
+.progress-text {
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 8px;
+}
+
+.progress-details {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.bulk-upload-results {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+}
+
+.bulk-upload-results h4 {
+    margin: 0 0 15px 0;
+    color: #495057;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.results-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.result-item.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.result-item.failed {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.result-item.skipped {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeaa7;
+}
+
+.bulk-instruction-card-modal-footer {
+    padding: 20px;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    background-color: #f8f9fa;
+    border-radius: 0 0 12px 12px;
+}
+
+.btn-cancel-bulk,
+.btn-upload-bulk {
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: none;
+}
+
+.btn-cancel-bulk {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-cancel-bulk:hover:not(:disabled) {
+    background-color: #5a6268;
+}
+
+.btn-upload-bulk {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-upload-bulk:hover:not(:disabled) {
+    background-color: #218838;
+    transform: translateY(-1px);
+}
+
+.btn-cancel-bulk:disabled,
+.btn-upload-bulk:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Modal close button shared styles */
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.3s ease;
+}
+
+.modal-close:hover {
+    color: #495057;
+}
+
+/* Mobile responsiveness for bulk upload */
+@media (max-width: 768px) {
+    .top-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .header-buttons {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .store-filter {
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+
+    .bulk-instruction-card-modal-content {
+        width: 95%;
+        margin: 10px;
+        max-width: none;
+    }
+
+    .bulk-instruction-card-modal-body {
+        padding: 20px;
+    }
+
+    .results-summary {
+        flex-direction: column;
+    }
+
+    .bulk-instruction-card-modal-footer {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .btn-cancel-bulk,
+    .btn-upload-bulk {
+        width: 100%;
+        justify-content: center;
+    }
+}
 /* Simple ASIN viewer styles */
 .asin-viewer-module {
     max-width: 100%;
@@ -1962,20 +2789,22 @@ export default asinlist;
     border-radius: 8px;
 }
 
-/* Small thumbnails overlay - shared styles */
+/* Small thumbnails overlay - shared styles for 3 cards */
 .instruction-card-thumbnails,
 .asin-images-thumbnails {
     position: absolute;
     bottom: 5px;
     right: 5px;
     display: flex;
-    gap: 3px;
+    gap: 2px;
+    flex-wrap: wrap;
+    max-width: 70px; /* Accommodate 3 thumbnails */
 }
 
 .small-thumb {
-    width: 30px;
-    height: 30px;
-    border-radius: 4px;
+    width: 22px; /* Slightly smaller to fit 3 */
+    height: 22px;
+    border-radius: 3px;
     border: 2px solid #fff;
     position: relative;
     overflow: hidden;
@@ -2016,14 +2845,7 @@ export default asinlist;
     background-color: rgba(0, 0, 0, 0.7);
     color: white;
     font-weight: bold;
-}
-
-.thumb-number {
-    font-size: 10px;
-}
-
-.thumb-label {
-    font-size: 8px;
+    font-size: 8px; /* Smaller font for 3 cards */
 }
 
 .small-thumb.has-image .thumb-number,
@@ -2666,7 +3488,7 @@ export default asinlist;
     background-color: #5a6268;
 }
 
-/* Modal Shared Styles */
+/* Modal Shared Styles - Updated for 3 cards */
 .instruction-card-modal,
 .asin-image-modal {
     position: fixed;
@@ -2686,7 +3508,7 @@ export default asinlist;
     background-color: white;
     border-radius: 12px;
     width: 90%;
-    max-width: 800px;
+    max-width: 1100px; /* Increased from 800px to accommodate 3 cards */
     max-height: 80vh;
     overflow-y: auto;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
@@ -2734,16 +3556,19 @@ export default asinlist;
     padding: 30px;
 }
 
+/* Updated layout for 3 cards */
 .card-management-layout,
 .image-management-layout {
     display: flex;
-    gap: 30px;
+    gap: 20px;
     justify-content: center;
+    flex-wrap: wrap;
 }
 
 .card-slot,
 .image-slot {
     flex: 1;
+    min-width: 250px;
     max-width: 300px;
     text-align: center;
 }
@@ -2911,18 +3736,20 @@ export default asinlist;
     .card-management-layout,
     .image-management-layout {
         flex-direction: column;
-        gap: 20px;
+        gap: 15px;
     }
 
     .card-slot,
     .image-slot {
         max-width: 100%;
+        min-width: auto;
     }
 
     .instruction-card-modal-content,
     .asin-image-modal-content {
         width: 95%;
         margin: 10px;
+        max-width: none;
     }
 
     .asin-details-layout {
@@ -2970,6 +3797,392 @@ export default asinlist;
     .details-input,
     .related-asin-input {
         width: 100%;
+    }
+
+    .instruction-card-thumbnails,
+    .asin-images-thumbnails {
+        max-width: 80px;
+        gap: 1px;
+    }
+
+    .small-thumb {
+        width: 24px;
+        height: 24px;
+    }
+
+    .thumb-number,
+    .thumb-label {
+        font-size: 9px;
+    }
+}
+
+@media (min-width: 1200px) {
+    .instruction-card-modal-content,
+    .asin-image-modal-content {
+        max-width: 1200px;
+    }
+}
+
+.image-loading {
+    position: relative;
+    overflow: hidden;
+}
+
+.image-loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.4),
+        transparent
+    );
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        left: -100%;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Image refresh indicator */
+.image-refreshing {
+    filter: brightness(0.8);
+    transition: filter 0.3s ease;
+}
+
+/* Success state for newly uploaded images */
+.image-uploaded {
+    animation: imageUploaded 0.6s ease-out;
+    border: 2px solid #28a745;
+}
+
+@keyframes imageUploaded {
+    0% {
+        transform: scale(0.95);
+        opacity: 0.7;
+    }
+    50% {
+        transform: scale(1.02);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* NEW: Enhanced Bulk Upload Design */
+.bulk-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.bulk-card-upload-slot {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.bulk-card-upload-slot:hover {
+    border-color: #007bff;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.15);
+}
+
+.bulk-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.bulk-card-header h4 {
+    margin: 0;
+    color: #495057;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.optional-badge {
+    background: #6c757d;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bulk-card-preview {
+    width: 100%;
+    height: 200px;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.bulk-card-preview.has-image {
+    border-color: #28a745;
+    border-style: solid;
+}
+
+.bulk-card-preview-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.bulk-card-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    color: #6c757d;
+    text-align: center;
+}
+
+.bulk-card-placeholder i {
+    font-size: 48px;
+    opacity: 0.5;
+}
+
+.bulk-card-placeholder span {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.bulk-card-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.bulk-file-input-hidden {
+    display: none !important;
+}
+
+.btn-select-file {
+    flex: 1;
+    background: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-select-file:hover:not(:disabled) {
+    background: #0056b3;
+    transform: translateY(-1px);
+}
+
+.btn-remove-file {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-remove-file:hover:not(:disabled) {
+    background: #c82333;
+    transform: translateY(-1px);
+}
+
+.btn-select-file:disabled,
+.btn-remove-file:disabled {
+    background: #6c757d;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.file-info {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 12px;
+}
+
+.file-name {
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+
+.file-size {
+    color: #6c757d;
+}
+
+.cards-selected-summary {
+    background: #e3f2fd;
+    border: 1px solid #90caf9;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-top: 20px;
+    color: #0d47a1;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cards-selected-summary i {
+    color: #1976d2;
+}
+
+.cards-selected-summary strong {
+    color: #0d47a1;
+}
+
+.cards-selected-summary .error-text {
+    color: #d32f2f;
+    font-weight: 600;
+}
+
+/* Update existing bulk upload styles */
+.bulk-instruction-card-modal-content {
+    max-width: 900px;
+}
+
+.bulk-upload-progress {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-align: center;
+    padding: 30px;
+    border-radius: 12px;
+    margin: 20px 0;
+}
+
+.progress-spinner {
+    font-size: 32px;
+    margin-bottom: 15px;
+}
+
+.progress-text {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.progress-details {
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.bulk-upload-results {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    padding: 20px;
+    margin: 20px 0;
+}
+
+.bulk-upload-results h4 {
+    color: #495057;
+    margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.results-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+}
+
+.result-item {
+    background: white;
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+    font-weight: 600;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.result-item.success {
+    color: #155724;
+    border-color: #28a745;
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+}
+
+.result-item.failed {
+    color: #721c24;
+    border-color: #dc3545;
+    background: linear-gradient(135deg, #f8d7da, #f5c6cb);
+}
+
+.result-item.skipped {
+    color: #856404;
+    border-color: #ffc107;
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+}
+
+.result-item i {
+    font-size: 18px;
+    margin-bottom: 8px;
+    display: block;
+}
+
+/* Mobile responsiveness for new design */
+@media (max-width: 768px) {
+    .bulk-cards-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .bulk-card-upload-slot {
+        padding: 15px;
+    }
+    
+    .bulk-card-preview {
+        height: 160px;
+    }
+    
+    .bulk-card-actions {
+        flex-direction: column;
+    }
+    
+    .results-summary {
+        grid-template-columns: 1fr;
+        gap: 10px;
     }
 }
 </style>

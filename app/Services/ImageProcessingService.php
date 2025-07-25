@@ -47,11 +47,11 @@ class ImageProcessingService
             $this->imagesPath . '/monochrome',
             $this->imagesPath . '/vector',
             $this->imagesPath . '/temp',
-            storage_path('app/public/serial_qr'),
-            storage_path('app/public/User_manual/ASIN_PDF'),
-            storage_path('app/public/instructioncard'),
-            storage_path('app/public/instructioncard/generated_images'),
-            storage_path('app/public/instructioncard/warranty/templates')
+            storage_path('app/public/images/serial_qr'),
+            storage_path('app/public/images/usermanual'),
+            storage_path('app/public/images/instructioncard'),
+            storage_path('app/public/images/warranty/generated_images'),
+            storage_path('app/public/images/warranty/templates')
         ];
         
         foreach ($directories as $directory) {
@@ -68,7 +68,7 @@ class ImageProcessingService
     {
         try {
             $serialfind = $serial;
-            $seriallink = storage_path('app/public/serial_qr/' . $serialfind . '.png');
+            $seriallink = storage_path('app/public/images/serial_qr/' . $serialfind . '.png');
             $manual = url('storage/serial_qr/' . $serialfind . '.png');
             
             $qrCodePath = $this->imagesPath . '/qrcodeSerial/' . $serialfind . '.png';
@@ -118,8 +118,8 @@ class ImageProcessingService
             imagecopy($image, $scaledQrCodeImage, $dstX, $dstY, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight);
             imagedestroy($scaledQrCodeImage);
             
-            $bottomText1 = "Scan QR to see Saved Photos";
-            $bottomText2 = "of this Item on the Cloud.";
+            $bottomText1 = "Photos of this item is saved on the cloud.";
+            $bottomText2 = "Scan to view.";
             
             $black = imagecolorallocate($image, 0, 0, 0);
             $bottomFontSize = 14;
@@ -891,7 +891,7 @@ class ImageProcessingService
                 }
                 
                 // Create output directory if it doesn't exist
-                $outputDir = storage_path('app/public/instructioncard/generated_images');
+                $outputDir = storage_path('app/public/images/warranty/generated_images');
                 if (!file_exists($outputDir)) {
                     mkdir($outputDir, 0777, true);
                 }
@@ -927,16 +927,16 @@ class ImageProcessingService
     {
         try {
             // Check if images already exist
-            $page1 = storage_path('app/public/instructioncard/generated_images/' . $serialNumber . '_page_1.png');
-            $page2 = storage_path('app/public/instructioncard/generated_images/' . $serialNumber . '_page_2.png');
+            $page1 = storage_path('app/public/images/warranty/generated_images/' . $serialNumber . '_page_1.png');
+            $page2 = storage_path('app/public/images/warranty/generated_images/' . $serialNumber . '_page_2.png');
             
             if (file_exists($page1) && file_exists($page2)) {
                 return true;
             }
             
             // Define the template paths
-            $templatePath1 = storage_path('app/public/instructioncard/warranty/templates/6_1st.png');
-            $templatePath2 = storage_path('app/public/instructioncard/warranty/templates/6_2nd.png');
+            $templatePath1 = storage_path('app/public/images/warranty/templates/6_1st.png');
+            $templatePath2 = storage_path('app/public/images/warranty/templates/6_2nd.png');
             
             // Generate images from templates
             $result = $this->generateSerialImagesFromTemplates($serialNumber, $templatePath1, $templatePath2);

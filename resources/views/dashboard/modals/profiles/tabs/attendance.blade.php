@@ -9,7 +9,9 @@
             <div id="current-date" style="display:none;"></div>
         </div>
 
-        <input type="hidden" id="last-record-timein" value="{{ $verylastRecord ? $verylastRecord->TimeIn : '' }}">
+        <!-- Hidden clock-in time for auto-clock-out -->
+        <input type="hidden" id="last-record-timein"
+            value="{{ $verylastRecord ? \Carbon\Carbon::parse($verylastRecord->TimeIn)->toIso8601String() : '' }}">
 
         <!-- Clock In/Out Buttons -->
         <div class="d-flex justify-content-center gap-3">
@@ -28,14 +30,14 @@
             </button>
         </div>
 
-        <!-- Computed Hours Summary -->
+        <!-- Hours Summary -->
         <div class="p-3 bg-light border rounded">
             <p><strong>Today's Hours:</strong> <span id="today-hours">{{ $todayHoursFormatted ?? '0:00' }}</span></p>
             <p><strong>This Week's Hours:</strong> <span id="week-hours">{{ $weekHoursFormatted ?? '0:00' }}</span></p>
         </div>
     </div>
 
-    <!-- Desktop Attendance Table -->
+    <!-- Attendance Table (Desktop) -->
     <div class="attendance-table">
         <table class="table table-bordered table-hover desktop">
             <thead class="table-dark">
@@ -71,12 +73,6 @@
                                 data-bs-target="#editNotesModal"
                                 onclick="populateNotesModal('{{ $clockwk->ID }}', '{{ $clockwk->Notes }}')">
                                 <i class="bi bi-pencil-square"></i>
-                            </button>
-                        </td>
-                        <td style="display: none;">
-                            <button class="btn btn-primary update-computed-hours d-none" data-id="{{ $clockwk->ID }}"
-                                data-timein="{{ $clockwk->TimeIn }}" data-timeout="{{ $clockwk->TimeOut }}">
-                                Update
                             </button>
                         </td>
                     </tr>

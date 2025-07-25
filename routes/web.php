@@ -466,6 +466,9 @@ Route::prefix('api/asinlist')->group(function () {
 
     // Upload vector image
     Route::post('upload-vector-image', [ASINlistController::class, 'uploadAsinVectorImage']);
+    
+   //Bulk Upload asin instruction card
+    Route::post('bulk-upload-instruction-cards', [ASINlistController::class, 'bulkUploadInstructionCards']);
 });
 
 

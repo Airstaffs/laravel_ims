@@ -51,7 +51,7 @@
         </div>
 
         <div class="tab-pane fade" id="timezone" role="tabpanel" aria-labelledby="timezone-tab">
-            <form id="timezoneForm" class="timezoneForm">
+            <form id="timezoneForm" class="timezoneForm" action="{{ route('update-timezone') }}" method="POST">
                 @csrf
                 @php
                     $allTimezones = collect(timezone_identifiers_list())
@@ -117,3 +117,11 @@
         </div>
     </div>
 </div>
+
+<!-- Laravel-generated variable injected to JS context -->
+<script>
+    const updateTimezoneUrl = @json(route('update-timezone'));
+</script>
+
+<!-- External JS that uses that variable -->
+<script src="{{ asset('js/account-timezone.js') }}"></script>

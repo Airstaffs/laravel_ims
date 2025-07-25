@@ -34,6 +34,7 @@ export default {
             currentItem: null,
             fnskuList: [],
             filteredFnskuList: [],
+            isSearching: false,
             fnskuSearch: "",
 
             showConfirmationModal: false,
@@ -337,17 +338,35 @@ export default {
             console.log("Opening FNSKU modal for item:", item);
             this.currentItem = item;
             this.isFnskuModalVisible = true;
-            this.fnskuSearch = item.ASINviewer || ""; // Pre-fill with current ASIN for easier search
+            this.fnskuSearch = item.ASINviewer || "";
+            this.isSearching = true;
 
             try {
                 console.log("Fetching FNSKU list...");
                 const response = await axios.get(`${API_BASE_URL}/fnsku-list`);
-                console.log("FNSKU list response:", response.data);
-                this.fnskuList = response.data;
-                this.filterFnskuList(); // Apply initial filter
+                console.log("Raw FNSKU API response:", response.data);
+
+                // Attempt to extract the list properly even if wrapped
+                let raw = response.data;
+                let list = Array.isArray(raw)
+                    ? raw
+                    : raw.data || raw.items || [];
+
+                if (!Array.isArray(list)) {
+                    throw new Error(
+                        "Invalid response format: expected an array."
+                    );
+                }
+
+                this.fnskuList = list;
+                this.filterFnskuList();
             } catch (error) {
                 console.error("Error fetching FNSKU list:", error);
                 alert("Error fetching FNSKU list. Please try again.");
+                this.fnskuList = [];
+                this.filteredFnskuList = [];
+            } finally {
+                this.isSearching = false;
             }
         },
 
@@ -362,20 +381,19 @@ export default {
 
         filterFnskuList() {
             console.log("Filtering FNSKU list with search:", this.fnskuSearch);
+
+            if (!Array.isArray(this.fnskuList)) {
+                console.warn("fnskuList is not iterable:", this.fnskuList);
+                this.filteredFnskuList = [];
+                return;
+            }
+
             if (!this.fnskuSearch) {
-                // If empty search, show matching ASIN first, then everything else
+                // Prioritize matching ASINs
                 this.filteredFnskuList = [...this.fnskuList].sort((a, b) => {
-                    if (
-                        a.ASIN === this.currentItem?.ASINviewer &&
-                        b.ASIN !== this.currentItem?.ASINviewer
-                    ) {
-                        return -1;
-                    } else if (
-                        a.ASIN !== this.currentItem?.ASINviewer &&
-                        b.ASIN === this.currentItem?.ASINviewer
-                    ) {
-                        return 1;
-                    }
+                    const asin = this.currentItem?.ASINviewer;
+                    if (a.ASIN === asin && b.ASIN !== asin) return -1;
+                    if (a.ASIN !== asin && b.ASIN === asin) return 1;
                     return 0;
                 });
                 return;
@@ -388,6 +406,12 @@ export default {
                     fnsku.ASIN?.toLowerCase().includes(search) ||
                     fnsku.astitle?.toLowerCase().includes(search)
             );
+        },
+
+        selectFnsku(fnsku) {
+            console.log("Selected FNSKU:", fnsku);
+            this.currentItem.FNSKUviewer = fnsku.FNSKU;
+            this.hideFnskuModal();
         },
 
         async selectFnsku(fnsku) {
@@ -636,6 +660,39 @@ export default {
 
         async saveEditModal() {
             this.loading = true;
+
+            // Validate required prefixes
+            const errors = [];
+
+            if (!/^RPN\d+$/i.test(this.item.RPN)) {
+                errors.push("RPN must start with 'RPN' followed by numbers.");
+            }
+
+            if (!/^PRD\d+$/i.test(this.item.PRD)) {
+                errors.push("PRD must start with 'PRD' followed by numbers.");
+            }
+
+            if (!/^PCN\d+$/i.test(this.item.PCN)) {
+                errors.push("PCN must start with 'PCN' followed by numbers.");
+            }
+
+            if (!/^BKT\d+$/i.test(this.item.basketnumber)) {
+                errors.push(
+                    "Basket Number must start with 'BKT' followed by numbers."
+                );
+            }
+
+            if (errors.length > 0) {
+                this.loading = false;
+                await Swal.fire({
+                    icon: "error",
+                    title: "Validation Error",
+                    html: errors.join("<br>"),
+                    confirmButtonText: "OK",
+                });
+                return;
+            }
+
             try {
                 const payload = {
                     ...this.item,
