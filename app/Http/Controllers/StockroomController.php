@@ -9,6 +9,7 @@ use DateTime;
 use DateTimeZone;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class StockroomController extends BasetablesController
 {
@@ -1424,6 +1425,24 @@ class StockroomController extends BasetablesController
                 }
             }
 
+            $response = Http::get(url('/catalog/get_asin_catalog'), [
+                'searchedAsin' => $asin,
+                'store' => $storeName,
+                'destinationMarketplace' => $marketplace
+            ]);
+
+            $productType = null;
+            if ($response->successful()) {
+                $result = $response->json();
+                $productTypes = $result['results'][0]['rates']['productTypes'] ?? [];
+                $productType = $productTypes[0]['name'] ?? null;
+
+                echo "<pre>";
+                print_r($result);
+                echo "</pre>";
+            }
+
+
             $messageId = 1;
             $feedItems = [];
 
@@ -1432,7 +1451,7 @@ class StockroomController extends BasetablesController
                     "messageId" => $messageId++,
                     "operationType" => "UPDATE", // or "PARTIAL_UPDATE", "DELETE", "PATCH" based on use case
                     "sku" => $item['sku'],
-                    "productType" => "generic", // or replace with dynamic $productTypeName
+                    "productType" => $productType,
                     "requirements" => "LISTING_OFFER_ONLY",
                     "attributes" => [
                         "condition_type" => [
@@ -1469,7 +1488,6 @@ class StockroomController extends BasetablesController
                     ]
                 ];
             }
-
 
             $createdocumentid_data = Create_feed_document_passing_json($filterstore, null);
             $feeddocumentid = $createdocumentid_data['data']['feedDocumentId'];

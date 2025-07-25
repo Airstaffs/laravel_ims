@@ -593,7 +593,7 @@ Route::get('/fbm-orders-carrier-options', [ManualShipmentLabelController::class,
 
 /*
 //Listings FNSKU Creation
-use App\Http\Controllers\Amzn\Listing\CatalogController;
+
 
 Route::post('/amzn/listing/search-asin-data', [CatalogController::class, 'get_asin_catalog']);
 Route::get('/amzn/test-asin-data', function () {
@@ -612,6 +612,9 @@ Route::get('/amzn/test-asin-data', function () {
     return $controller->printshippinglabel($request);
 });
 */
+
+use App\Http\Controllers\Amzn\Listing\CatalogController;
+Route::get('amzn/catalog/get_asin_catalog', [CatalogController::class, 'get_asin_catalog']);
 
 use App\Http\Controllers\NotificationController;
 Route::post('/notifications/create', [NotificationController::class, 'create']);
