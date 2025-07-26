@@ -1095,8 +1095,12 @@
                         >
                             <thead class="table-dark">
                                 <tr>
-                                    <th>FNSKU Details</th>
+                                    <th>Image</th>
+                                    <th>ASIN</th>
                                     <th>Title & Inventory</th>
+                                    <th>FNSKU</th>
+                                    <th>MSKU</th>
+                                    <th>Grade</th>
                                     <th>Action</th>
                                 </tr>
                             </thead>
@@ -1106,30 +1110,8 @@
                                     :key="fnsku.FNSKU"
                                 >
                                     <tr>
-                                        <td>
-                                            <ul
-                                                class="list-unstyled m-0 fnsku-details"
-                                            >
-                                                <li>{{ fnsku.FNSKU }}</li>
-                                                <li>
-                                                    <strong>ASIN:</strong>
-                                                    {{ fnsku.ASIN }}
-                                                </li>
-                                                <li>
-                                                    <div
-                                                        class="badge badge-pill badge-secondary fnsku-badge"
-                                                        :class="{
-                                                            'badge-success':
-                                                                fnsku.grading.includes(
-                                                                    'New'
-                                                                ),
-                                                        }"
-                                                    >
-                                                        {{ fnsku.grading }}
-                                                    </div>
-                                                </li>
-                                            </ul>
-                                        </td>
+                                        <td>Image</td>
+                                        <td>{{ fnsku.ASIN }}</td>
                                         <td>
                                             <ul
                                                 class="list-unstyled m-0 fnsku-title"
@@ -1141,6 +1123,9 @@
                                                 </li>
                                             </ul>
                                         </td>
+                                        <td>{{ fnsku.FNSKU }}</td>
+                                        <td>{{ fnsku.MSKU }}</td>
+                                        <td>{{ fnsku.grading }}</td>
                                         <td>
                                             <div class="fnsku-action">
                                                 <button
