@@ -517,7 +517,7 @@ class StockroomController extends BasetablesController
                             DB::rollBack();
                             return response()->json([
                                 'success' => false,
-                                'message' => 'FNSKU not found in database',
+                                'message' => 'FNSKU not found in database 1',
                                 'reason' => 'fnsku_not_found'
                             ]);
                         }
@@ -606,7 +606,7 @@ class StockroomController extends BasetablesController
                         DB::rollBack();
                         return response()->json([
                             'success' => false,
-                            'message' => 'FNSKU not found in database',
+                            'message' => 'FNSKU not found in database 2',
                             'reason' => 'fnsku_not_found'
                         ]);
                     }
@@ -720,7 +720,7 @@ class StockroomController extends BasetablesController
                         DB::rollBack();
                         return response()->json([
                             'success' => false,
-                            'message' => 'FNSKU not found in database',
+                            'message' => 'FNSKU not found in database 3',
                             'reason' => 'fnsku_not_found'
                         ]);
                     }
@@ -1336,183 +1336,175 @@ class StockroomController extends BasetablesController
         ]);
     }
 
-    private function mskuPostToAmazon(array $items = [], $marketplace, $fulfillmentChannel, $currency, $price)
-    {
-        require_once base_path('automations/bulk_msku_creation.php');
+private function mskuPostToAmazon(array $items = [], $marketplace, $fulfillmentChannel, $currency, $price)
+{
+    require_once base_path('automations/bulk_msku_creation.php');
 
-        $row = DB::table('tblfnsku')
-            ->where('amazon_status', 'Not Existed')
-            ->orderBy('insert_date', 'asc')
+    if (empty($items)) {
+        echo "No items to post.<br>";
+        return;
+    }
+
+    // --- GROUP SELECTED ITEMS BY MSKU ---
+    $grouped = [];
+    foreach ($items as $product) {
+        $fnsku = DB::table('tblfnsku')
+            ->where('MSKU', $product->FNSKUviewer)
             ->first();
 
-        if (!$row) {
-            echo "No ASINs to process.<br>";
-            return;
+        if (!$fnsku) {
+            continue;
         }
 
-        $filterasin = $row->ASIN;
-        $filterstore = $row->storename;
-        $filtercondition = $row->grading;
-        $amzncondition = normalize_db_condition($filtercondition);
-        $tblstore = sheesh_fetchtblstores($filterstore);
-
-        $mskuResult = DB::table('tblfnsku')
-            ->where('amazon_status', 'Not Existed')
-            ->where('ASIN', $filterasin)
-            ->where('storename', $filterstore)
-            ->where('grading', $filtercondition)
-            ->get();
-
-        $mskus = [];
-        $conditions = [];
-
-        foreach ($mskuResult as $row) {
-            $condition = strtolower(str_replace(' ', '_', $row->Condition ?? 'new_new'));
-            $conditions[] = $condition;
-            $mskus[] = [
-                'sku' => $row->MSKU,
-                'asin' => $filterasin,
-                'condition' => $condition,
-                'storename' => $row->storename,
+        $msku = $fnsku->MSKU;
+        if (!isset($grouped[$msku])) {
+            $grouped[$msku] = [
+                'msku'       => $msku,
+                'asin'       => $fnsku->ASIN,
+                'storename'  => $fnsku->storename,
+                'grading'    => $fnsku->grading,
+                'condition'  => strtolower(str_replace(' ', '_', $fnsku->Condition ?? 'new_new')),
+                'count'      => 0
             ];
         }
 
-        $conditions = array_unique($conditions);
+        // Count this selected serial number
+        $grouped[$msku]['count']++;
+    }
 
-        if (empty($mskus)) {
-            echo "No MSKUs found for ASIN: $filterasin<br>";
-            return;
-        }
+    // --- INCLUDE ALREADY POSTED SERIALS ---
+    foreach ($grouped as $msku => &$data) {
+        $alreadyCount = DB::table('tblproduct')
+            ->where('FNSKUviewer', $msku)
+            ->where('amzn_status', 'POSTED')
+            ->count();
+        $data['count'] += $alreadyCount;
+    }
+    unset($data);
 
-        $producttype = fetch_listing_product_type($filterstore, $filterasin);
-        $listing_restrict = fetch_listing_retrict($filterstore, $filterasin);
+    if (empty($grouped)) {
+        echo "No valid MSKUs found.<br>";
+        return;
+    }
 
-        $productTypeName = $producttype['data']['productType'] ?? null;
-        /*
-        if (!$productTypeName) {
-            echo "❌ No productType found for ASIN: $filterasin<br>";
-            echo "<pre>";
-            // print_r($producttype);
-            echo "</pre>";
-            return;
-        }
-            */
+    // We'll use the first group to fetch store-level data (all groups share store)
+    $first = reset($grouped);
+    $tblstore = sheesh_fetchtblstores($first['storename']);
 
+    // --- BUILD FEED ITEMS ---
+    $messageId = 1;
+    $feedItems = [];
+
+    foreach ($grouped as $msku => $data) {
+        $amzncondition = normalize_db_condition($data['grading']);
+
+        // Check listing restrictions
+        $listing_restrict = fetch_listing_retrict($data['storename'], $data['asin']);
         if ($listing_restrict['status'] == '200') {
-            $restrictions = $listing_restrict['data']['restrictions'] ?? [];
-
-            foreach ($restrictions as $r) {
+            foreach ($listing_restrict['data']['restrictions'] ?? [] as $r) {
                 if ($r['conditionType'] === $amzncondition) {
                     $reason = $r['reasons'][0]['reasonCode'] ?? null;
-
                     if ($reason === 'NOT_ELIGIBLE') {
                         create_notification([
                             'module' => 'listing',
-                            'title' => "Blocked: $filterasin",
+                            'title' => "Blocked: {$data['asin']}",
                             'subtitle' => $amzncondition,
                             'content' => $r['reasons'][0]['message'] ?? 'Blocked by Amazon',
                             'severity' => 'action_required'
                         ]);
 
                         DB::table('tblfnsku')
-                            ->where('ASIN', $filterasin)
-                            ->where('storename', $filterstore)
-                            ->where('grading', $filtercondition)
+                            ->where('ASIN', $data['asin'])
+                            ->where('storename', $data['storename'])
+                            ->where('grading', $data['grading'])
                             ->update(['amazon_status' => 'Blocked']);
 
-                        return;
+                        continue 2; // skip to next MSKU
                     }
                 }
             }
+        }
 
-            $response = Http::get(url('/amzn/catalog/get_asin_catalog'), [
-                'searchedAsin' => $filterasin,
-                'store' => $filterstore,
-                'destinationMarketplace' => $marketplace
-            ]);
+        // Fetch product type for this ASIN
+        $producttype = fetch_listing_product_type($data['storename'], $data['asin']);
+        $productType = $producttype['data']['productType'] ?? 'generic';
 
-            $productType = null;
-            if ($response->successful()) {
-                $result = $response->json();
-$productType = $result['results'][0]['rates']['productTypes'][0]['productType'] ?? 'generic';
-
-                echo "<pre>";
-                print_r($result);
-                echo "</pre>";
-            }
-
-
-            $messageId = 1;
-            $feedItems = [];
-
-            foreach ($mskus as $item) {
-                $feedItems[] = [
-                    "messageId" => $messageId++,
-                    "operationType" => "UPDATE", // or "PARTIAL_UPDATE", "DELETE", "PATCH" based on use case
-                    "sku" => $item['sku'],
-                    "productType" => $productType,
-                    "requirements" => "LISTING_OFFER_ONLY",
-                    "attributes" => [
-                        "condition_type" => [
-                            [
-                                "value" => $amzncondition,
-                                "marketplace_id" => $marketplace,
-                            ]
-                        ],
-                        "fulfillment_availability" => [
-                            [
-                                "fulfillment_channel_code" => $fulfillmentChannel,
-                                "marketplace_id" => $marketplace
-                            ]
-                        ],
-                        "merchant_suggested_asin" => [
-                            [
-                                "value" => $item['asin'],
-                                "marketplace_id" => $marketplace
-                            ]
-                        ],
-                        "list_price" => [
-                            [
-                                "currency" => $currency,
-                                "value" => $price,
-                                "marketplace_id" => $marketplace
-                            ]
-                        ],
+        // Build the feed item
+        $feedItems[] = [
+            "messageId" => $messageId++,
+            "operationType" => "UPDATE",
+            "sku" => $data['msku'],
+            "productType" => $productType,
+            "requirements" => "LISTING_OFFER_ONLY",
+            "attributes" => [
+                "condition_type" => [
+                    [
+                        "value" => $amzncondition,
+                        "marketplace_id" => $marketplace,
                     ]
-                ];
-            }
-
-            $createdocumentid_data = Create_feed_document_passing_json($filterstore, null);
-            $feeddocumentid = $createdocumentid_data['data']['feedDocumentId'];
-
-            $payload = [
-                'header' => [
-                    'version' => '2.0',
-                    'feedType' => 'JSON_LISTINGS_FEED',
-                    'marketplaceIds' => [$marketplace],
-                    'sellerId' => $tblstore['MerchantID'],
                 ],
-                'messages' => $feedItems
-            ];
+                "fulfillment_availability" => [
+                    [
+                        "fulfillment_channel_code" => $fulfillmentChannel,
+                        "marketplace_id" => $marketplace,
+                        "quantity" => $data['count']
+                    ]
+                ],
+                "merchant_suggested_asin" => [
+                    [
+                        "value" => $data['asin'],
+                        "marketplace_id" => $marketplace
+                    ]
+                ],
+                "list_price" => [
+                    [
+                        "currency" => $currency,
+                        "value" => $price,
+                        "marketplace_id" => $marketplace
+                    ]
+                ],
+            ]
+        ];
+    }
 
-            echo "<pre>";
-            print_r($payload);
-            echo "</pre>";
+    // --- CREATE FEED DOCUMENT ---
+    $createdocumentid_data = Create_feed_document_passing_json($first['storename'], null);
+    $feeddocumentid = $createdocumentid_data['data']['feedDocumentId'];
 
-            $feedDataJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
-            $uploadSuccess = upload_feed_to_amazon_s3($createdocumentid_data['data']['url'], $feedDataJson);
+    $payload = [
+        'header' => [
+            'version' => '2.0',
+            'feedType' => 'JSON_LISTINGS_FEED',
+            'marketplaceIds' => [$marketplace],
+            'sellerId' => $tblstore['MerchantID'],
+        ],
+        'messages' => $feedItems
+    ];
 
-            if ($uploadSuccess) {
-                $feedId = create_feed_from_document($filterstore, $feeddocumentid);
-                if ($feedId) {
-                    insert_created_feed(
-                        $feedId,
-                        'JSON_LISTINGS_FEED',
-                        $feeddocumentid,
-                        $filterstore
-                    );
-                }
-            }
+    echo "<pre>";
+    print_r($payload);
+    echo "</pre>";
+
+    $feedDataJson = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+    $uploadSuccess = upload_feed_to_amazon_s3($createdocumentid_data['data']['url'], $feedDataJson);
+
+    $payload = [
+        "feedType" => "JSON_LISTINGS_FEED",
+        "marketplaceIds" => [$marketplace],
+        "inputFeedDocumentId" => $feeddocumentid
+    ];
+
+    if ($uploadSuccess) {
+        $feedId = create_feed_from_document($first['storename'], $feeddocumentid, $payload);
+        if ($feedId) {
+            insert_created_feed(
+                $feedId,
+                'JSON_LISTINGS_FEED',
+                $feeddocumentid,
+                $first['storename']
+            );
         }
     }
+}
+
 }

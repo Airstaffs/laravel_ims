@@ -427,7 +427,7 @@ function upload_feed_to_amazon_s3($url, $feedDataJson)
     return $httpCode === 200 || $httpCode === 201;
 }
 
-function create_feed_from_document($store, $feedDocumentId)
+function create_feed_from_document($store, $feedDocumentId, $payload)
 {
     $endpoint = 'https://sellingpartnerapi-na.amazon.com';
     $path = '/feeds/2021-06-30/feeds';
@@ -436,11 +436,7 @@ function create_feed_from_document($store, $feedDocumentId)
     $credentials = aws_sheesh_credentials($store);
     $accessToken = fetch_sheesh_AccessToken($credentials, false);
 
-    $payload = [
-        "feedType" => "JSON_LISTINGS_FEED",
-        "marketplaceIds" => ["ATVPDKIKX0DER"],
-        "inputFeedDocumentId" => $feedDocumentId
-    ];
+
     $jsonData = json_encode($payload, JSON_UNESCAPED_SLASHES);
 
     $headers = sheesh_buildHeaders($credentials, $accessToken, 'POST', 'execute-api', 'us-east-1', $path, null, [], $endpoint, $canonicalHeaders);
