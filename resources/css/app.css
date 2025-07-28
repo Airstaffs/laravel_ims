@@ -1095,7 +1095,7 @@ i#togglePassword {
 }
 
 .fnsku-modal .modal-content {
-    max-width: 800px;
+    max-width: 1260px;
 }
 
 .fnsku-modal .modal-body {
@@ -1279,6 +1279,25 @@ form.fnskuForm .btn-process {
 
 .privileges__container {
     flex: 1 30%;
+}
+
+.labeling-module .fnsku-modal th:first-child,
+.labeling-module .fnsku-modal td:first-child {
+    width: 100px;
+    max-width: 100px;
+}
+
+.labeling-module .fnsku-modal th:nth-child(2),
+.labeling-module .fnsku-modal td:nth-child(2) {
+    min-width: unset;
+    width: auto;
+}
+
+.labeling-module .fnsku-modal th:nth-child(3),
+.labeling-module .fnsku-modal td:nth-child(3) {
+    max-width: 300px;
+    width: 300px;
+    white-space: pre-wrap;
 }
 
 @media (max-width: 767px) {
