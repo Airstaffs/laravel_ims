@@ -1435,7 +1435,10 @@ class StockroomController extends BasetablesController
 
             // Fetch product type for this ASIN
             $producttype = fetch_listing_product_type($data['storename'], $data['asin']);
-            $productType = $producttype['data']['productType'] ?? 'generic';
+            echo "<pre>";
+            print_r($producttype);
+            echo "</pre>";
+            $productType = $producttype['data']['productType'] ?? 'EMPTY';
 
             // Build the feed item
             $feedItems[] = [

@@ -229,40 +229,43 @@ export default {
             }
         },
 
-normalizeFnsku(fnsku) {
-    if (!fnsku) return fnsku;
+        normalizeFnsku(fnsku) {
+            if (!fnsku) return fnsku;
 
-    const trimmed = fnsku.trim();
-    console.log("Normalizing FNSKU:", { original: trimmed, length: trimmed.length });
-
-    // If it contains a dash, this is a composite FNSKU (e.g., 072BC8NV3-AllRenewed-...)
-    // Do NOT normalize in that case
-    if (trimmed.includes('-')) {
-        console.log("FNSKU has dash - skipping normalization");
-        return trimmed;
-    }
-
-    // Only normalize if:
-    // - Longer than 10 characters
-    // - Matches 2 chars + X/digit pattern
-    // - After stripping, the remaining string is exactly 10 alphanumeric characters
-    if (trimmed.length > 10 && /^[A-Z0-9]{2}[X0-9]/i.test(trimmed)) {
-        const stripped = trimmed.substring(2);
-
-        if (/^[A-Z0-9]{10}$/i.test(stripped)) {
-            console.log("FNSKU normalized:", {
+            const trimmed = fnsku.trim();
+            console.log("Normalizing FNSKU:", {
                 original: trimmed,
-                normalized: stripped,
-                originalLength: trimmed.length,
-                normalizedLength: stripped.length,
+                length: trimmed.length,
             });
-            return stripped;
-        }
-    }
 
-    console.log("FNSKU not normalized - pattern did not match");
-    return trimmed;
-},
+            // If it contains a dash, this is a composite FNSKU (e.g., 072BC8NV3-AllRenewed-...)
+            // Do NOT normalize in that case
+            if (trimmed.includes("-")) {
+                console.log("FNSKU has dash - skipping normalization");
+                return trimmed;
+            }
+
+            // Only normalize if:
+            // - Longer than 10 characters
+            // - Matches 2 chars + X/digit pattern
+            // - After stripping, the remaining string is exactly 10 alphanumeric characters
+            if (trimmed.length > 10 && /^[A-Z0-9]{2}[X0-9]/i.test(trimmed)) {
+                const stripped = trimmed.substring(2);
+
+                if (/^[A-Z0-9]{10}$/i.test(stripped)) {
+                    console.log("FNSKU normalized:", {
+                        original: trimmed,
+                        normalized: stripped,
+                        originalLength: trimmed.length,
+                        normalizedLength: stripped.length,
+                    });
+                    return stripped;
+                }
+            }
+
+            console.log("FNSKU not normalized - pattern did not match");
+            return trimmed;
+        },
 
         // Store dropdown functions
         async fetchStores() {
