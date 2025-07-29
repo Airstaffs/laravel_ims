@@ -1435,12 +1435,6 @@ class StockroomController extends BasetablesController
                 }
             }
 
-            $response = Http::get(url('/amzn/catalog/get_asin_catalog'), [
-                'searchedAsin' => $filterasin,
-                'store' => $filterstore,
-                'destinationMarketplace' => $marketplace
-            ]);
-
             $productType = null;
             if (!isset($productTypeCache[$asinKey])) {
                 // call catalog API once for this ASIN
@@ -1453,11 +1447,11 @@ class StockroomController extends BasetablesController
                 $productTypeCache[$asinKey] = 'generic';
                 if ($response->successful()) {
                     $result = $response->json();
-                    $productTypeCache[$asinKey] = $result['results'][0]['rates']['productTypes'][0]['productType'] ?? 'Error Fetching Data.';
+                    $productTypeCache[$asinKey] = $result['results'][0]['rates']['productTypes'][0]['productType'] ?? 'generic';
                 }
             }
 
-                $productType = $productTypeCache[$asinKey];
+            $productType = $productTypeCache[$asinKey];
 
             // Build the feed item
             $feedItems[] = [
