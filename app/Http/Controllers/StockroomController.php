@@ -298,6 +298,7 @@ class StockroomController extends BasetablesController
         }
     }
 
+    // adjusted by me :rawr
     private function normalizeFnsku($fnsku)
     {
         if (empty($fnsku)) {
@@ -306,9 +307,15 @@ class StockroomController extends BasetablesController
 
         $fnsku = trim($fnsku);
 
-        // If FNSKU is longer than 10 characters, check if it starts with 2 letters
-        // More flexible pattern to catch cases like "B3X0049KMM09"
-        if (strlen($fnsku) > 10 && preg_match('/^[A-Z0-9]{2}[X0-9]/', strtoupper($fnsku))) {
+        // Only normalize if:
+        // 1. No dash is present (so we don't touch SKUs like B0000539VU-RenovarTech-UVG-IRZ7)
+        // 2. Longer than 10 characters
+        // 3. Matches the pattern (2 chars + alphanumeric)
+        if (
+            strpos($fnsku, '-') === false &&
+            strlen($fnsku) > 10 &&
+            preg_match('/^[A-Z0-9]{2}[X0-9]/', strtoupper($fnsku))
+        ) {
             $normalizedFnsku = substr($fnsku, 2);
             Log::info('FNSKU normalized', [
                 'original' => $fnsku,
@@ -317,6 +324,7 @@ class StockroomController extends BasetablesController
             return $normalizedFnsku;
         }
 
+        // Otherwise, return as-is
         return $fnsku;
     }
 
