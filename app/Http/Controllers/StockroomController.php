@@ -1483,7 +1483,23 @@ class StockroomController extends BasetablesController
                     "list_price" => [
                         [
                             "currency" => $currency,
-                            "value" => $price,
+                            "value" => 0,
+                            "marketplace_id" => $marketplace
+                        ]
+                    ],
+                    "purchasable_offer" => [
+                        [
+                            "currency" => $currency,
+                            "audience" => "ALL",
+                            "our_price" => [
+                                [
+                                    "schedule" => [
+                                        [
+                                            "value_with_tax" => (float) $price
+                                        ]
+                                    ]
+                                ]
+                            ],
                             "marketplace_id" => $marketplace
                         ]
                     ],
