@@ -1402,8 +1402,10 @@ class StockroomController extends BasetablesController
         // --- BUILD FEED ITEMS ---
         $messageId = 1;
         $feedItems = [];
+        $productTypeCache = [];
 
         foreach ($grouped as $msku => $data) {
+            $asinKey = $data['asin'];
             $amzncondition = normalize_db_condition($data['grading']);
 
             // Check listing restrictions
@@ -1440,14 +1442,22 @@ class StockroomController extends BasetablesController
             ]);
 
             $productType = null;
-            if ($response->successful()) {
-                $result = $response->json();
-                $productType = $result['results'][0]['rates']['productTypes'][0]['productType'] ?? 'EMPTY DATA Error Catalog';
+            if (!isset($productTypeCache[$asinKey])) {
+                // call catalog API once for this ASIN
+                $response = Http::get(url('/amzn/catalog/get_asin_catalog'), [
+                    'searchedAsin' => $asinKey,
+                    'store' => $data['storename'],
+                    'destinationMarketplace' => $marketplace
+                ]);
 
-                echo "<pre>";
-                print_r($result);
-                echo "</pre>";
+                $productTypeCache[$asinKey] = 'generic';
+                if ($response->successful()) {
+                    $result = $response->json();
+                    $productTypeCache[$asinKey] = $result['results'][0]['rates']['productTypes'][0]['productType'] ?? 'Error Fetching Data.';
+                }
             }
+
+                $productType = $productTypeCache[$asinKey];
 
             // Build the feed item
             $feedItems[] = [
