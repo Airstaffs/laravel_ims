@@ -1433,12 +1433,21 @@ class StockroomController extends BasetablesController
                 }
             }
 
-            // Fetch product type for this ASIN
-            $producttype = fetch_listing_product_type($data['storename'], $data['asin']);
-            echo "<pre>";
-            print_r($producttype);
-            echo "</pre>";
-            $productType = $producttype['data']['productType'] ?? 'EMPTY';
+            $response = Http::get(url('/amzn/catalog/get_asin_catalog'), [
+                'searchedAsin' => $filterasin,
+                'store' => $filterstore,
+                'destinationMarketplace' => $marketplace
+            ]);
+
+            $productType = null;
+            if ($response->successful()) {
+                $result = $response->json();
+                $productType = $result['results'][0]['rates']['productTypes'][0]['productType'] ?? 'EMPTY DATA Error Catalog';
+
+                echo "<pre>";
+                print_r($result);
+                echo "</pre>";
+            }
 
             // Build the feed item
             $feedItems[] = [
