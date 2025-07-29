@@ -1037,6 +1037,12 @@
                     <!-- Product Info - Updated to hide ID -->
                     <div class="fnsku-product-info">
                         <h4>{{ currentItem?.ProductTitle }}</h4>
+                        <img
+                            :src="activeImageUrl"
+                            alt="Main Product Image"
+                            loading="lazy"
+                            @error="onImageErrorMain"
+                        />
                         <div class="fnsku-product-details">
                             <!-- ID and Serial are now hidden -->
                             <!-- <p><strong>ID:</strong> {{ currentItem?.ProductID }}</p> -->

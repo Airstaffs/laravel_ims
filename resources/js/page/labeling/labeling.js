@@ -51,6 +51,7 @@ export default {
             activeIndex: 0,
             basePath: "/images/thumbnails/",
             error: null,
+            imageList: [],
         };
     },
     computed: {
@@ -81,7 +82,8 @@ export default {
                 .map((key) => this.item[key]);
         },
         activeImageUrl() {
-            return this.basePath + this.imageList[this.activeIndex];
+            const img = this.imageList?.[this.activeIndex];
+            return img ? this.basePath + img : this.defaultImage;
         },
 
         serialKeys() {
