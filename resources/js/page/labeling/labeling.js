@@ -793,6 +793,13 @@ export default {
                 this.loading = false;
             }
         },
+
+        getImageSrc(asin, index) {
+            return `/images/asinimg/${asin}_${index}.png`;
+        },
+        setDefaultImage(event) {
+            event.target.src = this.defaultImage;
+        },
     },
 
     watch: {

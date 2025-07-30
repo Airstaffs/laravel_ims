@@ -1157,7 +1157,19 @@
                                         :key="fnsku.FNSKU"
                                     >
                                         <tr>
-                                            <td>Image</td>
+                                            <td>
+                                                <img
+                                                    :src="
+                                                        getImageSrc(
+                                                            fnsku.ASIN,
+                                                            0
+                                                        )
+                                                    "
+                                                    :alt="`Main image for ${fnsku.ASIN}`"
+                                                    class="asin-thumbnail"
+                                                    @error="setDefaultImage"
+                                                />
+                                            </td>
                                             <td>{{ fnsku.ASIN }}</td>
                                             <td>
                                                 <ul
