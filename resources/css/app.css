@@ -1038,18 +1038,39 @@ i#togglePassword {
     margin-bottom: 20px;
 }
 
-.image-tabs .tab-button {
-    flex: 1;
-    height: 40px;
-    display: flex;
-    justify-content: center;
+.tab-button {
+    background-color: #f0f0f0;
+    color: #555;
+    padding: 10px 16px;
+    border: none;
+    border-bottom: 3px solid transparent;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
     align-items: center;
-    gap: 10px;
+    gap: 6px;
+    flex: 1;
+    justify-content: center;
 }
 
-.img-badge {
-    background: red;
-    border-radius: 50%;
+.tab-button .badge {
+    background-color: #ccc;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+}
+
+.tab-button.active {
+    background-color: #fff;
+    color: #222;
+    border-bottom: 3px solid #007bff; /* blue highlight */
+    font-weight: 600;
+}
+
+.tab-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .main-image-container {
