@@ -52,6 +52,7 @@ export default {
             basePath: "/images/thumbnails/",
             error: null,
             imageList: [],
+            selectedImage: null,
         };
     },
     computed: {
@@ -105,6 +106,21 @@ export default {
                         .filter((t) => t && t.trim() !== "")
                 ),
             ].sort();
+        },
+
+        productImages() {
+            if (!this.currentItem) return [];
+            const images = [];
+            for (let i = 1; i <= 15; i++) {
+                const key = `img${i}`;
+                if (this.currentItem[key]) {
+                    images.push(`/images/thumbnails/${this.currentItem[key]}`);
+                }
+            }
+            return images;
+        },
+        mainImage() {
+            return this.productImages.length > 0 ? this.productImages[0] : null;
         },
     },
     methods: {
@@ -345,26 +361,49 @@ export default {
 
             try {
                 console.log("Fetching FNSKU list...");
-                const response = await axios.get(`${API_BASE_URL}/fnsku-list`);
-                console.log("Raw FNSKU API response:", response.data);
-
-                // Attempt to extract the list properly even if wrapped
-                let raw = response.data;
-                let list = Array.isArray(raw)
+                const baseListResponse = await axios.get(
+                    `${API_BASE_URL}/fnsku-list`
+                );
+                let raw = baseListResponse.data;
+                let baseList = Array.isArray(raw)
                     ? raw
                     : raw.data || raw.items || [];
 
-                if (!Array.isArray(list)) {
+                if (!Array.isArray(baseList)) {
                     throw new Error(
-                        "Invalid response format: expected an array."
+                        "Invalid response format from /fnsku-list."
                     );
                 }
 
-                this.fnskuList = list;
+                console.log("Fetching enhanced FNSKU data...");
+                const fnskuDataResponse = await axios.get(
+                    `${API_BASE_URL}/get-fnsku-data`,
+                    {
+                        params: {
+                            location: item.ProductModuleLoc,
+                            search: this.fnskuSearch,
+                        },
+                    }
+                );
+
+                let fnskuData = fnskuDataResponse.data?.data || [];
+                if (!Array.isArray(fnskuData)) {
+                    throw new Error(
+                        "Invalid response format from /get-fnsku-data."
+                    );
+                }
+
+                // Merge or replace the list as needed:
+                // Option 1: Combine both lists
+                this.fnskuList = [...baseList, ...fnskuData];
+
+                // Option 2: Replace base list with fnskuData if more accurate
+                // this.fnskuList = fnskuData;
+
                 this.filterFnskuList();
             } catch (error) {
-                console.error("Error fetching FNSKU list:", error);
-                alert("Error fetching FNSKU list. Please try again.");
+                console.error("Error fetching FNSKU data:", error);
+                alert("Error fetching FNSKU data. Please try again.");
                 this.fnskuList = [];
                 this.filteredFnskuList = [];
             } finally {
@@ -760,6 +799,10 @@ export default {
         searchQuery() {
             this.currentPage = 1;
             this.fetchInventory();
+        },
+
+        currentItem() {
+            this.selectedImage = this.mainImage;
         },
     },
 

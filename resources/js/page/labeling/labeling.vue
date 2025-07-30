@@ -1033,28 +1033,66 @@
                 </div>
 
                 <!-- Body -->
-                <div class="modal-body">
+                <div class="modal-body fnsku-product">
                     <!-- Product Info - Updated to hide ID -->
-                    <div class="fnsku-product-info">
-                        <h4>{{ currentItem?.ProductTitle }}</h4>
-                        <img
-                            :src="activeImageUrl"
-                            alt="Main Product Image"
-                            loading="lazy"
-                            @error="onImageErrorMain"
-                        />
-                        <div class="fnsku-product-details">
-                            <!-- ID and Serial are now hidden -->
-                            <!-- <p><strong>ID:</strong> {{ currentItem?.ProductID }}</p> -->
-                            <!-- <p><strong>Serial#:</strong> {{ currentItem?.serialnumber }}</p> -->
-                            <p>
-                                <strong>Current FNSKU:</strong>
-                                {{ currentItem?.FNSKUviewer || "None" }}
-                            </p>
-                            <p>
-                                <strong>RT#:</strong>
-                                {{ currentItem?.rtcounter }}
-                            </p>
+                    <div class="fnsku-product-card">
+                        <!-- LEFT COLUMN: Product Images -->
+                        <div class="fnsku-image-column">
+                            <div
+                                v-if="productImages.length"
+                                class="image-display"
+                            >
+                                <div class="hover-image-container">
+                                    <img
+                                        :src="selectedImage || mainImage"
+                                        alt="Main Image"
+                                        class="preview-image"
+                                    />
+                                    <div class="hover-preview">
+                                        <img
+                                            :src="selectedImage || mainImage"
+                                            alt="Zoomed Preview"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div class="thumbnail-list">
+                                    <img
+                                        v-for="(img, index) in productImages"
+                                        :key="index"
+                                        :src="img"
+                                        alt="Thumbnail"
+                                        class="thumbnail"
+                                        :class="{
+                                            active: selectedImage === img,
+                                        }"
+                                        @click="selectedImage = img"
+                                    />
+                                </div>
+                            </div>
+
+                            <div v-else class="no-image">
+                                <p>No image available</p>
+                            </div>
+                        </div>
+
+                        <!-- RIGHT COLUMN: Product Details -->
+                        <div class="fnsku-details-column">
+                            <h4 class="product-title">
+                                {{ currentItem?.ProductTitle }}
+                            </h4>
+                            <div class="detail-item">
+                                <span class="label">Current FNSKU:</span>
+                                <span class="value">{{
+                                    currentItem?.FNSKUviewer || "None"
+                                }}</span>
+                            </div>
+                            <div class="detail-item">
+                                <span class="label">RT#:</span>
+                                <span class="value">{{
+                                    currentItem?.rtcounter
+                                }}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -1086,7 +1124,7 @@
                     </div>
 
                     <!-- FNSKU List - Desktop Table -->
-                    <div class="fnsku-list-container d-none d-md-block">
+                    <div class="d-none d-md-block">
                         <!-- Show loading overlay when searching -->
                         <div v-if="isSearching" class="fnsku-loading-overlay">
                             <div class="loading-content">
@@ -1095,82 +1133,88 @@
                             </div>
                         </div>
 
-                        <table
-                            class="table"
-                            :class="{ 'loading-blur': isSearching }"
-                        >
-                            <thead class="table-dark">
-                                <tr>
-                                    <th>Image</th>
-                                    <th>ASIN</th>
-                                    <th>Title & Inventory</th>
-                                    <th>FNSKU</th>
-                                    <th>MSKU</th>
-                                    <th>Grade</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <template
-                                    v-for="(fnsku, index) in filteredFnskuList"
-                                    :key="fnsku.FNSKU"
-                                >
+                        <div class="fnsku-table-scroll">
+                            <table
+                                class="table"
+                                :class="{ 'loading-blur': isSearching }"
+                            >
+                                <thead class="table-dark sticky-header">
                                     <tr>
-                                        <td>Image</td>
-                                        <td>{{ fnsku.ASIN }}</td>
-                                        <td>
-                                            <ul
-                                                class="list-unstyled m-0 fnsku-title"
-                                            >
-                                                <li>{{ fnsku.astitle }}</li>
-                                                <li>
-                                                    {{ fnsku.Units }} in
-                                                    inventory
-                                                </li>
-                                            </ul>
-                                        </td>
-                                        <td>{{ fnsku.FNSKU }}</td>
-                                        <td>{{ fnsku.MSKU }}</td>
-                                        <td>{{ fnsku.grading }}</td>
-                                        <td>
-                                            <div class="fnsku-action">
-                                                <button
-                                                    @click="selectFnsku(fnsku)"
-                                                    class="btn btn-fnsku-select"
-                                                    :class="{
-                                                        'fnsku-recommended':
-                                                            fnsku.ASIN ===
-                                                            currentItem?.ASINviewer,
-                                                    }"
-                                                    :disabled="isSearching"
+                                        <th>Image</th>
+                                        <th>ASIN</th>
+                                        <th>Title & Inventory</th>
+                                        <th>FNSKU</th>
+                                        <th>MSKU</th>
+                                        <th>Grade</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <template
+                                        v-for="(
+                                            fnsku, index
+                                        ) in filteredFnskuList"
+                                        :key="fnsku.FNSKU"
+                                    >
+                                        <tr>
+                                            <td>Image</td>
+                                            <td>{{ fnsku.ASIN }}</td>
+                                            <td>
+                                                <ul
+                                                    class="list-unstyled m-0 fnsku-title"
                                                 >
-                                                    {{
-                                                        fnsku.ASIN ===
-                                                        currentItem?.ASINviewer
-                                                            ? "Recommended"
-                                                            : "Select"
-                                                    }}
-                                                </button>
-                                            </div>
+                                                    <li>{{ fnsku.astitle }}</li>
+                                                    <li>
+                                                        {{ fnsku.Units }} in
+                                                        inventory
+                                                    </li>
+                                                </ul>
+                                            </td>
+                                            <td>{{ fnsku.FNSKU }}</td>
+                                            <td>{{ fnsku.MSKU }}</td>
+                                            <td>{{ fnsku.grading }}</td>
+                                            <td>
+                                                <div class="fnsku-action">
+                                                    <button
+                                                        @click="
+                                                            selectFnsku(fnsku)
+                                                        "
+                                                        class="btn btn-fnsku-select"
+                                                        :class="{
+                                                            'fnsku-recommended':
+                                                                fnsku.ASIN ===
+                                                                currentItem?.ASINviewer,
+                                                        }"
+                                                        :disabled="isSearching"
+                                                    >
+                                                        {{
+                                                            fnsku.ASIN ===
+                                                            currentItem?.ASINviewer
+                                                                ? "Recommended"
+                                                                : "Select"
+                                                        }}
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </template>
+
+                                    <!-- No results row -->
+                                    <tr
+                                        v-if="
+                                            filteredFnskuList.length === 0 &&
+                                            !isSearching
+                                        "
+                                    >
+                                        <td colspan="7" class="text-center">
+                                            <span class="fnsku-no-results">
+                                                No matching FNSKUs found
+                                            </span>
                                         </td>
                                     </tr>
-                                </template>
-
-                                <!-- No results row -->
-                                <tr
-                                    v-if="
-                                        filteredFnskuList.length === 0 &&
-                                        !isSearching
-                                    "
-                                >
-                                    <td colspan="3" class="text-center">
-                                        <span class="fnsku-no-results"
-                                            >No matching FNSKUs found</span
-                                        >
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
 
                     <!-- Mobile FNSKU Card View -->

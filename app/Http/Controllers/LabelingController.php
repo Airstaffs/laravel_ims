@@ -170,6 +170,38 @@ class LabelingController extends BasetablesController
             ], 500);
         }
     }
+    public function getFnskuData(Request $request)
+    {
+        $search = $request->input('search');
+        $location = $request->input('location');
+
+        $query = DB::table($this->productTable . ' as prod')
+            ->select([
+                'prod.*',
+                'fnsku.FNSKU',
+                'fnsku.MSKU',
+                'fnsku.ASIN',
+                'fnsku.grading',
+                'fnsku.storename',
+                'asin.internal as AStitle'
+            ])
+            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+            ->where('prod.ProductModuleLoc', $location)
+            ->when($search, function ($query) use ($search) {
+                return $query->where(function ($q) use ($search) {
+                    $q->where('prod.serialnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                        ->orWhere('asin.internal', 'like', "%{$search}%");
+                });
+            })
+            ->get();
+
+        return response()->json(['data' => $query]);
+    }
     public function moveToValidation(Request $request)
     {
         // Log that the method was called
@@ -490,7 +522,6 @@ class LabelingController extends BasetablesController
             ], 500);
         }
     }
-
     public function store(Request $request)
     {
         $validated = $request->validate([

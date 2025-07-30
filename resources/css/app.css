@@ -1095,11 +1095,12 @@ i#togglePassword {
 }
 
 .fnsku-modal .modal-content {
-    max-width: 1260px;
+    width: calc(100% - 100px);
 }
 
 .fnsku-modal .modal-body {
     padding: 20px;
+    background-color: white;
 }
 
 form.fnskuForm {

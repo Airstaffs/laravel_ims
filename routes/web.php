@@ -1,4 +1,5 @@
 <?php
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\LoginController;
 use Illuminate\Support\Facades\Auth;
@@ -466,8 +467,8 @@ Route::prefix('api/asinlist')->group(function () {
 
     // Upload vector image
     Route::post('upload-vector-image', [ASINlistController::class, 'uploadAsinVectorImage']);
-    
-   //Bulk Upload asin instruction card
+
+    //Bulk Upload asin instruction card
     Route::post('bulk-upload-instruction-cards', [ASINlistController::class, 'bulkUploadInstructionCards']);
 });
 
@@ -494,7 +495,7 @@ Route::prefix('api/printer')->group(function () {
     Route::get('stats', [PrinterController::class, 'getStats']);
     // Test print functionality
     Route::post('test-print', [PrinterController::class, 'testPrint']);
-    
+
     // Get all printers - FIXED: removed the extra /printer/
     Route::get('get-printers', [PrinterController::class, 'getPrinters']);
 });
@@ -617,10 +618,14 @@ Route::get('/amzn/test-asin-data', function () {
 */
 
 use App\Http\Controllers\Amzn\Listing\CatalogController;
+
 Route::get('/amzn/catalog/get_asin_catalog', [CatalogController::class, 'get_asin_catalog']);
 
 use App\Http\Controllers\NotificationController;
+
 Route::post('/notifications/create', [NotificationController::class, 'create']);
 Route::get('/notifications/user/{id}', [NotificationController::class, 'getByUser']);
 Route::post('/notifications/mark-read', [NotificationController::class, 'markAsRead']);
 Route::post('/notifications/mark-unread', [NotificationController::class, 'markAsUnread']);
+
+Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
