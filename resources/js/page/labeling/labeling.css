@@ -163,6 +163,14 @@ button.btn.btn-fnsku-select:hover {
     text-align: center;
 }
 
+.image-display {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
 .product-title {
     font-size: 1.25rem;
     font-weight: 600;
@@ -183,10 +191,10 @@ button.btn.btn-fnsku-select:hover {
 
 .thumbnail-list {
     display: flex;
+    flex-direction: column;
     flex-wrap: wrap;
     justify-content: center;
     gap: 10px;
-    margin-top: 12px;
 }
 
 .thumbnail {
@@ -230,8 +238,8 @@ button.btn.btn-fnsku-select:hover {
 }
 
 .hover-preview img {
-    max-width: 200px;
-    max-height: 200px;
+    max-width: 500px;
+    max-height: 500px;
     object-fit: contain;
     display: block;
 }
@@ -267,7 +275,7 @@ button.btn.btn-fnsku-select:hover {
 }
 
 .fnsku-table-scroll {
-    max-height: 500px; /* adjust as needed */
+    max-height: 400px;
     overflow-y: auto;
     border: 1px solid #dee2e6;
     border-radius: 6px;
@@ -289,6 +297,11 @@ table thead.sticky-header th {
     border-radius: 4px;
     border: 1px solid #ccc;
     background-color: #f3f3f3;
+}
+
+.btn-outline-dark:hover {
+    background-color: #343a40;
+    color: white;
 }
 
 @media (max-width: 767px) {

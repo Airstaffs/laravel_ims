@@ -31,12 +31,6 @@ export default {
 
             // FNSKU Modal properties
             isFnskuModalVisible: false,
-            currentItem: null,
-            fnskuList: [],
-            filteredFnskuList: [],
-            isSearching: false,
-            fnskuSearch: "",
-
             showConfirmationModal: false,
             confirmationTitle: "",
             confirmationMessage: "",
@@ -53,6 +47,16 @@ export default {
             error: null,
             imageList: [],
             selectedImage: null,
+
+            fnskuSearch: "",
+            fnskuExact: "",
+            selectedStore: "",
+            selectedGrading: "",
+            fnskuList: [],
+            filteredFnskuList: [],
+            isSearching: false,
+            currentItem: null,
+            showFilters: true,
         };
     },
     computed: {
@@ -121,6 +125,22 @@ export default {
         },
         mainImage() {
             return this.productImages.length > 0 ? this.productImages[0] : null;
+        },
+
+        uniqueStores() {
+            return [
+                ...new Set(
+                    this.fnskuList.map((f) => f.storename).filter(Boolean)
+                ),
+            ];
+        },
+
+        uniqueGradings() {
+            return [
+                ...new Set(
+                    this.fnskuList.map((f) => f.grading).filter(Boolean)
+                ),
+            ];
         },
     },
     methods: {
@@ -351,7 +371,7 @@ export default {
             }
         },
 
-        // FNSKU Modal methods - Fixed and improved
+        // Show FNSKU Modal
         async showFnskuModal(item) {
             console.log("Opening FNSKU modal for item:", item);
             this.currentItem = item;
@@ -393,13 +413,13 @@ export default {
                     );
                 }
 
-                // Merge or replace the list as needed:
-                // Option 1: Combine both lists
+                // Merge both lists
                 this.fnskuList = [...baseList, ...fnskuData];
 
-                // Option 2: Replace base list with fnskuData if more accurate
-                // this.fnskuList = fnskuData;
-
+                this.fnskuSearch = "";
+                this.fnskuExact = "";
+                this.selectedStore = "";
+                this.selectedGrading = "";
                 this.filterFnskuList();
             } catch (error) {
                 console.error("Error fetching FNSKU data:", error);
@@ -411,6 +431,7 @@ export default {
             }
         },
 
+        // Hide FNSKU Modal
         hideFnskuModal() {
             console.log("Hiding FNSKU modal");
             this.isFnskuModalVisible = false;
@@ -420,52 +441,57 @@ export default {
             this.fnskuSearch = "";
         },
 
+        // Filter FNSKU list based on search and store
         filterFnskuList() {
-            console.log("Filtering FNSKU list with search:", this.fnskuSearch);
+            const asinPriority = this.currentItem?.ASINviewer;
+            const search = this.fnskuSearch.toLowerCase().trim();
+            const fnskuOnly = this.fnskuExact.toLowerCase().trim();
+            const selectedStore = this.selectedStore;
+            const selectedGrading = this.selectedGrading;
 
-            if (!Array.isArray(this.fnskuList)) {
-                console.warn("fnskuList is not iterable:", this.fnskuList);
-                this.filteredFnskuList = [];
-                return;
-            }
-
-            if (!this.fnskuSearch) {
-                // Prioritize matching ASINs
-                this.filteredFnskuList = [...this.fnskuList].sort((a, b) => {
-                    const asin = this.currentItem?.ASINviewer;
-                    if (a.ASIN === asin && b.ASIN !== asin) return -1;
-                    if (a.ASIN !== asin && b.ASIN === asin) return 1;
-                    return 0;
-                });
-                return;
-            }
-
-            const search = this.fnskuSearch.toLowerCase();
-            this.filteredFnskuList = this.fnskuList.filter(
-                (fnsku) =>
-                    fnsku.FNSKU?.toLowerCase().includes(search) ||
+            this.filteredFnskuList = this.fnskuList.filter((fnsku) => {
+                const matchesGeneral =
+                    !search ||
                     fnsku.ASIN?.toLowerCase().includes(search) ||
-                    fnsku.astitle?.toLowerCase().includes(search)
-            );
+                    fnsku.astitle?.toLowerCase().includes(search);
+
+                const matchesFnskuOnly =
+                    !fnskuOnly ||
+                    fnsku.FNSKU?.toLowerCase().includes(fnskuOnly);
+
+                const matchesStore =
+                    !selectedStore || fnsku.storename === selectedStore;
+
+                const matchesGrading =
+                    !selectedGrading || fnsku.grading === selectedGrading;
+
+                return (
+                    matchesGeneral &&
+                    matchesFnskuOnly &&
+                    matchesStore &&
+                    matchesGrading
+                );
+            });
+
+            this.filteredFnskuList.sort((a, b) => {
+                if (a.ASIN === asinPriority && b.ASIN !== asinPriority)
+                    return -1;
+                if (a.ASIN !== asinPriority && b.ASIN === asinPriority)
+                    return 1;
+                return 0;
+            });
         },
 
-        selectFnsku(fnsku) {
-            console.log("Selected FNSKU:", fnsku);
-            this.currentItem.FNSKUviewer = fnsku.FNSKU;
-            this.hideFnskuModal();
-        },
-
+        // Select and save the chosen FNSKU
         async selectFnsku(fnsku) {
             console.log("Selecting FNSKU:", fnsku);
             if (!this.currentItem || !fnsku) return;
 
             try {
-                // Get the CSRF token from the meta tag
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
-                // Make the request with proper data format and headers
                 const response = await axios.post(
                     `${API_BASE_URL}/update-fnsku`,
                     {
@@ -488,7 +514,7 @@ export default {
                 if (response.data.success) {
                     alert(`FNSKU updated to ${fnsku.FNSKU}`);
                     this.hideFnskuModal();
-                    this.fetchInventory(); // Refresh the data
+                    this.fetchInventory(); // refresh inventory list
                 } else {
                     alert(response.data.message || "Failed to update FNSKU");
                 }
