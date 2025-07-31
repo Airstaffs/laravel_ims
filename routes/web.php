@@ -627,5 +627,6 @@ Route::post('/notifications/create', [NotificationController::class, 'create']);
 Route::get('/notifications/user/{id}', [NotificationController::class, 'getByUser']);
 Route::post('/notifications/mark-read', [NotificationController::class, 'markAsRead']);
 Route::post('/notifications/mark-unread', [NotificationController::class, 'markAsUnread']);
+Route::get('/notifications/unread-count/{id}', [NotificationController::class, 'getUnreadCount']);
 
 Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
