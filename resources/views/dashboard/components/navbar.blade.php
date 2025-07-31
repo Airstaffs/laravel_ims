@@ -14,6 +14,14 @@
 
             <!-- Icons Always Visible on Mobile -->
             <div class="d-flex align-items-center ms-auto d-lg-none">
+                <!-- Notification Icon -->
+                <a class="nav-link p-2 position-relative" href="#" data-bs-toggle="modal" data-bs-target="#notifModal">
+                    <i class="bi bi-bell"></i>
+                    <span id="notifBadgeMobile"
+                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        3
+                    </span>
+                </a>
                 <!-- Profile Icon -->
                 <a class="nav-link p-2" href="#" data-bs-toggle="modal" data-bs-target="#profileModal">
                     <i class="bi bi-person"></i>
@@ -36,6 +44,19 @@
         <!-- Navbar Collapse for Desktop -->
         <div class="collapse" id="navbarNav">
             <ul class="navbar-nav text-center">
+                <!-- Notification -->
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center justify-content-center position-relative" href="#"
+                        data-bs-toggle="modal" data-bs-target="#notifModal">
+                        <i class="bi bi-bell me-2"></i>
+                        <span class="d-none d-lg-inline">Notifications</span>
+                        <span id="notifBadgeDesktop"
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            3
+                            <span class="visually-hidden">unread notifications</span>
+                        </span>
+                    </a>
+                </li>
                 <!-- Profile -->
                 <li class="nav-item">
                     <a class="nav-link d-flex align-items-center justify-content-center" href="#" data-bs-toggle="modal"

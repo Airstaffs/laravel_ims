@@ -537,6 +537,140 @@
         </div>
     </div>
 
+    <!-- Notifications List Modal -->
+    <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Notifications</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0">
+                    <ul class="list-group list-group-flush" id="notifList"></ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Content Modal -->
+    <div class="modal fade" id="notifContentModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notifContentTitle"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="notifContentBody">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // valid shit
+            const userId = @json(Auth::id());
+            const csrfToken = '{{ csrf_token() }}';
+            const notifBadges = [
+                document.getElementById('notifBadge'),
+                document.getElementById('notifBadgeMobile')
+            ];
+            const notifList = document.getElementById('notifList');
+            const notifModal = document.getElementById('notifModal');
+            const notifContentModal = document.getElementById('notifContentModal');
+            const notifContentTitle = document.getElementById('notifContentTitle');
+            const notifContentBody = document.getElementById('notifContentBody');
+
+            function updateBadge() {
+                fetch(`/notifications/unread-count/${userId}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        notifBadges.forEach(badge => {
+                            if (!badge) return;
+                            badge.textContent = data.unread_count;
+                            badge.style.display = data.unread_count > 0 ? 'inline-block' : 'none';
+                        });
+                    });
+            }
+
+            function loadNotifications() {
+                fetch(`/notifications/user/${userId}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        notifList.innerHTML = '';
+                        if (data.length === 0) {
+                            notifList.innerHTML = '<li class="list-group-item text-center text-muted">No notifications</li>';
+                            return;
+                        }
+                        data.forEach(item => {
+                            const li = document.createElement('li');
+                            li.className = `list-group-item d-flex justify-content-between align-items-start ${item.read_status === 'unread' ? 'fw-bold' : ''}`;
+                            li.style.cursor = 'pointer';
+                            li.innerHTML = `
+                        <div>
+                            <div>${item.title}</div>
+                            <small class="text-muted">${new Date(item.notif_created_at).toLocaleString()}</small>
+                        </div>
+                    `;
+                            li.addEventListener('click', () => handleNotificationClick(item));
+                            notifList.appendChild(li);
+                        });
+                    });
+            }
+
+            function markAsRead(notifId) {
+                fetch(`/notifications/mark-read`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': csrfToken
+                    },
+                    body: JSON.stringify({ notif_id: notifId, user_id: userId })
+                });
+            }
+
+            function handleNotificationClick(item) {
+                markAsRead(item.notif_id);
+
+                let linkData = null;
+                try { linkData = item.link_data ? JSON.parse(item.link_data) : null; } catch (e) { }
+
+                if (linkData && linkData.type === 'redirect') {
+                    const method = linkData.method || 'GET';
+                    if (method === 'GET') {
+                        window.location.href = linkData.url;
+                    } else if (method === 'POST') {
+                        fetch(linkData.url, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRF-TOKEN': csrfToken
+                            },
+                            body: JSON.stringify(linkData.payload || {})
+                        }).then(() => window.location.reload());
+                    }
+                } else {
+                    const existing = bootstrap.Modal.getInstance(notifModal);
+                    if (existing) existing.hide();
+
+                    notifContentTitle.textContent = item.title;
+                    notifContentBody.innerHTML = item.content || '<em>No details available</em>';
+
+                    const contentModal = new bootstrap.Modal(notifContentModal);
+                    contentModal.show();
+                }
+
+                updateBadge();
+            }
+
+            notifModal.addEventListener('shown.bs.modal', loadNotifications);
+
+            updateBadge();
+            setInterval(updateBadge, 30000);
+        });
+    </script>
+
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             console.log('Dashboard loaded - initializing security measures...');
@@ -565,6 +699,8 @@
             // Start session management
             startSessionManagement();
         });
+
+
 
         // PREVENT BACK BUTTON ACCESS - MULTIPLE METHODS
         function preventBackButtonAccess() {
@@ -1073,4 +1209,5 @@
     <script src="{{ asset('js/account-record.js') }}"></script>
     <script src="{{ asset('js/account-privilege.js') }}"></script>
 </body>
+
 </html>

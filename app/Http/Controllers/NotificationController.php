@@ -20,7 +20,9 @@ class NotificationController extends Controller
             'subtitle' => $request->input('subtitle'),
             'content' => $request->input('content'),
             'severity' => $request->input('severity', 'info'),
-            'action_made' => $request->input('action_made'),
+            'link_data' => $request->input('link_data')
+                ? json_encode($request->input('link_data'))
+                : null,
             'created_at' => now()
         ]);
 
@@ -45,6 +47,19 @@ class NotificationController extends Controller
             ->join('tblnotifications as n', 'n.id', '=', 'nu.notif_id')
             ->where('nu.userid', $userId)
             ->orderBy('n.created_at', 'desc')
+            ->select(
+                'nu.id as notif_user_id',
+                'nu.read_status',
+                'nu.created_at as user_created_at',
+                'n.id as notif_id',
+                'n.module',
+                'n.title',
+                'n.subtitle',
+                'n.content',
+                'n.severity',
+                'n.link_data',
+                'n.created_at as notif_created_at'
+            )
             ->get();
 
         return response()->json($notifications);
@@ -56,7 +71,10 @@ class NotificationController extends Controller
         DB::table('tblnotificationsuser')
             ->where('notif_id', $request->input('notif_id'))
             ->where('userid', $request->input('user_id'))
-            ->update(['read_status' => 'read']);
+            ->update([
+                'read_status' => 'read',
+                'read_at' => now()
+            ]);
 
         return response()->json(['success' => true]);
     }
@@ -67,8 +85,21 @@ class NotificationController extends Controller
         DB::table('tblnotificationsuser')
             ->where('notif_id', $request->input('notif_id'))
             ->where('userid', $request->input('user_id'))
-            ->update(['read_status' => 'unread']);
+            ->update([
+                'read_status' => 'unread',
+                'read_at' => null
+            ]);
 
         return response()->json(['success' => true]);
+    }
+
+    public function getUnreadCount($userId)
+    {
+        $count = DB::table('tblnotificationsuser')
+            ->where('userid', $userId)
+            ->where('read_status', 'unread')
+            ->count();
+
+        return response()->json(['unread_count' => $count]);
     }
 }
