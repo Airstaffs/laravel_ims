@@ -539,35 +539,37 @@
 
     <!-- Notifications Dropdown Modal -->
     <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-sm modal-dialog-scrollable"
-            style="position: fixed; top: 60px; right: 20px; margin: 0;">
+        <div class="modal-dialog modal-sm modal-dialog-scrollable" id="notifModalDialog">
             <div class="modal-content shadow">
                 <div class="modal-header">
-                    <h5 class="modal-title">Notifications</h5>
-                    <button type="button" id="expandNotifBtn" class="btn btn-primary btn-sm">
-                        Expand View
-                    </button>
+                    <h5 class="modal-title" id="notifModalTitle">Notifications</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
+
                 <div class="modal-body p-0">
-                    <ul class="list-group list-group-flush" id="notifList"></ul>
-                </div>
-                <div class="modal-footer">
 
-                </div>
-            </div>
-        </div>
-    </div>
+                    <!-- View 1: Compact List -->
+                    <div id="notifListView">
+                        <ul class="list-group list-group-flush" id="notifList"></ul>
+                        <div class="p-2">
+                            <button id="expandNotifBtn" class="btn btn-primary btn-sm w-100">
+                                Expand View
+                            </button>
+                        </div>
+                    </div>
 
-    <!-- Notification Content Modal -->
-    <div class="modal fade" id="notifContentModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="notifContentTitle"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="notifContentBody">
+                    <!-- View 2: Expanded Table -->
+                    <div id="notifExpandedView" class="d-none">
+                        <div id="notifExpandedTable"></div>
+                        <button id="backToList" class="btn btn-secondary btn-sm mt-2">Back</button>
+                    </div>
+
+                    <!-- View 3: Single Notification -->
+                    <div id="notifDetailView" class="d-none">
+                        <div id="notifDetailContent"></div>
+                        <button id="backToExpanded" class="btn btn-secondary btn-sm mt-2">Back</button>
+                    </div>
+
                 </div>
             </div>
         </div>
@@ -575,70 +577,44 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // valid shit
             const userId = @json(Auth::id());
             const csrfToken = '{{ csrf_token() }}';
+
             const notifBadges = [
                 document.getElementById('notifBadge'),
                 document.getElementById('notifBadgeMobile')
             ];
+
             const notifList = document.getElementById('notifList');
             const notifModal = document.getElementById('notifModal');
-            const notifContentModal = document.getElementById('notifContentModal');
-            const notifContentTitle = document.getElementById('notifContentTitle');
-            const notifContentBody = document.getElementById('notifContentBody');
+            const notifModalDialog = document.getElementById('notifModalDialog');
 
-            document.getElementById('expandNotifBtn').addEventListener('click', () => {
-                const existing = bootstrap.Modal.getInstance(notifModal);
-                if (existing) {
-                    // Attach listener before hiding
-                    notifModal.addEventListener('hidden.bs.modal', function handler() {
-                        notifModal.removeEventListener('hidden.bs.modal', handler);
+            const listView = document.getElementById('notifListView');
+            const expandedView = document.getElementById('notifExpandedView');
+            const detailView = document.getElementById('notifDetailView');
 
-                        // Now fetch and show expanded modal
-                        fetch(`/notifications/user/${userId}`)
-                            .then(res => res.json())
-                            .then(data => {
-                                notifContentTitle.textContent = 'All Notifications';
-                                let tableHtml = `
-                        <div class="table-responsive">
-                          <table class="table table-bordered table-sm align-middle">
-                            <thead>
-                              <tr>
-                                <th>Module</th>
-                                <th>Title</th>
-                                <th>Subtitle</th>
-                                <th>Content</th>
-                                <th>Severity</th>
-                                <th>Date</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                    `;
-                                data.forEach(item => {
-                                    tableHtml += `
-                          <tr class="${item.read_status === 'unread' ? 'fw-bold' : ''}">
-                            <td>${item.module}</td>
-                            <td>${item.title}</td>
-                            <td>${item.subtitle || ''}</td>
-                            <td>${item.content || ''}</td>
-                            <td>${item.severity}</td>
-                            <td>${new Date(item.notif_created_at).toLocaleString()}</td>
-                          </tr>
-                        `;
-                                });
-                                tableHtml += `</tbody></table></div>`;
-                                notifContentBody.innerHTML = tableHtml;
+            const notifExpandedTable = document.getElementById('notifExpandedTable');
+            const notifDetailContent = document.getElementById('notifDetailContent');
 
-                                const contentModal = new bootstrap.Modal(notifContentModal);
-                                contentModal.show();
-                            });
-                    });
+            function setDialogMode(mode) {
+                // Reset classes and styles
+                notifModalDialog.className = 'modal-dialog modal-dialog-scrollable';
+                notifModalDialog.removeAttribute('style');
 
-                    // Hide notifModal (triggers hidden.bs.modal)
-                    existing.hide();
+                if (mode === 'list') {
+                    notifModalDialog.classList.add('modal-sm');
+                    notifModalDialog.style.cssText = 'position: fixed; top: 60px; right: 20px; margin: 0;';
+                } else {
+                    notifModalDialog.classList.add('modal-lg');
+                    // Centered default, no custom position
                 }
-            });
+            }
+
+            function showView(view, mode = 'list') {
+                [listView, expandedView, detailView].forEach(v => v.classList.add('d-none'));
+                view.classList.remove('d-none');
+                setDialogMode(mode);
+            }
 
             function updateBadge() {
                 fetch(`/notifications/unread-count/${userId}`)
@@ -663,17 +639,14 @@
                         }
                         data.forEach(item => {
                             const li = document.createElement('li');
-                            li.className = `list-group-item d-flex justify-content-between align-items-start ${item.read_status === 'unread' ? 'fw-bold' : ''}`;
+                            li.className = `list-group-item ${item.read_status === 'unread' ? 'fw-bold' : ''}`;
                             li.style.cursor = 'pointer';
                             li.innerHTML = `
-                                <div>
-                                    <strong class="text-primary">${item.module}</strong><br>
-                                    <div>${item.title}</div>
-                                    <small class="text-muted">
-                                        ${item.subtitle ? item.subtitle + ' · ' : ''}${new Date(item.notif_created_at).toLocaleString()}
-                                    </small>
-                                </div>
-                            `;
+                        <div>
+                            <strong class="text-primary">${item.module}</strong><br>
+                            ${item.title}<br>
+                            <small class="text-muted">${item.subtitle || ''} · ${new Date(item.notif_created_at).toLocaleString()}</small>
+                        </div>`;
                             li.addEventListener('click', () => handleNotificationClick(item));
                             notifList.appendChild(li);
                         });
@@ -691,56 +664,112 @@
                 });
             }
 
-            function handleNotificationClick(item) {
-                markAsRead(item.notif_id);
+            function renderExpandedTable(data) {
+                let html = `
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>Module</th>
+                    <th>Title</th>
+                    <th>Subtitle</th>
+                    <th>Content</th>
+                    <th>Severity</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+                data.forEach(item => {
+                    html += `
+              <tr class="notif-row ${item.read_status === 'unread' ? 'fw-bold' : ''}" data-item='${JSON.stringify(item)}'>
+                <td>${item.module}</td>
+                <td>${item.title}</td>
+                <td>${item.subtitle || ''}</td>
+                <td>${item.content || ''}</td>
+                <td>${item.severity}</td>
+                <td>${new Date(item.notif_created_at).toLocaleString()}</td>
+              </tr>`;
+                });
+                html += '</tbody></table></div>';
+                notifExpandedTable.innerHTML = html;
 
-                let linkData = null;
-                try { linkData = item.link_data ? JSON.parse(item.link_data) : null; } catch (e) { }
-
-                if (linkData && linkData.type === 'redirect') {
-                    const method = linkData.method || 'GET';
-                    if (method === 'GET') {
-                        window.location.href = linkData.url;
-                    } else if (method === 'POST') {
-                        fetch(linkData.url, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': csrfToken
-                            },
-                            body: JSON.stringify(linkData.payload || {})
-                        }).then(() => window.location.reload());
-                    }
-                } else {
-                    const existing = bootstrap.Modal.getInstance(notifModal);
-                    if (existing) {
-                        // Wait for the notifModal to be fully hidden before showing the content modal
-                        notifModal.addEventListener('hidden.bs.modal', function handler() {
-                            notifModal.removeEventListener('hidden.bs.modal', handler);
-
-                            // Populate content
-                            notifContentTitle.textContent = item.title;
-                            notifContentBody.innerHTML = item.content || '<em>No details available</em>';
-
-                            // Show the content modal
-                            const contentModal = new bootstrap.Modal(notifContentModal);
-                            contentModal.show();
-                        });
-
-                        existing.hide();
-                    } else {
-                        // If no modal was open (edge case)
-                        notifContentTitle.textContent = item.title;
-                        notifContentBody.innerHTML = item.content || '<em>No details available</em>';
-                        const contentModal = new bootstrap.Modal(notifContentModal);
-                        contentModal.show();
-                    }
-                }
-
-                updateBadge();
+                notifExpandedTable.querySelectorAll('.notif-row').forEach(row => {
+                    row.addEventListener('click', () => {
+                        const item = JSON.parse(row.getAttribute('data-item'));
+                        showSingleNotification(item);
+                    });
+                });
             }
 
-            notifModal.addEventListener('shown.bs.modal', loadNotifications);
+            function showSingleNotification(item) {
+                notifDetailContent.innerHTML = `
+            <table class="table table-sm">
+                <tbody>
+                    <tr><th>Module</th><td>${item.module}</td></tr>
+                    <tr><th>Title</th><td>${item.title}</td></tr>
+                    <tr><th>Subtitle</th><td>${item.subtitle || ''}</td></tr>
+                    <tr><th>Content</th><td>${item.content || ''}</td></tr>
+                    <tr><th>Severity</th><td>${item.severity}</td></tr>
+                    <tr><th>Date</th><td>${new Date(item.notif_created_at).toLocaleString()}</td></tr>
+                </tbody>
+            </table>`;
+                showView(detailView, 'expanded');
+            }
+
+            document.getElementById('expandNotifBtn').addEventListener('click', () => {
+                fetch(`/notifications/user/${userId}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        renderExpandedTable(data);
+                        showView(expandedView, 'expanded');
+                    });
+            });
+
+            document.getElementById('backToList').addEventListener('click', () => {
+                showView(listView, 'list');
+            });
+
+            document.getElementById('backToExpanded').addEventListener('click', () => {
+                showView(expandedView, 'expanded');
+            });
+
+            function handleNotificationClick(item) {
+                markAsRead(item.notif_id);
+                showSingleNotification(item);
+            }
+
+            notifModal.addEventListener('shown.bs.modal', () => {
+                showView(listView, 'list');
+                loadNotifications();
+            });
+
+            function setDialogMode(mode) {
+                const dialog = notifModalDialog;
+                dialog.className = 'modal-dialog modal-dialog-scrollable'; // reset
+                dialog.removeAttribute('style');
+
+                if (mode === 'list') {
+                    dialog.classList.add('modal-sm');
+
+                    // Compute bell position
+                    const bell = document.getElementById('notifBell');
+                    const rect = bell.getBoundingClientRect();
+
+                    const modalWidth = 350; // approximate small modal width
+                    const top = rect.bottom + 5; // 5px gap below bell
+                    const left = rect.right - modalWidth; // align right edge
+
+                    // Fixed position relative to viewport
+                    dialog.style.position = 'fixed';
+                    dialog.style.top = `${top}px`;
+                    dialog.style.left = `${left}px`;
+                    dialog.style.margin = '0';
+                } else {
+                    dialog.classList.add('modal-lg');
+                    // Let Bootstrap center it normally
+                }
+            }
 
             updateBadge();
             setInterval(updateBadge, 30000);

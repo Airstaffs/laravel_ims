@@ -15,7 +15,8 @@
             <!-- Icons Always Visible on Mobile -->
             <div class="d-flex align-items-center ms-auto d-lg-none">
                 <!-- Notification Icon -->
-                <a class="nav-link p-2 position-relative" href="#" data-bs-toggle="modal" data-bs-target="#notifModal">
+                <a id="notifBell" class="nav-link p-2 position-relative" href="#" data-bs-toggle="modal"
+                    data-bs-target="#notifModal">
                     <i class="bi bi-bell"></i>
                     <span id="notifBadgeMobile"
                         class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
