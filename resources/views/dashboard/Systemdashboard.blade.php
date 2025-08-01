@@ -591,10 +591,11 @@
             document.getElementById('expandNotifBtn').addEventListener('click', () => {
                 const existing = bootstrap.Modal.getInstance(notifModal);
                 if (existing) {
+                    // Attach listener before hiding
                     notifModal.addEventListener('hidden.bs.modal', function handler() {
                         notifModal.removeEventListener('hidden.bs.modal', handler);
 
-                        // Fetch all notifications again
+                        // Now fetch and show expanded modal
                         fetch(`/notifications/user/${userId}`)
                             .then(res => res.json())
                             .then(data => {
@@ -633,6 +634,8 @@
                                 contentModal.show();
                             });
                     });
+
+                    // Hide notifModal (triggers hidden.bs.modal)
                     existing.hide();
                 }
             });
