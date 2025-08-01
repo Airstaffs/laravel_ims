@@ -617,18 +617,49 @@
                     `;
                                 data.forEach(item => {
                                     tableHtml += `
-                          <tr class="${item.read_status === 'unread' ? 'fw-bold' : ''}">
-                            <td>${item.module}</td>
-                            <td>${item.title}</td>
-                            <td>${item.subtitle || ''}</td>
-                            <td>${item.content || ''}</td>
-                            <td>${item.severity}</td>
-                            <td>${new Date(item.notif_created_at).toLocaleString()}</td>
-                          </tr>
-                        `;
+                            <tr class="notification-row ${item.read_status === 'unread' ? 'fw-bold' : ''}" data-item='${JSON.stringify(item)}'>
+                                <td>${item.module}</td>
+                                <td>${item.title}</td>
+                                <td>${item.subtitle || ''}</td>
+                                <td>${item.content || ''}</td>
+                                <td>${item.severity}</td>
+                                <td>${new Date(item.notif_created_at).toLocaleString()}</td>
+                            </tr>
+                            `;
                                 });
+
+                                notifContentBody.querySelectorAll('.notification-row').forEach(row => {
+                                    row.addEventListener('click', () => {
+                                        const item = JSON.parse(row.getAttribute('data-item'));
+
+                                        // Replace table content with full detailed view
+                                        notifContentTitle.textContent = item.title;
+                                        notifContentBody.innerHTML = `
+            <table class="table table-sm">
+                <tbody>
+                    <tr><th>Module</th><td>${item.module}</td></tr>
+                    <tr><th>Title</th><td>${item.title}</td></tr>
+                    <tr><th>Subtitle</th><td>${item.subtitle || ''}</td></tr>
+                    <tr><th>Content</th><td>${item.content || ''}</td></tr>
+                    <tr><th>Severity</th><td>${item.severity}</td></tr>
+                    <tr><th>Date</th><td>${new Date(item.notif_created_at).toLocaleString()}</td></tr>
+                </tbody>
+            </table>
+            <button type="button" class="btn btn-secondary btn-sm" id="backToTable">Back to Notifications</button>
+        `;
+
+                                        // Add back button handler
+                                        document.getElementById('backToTable').addEventListener('click', () => {
+                                            document.getElementById('expandNotifBtn').click(); // re-expand
+                                        });
+                                    });
+                                });
+
                                 tableHtml += `</tbody></table></div>`;
                                 notifContentBody.innerHTML = tableHtml;
+
+                                // Clean up any lingering backdrops
+                                document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
 
                                 const contentModal = new bootstrap.Modal(notifContentModal);
                                 contentModal.show();
