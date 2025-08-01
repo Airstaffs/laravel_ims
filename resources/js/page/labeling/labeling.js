@@ -135,11 +135,13 @@ export default {
             ];
         },
 
-        uniqueGradings() {
+        gradingOptions() {
             return [
-                ...new Set(
-                    this.fnskuList.map((f) => f.grading).filter(Boolean)
-                ),
+                { label: "New", value: "New" },
+                { label: "Used - Like New", value: "UsedLikeNew" },
+                { label: "Used - Very Good", value: "UsedVeryGood" },
+                { label: "Used - Good", value: "UsedGood" },
+                { label: "Used - Acceptable", value: "UsedAcceptable" },
             ];
         },
     },
@@ -825,6 +827,17 @@ export default {
         },
         setDefaultImage(event) {
             event.target.src = this.defaultImage;
+        },
+
+        getGradingLabel(grading) {
+            const gradingMap = {
+                New: "New",
+                UsedLikeNew: "Used - Like New",
+                UsedVeryGood: "Used - Very Good",
+                UsedGood: "Used - Good",
+                UsedAcceptable: "Used - Acceptable",
+            };
+            return gradingMap[grading] || grading;
         },
     },
 
