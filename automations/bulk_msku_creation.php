@@ -706,28 +706,57 @@ function normalize_db_condition($condition)
     return $map[$key] ?? strtolower(str_replace(' ', '_', $condition));
 }
 
-function create_notification($data)
+function create_notification(array $data)
 {
-    DB::table('tblnotifications')->insert([
-        'module' => $data['module'],
-        'title' => $data['title'],
-        'subtitle' => $data['subtitle'],
-        'content' => $data['content'],
-        'severity' => $data['severity'],
+    // 1. Insert into tblnotifications and get the ID
+    $notificationId = DB::table('tblnotifications')->insertGetId([
+        'module'     => $data['module'],
+        'title'      => $data['title'],
+        'subtitle'   => $data['subtitle'] ?? null,
+        'content'    => $data['content'] ?? null,
+        'severity'   => $data['severity'] ?? 'info',
+        'link_data'  => isset($data['link_data']) ? json_encode($data['link_data']) : null,
         'created_at' => now(),
     ]);
+
+    // 2. Determine user IDs
+    $userIds = $data['user_ids'] ?? [];
+
+    // If no user_ids provided and an authenticated user exists, assign to that user
+    if (empty($userIds) && Auth::check()) {
+        $userIds = [Auth::id()];
+    }
+
+    // 3. Insert into tblnotificationsuser
+    foreach ($userIds as $userId) {
+        DB::table('tblnotificationsuser')->insert([
+            'notif_id'    => $notificationId,
+            'userid'      => $userId,
+            'read_status' => 'unread',
+            'created_at'  => now(),
+        ]);
+    }
+
+    return $notificationId;
 }
 
 
-function insert_created_feed($feedId, $feedType, $feedDocumentId, $store)
+function insert_created_feed($feedId, $feedType, $feedDocumentId, $store, $userId = null)
 {
+    // Determine user ID
+    if (!$userId) {
+        // Prefer session('userid'), fallback to Auth::id()
+        $userId = session('userid') ?? (Auth::check() ? Auth::id() : null);
+    }
+
     DB::table('tblamazon_feeds')->insert([
-        'feed_id' => $feedId,
-        'type' => $feedType,
-        'store' => $store,
-        'status' => 'IN_PROGRESS',
-        'input_document_id' => $feedDocumentId,
-        'submitted_at' => now(),
+        'feed_id'          => $feedId,
+        'type'             => $feedType,
+        'store'            => $store,
+        'created_by'       => $userId,
+        'status'           => 'IN_PROGRESS',
+        'input_document_id'=> $feedDocumentId,
+        'submitted_at'     => now(),
     ]);
 
     echo "✅ Feed $feedId inserted into tblamazon_feeds.<br>";

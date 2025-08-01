@@ -11,6 +11,21 @@ use App\Services\UserLogService;
 
 class NotificationController extends Controller
 {
+/**
+ * Structure of link_data:
+ *
+ * {
+ *   "type": "redirect",   // or "modal" or "custom"
+ *   "method": "GET",      // optional: "GET" or "POST" (default GET)
+ *   "url": "/orders/1234", // for redirects or API endpoints
+ *   "payload": {          // only used if method = POST
+ *     "order_id": 1234
+ *   },
+ *   "modal_id": "optional-modal-id", // used when type = modal
+ *   "data": { ... }       // data to inject into modal (type=modal)
+ * }
+ * 
+ **/
     // 1. Create notification and assign to users
     public function create(Request $request)
     {
