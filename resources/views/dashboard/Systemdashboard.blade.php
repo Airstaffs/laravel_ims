@@ -661,18 +661,13 @@
             document.getElementById('backToExpanded').addEventListener('click', () => {
                 detailView.classList.add('d-none');
                 expandedView.classList.remove('d-none');
-            });
-
-            notifModal.addEventListener('shown.bs.modal', () => {
+                // Reload table to update read_status
                 fetch(`/notifications/user/${userId}`)
                     .then(res => res.json())
                     .then(data => renderExpandedTable(data));
             });
 
-            document.getElementById('backToExpanded').addEventListener('click', () => {
-                detailView.classList.add('d-none');
-                expandedView.classList.remove('d-none');
-                // Reload table to update read_status
+            notifModal.addEventListener('shown.bs.modal', () => {
                 fetch(`/notifications/user/${userId}`)
                     .then(res => res.json())
                     .then(data => renderExpandedTable(data));
