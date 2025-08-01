@@ -32,7 +32,8 @@ foreach ($feeds as $feed) {
     if ($status === 'DONE') {
         $resultDocId = $statusCheck['resultFeedDocumentId'] ?? null;
         update_feed_status_done($feed['feed_id'], $resultDocId);
-        handle_feed_result($feed['store'], $resultDocId, $feed['feed_id']);
+        handle_feed_result($feed['store'], $resultDocId, $feed['feed_id'], $feed['created_by']);
+
     } elseif ($status === 'CANCELLED' || $status === 'FAILED') {
         update_feed_status_failed($feed['feed_id']);
     }
@@ -76,14 +77,41 @@ function update_msku_status($sku, $status)
 function create_notification($data)
 {
     global $Connect;
-    $stmt = $Connect->prepare("INSERT INTO tblnotifications (module, title, subtitle, content, severity, created_at) VALUES (?, ?, ?, ?, ?, NOW())");
-    $stmt->bind_param("sssss", $data['module'], $data['title'], $data['subtitle'], $data['content'], $data['severity']);
+
+    // 1. Insert into tblnotifications
+    $stmt = $Connect->prepare("
+        INSERT INTO tblnotifications (module, title, subtitle, content, severity, created_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
+    ");
+    $stmt->bind_param(
+        "sssss",
+        $data['module'],
+        $data['title'],
+        $data['subtitle'],
+        $data['content'],
+        $data['severity']
+    );
     $stmt->execute();
+    $notifId = $stmt->insert_id;
+    $stmt->close();
+
+    // 2. If user_ids is provided, assign notifications
+    if (!empty($data['user_ids'])) {
+        $stmt2 = $Connect->prepare("
+            INSERT INTO tblnotificationsuser (notif_id, userid, read_status, created_at)
+            VALUES (?, ?, 'unread', NOW())
+        ");
+        foreach ($data['user_ids'] as $userId) {
+            $stmt2->bind_param("ii", $notifId, $userId);
+            $stmt2->execute();
+        }
+        $stmt2->close();
+    }
 }
 
-function handle_feed_result($store, $docId, $feedId)
+function handle_feed_result($store, $docId, $feedId, $createdBy)
 {
-    $report = fetch_feed_processing_report($store, $docId);
+    $report = fetch_feed_processing_report($store, $docId, $createdBy);
 
     foreach ($report as $row) {
         $sku = $row['sku'];
@@ -91,11 +119,12 @@ function handle_feed_result($store, $docId, $feedId)
         $msg = $row['resultDescription'] ?? 'No message';
 
         create_notification([
-            'module' => 'listing',
+            'module' => 'Stockroom',
             'title' => "$status: MSKU $sku",
             'subtitle' => "Feed $feedId",
             'content' => $msg,
-            'severity' => $status === 'SUCCESS' ? 'success' : 'error'
+            'severity' => $status === 'SUCCESS' ? 'success' : 'error',
+            'user_ids' => [$createdBy]
         ]);
 
         $finalStatus = $status === 'SUCCESS' ? 'Existed' : 'Failed';
@@ -103,7 +132,7 @@ function handle_feed_result($store, $docId, $feedId)
     }
 }
 
-function fetch_feed_processing_report($store, $docId)
+function fetch_feed_processing_report($store, $docId, $createdBy)
 {
     $endpoint = 'https://sellingpartnerapi-na.amazon.com';
     $path = "/feeds/2021-06-30/documents/{$docId}";
@@ -130,31 +159,29 @@ function fetch_feed_processing_report($store, $docId)
     echo "</pre>";
     $downloadUrl = $decoded['url'];
 
-    // Download and parse the actual report content (usually TSV or JSON)
     $compressed = file_get_contents($downloadUrl);
-    $reportContent = gzdecode($compressed); // decompress
+    $reportContent = gzdecode($compressed);
 
     if (!$reportContent) {
         echo "❌ Failed to decode GZIP feed content.\n";
         return [];
     }
 
-    // Try to detect if content is JSON or TSV
     $decodedJson = json_decode($reportContent, true);
     if (is_array($decodedJson)) {
         echo "<pre>📄 Feed Returned JSON (not TSV):\n";
         print_r($decodedJson);
         echo "</pre>";
 
-        // Optional: Handle JSON format results differently
         if (isset($decodedJson['issues'])) {
             foreach ($decodedJson['issues'] as $issue) {
                 create_notification([
-                    'module' => 'listing',
-                    'title' => "{$issue['severity']}: {$issue['code']}",
+                    'module' => 'Stockroom',
+                    'title' => "Automation Error: {$issue['severity']}: {$issue['code']}",
                     'subtitle' => "Feed {$decodedJson['header']['feedId']}",
                     'content' => $issue['message'] ?? 'Unknown issue',
                     'severity' => strtolower($issue['severity']),
+                    'user_ids' => [$createdBy]
                 ]);
             }
         }
@@ -162,9 +189,9 @@ function fetch_feed_processing_report($store, $docId)
         return []; // Skip TSV parsing
     }
 
-    // If not JSON, fallback to TSV parsing
     return parse_feed_report($reportContent);
 }
+
 
 function parse_feed_report($content)
 {

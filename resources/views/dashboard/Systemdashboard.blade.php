@@ -537,16 +537,22 @@
         </div>
     </div>
 
-    <!-- Notifications List Modal -->
+    <!-- Notifications Dropdown Modal -->
     <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-sm">
-            <div class="modal-content">
+        <div class="modal-dialog modal-sm modal-dialog-scrollable"
+            style="position: fixed; top: 60px; right: 20px; margin: 0;">
+            <div class="modal-content shadow">
                 <div class="modal-header">
                     <h5 class="modal-title">Notifications</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
                     <ul class="list-group list-group-flush" id="notifList"></ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="expandNotifBtn" class="btn btn-primary btn-sm">
+                        Expand View
+                    </button>
                 </div>
             </div>
         </div>
@@ -581,6 +587,23 @@
             const notifContentTitle = document.getElementById('notifContentTitle');
             const notifContentBody = document.getElementById('notifContentBody');
 
+            document.getElementById('expandNotifBtn').addEventListener('click', () => {
+                const existing = bootstrap.Modal.getInstance(notifModal);
+                if (existing) {
+                    notifModal.addEventListener('hidden.bs.modal', function handler() {
+                        notifModal.removeEventListener('hidden.bs.modal', handler);
+
+                        // Show a full-page notifications table or the first notification details
+                        // For now, just open notifContentModal blank
+                        notifContentTitle.textContent = 'All Notifications';
+                        notifContentBody.innerHTML = '<p>Here you could show a table of all notifications with full details.</p>';
+                        const contentModal = new bootstrap.Modal(notifContentModal);
+                        contentModal.show();
+                    });
+                    existing.hide();
+                }
+            });
+
             function updateBadge() {
                 fetch(`/notifications/unread-count/${userId}`)
                     .then(res => res.json())
@@ -607,11 +630,14 @@
                             li.className = `list-group-item d-flex justify-content-between align-items-start ${item.read_status === 'unread' ? 'fw-bold' : ''}`;
                             li.style.cursor = 'pointer';
                             li.innerHTML = `
-                        <div>
-                            <div>${item.title}</div>
-                            <small class="text-muted">${new Date(item.notif_created_at).toLocaleString()}</small>
-                        </div>
-                    `;
+                                <div>
+                                    <strong class="text-primary">${item.module}</strong><br>
+                                    <div>${item.title}</div>
+                                    <small class="text-muted">
+                                        ${item.subtitle ? item.subtitle + ' · ' : ''}${new Date(item.notif_created_at).toLocaleString()}
+                                    </small>
+                                </div>
+                            `;
                             li.addEventListener('click', () => handleNotificationClick(item));
                             notifList.appendChild(li);
                         });
@@ -651,13 +677,28 @@
                     }
                 } else {
                     const existing = bootstrap.Modal.getInstance(notifModal);
-                    if (existing) existing.hide();
+                    if (existing) {
+                        // Wait for the notifModal to be fully hidden before showing the content modal
+                        notifModal.addEventListener('hidden.bs.modal', function handler() {
+                            notifModal.removeEventListener('hidden.bs.modal', handler);
 
-                    notifContentTitle.textContent = item.title;
-                    notifContentBody.innerHTML = item.content || '<em>No details available</em>';
+                            // Populate content
+                            notifContentTitle.textContent = item.title;
+                            notifContentBody.innerHTML = item.content || '<em>No details available</em>';
 
-                    const contentModal = new bootstrap.Modal(notifContentModal);
-                    contentModal.show();
+                            // Show the content modal
+                            const contentModal = new bootstrap.Modal(notifContentModal);
+                            contentModal.show();
+                        });
+
+                        existing.hide();
+                    } else {
+                        // If no modal was open (edge case)
+                        notifContentTitle.textContent = item.title;
+                        notifContentBody.innerHTML = item.content || '<em>No details available</em>';
+                        const contentModal = new bootstrap.Modal(notifContentModal);
+                        contentModal.show();
+                    }
                 }
 
                 updateBadge();
