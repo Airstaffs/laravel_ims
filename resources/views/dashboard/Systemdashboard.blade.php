@@ -636,6 +636,7 @@
                     row.addEventListener('click', () => {
                         const item = JSON.parse(row.getAttribute('data-item'));
                         markAsRead(item.notif_id);
+                        updateBadge();  // refresh badge immediately
                         showSingleNotification(item);
                     });
                 });
@@ -663,6 +664,22 @@
             });
 
             notifModal.addEventListener('shown.bs.modal', () => {
+                fetch(`/notifications/user/${userId}`)
+                    .then(res => res.json())
+                    .then(data => renderExpandedTable(data));
+            });
+
+            document.getElementById('backToExpanded').addEventListener('click', () => {
+                detailView.classList.add('d-none');
+                expandedView.classList.remove('d-none');
+                // Reload table to update read_status
+                fetch(`/notifications/user/${userId}`)
+                    .then(res => res.json())
+                    .then(data => renderExpandedTable(data));
+            });
+
+            notifModal.addEventListener('shown.bs.modal', () => {
+                updateBadge();
                 fetch(`/notifications/user/${userId}`)
                     .then(res => res.json())
                     .then(data => renderExpandedTable(data));
