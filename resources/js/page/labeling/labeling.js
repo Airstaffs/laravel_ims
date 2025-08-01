@@ -526,20 +526,34 @@ export default {
             }
         },
 
-        // Add these methods to the methods object in your component
         async moveToValidation(item) {
-            if (!item || !item.ProductID) {
+            if (
+                !item ||
+                !item.ProductID ||
+                !(
+                    item.ASIN ||
+                    item.FNSKU ||
+                    item.SerialNumber ||
+                    item.BasketNumber ||
+                    item.RPN ||
+                    item.PRD ||
+                    item.PCN
+                )
+            ) {
                 console.error("Invalid item data for moving to Validation");
+                Swal.fire({
+                    icon: "error",
+                    title: "Missing Required Fields",
+                    text: "Please ensure at least one identification field is filled (ASIN, FNSKU, Serial Number, Basket Number, RPN, PRD, or PCN).",
+                });
                 return;
             }
 
             try {
-                // Get the CSRF token from the meta tag
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
-                // Make the request with proper data format and headers
                 const response = await axios.post(
                     `${API_BASE_URL}/api/labeling/move-to-validation`,
                     {
@@ -558,24 +572,32 @@ export default {
                 console.log("Move to Validation response:", response.data);
 
                 if (response.data.success) {
-                    // Show success message
-                    alert(
-                        `Item ${item.rtcounter} successfully moved to Validation`
-                    );
-                    // Refresh the inventory list
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: `Item ${item.rtcounter} successfully moved to Validation.`,
+                        timer: 2000,
+                        showConfirmButton: false,
+                    });
                     this.fetchInventory();
                 } else {
-                    alert(
-                        response.data.message ||
-                            "Failed to move item to Validation"
-                    );
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Validation.",
+                    });
                 }
             } catch (error) {
                 console.error("Error moving item to Validation:", error);
-                alert("Failed to move item to Validation. Please try again.");
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "An error occurred while moving the item. Please try again.",
+                });
             }
         },
-
         async moveToStockroom(item) {
             if (!item || !item.ProductID) {
                 console.error("Invalid item data for moving to Stockroom");

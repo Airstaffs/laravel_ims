@@ -641,9 +641,10 @@
                                             </h3>
 
                                             <fieldset>
-                                                <label
-                                                    ><span>ASIN:</span></label
-                                                >
+                                                <label>
+                                                    <span>ASIN:</span>
+                                                    <span>*</span>
+                                                </label>
                                                 <input
                                                     type="text"
                                                     class="form-control"
@@ -760,14 +761,17 @@
                                                     ) in serialKeys"
                                                     :key="key"
                                                 >
-                                                    <label
-                                                        ><span
+                                                    <label>
+                                                        <span
                                                             >Serial Number
                                                             {{
                                                                 getLabel(index)
                                                             }}:</span
-                                                        ></label
-                                                    >
+                                                        >
+                                                        <span v-if="index === 0"
+                                                            >*</span
+                                                        >
+                                                    </label>
                                                     <input
                                                         type="text"
                                                         class="form-control"
@@ -811,7 +815,7 @@
                                             <fieldset>
                                                 <label
                                                     ><span
-                                                        >Order Number:</span
+                                                        >Order Number</span
                                                     ></label
                                                 >
                                                 <input
@@ -824,7 +828,7 @@
                                             <fieldset>
                                                 <label
                                                     ><span
-                                                        >Item Number:</span
+                                                        >Item Number</span
                                                     ></label
                                                 >
                                                 <input
@@ -834,11 +838,10 @@
                                                 />
                                             </fieldset>
                                             <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Basket Number:</span
-                                                    ></label
-                                                >
+                                                <label>
+                                                    <span>Basket Number</span>
+                                                    <span>*</span>
+                                                </label>
                                                 <input
                                                     type="text"
                                                     class="form-control"
@@ -846,7 +849,10 @@
                                                 />
                                             </fieldset>
                                             <fieldset>
-                                                <label><span>RPN:</span></label>
+                                                <label>
+                                                    <span>RPN</span>
+                                                    <span>*</span>
+                                                </label>
                                                 <input
                                                     type="text"
                                                     class="form-control"
@@ -854,7 +860,10 @@
                                                 />
                                             </fieldset>
                                             <fieldset>
-                                                <label><span>PRD:</span></label>
+                                                <label>
+                                                    <span>PRD</span>
+                                                    <span>*</span>
+                                                </label>
                                                 <input
                                                     type="text"
                                                     class="form-control"
@@ -862,7 +871,10 @@
                                                 />
                                             </fieldset>
                                             <fieldset>
-                                                <label><span>PCN:</span></label>
+                                                <label>
+                                                    <span>PCN</span>
+                                                    <span>*</span>
+                                                </label>
                                                 <input
                                                     type="text"
                                                     class="form-control"
@@ -872,7 +884,7 @@
                                             <fieldset>
                                                 <label
                                                     ><span
-                                                        >Priority Rank:</span
+                                                        >Priority Rank</span
                                                     ></label
                                                 >
                                                 <select
@@ -894,7 +906,7 @@
                                             <fieldset>
                                                 <label
                                                     ><span
-                                                        >Return Status:</span
+                                                        >Return Status</span
                                                     ></label
                                                 >
                                                 <input
@@ -951,7 +963,7 @@
                                     <!-- Description, Supplier Notes, Employee Notes -->
                                     <!-- SECTION: Notes -->
                                     <fieldset>
-                                        <label><span>Description:</span></label>
+                                        <label><span>Description</span></label>
                                         <textarea
                                             ref="descriptionarea"
                                             class="form-control no-resize"
@@ -964,7 +976,7 @@
 
                                     <fieldset>
                                         <label
-                                            ><span>Supplier Notes:</span></label
+                                            ><span>Supplier Notes</span></label
                                         >
                                         <textarea
                                             ref="supplierNotesarea"
@@ -978,7 +990,7 @@
 
                                     <fieldset>
                                         <label
-                                            ><span>Employee Notes:</span></label
+                                            ><span>Employee Notes</span></label
                                         >
                                         <textarea
                                             ref="employeeNotesarea"
@@ -992,7 +1004,7 @@
 
                                     <fieldset>
                                         <label
-                                            ><span>Sticker Notes:</span></label
+                                            ><span>Sticker Notes</span></label
                                         >
                                         <textarea
                                             ref="stickerNotesarea"
@@ -1082,7 +1094,7 @@
                                 {{ currentItem?.ProductTitle }}
                             </h4>
                             <div class="detail-item">
-                                <span class="label">Current FNSKU:</span>
+                                <span class="label">Current FNSKU</span>
                                 <span class="value">{{
                                     currentItem?.FNSKUviewer || "None"
                                 }}</span>
@@ -1426,24 +1438,26 @@
             </div>
         </div>
 
-        <!-- Add this confirmation modal HTML to your template section -->
         <!-- Confirmation Modal -->
         <div v-if="showConfirmationModal" class="modal confirmation-modal">
             <div class="modal-overlay" @click="cancelConfirmation"></div>
-            <div class="confirmation-modal-content">
-                <div class="confirmation-modal-header">
+
+            <div class="modal-content">
+                <div class="modal-header">
                     <h3>{{ confirmationTitle }}</h3>
                     <button
-                        class="confirmation-close"
+                        class="btn btn-modal-close"
                         @click="cancelConfirmation"
                     >
                         &times;
                     </button>
                 </div>
-                <div class="confirmation-modal-body">
+
+                <div class="modal-body">
                     <p>{{ confirmationMessage }}</p>
                 </div>
-                <div class="confirmation-modal-footer">
+
+                <div class="modal-footer">
                     <button class="btn-cancel" @click="cancelConfirmation">
                         Cancel
                     </button>

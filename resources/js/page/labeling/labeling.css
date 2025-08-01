@@ -17,8 +17,7 @@
     z-index: 1000;
 }
 
-.fnsku-modal-content,
-.confirmation-modal-content {
+.fnsku-modal-content {
     background-color: white;
     border-radius: 8px;
     width: 90%;
@@ -28,8 +27,7 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
-.fnsku-modal-header,
-.confirmation-modal-header {
+.fnsku-modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -37,15 +35,13 @@
     border-bottom: 1px solid #ddd;
 }
 
-.fnsku-modal-header h2,
-.confirmation-modal-header h2 {
+.fnsku-modal-header h2 {
     margin: 0;
     font-size: 18px;
     color: #333;
 }
 
-button.fnsku-close,
-button.confirmation-close {
+button.fnsku-close {
     background: none;
     border: none;
     font-size: 24px;
@@ -119,21 +115,6 @@ button.btn.btn-fnsku-select:hover {
 .badge-success {
     color: #fff;
     background-color: #28a745;
-}
-
-.confirmation-modal-body {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
-
-.confirmation-modal-footer {
-    padding: 15px 20px;
-    border-top: 1px solid #ddd;
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
 }
 
 .fnsku-product {
@@ -269,6 +250,10 @@ button.btn.btn-fnsku-select:hover {
     color: #555;
 }
 
+label span + span {
+    color: #ff2c2c;
+}
+
 .value {
     font-weight: 600;
     color: #222;
@@ -302,6 +287,14 @@ table thead.sticky-header th {
 .btn-outline-dark:hover {
     background-color: #343a40;
     color: white;
+}
+
+.confirmation-modal .modal-content {
+    width: 800px;
+}
+
+.confirmation-modal .modal-body {
+    padding: 20px;
 }
 
 @media (max-width: 767px) {
