@@ -733,19 +733,22 @@ export default {
             // Validate required prefixes
             const errors = [];
 
-            if (!/^RPN\d+$/i.test(this.item.RPN)) {
+            if (this.item.RPN && !/^RPN\d+$/i.test(this.item.RPN)) {
                 errors.push("RPN must start with 'RPN' followed by numbers.");
             }
 
-            if (!/^PRD\d+$/i.test(this.item.PRD)) {
+            if (this.item.PRD && !/^PRD\d+$/i.test(this.item.PRD)) {
                 errors.push("PRD must start with 'PRD' followed by numbers.");
             }
 
-            if (!/^PCN\d+$/i.test(this.item.PCN)) {
+            if (this.item.PCN && !/^PCN\d+$/i.test(this.item.PCN)) {
                 errors.push("PCN must start with 'PCN' followed by numbers.");
             }
 
-            if (!/^BKT\d+$/i.test(this.item.basketnumber)) {
+            if (
+                this.item.basketnumber &&
+                !/^BKT\d+$/i.test(this.item.basketnumber)
+            ) {
                 errors.push(
                     "Basket Number must start with 'BKT' followed by numbers."
                 );
