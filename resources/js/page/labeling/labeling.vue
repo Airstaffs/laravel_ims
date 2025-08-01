@@ -1096,36 +1096,121 @@
                         </div>
                     </div>
 
-                    <!-- Search with Loading -->
-                    <div class="fnsku-search-container">
-                        <div class="search-input-wrapper">
+                    <div
+                        class="d-flex justify-content-between align-items-center"
+                    >
+                        <h5 class="mb-0">Search & Filters</h5>
+                        <button
+                            class="btn btn-sm btn-outline-dark d-flex align-items-center gap-2"
+                            @click="showFilters = !showFilters"
+                        >
+                            <i class="fas fa-sliders-h"></i>
+                            <span>{{ showFilters ? "Hide" : "Show" }}</span>
+                        </button>
+                    </div>
+
+                    <!-- Improved Search & Filter UI -->
+                    <div
+                        class="fnsku-search-container card p-3 shadow-sm rounded-0 bg-light-subtle"
+                        v-show="showFilters"
+                    >
+                        <!-- Spinner + Search -->
+                        <div class="position-relative mb-3">
+                            <label class="form-label fw-semibold"
+                                >Search Title or ASIN</label
+                            >
                             <input
                                 type="text"
                                 v-model="fnskuSearch"
-                                placeholder="Search FNSKU, ASIN, title, or grading..."
-                                class="fnsku-search-input form-control"
+                                placeholder="Search Title or ASIN"
+                                class="form-control pe-5"
                                 @input="filterFnskuList"
                                 :disabled="isSearching"
                             />
-
-                            <!-- Loading spinner inside search input -->
+                            <!-- Spinner overlay inside input -->
                             <div
                                 v-if="isSearching"
-                                class="search-loading-spinner"
+                                class="position-absolute top-50 end-0 translate-middle-y me-3"
                             >
-                                <div class="spinner"></div>
+                                <div
+                                    class="spinner-border spinner-border-sm text-secondary"
+                                ></div>
                             </div>
                         </div>
 
-                        <!-- Loading text below search -->
-                        <div v-if="isSearching" class="search-loading-text">
+                        <!-- Filters Grid -->
+                        <div class="row g-3">
+                            <!-- Store Filter -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold"
+                                    >Filter by Store</label
+                                >
+                                <select
+                                    v-model="selectedStore"
+                                    @change="filterFnskuList"
+                                    class="form-select"
+                                    :disabled="isSearching"
+                                >
+                                    <option value="">All Stores</option>
+                                    <option
+                                        v-for="store in uniqueStores"
+                                        :key="store"
+                                        :value="store"
+                                    >
+                                        {{ store }}
+                                    </option>
+                                </select>
+                            </div>
+
+                            <!-- FNSKU Filter -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold"
+                                    >Filter by FNSKU</label
+                                >
+                                <input
+                                    type="text"
+                                    v-model="fnskuExact"
+                                    @input="filterFnskuList"
+                                    class="form-control"
+                                    placeholder="Exact or partial FNSKU"
+                                    :disabled="isSearching"
+                                />
+                            </div>
+
+                            <!-- Grading Filter -->
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold"
+                                    >Filter by Condition</label
+                                >
+                                <select
+                                    v-model="selectedGrading"
+                                    @change="filterFnskuList"
+                                    class="form-select"
+                                    :disabled="isSearching"
+                                >
+                                    <option value="">All Condition</option>
+                                    <option
+                                        v-for="grade in uniqueGradings"
+                                        :key="grade"
+                                        :value="grade"
+                                    >
+                                        {{ grade }}
+                                    </option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Optional loading status below -->
+                        <div
+                            v-if="isSearching"
+                            class="text-muted mt-3 text-center small"
+                        >
                             Searching FNSKUs...
                         </div>
                     </div>
 
                     <!-- FNSKU List - Desktop Table -->
                     <div class="d-none d-md-block">
-                        <!-- Show loading overlay when searching -->
                         <div v-if="isSearching" class="fnsku-loading-overlay">
                             <div class="loading-content">
                                 <div class="loading-spinner-large"></div>
@@ -1146,6 +1231,7 @@
                                         <th>FNSKU</th>
                                         <th>MSKU</th>
                                         <th>Grade</th>
+                                        <th>Store</th>
                                         <th>Action</th>
                                     </tr>
                                 </thead>
@@ -1185,6 +1271,7 @@
                                             <td>{{ fnsku.FNSKU }}</td>
                                             <td>{{ fnsku.MSKU }}</td>
                                             <td>{{ fnsku.grading }}</td>
+                                            <td>{{ fnsku.storename }}</td>
                                             <td>
                                                 <div class="fnsku-action">
                                                     <button
@@ -1211,17 +1298,16 @@
                                         </tr>
                                     </template>
 
-                                    <!-- No results row -->
                                     <tr
                                         v-if="
                                             filteredFnskuList.length === 0 &&
                                             !isSearching
                                         "
                                     >
-                                        <td colspan="7" class="text-center">
-                                            <span class="fnsku-no-results">
-                                                No matching FNSKUs found
-                                            </span>
+                                        <td colspan="8" class="text-center">
+                                            <span class="fnsku-no-results"
+                                                >No matching FNSKUs found</span
+                                            >
                                         </td>
                                     </tr>
                                 </tbody>
@@ -1229,9 +1315,8 @@
                         </div>
                     </div>
 
-                    <!-- Mobile FNSKU Card View -->
+                    <!-- Mobile Card View -->
                     <div class="fnsku-card-container d-block d-md-none">
-                        <!-- Mobile loading overlay -->
                         <div
                             v-if="isSearching"
                             class="fnsku-loading-overlay mobile"
@@ -1252,13 +1337,16 @@
                                 "
                             >
                                 <div class="card-body d-flex flex-column gap-3">
-                                    <!-- Section 1: FNSKU Details -->
                                     <div class="d-flex justify-content-between">
                                         <div class="fnsku-details">
                                             <h6>{{ fnsku.FNSKU }}</h6>
                                             <p>
                                                 <strong>ASIN:</strong>
                                                 {{ fnsku.ASIN }}
+                                            </p>
+                                            <p>
+                                                <strong>Store:</strong>
+                                                {{ fnsku.storename }}
                                             </p>
                                         </div>
                                         <span
@@ -1278,7 +1366,6 @@
                                         </span>
                                     </div>
 
-                                    <!-- Section 2: Title & Inventory -->
                                     <div
                                         class="d-flex flex-column align-items-start gap-1"
                                     >
@@ -1293,7 +1380,6 @@
                                         >
                                     </div>
 
-                                    <!-- Section 3: Action Button -->
                                     <div>
                                         <button
                                             @click="selectFnsku(fnsku)"
@@ -1319,7 +1405,6 @@
                                 </div>
                             </div>
 
-                            <!-- No results message -->
                             <div
                                 v-if="
                                     filteredFnskuList.length === 0 &&
