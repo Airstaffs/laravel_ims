@@ -539,7 +539,7 @@
 
     <!-- Notifications Dropdown Modal -->
     <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-scrollable"
+        <div class="modal-dialog modal-sm modal-dialog-scrollable" id="notifModalDialog"
             style="position: fixed; top: 60px; right: 20px; margin: 0;">
             <div class="modal-content shadow">
                 <div class="modal-header">
@@ -588,6 +588,7 @@
 
             const notifList = document.getElementById('notifList');
             const notifModal = document.getElementById('notifModal');
+            const notifModalDialog = document.getElementById('notifModalDialog');
 
             const listView = document.getElementById('notifListView');
             const expandedView = document.getElementById('notifExpandedView');
@@ -596,9 +597,24 @@
             const notifExpandedTable = document.getElementById('notifExpandedTable');
             const notifDetailContent = document.getElementById('notifDetailContent');
 
-            function showView(view) {
+            function setDialogMode(mode) {
+                // Reset classes and styles
+                notifModalDialog.className = 'modal-dialog modal-dialog-scrollable';
+                notifModalDialog.removeAttribute('style');
+
+                if (mode === 'list') {
+                    notifModalDialog.classList.add('modal-sm');
+                    notifModalDialog.style.cssText = 'position: fixed; top: 60px; right: 20px; margin: 0;';
+                } else {
+                    notifModalDialog.classList.add('modal-lg');
+                    // Centered default, no custom position
+                }
+            }
+
+            function showView(view, mode = 'list') {
                 [listView, expandedView, detailView].forEach(v => v.classList.add('d-none'));
                 view.classList.remove('d-none');
+                setDialogMode(mode);
             }
 
             function updateBadge() {
@@ -699,7 +715,7 @@
                     <tr><th>Date</th><td>${new Date(item.notif_created_at).toLocaleString()}</td></tr>
                 </tbody>
             </table>`;
-                showView(detailView);
+                showView(detailView, 'expanded');
             }
 
             document.getElementById('expandNotifBtn').addEventListener('click', () => {
@@ -707,16 +723,16 @@
                     .then(res => res.json())
                     .then(data => {
                         renderExpandedTable(data);
-                        showView(expandedView);
+                        showView(expandedView, 'expanded');
                     });
             });
 
             document.getElementById('backToList').addEventListener('click', () => {
-                showView(listView);
+                showView(listView, 'list');
             });
 
             document.getElementById('backToExpanded').addEventListener('click', () => {
-                showView(expandedView);
+                showView(expandedView, 'expanded');
             });
 
             function handleNotificationClick(item) {
@@ -725,14 +741,13 @@
             }
 
             notifModal.addEventListener('shown.bs.modal', () => {
-                showView(listView);
+                showView(listView, 'list');
                 loadNotifications();
             });
 
             updateBadge();
             setInterval(updateBadge, 30000);
         });
-
     </script>
 
 
