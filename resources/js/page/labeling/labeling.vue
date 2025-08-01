@@ -1188,13 +1188,13 @@
                                     class="form-select"
                                     :disabled="isSearching"
                                 >
-                                    <option value="">All Condition</option>
+                                    <option value="">All Conditions</option>
                                     <option
-                                        v-for="grade in uniqueGradings"
-                                        :key="grade"
-                                        :value="grade"
+                                        v-for="option in gradingOptions"
+                                        :key="option.value"
+                                        :value="option.value"
                                     >
-                                        {{ grade }}
+                                        {{ option.label }}
                                     </option>
                                 </select>
                             </div>
@@ -1270,7 +1270,13 @@
                                             </td>
                                             <td>{{ fnsku.FNSKU }}</td>
                                             <td>{{ fnsku.MSKU }}</td>
-                                            <td>{{ fnsku.grading }}</td>
+                                            <td>
+                                                {{
+                                                    getGradingLabel(
+                                                        fnsku.grading
+                                                    )
+                                                }}
+                                            </td>
                                             <td>{{ fnsku.storename }}</td>
                                             <td>
                                                 <div class="fnsku-action">
