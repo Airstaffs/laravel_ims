@@ -671,6 +671,15 @@
                 }
             });
 
+            notifContentModal.addEventListener('hidden.bs.modal', function () {
+                const instance = bootstrap.Modal.getInstance(notifContentModal);
+                if (instance) {
+                    instance.dispose();
+                }
+            });
+
+            document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+
             function updateBadge() {
                 fetch(`/notifications/unread-count/${userId}`)
                     .then(res => res.json())
