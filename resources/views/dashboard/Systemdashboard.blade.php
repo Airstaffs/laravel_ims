@@ -539,8 +539,7 @@
 
     <!-- Notifications Dropdown Modal -->
     <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-sm modal-dialog-scrollable" id="notifModalDialog"
-            style="position: fixed; top: 60px; right: 20px; margin: 0;">
+        <div class="modal-dialog modal-sm modal-dialog-scrollable" id="notifModalDialog">
             <div class="modal-content shadow">
                 <div class="modal-header">
                     <h5 class="modal-title" id="notifModalTitle">Notifications</h5>
@@ -744,6 +743,33 @@
                 showView(listView, 'list');
                 loadNotifications();
             });
+
+            function setDialogMode(mode) {
+                const dialog = notifModalDialog;
+                dialog.className = 'modal-dialog modal-dialog-scrollable'; // reset
+                dialog.removeAttribute('style');
+
+                if (mode === 'list') {
+                    dialog.classList.add('modal-sm');
+
+                    // Compute bell position
+                    const bell = document.getElementById('notifBell');
+                    const rect = bell.getBoundingClientRect();
+
+                    const modalWidth = 350; // approximate small modal width
+                    const top = rect.bottom + 5; // 5px gap below bell
+                    const left = rect.right - modalWidth; // align right edge
+
+                    // Fixed position relative to viewport
+                    dialog.style.position = 'fixed';
+                    dialog.style.top = `${top}px`;
+                    dialog.style.left = `${left}px`;
+                    dialog.style.margin = '0';
+                } else {
+                    dialog.classList.add('modal-lg');
+                    // Let Bootstrap center it normally
+                }
+            }
 
             updateBadge();
             setInterval(updateBadge, 30000);
