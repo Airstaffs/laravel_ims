@@ -539,37 +539,23 @@
 
     <!-- Notifications Dropdown Modal -->
     <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-sm modal-dialog-scrollable" id="notifModalDialog">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
             <div class="modal-content shadow">
                 <div class="modal-header">
                     <h5 class="modal-title" id="notifModalTitle">Notifications</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-
-                <div class="modal-body p-0">
-
-                    <!-- View 1: Compact List -->
-                    <div id="notifListView">
-                        <ul class="list-group list-group-flush" id="notifList"></ul>
-                        <div class="p-2">
-                            <button id="expandNotifBtn" class="btn btn-primary btn-sm w-100">
-                                Expand View
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- View 2: Expanded Table -->
-                    <div id="notifExpandedView" class="d-none">
+                <div class="modal-body">
+                    <!-- Expanded Table View -->
+                    <div id="notifExpandedView">
                         <div id="notifExpandedTable"></div>
-                        <button id="backToList" class="btn btn-secondary btn-sm mt-2">Back</button>
                     </div>
 
-                    <!-- View 3: Single Notification -->
+                    <!-- Single Notification View -->
                     <div id="notifDetailView" class="d-none">
                         <div id="notifDetailContent"></div>
-                        <button id="backToExpanded" class="btn btn-secondary btn-sm mt-2">Back</button>
+                        <button id="backToExpanded" class="btn btn-secondary btn-sm mt-3">Back</button>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -580,41 +566,16 @@
             const userId = @json(Auth::id());
             const csrfToken = '{{ csrf_token() }}';
 
+            const notifModal = document.getElementById('notifModal');
+            const expandedView = document.getElementById('notifExpandedView');
+            const detailView = document.getElementById('notifDetailView');
+            const notifExpandedTable = document.getElementById('notifExpandedTable');
+            const notifDetailContent = document.getElementById('notifDetailContent');
+
             const notifBadges = [
                 document.getElementById('notifBadge'),
                 document.getElementById('notifBadgeMobile')
             ];
-
-            const notifList = document.getElementById('notifList');
-            const notifModal = document.getElementById('notifModal');
-            const notifModalDialog = document.getElementById('notifModalDialog');
-
-            const listView = document.getElementById('notifListView');
-            const expandedView = document.getElementById('notifExpandedView');
-            const detailView = document.getElementById('notifDetailView');
-
-            const notifExpandedTable = document.getElementById('notifExpandedTable');
-            const notifDetailContent = document.getElementById('notifDetailContent');
-
-            function setDialogMode(mode) {
-                // Reset classes and styles
-                notifModalDialog.className = 'modal-dialog modal-dialog-scrollable';
-                notifModalDialog.removeAttribute('style');
-
-                if (mode === 'list') {
-                    notifModalDialog.classList.add('modal-sm');
-                    notifModalDialog.style.cssText = 'position: fixed; top: 60px; right: 20px; margin: 0;';
-                } else {
-                    notifModalDialog.classList.add('modal-lg');
-                    // Centered default, no custom position
-                }
-            }
-
-            function showView(view, mode = 'list') {
-                [listView, expandedView, detailView].forEach(v => v.classList.add('d-none'));
-                view.classList.remove('d-none');
-                setDialogMode(mode);
-            }
 
             function updateBadge() {
                 fetch(`/notifications/unread-count/${userId}`)
@@ -624,31 +585,6 @@
                             if (!badge) return;
                             badge.textContent = data.unread_count;
                             badge.style.display = data.unread_count > 0 ? 'inline-block' : 'none';
-                        });
-                    });
-            }
-
-            function loadNotifications() {
-                fetch(`/notifications/user/${userId}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        notifList.innerHTML = '';
-                        if (data.length === 0) {
-                            notifList.innerHTML = '<li class="list-group-item text-center text-muted">No notifications</li>';
-                            return;
-                        }
-                        data.forEach(item => {
-                            const li = document.createElement('li');
-                            li.className = `list-group-item ${item.read_status === 'unread' ? 'fw-bold' : ''}`;
-                            li.style.cursor = 'pointer';
-                            li.innerHTML = `
-                        <div>
-                            <strong class="text-primary">${item.module}</strong><br>
-                            ${item.title}<br>
-                            <small class="text-muted">${item.subtitle || ''} · ${new Date(item.notif_created_at).toLocaleString()}</small>
-                        </div>`;
-                            li.addEventListener('click', () => handleNotificationClick(item));
-                            notifList.appendChild(li);
                         });
                     });
             }
@@ -680,6 +616,7 @@
                 </thead>
                 <tbody>
         `;
+
                 data.forEach(item => {
                     html += `
               <tr class="notif-row ${item.read_status === 'unread' ? 'fw-bold' : ''}" data-item='${JSON.stringify(item)}'>
@@ -691,12 +628,14 @@
                 <td>${new Date(item.notif_created_at).toLocaleString()}</td>
               </tr>`;
                 });
+
                 html += '</tbody></table></div>';
                 notifExpandedTable.innerHTML = html;
 
                 notifExpandedTable.querySelectorAll('.notif-row').forEach(row => {
                     row.addEventListener('click', () => {
                         const item = JSON.parse(row.getAttribute('data-item'));
+                        markAsRead(item.notif_id);
                         showSingleNotification(item);
                     });
                 });
@@ -714,62 +653,20 @@
                     <tr><th>Date</th><td>${new Date(item.notif_created_at).toLocaleString()}</td></tr>
                 </tbody>
             </table>`;
-                showView(detailView, 'expanded');
+                expandedView.classList.add('d-none');
+                detailView.classList.remove('d-none');
             }
-
-            document.getElementById('expandNotifBtn').addEventListener('click', () => {
-                fetch(`/notifications/user/${userId}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        renderExpandedTable(data);
-                        showView(expandedView, 'expanded');
-                    });
-            });
-
-            document.getElementById('backToList').addEventListener('click', () => {
-                showView(listView, 'list');
-            });
 
             document.getElementById('backToExpanded').addEventListener('click', () => {
-                showView(expandedView, 'expanded');
+                detailView.classList.add('d-none');
+                expandedView.classList.remove('d-none');
             });
-
-            function handleNotificationClick(item) {
-                markAsRead(item.notif_id);
-                showSingleNotification(item);
-            }
 
             notifModal.addEventListener('shown.bs.modal', () => {
-                showView(listView, 'list');
-                loadNotifications();
+                fetch(`/notifications/user/${userId}`)
+                    .then(res => res.json())
+                    .then(data => renderExpandedTable(data));
             });
-
-            function setDialogMode(mode) {
-                const dialog = notifModalDialog;
-                dialog.className = 'modal-dialog modal-dialog-scrollable'; // reset
-                dialog.removeAttribute('style');
-
-                if (mode === 'list') {
-                    dialog.classList.add('modal-sm');
-
-                    // Compute bell position
-                    const bell = document.getElementById('notifBell');
-                    const rect = bell.getBoundingClientRect();
-
-                    const modalWidth = 350; // approximate small modal width
-                    const top = rect.bottom + 5; // 5px gap below bell
-                    const left = rect.right - modalWidth; // align right edge
-
-                    // Fixed position relative to viewport
-                    dialog.style.position = 'fixed';
-                    dialog.style.top = `${top}px`;
-                    dialog.style.left = `${left}px`;
-                    dialog.style.margin = '0';
-                } else {
-                    dialog.classList.add('modal-lg');
-                    // Let Bootstrap center it normally
-                }
-            }
 
             updateBadge();
             setInterval(updateBadge, 30000);
