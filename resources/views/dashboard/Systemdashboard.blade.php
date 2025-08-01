@@ -544,15 +544,16 @@
             <div class="modal-content shadow">
                 <div class="modal-header">
                     <h5 class="modal-title">Notifications</h5>
+                    <button type="button" id="expandNotifBtn" class="btn btn-primary btn-sm">
+                        Expand View
+                    </button>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-0">
                     <ul class="list-group list-group-flush" id="notifList"></ul>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" id="expandNotifBtn" class="btn btn-primary btn-sm">
-                        Expand View
-                    </button>
+
                 </div>
             </div>
         </div>
@@ -593,12 +594,44 @@
                     notifModal.addEventListener('hidden.bs.modal', function handler() {
                         notifModal.removeEventListener('hidden.bs.modal', handler);
 
-                        // Show a full-page notifications table or the first notification details
-                        // For now, just open notifContentModal blank
-                        notifContentTitle.textContent = 'All Notifications';
-                        notifContentBody.innerHTML = '<p>Here you could show a table of all notifications with full details.</p>';
-                        const contentModal = new bootstrap.Modal(notifContentModal);
-                        contentModal.show();
+                        // Fetch all notifications again
+                        fetch(`/notifications/user/${userId}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                notifContentTitle.textContent = 'All Notifications';
+                                let tableHtml = `
+                        <div class="table-responsive">
+                          <table class="table table-bordered table-sm align-middle">
+                            <thead>
+                              <tr>
+                                <th>Module</th>
+                                <th>Title</th>
+                                <th>Subtitle</th>
+                                <th>Content</th>
+                                <th>Severity</th>
+                                <th>Date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                                data.forEach(item => {
+                                    tableHtml += `
+                          <tr class="${item.read_status === 'unread' ? 'fw-bold' : ''}">
+                            <td>${item.module}</td>
+                            <td>${item.title}</td>
+                            <td>${item.subtitle || ''}</td>
+                            <td>${item.content || ''}</td>
+                            <td>${item.severity}</td>
+                            <td>${new Date(item.notif_created_at).toLocaleString()}</td>
+                          </tr>
+                        `;
+                                });
+                                tableHtml += `</tbody></table></div>`;
+                                notifContentBody.innerHTML = tableHtml;
+
+                                const contentModal = new bootstrap.Modal(notifContentModal);
+                                contentModal.show();
+                            });
                     });
                     existing.hide();
                 }
