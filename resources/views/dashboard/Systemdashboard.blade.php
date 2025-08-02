@@ -592,16 +592,20 @@
                 fetch(`/notifications/unread-count/${userId}`)
                     .then(res => res.json())
                     .then(data => {
-                        notifBadges.forEach(badge => {
-                            if (!badge) return;
+                        const count = data.unread_count;
 
-                            const count = data.unread_count;
+                        const badges = [
+                            document.getElementById('notifBadgeMobile'),
+                            document.getElementById('notifBadgeDesktop')
+                        ];
+
+                        badges.forEach(badge => {
+                            if (!badge) return;
 
                             if (count > 0) {
                                 badge.textContent = count;
                                 badge.style.display = 'inline-block';
                             } else {
-                                // Hide and clear text
                                 badge.style.display = 'none';
                                 badge.textContent = '';
                             }
