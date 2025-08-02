@@ -537,133 +537,168 @@
         </div>
     </div>
 
-    <!-- Notifications List Modal -->
+    <!-- Notifications Dropdown Modal -->
     <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-scrollable modal-sm">
-            <div class="modal-content">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content shadow">
                 <div class="modal-header">
-                    <h5 class="modal-title">Notifications</h5>
+                    <h5 class="modal-title" id="notifModalTitle">Notifications</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
-                <div class="modal-body p-0">
-                    <ul class="list-group list-group-flush" id="notifList"></ul>
-                </div>
-            </div>
-        </div>
-    </div>
+                <div class="modal-body">
+                    <!-- Expanded Table View -->
+                    <div id="notifExpandedView">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div>
+                                <label for="moduleFilter" class="form-label me-2">Filter by Module:</label>
+                                <select id="moduleFilter" class="form-select form-select-sm d-inline-block w-auto">
+                                    <option value="">All</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="notifExpandedTable"></div>
+                    </div>
 
-    <!-- Notification Content Modal -->
-    <div class="modal fade" id="notifContentModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="notifContentTitle"></h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body" id="notifContentBody">
+                    <!-- Single Notification View -->
+                    <div id="notifDetailView" class="d-none">
+                        <div id="notifDetailContent"></div>
+                        <button id="backToExpanded" class="btn btn-secondary btn-sm mt-3">Back</button>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        let notificationsData = []; // will store fetched notifications
+        let currentSort = { key: null, asc: true }; // sort state
+
         document.addEventListener('DOMContentLoaded', function () {
-            // valid shit
             const userId = @json(Auth::id());
             const csrfToken = '{{ csrf_token() }}';
-            const notifBadges = [
-                document.getElementById('notifBadge'),
-                document.getElementById('notifBadgeMobile')
-            ];
-            const notifList = document.getElementById('notifList');
+
             const notifModal = document.getElementById('notifModal');
-            const notifContentModal = document.getElementById('notifContentModal');
-            const notifContentTitle = document.getElementById('notifContentTitle');
-            const notifContentBody = document.getElementById('notifContentBody');
+            const expandedView = document.getElementById('notifExpandedView');
+            const detailView = document.getElementById('notifDetailView');
+            const notifExpandedTable = document.getElementById('notifExpandedTable');
+            const notifDetailContent = document.getElementById('notifDetailContent');
+
+            const notifBadges = [
+                document.getElementById('notifBadgeMobile'),
+                document.getElementById('notifBadgeDesktop')
+            ];
 
             function updateBadge() {
                 fetch(`/notifications/unread-count/${userId}`)
                     .then(res => res.json())
                     .then(data => {
+                        const count = data.unread_count;
+
                         notifBadges.forEach(badge => {
                             if (!badge) return;
-                            badge.textContent = data.unread_count;
-                            badge.style.display = data.unread_count > 0 ? 'inline-block' : 'none';
-                        });
-                    });
-            }
 
-            function loadNotifications() {
-                fetch(`/notifications/user/${userId}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        notifList.innerHTML = '';
-                        if (data.length === 0) {
-                            notifList.innerHTML = '<li class="list-group-item text-center text-muted">No notifications</li>';
-                            return;
-                        }
-                        data.forEach(item => {
-                            const li = document.createElement('li');
-                            li.className = `list-group-item d-flex justify-content-between align-items-start ${item.read_status === 'unread' ? 'fw-bold' : ''}`;
-                            li.style.cursor = 'pointer';
-                            li.innerHTML = `
-                        <div>
-                            <div>${item.title}</div>
-                            <small class="text-muted">${new Date(item.notif_created_at).toLocaleString()}</small>
-                        </div>
-                    `;
-                            li.addEventListener('click', () => handleNotificationClick(item));
-                            notifList.appendChild(li);
+                            if (count > 0) {
+                                badge.textContent = count;
+                                badge.style.display = 'inline-block';
+                            } else {
+                                badge.style.display = 'none';
+                                badge.textContent = '';
+                            }
                         });
                     });
             }
 
             function markAsRead(notifId) {
-                fetch(`/notifications/mark-read`, {
+                return fetch(`/notifications/mark-read`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify({ notif_id: notifId, user_id: userId })
+                }).then(res => res.json());
+            }
+
+            function renderExpandedTable(data) {
+                let html = `
+            <div class="table-responsive">
+              <table class="table table-bordered table-sm align-middle">
+                <thead>
+                  <tr>
+                    <th>Module</th>
+                    <th>Title</th>
+                    <th>Subtitle</th>
+                    <th>Content</th>
+                    <th>Severity</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+        `;
+
+                data.forEach(item => {
+                    html += `
+              <tr class="notif-row ${item.read_status === 'unread' ? 'fw-bold' : ''}" data-item='${JSON.stringify(item)}'>
+                <td>${item.module}</td>
+                <td>${item.title}</td>
+                <td>${item.subtitle || ''}</td>
+                <td>${item.content || ''}</td>
+                <td>${item.severity}</td>
+                <td>${new Date(item.notif_created_at).toLocaleString()}</td>
+              </tr>`;
+                });
+
+                html += '</tbody></table></div>';
+                notifExpandedTable.innerHTML = html;
+
+                notifExpandedTable.querySelectorAll('.notif-row').forEach(row => {
+                    row.addEventListener('click', () => {
+                        const item = JSON.parse(row.getAttribute('data-item'));
+                        markAsRead(item.notif_id).then(() => {
+                            updateBadge();
+                            showSingleNotification(item);
+                        });
+                    });
                 });
             }
 
-            function handleNotificationClick(item) {
-                markAsRead(item.notif_id);
-
-                let linkData = null;
-                try { linkData = item.link_data ? JSON.parse(item.link_data) : null; } catch (e) { }
-
-                if (linkData && linkData.type === 'redirect') {
-                    const method = linkData.method || 'GET';
-                    if (method === 'GET') {
-                        window.location.href = linkData.url;
-                    } else if (method === 'POST') {
-                        fetch(linkData.url, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'X-CSRF-TOKEN': csrfToken
-                            },
-                            body: JSON.stringify(linkData.payload || {})
-                        }).then(() => window.location.reload());
-                    }
-                } else {
-                    const existing = bootstrap.Modal.getInstance(notifModal);
-                    if (existing) existing.hide();
-
-                    notifContentTitle.textContent = item.title;
-                    notifContentBody.innerHTML = item.content || '<em>No details available</em>';
-
-                    const contentModal = new bootstrap.Modal(notifContentModal);
-                    contentModal.show();
-                }
-
-                updateBadge();
+            function showSingleNotification(item) {
+                notifDetailContent.innerHTML = `
+            <table class="table table-sm">
+                <tbody>
+                    <tr><th>Module</th><td>${item.module}</td></tr>
+                    <tr><th>Title</th><td>${item.title}</td></tr>
+                    <tr><th>Subtitle</th><td>${item.subtitle || ''}</td></tr>
+                    <tr><th>Content</th><td>${item.content || ''}</td></tr>
+                    <tr><th>Severity</th><td>${item.severity}</td></tr>
+                    <tr><th>Date</th><td>${new Date(item.notif_created_at).toLocaleString()}</td></tr>
+                </tbody>
+            </table>`;
+                expandedView.classList.add('d-none');
+                detailView.classList.remove('d-none');
             }
 
-            notifModal.addEventListener('shown.bs.modal', loadNotifications);
+            document.getElementById('backToExpanded').addEventListener('click', () => {
+                detailView.classList.add('d-none');
+                expandedView.classList.remove('d-none');
+                // Reload table to update read_status
+                fetch(`/notifications/user/${userId}`)
+                    .then(res => res.json())
+                    .then(data => renderExpandedTable(data));
+            });
+
+            notifModal.addEventListener('shown.bs.modal', () => {
+                fetch(`/notifications/user/${userId}`)
+                    .then(res => res.json())
+                    .then(data => renderExpandedTable(data));
+            });
+
+            notifModal.addEventListener('shown.bs.modal', () => {
+                updateBadge();
+                fetch(`/notifications/user/${userId}`)
+                    .then(res => res.json())
+                    .then(data => renderExpandedTable(data));
+            });
 
             updateBadge();
             setInterval(updateBadge, 30000);

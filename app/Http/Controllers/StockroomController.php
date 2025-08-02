@@ -1416,11 +1416,12 @@ class StockroomController extends BasetablesController
                         $reason = $r['reasons'][0]['reasonCode'] ?? null;
                         if ($reason === 'NOT_ELIGIBLE') {
                             create_notification([
-                                'module' => 'listing',
-                                'title' => "Blocked: {$data['asin']}",
+                                'module' => 'Stockroom',
+                                'title' => "Amazon Posting: Blocked {$data['asin']}",
                                 'subtitle' => $amzncondition,
                                 'content' => $r['reasons'][0]['message'] ?? 'Blocked by Amazon',
-                                'severity' => 'action_required'
+                                'severity' => 'action_required',
+                                'user_ids' => [session('userid')] // assign notification to the current user from session
                             ]);
 
                             DB::table('tblfnsku')

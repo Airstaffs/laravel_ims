@@ -13,6 +13,11 @@
                         <input type="text" class="form-control" id="newStoreName" name="storename"
                             placeholder="Enter store name" required>
                     </fieldset>
+                    <fieldset>
+                        <label>Store Abbreviation</label>
+                        <input type="text" class="form-control" id="Strabbreviation" name="abbreviation"
+                            placeholder="Enter store abbreviation" required>
+                    </fieldset>
 
                     <button type="submit" class="btn btn-primary justify-content-center fw-bold text-white">Save
                         Store</button>

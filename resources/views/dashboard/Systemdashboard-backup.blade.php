@@ -1532,6 +1532,11 @@ endforeach; ?>
                             <input type="text" class="form-control" id="newStoreName" name="storename"
                                 placeholder="Enter store name" required>
                         </div>
+                        <div class="mb-3">
+                            <label>Store Abbreviation</label>
+                            <input type="text" class="form-control" id="Strabbreviation" name="abbreviation"
+                                placeholder="Enter store abbreviation" required>
+                        </div>
                     </div>
                     <div class="modal-footer">
                         <button type="submit" class="btn btn-primary">Save Store</button>
@@ -2380,6 +2385,7 @@ endforeach; ?>
             e.preventDefault(); // Prevent default form submission
 
             const storeName = document.getElementById('newStoreName').value.trim();
+            const Strabbreviation = document.getElementById('Strabbreviation').value.trim();
 
             // Check if store name already exists in the list
             const existingStores = Array.from(document.getElementById('storeList').getElementsByTagName('li'));
@@ -2392,7 +2398,8 @@ endforeach; ?>
 
             // Send the data to the Laravel backend
             axios.post('/add-store', {
-                storename: storeName
+                storename: storeName,
+                Strabbreviation: Strabbreviation
             })
                 .then(response => {
                     if (response.data.success) {
@@ -2438,9 +2445,6 @@ endforeach; ?>
                     alert('An error occurred while saving the store.');
                 });
         });
-
-
-
 
         // Fetch and display the list of stores on page load
         document.addEventListener('DOMContentLoaded', function () {
@@ -4147,4 +4151,5 @@ endforeach; ?>
         });
     </script>
 </body>
+
 </html>

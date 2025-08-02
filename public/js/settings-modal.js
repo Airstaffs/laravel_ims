@@ -282,6 +282,10 @@ document.addEventListener("DOMContentLoaded", function () {
             const storeName = document
                 .getElementById("newStoreName")
                 .value.trim();
+
+            const Strabbreviation = document
+                .getElementById("Strabbreviation")
+                .value.trim();
             if (!storeName) {
                 alert("Store name cannot be empty.");
                 return;
@@ -304,8 +308,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
+            console.log(Strabbreviation);
+
             axios
-                .post("/add-store", { storename: storeName })
+                .post("/add-store", { storename: storeName, Strabbreviation: Strabbreviation })
                 .then((response) => {
                     if (!response.data.success)
                         throw new Error("Failed to add store.");
