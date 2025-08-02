@@ -39,25 +39,32 @@ class StoreController extends Controller
         // Sanitize the storename for column naming
         $sanitizedStorename = str_replace(' ', '_', $storename);
 
-        // Save the store
-        $store = new Store();
-        $store->storename = $storename;
-        $store->abbreviation = $storeAbbreviation; // column is 'abbreviation'
-        $store->owner_id = auth()->id();
-        $store->client_id = '';
-        $store->client_secret = '';
-        $store->refresh_token = '';
-        $store->MerchantID = '';
-        $store->MarketplaceID = '';
-        $store->save();
+        // Insert into database using query builder
+        $storeId = DB::table('stores')->insertGetId([
+            'storename' => $storename,
+            'abbreviation' => $storeAbbreviation,
+            'owner_id' => auth()->id(),
+            'client_id' => '',
+            'client_secret' => '',
+            'refresh_token' => '',
+            'MerchantID' => '',
+            'MarketplaceID' => '',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
+        // Log the action
         $this->userLogService->log('Store Added: ' . $storename);
 
+        // Dynamically add a column in tbluser if it doesn't exist
         if (!Schema::hasColumn('tbluser', 'store_' . $sanitizedStorename)) {
             Schema::table('tbluser', function (Blueprint $table) use ($sanitizedStorename) {
                 $table->boolean('store_' . $sanitizedStorename)->default(false);
             });
         }
+
+        // Retrieve the inserted store record
+        $store = DB::table('stores')->where('id', $storeId)->first();
 
         return response()->json([
             'success' => true,
