@@ -308,6 +308,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
+            console.log(Strabbreviation);
+
             axios
                 .post("/add-store", { storename: storeName, Strabbreviation: Strabbreviation })
                 .then((response) => {
