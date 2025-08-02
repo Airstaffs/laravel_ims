@@ -548,6 +548,14 @@
                 <div class="modal-body">
                     <!-- Expanded Table View -->
                     <div id="notifExpandedView">
+                        <div class="d-flex justify-content-between mb-2">
+                            <div>
+                                <label for="moduleFilter" class="form-label me-2">Filter by Module:</label>
+                                <select id="moduleFilter" class="form-select form-select-sm d-inline-block w-auto">
+                                    <option value="">All</option>
+                                </select>
+                            </div>
+                        </div>
                         <div id="notifExpandedTable"></div>
                     </div>
 
@@ -562,6 +570,9 @@
     </div>
 
     <script>
+        let notificationsData = []; // will store fetched notifications
+        let currentSort = { key: null, asc: true }; // sort state
+
         document.addEventListener('DOMContentLoaded', function () {
             const userId = @json(Auth::id());
             const csrfToken = '{{ csrf_token() }}';
@@ -590,14 +601,14 @@
             }
 
             function markAsRead(notifId) {
-                fetch(`/notifications/mark-read`, {
+                return fetch(`/notifications/mark-read`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': csrfToken
                     },
                     body: JSON.stringify({ notif_id: notifId, user_id: userId })
-                });
+                }).then(res => res.json());
             }
 
             function renderExpandedTable(data) {
@@ -635,9 +646,10 @@
                 notifExpandedTable.querySelectorAll('.notif-row').forEach(row => {
                     row.addEventListener('click', () => {
                         const item = JSON.parse(row.getAttribute('data-item'));
-                        markAsRead(item.notif_id);
-                        updateBadge();  // refresh badge immediately
-                        showSingleNotification(item);
+                        markAsRead(item.notif_id).then(() => {
+                            updateBadge();
+                            showSingleNotification(item);
+                        });
                     });
                 });
             }
