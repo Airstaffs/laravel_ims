@@ -584,8 +584,8 @@
             const notifDetailContent = document.getElementById('notifDetailContent');
 
             const notifBadges = [
-                document.getElementById('notifBadge'),
-                document.getElementById('notifBadgeMobile')
+                document.getElementById('notifBadgeMobile'),
+                document.getElementById('notifBadgeDesktop')
             ];
 
             function updateBadge() {
@@ -594,12 +594,7 @@
                     .then(data => {
                         const count = data.unread_count;
 
-                        const badges = [
-                            document.getElementById('notifBadgeMobile'),
-                            document.getElementById('notifBadgeDesktop')
-                        ];
-
-                        badges.forEach(badge => {
+                        notifBadges.forEach(badge => {
                             if (!badge) return;
 
                             if (count > 0) {

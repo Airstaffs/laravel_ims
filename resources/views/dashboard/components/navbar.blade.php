@@ -51,9 +51,9 @@
                         data-bs-toggle="modal" data-bs-target="#notifModal">
                         <i class="bi bi-bell me-2"></i>
                         <span class="d-none d-lg-inline">Notifications</span>
-                        <span id="notifBadgeMobile"
+                        <span id="notifBadgeDesktop"
                             class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                            3
+                            0
                             <span class="visually-hidden">unread notifications</span>
                         </span>
                     </a>
