@@ -64,7 +64,7 @@ class StoreController extends Controller
         }
 
         // Retrieve the inserted store record
-        $store = DB::table('tblstores')->where('id', $storeId)->first();
+        $store = DB::table('tblstores')->where('store_id', $storeId)->first();
 
         return response()->json([
             'success' => true,
