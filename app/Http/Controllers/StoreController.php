@@ -40,7 +40,7 @@ class StoreController extends Controller
         $sanitizedStorename = str_replace(' ', '_', $storename);
 
         // Insert into database using query builder
-        $storeId = DB::table('stores')->insertGetId([
+        $storeId = DB::table('tblstores')->insertGetId([
             'storename' => $storename,
             'abbreviation' => $storeAbbreviation,
             'owner_id' => auth()->id(),
