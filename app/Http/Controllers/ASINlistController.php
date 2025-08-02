@@ -292,65 +292,78 @@ class ASINlistController extends BasetablesController
         };
     }
 
-    public function generateMsku(Request $request)
-    {
-        $request->validate([
-            'asin' => 'required|string',
-            'condition' => 'required|string',
-            'storename' => 'required|string',
-        ]);
+public function generateMsku(Request $request)
+{
+    $request->validate([
+        'asin' => 'required|string',
+        'condition' => 'required|string',
+        'storename' => 'required|string',
+    ]);
 
-        $asin = strtoupper(trim($request->asin));
-        $store = preg_replace('/\s+/', '', trim($request->storename));
-        $condition = $request->condition;
+    $asin = strtoupper(trim($request->asin));
+    $condition = $request->condition;
+    $storeInput = trim($request->storename);
 
-        $prefixMap = [
-            "new_new" => "NN",
-            "new_open_box" => "NOB",
-            "new_oem" => "NOEM",
-            "refurbished_refurbished" => "RR",
-            "used_like_new" => "ULN",
-            "used_very_good" => "UVG",
-            "used_good" => "UG",
-            "used_acceptable" => "UA",
-            "collectible_like_new" => "CLN",
-            "collectible_very_good" => "CVG",
-            "collectible_good" => "CG",
-            "collectible_acceptable" => "CA",
-            "club_club" => "CLUB"
-        ];
+    // 1. Query the abbreviation from tblstores
+    $abbreviation = DB::table('stores') // adjust table name if it's different
+        ->where('storename', $storeInput)
+        ->value('abbreviation');
 
-        $code = $prefixMap[$condition] ?? 'UNK';
-
-        $attempt = 0;
-        $maxAttempts = 30;
-
-        do {
-            $rand4 = strtoupper(Str::random(4));
-            $msku = "{$asin}-{$store}-{$code}-{$rand4}";
-            $exists = DB::table('tblfnsku')->where('MSKU', $msku)->exists();
-            $attempt++;
-        } while ($exists && $attempt < $maxAttempts);
-
-        if ($attempt >= $maxAttempts) {
-            Log::warning('Failed to generate unique MSKU after multiple attempts', [
-                'asin' => $asin,
-                'storename' => $store,
-                'condition' => $condition
-            ]);
-
-            return response()->json([
-                'error' => 'Unable to generate unique MSKU after multiple attempts.'
-            ], 422);
-        }
-
-        Log::info('Generated MSKU', ['msku' => $msku]);
-
+    if (!$abbreviation) {
         return response()->json([
-            'msku' => $msku,
+            'error' => "No abbreviation found for store: {$storeInput}"
+        ], 404);
+    }
+
+    $prefixMap = [
+        "new_new" => "NN",
+        "new_open_box" => "NOB",
+        "new_oem" => "NOEM",
+        "refurbished_refurbished" => "RR",
+        "used_like_new" => "ULN",
+        "used_very_good" => "UVG",
+        "used_good" => "UG",
+        "used_acceptable" => "UA",
+        "collectible_like_new" => "CLN",
+        "collectible_very_good" => "CVG",
+        "collectible_good" => "CG",
+        "collectible_acceptable" => "CA",
+        "club_club" => "CLUB"
+    ];
+
+    $code = $prefixMap[$condition] ?? 'UNK';
+
+    $attempt = 0;
+    $maxAttempts = 30;
+    $msku = null;
+
+    // 2. Generate MSKU with abbreviation instead of store name
+    do {
+        $rand4 = strtoupper(Str::random(4));
+        $msku = "{$asin}-{$abbreviation}-{$code}-{$rand4}";
+        $exists = DB::table('tblfnsku')->where('MSKU', $msku)->exists();
+        $attempt++;
+    } while ($exists && $attempt < $maxAttempts);
+
+    if ($attempt >= $maxAttempts) {
+        Log::warning('Failed to generate unique MSKU after multiple attempts', [
+            'asin' => $asin,
+            'storename' => $storeInput,
             'condition' => $condition
         ]);
+
+        return response()->json([
+            'error' => 'Unable to generate unique MSKU after multiple attempts.'
+        ], 422);
     }
+
+    Log::info('Generated MSKU', ['msku' => $msku]);
+
+    return response()->json([
+        'msku' => $msku,
+        'condition' => $condition
+    ]);
+}
 
     public function fetchStores()
     {
