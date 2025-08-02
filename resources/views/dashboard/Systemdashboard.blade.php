@@ -594,8 +594,17 @@
                     .then(data => {
                         notifBadges.forEach(badge => {
                             if (!badge) return;
-                            badge.textContent = data.unread_count;
-                            badge.style.display = data.unread_count > 0 ? 'inline-block' : 'none';
+
+                            const count = data.unread_count;
+
+                            if (count > 0) {
+                                badge.textContent = count;
+                                badge.style.display = 'inline-block';
+                            } else {
+                                // Hide and clear text
+                                badge.style.display = 'none';
+                                badge.textContent = '';
+                            }
                         });
                     });
             }
