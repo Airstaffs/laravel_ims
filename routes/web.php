@@ -335,6 +335,12 @@ Route::prefix('api/stockroom')->group(function () {
 
     // amazon items post
     Route::post('post-items-to-amazon', [StockroomController::class, 'PostItemstoAmazon']);
+
+        // NEW: New Scanned Items functionality
+    Route::get('new-scanned-count', [StockroomController::class, 'getNewScannedCount']);
+    Route::get('new-scanned-items', [StockroomController::class, 'getNewScannedItems']);
+    Route::post('update-fbm-status', [StockroomController::class, 'updateFbmStatus']);
+
 });
 
 // Routes for Unreceived scanner

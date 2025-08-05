@@ -1548,4 +1548,150 @@ class StockroomController extends BasetablesController
         }
     }
 
+
+   /**
+ * Get count of new scanned items for today (US timezone)
+ */
+public function getNewScannedCount(Request $request)
+{
+    try {
+        // Set US timezone
+        $timezone = new DateTimeZone('America/New_York');
+        $today = $request->input('date', (new DateTime('now', $timezone))->format('Y-m-d'));
+        
+        // Count new scanned items for the specified date using the same logic as your main query
+        $count = DB::table($this->productTable . ' as prod')
+            ->join($this->itemProcessHistoryTable . ' as hist', 'prod.rtcounter', '=', 'hist.rtcounter')
+            ->where(function($query) {
+                $query->where('hist.Action', 'Scanned and insert to Stockroom')
+                      ->orWhere('hist.Action', 'Move Item to Stockroom');
+            })
+            ->whereDate('prod.stockroom_insert_date', $today)
+            ->where('prod.ProductModuleLoc', 'Stockroom') // Only count items currently in stockroom
+            ->count();
+
+        return response()->json([
+            'success' => true,
+            'count' => $count,
+            'date' => $today
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error fetching new scanned count: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error fetching count: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Get list of new scanned items with date filtering (US timezone)
+ * Using the same field structure as your main inventory query
+ */
+public function getNewScannedItems(Request $request)
+{
+    try {
+        // Set US timezone
+        $timezone = new DateTimeZone('America/New_York');
+        
+        // Get date parameters or set defaults
+        $startDate = $request->input('startDate');
+        $endDate = $request->input('endDate');
+        
+        // Default date range if not provided (last 4 days including today)
+        if (empty($startDate) && empty($endDate)) {
+            $today = new DateTime('now', $timezone);
+            $fourDaysAgo = new DateTime('now', $timezone);
+            $fourDaysAgo->modify('-4 days');
+            
+            $endDate = $today->format('Y-m-d');
+            $startDate = $fourDaysAgo->format('Y-m-d');
+        }
+
+        // Query for new scanned items using similar joins as your main inventory method
+        $items = DB::table($this->productTable . ' as prod')
+            ->select([
+                'prod.ProductID',
+                'prod.rtcounter',
+                'prod.warehouselocation',
+                'fnsku.MSKU as MSKUviewer', // Get MSKU from fnsku table
+                'prod.stockroom_insert_date',
+                'prod.FNSKUviewer',
+                'fnsku.grading as gradingviewer', // Get grading from fnsku table
+                'asin.ASIN as ASINviewer', // Get ASIN from asin table
+                'asin.internal as AStitle', // Get title from asin table
+                'fnsku.storename as StoreName', // Get store name from fnsku table
+                'prod.amzn_status',
+                'prod.shipment_tracking_number',
+                'hist.employeeName'
+            ])
+            ->join($this->itemProcessHistoryTable . ' as hist', 'prod.rtcounter', '=', 'hist.rtcounter')
+            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+            ->where(function($query) {
+                $query->where('hist.Action', 'Scanned and insert to Stockroom')
+                      ->orWhere('hist.Action', 'Move Item to Stockroom');
+            })
+            ->where('prod.ProductModuleLoc', 'Stockroom') // Only get items currently in stockroom
+            ->whereBetween(DB::raw('DATE(prod.stockroom_insert_date)'), [$startDate, $endDate])
+            ->orderBy('prod.stockroom_insert_date', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+            'count' => $items->count(),
+            'startDate' => $startDate,
+            'endDate' => $endDate
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error fetching new scanned items: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error fetching items: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
+/**
+ * Update FBM list status for new scanned items
+ * (Keep this if you want the checkbox functionality, remove if you don't)
+ */
+public function updateFbmStatus(Request $request)
+{
+    try {
+        $validated = $request->validate([
+            'id' => 'required|integer',
+            'status' => 'nullable|string'
+        ]);
+
+        $id = $validated['id'];
+        $status = $validated['status'] === 'listed' ? 'listed' : null;
+
+        // Update the fbm_list_status column in the product table
+        DB::table($this->productTable)
+            ->where('ProductID', $id)
+            ->update(['fbm_list_status' => $status]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status updated successfully',
+            'id' => $id,
+            'status' => $status
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error updating FBM status: ' . $e->getMessage());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error updating status: ' . $e->getMessage()
+        ], 500);
+    }
+}
+
 }

@@ -56,6 +56,18 @@ export default {
             selectAllItems: false,
             isProcessing: false,
 
+           //scanned newly items
+            newScannedCount: 0,
+            showNewScannedModal: false,
+            newScannedItems: [],
+            filteredNewScannedItems: [],
+            loadingNewScanned: false,
+            newScannedSearchQuery: "",
+            startDate: "",
+            endDate: "",
+            selectAllNewScanned: false,
+            countRefreshInterval: null,
+
             // For product details modal
             showProductDetailsModal: false,
             selectedProduct: null,
@@ -1688,6 +1700,146 @@ export default {
                 this.isPosting = false;
             }
         },
+
+
+        async fetchNewScannedCount() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const response = await axios.get(
+            `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+            {
+                params: {
+                    date: today
+                },
+                withCredentials: true,
+            }
+        );
+        this.newScannedCount = response.data.count || 0;
+        console.log('New scanned count:', this.newScannedCount);
+    } catch (error) {
+        console.error("Error fetching new scanned count:", error);
+        this.newScannedCount = 0;
+    }
+},
+
+async fetchNewScannedItems() {
+    this.loadingNewScanned = true;
+    try {
+        // Set default dates if not provided
+        if (!this.startDate && !this.endDate) {
+            const today = new Date();
+            const fourDaysAgo = new Date(today);
+            fourDaysAgo.setDate(today.getDate() - 4);
+            
+            this.endDate = today.toISOString().split('T')[0];
+            this.startDate = fourDaysAgo.toISOString().split('T')[0];
+        }
+
+        const response = await axios.get(
+            `${API_BASE_URL}/api/stockroom/new-scanned-items`,
+            {
+                params: {
+                    startDate: this.startDate,
+                    endDate: this.endDate
+                },
+                withCredentials: true,
+            }
+        );
+
+        this.newScannedItems = (response.data.data || []).map(item => ({
+            ...item,
+            selected: item.fbm_list_status === 'listed'
+        }));
+        this.filteredNewScannedItems = [...this.newScannedItems];
+        console.log('Fetched new scanned items:', this.newScannedItems.length);
+    } catch (error) {
+        console.error("Error fetching new scanned items:", error);
+        this.newScannedItems = [];
+        this.filteredNewScannedItems = [];
+    } finally {
+        this.loadingNewScanned = false;
+    }
+},
+
+openNewScannedModal() {
+    this.showNewScannedModal = true;
+    this.fetchNewScannedItems();
+},
+
+closeNewScannedModal() {
+    this.showNewScannedModal = false;
+    this.newScannedSearchQuery = "";
+    this.selectAllNewScanned = false;
+},
+
+filterNewScannedItems() {
+    const query = this.newScannedSearchQuery.toLowerCase();
+    if (!query) {
+        this.filteredNewScannedItems = [...this.newScannedItems];
+    } else {
+        this.filteredNewScannedItems = this.newScannedItems.filter(item => {
+            return Object.values(item).some(value => 
+                String(value).toLowerCase().includes(query)
+            );
+        });
+    }
+},
+
+applyDateFilter() {
+    this.fetchNewScannedItems();
+},
+
+clearDateFilter() {
+    this.startDate = "";
+    this.endDate = "";
+    this.fetchNewScannedItems();
+},
+
+toggleAllNewScanned() {
+    this.filteredNewScannedItems.forEach(item => {
+        item.selected = this.selectAllNewScanned;
+        item.fbm_list_status = this.selectAllNewScanned ? 'listed' : null;
+        this.updateFbmListStatus(item, false); // false = don't revert on error
+    });
+},
+
+async updateFbmListStatus(item, revertOnError = true) {
+    try {
+        const status = item.selected ? 'listed' : null;
+        
+        const response = await axios.post(
+            `${API_BASE_URL}/api/stockroom/update-fbm-status`,
+            {
+                id: item.ProductID,
+                status: status
+            },
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
+            }
+        );
+
+        if (response.data.success) {
+            item.fbm_list_status = status;
+        } else {
+            console.error("Failed to update FBM status:", response.data.message);
+            if (revertOnError) {
+                item.selected = !item.selected;
+            }
+        }
+    } catch (error) {
+        console.error("Error updating FBM status:", error);
+        if (revertOnError) {
+            item.selected = !item.selected;
+        }
+    }
+},
     },
     watch: {
         searchQuery() {

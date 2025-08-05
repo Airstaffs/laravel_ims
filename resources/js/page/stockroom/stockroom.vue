@@ -9,7 +9,20 @@
                 <button class="btn" @click="loadFBAInboundShipment">
                     <i class="fas fa-truck"></i> FBA Inbound Shipment
                 </button>
+
+                <button class="btn btn-new-scanned" @click="openNewScannedModal">
+                    <i class="fas fa-plus-circle"></i> New Scanned
+                    <span v-if="newScannedCount > 0" class="notification-badge">
+                        {{ newScannedCount }}
+                    </span>
+               </button>
+
             </div>
+
+
+         
+
+
 
             <div class="store-filter">
                 <label for="store-select">Store:</label>
@@ -1127,6 +1140,131 @@
         </div>
     </div>
 </div>
+
+
+
+   <!-- New Scanned Items Modal -->
+<div v-if="showNewScannedModal" class="new-scanned-modal">
+    <div class="new-scanned-modal-content">
+        <div class="new-scanned-modal-header">
+            <h2>New Scanned Items</h2>
+            <button class="new-scanned-modal-close" @click="closeNewScannedModal">
+                &times;
+            </button>
+        </div>
+        
+        <div class="new-scanned-modal-filters">
+            <input 
+                type="text" 
+                v-model="newScannedSearchQuery" 
+                placeholder="Search..." 
+                @input="filterNewScannedItems"
+                class="search-input"
+            >
+            
+            <div class="date-filters">
+                <label for="startDate">Starting Date:</label>
+                <input 
+                    type="date" 
+                    id="startDate" 
+                    v-model="startDate" 
+                    @change="fetchNewScannedItems"
+                >
+                
+                <label for="endDate">End Date:</label>
+                <input 
+                    type="date" 
+                    id="endDate" 
+                    v-model="endDate" 
+                    @change="fetchNewScannedItems"
+                >
+                
+                <button @click="applyDateFilter" class="btn-filter">Filter Date Range</button>
+                <button @click="clearDateFilter" class="btn-clear">Clear Date Filter</button>
+            </div>
+            
+            <div class="row-count">
+                <strong>Total Rows: {{ filteredNewScannedItems.length }}</strong>
+            </div>
+        </div>
+
+        <div class="new-scanned-modal-body">
+            <div v-if="loadingNewScanned" class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                Loading...
+            </div>
+            
+            <div v-else class="table-container">
+                <table class="new-scanned-table">
+                    <thead>
+                        <tr>
+                            <th>
+                                <input 
+                                    type="checkbox" 
+                                    @change="toggleAllNewScanned"
+                                    v-model="selectAllNewScanned"
+                                >
+                                Select
+                            </th>
+                            <th>RT Counter</th>
+                            <th>Warehouse Location</th>
+                            <th>MSKU</th>
+                            <th>Stockroom Insert Date</th>
+                            <th>FNSKU</th>
+                            <th>Grading Viewer</th>
+                            <th>ASIN Viewer</th>
+                            <th>ASIN Title</th>
+                            <th>Process By</th>
+                            <th>Shipment Tracking Number</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-if="filteredNewScannedItems.length === 0">
+                            <td colspan="11" class="text-center">No data found for the selected date range.</td>
+                        </tr>
+                        <tr v-else v-for="item in filteredNewScannedItems" :key="item.ProductID">
+                            <td>
+                                <input 
+                                    type="checkbox" 
+                                    v-model="item.selected"
+                                    @change="updateFbmListStatus(item)"
+                                    :checked="item.fbm_list_status === 'listed'"
+                                >
+                            </td>
+                            <td>{{ formatRTNumber(item.rtcounter, item.StoreName) }}</td>
+                            <td>{{ item.warehouselocation }}</td>
+                            <td>{{ item.MSKUviewer }}</td>
+                            <td>{{ item.stockroom_insert_date }}</td>
+                            <td>{{ item.FNSKUviewer }}</td>
+                            <td>{{ item.gradingviewer }}</td>
+                            <td>
+                                <a 
+                                    :href="`https://ims.tecniquality.com/Admin/modules/stockroom/stockroom.php?search=${item.ASINviewer}`" 
+                                    target="_blank" 
+                                    class="asin-link"
+                                >
+                                    {{ item.ASINviewer }}
+                                </a>
+                            </td>
+                            <td>
+                                <a 
+                                    :href="`https://www.amazon.com/dp/${item.ASINviewer}`" 
+                                    target="_blank" 
+                                    class="amazon-link"
+                                >
+                                    {{ item.AStitle }}
+                                </a>
+                            </td>
+                            <td>{{ item.employeeName }}</td>
+                            <td>{{ item.shipment_tracking_number }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
     </div>
 </template>
 
@@ -1729,6 +1867,277 @@ export default Stockroom;
 
     .expanded-content {
         width: 95%;
+    }
+}
+
+.btn-new-scanned {
+    position: relative;
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+}
+
+.btn-new-scanned:hover {
+    background-color: #218838 !important;
+    border-color: #1e7e34 !important;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* New Scanned Modal Styles */
+.new-scanned-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    overflow: auto;
+}
+
+.new-scanned-modal-content {
+    background-color: #fefefe;
+    margin: 2% auto;
+    padding: 0;
+    border: 1px solid #888;
+    width: 95%;
+    max-width: 1400px;
+    height: 90vh;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+}
+
+.new-scanned-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    background-color: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.new-scanned-modal-header h2 {
+    margin: 0;
+    color: #333;
+}
+
+.new-scanned-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.new-scanned-modal-close:hover {
+    color: #000;
+}
+
+.new-scanned-modal-filters {
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
+    background-color: #f8f9fa;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.date-filters {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.date-filters label {
+    font-weight: 600;
+    color: #333;
+}
+
+.date-filters input[type="date"] {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.btn-filter, .btn-clear {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.btn-filter {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-filter:hover {
+    background-color: #0056b3;
+}
+
+.btn-clear {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-clear:hover {
+    background-color: #545b62;
+}
+
+.row-count {
+    text-align: right;
+    color: #333;
+    font-size: 14px;
+}
+
+.new-scanned-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.new-scanned-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    background-color: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.new-scanned-table thead {
+    background-color: #343a40;
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.new-scanned-table thead th {
+    padding: 12px 10px;
+    text-align: left;
+    font-weight: 600;
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+    white-space: nowrap;
+}
+
+.new-scanned-table thead th:last-child {
+    border-right: none;
+}
+
+.new-scanned-table tbody td {
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+    border-right: 1px solid #dee2e6;
+    color: #495057;
+    font-size: 13px;
+}
+
+.new-scanned-table tbody td:last-child {
+    border-right: none;
+}
+
+.new-scanned-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.new-scanned-table tbody tr:hover {
+    background-color: #e3f2fd;
+}
+
+.asin-link {
+    color: #28a745;
+    text-decoration: underline;
+}
+
+.asin-link:hover {
+    color: #1e7e34;
+}
+
+.amazon-link {
+    color: #007bff;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.amazon-link:hover {
+    color: #0056b3;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .new-scanned-modal-content {
+        width: 100%;
+        height: 100vh;
+        margin: 0;
+        border-radius: 0;
+    }
+    
+    .date-filters {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .date-filters > * {
+        margin-bottom: 10px;
+    }
+    
+    .new-scanned-table {
+        font-size: 12px;
+    }
+    
+    .new-scanned-table thead th,
+    .new-scanned-table tbody td {
+        padding: 8px 6px;
     }
 }
 </style>
