@@ -85,7 +85,7 @@
                 $freshUser = \App\Models\User::find($currentUser->id);
                 $mainModule = strtolower($freshUser->main_module ?: '');
 
-                $moduleColumns = ['order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist', 'printer'];
+                $moduleColumns = ['humanresource','order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist', 'printer'];
 
                 foreach ($moduleColumns as $column) {
                     // Only add to subModules if it's enabled AND not the main module
@@ -107,6 +107,7 @@
             $defaultModule = $mainModule ?: ($subModules[0] ?? 'dashboard');
 
             $modules = [
+                'humanresource' => 'Human Resource',            
                 'order' => 'Order',
                 'asinoption' => 'Asin Option',
                 'unreceived' => 'Unreceived',

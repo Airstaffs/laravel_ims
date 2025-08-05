@@ -49,6 +49,7 @@ class UserController extends Controller
                 'houseage',
                 'asinlist',
                 'printer',
+                'humanresource',
             )
             ->where('id', $currentUserId)
             ->first();
@@ -188,6 +189,7 @@ class UserController extends Controller
             $userPrivileges = [
                 'main_module' => $mainModule,
                 'sub_modules' => [
+                    'humanresource' => (bool) $selectedUser->humanresource,
                     'order' => (bool) $selectedUser->order,
                     'unreceived' => (bool) $selectedUser->unreceived,
                     'receiving' => (bool) $selectedUser->receiving,
@@ -331,6 +333,7 @@ class UserController extends Controller
 
             // Define module mapping (display name to database column)
             $moduleMapping = [
+                'Human Resource' => 'humanresource',
                 'Order' => 'order',
                 'Unreceived' => 'unreceived',
                 'Received' => 'receiving',
@@ -373,6 +376,7 @@ class UserController extends Controller
 
             // Define all possible sub-modules
             $subModules = [
+                'humanresource',
                 'order',
                 'unreceived',
                 'receiving',
@@ -516,6 +520,7 @@ class UserController extends Controller
 
             // 🔴 FIXED: Make sure 'printer' is included in the modules array
             $modules = [
+                'humanresource',
                 'order',
                 'unreceived',
                 'receiving',
