@@ -1,5 +1,6 @@
 import { eventBus } from "../../components/eventBus";
 import ScannerComponent from "../../components/Scanner.vue";
+import NewScannedItemModal from "./modals/newScanneditem.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -8,6 +9,7 @@ export default {
     name: "StockroomModule",
     components: {
         ScannerComponent,
+        NewScannedItemModal,
     },
     data() {
         return {
@@ -56,16 +58,9 @@ export default {
             selectAllItems: false,
             isProcessing: false,
 
-           //scanned newly items
+           //scanned newly items - Updated for modal integration
             newScannedCount: 0,
             showNewScannedModal: false,
-            newScannedItems: [],
-            filteredNewScannedItems: [],
-            loadingNewScanned: false,
-            newScannedSearchQuery: "",
-            startDate: "",
-            endDate: "",
-            selectAllNewScanned: false,
             countRefreshInterval: null,
 
             // For product details modal
@@ -1133,7 +1128,7 @@ export default {
             });
         },
 
-        // Process scan with validation
+        // Process scan with validation - UPDATED with notification count refresh
         async processScan(scannedCode = null) {
             try {
                 // Use either the scanned code or input fields
@@ -1253,6 +1248,9 @@ export default {
 
                     // Clear images
                     this.$refs.scanner.capturedImages = [];
+
+                    // IMPORTANT: Refresh the notification count after successful scan
+                    await this.refreshNewScannedCount();
 
                     // Check if we need to handle reprint
                     if (data.needReprint && data.productId) {
@@ -1701,145 +1699,56 @@ export default {
             }
         },
 
-
+        // NEW SCANNED ITEMS METHODS - Updated for modal integration
         async fetchNewScannedCount() {
-    try {
-        const today = new Date().toISOString().split('T')[0];
-        const response = await axios.get(
-            `${API_BASE_URL}/api/stockroom/new-scanned-count`,
-            {
-                params: {
-                    date: today
-                },
-                withCredentials: true,
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+                    {
+                        params: { date: today },
+                        withCredentials: true,
+                    }
+                );
+                this.newScannedCount = response.data.count || 0;
+                console.log('New scanned count:', this.newScannedCount);
+            } catch (error) {
+                console.error("Error fetching new scanned count:", error);
+                this.newScannedCount = 0;
             }
-        );
-        this.newScannedCount = response.data.count || 0;
-        console.log('New scanned count:', this.newScannedCount);
-    } catch (error) {
-        console.error("Error fetching new scanned count:", error);
-        this.newScannedCount = 0;
-    }
-},
+        },
 
-async fetchNewScannedItems() {
-    this.loadingNewScanned = true;
-    try {
-        // Set default dates if not provided
-        if (!this.startDate && !this.endDate) {
-            const today = new Date();
-            const fourDaysAgo = new Date(today);
-            fourDaysAgo.setDate(today.getDate() - 4);
-            
-            this.endDate = today.toISOString().split('T')[0];
-            this.startDate = fourDaysAgo.toISOString().split('T')[0];
-        }
-
-        const response = await axios.get(
-            `${API_BASE_URL}/api/stockroom/new-scanned-items`,
-            {
-                params: {
-                    startDate: this.startDate,
-                    endDate: this.endDate
-                },
-                withCredentials: true,
+        // Add this method to refresh the notification count after scanning
+        async refreshNewScannedCount() {
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+                    {
+                        params: { date: today },
+                        withCredentials: true,
+                    }
+                );
+                this.newScannedCount = response.data.count || 0;
+                console.log('Refreshed new scanned count:', this.newScannedCount);
+            } catch (error) {
+                console.error("Error refreshing new scanned count:", error);
             }
-        );
+        },
 
-        this.newScannedItems = (response.data.data || []).map(item => ({
-            ...item,
-            selected: item.fbm_list_status === 'listed'
-        }));
-        this.filteredNewScannedItems = [...this.newScannedItems];
-        console.log('Fetched new scanned items:', this.newScannedItems.length);
-    } catch (error) {
-        console.error("Error fetching new scanned items:", error);
-        this.newScannedItems = [];
-        this.filteredNewScannedItems = [];
-    } finally {
-        this.loadingNewScanned = false;
-    }
-},
+        // Simplified modal methods for new modal integration
+        openNewScannedModal() {
+            this.showNewScannedModal = true;
+        },
 
-openNewScannedModal() {
-    this.showNewScannedModal = true;
-    this.fetchNewScannedItems();
-},
+        closeNewScannedModal() {
+            this.showNewScannedModal = false;
+        },
 
-closeNewScannedModal() {
-    this.showNewScannedModal = false;
-    this.newScannedSearchQuery = "";
-    this.selectAllNewScanned = false;
-},
-
-filterNewScannedItems() {
-    const query = this.newScannedSearchQuery.toLowerCase();
-    if (!query) {
-        this.filteredNewScannedItems = [...this.newScannedItems];
-    } else {
-        this.filteredNewScannedItems = this.newScannedItems.filter(item => {
-            return Object.values(item).some(value => 
-                String(value).toLowerCase().includes(query)
-            );
-        });
-    }
-},
-
-applyDateFilter() {
-    this.fetchNewScannedItems();
-},
-
-clearDateFilter() {
-    this.startDate = "";
-    this.endDate = "";
-    this.fetchNewScannedItems();
-},
-
-toggleAllNewScanned() {
-    this.filteredNewScannedItems.forEach(item => {
-        item.selected = this.selectAllNewScanned;
-        item.fbm_list_status = this.selectAllNewScanned ? 'listed' : null;
-        this.updateFbmListStatus(item, false); // false = don't revert on error
-    });
-},
-
-async updateFbmListStatus(item, revertOnError = true) {
-    try {
-        const status = item.selected ? 'listed' : null;
-        
-        const response = await axios.post(
-            `${API_BASE_URL}/api/stockroom/update-fbm-status`,
-            {
-                id: item.ProductID,
-                status: status
-            },
-            {
-                withCredentials: true,
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                    "X-CSRF-TOKEN": document.querySelector(
-                        'meta[name="csrf-token"]'
-                    )?.content,
-                },
-            }
-        );
-
-        if (response.data.success) {
-            item.fbm_list_status = status;
-        } else {
-            console.error("Failed to update FBM status:", response.data.message);
-            if (revertOnError) {
-                item.selected = !item.selected;
-            }
-        }
-    } catch (error) {
-        console.error("Error updating FBM status:", error);
-        if (revertOnError) {
-            item.selected = !item.selected;
-        }
-    }
-},
+        // Handler for when modal updates the count
+        handleCountUpdate() {
+            this.refreshNewScannedCount();
+        },
     },
     watch: {
         searchQuery() {
@@ -1897,6 +1806,14 @@ async updateFbmListStatus(item, revertOnError = true) {
         // Fetch initial data
         this.fetchInventory();
 
+        // NEW SCANNED ITEMS - Fetch initial count and set up refresh
+        this.fetchNewScannedCount();
+
+        // Set up interval to refresh count every 30 seconds
+        this.countRefreshInterval = setInterval(() => {
+            this.refreshNewScannedCount();
+        }, 30000);
+
         // Listen for window resize to update isMobile
         window.addEventListener("resize", this.handleResize);
 
@@ -1912,6 +1829,11 @@ async updateFbmListStatus(item, revertOnError = true) {
         // Clean up any timeouts
         if (this.autoVerifyTimeout) {
             clearTimeout(this.autoVerifyTimeout);
+        }
+
+        // Clear the refresh interval for new scanned count
+        if (this.countRefreshInterval) {
+            clearInterval(this.countRefreshInterval);
         }
 
         window.removeEventListener("resize", this.handleResize);

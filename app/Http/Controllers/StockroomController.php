@@ -381,6 +381,15 @@ class StockroomController extends BasetablesController
             ], 500);
         }
     }
+
+     /**
+     * Get the current user's name for logging purposes - SIMPLIFIED
+     */
+    private function getCurrentUserName()
+    {
+        $user = Auth::user();
+        return $user ? ($user->username ?? $user->name ?? 'Unknown') : 'Unknown';
+    }
     /**
      * Process scanner data
      */
@@ -407,7 +416,7 @@ class StockroomController extends BasetablesController
             }
 
             // Get data from request with defensive coding
-            $User = Auth::id() ?? $request->session()->get('user_name', 'Unknown');
+            $User = $this->getCurrentUserName();
             $serial = trim($request->input('SerialNumber', ''));
             $location = trim($request->input('Location', ''));
             $FNSKU = trim($request->input('FNSKU', ''));
