@@ -1249,9 +1249,7 @@
                                 </thead>
                                 <tbody>
                                     <template
-                                        v-for="(
-                                            fnsku, index
-                                        ) in filteredFnskuList"
+                                        v-for="(fnsku, index) in validFnskuList"
                                         :key="fnsku.FNSKU"
                                     >
                                         <tr>
