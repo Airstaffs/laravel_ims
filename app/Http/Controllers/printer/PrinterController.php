@@ -16,7 +16,7 @@ class PrinterController extends BasetablesController
     protected $imageProcessingService;
     protected $printLabelService; 
 
-public function __construct()
+    public function __construct()
     {
         parent::__construct();
         $this->imageProcessingService = new ImageProcessingService();
@@ -25,6 +25,7 @@ public function __construct()
 
     /**
      * Check if a serial number meets print conditions
+     * UPDATED: Now supports serial number, PCN, RT/AR counter search
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -36,50 +37,15 @@ public function __construct()
                 'serial_number' => 'required|string'
             ]);
 
-            $serialNumber = trim($request->serial_number);
+            $searchTerm = trim($request->serial_number);
             
-            // Search for the product by serial number with proper joins to get all needed data
-            $product = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.ProductID',
-                    'prod.rtcounter',
-                    'prod.serialnumber',
-                    'prod.serialnumberb',
-                    'prod.serialnumberc',
-                    'prod.serialnumberd',
-                    'prod.ProductModuleLoc',
-                    'prod.printCount',
-                    'prod.warehouselocation',
-                    'prod.notes',
-                    'prod.stickernote',
-                    'prod.basketnumber',
-                    'prod.priorityrank',
-                    'prod.returnstatus',
-                    'prod.validation_status',
-                    'prod.FNSKUviewer', 
-                    'fnsku.FNSKU',
-                    'fnsku.grading as fnsku_grading',
-                    'fnsku.storename as fnsku_storename',
-                    'asin.ASIN as ASINviewer',
-                    'asin.internal as AStitle',
-                    'asin.asinStatus'
-                ])
-                ->where(function ($query) use ($serialNumber) {
-                    $query->where('prod.serialnumber', $serialNumber)
-                          ->orWhere('prod.serialnumberb', $serialNumber)
-                          ->orWhere('prod.serialnumberc', $serialNumber)
-                          ->orWhere('prod.serialnumberd', $serialNumber);
-                })
-                ->where('prod.returnstatus', 'Not Returned')
-                ->where('prod.ProductModuleLoc', '!=', 'Migrated')
-                ->first();
+            // Search for the product using enhanced search logic
+            $product = $this->searchProductForPrinting($searchTerm);
 
             if (!$product) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Serial number not found or item already migrated',
+                    'message' => 'Item not found with search term: ' . $searchTerm,
                     'meets_print_conditions' => false
                 ]);
             }
@@ -95,7 +61,7 @@ public function __construct()
                     'product_data' => [
                         'ProductID' => $product->ProductID,
                         'rtcounter' => $product->rtcounter,
-                        'FNSKUviewer' => $product->FNSKUviewer, // This should now work
+                        'FNSKUviewer' => $product->FNSKUviewer,
                         'ASINviewer' => $product->ASINviewer,
                         'AStitle' => $product->AStitle,
                         'fnsku_grading' => $product->fnsku_grading,
@@ -127,7 +93,7 @@ public function __construct()
                         'current_status' => $conditions['current_status'],
                         'AStitle' => $product->AStitle ?? 'Unknown Title',
                         'ASINviewer' => $product->ASINviewer,
-                        'FNSKUviewer' => $product->FNSKUviewer // This should now work
+                        'FNSKUviewer' => $product->FNSKUviewer
                     ]
                 ]);
             }
@@ -136,41 +102,445 @@ public function __construct()
             Log::error('Error checking serial for printing:', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'serial_number' => $request->serial_number ?? 'unknown'
+                'search_term' => $request->serial_number ?? 'unknown'
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error checking serial number: ' . $e->getMessage(),
+                'message' => 'Error checking item: ' . $e->getMessage(),
                 'meets_print_conditions' => false
             ], 500);
         }
     }
 
-  /**
- * Print label for a product
- *
- * @param Request $request
- * @return \Illuminate\Http\JsonResponse
- */
-public function printLabel(Request $request)
-{
-    try {
-        // Validate request
-        $request->validate([
-            'serial_number' => 'required|string',
-            'printer_id' => 'required|integer',
-            'print_data' => 'required|array'
-        ]);
+    /**
+     * Enhanced search function for printing - supports serial, PCN, RT/AR counter
+     *
+     * @param string $searchTerm
+     * @return object|null
+     */
+    protected function searchProductForPrinting($searchTerm)
+    {
+        try {
+            $query = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.ProductID',
+                    'prod.rtcounter',
+                    'prod.serialnumber',
+                    'prod.serialnumberb',
+                    'prod.serialnumberc',
+                    'prod.serialnumberd',
+                    'prod.ProductModuleLoc',
+                    'prod.printCount',
+                    'prod.warehouselocation',
+                    'prod.notes',
+                    'prod.stickernote',
+                    'prod.basketnumber',
+                    'prod.priorityrank',
+                    'prod.returnstatus',
+                    'prod.validation_status',
+                    'prod.FNSKUviewer',
+                    'prod.itemnumber',
+                    'prod.PCN',
+                    'prod.PRD',
+                    'fnsku.FNSKU',
+                    'fnsku.grading as fnsku_grading',
+                    'fnsku.storename as fnsku_storename',
+                    'asin.ASIN as ASINviewer',
+                    'asin.internal as AStitle',
+                    'asin.asinStatus'
+                ])
+                ->where('prod.returnstatus', 'Not Returned')
+                ->where('prod.ProductModuleLoc', '!=', 'Migrated');
 
-        $serialNumber = trim($request->serial_number);
-        $printerId = $request->printer_id;
-        $printData = $request->print_data;
-        
-        // Get selected printer info
-        $selectedPrinter = DB::table('tblprinters')
-            ->where('printerid', $printerId)
-            ->first();
+            // Enhanced search logic
+            // Check if search term looks like RT counter (RT + numbers)
+            if (preg_match('/^RT(\d+)$/i', $searchTerm, $matches)) {
+                $rtNumber = (int)$matches[1];
+                $query->where('prod.rtcounter', $rtNumber);
+                Log::info('Searching by RT counter:', ['rt_number' => $rtNumber]);
+            }
+            // Check if search term looks like AR counter (AR + numbers)  
+            elseif (preg_match('/^AR(\d+)$/i', $searchTerm, $matches)) {
+                $arNumber = (int)$matches[1];
+                $query->where('prod.rtcounter', $arNumber);
+                Log::info('Searching by AR counter:', ['ar_number' => $arNumber]);
+            }
+            // Check if it's just a number (could be PCN or RT counter without prefix)
+            elseif (is_numeric($searchTerm)) {
+                $number = (int)$searchTerm;
+                $query->where(function($q) use ($number, $searchTerm) {
+                    $q->where('prod.rtcounter', $number)
+                      ->orWhere('prod.itemnumber', $searchTerm)
+                      ->orWhere('prod.PCN', $searchTerm)
+                      ->orWhere('prod.PRD', $searchTerm);
+                });
+                Log::info('Searching by numeric value:', ['number' => $number, 'search_term' => $searchTerm]);
+            }
+            // Otherwise search by serial numbers and other text fields
+            else {
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('prod.serialnumber', $searchTerm)
+                      ->orWhere('prod.serialnumberb', $searchTerm)
+                      ->orWhere('prod.serialnumberc', $searchTerm)
+                      ->orWhere('prod.serialnumberd', $searchTerm)
+                      ->orWhere('prod.itemnumber', $searchTerm)
+                      ->orWhere('prod.PCN', $searchTerm)
+                      ->orWhere('prod.PRD', $searchTerm)
+                      ->orWhere('prod.FNSKUviewer', $searchTerm)
+                      ->orWhere('fnsku.ASIN', $searchTerm);
+                });
+                Log::info('Searching by text fields:', ['search_term' => $searchTerm]);
+            }
+
+            $result = $query->orderBy('prod.ProductID', 'desc')->first();
+            
+            if ($result) {
+                Log::info('Product found for printing:', [
+                    'ProductID' => $result->ProductID,
+                    'rtcounter' => $result->rtcounter,
+                    'FNSKU' => $result->FNSKUviewer,
+                    'ASIN' => $result->ASINviewer
+                ]);
+            } else {
+                Log::warning('No product found for search term:', ['search_term' => $searchTerm]);
+            }
+
+            return $result;
+
+        } catch (Exception $e) {
+            Log::error('Error in searchProductForPrinting:', [
+                'error' => $e->getMessage(),
+                'search_term' => $searchTerm
+            ]);
+            
+            return null;
+        }
+    }
+
+    /**
+     * Search for a product to reprint by serial number, PCN, or RT counter
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function searchForReprint(Request $request)
+    {
+        try {
+            $request->validate([
+                'search_term' => 'required|string'
+            ]);
+
+            $searchTerm = trim($request->search_term);
+            
+            Log::info('Searching for reprint:', ['search_term' => $searchTerm]);
+            
+            // Search by different criteria
+            $product = $this->searchProductByTerm($searchTerm);
+
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found with search term: ' . $searchTerm
+                ]);
+            }
+
+            // Return product data for reprint
+            return response()->json([
+                'success' => true,
+                'message' => 'Product found successfully',
+                'product_data' => [
+                    'ProductID' => $product->ProductID,
+                    'rtcounter' => $product->rtcounter,
+                    'FNSKUviewer' => $product->FNSKUviewer,
+                    'ASINviewer' => $product->ASINviewer,
+                    'AStitle' => $product->AStitle,
+                    'fnsku_grading' => $product->fnsku_grading,
+                    'fnsku_storename' => $product->fnsku_storename,
+                    'serialnumber' => $product->serialnumber,
+                    'serialnumberb' => $product->serialnumberb,
+                    'serialnumberc' => $product->serialnumberc,
+                    'serialnumberd' => $product->serialnumberd,
+                    'ProductModuleLoc' => $product->ProductModuleLoc,
+                    'printCount' => $product->printCount ?? 0,
+                    'warehouselocation' => $product->warehouselocation,
+                    'notes' => $product->notes,
+                    'stickernote' => $product->stickernote,
+                    'basketnumber' => $product->basketnumber,
+                    'priorityrank' => $product->priorityrank,
+                    'validation_status' => $product->validation_status,
+                    'asinStatus' => $product->asinStatus,
+                    'itemnumber' => $product->itemnumber ?? null,
+                    'PRD' => $product->PRD ?? null,
+                    'PCN' => $product->PCN ?? null,
+                    'itemstatus' => $product->itemstatus ?? null,
+                    'subvariant' => $product->subvariant ?? null,
+                    'mID' => $product->mID ?? null,
+                    'vectorimage' => $product->vectorimage ?? null,
+                    'instructioncard' => $product->instructioncard ?? null,
+                    'instructioncard2' => $product->instructioncard2 ?? null,
+                    'instructioncard3' => $product->instructioncard3 ?? null,
+                    'TRANSPARENCY_QR_STATUS' => $product->TRANSPARENCY_QR_STATUS ?? null
+                ]
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Error searching for reprint:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'search_term' => $request->search_term ?? 'unknown'
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error searching for product: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reprint a single label type
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function reprintSingleLabel(Request $request)
+    {
+        try {
+            $request->validate([
+                'product_id' => 'required|integer',
+                'label_type' => 'required|string',
+                'printer_id' => 'required|integer',
+                'search_term' => 'required|string'
+            ]);
+
+            $productId = $request->product_id;
+            $labelType = $request->label_type;
+            $printerId = $request->printer_id;
+            $searchTerm = $request->search_term;
+            
+            // Get selected printer info
+            $selectedPrinter = DB::table('tblprinters')
+                ->where('printerid', $printerId)
+                ->first();
+                
+            if (!$selectedPrinter) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected printer not found'
+                ], 404);
+            }
+            
+            // Get username safely
+            $user = Auth::user();
+            $username = $user ? ($user->username ?? $user->name ?? 'Unknown') : 'System';
+
+            // Get the product with all needed data
+            $product = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*',
+                    'fnsku.ASIN as ASINviewer',
+                    'fnsku.grading as gradingviewer',
+                    'fnsku.storename as StoreName',
+                    'asin.internal as AStitle',
+                    'asin.asinStatus',
+                    'asin.TRANSPARENCY_QR_STATUS',
+                    'asin.vectorimage',
+                    'asin.instructioncard',
+                    'asin.instructioncard2',
+                    'asin.instructioncard3'
+                ])
+                ->where('prod.ProductID', $productId)
+                ->first();
+
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found'
+                ], 404);
+            }
+
+            // Use the PrintLabelService to print the specific label type
+            $printResult = $this->printLabelService->reprintSingleLabel(
+                $productId, 
+                $labelType, 
+                $username, 
+                $selectedPrinter
+            );
+
+            // Check if the print service returned a successful result
+            if ($printResult['status'] === 'success') {
+                // Log the reprint activity
+                if (isset($this->itemProcessHistoryTable) && 
+                    DB::getSchemaBuilder()->hasTable($this->itemProcessHistoryTable)) {
+                    
+                    DB::table($this->itemProcessHistoryTable)->insert([
+                        'rtcounter' => $product->rtcounter,
+                        'employeeName' => $username,
+                        'editDate' => now()->format('Y-m-d H:i:s'),
+                        'Module' => 'Label Reprinting',
+                        'Action' => 'Single label reprinted (' . $labelType . ') for ' . ($product->FNSKUviewer ?? 'unknown FNSKU') . ' on ' . $selectedPrinter->printername . ' - Search: ' . $searchTerm
+                    ]);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Label reprinted successfully to ' . $selectedPrinter->printername,
+                    'label_type' => $labelType,
+                    'search_term' => $searchTerm,
+                    'printer_name' => $selectedPrinter->printername,
+                    'product_title' => $product->AStitle ?? 'Unknown Title',
+                    'asin' => $product->ASINviewer,
+                    'fnsku' => $product->FNSKUviewer,
+                    'product_data' => [
+                        'ProductID' => $product->ProductID,
+                        'rtcounter' => $product->rtcounter,
+                        'ProductModuleLoc' => $product->ProductModuleLoc
+                    ]
+                ], 200);
+            } else {
+                // Print service failed
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Reprint failed: ' . ($printResult['message'] ?? 'Unknown error')
+                ], 500);
+            }
+
+        } catch (Exception $e) {
+            Log::error('Error reprinting single label:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error reprinting label: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Search for a product by various criteria (enhanced version for reprint)
+     *
+     * @param string $searchTerm
+     * @return object|null
+     */
+    protected function searchProductByTerm($searchTerm)
+    {
+        try {
+            $query = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*',
+                    'fnsku.FNSKU',
+                    'fnsku.grading as fnsku_grading',
+                    'fnsku.storename as fnsku_storename',
+                    'asin.ASIN as ASINviewer',
+                    'asin.internal as AStitle',
+                    'asin.asinStatus',
+                    'asin.vectorimage',
+                    'asin.instructioncard',
+                    'asin.instructioncard2',
+                    'asin.instructioncard3',
+                    'asin.TRANSPARENCY_QR_STATUS'
+                ])
+                ->where('prod.returnstatus', 'Not Returned')
+                ->where('prod.ProductModuleLoc', '!=', 'Migrated');
+
+            // Check if search term looks like RT counter (RT + numbers)
+            if (preg_match('/^RT(\d+)$/i', $searchTerm, $matches)) {
+                $rtNumber = (int)$matches[1];
+                $query->where('prod.rtcounter', $rtNumber);
+                Log::info('Searching by RT counter:', ['rt_number' => $rtNumber]);
+            }
+            // Check if search term looks like AR counter (AR + numbers)  
+            elseif (preg_match('/^AR(\d+)$/i', $searchTerm, $matches)) {
+                $arNumber = (int)$matches[1];
+                $query->where('prod.rtcounter', $arNumber);
+                Log::info('Searching by AR counter:', ['ar_number' => $arNumber]);
+            }
+            // Check if it's just a number (could be PCN or RT counter without prefix)
+            elseif (is_numeric($searchTerm)) {
+                $number = (int)$searchTerm;
+                $query->where(function($q) use ($number, $searchTerm) {
+                    $q->where('prod.rtcounter', $number)
+                      ->orWhere('prod.itemnumber', $searchTerm)
+                      ->orWhere('prod.PCN', $searchTerm)
+                      ->orWhere('prod.PRD', $searchTerm);
+                });
+                Log::info('Searching by numeric value:', ['number' => $number, 'search_term' => $searchTerm]);
+            }
+            // Otherwise search by serial numbers and other text fields
+            else {
+                $query->where(function($q) use ($searchTerm) {
+                    $q->where('prod.serialnumber', $searchTerm)
+                      ->orWhere('prod.serialnumberb', $searchTerm)
+                      ->orWhere('prod.serialnumberc', $searchTerm)
+                      ->orWhere('prod.serialnumberd', $searchTerm)
+                      ->orWhere('prod.itemnumber', $searchTerm)
+                      ->orWhere('prod.PCN', $searchTerm)
+                      ->orWhere('prod.PRD', $searchTerm)
+                      ->orWhere('prod.FNSKUviewer', $searchTerm)
+                      ->orWhere('fnsku.ASIN', $searchTerm);
+                });
+                Log::info('Searching by text fields:', ['search_term' => $searchTerm]);
+            }
+
+            $result = $query->orderBy('prod.ProductID', 'desc')->first();
+            
+            if ($result) {
+                Log::info('Product found:', [
+                    'ProductID' => $result->ProductID,
+                    'rtcounter' => $result->rtcounter,
+                    'FNSKU' => $result->FNSKUviewer,
+                    'ASIN' => $result->ASINviewer
+                ]);
+            } else {
+                Log::warning('No product found for search term:', ['search_term' => $searchTerm]);
+            }
+
+            return $result;
+
+        } catch (Exception $e) {
+            Log::error('Error in searchProductByTerm:', [
+                'error' => $e->getMessage(),
+                'search_term' => $searchTerm
+            ]);
+            
+            return null;
+        }
+    }
+
+    /**
+     * Print label for a product
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function printLabel(Request $request)
+    {
+        try {
+            // Validate request
+            $request->validate([
+                'serial_number' => 'required|string',
+                'printer_id' => 'required|integer',
+                'print_data' => 'required|array'
+            ]);
+
+            $serialNumber = trim($request->serial_number);
+            $printerId = $request->printer_id;
+            $printData = $request->print_data;
+            
+            // Get selected printer info
+            $selectedPrinter = DB::table('tblprinters')
+                ->where('printerid', $printerId)
+                ->first();
 
             // Add this debug logging:
             Log::info('Selected printer details:', [
@@ -178,122 +548,122 @@ public function printLabel(Request $request)
                 'printer_data' => $selectedPrinter,
                 'printer_ip' => $selectedPrinter->printerip ?? 'NOT FOUND'
             ]);
+                
+            if (!$selectedPrinter) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected printer not found'
+                ], 404);
+            }
             
-        if (!$selectedPrinter) {
+            // Get username safely
+            $user = Auth::user();
+            $username = $user ? ($user->username ?? $user->name ?? 'Unknown') : 'System';
+
+            // Get the ProductID from the print data
+            $productId = $printData['product_data']['ProductID'] ?? null;
+            
+            if (!$productId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product ID not found in print data'
+                ], 400);
+            }
+
+            // Double-check the product still exists and meets conditions
+            $product = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.ProductID',
+                    'prod.rtcounter',
+                    'prod.serialnumber',
+                    'prod.serialnumberb',
+                    'prod.serialnumberc',
+                    'prod.serialnumberd',
+                    'prod.ProductModuleLoc',
+                    'prod.printCount',
+                    'prod.warehouselocation',
+                    'prod.notes',
+                    'prod.stickernote',
+                    'prod.basketnumber',
+                    'prod.priorityrank',
+                    'prod.returnstatus',
+                    'prod.validation_status',
+                    'prod.FNSKUviewer',
+                    'fnsku.FNSKU',
+                    'fnsku.grading as fnsku_grading',
+                    'fnsku.storename as fnsku_storename',
+                    'asin.ASIN as ASINviewer',
+                    'asin.internal as AStitle',
+                    'asin.asinStatus'
+                ])
+                ->where('prod.ProductID', $productId)
+                ->where('prod.returnstatus', 'Not Returned')
+                ->where('prod.ProductModuleLoc', '!=', 'Migrated')
+                ->first();
+
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found or status changed'
+                ], 404);
+            }
+
+            // Check conditions again before printing
+            $conditions = $this->checkPrintConditions($product);
+            
+            if (!$conditions['meets_conditions']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product no longer meets print conditions: ' . $conditions['message']
+                ], 400);
+            }
+
+            // Use the PrintLabelService to print the label with selected printer
+            $printResult = $this->printLabelService->printLabel($productId, $username, $selectedPrinter);
+
+            // Check if the print service returned a successful result
+            if ($printResult['status'] === 'success') {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Label printed successfully to ' . $selectedPrinter->printername,
+                    'serial_number' => $serialNumber,
+                    'printer_name' => $selectedPrinter->printername,
+                    'print_count' => ($product->printCount ?? 0) + 1,
+                    'product_title' => $product->AStitle ?? 'Unknown Title',
+                    'asin' => $product->ASINviewer,
+                    'fnsku' => $product->FNSKUviewer,
+                    'product_data' => [
+                        'ProductID' => $product->ProductID,
+                        'rtcounter' => $product->rtcounter,
+                        'ProductModuleLoc' => $product->ProductModuleLoc,
+                        'current_status' => $conditions['current_status'],
+                        'printCount' => ($product->printCount ?? 0) + 1
+                    ]
+                ], 200);
+            } else {
+                // Print service failed
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Print failed: ' . ($printResult['message'] ?? 'Unknown error')
+                ], 500);
+            }
+
+        } catch (Exception $e) {
+            Log::error('Error printing label:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'serial_number' => $request->serial_number ?? 'unknown',
+                'request_data' => $request->all()
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Selected printer not found'
-            ], 404);
-        }
-        
-        // Get username safely
-        $user = Auth::user();
-        $username = $user ? ($user->username ?? $user->name ?? 'Unknown') : 'System';
-
-        // Get the ProductID from the print data
-        $productId = $printData['product_data']['ProductID'] ?? null;
-        
-        if (!$productId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product ID not found in print data'
-            ], 400);
-        }
-
-        // Double-check the product still exists and meets conditions
-        $product = DB::table($this->productTable . ' as prod')
-            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-            ->select([
-                'prod.ProductID',
-                'prod.rtcounter',
-                'prod.serialnumber',
-                'prod.serialnumberb',
-                'prod.serialnumberc',
-                'prod.serialnumberd',
-                'prod.ProductModuleLoc',
-                'prod.printCount',
-                'prod.warehouselocation',
-                'prod.notes',
-                'prod.stickernote',
-                'prod.basketnumber',
-                'prod.priorityrank',
-                'prod.returnstatus',
-                'prod.validation_status',
-                'prod.FNSKUviewer',
-                'fnsku.FNSKU',
-                'fnsku.grading as fnsku_grading',
-                'fnsku.storename as fnsku_storename',
-                'asin.ASIN as ASINviewer',
-                'asin.internal as AStitle',
-                'asin.asinStatus'
-            ])
-            ->where('prod.ProductID', $productId)
-            ->where('prod.returnstatus', 'Not Returned')
-            ->where('prod.ProductModuleLoc', '!=', 'Migrated')
-            ->first();
-
-        if (!$product) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found or status changed'
-            ], 404);
-        }
-
-        // Check conditions again before printing
-        $conditions = $this->checkPrintConditions($product);
-        
-        if (!$conditions['meets_conditions']) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product no longer meets print conditions: ' . $conditions['message']
-            ], 400);
-        }
-
-        // Use the PrintLabelService to print the label with selected printer
-        $printResult = $this->printLabelService->printLabel($productId, $username, $selectedPrinter);
-
-        // Check if the print service returned a successful result
-        if ($printResult['status'] === 'success') {
-            return response()->json([
-                'success' => true,
-                'message' => 'Label printed successfully to ' . $selectedPrinter->printername,
-                'serial_number' => $serialNumber,
-                'printer_name' => $selectedPrinter->printername,
-                'print_count' => ($product->printCount ?? 0) + 1,
-                'product_title' => $product->AStitle ?? 'Unknown Title',
-                'asin' => $product->ASINviewer,
-                'fnsku' => $product->FNSKUviewer,
-                'product_data' => [
-                    'ProductID' => $product->ProductID,
-                    'rtcounter' => $product->rtcounter,
-                    'ProductModuleLoc' => $product->ProductModuleLoc,
-                    'current_status' => $conditions['current_status'],
-                    'printCount' => ($product->printCount ?? 0) + 1
-                ]
-            ], 200);
-        } else {
-            // Print service failed
-            return response()->json([
-                'success' => false,
-                'message' => 'Print failed: ' . ($printResult['message'] ?? 'Unknown error')
+                'message' => 'Error printing label: ' . $e->getMessage()
             ], 500);
         }
-
-    } catch (Exception $e) {
-        Log::error('Error printing label:', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-            'serial_number' => $request->serial_number ?? 'unknown',
-            'request_data' => $request->all()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Error printing label: ' . $e->getMessage()
-        ], 500);
     }
-}
 
     /**
      * Check if a product meets the conditions for printing
@@ -670,14 +1040,14 @@ public function printLabel(Request $request)
         }
     }
 
-        /**
+    /**
      * Get all available printers
      */
     public function getPrinters()
     {
         try {
             $printers = DB::table('tblprinters')
-                ->select('printerid', 'printername')
+                ->select('printerid', 'printername', 'printerip')
                 ->orderBy('printername')
                 ->get();
             

@@ -9,7 +9,40 @@
                 <button class="btn" @click="loadFBAInboundShipment">
                     <i class="fas fa-truck"></i> FBA Inbound Shipment
                 </button>
+
+              <div class="header-buttons">
+                    <button 
+                        class="btn btn-success btn-new-scanned" 
+                        @click="showNewScannedModal = true"
+                        style="position: relative; overflow: visible;"
+                    >
+                        <i class="fas fa-barcode"></i>
+                        New Scanned
+                        
+                        <!-- Notification Badge -->
+                        <span 
+                            v-if="newScannedCount > 0" 
+                            class="notification-badge"
+                            :class="{
+                                'large-number': newScannedCount >= 10 && newScannedCount < 100,
+                                'extra-large': newScannedCount >= 100
+                            }"
+                            :style="{
+                                backgroundColor: '#ff0000 !important',
+                                color: '#ffffff !important'
+                            }"
+                        >
+                            {{ newScannedCount > 999 ? '999+' : newScannedCount }}
+                        </span>
+                    </button>
+                </div>
+
             </div>
+
+
+         
+
+
 
             <div class="store-filter">
                 <label for="store-select">Store:</label>
@@ -1127,6 +1160,16 @@
         </div>
     </div>
 </div>
+
+
+
+   <!-- New Scanned Items Modal -->
+<NewScannedItemModal 
+    :show="showNewScannedModal"
+    @close="closeNewScannedModal"
+    @update-count="handleCountUpdate"
+/>
+
     </div>
 </template>
 
@@ -1731,4 +1774,56 @@ export default Stockroom;
         width: 95%;
     }
 }
+
+.btn-new-scanned {
+    position: relative;
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+}
+
+.btn-new-scanned:hover {
+    background-color: #218838 !important;
+    border-color: #1e7e34 !important;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.header-buttons {
+    position: relative;
+    overflow: visible !important;
+}
+
+.top-header {
+    overflow: visible !important;
+}
+
 </style>

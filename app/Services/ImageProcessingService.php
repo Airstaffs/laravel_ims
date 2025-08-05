@@ -86,7 +86,7 @@ class ImageProcessingService
                 return $this->generateSimpleQRZpl($serial);
             }
             
-            $qrCodeImage = imagecreatefrompng($qrCodePath);
+            $qrCodeImage = \imagecreatefrompng($qrCodePath);
             if (!$qrCodeImage) {
                 Log::warning('Failed to load QR code image');
                 return $this->generateSimpleQRZpl($serial);
@@ -95,76 +95,76 @@ class ImageProcessingService
             $outputImageWidth = 400;
             $outputImageHeight = 250;
             
-            $image = imagecreatetruecolor($outputImageWidth, $outputImageHeight);
-            $white = imagecolorallocate($image, 255, 255, 255);
-            imagefill($image, 0, 0, $white);
+            $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            $white = \imagecolorallocate($image, 255, 255, 255);
+            \imagefill($image, 0, 0, $white);
             
             $availableWidthForQRCode = $outputImageWidth - 40;
             $availableHeightForQRCode = $outputImageHeight - 80;
             
-            $qrScaleFactor = min($availableWidthForQRCode / imagesx($qrCodeImage), $availableHeightForQRCode / imagesy($qrCodeImage));
+            $qrScaleFactor = min($availableWidthForQRCode / \imagesx($qrCodeImage), $availableHeightForQRCode / \imagesy($qrCodeImage));
             
             // Add explicit casting to integers for these calculated dimensions
-            $scaledQrCodeWidth = (int)(imagesx($qrCodeImage) * $qrScaleFactor);
-            $scaledQrCodeHeight = (int)(imagesy($qrCodeImage) * $qrScaleFactor);
+            $scaledQrCodeWidth = (int)(\imagesx($qrCodeImage) * $qrScaleFactor);
+            $scaledQrCodeHeight = (int)(\imagesy($qrCodeImage) * $qrScaleFactor);
             
-            $scaledQrCodeImage = imagecreatetruecolor($scaledQrCodeWidth, $scaledQrCodeHeight);
-            imagecopyresampled($scaledQrCodeImage, $qrCodeImage, 0, 0, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight, imagesx($qrCodeImage), imagesy($qrCodeImage));
-            imagedestroy($qrCodeImage);
+            $scaledQrCodeImage = \imagecreatetruecolor($scaledQrCodeWidth, $scaledQrCodeHeight);
+            \imagecopyresampled($scaledQrCodeImage, $qrCodeImage, 0, 0, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
+            \imagedestroy($qrCodeImage);
             
             // Move QR code slightly higher and add explicit casting
             $dstX = (int)(($outputImageWidth - $scaledQrCodeWidth) / 2);
             $dstY = 5; // Moved higher
-            imagecopy($image, $scaledQrCodeImage, $dstX, $dstY, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight);
-            imagedestroy($scaledQrCodeImage);
+            \imagecopy($image, $scaledQrCodeImage, $dstX, $dstY, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight);
+            \imagedestroy($scaledQrCodeImage);
             
             $bottomText1 = "Photos of this item is saved on the cloud.";
             $bottomText2 = "Scan to view.";
             
-            $black = imagecolorallocate($image, 0, 0, 0);
+            $black = \imagecolorallocate($image, 0, 0, 0);
             $bottomFontSize = 14;
             
             // Use font if available, otherwise use built-in font
             if (file_exists($this->fontsPath)) {
                 // Move bottom text slightly higher and add explicit casting
-                $textBoxBottom1 = imagettfbbox($bottomFontSize, 0, $this->fontsPath, $bottomText1);
+                $textBoxBottom1 = \imagettfbbox($bottomFontSize, 0, $this->fontsPath, $bottomText1);
                 $textWidthBottom1 = abs($textBoxBottom1[4] - $textBoxBottom1[0]);
                 $textXBottom1 = (int)(($outputImageWidth - $textWidthBottom1) / 2);
                 $textYBottom1 = $outputImageHeight - 50; // Moved higher
                 
-                imagettftext($image, $bottomFontSize, 0, $textXBottom1, $textYBottom1, $black, $this->fontsPath, $bottomText1);
+                \imagettftext($image, $bottomFontSize, 0, $textXBottom1, $textYBottom1, $black, $this->fontsPath, $bottomText1);
                 
-                $textBoxBottom2 = imagettfbbox($bottomFontSize, 0, $this->fontsPath, $bottomText2);
+                $textBoxBottom2 = \imagettfbbox($bottomFontSize, 0, $this->fontsPath, $bottomText2);
                 $textWidthBottom2 = abs($textBoxBottom2[4] - $textBoxBottom2[0]);
                 $textXBottom2 = (int)(($outputImageWidth - $textWidthBottom2) / 2);
                 $textYBottom2 = $textYBottom1 + 18; // Reduced spacing
                 
-                imagettftext($image, $bottomFontSize, 0, $textXBottom2, $textYBottom2, $black, $this->fontsPath, $bottomText2);
+                \imagettftext($image, $bottomFontSize, 0, $textXBottom2, $textYBottom2, $black, $this->fontsPath, $bottomText2);
             } else {
                 // Use built-in font
                 $textWidthBottom1 = strlen($bottomText1) * 10; // Approximate width
                 $textXBottom1 = (int)(($outputImageWidth - $textWidthBottom1) / 2);
                 $textYBottom1 = $outputImageHeight - 50;
                 
-                imagestring($image, 3, $textXBottom1, $textYBottom1, $bottomText1, $black);
+                \imagestring($image, 3, $textXBottom1, $textYBottom1, $bottomText1, $black);
                 
                 $textWidthBottom2 = strlen($bottomText2) * 10;
                 $textXBottom2 = (int)(($outputImageWidth - $textWidthBottom2) / 2);
                 $textYBottom2 = $textYBottom1 + 18;
                 
-                imagestring($image, 3, $textXBottom2, $textYBottom2, $bottomText2, $black);
+                \imagestring($image, 3, $textXBottom2, $textYBottom2, $bottomText2, $black);
             }
             
             // Convert to ZPL
             $binaryString = "";
             for ($y = 0; $y < $outputImageHeight; $y++) {
                 for ($x = 0; $x < $outputImageWidth; $x++) {
-                    $color = imagecolorat($image, $x, $y);
+                    $color = \imagecolorat($image, $x, $y);
                     $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
                 }
             }
             
-            imagedestroy($image);
+            \imagedestroy($image);
             
             $hexString = '';
             for ($i = 0; $i < strlen($binaryString); $i += 8) {
@@ -217,7 +217,7 @@ class ImageProcessingService
                 return $this->generateSimpleManualQRZpl($asinfind, $title);
             }
             
-            $qrCodeImage = imagecreatefrompng($qrCodePath);
+            $qrCodeImage = \imagecreatefrompng($qrCodePath);
             if (!$qrCodeImage) {
                 return $this->generateSimpleManualQRZpl($asinfind, $title);
             }
@@ -227,57 +227,57 @@ class ImageProcessingService
             $outputImageHeight = 200; // Height in pixels
             
             // Create a blank image with the specified dimensions
-            $image = imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
             
             // Fill the background with white color
-            $white = imagecolorallocate($image, 255, 255, 255);
-            imagefill($image, 0, 0, $white);
+            $white = \imagecolorallocate($image, 255, 255, 255);
+            \imagefill($image, 0, 0, $white);
             
             // Add text "Scan Me for User Manual" at the top
             $scanMeText = "Scan Me for User Manual";
             $scanMeFontSize = 20; // Font size for "Scan Me for User Manual"
-            $textColor = imagecolorallocate($image, 0, 0, 0); // Black
+            $textColor = \imagecolorallocate($image, 0, 0, 0); // Black
             
             if (file_exists($this->fontsPath)) {
                 // Calculate text bounding box for "Scan Me for User Manual"
-                $bbox = imagettfbbox($scanMeFontSize, 0, $this->fontsPath, $scanMeText);
+                $bbox = \imagettfbbox($scanMeFontSize, 0, $this->fontsPath, $scanMeText);
                 $scanMeTextWidth = $bbox[2] - $bbox[0];
                 $scanMeTextX = ($outputImageWidth - $scanMeTextWidth) / 2; // Center text horizontally
                 
                 // Adjust this value to move the text closer to the top
                 $scanMeTextY = 50; // Move text higher
                 
-                imagettftext($image, $scanMeFontSize, 0, $scanMeTextX, $scanMeTextY, $textColor, $this->fontsPath, $scanMeText);
+                \imagettftext($image, $scanMeFontSize, 0, $scanMeTextX, $scanMeTextY, $textColor, $this->fontsPath, $scanMeText);
             } else {
                 // Use built-in font
                 $scanMeTextWidth = strlen($scanMeText) * 10;
                 $scanMeTextX = ($outputImageWidth - $scanMeTextWidth) / 2;
                 $scanMeTextY = 30;
-                imagestring($image, 3, $scanMeTextX, $scanMeTextY, $scanMeText, $textColor);
+                \imagestring($image, 3, $scanMeTextX, $scanMeTextY, $scanMeText, $textColor);
             }
             
             // Calculate QR code size and position
             $availableWidthForQRCode = $outputImageWidth - 40; // Subtract margins
             $availableHeightForQRCode = $outputImageHeight - 50 - 20 - 20; // Subtract text height and extra padding
             
-            $qrScaleFactor = min($availableWidthForQRCode / imagesx($qrCodeImage), $availableHeightForQRCode / imagesy($qrCodeImage));
-            $scaledQrCodeWidth = imagesx($qrCodeImage) * $qrScaleFactor;
-            $scaledQrCodeHeight = imagesy($qrCodeImage) * $qrScaleFactor;
+            $qrScaleFactor = min($availableWidthForQRCode / \imagesx($qrCodeImage), $availableHeightForQRCode / \imagesy($qrCodeImage));
+            $scaledQrCodeWidth = \imagesx($qrCodeImage) * $qrScaleFactor;
+            $scaledQrCodeHeight = \imagesy($qrCodeImage) * $qrScaleFactor;
             
             // Scale the QR code
-            $scaledQrCodeImage = imagecreatetruecolor($scaledQrCodeWidth, $scaledQrCodeHeight);
-            imagecopyresampled($scaledQrCodeImage, $qrCodeImage, 0, 0, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight, imagesx($qrCodeImage), imagesy($qrCodeImage));
-            imagedestroy($qrCodeImage);
+            $scaledQrCodeImage = \imagecreatetruecolor($scaledQrCodeWidth, $scaledQrCodeHeight);
+            \imagecopyresampled($scaledQrCodeImage, $qrCodeImage, 0, 0, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
+            \imagedestroy($qrCodeImage);
             
             // Merge QR code with the blank image
             $dstX = 20; // Margin from the left
             $dstY = 50 + 20 + 10; // Position QR code just below the text
-            imagecopy($image, $scaledQrCodeImage, $dstX, $dstY, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight);
-            imagedestroy($scaledQrCodeImage);
+            \imagecopy($image, $scaledQrCodeImage, $dstX, $dstY, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight);
+            \imagedestroy($scaledQrCodeImage);
             
             // Add title text beside the QR code
             $titleFontSize = 20; // Font size for title
-            $titleColor = imagecolorallocate($image, 0, 0, 0); // Black
+            $titleColor = \imagecolorallocate($image, 0, 0, 0); // Black
             
             if (file_exists($this->fontsPath)) {
                 // Wrap the title text to fit within the image width
@@ -288,7 +288,7 @@ class ImageProcessingService
                 
                 foreach ($words as $word) {
                     $testLine = $currentLine . ($currentLine ? ' ' : '') . $word;
-                    $bbox = imagettfbbox($titleFontSize, 0, $this->fontsPath, $testLine);
+                    $bbox = \imagettfbbox($titleFontSize, 0, $this->fontsPath, $testLine);
                     
                     if (($bbox[2] - $bbox[0]) > $maxWidth) {
                         $lines[] = $currentLine;
@@ -304,18 +304,18 @@ class ImageProcessingService
                 $titleY = $dstY + ($scaledQrCodeHeight - (count($lines) * $lineHeight)) / 2; // Center vertically
                 
                 foreach ($lines as $index => $line) {
-                    $bbox = imagettfbbox($titleFontSize, 0, $this->fontsPath, $line);
+                    $bbox = \imagettfbbox($titleFontSize, 0, $this->fontsPath, $line);
                     $titleWidth = $bbox[2] - $bbox[0];
                     $titleX = $dstX + $scaledQrCodeWidth + 25; // Padding from the QR code
                     $lineY = $titleY + ($index * $lineHeight) + $titleFontSize; // Vertical position of each line
                     
-                    imagettftext($image, $titleFontSize, 0, $titleX, $lineY, $titleColor, $this->fontsPath, $line);
+                    \imagettftext($image, $titleFontSize, 0, $titleX, $lineY, $titleColor, $this->fontsPath, $line);
                 }
             } else {
                 // Use built-in font for title
                 $titleX = $dstX + $scaledQrCodeWidth + 25;
                 $titleY = $dstY + 20;
-                imagestring($image, 2, $titleX, $titleY, substr($title, 0, 30), $titleColor);
+                \imagestring($image, 2, $titleX, $titleY, substr($title, 0, 30), $titleColor);
             }
             
             // Convert to ZPL
@@ -324,13 +324,13 @@ class ImageProcessingService
             // Convert image pixels to binary string
             for ($y = 0; $y < $outputImageHeight; $y++) {
                 for ($x = 0; $x < $outputImageWidth; $x++) {
-                    $color = imagecolorat($image, $x, $y);
+                    $color = \imagecolorat($image, $x, $y);
                     $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
                 }
             }
             
             // Free up memory
-            imagedestroy($image);
+            \imagedestroy($image);
             
             // Convert binary string to hexadecimal string
             $hexString = '';
@@ -371,7 +371,7 @@ class ImageProcessingService
             }
             
             // Check the image type (jpeg, png) and create a new image from file
-            $imageInfo = getimagesize($inputPath);
+            $imageInfo = \getimagesize($inputPath);
             if (!$imageInfo) {
                 Log::warning('Invalid image: ' . $inputPath);
                 return false;
@@ -379,10 +379,10 @@ class ImageProcessingService
             
             switch ($imageInfo[2]) {
                 case IMAGETYPE_JPEG:
-                    $image = imagecreatefromjpeg($inputPath);
+                    $image = \imagecreatefromjpeg($inputPath);
                     break;
                 case IMAGETYPE_PNG:
-                    $image = imagecreatefrompng($inputPath);
+                    $image = \imagecreatefrompng($inputPath);
                     break;
                 default:
                     Log::warning('Unsupported image type: ' . $inputPath);
@@ -395,20 +395,20 @@ class ImageProcessingService
             }
             
             // Get original dimensions
-            $origWidth = imagesx($image);
-            $origHeight = imagesy($image);
+            $origWidth = \imagesx($image);
+            $origHeight = \imagesy($image);
             
             // Create a new true color image with the desired dimensions
-            $newImage = imagecreatetruecolor($newWidth, $newHeight);
+            $newImage = \imagecreatetruecolor($newWidth, $newHeight);
             
             // Copy and resize part of an image with resampling
-            imagecopyresampled($newImage, $image, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
+            \imagecopyresampled($newImage, $image, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
             
             // Convert to grayscale
-            imagefilter($newImage, IMG_FILTER_GRAYSCALE);
+            \imagefilter($newImage, IMG_FILTER_GRAYSCALE);
             
             // Convert to black and white
-            imagefilter($newImage, IMG_FILTER_CONTRAST, -1000);
+            \imagefilter($newImage, IMG_FILTER_CONTRAST, -1000);
             
             // Get the filename without the extension
             $fileParts = pathinfo($inputPath);
@@ -422,14 +422,14 @@ class ImageProcessingService
             
             // Save the image
             if ($imageInfo[2] === IMAGETYPE_PNG) {
-                $result = imagepng($newImage, $fullOutputPath);
+                $result = \imagepng($newImage, $fullOutputPath);
             } else {
-                $result = imagejpeg($newImage, $fullOutputPath);
+                $result = \imagejpeg($newImage, $fullOutputPath);
             }
             
             // Free up memory
-            imagedestroy($image);
-            imagedestroy($newImage);
+            \imagedestroy($image);
+            \imagedestroy($newImage);
             
             return $result;
             
@@ -458,9 +458,9 @@ class ImageProcessingService
             $extension = strtolower($fileParts['extension']);
             
             if ($extension == 'png') {
-                $image = imagecreatefrompng($monochromeImagePath);
+                $image = \imagecreatefrompng($monochromeImagePath);
             } elseif ($extension == 'jpg' || $extension == 'jpeg') {
-                $image = imagecreatefromjpeg($monochromeImagePath);
+                $image = \imagecreatefromjpeg($monochromeImagePath);
             } else {
                 Log::warning('Unsupported image type: ' . $extension);
                 return "^XA^FO50,50^ADN,18,18^FDUnsupported image type^FS^XZ";
@@ -472,20 +472,20 @@ class ImageProcessingService
             }
             
             // Get image dimensions
-            $width = imagesx($image);
-            $height = imagesy($image);
+            $width = \imagesx($image);
+            $height = \imagesy($image);
             $binaryString = "";
             
             // Convert image pixels to binary string
             for ($y = 0; $y < $height; $y++) {
                 for ($x = 0; $x < $width; $x++) {
-                    $color = imagecolorat($image, $x, $y);
+                    $color = \imagecolorat($image, $x, $y);
                     $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
                 }
             }
             
             // Free up memory
-            imagedestroy($image);
+            \imagedestroy($image);
             
             // Convert binary string to hexadecimal string
             $hexString = '';
@@ -529,9 +529,9 @@ class ImageProcessingService
             $extension = strtolower($fileParts['extension']);
             
             if ($extension == 'png') {
-                $image = imagecreatefrompng($monochromeImagePath);
+                $image = \imagecreatefrompng($monochromeImagePath);
             } elseif ($extension == 'jpg' || $extension == 'jpeg') {
-                $image = imagecreatefromjpeg($monochromeImagePath);
+                $image = \imagecreatefromjpeg($monochromeImagePath);
             } else {
                 Log::warning('Unsupported image type: ' . $extension);
                 return "^XA^FO50,50^ADN,18,18^FDUnsupported image type^FS^XZ";
@@ -542,21 +542,21 @@ class ImageProcessingService
                 return "^XA^FO50,50^ADN,18,18^FDUnable to load image^FS^XZ";
             }
             
-            $width = imagesx($image);
-            $height = imagesy($image);
+            $width = \imagesx($image);
+            $height = \imagesy($image);
             
             $binaryString = "";
             
             // Convert image pixels to binary string
             for ($y = 0; $y < $height; $y++) {
                 for ($x = 0; $x < $width; $x++) {
-                    $color = imagecolorat($image, $x, $y);
+                    $color = \imagecolorat($image, $x, $y);
                     $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
                 }
             }
             
             // Free up memory
-            imagedestroy($image);
+            \imagedestroy($image);
             
             // Convert binary string to hexadecimal string
             $hexString = '';
@@ -597,17 +597,17 @@ class ImageProcessingService
             }
             
             // Check the image type (jpeg, png) and create a new image from file
-            $imageInfo = getimagesize($inputPath);
+            $imageInfo = \getimagesize($inputPath);
             if (!$imageInfo) {
                 throw new Exception('Invalid image file');
             }
             
             switch ($imageInfo[2]) {
                 case IMAGETYPE_JPEG:
-                    $image = imagecreatefromjpeg($inputPath);
+                    $image = \imagecreatefromjpeg($inputPath);
                     break;
                 case IMAGETYPE_PNG:
-                    $image = imagecreatefrompng($inputPath);
+                    $image = \imagecreatefrompng($inputPath);
                     break;
                 default:
                     throw new Exception('Unsupported image type.');
@@ -618,20 +618,20 @@ class ImageProcessingService
             }
             
             // Get original dimensions
-            $origWidth = imagesx($image);
-            $origHeight = imagesy($image);
+            $origWidth = \imagesx($image);
+            $origHeight = \imagesy($image);
             
             // Create a new true color image with the desired dimensions
-            $newImage = imagecreatetruecolor($newWidth, $newHeight);
+            $newImage = \imagecreatetruecolor($newWidth, $newHeight);
             
             // Copy and resize part of an image with resampling
-            imagecopyresampled($newImage, $image, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
+            \imagecopyresampled($newImage, $image, 0, 0, 0, 0, $newWidth, $newHeight, $origWidth, $origHeight);
             
             // Convert to grayscale
-            imagefilter($newImage, IMG_FILTER_GRAYSCALE);
+            \imagefilter($newImage, IMG_FILTER_GRAYSCALE);
             
             // Convert to black and white
-            imagefilter($newImage, IMG_FILTER_CONTRAST, -1000);
+            \imagefilter($newImage, IMG_FILTER_CONTRAST, -1000);
             
             // Get the filename without the extension
             $fileParts = pathinfo($inputPath);
@@ -640,14 +640,14 @@ class ImageProcessingService
             // Save the image based on the original file type
             $fullOutputPath = $outputPath . '/' . $filenameWithoutExt . (($imageInfo[2] === IMAGETYPE_PNG) ? '.png' : '.jpg');
             if ($imageInfo[2] === IMAGETYPE_PNG) {
-                imagepng($newImage, $fullOutputPath);
+                \imagepng($newImage, $fullOutputPath);
             } else {
-                imagejpeg($newImage, $fullOutputPath);
+                \imagejpeg($newImage, $fullOutputPath);
             }
             
             // Free up memory
-            imagedestroy($image);
-            imagedestroy($newImage);
+            \imagedestroy($image);
+            \imagedestroy($newImage);
             
             return true;
             
@@ -678,9 +678,9 @@ class ImageProcessingService
             
             // Load the image
             if ($extension == 'png') {
-                $image = @imagecreatefrompng($imagePath);
+                $image = @\imagecreatefrompng($imagePath);
             } elseif ($extension == 'jpg' || $extension == 'jpeg') {
-                $image = @imagecreatefromjpeg($imagePath);
+                $image = @\imagecreatefromjpeg($imagePath);
             } else {
                 Log::warning('Unsupported image type: ' . $extension);
                 return "^XA^FO50,50^ADN,18,18^FDUnsupported image type^FS^XZ";
@@ -692,8 +692,8 @@ class ImageProcessingService
             }
             
             // Get image dimensions
-            $width = imagesx($image);
-            $height = imagesy($image);
+            $width = \imagesx($image);
+            $height = \imagesy($image);
             
             // Create QR code
             $manual = url('storage/User_manual/ASIN_PDF/' . $asinfind . '.pdf');
@@ -704,81 +704,81 @@ class ImageProcessingService
                 \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 3);
             } else {
                 Log::warning('QRcode class not available');
-                imagedestroy($image);
+                \imagedestroy($image);
                 return "^XA^FO50,50^ADN,18,18^FDQRcode class not available^FS^XZ";
             }
             
             if (!file_exists($qrCodePath)) {
                 Log::warning('Failed to create QR code at: ' . $qrCodePath);
-                imagedestroy($image);
+                \imagedestroy($image);
                 return "^XA^FO50,50^ADN,18,18^FDFailed to create QR code^FS^XZ";
             }
             
             // Load QR code image
-            $qrCodeImage = @imagecreatefrompng($qrCodePath);
+            $qrCodeImage = @\imagecreatefrompng($qrCodePath);
             if (!$qrCodeImage) {
                 Log::warning('Failed to load QR code image: ' . $qrCodePath);
-                imagedestroy($image);
+                \imagedestroy($image);
                 return "^XA^FO50,50^ADN,18,18^FDFailed to load QR code^FS^XZ";
             }
             
             // Get QR code dimensions
-            $qrCodeWidth = imagesx($qrCodeImage);
-            $qrCodeHeight = imagesy($qrCodeImage);
+            $qrCodeWidth = \imagesx($qrCodeImage);
+            $qrCodeHeight = \imagesy($qrCodeImage);
             
             // Position QR code at top right
             $dstX = $width - $qrCodeWidth - 10;
             $dstY = 10;
             
             // Add QR code to image
-            imagecopy($image, $qrCodeImage, $dstX, $dstY, 0, 0, $qrCodeWidth, $qrCodeHeight);
-            imagedestroy($qrCodeImage);
+            \imagecopy($image, $qrCodeImage, $dstX, $dstY, 0, 0, $qrCodeWidth, $qrCodeHeight);
+            \imagedestroy($qrCodeImage);
             
             // Add "Scan for Manual" text
             $text = "Scan for Manual";
             $fontSize = 5;
             
-            $textColor = imagecolorallocate($image, 0, 0, 0);
+            $textColor = \imagecolorallocate($image, 0, 0, 0);
             
-            $textWidth = imagefontwidth($fontSize) * strlen($text);
-            $textHeight = imagefontheight($fontSize);
+            $textWidth = \imagefontwidth($fontSize) * strlen($text);
+            $textHeight = \imagefontheight($fontSize);
             
-            $textImage = imagecreatetruecolor($textWidth, $textHeight);
-            $bgColor = imagecolorallocate($textImage, 255, 255, 255);
-            imagefill($textImage, 0, 0, $bgColor);
-            imagestring($textImage, $fontSize, 0, 0, $text, $textColor);
+            $textImage = \imagecreatetruecolor($textWidth, $textHeight);
+            $bgColor = \imagecolorallocate($textImage, 255, 255, 255);
+            \imagefill($textImage, 0, 0, $bgColor);
+            \imagestring($textImage, $fontSize, 0, 0, $text, $textColor);
             
-            $rotatedTextImage = imagerotate($textImage, 90, 0);
-            imagedestroy($textImage);
+            $rotatedTextImage = \imagerotate($textImage, 90, 0);
+            \imagedestroy($textImage);
             
-            $textX = (int)($dstX - imagesx($rotatedTextImage) - 10);
-            $textY = (int)($dstY + ($qrCodeHeight - imagesy($rotatedTextImage)) / 2);
+            $textX = (int)($dstX - \imagesx($rotatedTextImage) - 10);
+            $textY = (int)($dstY + ($qrCodeHeight - \imagesy($rotatedTextImage)) / 2);
             
-            imagecopy($image, $rotatedTextImage, $textX, $textY, 0, 0, imagesx($rotatedTextImage), imagesy($rotatedTextImage));
-            imagedestroy($rotatedTextImage);
+            \imagecopy($image, $rotatedTextImage, $textX, $textY, 0, 0, \imagesx($rotatedTextImage), \imagesy($rotatedTextImage));
+            \imagedestroy($rotatedTextImage);
             
             // Add basket number
             $basketText = $basketnumber;
             $basketFontSize = 5;
             
-            $basketTextColor = imagecolorallocate($image, 0, 0, 0);
+            $basketTextColor = \imagecolorallocate($image, 0, 0, 0);
             
-            $basketTextWidth = imagefontwidth($basketFontSize) * strlen($basketText);
+            $basketTextWidth = \imagefontwidth($basketFontSize) * strlen($basketText);
             $basketTextX = (int)($dstX + ($qrCodeWidth - $basketTextWidth) / 2);
-            $basketTextY = $dstY + $qrCodeHeight + imagefontheight($basketFontSize) + 10;
+            $basketTextY = $dstY + $qrCodeHeight + \imagefontheight($basketFontSize) + 10;
             
-            imagestring($image, $basketFontSize, $basketTextX, $basketTextY, $basketText, $basketTextColor);
+            \imagestring($image, $basketFontSize, $basketTextX, $basketTextY, $basketText, $basketTextColor);
             
             // Save enhanced image to temp file
             $tempFile = $this->imagesPath . '/temp/' . basename($imagePath);
             
             if ($extension == 'png') {
-                imagepng($image, $tempFile);
+                \imagepng($image, $tempFile);
             } else {
-                imagejpeg($image, $tempFile);
+                \imagejpeg($image, $tempFile);
             }
             
-            imagedestroy($image);
+            \imagedestroy($image);
             
             // Now use the convertImageLayout function to convert to ZPL
             $zpl = $this->convertImageLayout($tempFile, $asinfind, $basketnumber);
@@ -844,49 +844,49 @@ class ImageProcessingService
                 $height = 1123;
                 
                 // Create a canvas with a white background
-                $canvas = imagecreatetruecolor($width, $height);
+                $canvas = \imagecreatetruecolor($width, $height);
                 if (!$canvas) {
                     Log::error('Failed to create canvas');
                     continue;
                 }
                 
-                $white = imagecolorallocate($canvas, 255, 255, 255);
-                imagefill($canvas, 0, 0, $white);
+                $white = \imagecolorallocate($canvas, 255, 255, 255);
+                \imagefill($canvas, 0, 0, $white);
                 
-                if ($image = @imagecreatefromstring($decodedImage)) {
+                if ($image = @\imagecreatefromstring($decodedImage)) {
                     // Scale and copy uploaded image
-                    $scaledImage = imagecreatetruecolor($width, $height);
-                    imagefill($scaledImage, 0, 0, $white);
-                    imagecopyresampled($scaledImage, $image, 0, 0, 0, 0, $width, $height, imagesx($image), imagesy($image));
-                    imagecopy($canvas, $scaledImage, 0, 0, 0, 0, $width, $height);
-                    imagedestroy($scaledImage);
-                    imagedestroy($image);
+                    $scaledImage = \imagecreatetruecolor($width, $height);
+                    \imagefill($scaledImage, 0, 0, $white);
+                    \imagecopyresampled($scaledImage, $image, 0, 0, 0, 0, $width, $height, \imagesx($image), \imagesy($image));
+                    \imagecopy($canvas, $scaledImage, 0, 0, 0, 0, $width, $height);
+                    \imagedestroy($scaledImage);
+                    \imagedestroy($image);
                     
                     // Add text with different coordinates based on the page index
-                    $blue = imagecolorallocate($canvas, 0, 0, 255);
+                    $blue = \imagecolorallocate($canvas, 0, 0, 255);
                     
                     if ($index == 0) { // First page
                         $textX = $width - 120;
                         $textY = $height - 420;
                         if (file_exists($this->fontsPath)) {
-                            imagettftext($canvas, 14, 90, $textX, $textY, $blue, $this->fontsPath, $details);
+                            \imagettftext($canvas, 14, 90, $textX, $textY, $blue, $this->fontsPath, $details);
                         } else {
                             // Fallback if font doesn't exist
-                            imagestring($canvas, 5, $width - 200, $height - 50, $details, $blue);
+                            \imagestring($canvas, 5, $width - 200, $height - 50, $details, $blue);
                         }
                     } elseif ($index == 1) { // Second page
                         $textX = $width - 500;
                         $textY = $height - 300;
                         if (file_exists($this->fontsPath)) {
-                            imagettftext($canvas, 18, 90, $textX, $textY, $blue, $this->fontsPath, $details);
+                            \imagettftext($canvas, 18, 90, $textX, $textY, $blue, $this->fontsPath, $details);
                         } else {
                             // Fallback if font doesn't exist
-                            imagestring($canvas, 5, $width - 300, $height - 100, $details, $blue);
+                            \imagestring($canvas, 5, $width - 300, $height - 100, $details, $blue);
                         }
                     }
                 } else {
                     Log::error('Failed to create image from template data');
-                    imagedestroy($canvas);
+                    \imagedestroy($canvas);
                     continue;
                 }
                 
@@ -899,13 +899,13 @@ class ImageProcessingService
                 $outputPath = $outputDir . '/' . $serialNumber . '_page_' . ($index + 1) . '.png';
                 
                 // Save the canvas as a PNG image
-                if (imagepng($canvas, $outputPath)) {
+                if (\imagepng($canvas, $outputPath)) {
                     $generatedImages[] = $outputPath;
                 } else {
                     Log::error('Failed to save image to: ' . $outputPath);
                 }
                 
-                imagedestroy($canvas);
+                \imagedestroy($canvas);
             }
             
             return !empty($generatedImages) ? $generatedImages : false;

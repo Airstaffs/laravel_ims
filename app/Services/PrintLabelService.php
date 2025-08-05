@@ -156,6 +156,199 @@ class PrintLabelService extends BasetablesController
     }
 
     /**
+     * Reprint a single label type for a product
+     * NEW METHOD for single label reprinting functionality
+     */
+    public function reprintSingleLabel($productId, $labelType, $username, $selectedPrinter = null)
+    {
+        try {
+            // Set printer IP dynamically if provided
+            if ($selectedPrinter && isset($selectedPrinter->printerip)) {
+                $this->printerIp = $selectedPrinter->printerip;
+                Log::info('Using selected printer for reprint:', [
+                    'printer_name' => $selectedPrinter->printername,
+                    'printer_ip' => $selectedPrinter->printerip
+                ]);
+            }
+
+            // Get product with proper joins to get all needed data
+            $product = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->select([
+                    'prod.*',
+                    'fnsku.ASIN as ASINviewer',
+                    'fnsku.grading as gradingviewer',
+                    'fnsku.storename as StoreName',
+                    'asin.internal as AStitle',
+                    'asin.asinStatus',
+                    'asin.TRANSPARENCY_QR_STATUS',
+                    'asin.vectorimage',
+                    'asin.instructioncard',
+                    'asin.instructioncard2',
+                    'asin.instructioncard3'
+                ])
+                ->where('prod.ProductID', $productId)
+                ->first();
+
+            if (!$product) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Product not found'
+                ];
+            }
+
+            // Get return counts for all serials
+            $returnCounts = $this->getReturnCounts($product);
+            
+            // Format condition
+            $condition = $this->formatCondition($product->gradingviewer, $product->StoreName, $product->ASINviewer, $product->asinStatus);
+            
+            // Generate ZPL for the specific label type
+            $zpl = $this->generateSingleLabelZpl($product, $labelType, $condition, $returnCounts, $username);
+            
+            if (empty($zpl)) {
+                return [
+                    'status' => 'error',
+                    'message' => 'Could not generate ZPL for label type: ' . $labelType
+                ];
+            }
+            
+            // Send to appropriate printer based on label type
+            if ($labelType === 'instruction_cards') {
+                $result = $this->sendToInstructionCardPrinter($zpl);
+            } else {
+                $result = $this->sendToPrinter($zpl);
+            }
+            
+            return $result;
+            
+        } catch (Exception $e) {
+            Log::error('Error in reprintSingleLabel service:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'productId' => $productId,
+                'labelType' => $labelType
+            ]);
+            
+            return [
+                'status' => 'error',
+                'message' => 'Error reprinting label: ' . $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Generate ZPL for a specific label type
+     * NEW METHOD to support individual label reprinting
+     */
+    protected function generateSingleLabelZpl($product, $labelType, $condition, $returnCounts, $username)
+    {
+        try {
+            Log::info('Generating single label ZPL:', [
+                'labelType' => $labelType,
+                'productId' => $product->ProductID ?? 'unknown'
+            ]);
+
+            switch ($labelType) {
+                case 'serial_labels':
+                    return $this->generateAllSerialLabels($product, $condition, $returnCounts);
+                    
+                case 'fnsku_label':
+                    return !empty($product->FNSKUviewer) ? 
+                        $this->generateFnskuLabel($product, $condition) : '';
+                    
+                case 'title_label':
+                    return !empty($product->AStitle) ? 
+                        $this->generateTitleLabel($product) : '';
+                    
+                case 'item_number_label':
+                    return !empty($product->itemnumber) ? 
+                        $this->generateItemNumberLabel($product) : '';
+                    
+                case 'timestamp_label':
+                    return !empty($product->rtcounter) ? 
+                        $this->generateTimestampLabel($product, $username) : '';
+                    
+                case 'sticker_note_label':
+                    return !empty($product->stickernote) ? 
+                        $this->generateStickerNoteLabel($product->stickernote, $product->mID ?? 0) : '';
+                    
+                case 'warehouse_location_label':
+                    return !empty($product->warehouselocation) ? 
+                        $this->generateWarehouseLocationLabel($product->warehouselocation) : '';
+                    
+                case 'rtcounter_label':
+                    return !empty($product->rtcounter) ? 
+                        $this->generateRTARCounterLabel($product, $condition) : '';
+                    
+                case 'qr_manual':
+                    return !empty($product->ASINviewer) ? 
+                        $this->imageProcessingService->convertImageQRmanual($product->ASINviewer, $product->AStitle ?? '') : '';
+                    
+                case 'qr_serial':
+                    return !empty($product->serialnumber) ? 
+                        $this->imageProcessingService->convertImageQRserial($product->serialnumber) : '';
+                    
+                case 'vector_image':
+                    return (!empty($product->ASINviewer) && !empty($product->vectorimage)) ? 
+                        $this->processVectorImage($product->vectorimage) : '';
+                    
+                case 'instruction_cards':
+                    return !empty($product->ASINviewer) ? 
+                        $this->generateInstructionCardLabels($product) : '';
+                    
+                case 'transparency_qr':
+                    return (!empty($product->ASINviewer) && !empty($product->TRANSPARENCY_QR_STATUS)) ? 
+                        $this->generateTransparencyQRLabel($product->TRANSPARENCY_QR_STATUS) : '';
+                    
+                case 'print_count':
+                    return (isset($product->printCount) && $product->printCount > 0) ? 
+                        $this->generatePrintCountLabel($product->printCount + 1) : '';
+                    
+                default:
+                    Log::warning('Unknown label type for reprint:', ['labelType' => $labelType]);
+                    return '';
+            }
+            
+        } catch (Exception $e) {
+            Log::error('Error generating single label ZPL:', [
+                'error' => $e->getMessage(),
+                'labelType' => $labelType,
+                'productId' => $product->ProductID ?? 'unknown'
+            ]);
+            
+            return '';
+        }
+    }
+
+    /**
+     * Generate all serial labels for reprint
+     * Helper method for serial label reprinting
+     */
+    protected function generateAllSerialLabels($product, $condition, $returnCounts)
+    {
+        $zpl = '';
+        
+        // Serial number labels (A and B)
+        if (!empty($product->serialnumber) && !empty($product->serialnumberb)) {
+            $zpl .= $this->generateDualSerialLabels($product->serialnumber, $product->serialnumberb, $condition);
+        } else if (!empty($product->serialnumber)) {
+            $returnInfo = "R:" . ($returnCounts['a'] ?? 0) . " ";
+            $zpl .= $this->generateSingleSerialLabels($product->serialnumber, $condition, $returnInfo);
+        }
+
+        // Serial number labels (C and D)
+        if (!empty($product->serialnumberc) && !empty($product->serialnumberd)) {
+            $zpl .= $this->generateDualSerialLabels($product->serialnumberc, $product->serialnumberd, $condition);
+        } else if (!empty($product->serialnumberc) && empty($product->serialnumberd)) {
+            $zpl .= $this->generateSingleSerialLabels($product->serialnumberc, $condition, "");
+        }
+        
+        return $zpl;
+    }
+
+    /**
      * Generate complete ZPL code with all label functions - COMPLETE VERSION
      * This integrates ALL functions from the original PHP code
      * Returns separate main ZPL and instruction card ZPL

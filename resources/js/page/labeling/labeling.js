@@ -56,7 +56,7 @@ export default {
             filteredFnskuList: [],
             isSearching: false,
             currentItem: null,
-            showFilters: true,
+            showFilters: false,
         };
     },
     computed: {
@@ -143,6 +143,12 @@ export default {
                 { label: "Used - Good", value: "UsedGood" },
                 { label: "Used - Acceptable", value: "UsedAcceptable" },
             ];
+        },
+
+        validFnskuList() {
+            return this.filteredFnskuList.filter(
+                (item) => item.FNSKU && item.FNSKU.trim() !== ""
+            );
         },
     },
     methods: {
@@ -514,15 +520,30 @@ export default {
                 console.log("Update FNSKU response:", response.data);
 
                 if (response.data.success) {
-                    alert(`FNSKU updated to ${fnsku.FNSKU}`);
+                    await Swal.fire({
+                        title: "Success!",
+                        text: `FNSKU updated to ${fnsku.FNSKU}`,
+                        icon: "success",
+                        confirmButtonText: "OK",
+                    });
                     this.hideFnskuModal();
                     this.fetchInventory(); // refresh inventory list
                 } else {
-                    alert(response.data.message || "Failed to update FNSKU");
+                    await Swal.fire({
+                        title: "Update Failed",
+                        text: response.data.message || "Failed to update FNSKU",
+                        icon: "error",
+                        confirmButtonText: "OK",
+                    });
                 }
             } catch (error) {
                 console.error("Error updating FNSKU:", error);
-                alert("Failed to update FNSKU. Please try again.");
+                await Swal.fire({
+                    title: "Error",
+                    text: "Failed to update FNSKU. Please try again.",
+                    icon: "error",
+                    confirmButtonText: "OK",
+                });
             }
         },
 
