@@ -296,7 +296,8 @@ textarea.form-control {
 .btn-print-selected,
 .btn-update-location,
 .btn-merge,
-.btn-process-submit {
+.btn-process-submit,
+.btn-post-selected {
     padding: 8px 12px;
     border-radius: 4px;
     cursor: pointer;
