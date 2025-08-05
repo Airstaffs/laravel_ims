@@ -639,3 +639,7 @@ Route::post('/notifications/mark-unread', [NotificationController::class, 'markA
 Route::get('/notifications/unread-count/{id}', [NotificationController::class, 'getUnreadCount']);
 
 Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
+
+
+use App\Http\Controllers\HrController;
+Route::get('/hr/employees', [HrController::class, 'getEmployees']);
