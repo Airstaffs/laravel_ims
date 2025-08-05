@@ -146,9 +146,9 @@ button.btn.btn-fnsku-select:hover {
 
 .image-display {
     display: flex;
-    flex-direction: row-reverse;
+    flex-direction: column;
     justify-content: center;
-    align-items: center;
+    align-items: flex-start;
     gap: 10px;
 }
 
@@ -172,10 +172,10 @@ button.btn.btn-fnsku-select:hover {
 
 .thumbnail-list {
     display: flex;
-    flex-direction: column;
-    flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 10px;
+    max-width: 600px;
+    overflow-x: auto;
 }
 
 .thumbnail {
