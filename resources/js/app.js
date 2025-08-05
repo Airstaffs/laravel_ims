@@ -28,6 +28,7 @@ import Notfound from "./page/notfound/notfound.vue";
 import Houseage from "./page/houseage/houseage.vue";
 import ASINList from "./page/asinlist/asinlist.vue";
 import PrinterModule from "./page/printer/printer.vue";
+import HumanResource from "./page/hr/hr.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
@@ -147,8 +148,8 @@ const componentMapping = {
     "FBM Order":"fbmorder",
     "ASIN List":"asinlist",
     "printer": "printer", // 🔴 UPDATED: Add printer mapping
-    "Printer": "printer"  // 🔴 UPDATED: Add capitalized version
-    // Add more mappings as needed
+    "Printer": "printer", // 🔴 UPDATED: Add capitalized version
+    "Human Resource":"humanresource",
 };
 
 // Session management mixin
@@ -543,7 +544,8 @@ const app = createApp({
         notfound : Notfound,
         houseage :Houseage,
         asinlist :ASINList,
-        printer: PrinterModule // 🔴 ADDED: Register printer component directly
+        printer: PrinterModule,
+        humanresource: HumanResource,
     },
 });
 

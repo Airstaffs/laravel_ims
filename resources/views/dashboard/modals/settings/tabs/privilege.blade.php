@@ -102,6 +102,7 @@
                         sub_modules: filteredSubModules,
                         modules: {
                             asinoption: 'ASIN Option',
+                            humanresource: 'Human Resource',
                             order: 'Order',
                             unreceived: 'Unreceived',
                             receiving: 'Received',
@@ -233,6 +234,7 @@
                     sub_modules: result.sub_modules || [],
                     modules: {
                         'asinoption': 'ASIN Option',
+                        'humanresource':'Human Resource',
                         'order': 'Order',
                         'unreceived': 'Unreceived',
                         'receiving': 'Received',
@@ -309,6 +311,7 @@
     function updateMainModule(data) {
         // Define the mapping for consistent database column names
         const moduleMapping = {
+            'Human Resource': 'humanresource',
             'Order': 'order',
             'Unreceived': 'unreceived',
             'Received': 'receiving',
@@ -325,7 +328,7 @@
             'Houseage': 'houseage',
         };
 
-        const mainModules = ['Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
+        const mainModules = ['Human Resource','Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
             'Stockroom', 'Validation','Production Area', 'Return Scanner', 'FBM Order', 'Not Found', 'Houseage'
         ];
 
@@ -349,6 +352,10 @@
 
     function updateSubModules(data) {
         const subModules = [{
+            db: 'humanresource',
+            display: 'Human Resource'
+        },
+        {
             db: 'order',
             display: 'Order'
         },
@@ -489,6 +496,7 @@
                 
                 const modules = data.modules || {
                     'asinoption': 'ASIN Option',
+                    'humanresource': 'Human Resource',
                     'order': 'Order',
                     'unreceived': 'Unreceived',
                     'receiving': 'Received',
@@ -546,6 +554,7 @@
                 // Use modules from response or defaults
                 const modules = data.modules || {
                     'asinoption': 'ASIN Option',
+                    'humanresource': 'Human Resource',
                     'order': 'Order',
                     'unreceived': 'Unreceived',
                     'receiving': 'Received',
@@ -599,6 +608,7 @@
 
         const defaultModules = {
             'asinoption': 'ASIN Option',
+            'humanresource': 'Human Resource',
             'order': 'Order',
             'unreceived': 'Unreceived',
             'receiving': 'Received',

@@ -11,22 +11,3 @@
     <component :is="currentTabComponent"></component>
   </div>
 </template>
-
-<script>
-import { tabs, componentsMap } from './hr.js'
-import './hr.css'
-
-export default {
-  data() {
-    return {
-      tabs,
-      currentTab: tabs[0].name
-    }
-  },
-  computed: {
-    currentTabComponent() {
-      return componentsMap[this.currentTab]
-    }
-  }
-}
-</script>
