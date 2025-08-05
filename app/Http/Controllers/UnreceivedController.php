@@ -105,7 +105,13 @@ class UnreceivedController extends BasetablesController
             return response()->json(['error' => 'Could not retrieve next RPN'], 500);
         }
     }
+ 
 
+     private function getCurrentUserName()
+    {
+        $user = Auth::user();
+        return $user ? ($user->username ?? $user->name ?? 'Unknown') : 'Unknown';
+    }
     
     public function processScan(Request $request)
     {
@@ -134,7 +140,7 @@ class UnreceivedController extends BasetablesController
             $last12Digits = substr($request->trackingNumber, -12);
             
             // Get current user ID from session
-            $User = Auth::id() ?? session('user_name', 'Unknown');
+            $User = $this->getCurrentUserName();
             
             // Get California time
             $californiaTimezone = new DateTimeZone('America/Los_Angeles');
