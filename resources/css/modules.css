@@ -283,12 +283,15 @@ textarea.form-control {
 }
 
 .process-modal-footer {
-    padding: 15px 20px;
-    border-top: 1px solid #ddd;
+    margin: 0 15px 20px;
     display: flex;
-    justify-content: flex-end;
-    flex-wrap: wrap;
     gap: 10px;
+    overflow-x: auto;
+}
+
+.process-modal-footer button {
+    min-width: 150px;
+    justify-content: center;
 }
 
 /* Footer Buttons */

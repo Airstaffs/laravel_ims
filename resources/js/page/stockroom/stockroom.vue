@@ -832,9 +832,9 @@
                     </div>
                 </div>
                 <div class="process-modal-footer">
-                    <button class="btn-cancel" @click="closeProcessModal">
+                    <!-- <button class="btn-cancel" @click="closeProcessModal">
                         Cancel
-                    </button>
+                    </button> -->
                     <button
                         class="btn-print-selected"
                         @click="printSelectedItems"
