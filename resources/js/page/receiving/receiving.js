@@ -1,6 +1,7 @@
 import { eventBus } from "../../components/eventBus";
 import ScannerComponent from "../../components/Scanner.vue";
 import { SoundService } from "../../components/Sound_service";
+import DetectSerialModal from './modal-detect/modal-detect.vue';
 import "../../../css/modules.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -8,6 +9,7 @@ export default {
     name: "ReceivedModule",
     components: {
         ScannerComponent,
+        DetectSerialModal, // Import the DetectSerialModal component
     },
     data() {
         return {
@@ -50,6 +52,7 @@ export default {
             showImageModal: false,
             modalImages: [],
             currentImageIndex: 0,
+            showDetectSerialModal: false, // State for Detect Serial Numbers modal
         };
     },
     computed: {
@@ -75,6 +78,7 @@ export default {
         },
     },
     methods: {
+
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;
@@ -84,6 +88,14 @@ export default {
         // Open scanner modal method - this will call the scanner component's method
         openScannerModal() {
             this.$refs.scanner.openScannerModal();
+        },
+
+        openDetectSerialModal() {
+            this.showDetectSerialModal = true;
+        },
+
+        closeDetectSerialModal() {
+            this.showDetectSerialModal = false;
         },
 
         // Count additional images based on the image fields (img2-img15)

@@ -5,10 +5,20 @@
                 <button class="btn btn-scan" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
                 </button>
+                <button class="btn btn-manual" @click="openDetectSerialModal">
+                    <i class="fas fa-keyboard"></i> Detect Serial Numbers
+                </button>
             </div>
         </div>
 
         <h2 class="module-title">Receiving Module</h2>
+
+        <!-- Detect Serial Numbers Modal -->
+        <detect-serial-modal
+            v-if="showDetectSerialModal"
+            @close="closeDetectSerialModal"
+            ref="detectSerialModal"
+        ></detect-serial-modal>
 
         <!-- Scanner Component -->
         <scanner-component

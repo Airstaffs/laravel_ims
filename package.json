@@ -19,6 +19,7 @@
     },
     "dependencies": {
         "bootstrap": "^5.3.7",
+        "cropperjs": "^1.5.13",
         "html2pdf.js": "^0.10.3",
         "jsbarcode": "^3.11.6",
         "sweetalert2": "^11.22.2",

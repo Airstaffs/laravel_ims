@@ -29,3 +29,4 @@ yarn-error.log
 /public/images/FBM_docs/shipping_label
 /public/images/product_images
 /public/images/thumbnails
+docker-compose.yml
