@@ -13,6 +13,9 @@ use Illuminate\Support\Facades\File;
 use DateTime;
 use DateTimeZone;
 
+
+
+
 class ReceivedController extends BasetablesController
 {   
     public function index(Request $request)
@@ -132,7 +135,13 @@ class ReceivedController extends BasetablesController
             ], 500);
         }
     }
+    
 
+    private function getCurrentUserName()
+    {
+        $user = Auth::user();
+        return $user ? ($user->username ?? $user->name ?? 'Unknown') : 'Unknown';
+    }
     
     public function processScan(Request $request)
     {
@@ -172,7 +181,7 @@ class ReceivedController extends BasetablesController
             $last12Digits = substr($request->trackingNumber, -12);
             
             // Get current user ID from session
-            $user = Auth::id() ?? session('user_name', 'Unknown');
+            $user = $this->getCurrentUserName();
             
             // Get California time
             $californiaTimezone = new DateTimeZone('America/Los_Angeles');

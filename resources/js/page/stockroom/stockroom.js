@@ -1,13 +1,16 @@
 import { eventBus } from "../../components/eventBus";
 import ScannerComponent from "../../components/Scanner.vue";
+import NewScannedItemModal from "./modals/newScanneditem.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
+import "../stockroom/stockroom.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
     name: "StockroomModule",
     components: {
         ScannerComponent,
+        NewScannedItemModal,
     },
     data() {
         return {
@@ -56,6 +59,11 @@ export default {
             selectAllItems: false,
             isProcessing: false,
 
+            //scanned newly items - Updated for modal integration
+            newScannedCount: 0,
+            showNewScannedModal: false,
+            countRefreshInterval: null,
+
             // For product details modal
             showProductDetailsModal: false,
             selectedProduct: null,
@@ -80,6 +88,8 @@ export default {
                 currency: "USD",
                 price: 19.99,
             },
+
+            showPostAmazonModal: false,
         };
     },
     computed: {
@@ -1121,7 +1131,7 @@ export default {
             });
         },
 
-        // Process scan with validation
+        // Process scan with validation - UPDATED with notification count refresh
         async processScan(scannedCode = null) {
             try {
                 // Use either the scanned code or input fields
@@ -1241,6 +1251,9 @@ export default {
 
                     // Clear images
                     this.$refs.scanner.capturedImages = [];
+
+                    // IMPORTANT: Refresh the notification count after successful scan
+                    await this.refreshNewScannedCount();
 
                     // Check if we need to handle reprint
                     if (data.needReprint && data.productId) {
@@ -1648,11 +1661,13 @@ export default {
                 alert("Please select at least one item.");
                 return;
             }
-            $(this.$refs.postAmazonModal).modal("show");
+            this.showPostAmazonModal = true;
         },
+
         closePostAmazonModal() {
-            $(this.$refs.postAmazonModal).modal("hide");
+            this.showPostAmazonModal = false;
         },
+
         async submitPostToAmazon() {
             this.isPosting = true;
             try {
@@ -1687,6 +1702,60 @@ export default {
             } finally {
                 this.isPosting = false;
             }
+        },
+
+        // NEW SCANNED ITEMS METHODS - Updated for modal integration
+        async fetchNewScannedCount() {
+            try {
+                const today = new Date().toISOString().split("T")[0];
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+                    {
+                        params: { date: today },
+                        withCredentials: true,
+                    }
+                );
+                this.newScannedCount = response.data.count || 0;
+                console.log("New scanned count:", this.newScannedCount);
+            } catch (error) {
+                console.error("Error fetching new scanned count:", error);
+                this.newScannedCount = 0;
+            }
+        },
+
+        // Add this method to refresh the notification count after scanning
+        async refreshNewScannedCount() {
+            try {
+                const today = new Date().toISOString().split("T")[0];
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+                    {
+                        params: { date: today },
+                        withCredentials: true,
+                    }
+                );
+                this.newScannedCount = response.data.count || 0;
+                console.log(
+                    "Refreshed new scanned count:",
+                    this.newScannedCount
+                );
+            } catch (error) {
+                console.error("Error refreshing new scanned count:", error);
+            }
+        },
+
+        // Simplified modal methods for new modal integration
+        openNewScannedModal() {
+            this.showNewScannedModal = true;
+        },
+
+        closeNewScannedModal() {
+            this.showNewScannedModal = false;
+        },
+
+        // Handler for when modal updates the count
+        handleCountUpdate() {
+            this.refreshNewScannedCount();
         },
     },
     watch: {
@@ -1745,6 +1814,14 @@ export default {
         // Fetch initial data
         this.fetchInventory();
 
+        // NEW SCANNED ITEMS - Fetch initial count and set up refresh
+        this.fetchNewScannedCount();
+
+        // Set up interval to refresh count every 30 seconds
+        this.countRefreshInterval = setInterval(() => {
+            this.refreshNewScannedCount();
+        }, 30000);
+
         // Listen for window resize to update isMobile
         window.addEventListener("resize", this.handleResize);
 
@@ -1760,6 +1837,11 @@ export default {
         // Clean up any timeouts
         if (this.autoVerifyTimeout) {
             clearTimeout(this.autoVerifyTimeout);
+        }
+
+        // Clear the refresh interval for new scanned count
+        if (this.countRefreshInterval) {
+            clearInterval(this.countRefreshInterval);
         }
 
         window.removeEventListener("resize", this.handleResize);

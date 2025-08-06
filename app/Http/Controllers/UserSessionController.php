@@ -47,6 +47,7 @@ class UserSessionController extends Controller
             if ($user->asinoption) $subModules[] = 'asinoption';
             if ($user->houseage) $subModules[] = 'houseage';
             if ($user->asinlist) $subModules[] = 'asinlist';
+            if ($user->humanresource) $subModules[] = 'humanresource';
               // 🔴 ADDED: Check printer module explicitly
             if ($user->printer) {
                 $subModules[] = 'printer';

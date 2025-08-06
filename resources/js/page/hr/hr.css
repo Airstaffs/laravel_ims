@@ -1,0 +1,8 @@
+.hr-module .nav-tabs {
+  margin-bottom: 20px;
+}
+
+.hr-module .nav-link.active {
+  background-color: #007bff;
+  color: white;
+}

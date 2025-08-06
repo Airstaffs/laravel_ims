@@ -9,6 +9,37 @@
                 <button class="btn" @click="loadFBAInboundShipment">
                     <i class="fas fa-truck"></i> FBA Inbound Shipment
                 </button>
+
+                <div class="header-buttons">
+                    <button
+                        class="btn btn-success btn-new-scanned"
+                        @click="showNewScannedModal = true"
+                        style="position: relative; overflow: visible"
+                    >
+                        <i class="fas fa-barcode"></i>
+                        New Scanned
+
+                        <!-- Notification Badge -->
+                        <span
+                            v-if="newScannedCount > 0"
+                            class="notification-badge"
+                            :class="{
+                                'large-number':
+                                    newScannedCount >= 10 &&
+                                    newScannedCount < 100,
+                                'extra-large': newScannedCount >= 100,
+                            }"
+                            :style="{
+                                backgroundColor: '#ff0000 !important',
+                                color: '#ffffff !important',
+                            }"
+                        >
+                            {{
+                                newScannedCount > 999 ? "999+" : newScannedCount
+                            }}
+                        </span>
+                    </button>
+                </div>
             </div>
 
             <div class="store-filter">
@@ -801,9 +832,9 @@
                     </div>
                 </div>
                 <div class="process-modal-footer">
-                    <button class="btn-cancel" @click="closeProcessModal">
+                    <!-- <button class="btn-cancel" @click="closeProcessModal">
                         Cancel
-                    </button>
+                    </button> -->
                     <button
                         class="btn-print-selected"
                         @click="printSelectedItems"
@@ -832,13 +863,13 @@
                     >
                         <i class="fas fa-check"></i> Submit Process
                     </button>
-<button
-    class="btn-post-selected"
-    @click="openPostAmazonModal"
-    :disabled="!hasSelectedItems"
->
-    <i class="fas fa-print"></i> Post to Amazon
-</button>
+                    <button
+                        class="btn-post-selected"
+                        @click="openPostAmazonModal"
+                        :disabled="!hasSelectedItems"
+                    >
+                        <i class="fas fa-print"></i> Post to Amazon
+                    </button>
                 </div>
             </div>
         </div>
@@ -1087,46 +1118,77 @@
         </div>
 
         <!-- Post to Amazon Modal -->
-        <div class="modal" tabindex="-1" role="dialog" ref="postAmazonModal">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Post to Amazon</h5>
-                <button type="button" class="close" @click="closePostAmazonModal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body" v-if="!isPosting">
-                <form @submit.prevent="submitPostToAmazon">
-                    <div class="form-group">
-                        <label>Marketplace</label>
-                        <input v-model="postForm.marketplace" class="form-control" required>
-                    </div>
-<select v-model="postForm.fulfillmentChannel" class="form-control" required>
-    <option disabled value="">Select Fulfillment Channel</option>
-    <option value="AMAZON_NA">FBA</option>
-    <option value="DEFAULT">FBM</option>
-</select>
-                    <div class="form-group">
-                        <label>Currency</label>
-                        <input v-model="postForm.currency" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Price</label>
-                        <input type="number" v-model="postForm.price" class="form-control" required>
-                    </div>
-                    <button class="btn btn-primary" type="submit">Submit</button>
-                </form>
-            </div>
-            <div class="modal-body" v-else>
-                <p>Processing... Please wait.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" @click="closePostAmazonModal">Close</button>
+        <div v-if="showPostAmazonModal" class="modal postAmazon-modal">
+            <div class="modal-overlay" @click="closePostAmazonModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Post to Amazon</h5>
+                    <button
+                        class="postAmazon-close"
+                        @click="closePostAmazonModal"
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body" v-if="!isPosting">
+                    <form @submit.prevent="submitPostToAmazon">
+                        <div class="form-group">
+                            <label>Marketplace</label>
+                            <input
+                                v-model="postForm.marketplace"
+                                class="form-control"
+                                required
+                            />
+                        </div>
+                        <select
+                            v-model="postForm.fulfillmentChannel"
+                            class="form-control"
+                            required
+                        >
+                            <option disabled value="">
+                                Select Fulfillment Channel
+                            </option>
+                            <option value="AMAZON_NA">FBA</option>
+                            <option value="DEFAULT">FBM</option>
+                        </select>
+                        <div class="form-group">
+                            <label>Currency</label>
+                            <input
+                                v-model="postForm.currency"
+                                class="form-control"
+                                required
+                            />
+                        </div>
+                        <div class="form-group">
+                            <label>Price</label>
+                            <input
+                                type="number"
+                                v-model="postForm.price"
+                                class="form-control"
+                                required
+                            />
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-body" v-else>
+                    <p>Processing... Please wait.</p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" type="submit">
+                        Submit
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-</div>
+
+        <!-- New Scanned Items Modal -->
+        <NewScannedItemModal
+            :show="showNewScannedModal"
+            @close="closeNewScannedModal"
+            @update-count="handleCountUpdate"
+        />
     </div>
 </template>
 
@@ -1730,5 +1792,56 @@ export default Stockroom;
     .expanded-content {
         width: 95%;
     }
+}
+
+.btn-new-scanned {
+    position: relative;
+    background-color: #28a745 !important;
+    border-color: #28a745 !important;
+}
+
+.btn-new-scanned:hover {
+    background-color: #218838 !important;
+    border-color: #1e7e34 !important;
+}
+
+.notification-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background-color: #dc3545;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.header-buttons {
+    position: relative;
+    overflow: visible !important;
+}
+
+.top-header {
+    overflow: visible !important;
 }
 </style>
