@@ -30,3 +30,4 @@ yarn-error.log
 /public/images/product_images
 /public/images/thumbnails
 docker-compose.yml
+/backend_ai/venv
