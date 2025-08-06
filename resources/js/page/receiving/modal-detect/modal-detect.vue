@@ -341,7 +341,7 @@ export default defineComponent({
 })
 </script>
 
-<style>
+<style scoped>
 /* hidden */
 .hidden {
   display: none;
