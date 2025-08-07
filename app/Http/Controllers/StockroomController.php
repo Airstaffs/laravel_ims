@@ -1666,37 +1666,47 @@ class StockroomController extends BasetablesController
      * Get count of new scanned items for today (US timezone)
      * MODIFIED to handle prefixed FNSKUs in joins
      */
-    public function getNewScannedCount(Request $request)
-    {
-        try {
-            $timezone = new DateTimeZone('America/New_York');
-            $today = $request->input('date', (new DateTime('now', $timezone))->format('Y-m-d'));
-            
-            $count = DB::table($this->productTable . ' as prod')
-                ->join($this->itemProcessHistoryTable . ' as hist', 'prod.rtcounter', '=', 'hist.rtcounter')
-                ->where(function($query) {
-                    $query->where('hist.Action', 'Scanned and insert to Stockroom')
-                          ->orWhere('hist.Action', 'Move Item to Stockroom');
-                })
-                ->whereDate('prod.stockroom_insert_date', $today)
-                ->where('prod.ProductModuleLoc', 'Stockroom')
-                ->count();
-
-            return response()->json([
-                'success' => true,
-                'count' => $count,
-                'date' => $today
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Error fetching new scanned count: ' . $e->getMessage());
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Error fetching count: ' . $e->getMessage()
-            ], 500);
+  public function getNewScannedCount(Request $request)
+{
+    try {
+        // FIXED: Always use consistent timezone (America/Los_Angeles as per your code)
+        $timezone = new DateTimeZone('America/Los_Angeles');
+        $today = $request->input('date');
+        
+        // If no date provided, use current date in US timezone
+        if (!$today) {
+            $today = (new DateTime('now', $timezone))->format('Y-m-d');
         }
+        
+        Log::info('Getting new scanned count for date: ' . $today . ' (US timezone)');
+        
+        // Count items that were inserted into Stockroom today
+        $count = DB::table($this->productTable)
+            ->where('ProductModuleLoc', 'Stockroom')
+            ->whereDate('stockroom_insert_date', $today)
+            ->whereNotNull('stockroom_insert_date')
+            ->count();
+
+        Log::info('New scanned count result: ' . $count . ' for date: ' . $today);
+
+        return response()->json([
+            'success' => true,
+            'count' => $count,
+            'date' => $today,
+            'timezone' => 'America/Los_Angeles'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error fetching new scanned count: ' . $e->getMessage());
+        Log::error('Stack trace: ' . $e->getTraceAsString());
+        
+        return response()->json([
+            'success' => false,
+            'message' => 'Error fetching count: ' . $e->getMessage(),
+            'count' => 0 // ALWAYS return a count, never null
+        ], 500);
     }
+}
 
     /**
      * Get list of new scanned items with date filtering (US timezone)
