@@ -1,6 +1,7 @@
 import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./validation.css";
+import Swal from "sweetalert2";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -636,7 +637,10 @@ export default {
             const freshItem = this.items.find(
                 (i) => i.itemnumber === item.itemnumber
             );
+
             this.item = { ...(freshItem || item) };
+
+            this.currentValidationItem = this.item;
 
             this.showValidationModal = true;
 
@@ -645,11 +649,9 @@ export default {
 
         // Close the validation modal
         closeValidationModal() {
+            this.currentValidationItem = null;
             this.showValidationModal = false;
-
-            setTimeout(() => {
-                document.body.style.overflow = "auto";
-            }, 300); // Match with your modal close animation
+            document.body.style.overflow = "";
         },
 
         async fetchItems() {
@@ -672,38 +674,6 @@ export default {
             }
         },
 
-        // Open confirm dialog for valid
-        confirmMarkAsValid() {
-            if (!this.currentValidationItem) return;
-
-            this.showConfirmationModal = true;
-            this.confirmationTitle = "Confirm Validation";
-            this.confirmationMessage = `Are you sure you want to mark item #${this.currentValidationItem.rtcounter} as VALID?`;
-            this.confirmationActionType = "valid";
-
-            // Prevent scrolling when confirmation modal is open
-            document.body.style.overflow = "hidden";
-        },
-
-        // Open confirm dialog for invalid
-        confirmMarkAsInvalid() {
-            if (!this.currentValidationItem) return;
-
-            // Check if notes are provided for invalid items
-            /*if (!this.validationNotes.trim()) {
-        this.validationErrors = 'Please provide notes explaining why this item is invalid';
-        return;
-      }*/
-
-            this.showConfirmationModal = true;
-            this.confirmationTitle = "Confirm Invalidation";
-            this.confirmationMessage = `Are you sure you want to mark item #${this.currentValidationItem.rtcounter} as INVALID?`;
-            this.confirmationActionType = "invalid";
-
-            // Prevent scrolling when confirmation modal is open
-            document.body.style.overflow = "hidden";
-        },
-
         // Cancel the confirmation
         cancelConfirmation() {
             console.log("Canceling confirmation");
@@ -714,20 +684,33 @@ export default {
             // The validation modal will handle this when it's closed
         },
 
-        // Mark item as valid after confirmation
+        async confirmMarkAsValid() {
+            const result = await Swal.fire({
+                title: "Are you sure?",
+                text: "Do you want to mark this item as VALIDATED?",
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonColor: "#28a745", // green
+                cancelButtonColor: "#d33",
+                confirmButtonText: "Yes, validate it!",
+            });
+
+            if (result.isConfirmed) {
+                this.markAsValid();
+            }
+        },
+
         async markAsValid() {
             if (!this.currentValidationItem) return;
 
             try {
                 this.isProcessingValidation = true;
-                this.showConfirmationModal = false; // Close confirmation dialog
+                this.showConfirmationModal = false;
 
-                // Get the CSRF token from the meta tag
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
-                // Make the API request to validate the item
                 const response = await axios.post(
                     `${API_BASE_URL}/api/validation/validate`,
                     {
@@ -746,13 +729,15 @@ export default {
                 console.log("Validation response:", response.data);
 
                 if (response.data.success) {
-                    // Show success message
-                    alert(
-                        `Item ${this.currentValidationItem.rtcounter} has been validated successfully`
-                    );
-                    // Close the modal
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Validated!",
+                        text: `Item ${this.currentValidationItem.rtcounter} has been validated successfully.`,
+                        confirmButtonColor: "#3085d6",
+                        confirmButtonText: "OK",
+                    });
+
                     this.closeValidationModal();
-                    // Refresh the inventory list
                     this.fetchInventory();
                 } else {
                     this.validationErrors =
@@ -767,20 +752,54 @@ export default {
             }
         },
 
-        // Mark item as invalid after confirmation
+        async confirmMarkAsInvalid() {
+            const result = await Swal.fire({
+                title: "Mark as Invalid?",
+                text: "This will mark the item as INVALID. Proceed?",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#dc3545", // red
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: "Yes, mark as invalid",
+            });
+
+            if (result.isConfirmed) {
+                this.markAsInvalid();
+            }
+        },
+
         async markAsInvalid() {
-            if (!this.currentValidationItem) return;
+            if (!this.currentValidationItem) {
+                console.warn("markAsInvalid: No currentValidationItem found");
+                return;
+            }
 
             try {
+                console.log("markAsInvalid: Start");
                 this.isProcessingValidation = true;
-                this.showConfirmationModal = false; // Close confirmation dialog
+                this.showConfirmationModal = false;
 
-                // Get the CSRF token from the meta tag
+                // Set location
+                this.currentValidationItem.ProductModuleLoc = "Labeling";
+                console.log(
+                    "markAsInvalid: Set ProductModuleLoc to 'Labeling'"
+                );
+
+                // Get CSRF token
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
-                // Make the API request to mark the item as invalid
+                console.log("markAsInvalid: Sending payload", {
+                    product_id: this.currentValidationItem.ProductID,
+                    rt_counter: this.currentValidationItem.rtcounter,
+                    status: "invalid",
+                    notes: this.validationNotes,
+                    ProductModuleLoc:
+                        this.currentValidationItem.ProductModuleLoc,
+                });
+
+                // Send request
                 const response = await axios.post(
                     `${API_BASE_URL}/api/validation/validate`,
                     {
@@ -788,6 +807,8 @@ export default {
                         rt_counter: this.currentValidationItem.rtcounter,
                         status: "invalid",
                         notes: this.validationNotes,
+                        ProductModuleLoc:
+                            this.currentValidationItem.ProductModuleLoc,
                     },
                     {
                         headers: {
@@ -796,28 +817,38 @@ export default {
                     }
                 );
 
-                console.log("Invalidation response:", response.data);
+                console.log("markAsInvalid: Server response", response.data);
 
                 if (response.data.success) {
-                    // Show success message
-                    alert(
-                        `Item ${this.currentValidationItem.rtcounter} has been marked as invalid`
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Marked as Invalid",
+                        text: `Item ${this.currentValidationItem.rtcounter} has been marked as invalid.`,
+                        confirmButtonColor: "#3085d6",
+                        confirmButtonText: "OK",
+                    });
+
+                    console.log(
+                        "markAsInvalid: Success, closing modal and refreshing inventory"
                     );
-                    // Close the modal
                     this.closeValidationModal();
-                    // Refresh the inventory list
                     this.fetchInventory();
                 } else {
+                    console.warn(
+                        "markAsInvalid: Server returned failure",
+                        response.data
+                    );
                     this.validationErrors =
                         response.data.message ||
                         "Failed to mark item as invalid";
                 }
             } catch (error) {
-                console.error("Error marking item as invalid:", error);
+                console.error("markAsInvalid: Request failed", error);
                 this.validationErrors =
                     "Failed to mark item as invalid. Please try again.";
             } finally {
                 this.isProcessingValidation = false;
+                console.log("markAsInvalid: End");
             }
         },
 
@@ -858,6 +889,8 @@ export default {
 
         window.addEventListener("keydown", handleKeyDown);
         this.handleKeyDown = handleKeyDown; // Store for cleanup
+
+        this.currentValidationItem = this.item || null;
     },
 
     beforeDestroy() {
