@@ -1,48 +1,78 @@
+# app/yolov8_ocr.py
+
 import easyocr
 import numpy as np
 import cv2
 from PIL import Image
 import io
-from ultralytics import YOLO
+import re
 
-# Load YOLO model (replace with your custom weights if available)
-model = YOLO("yolov8n.pt")  # You can replace with "models/your_model.pt"
+# Initialize EasyOCR with detection enabled
+ocr_reader = easyocr.Reader(["en"], detector=True)
 
-# Initialize EasyOCR
-ocr_reader = easyocr.Reader(["en"], gpu=False)
+# Clean + validate logic
+def clean_text(text: str) -> str:
+    return text.strip().replace(" ", "").upper()
 
-def preprocess_image(image: Image.Image):
-    """Enhance image contrast for better OCR."""
-    img_np = np.array(image.convert("RGB"))
-    gray = cv2.cvtColor(img_np, cv2.COLOR_RGB2GRAY)
-    gray = cv2.equalizeHist(gray)
-    return gray
+def is_valid_serial(text: str) -> bool:
+    if len(text) < 6:
+        return False
+    if not re.search(r'[A-Z]', text):
+        return False
+    if not re.search(r'[0-9]', text):
+        return False
+    junk_words = ["FC", "PATP", "ROHS", "CE", "CHINA"]
+    return text not in junk_words
 
-def detect_serial(image_bytes: bytes):
-    """Detect serial number from uploaded image bytes."""
-    # Open image from bytes
-    image = Image.open(io.BytesIO(image_bytes))
+# Preprocessing for engraved/low-contrast text
+def enhance_engraved_text(image: Image.Image):
+    img_gray = np.array(image.convert("L"))  # grayscale
+    eq = cv2.equalizeHist(img_gray)  # contrast boost
+    edges = cv2.Canny(eq, 50, 150)   # edge detection
+    combined = cv2.addWeighted(eq, 0.8, edges, 0.5, 0)
+    return combined
 
-    # Run YOLO to detect potential serial number regions
-    results = model.predict(np.array(image), conf=0.25)
-    serial_texts = []
+# Main detection function
+def detect_serial_number(image_bytes: bytes):
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        img_np = np.array(image)
 
-    for result in results:
-        for box in result.boxes.xyxy:
-            x1, y1, x2, y2 = map(int, box)
-            cropped = image.crop((x1, y1, x2, y2))
-            preprocessed = preprocess_image(cropped)
-            ocr_result = ocr_reader.readtext(preprocessed)
-            for (_, text, conf) in ocr_result:
-                if conf > 0.5:
-                    serial_texts.append(text)
+        method_used = "normal"  # default to normal OCR
 
-    # If YOLO found nothing, run OCR on the whole image
-    if not serial_texts:
-        preprocessed = preprocess_image(image)
-        ocr_result = ocr_reader.readtext(preprocessed)
-        for (_, text, conf) in ocr_result:
-            if conf > 0.5:
-                serial_texts.append(text)
+        # First OCR attempt (original image)
+        ocr_results = ocr_reader.readtext(img_np)
+        serials = []
+        raw_ocr = []
 
-    return serial_texts[0] if serial_texts else None
+        for _, text, _ in ocr_results:
+            cleaned = clean_text(text)
+            raw_ocr.append(cleaned)
+            if is_valid_serial(cleaned):
+                serials.append(cleaned)
+
+        # If no serials found, try enhanced image
+        if not serials:
+            enhanced_img = enhance_engraved_text(image)
+            ocr_results_enhanced = ocr_reader.readtext(enhanced_img)
+            method_used = "engraved_fallback"  # mark fallback method
+
+            for _, text, _ in ocr_results_enhanced:
+                cleaned = clean_text(text)
+                raw_ocr.append(cleaned)
+                if is_valid_serial(cleaned):
+                    serials.append(cleaned)
+
+        return {
+            "serials": serials,
+            "raw_ocr": raw_ocr,
+            "method": method_used
+        }
+
+    except Exception as e:
+        return {
+            "serials": [],
+            "raw_ocr": [],
+            "method": None,
+            "error": str(e)
+        }

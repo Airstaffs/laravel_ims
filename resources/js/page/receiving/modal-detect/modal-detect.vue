@@ -22,14 +22,20 @@
         </div>
 
         <div class="camera-preview-container">
-        <video id="camera-preview" autoplay playsinline></video>
-        <div class="camera-overlay">
-            <div class="camera-corner top-left"></div>
-            <div class="camera-corner top-right"></div>
-            <div class="camera-corner bottom-left"></div>
-            <div class="camera-corner bottom-right"></div>
+            <video id="camera-preview" autoplay playsinline></video>
+            
+            <div class="camera-overlay">
+                <div class="dimmed-background"></div>
+
+                <div class="target-box" ref="targetBox">
+                    <div class="resize-handle top-left"></div>
+                    <div class="resize-handle top-right"></div>
+                    <div class="resize-handle bottom-left"></div>
+                    <div class="resize-handle bottom-right"></div>
+                </div>
+            </div>
         </div>
-        </div>
+
 
         <div class="camera-actions">
         <button @click="closeCameraModal" class="cancel-btn">
@@ -99,6 +105,21 @@
         <div v-if="croppedImage" class="cropped-output">
           <h4 class="mb-2">🖼️ Output Preview</h4>
           <img :src="croppedImage" alt="Cropped" class="border preview-img" style="max-width: 300px;" />
+
+          <div v-if="loading" class="mt-3">
+            <p>⏳ Processing image...</p>
+            </div>
+
+            <div v-if="apiResult" class="mt-3">
+            <h4>Detected Serials:</h4>
+            <ul>
+                <li v-for="(serial, index) in apiResult.serials" :key="index">{{ serial }}</li>
+            </ul>
+
+            <h4>Raw OCR:</h4>
+            <pre>{{ apiResult.raw_ocr }}</pre>
+            </div>
+
           <div class="mt-3 btn-cropped-output">
             <button @click="resetImage" class="btn reset btn-red">Reset</button>
             <button @click="apiSend" class="btn submit btn-green">Submit</button>
@@ -147,7 +168,9 @@ export default defineComponent({
     const cameraCanvas = ref(null)
     const capturedImages = ref([])
     const maxImages = 5
-
+    const apiResult = ref(null)
+    const loading = ref(false)
+    const targetBox = ref(null)
 
     const rotationStyle = computed(() => ({
       transform: `rotate(${rotation.value}deg)`,
@@ -229,19 +252,46 @@ export default defineComponent({
       reader.readAsDataURL(file)
     }
 
-    function cropImage() {
-      if (!cropper.value || typeof cropper.value.getCroppedCanvas !== 'function') {
-        console.warn('⚠️ Cropper not initialized or getCroppedCanvas not available')
-        return
-      }
+    async function cropImage() {
+        if (!cropper.value || typeof cropper.value.getCroppedCanvas !== 'function') {
+            console.warn('⚠️ Cropper not initialized or getCroppedCanvas not available');
+            return;
+        }
 
-      const canvas = cropper.value.getCroppedCanvas()
-      if (!canvas) {
-        console.warn('❌ Failed to get canvas from cropper')
-        return
-      }
+        const canvas = cropper.value.getCroppedCanvas();
+        if (!canvas) {
+            console.warn('❌ Failed to get canvas from cropper');
+            return;
+        }
 
-      croppedImage.value = canvas.toDataURL('image/png')
+        // Step 1: Get cropped image as base64
+        croppedImage.value = canvas.toDataURL('image/png');
+
+        // Step 2: Send to backend immediately
+        try {
+            loading.value = true;
+            apiResult.value = null;
+
+            // Convert Base64 to Blob
+            const blob = await fetch(croppedImage.value).then(res => res.blob());
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append("file", blob, "cropped.png");
+
+            // Send to FastAPI
+            const res = await fetch("http://127.0.0.1:8001/detect", {
+            method: "POST",
+            body: formData
+            });
+
+            apiResult.value = await res.json();
+
+        } catch (error) {
+            console.error("Error sending image to API:", error);
+        } finally {
+            loading.value = false;
+        }
     }
 
     function resetImage() {
@@ -266,14 +316,18 @@ export default defineComponent({
     }
 
     function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: true })
+        navigator.mediaDevices.getUserMedia({ video: true })
         .then((stream) => {
-        cameraStream.value = stream
-        const video = document.getElementById('camera-preview')
-        video.srcObject = stream
+            cameraStream.value = stream
+            const video = document.getElementById('camera-preview')
+            video.srcObject = stream
+
+            nextTick(() => {
+                initDraggableTarget()
+            })
         })
-        .catch((err) => {
-        console.error("🚫 Camera access denied:", err)
+            .catch((err) => {
+            console.error("🚫 Camera access denied:", err)
         })
     }
 
@@ -282,14 +336,25 @@ export default defineComponent({
         const canvas = cameraCanvas.value
         const ctx = canvas.getContext('2d')
 
-        canvas.width = video.videoWidth
-        canvas.height = video.videoHeight
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+        const overlayRect = targetBox.value.getBoundingClientRect()
+        const videoRect = video.getBoundingClientRect()
+
+        const scaleX = video.videoWidth / videoRect.width
+        const scaleY = video.videoHeight / videoRect.height
+
+        const sx = (overlayRect.left - videoRect.left) * scaleX
+        const sy = (overlayRect.top - videoRect.top) * scaleY
+        const sw = overlayRect.width * scaleX
+        const sh = overlayRect.height * scaleY
+
+        canvas.width = sw
+        canvas.height = sh
+
+        ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
 
         const dataUrl = canvas.toDataURL('image/png')
         capturedImages.value.push({ data: dataUrl })
 
-        // Send to cropper
         loadImageFromCamera(dataUrl)
         closeCameraModal()
     }
@@ -306,6 +371,120 @@ export default defineComponent({
         if (cameraStream.value) {
             cameraStream.value.getTracks().forEach((track) => track.stop())
         }
+    }
+
+    function initDraggableTarget() {
+        const target = targetBox.value
+        if (!target) return
+
+        const parentRect = target.parentElement.getBoundingClientRect()
+        target.style.left = `${(parentRect.width - target.offsetWidth) / 2}px`
+        target.style.top = `${(parentRect.height - target.offsetHeight) / 2}px`
+
+        let offsetX = 0, offsetY = 0
+        let dragStartX = 0, dragStartY = 0
+        let isDragging = false
+        let isResizing = false
+        let resizeDir = ''
+        const sensitivity = window.innerWidth < 768 ? 0.7 : 1
+
+        function preventScroll(e) { e.preventDefault() }
+
+        function endDragOrResize() {
+            isDragging = false
+            isResizing = false
+            window.removeEventListener('pointermove', onPointerMove)
+            window.removeEventListener('pointerup', endDragOrResize)
+            window.removeEventListener('pointercancel', endDragOrResize)
+            window.removeEventListener('mouseleave', endDragOrResize)
+            document.body.style.overflow = ''
+            document.removeEventListener('touchmove', preventScroll)
+        }
+
+        function onPointerMove(e) {
+            const parentRect = target.parentElement.getBoundingClientRect()
+
+            if (!isDragging && !isResizing) {
+                if (Math.abs(e.clientX - dragStartX) > 5 || Math.abs(e.clientY - dragStartY) > 5) {
+                    isDragging = true
+                } else {
+                    return
+                }
+            }
+
+            if (isDragging) {
+                let left = e.clientX - parentRect.left - offsetX
+                let top = e.clientY - parentRect.top - offsetY
+                left *= sensitivity
+                top *= sensitivity
+                left = Math.max(0, Math.min(left, parentRect.width - target.offsetWidth))
+                top = Math.max(0, Math.min(top, parentRect.height - target.offsetHeight))
+                target.style.left = `${left}px`
+                target.style.top = `${top}px`
+            }
+
+            if (isResizing) {
+                const rect = target.getBoundingClientRect()
+                if (resizeDir.includes('right')) {
+                    target.style.width = `${Math.max(50, (e.clientX - rect.left) * sensitivity)}px`
+                }
+                if (resizeDir.includes('left')) {
+                    let deltaX = (e.clientX - rect.left) * sensitivity
+                    let newLeft = parseFloat(target.style.left) + deltaX
+                    let newWidth = rect.width - deltaX
+                    if (newWidth >= 50) {
+                        target.style.left = `${Math.max(0, newLeft)}px`
+                        target.style.width = `${newWidth}px`
+                    }
+                }
+                if (resizeDir.includes('bottom')) {
+                    target.style.height = `${Math.max(50, (e.clientY - rect.top) * sensitivity)}px`
+                }
+                if (resizeDir.includes('top')) {
+                    let deltaY = (e.clientY - rect.top) * sensitivity
+                    let newTop = parseFloat(target.style.top) + deltaY
+                    let newHeight = rect.height - deltaY
+                    if (newHeight >= 50) {
+                        target.style.top = `${Math.max(0, newTop)}px`
+                        target.style.height = `${newHeight}px`
+                    }
+                }
+            }
+        }
+
+        // Drag start
+        target.addEventListener('pointerdown', (e) => {
+            if (e.target.classList.contains('resize-handle')) return
+            dragStartX = e.clientX
+            dragStartY = e.clientY
+            offsetX = e.clientX - target.getBoundingClientRect().left
+            offsetY = e.clientY - target.getBoundingClientRect().top
+
+            document.body.style.overflow = 'hidden'
+            document.addEventListener('touchmove', preventScroll, { passive: false })
+
+            window.addEventListener('pointermove', onPointerMove)
+            window.addEventListener('pointerup', endDragOrResize)
+            window.addEventListener('pointercancel', endDragOrResize)
+            window.addEventListener('mouseleave', endDragOrResize)
+        })
+
+        // Resize start
+        target.querySelectorAll('.resize-handle').forEach(handle => {
+            handle.addEventListener('pointerdown', (e) => {
+                e.stopPropagation()
+                isResizing = true
+                resizeDir = handle.classList[1]
+
+                document.body.style.overflow = 'hidden'
+                document.addEventListener('touchmove', preventScroll, { passive: false })
+
+                window.addEventListener('pointermove', onPointerMove)
+                window.addEventListener('pointerup', endDragOrResize)
+                window.addEventListener('pointercancel', endDragOrResize)
+                window.addEventListener('mouseleave', endDragOrResize)
+            })
+        })
     }
 
     return {
@@ -335,6 +514,9 @@ export default defineComponent({
         startCamera,
         captureImage,
         closeCameraModal,
+        apiResult,
+        loading,
+        targetBox
     }
 
   }
@@ -1317,8 +1499,70 @@ input:checked + .toggle-slider:before {
     font-weight: 700;
     padding: 10px;
 }
+/* camera target */
+.camera-preview-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.camera-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none; /* default to none, only box will allow events */
+}
+
+.dimmed-background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* background-color: rgba(0,0,0,0.6); */
+    z-index: 1;
+}
+
+.target-box {
+    position: absolute;
+    width: 60%;
+    height: 40%;
+    border: 2px dashed rgba(255, 0, 0, 0.9);
+    box-sizing: border-box;
+    border-radius: 4px;
+    z-index: 2;
+    background: transparent;
+    cursor: grab;
+    pointer-events: auto; /* allow mouse/touch events here */
+}
+
+.resize-handle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: rgb(255, 0, 0);
+    border: 2px solid black;
+    border-radius: 50%;
+    z-index: 3;
+}
+
+.resize-handle.top-left { top: -7px; left: -7px; cursor: nwse-resize; }
+.resize-handle.top-right { top: -7px; right: -7px; cursor: nesw-resize; }
+.resize-handle.bottom-left { bottom: -7px; left: -7px; cursor: nesw-resize; }
+.resize-handle.bottom-right { bottom: -7px; right: -7px; cursor: nwse-resize; }
+
 
 /* Responsive adjustments */
+@media (max-width: 768px) {
+    .resize-handle {
+        width: 24px;
+        height: 24px;
+        margin: -12px; /* keeps handle center in same place */
+    }
+}
+
 @media (max-width: 600px) {
   .scanner-modal-content {
     width: 100%;
