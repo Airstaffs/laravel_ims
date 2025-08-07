@@ -216,34 +216,6 @@
                                         Details
                                     </button>
 
-                                    <span
-                                        ><strong></strong>
-                                        {{ item.actions }}</span
-                                    >
-                                    <button
-                                        @click="showFnskuModal(item)"
-                                        class="btn btn-fnsku"
-                                    >
-                                        <i class="bi bi-clipboard-check"></i>
-                                        SET FNSKU
-                                    </button>
-
-                                    <button
-                                        @click="confirmMoveToValidation(item)"
-                                        class="btn btn-validation"
-                                    >
-                                        <i class="bi bi-check-circle"></i> Move
-                                        to Validation
-                                    </button>
-
-                                    <button
-                                        @click="confirmMoveToStockroom(item)"
-                                        class="btn btn-stockroom"
-                                    >
-                                        <i class="bi bi-box-seam"></i> Move to
-                                        Stockroom
-                                    </button>
-
                                     <button
                                         @click="openEditModal(item)"
                                         class="btn btn-edit"

@@ -146,53 +146,51 @@ export default {
         },
 
         validFnskuList() {
-        return this.filteredFnskuList.map(fnsku => {
-            return {
-                ...fnsku,
-                hasBeenUsed: fnsku.Units < 11,
-                timesUsed: 11 - fnsku.Units,
-                nextFnskuToUse: this.getNextFnskuToUse(fnsku)
-            };
-        });
-     },
+            return this.filteredFnskuList.map((fnsku) => {
+                return {
+                    ...fnsku,
+                    hasBeenUsed: fnsku.Units < 11,
+                    timesUsed: 11 - fnsku.Units,
+                    nextFnskuToUse: this.getNextFnskuToUse(fnsku),
+                };
+            });
+        },
     },
-    
     methods: {
+        /**
+         * Calculate what FNSKU will actually be assigned (with prefix if needed)
+         */
+        getNextFnskuToUse(fnsku) {
+            const timesUsed = 11 - fnsku.Units;
 
-          /**
-     * Calculate what FNSKU will actually be assigned (with prefix if needed)
-     */
-    getNextFnskuToUse(fnsku) {
-        const timesUsed = 11 - fnsku.Units;
-        
-        if (timesUsed === 0) {
-            return fnsku.FNSKU; // First use - original FNSKU
-        } else {
-            return `C${timesUsed}${fnsku.FNSKU}`; // Add prefix
-        }
-    },
-    
-    /**
-     * Get usage badge class based on usage count
-     */
-    getUsageBadgeClass(fnsku) {
-        const timesUsed = 11 - fnsku.Units;
-        
-        if (timesUsed === 0) return 'bg-success';
-        if (timesUsused <= 5) return 'bg-warning';
-        return 'bg-danger';
-    },
-    
-    /**
-     * Get usage text for display
-     */
-    getUsageText(fnsku) {
-        const timesUsed = 11 - fnsku.Units;
-        
-        if (timesUsed === 0) return 'First use';
-        if (timesUsed === 1) return 'Used 1 time';
-        return `Used ${timesUsed} times`;
-    },
+            if (timesUsed === 0) {
+                return fnsku.FNSKU; // First use - original FNSKU
+            } else {
+                return `C${timesUsed}${fnsku.FNSKU}`; // Add prefix
+            }
+        },
+
+        /**
+         * Get usage badge class based on usage count
+         */
+        getUsageBadgeClass(fnsku) {
+            const timesUsed = 11 - fnsku.Units;
+
+            if (timesUsed === 0) return "bg-success";
+            if (timesUsused <= 5) return "bg-warning";
+            return "bg-danger";
+        },
+
+        /**
+         * Get usage text for display
+         */
+        getUsageText(fnsku) {
+            const timesUsed = 11 - fnsku.Units;
+
+            if (timesUsed === 0) return "First use";
+            if (timesUsed === 1) return "Used 1 time";
+            return `Used ${timesUsed} times`;
+        },
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;
@@ -421,157 +419,193 @@ export default {
         },
 
         // Show FNSKU Modal
-   async showFnskuModal(item) {
-    console.log("=== FNSKU MODAL DEBUG START ===");
-    console.log("Opening FNSKU modal for item:", item);
-    
-    this.currentItem = item;
-    this.isFnskuModalVisible = true;
-    this.fnskuSearch = item.ASINviewer || "";
-    this.isSearching = true;
+        async showFnskuModal(item) {
+            console.log("=== FNSKU MODAL DEBUG START ===");
+            console.log("Opening FNSKU modal for item:", item);
 
-    // Reset all filters
-    this.fnskuExact = "";
-    this.selectedStore = "";
-    this.selectedGrading = "";
+            this.currentItem = item;
+            this.isFnskuModalVisible = true;
+            this.fnskuSearch = item.ASINviewer || "";
+            this.isSearching = true;
 
-    try {
-        console.log("API_BASE_URL:", API_BASE_URL);
-        console.log("Making request to:", `${API_BASE_URL}/api/fnsku/fnsku-list`);
-        
-        // FIXED: Use consistent API endpoint and parameters
-        const response = await axios.get(`${API_BASE_URL}/api/fnsku/fnsku-list`, {
-            params: {
-                search: this.fnskuSearch || '',
-                store: this.selectedStore || '',
-                grading: this.selectedGrading || '',
-                fnsku: this.fnskuExact || '',
-                limit: 100,
-                exclude_assigned: false // SET TO FALSE FOR TESTING - this allows you to see used FNSKUs
-            },
-            withCredentials: true
-        });
+            // Reset all filters
+            this.fnskuExact = "";
+            this.selectedStore = "";
+            this.selectedGrading = "";
 
-        console.log("FNSKU API Response:", response);
-        console.log("Response data:", response.data);
-        
-        if (response.data && response.data.data) {
-            // Filter out any empty FNSKUs on the frontend as well (extra safety)
-            const validFnskus = response.data.data.filter(fnsku => 
-                fnsku.FNSKU && 
-                fnsku.FNSKU.trim() !== '' && 
-                fnsku.FNSKU !== 'NULL' &&
-                fnsku.ASIN &&
-                fnsku.ASIN.trim() !== '' &&
-                fnsku.ASIN !== 'NULL'
-            );
-            
-            this.fnskuList = validFnskus;
-            this.filteredFnskuList = validFnskus;
-            
-            console.log("FNSKU List loaded:", this.fnskuList.length, "items");
-            console.log("Filtered out empty FNSKUs, remaining:", validFnskus.length);
-            console.log("First few items:", this.fnskuList.slice(0, 3));
-            
-            // Apply initial filtering if there's a search term
-            if (this.fnskuSearch) {
-                this.filterFnskuList();
+            try {
+                console.log("API_BASE_URL:", API_BASE_URL);
+                console.log(
+                    "Making request to:",
+                    `${API_BASE_URL}/api/fnsku/fnsku-list`
+                );
+
+                // FIXED: Use consistent API endpoint and parameters
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/fnsku/fnsku-list`,
+                    {
+                        params: {
+                            search: this.fnskuSearch || "",
+                            store: this.selectedStore || "",
+                            grading: this.selectedGrading || "",
+                            fnsku: this.fnskuExact || "",
+                            limit: 100,
+                            exclude_assigned: false, // SET TO FALSE FOR TESTING - this allows you to see used FNSKUs
+                        },
+                        withCredentials: true,
+                    }
+                );
+
+                console.log("FNSKU API Response:", response);
+                console.log("Response data:", response.data);
+
+                if (response.data && response.data.data) {
+                    // Filter out any empty FNSKUs on the frontend as well (extra safety)
+                    const validFnskus = response.data.data.filter(
+                        (fnsku) =>
+                            fnsku.FNSKU &&
+                            fnsku.FNSKU.trim() !== "" &&
+                            fnsku.FNSKU !== "NULL" &&
+                            fnsku.ASIN &&
+                            fnsku.ASIN.trim() !== "" &&
+                            fnsku.ASIN !== "NULL"
+                    );
+
+                    this.fnskuList = validFnskus;
+                    this.filteredFnskuList = validFnskus;
+
+                    console.log(
+                        "FNSKU List loaded:",
+                        this.fnskuList.length,
+                        "items"
+                    );
+                    console.log(
+                        "Filtered out empty FNSKUs, remaining:",
+                        validFnskus.length
+                    );
+                    console.log("First few items:", this.fnskuList.slice(0, 3));
+
+                    // Apply initial filtering if there's a search term
+                    if (this.fnskuSearch) {
+                        this.filterFnskuList();
+                    }
+                } else {
+                    console.error("Invalid response format:", response.data);
+                    this.fnskuList = [];
+                    this.filteredFnskuList = [];
+                }
+            } catch (error) {
+                console.error("=== FNSKU API ERROR ===");
+                console.error("Error object:", error);
+                console.error("Error response:", error.response);
+                console.error("Error message:", error.message);
+
+                if (error.response) {
+                    console.error("Error status:", error.response.status);
+                    console.error("Error data:", error.response.data);
+
+                    if (error.response.status === 404) {
+                        alert(
+                            "FNSKU API endpoint not found. Check your routes."
+                        );
+                    } else if (error.response.status === 500) {
+                        alert(
+                            "Server error while loading FNSKUs. Check server logs."
+                        );
+                    } else {
+                        alert(
+                            `HTTP ${error.response.status}: ${
+                                error.response.data?.message || "Unknown error"
+                            }`
+                        );
+                    }
+                } else if (error.request) {
+                    alert("Network error - cannot reach server");
+                } else {
+                    alert("Request configuration error: " + error.message);
+                }
+
+                this.fnskuList = [];
+                this.filteredFnskuList = [];
+            } finally {
+                this.isSearching = false;
+                console.log("=== FNSKU MODAL DEBUG END ===");
             }
-        } else {
-            console.error("Invalid response format:", response.data);
-            this.fnskuList = [];
-            this.filteredFnskuList = [];
-        }
-        
-    } catch (error) {
-        console.error("=== FNSKU API ERROR ===");
-        console.error("Error object:", error);
-        console.error("Error response:", error.response);
-        console.error("Error message:", error.message);
-        
-        if (error.response) {
-            console.error("Error status:", error.response.status);
-            console.error("Error data:", error.response.data);
-            
-            if (error.response.status === 404) {
-                alert('FNSKU API endpoint not found. Check your routes.');
-            } else if (error.response.status === 500) {
-                alert('Server error while loading FNSKUs. Check server logs.');
-            } else {
-                alert(`HTTP ${error.response.status}: ${error.response.data?.message || 'Unknown error'}`);
-            }
-        } else if (error.request) {
-            alert('Network error - cannot reach server');
-        } else {
-            alert('Request configuration error: ' + error.message);
-        }
-        
-        this.fnskuList = [];
-        this.filteredFnskuList = [];
-    } finally {
-        this.isSearching = false;
-        console.log("=== FNSKU MODAL DEBUG END ===");
-    }
-},
+        },
 
-// UPDATED filterFnskuList method with better filtering
-filterFnskuList() {
-    const asinPriority = this.currentItem?.ASINviewer;
-    const search = this.fnskuSearch.toLowerCase().trim();
-    const fnskuOnly = this.fnskuExact.toLowerCase().trim();
-    const selectedStore = this.selectedStore;
-    const selectedGrading = this.selectedGrading;
+        // UPDATED filterFnskuList method with better filtering
+        filterFnskuList() {
+            const asinPriority = this.currentItem?.ASINviewer;
+            const search = this.fnskuSearch.toLowerCase().trim();
+            const fnskuOnly = this.fnskuExact.toLowerCase().trim();
+            const selectedStore = this.selectedStore;
+            const selectedGrading = this.selectedGrading;
 
-    console.log("Filtering with:", { search, fnskuOnly, selectedStore, selectedGrading });
-    console.log("Original list length:", this.fnskuList.length);
+            console.log("Filtering with:", {
+                search,
+                fnskuOnly,
+                selectedStore,
+                selectedGrading,
+            });
+            console.log("Original list length:", this.fnskuList.length);
 
-    this.filteredFnskuList = this.fnskuList.filter((fnsku) => {
-        // Skip if FNSKU or ASIN is empty/null
-        if (!fnsku.FNSKU || fnsku.FNSKU.trim() === '' || fnsku.FNSKU === 'NULL') {
-            return false;
-        }
-        
-        if (!fnsku.ASIN || fnsku.ASIN.trim() === '' || fnsku.ASIN === 'NULL') {
-            return false;
-        }
-        
-        const matchesGeneral =
-            !search ||
-            fnsku.ASIN?.toLowerCase().includes(search) ||
-            fnsku.astitle?.toLowerCase().includes(search);
+            this.filteredFnskuList = this.fnskuList.filter((fnsku) => {
+                // Skip if FNSKU or ASIN is empty/null
+                if (
+                    !fnsku.FNSKU ||
+                    fnsku.FNSKU.trim() === "" ||
+                    fnsku.FNSKU === "NULL"
+                ) {
+                    return false;
+                }
 
-        const matchesFnskuOnly =
-            !fnskuOnly ||
-            fnsku.FNSKU?.toLowerCase().includes(fnskuOnly);
+                if (
+                    !fnsku.ASIN ||
+                    fnsku.ASIN.trim() === "" ||
+                    fnsku.ASIN === "NULL"
+                ) {
+                    return false;
+                }
 
-        const matchesStore =
-            !selectedStore || fnsku.storename === selectedStore;
+                const matchesGeneral =
+                    !search ||
+                    fnsku.ASIN?.toLowerCase().includes(search) ||
+                    fnsku.astitle?.toLowerCase().includes(search);
 
-        const matchesGrading =
-            !selectedGrading || fnsku.grading === selectedGrading;
+                const matchesFnskuOnly =
+                    !fnskuOnly ||
+                    fnsku.FNSKU?.toLowerCase().includes(fnskuOnly);
 
-        return (
-            matchesGeneral &&
-            matchesFnskuOnly &&
-            matchesStore &&
-            matchesGrading
-        );
-    });
+                const matchesStore =
+                    !selectedStore || fnsku.storename === selectedStore;
 
-    console.log("Filtered list length:", this.filteredFnskuList.length);
+                const matchesGrading =
+                    !selectedGrading || fnsku.grading === selectedGrading;
 
-    // Sort with ASIN priority
-    this.filteredFnskuList.sort((a, b) => {
-        if (a.ASIN === asinPriority && b.ASIN !== asinPriority) return -1;
-        if (a.ASIN !== asinPriority && b.ASIN === asinPriority) return 1;
-        return 0;
-    });
-},
+                return (
+                    matchesGeneral &&
+                    matchesFnskuOnly &&
+                    matchesStore &&
+                    matchesGrading
+                );
+            });
 
-      // IMPROVED hideFnskuModal to ensure cleanup
+            console.log("Filtered list length:", this.filteredFnskuList.length);
+
+            // Sort with ASIN priority
+            this.filteredFnskuList.sort((a, b) => {
+                if (a.ASIN === asinPriority && b.ASIN !== asinPriority)
+                    return -1;
+                if (a.ASIN !== asinPriority && b.ASIN === asinPriority)
+                    return 1;
+                return 0;
+            });
+        },
+
+        // IMPROVED hideFnskuModal to ensure cleanup
         hideFnskuModal() {
             console.log("Hiding FNSKU modal and cleaning up...");
-            
+
             this.isFnskuModalVisible = false;
             this.currentItem = null;
             this.fnskuList = [];
@@ -581,7 +615,7 @@ filterFnskuList() {
             this.selectedStore = "";
             this.selectedGrading = "";
             this.isUpdatingFnsku = false;
-            
+
             // Re-enable body scroll
             document.body.style.overflow = "auto";
         },
@@ -628,375 +662,499 @@ filterFnskuList() {
         },
 
         // Select and save the chosen FNSKU
-    async selectFnsku(fnsku) {
-    console.log('=== FNSKU SELECTION START ===');
-    console.log('Selecting FNSKU:', fnsku.FNSKU, 'for product:', this.currentItem?.ProductID);
-    
-    if (!this.currentItem || !this.currentItem.ProductID) {
-        console.error('No current item selected for FNSKU assignment');
-        alert('Error: No item selected for FNSKU assignment');
-        return;
-    }
-
-    // Show confirmation with prefix info
-    try {
-        // First check what FNSKU will actually be assigned (with prefix)
-        const availabilityResponse = await axios.get(`${API_BASE_URL}/api/fnsku/availability`, {
-            params: { fnsku: fnsku.FNSKU },
-            withCredentials: true
-        });
-
-        let confirmMessage = `Assign FNSKU ${fnsku.FNSKU} to this product?`;
-        
-        if (availabilityResponse.data.success && availabilityResponse.data.fnsku_info) {
-            const info = availabilityResponse.data.fnsku_info;
-            const actualFnsku = info.next_fnsku_to_use;
-            const remainingAfter = info.units_after_use;
-            
-            if (actualFnsku !== fnsku.FNSKU) {
-                confirmMessage = `This FNSKU has been used ${info.times_used} time(s) already.\n` +
-                               `The actual FNSKU that will be assigned is: ${actualFnsku}\n` +
-                               `${remainingAfter} units will remain after this assignment.\n\n` +
-                               `Do you want to proceed?`;
-            } else {
-                confirmMessage = `Assign FNSKU ${fnsku.FNSKU} to this product?\n` +
-                               `This is the first use of this FNSKU.\n` +
-                               `${remainingAfter} units will remain after this assignment.`;
-            }
-        }
-
-        if (!confirm(confirmMessage)) {
-            return;
-        }
-    } catch (error) {
-        console.warn('Could not fetch FNSKU availability info:', error);
-        // Continue with basic confirmation
-        if (!confirm(`Assign FNSKU ${fnsku.FNSKU} to this product?`)) {
-            return;
-        }
-    }
-
-    try {
-        this.isUpdatingFnsku = true;
-        
-        console.log('Sending FNSKU update request...');
-        
-        const response = await axios.post(`${API_BASE_URL}/api/fnsku/update-fnsku`, {
-            product_id: this.currentItem.ProductID,
-            fnsku: fnsku.FNSKU,  // Send the base FNSKU
-            msku: fnsku.MSKU,
-            asin: fnsku.ASIN,
-            grading: fnsku.grading
-        }, {
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || ''
-            },
-            withCredentials: true
-        });
-
-        console.log('=== FNSKU UPDATE RESPONSE ===');
-        console.log('Status:', response.status);
-        console.log('Response data:', response.data);
-
-        // FIXED: Better response handling
-        if (response.status === 200 && response.data && response.data.success) {
-            console.log('✅ FNSKU update successful');
-            
-            // Get the details from response
-            const details = response.data.details || {};
-            const actualFnskuAssigned = details.actual_fnsku_assigned || fnsku.FNSKU;
-            const remainingUnits = details.remaining_units || 'Unknown';
-            
-            // IMPORTANT: Update the current item immediately (dynamic update)
-            this.currentItem.FNSKUviewer = actualFnskuAssigned;
-            this.currentItem.FNSKU = actualFnskuAssigned; // Also update FNSKU field if it exists
-            
-            // Find and update the item in the main inventory list (for table update)
-            const itemIndex = this.inventory.findIndex(item => 
-                item.ProductID === this.currentItem.ProductID || 
-                item.rtcounter === this.currentItem.rtcounter
+        async selectFnsku(fnsku) {
+            console.log("=== FNSKU SELECTION START ===");
+            console.log(
+                "Selecting FNSKU:",
+                fnsku.FNSKU,
+                "for product:",
+                this.currentItem?.ProductID
             );
-            
-            if (itemIndex !== -1) {
-                console.log('📝 Updating inventory item at index:', itemIndex);
-                // Update the inventory item with new FNSKU
-                this.inventory[itemIndex].FNSKUviewer = actualFnskuAssigned;
-                this.inventory[itemIndex].FNSKU = actualFnskuAssigned;
-                
-                // Force Vue to detect the change
-                this.$forceUpdate();
-                
-                console.log('✅ Inventory updated dynamically');
-            } else {
-                console.warn('⚠️ Could not find item in inventory for dynamic update');
+
+            if (!this.currentItem || !this.currentItem.ProductID) {
+                console.error("No current item selected for FNSKU assignment");
+                alert("Error: No item selected for FNSKU assignment");
+                return;
             }
 
-            // Show detailed success message
-            let successMessage = `✅ FNSKU updated successfully!\n`;
-            successMessage += `Base FNSKU: ${details.new_base_fnsku || fnsku.FNSKU}\n`;
-            
-            if (actualFnskuAssigned !== fnsku.FNSKU) {
-                successMessage += `Actual FNSKU assigned: ${actualFnskuAssigned}\n`;
-                successMessage += `(This FNSKU has a prefix because it's been used before)\n`;
-            }
-            
-            successMessage += `Units remaining: ${remainingUnits}`;
-            
-            alert(successMessage);
-            
-            // Close the modal
-            this.hideFnskuModal();
-            
-        } else {
-            // Handle cases where response is not what we expect
-            console.error('❌ Unexpected response format:', response.data);
-            
-            // Check if it's still a success but different format
-            if (response.status === 200) {
-                console.log('⚠️ Update might be successful but response format unexpected');
-                alert('FNSKU might have been updated. Please check the table.');
-                this.hideFnskuModal();
-                
-                // Try to refresh just this item
-                setTimeout(() => {
-                    this.fetchInventory();
-                }, 1000);
-            } else {
-                alert('Failed to update FNSKU: Unexpected response format');
-            }
-        }
-        
-    } catch (error) {
-        console.error('=== FNSKU UPDATE ERROR ===');
-        console.error('Error object:', error);
-        console.error('Error response:', error.response);
-        
-        // IMPROVED: Better error handling
-        if (error.response) {
-            console.error('Response status:', error.response.status);
-            console.error('Response data:', error.response.data);
-            
-            if (error.response.status === 200) {
-                // Sometimes Laravel returns 200 but axios treats it as error
-                console.log('🤔 Status 200 but treated as error - checking response...');
-                
-                if (error.response.data && error.response.data.success) {
-                    // It's actually successful!
-                    console.log('✅ Actually successful! Updating UI...');
-                    
-                    const details = error.response.data.details || {};
-                    const actualFnskuAssigned = details.actual_fnsku_assigned || fnsku.FNSKU;
-                    
-                    // Update UI
-                    this.currentItem.FNSKUviewer = actualFnskuAssigned;
-                    
-                    const itemIndex = this.inventory.findIndex(item => 
-                        item.ProductID === this.currentItem.ProductID
-                    );
-                    if (itemIndex !== -1) {
-                        this.inventory[itemIndex].FNSKUviewer = actualFnskuAssigned;
-                        this.inventory[itemIndex].FNSKU = actualFnskuAssigned;
-                        this.$forceUpdate();
+            // Show confirmation with prefix info
+            try {
+                // First check what FNSKU will actually be assigned (with prefix)
+                const availabilityResponse = await axios.get(
+                    `${API_BASE_URL}/api/fnsku/availability`,
+                    {
+                        params: { fnsku: fnsku.FNSKU },
+                        withCredentials: true,
                     }
-                    
-                    alert('✅ FNSKU updated successfully!');
-                    this.hideFnskuModal();
+                );
+
+                let confirmMessage = `Assign FNSKU ${fnsku.FNSKU} to this product?`;
+
+                if (
+                    availabilityResponse.data.success &&
+                    availabilityResponse.data.fnsku_info
+                ) {
+                    const info = availabilityResponse.data.fnsku_info;
+                    const actualFnsku = info.next_fnsku_to_use;
+                    const remainingAfter = info.units_after_use;
+
+                    if (actualFnsku !== fnsku.FNSKU) {
+                        confirmMessage =
+                            `This FNSKU has been used ${info.times_used} time(s) already.\n` +
+                            `The actual FNSKU that will be assigned is: ${actualFnsku}\n` +
+                            `${remainingAfter} units will remain after this assignment.\n\n` +
+                            `Do you want to proceed?`;
+                    } else {
+                        confirmMessage =
+                            `Assign FNSKU ${fnsku.FNSKU} to this product?\n` +
+                            `This is the first use of this FNSKU.\n` +
+                            `${remainingAfter} units will remain after this assignment.`;
+                    }
+                }
+
+                if (!confirm(confirmMessage)) {
+                    return;
+                }
+            } catch (error) {
+                console.warn("Could not fetch FNSKU availability info:", error);
+                // Continue with basic confirmation
+                if (!confirm(`Assign FNSKU ${fnsku.FNSKU} to this product?`)) {
                     return;
                 }
             }
-            
-            // Handle other error statuses
-            let errorMessage = 'Failed to update FNSKU: ';
-            if (error.response.data && error.response.data.message) {
-                errorMessage += error.response.data.message;
-            } else {
-                errorMessage += `HTTP ${error.response.status} error`;
+
+            try {
+                this.isUpdatingFnsku = true;
+
+                console.log("Sending FNSKU update request...");
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/fnsku/update-fnsku`,
+                    {
+                        product_id: this.currentItem.ProductID,
+                        fnsku: fnsku.FNSKU, // Send the base FNSKU
+                        msku: fnsku.MSKU,
+                        asin: fnsku.ASIN,
+                        grading: fnsku.grading,
+                    },
+                    {
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRF-TOKEN":
+                                document.querySelector(
+                                    'meta[name="csrf-token"]'
+                                )?.content || "",
+                        },
+                        withCredentials: true,
+                    }
+                );
+
+                console.log("=== FNSKU UPDATE RESPONSE ===");
+                console.log("Status:", response.status);
+                console.log("Response data:", response.data);
+
+                // FIXED: Better response handling
+                if (
+                    response.status === 200 &&
+                    response.data &&
+                    response.data.success
+                ) {
+                    console.log("✅ FNSKU update successful");
+
+                    // Get the details from response
+                    const details = response.data.details || {};
+                    const actualFnskuAssigned =
+                        details.actual_fnsku_assigned || fnsku.FNSKU;
+                    const remainingUnits = details.remaining_units || "Unknown";
+
+                    // IMPORTANT: Update the current item immediately (dynamic update)
+                    this.currentItem.FNSKUviewer = actualFnskuAssigned;
+                    this.currentItem.FNSKU = actualFnskuAssigned; // Also update FNSKU field if it exists
+
+                    // Find and update the item in the main inventory list (for table update)
+                    const itemIndex = this.inventory.findIndex(
+                        (item) =>
+                            item.ProductID === this.currentItem.ProductID ||
+                            item.rtcounter === this.currentItem.rtcounter
+                    );
+
+                    if (itemIndex !== -1) {
+                        console.log(
+                            "📝 Updating inventory item at index:",
+                            itemIndex
+                        );
+                        // Update the inventory item with new FNSKU
+                        this.inventory[itemIndex].FNSKUviewer =
+                            actualFnskuAssigned;
+                        this.inventory[itemIndex].FNSKU = actualFnskuAssigned;
+
+                        // Force Vue to detect the change
+                        this.$forceUpdate();
+
+                        console.log("✅ Inventory updated dynamically");
+                    } else {
+                        console.warn(
+                            "⚠️ Could not find item in inventory for dynamic update"
+                        );
+                    }
+
+                    // Show detailed success message
+                    let successMessage = `✅ FNSKU updated successfully!\n`;
+                    successMessage += `Base FNSKU: ${
+                        details.new_base_fnsku || fnsku.FNSKU
+                    }\n`;
+
+                    if (actualFnskuAssigned !== fnsku.FNSKU) {
+                        successMessage += `Actual FNSKU assigned: ${actualFnskuAssigned}\n`;
+                        successMessage += `(This FNSKU has a prefix because it's been used before)\n`;
+                    }
+
+                    successMessage += `Units remaining: ${remainingUnits}`;
+
+                    alert(successMessage);
+
+                    // Close the modal
+                    this.hideFnskuModal();
+                } else {
+                    // Handle cases where response is not what we expect
+                    console.error(
+                        "❌ Unexpected response format:",
+                        response.data
+                    );
+
+                    // Check if it's still a success but different format
+                    if (response.status === 200) {
+                        console.log(
+                            "⚠️ Update might be successful but response format unexpected"
+                        );
+                        alert(
+                            "FNSKU might have been updated. Please check the table."
+                        );
+                        this.hideFnskuModal();
+
+                        // Try to refresh just this item
+                        setTimeout(() => {
+                            this.fetchInventory();
+                        }, 1000);
+                    } else {
+                        alert(
+                            "Failed to update FNSKU: Unexpected response format"
+                        );
+                    }
+                }
+            } catch (error) {
+                console.error("=== FNSKU UPDATE ERROR ===");
+                console.error("Error object:", error);
+                console.error("Error response:", error.response);
+
+                // IMPROVED: Better error handling
+                if (error.response) {
+                    console.error("Response status:", error.response.status);
+                    console.error("Response data:", error.response.data);
+
+                    if (error.response.status === 200) {
+                        // Sometimes Laravel returns 200 but axios treats it as error
+                        console.log(
+                            "🤔 Status 200 but treated as error - checking response..."
+                        );
+
+                        if (
+                            error.response.data &&
+                            error.response.data.success
+                        ) {
+                            // It's actually successful!
+                            console.log(
+                                "✅ Actually successful! Updating UI..."
+                            );
+
+                            const details = error.response.data.details || {};
+                            const actualFnskuAssigned =
+                                details.actual_fnsku_assigned || fnsku.FNSKU;
+
+                            // Update UI
+                            this.currentItem.FNSKUviewer = actualFnskuAssigned;
+
+                            const itemIndex = this.inventory.findIndex(
+                                (item) =>
+                                    item.ProductID ===
+                                    this.currentItem.ProductID
+                            );
+                            if (itemIndex !== -1) {
+                                this.inventory[itemIndex].FNSKUviewer =
+                                    actualFnskuAssigned;
+                                this.inventory[itemIndex].FNSKU =
+                                    actualFnskuAssigned;
+                                this.$forceUpdate();
+                            }
+
+                            alert("✅ FNSKU updated successfully!");
+                            this.hideFnskuModal();
+                            return;
+                        }
+                    }
+
+                    // Handle other error statuses
+                    let errorMessage = "Failed to update FNSKU: ";
+                    if (error.response.data && error.response.data.message) {
+                        errorMessage += error.response.data.message;
+                    } else {
+                        errorMessage += `HTTP ${error.response.status} error`;
+                    }
+
+                    alert(errorMessage);
+                } else if (error.request) {
+                    console.error("Network error:", error.request);
+                    alert("Network error - could not reach server");
+                } else {
+                    console.error(
+                        "Request configuration error:",
+                        error.message
+                    );
+                    alert("Request configuration error: " + error.message);
+                }
+            } finally {
+                this.isUpdatingFnsku = false;
+                console.log("=== FNSKU SELECTION END ===");
             }
-            
-            alert(errorMessage);
-        } else if (error.request) {
-            console.error('Network error:', error.request);
-            alert('Network error - could not reach server');
-        } else {
-            console.error('Request configuration error:', error.message);
-            alert('Request configuration error: ' + error.message);
-        }
-    } finally {
-        this.isUpdatingFnsku = false;
-        console.log('=== FNSKU SELECTION END ===');
-    }
-},
+        },
 
-// ADD method to refresh single item instead of entire table
-async refreshSingleItem(productId) {
-    try {
-        console.log('Refreshing single item:', productId);
-        
-        const response = await axios.get(`${API_BASE_URL}/api/labeling/product/${productId}`, {
-            withCredentials: true
-        });
-        
-        if (response.data && response.data.success) {
-            const updatedItem = response.data.data;
-            
-            // Find and update the item in inventory
-            const itemIndex = this.inventory.findIndex(item => 
-                item.ProductID === productId
-            );
-            
-            if (itemIndex !== -1) {
-                this.inventory[itemIndex] = { ...this.inventory[itemIndex], ...updatedItem };
-                this.$forceUpdate();
-                console.log('✅ Single item refreshed successfully');
+        // ADD method to refresh single item instead of entire table
+        async refreshSingleItem(productId) {
+            try {
+                console.log("Refreshing single item:", productId);
+
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/labeling/product/${productId}`,
+                    {
+                        withCredentials: true,
+                    }
+                );
+
+                if (response.data && response.data.success) {
+                    const updatedItem = response.data.data;
+
+                    // Find and update the item in inventory
+                    const itemIndex = this.inventory.findIndex(
+                        (item) => item.ProductID === productId
+                    );
+
+                    if (itemIndex !== -1) {
+                        this.inventory[itemIndex] = {
+                            ...this.inventory[itemIndex],
+                            ...updatedItem,
+                        };
+                        this.$forceUpdate();
+                        console.log("✅ Single item refreshed successfully");
+                    }
+                }
+            } catch (error) {
+                console.error("Error refreshing single item:", error);
+                // Fallback to full refresh
+                this.fetchInventory();
             }
-        }
-    } catch (error) {
-        console.error('Error refreshing single item:', error);
-        // Fallback to full refresh
-        this.fetchInventory();
-    }
-},
+        },
 
+        /**
+         * Enhanced FNSKU list fetching that accounts for prefixed FNSKUs
+         */
+        async fetchFnskuList() {
+            try {
+                this.isSearching = true;
 
+                const params = {
+                    search: this.fnskuSearch || "",
+                    store: this.selectedStore || "",
+                    grading: this.selectedGrading || "",
+                    fnsku: this.fnskuExact || "",
+                    limit: 100,
+                    // NEW: Only exclude the current item's specific FNSKU
+                    exclude_current_fnsku:
+                        this.currentItem?.FNSKUviewer ||
+                        this.currentItem?.FNSKU ||
+                        "",
+                    current_product_id: this.currentItem?.ProductID || "",
+                };
 
-  /**
- * Enhanced FNSKU list fetching that accounts for prefixed FNSKUs
- */
-async fetchFnskuList() {
-    try {
-        this.isSearching = true;
-        
-        const params = {
-            search: this.fnskuSearch || '',
-            store: this.selectedStore || '',
-            grading: this.selectedGrading || '',
-            fnsku: this.fnskuExact || '',
-            limit: 100,
-            // NEW: Only exclude the current item's specific FNSKU
-            exclude_current_fnsku: this.currentItem?.FNSKUviewer || this.currentItem?.FNSKU || '',
-            current_product_id: this.currentItem?.ProductID || ''
-        };
+                // Remove empty parameters
+                Object.keys(params).forEach((key) => {
+                    if (
+                        params[key] === "" ||
+                        params[key] === null ||
+                        params[key] === undefined
+                    ) {
+                        delete params[key];
+                    }
+                });
 
-        // Remove empty parameters
-        Object.keys(params).forEach(key => {
-            if (params[key] === '' || params[key] === null || params[key] === undefined) {
-                delete params[key];
+                console.log("Fetching FNSKU list with params:", params);
+
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/fnsku/fnsku-list`,
+                    {
+                        params: params,
+                        withCredentials: true,
+                    }
+                );
+
+                if (response.data && response.data.data) {
+                    // Filter out any empty FNSKUs on the frontend
+                    const validFnskus = response.data.data.filter(
+                        (fnsku) =>
+                            fnsku.FNSKU &&
+                            fnsku.FNSKU.trim() !== "" &&
+                            fnsku.FNSKU !== "NULL" &&
+                            fnsku.ASIN &&
+                            fnsku.ASIN.trim() !== "" &&
+                            fnsku.ASIN !== "NULL"
+                    );
+
+                    this.fnskuList = validFnskus;
+                    this.filteredFnskuList = validFnskus;
+
+                    console.log(
+                        "FNSKU List loaded:",
+                        this.fnskuList.length,
+                        "items"
+                    );
+                    console.log(
+                        "Excluded current item's FNSKU:",
+                        params.exclude_current_fnsku
+                    );
+
+                    // Apply initial filtering if there's a search term
+                    if (
+                        this.fnskuSearch ||
+                        this.selectedStore ||
+                        this.selectedGrading ||
+                        this.fnskuExact
+                    ) {
+                        this.filterFnskuList();
+                    }
+                } else {
+                    console.error("Invalid response format:", response.data);
+                    this.fnskuList = [];
+                    this.filteredFnskuList = [];
+                }
+            } catch (error) {
+                console.error("Error fetching FNSKU list:", error);
+                this.fnskuList = [];
+                this.filteredFnskuList = [];
+
+                if (error.response && error.response.status === 500) {
+                    alert(
+                        "Server error while loading FNSKUs. Please try again later."
+                    );
+                }
+            } finally {
+                this.isSearching = false;
             }
-        });
+        },
 
-        console.log('Fetching FNSKU list with params:', params);
-        
-        const response = await axios.get(`${API_BASE_URL}/api/fnsku/fnsku-list`, {
-            params: params,
-            withCredentials: true
-        });
+        async showFnskuAvailabilityInfo(fnsku) {
+            try {
+                const response = await axios.get("/api/fnsku/availability", {
+                    // CORRECT URL
+                    params: { fnsku: fnsku.FNSKU },
+                    withCredentials: true,
+                });
 
-        if (response.data && response.data.data) {
-            // Filter out any empty FNSKUs on the frontend
-            const validFnskus = response.data.data.filter(fnsku => 
-                fnsku.FNSKU && 
-                fnsku.FNSKU.trim() !== '' && 
-                fnsku.FNSKU !== 'NULL' &&
-                fnsku.ASIN &&
-                fnsku.ASIN.trim() !== '' &&
-                fnsku.ASIN !== 'NULL'
-            );
-            
-            this.fnskuList = validFnskus;
-            this.filteredFnskuList = validFnskus;
-            
-            console.log("FNSKU List loaded:", this.fnskuList.length, "items");
-            console.log("Excluded current item's FNSKU:", params.exclude_current_fnsku);
-            
-            // Apply initial filtering if there's a search term
-            if (this.fnskuSearch || this.selectedStore || this.selectedGrading || this.fnskuExact) {
-                this.filterFnskuList();
+                if (response.data.success && response.data.fnsku_info) {
+                    const info = response.data.fnsku_info;
+
+                    let message = `FNSKU: ${info.base_fnsku}\n`;
+                    message += `Times used: ${info.times_used}\n`;
+                    message += `Current units: ${info.remaining_units}\n`;
+                    message += `Next FNSKU to use: ${info.next_fnsku_to_use}\n`;
+                    message += `Units after use: ${info.units_after_use}\n`;
+                    message += `ASIN: ${info.asin}\n`;
+                    message += `Condition: ${info.grading}\n`;
+                    message += `Store: ${info.storename}`;
+
+                    alert(message);
+                } else {
+                    alert("FNSKU availability information not available");
+                }
+            } catch (error) {
+                console.error("Error fetching FNSKU availability:", error);
+                alert("Error fetching FNSKU availability information");
             }
-        } else {
-            console.error("Invalid response format:", response.data);
-            this.fnskuList = [];
-            this.filteredFnskuList = [];
-        }
-        
-    } catch (error) {
-        console.error('Error fetching FNSKU list:', error);
-        this.fnskuList = [];
-        this.filteredFnskuList = [];
-        
-        if (error.response && error.response.status === 500) {
-            alert('Server error while loading FNSKUs. Please try again later.');
-        }
-    } finally {
-        this.isSearching = false;
-    }
-},
+        },
 
-async showFnskuAvailabilityInfo(fnsku) {
-    try {
-        const response = await axios.get('/api/fnsku/availability', { // CORRECT URL
-            params: { fnsku: fnsku.FNSKU },
-            withCredentials: true
-        });
-        
-        if (response.data.success && response.data.fnsku_info) {
-            const info = response.data.fnsku_info;
-            
-            let message = `FNSKU: ${info.base_fnsku}\n`;
-            message += `Times used: ${info.times_used}\n`;
-            message += `Current units: ${info.remaining_units}\n`;
-            message += `Next FNSKU to use: ${info.next_fnsku_to_use}\n`;
-            message += `Units after use: ${info.units_after_use}\n`;
-            message += `ASIN: ${info.asin}\n`;
-            message += `Condition: ${info.grading}\n`;
-            message += `Store: ${info.storename}`;
-            
-            alert(message);
-        } else {
-            alert('FNSKU availability information not available');
-        }
-    } catch (error) {
-        console.error('Error fetching FNSKU availability:', error);
-        alert('Error fetching FNSKU availability information');
-    }
-},
+        /**
+         * Add a method to display FNSKU prefix information in the UI
+         */
+        displayFnskuInfo(fnsku) {
+            // You can modify your FNSKU table to show additional info
+            // This would be useful to display in the FNSKU selection modal
 
-/**
- * Add a method to display FNSKU prefix information in the UI
- */
-displayFnskuInfo(fnsku) {
-    // You can modify your FNSKU table to show additional info
-    // This would be useful to display in the FNSKU selection modal
-    
-    // Check if this FNSKU has been used (has remaining units < 11)
-    const hasBeenUsed = fnsku.Units < 11;
-    const timesUsed = 11 - fnsku.Units;
-    
-    return {
-        ...fnsku,
-        hasBeenUsed,
-        timesUsed,
-        nextFnskuWillBe: timesUsed === 0 ? fnsku.FNSKU : `C${timesUsed}${fnsku.FNSKU}`,
-        usageInfo: hasBeenUsed ? `Used ${timesUsed} times` : 'First use'
-    };
-},
+            // Check if this FNSKU has been used (has remaining units < 11)
+            const hasBeenUsed = fnsku.Units < 11;
+            const timesUsed = 11 - fnsku.Units;
 
-/**
- * Method to validate FNSKU before assignment
- */
-async validateFnskuBeforeAssignment(fnsku) {
-    try {
-        const response = await axios.get('/api/fnsku/availability', { // CORRECT URL
-            params: { fnsku: fnsku.FNSKU },
-            withCredentials: true
-        });
-        
-        return response.data.success && response.data.available;
-    } catch (error) {
-        console.error('Error validating FNSKU:', error);
-        return false;
-    }
-},
+            return {
+                ...fnsku,
+                hasBeenUsed,
+                timesUsed,
+                nextFnskuWillBe:
+                    timesUsed === 0
+                        ? fnsku.FNSKU
+                        : `C${timesUsed}${fnsku.FNSKU}`,
+                usageInfo: hasBeenUsed
+                    ? `Used ${timesUsed} times`
+                    : "First use",
+            };
+        },
+
+        /**
+         * Method to validate FNSKU before assignment
+         */
+        async validateFnskuBeforeAssignment(fnsku) {
+            try {
+                const response = await axios.get("/api/fnsku/availability", {
+                    // CORRECT URL
+                    params: { fnsku: fnsku.FNSKU },
+                    withCredentials: true,
+                });
+
+                return response.data.success && response.data.available;
+            } catch (error) {
+                console.error("Error validating FNSKU:", error);
+                return false;
+            }
+        },
+
+        async confirmMoveToValidation(item) {
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            const result = await Swal.fire({
+                title: "Confirm Move to Validation",
+                html: `
+            <p>Are you sure you want to move this item to <strong>Validation</strong>?</p>
+            <ul style="text-align:left">
+                <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
+                <li><strong>ASIN:</strong> ${item.ASIN || "—"}</li>
+                <li><strong>FNSKU:</strong> ${item.FNSKU || "—"}</li>
+                <li><strong>Serial:</strong> ${item.SerialNumber || "—"}</li>
+            </ul>
+        `,
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Yes, move it",
+                cancelButtonText: "Cancel",
+                reverseButtons: true,
+            });
+
+            if (result.isConfirmed) {
+                this.moveToValidation(item);
+            }
+        },
 
         async moveToValidation(item) {
             if (
@@ -1013,7 +1171,7 @@ async validateFnskuBeforeAssignment(fnsku) {
                 )
             ) {
                 console.error("Invalid item data for moving to Validation");
-                Swal.fire({
+                await Swal.fire({
                     icon: "error",
                     title: "Missing Required Fields",
                     text: "Please ensure at least one identification field is filled (ASIN, FNSKU, Serial Number, Basket Number, RPN, PRD, or PCN).",
@@ -1025,6 +1183,14 @@ async validateFnskuBeforeAssignment(fnsku) {
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
+
+                Swal.fire({
+                    title: "Moving to Validation...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/labeling/move-to-validation`,
@@ -1041,48 +1207,95 @@ async validateFnskuBeforeAssignment(fnsku) {
                     }
                 );
 
-                console.log("Move to Validation response:", response.data);
+                Swal.close();
 
                 if (response.data.success) {
                     await Swal.fire({
                         icon: "success",
                         title: "Success",
                         text: `Item ${item.rtcounter} successfully moved to Validation.`,
-                        timer: 2000,
-                        showConfirmButton: false,
+                        confirmButtonText: "OK",
                     });
                     this.fetchInventory();
                 } else {
-                    Swal.fire({
+                    await Swal.fire({
                         icon: "warning",
                         title: "Failed",
                         text:
                             response.data.message ||
                             "Failed to move item to Validation.",
                     });
+                    return;
                 }
             } catch (error) {
                 console.error("Error moving item to Validation:", error);
-                Swal.fire({
+                await Swal.fire({
                     icon: "error",
                     title: "Error",
                     text: "An error occurred while moving the item. Please try again.",
                 });
+                return;
             }
         },
+
+        async confirmMoveToStockroom(item) {
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
+                return;
+            }
+
+            const result = await Swal.fire({
+                title: "Confirm Move to Stockroom",
+                html: `
+            <p>Are you sure you want to move this item to the <strong>Stockroom</strong>?</p>
+            <ul style="text-align:left">
+                <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
+                <li><strong>ASIN:</strong> ${item.ASIN || "—"}</li>
+                <li><strong>FNSKU:</strong> ${item.FNSKU || "—"}</li>
+                <li><strong>Serial:</strong> ${item.SerialNumber || "—"}</li>
+            </ul>
+        `,
+                icon: "question",
+                showCancelButton: true,
+                confirmButtonText: "Yes, move it",
+                cancelButtonText: "Cancel",
+                reverseButtons: true,
+            });
+
+            if (result.isConfirmed) {
+                this.moveToStockroom(item);
+            }
+        },
+
         async moveToStockroom(item) {
             if (!item || !item.ProductID) {
                 console.error("Invalid item data for moving to Stockroom");
+                await Swal.fire({
+                    icon: "error",
+                    title: "Invalid Item",
+                    text: "The selected item does not have a valid Product ID.",
+                });
                 return;
             }
 
             try {
-                // Get the CSRF token from the meta tag
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
-                // Make the request with proper data format and headers
+                // Show loading indicator
+                Swal.fire({
+                    title: "Moving to Stockroom...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
+
                 const response = await axios.post(
                     `${API_BASE_URL}/api/labeling/move-to-stockroom`,
                     {
@@ -1098,49 +1311,33 @@ async validateFnskuBeforeAssignment(fnsku) {
                     }
                 );
 
-                console.log("Move to Stockroom response:", response.data);
+                Swal.close();
 
                 if (response.data.success) {
-                    // Show success message
-                    alert(
-                        `Item ${item.rtcounter} successfully moved to Stockroom`
-                    );
-                    // Refresh the inventory list
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: `Item ${item.rtcounter} successfully moved to Stockroom.`,
+                        confirmButtonText: "OK",
+                    });
                     this.fetchInventory();
                 } else {
-                    alert(
-                        response.data.message ||
-                            "Failed to move item to Stockroom"
-                    );
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Stockroom.",
+                    });
                 }
             } catch (error) {
                 console.error("Error moving item to Stockroom:", error);
-                alert("Failed to move item to Stockroom. Please try again.");
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "An error occurred while moving the item to Stockroom. Please try again.",
+                });
             }
-        },
-
-        // Method to show the validation confirmation
-        confirmMoveToValidation(item) {
-            this.showConfirmationModal = true;
-            this.confirmationTitle = "Move to Validation";
-            this.confirmationMessage = `Are you sure you want to move item #${item.rtcounter} from Labeling to Validation?`;
-            this.confirmationActionType = "validation";
-            this.currentItemForAction = item;
-
-            // Prevent scrolling when modal is open
-            document.body.style.overflow = "hidden";
-        },
-
-        // Method to show the stockroom confirmation
-        confirmMoveToStockroom(item) {
-            this.showConfirmationModal = true;
-            this.confirmationTitle = "Move to Stockroom";
-            this.confirmationMessage = `Are you sure you want to move item #${item.rtcounter} from Labeling to Stockroom?`;
-            this.confirmationActionType = "stockroom";
-            this.currentItemForAction = item;
-
-            // Prevent scrolling when modal is open
-            document.body.style.overflow = "hidden";
         },
 
         // Method to handle the cancellation
