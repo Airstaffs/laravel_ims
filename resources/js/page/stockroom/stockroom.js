@@ -3,6 +3,7 @@ import ScannerComponent from "../../components/Scanner.vue";
 import NewScannedItemModal from "./modals/newScanneditem.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
+import "../stockroom/stockroom.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -58,7 +59,7 @@ export default {
             selectAllItems: false,
             isProcessing: false,
 
-           //scanned newly items - Updated for modal integration
+            //scanned newly items - Updated for modal integration
             newScannedCount: 0,
             showNewScannedModal: false,
             countRefreshInterval: null,
@@ -87,6 +88,8 @@ export default {
                 currency: "USD",
                 price: 19.99,
             },
+
+            showPostAmazonModal: false,
         };
     },
     computed: {
@@ -1658,11 +1661,13 @@ export default {
                 alert("Please select at least one item.");
                 return;
             }
-            $(this.$refs.postAmazonModal).modal("show");
+            this.showPostAmazonModal = true;
         },
+
         closePostAmazonModal() {
-            $(this.$refs.postAmazonModal).modal("hide");
+            this.showPostAmazonModal = false;
         },
+
         async submitPostToAmazon() {
             this.isPosting = true;
             try {
@@ -1702,7 +1707,7 @@ export default {
         // NEW SCANNED ITEMS METHODS - Updated for modal integration
         async fetchNewScannedCount() {
             try {
-                const today = new Date().toISOString().split('T')[0];
+                const today = new Date().toISOString().split("T")[0];
                 const response = await axios.get(
                     `${API_BASE_URL}/api/stockroom/new-scanned-count`,
                     {
@@ -1711,7 +1716,7 @@ export default {
                     }
                 );
                 this.newScannedCount = response.data.count || 0;
-                console.log('New scanned count:', this.newScannedCount);
+                console.log("New scanned count:", this.newScannedCount);
             } catch (error) {
                 console.error("Error fetching new scanned count:", error);
                 this.newScannedCount = 0;
@@ -1721,7 +1726,7 @@ export default {
         // Add this method to refresh the notification count after scanning
         async refreshNewScannedCount() {
             try {
-                const today = new Date().toISOString().split('T')[0];
+                const today = new Date().toISOString().split("T")[0];
                 const response = await axios.get(
                     `${API_BASE_URL}/api/stockroom/new-scanned-count`,
                     {
@@ -1730,7 +1735,10 @@ export default {
                     }
                 );
                 this.newScannedCount = response.data.count || 0;
-                console.log('Refreshed new scanned count:', this.newScannedCount);
+                console.log(
+                    "Refreshed new scanned count:",
+                    this.newScannedCount
+                );
             } catch (error) {
                 console.error("Error refreshing new scanned count:", error);
             }
