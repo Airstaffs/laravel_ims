@@ -510,10 +510,13 @@ Route::prefix('api/printer')->group(function () {
 });
 
 // Routes for FNSKU List Function  
-Route::get('/fnsku-list', [FnskuController::class, 'getFnskuList']);
-Route::post('/update-fnsku', [FnskuController::class, 'updateFnsku']);
-Route::get('/fnsku', [FnskuController::class, 'index']);
-Route::post('/insert-fnsku', [FnskuController::class, 'insertFnsku']);
+Route::get('api/fnsku/fnsku-list', [FnskuController::class, 'getFnskuList']);
+Route::post('api/fnsku/update-fnsku', [FnskuController::class, 'updateFnsku']);
+Route::get('api/fnsku/fnsku', [FnskuController::class, 'index']);
+Route::post('api/fnsku/insert-fnsku', [FnskuController::class, 'insertFnsku']);
+Route::get('api/labeling/product/{productId}', [LabelingController::class, 'getProduct']);
+Route::get('api/fnsku/availability', [FnskuController::class, 'getFnskuAvailability']);
+
 
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');

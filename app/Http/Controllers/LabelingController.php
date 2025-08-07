@@ -15,6 +15,23 @@ use DateTimeZone;
 
 class LabelingController extends BasetablesController
 {
+    /**
+     * Extract base FNSKU from prefixed FNSKU (same as StockroomController)
+     */
+    private function extractBaseFnsku($fnsku)
+    {
+        if (empty($fnsku)) {
+            return $fnsku;
+        }
+
+        // Check if it's a prefixed FNSKU (starts with C followed by digits)
+        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
+            return $matches[2]; // Return the base FNSKU without prefix
+        }
+
+        return $fnsku; // Return as-is if not prefixed
+    }
+
     public function index(Request $request)
     {
         try {
@@ -32,34 +49,129 @@ class LabelingController extends BasetablesController
             $location = $request->input('location', 'Labeling');
             $includeImages = $request->boolean('include_images', false);
 
-            // Enhanced query with joins similar to StockroomController
-            $query = DB::table($this->productTable . ' as prod')
+            // UPDATED: Get products first, then match FNSKUs in PHP (like StockroomController)
+            $productsQuery = DB::table($this->productTable . ' as prod')
                 ->select([
-                    'prod.*',
-                    'fnsku.FNSKU',
-                    'fnsku.MSKU',
-                    'fnsku.ASIN',
-                    'fnsku.grading',
-                    'fnsku.storename',
-                    'asin.internal as AStitle'
+                    'prod.*'
                 ])
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->where('prod.ProductModuleLoc', $location)
-                ->when($search, function ($query) use ($search) {
-                    return $query->where(function ($q) use ($search) {
-                        $q->where('prod.serialnumber', 'like', "%{$search}%")
-                            ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                            ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                            ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
-                            ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
-                            ->orWhere('asin.internal', 'like', "%{$search}%");
-                    });
+                ->where('prod.ProductModuleLoc', $location);
+
+            // Apply search to products directly first
+            if (!empty($search)) {
+                $productsQuery->where(function ($q) use ($search) {
+                    $q->where('prod.serialnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%");
+                });
+            }
+
+            $products = $productsQuery->paginate($perPage);
+            Log::info('Products fetched successfully', ['count' => $products->count()]);
+
+            // Extract all unique base FNSKUs from products
+            $baseFnskus = [];
+            $fnskuProductMap = [];
+            
+            foreach ($products->items() as $product) {
+                if (!empty($product->FNSKUviewer)) {
+                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+                    $baseFnskus[] = $baseFnsku;
+                    
+                    if (!isset($fnskuProductMap[$baseFnsku])) {
+                        $fnskuProductMap[$baseFnsku] = [];
+                    }
+                    $fnskuProductMap[$baseFnsku][] = $product;
+                }
+            }
+
+            $baseFnskus = array_unique($baseFnskus);
+
+            // Get FNSKU data for base FNSKUs
+            $fnskuData = [];
+            if (!empty($baseFnskus)) {
+                $fnskuRecords = DB::table($this->fnskuTable)
+                    ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
+                    ->whereIn('FNSKU', $baseFnskus)
+                    ->get();
+                
+                foreach ($fnskuRecords as $record) {
+                    $fnskuData[$record->FNSKU] = $record;
+                }
+            }
+
+            // Get ASIN data
+            $asinList = [];
+            foreach ($fnskuData as $fnskuRecord) {
+                $asinList[] = $fnskuRecord->ASIN;
+            }
+            $asinList = array_unique($asinList);
+
+            $asinData = [];
+            if (!empty($asinList)) {
+                $asinRecords = DB::table($this->asinTable)
+                    ->select('ASIN', 'internal')
+                    ->whereIn('ASIN', $asinList)
+                    ->get();
+                
+                foreach ($asinRecords as $record) {
+                    $asinData[$record->ASIN] = $record;
+                }
+            }
+
+            // Apply additional search filters if needed
+            if (!empty($search)) {
+                $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData, $search) {
+                    // Add FNSKU and ASIN data
+                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+                    
+                    if (isset($fnskuData[$baseFnsku])) {
+                        $fnskuRecord = $fnskuData[$baseFnsku];
+                        $product->FNSKU = $fnskuRecord->FNSKU;
+                        $product->MSKU = $fnskuRecord->MSKU;
+                        $product->ASIN = $fnskuRecord->ASIN;
+                        $product->grading = $fnskuRecord->grading;
+                        $product->storename = $fnskuRecord->storename;
+                        
+                        if (isset($asinData[$fnskuRecord->ASIN])) {
+                            $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
+                        }
+                    }
+                    
+                    return $product;
                 });
 
-            // Get paginated products
-            $products = $query->paginate($perPage);
-            Log::info('Products fetched successfully', ['count' => $products->count()]);
+                // Filter products that match additional search criteria
+                $filteredProducts = $products->getCollection()->filter(function ($product) use ($search) {
+                    return stripos($product->MSKU ?? '', $search) !== false ||
+                           stripos($product->ASIN ?? '', $search) !== false ||
+                           stripos($product->AStitle ?? '', $search) !== false ||
+                           stripos($product->serialnumber ?? '', $search) !== false ||
+                           stripos($product->FNSKUviewer ?? '', $search) !== false ||
+                           stripos($product->rtcounter ?? '', $search) !== false;
+                });
+
+                $products->setCollection($filteredProducts);
+            } else {
+                // Add FNSKU and ASIN data to all products
+                $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData) {
+                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+                    
+                    if (isset($fnskuData[$baseFnsku])) {
+                        $fnskuRecord = $fnskuData[$baseFnsku];
+                        $product->FNSKU = $fnskuRecord->FNSKU;
+                        $product->MSKU = $fnskuRecord->MSKU;
+                        $product->ASIN = $fnskuRecord->ASIN;
+                        $product->grading = $fnskuRecord->grading;
+                        $product->storename = $fnskuRecord->storename;
+                        
+                        if (isset($asinData[$fnskuRecord->ASIN])) {
+                            $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
+                        }
+                    }
+                    
+                    return $product;
+                });
+            }
 
             // If images are requested, fetch them for each product
             if ($includeImages) {
@@ -170,38 +282,104 @@ class LabelingController extends BasetablesController
             ], 500);
         }
     }
+
     public function getFnskuData(Request $request)
     {
         $search = $request->input('search');
         $location = $request->input('location');
 
-        $query = DB::table($this->productTable . ' as prod')
-            ->select([
-                'prod.*',
-                'fnsku.FNSKU',
-                'fnsku.MSKU',
-                'fnsku.ASIN',
-                'fnsku.grading',
-                'fnsku.storename',
-                'asin.internal as AStitle'
-            ])
-            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-            ->where('prod.ProductModuleLoc', $location)
-            ->when($search, function ($query) use ($search) {
-                return $query->where(function ($q) use ($search) {
-                    $q->where('prod.serialnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
-                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
-                        ->orWhere('asin.internal', 'like', "%{$search}%");
-                });
-            })
-            ->get();
+        // UPDATED: Use the same approach as index method
+        $productsQuery = DB::table($this->productTable . ' as prod')
+            ->select(['prod.*'])
+            ->where('prod.ProductModuleLoc', $location);
 
-        return response()->json(['data' => $query]);
+        if (!empty($search)) {
+            $productsQuery->where(function ($q) use ($search) {
+                $q->where('prod.serialnumber', 'like', "%{$search}%")
+                    ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                    ->orWhere('prod.rtcounter', 'like', "%{$search}%");
+            });
+        }
+
+        $products = $productsQuery->get();
+
+        // Extract base FNSKUs and get related data
+        $baseFnskus = [];
+        foreach ($products as $product) {
+            if (!empty($product->FNSKUviewer)) {
+                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+                $baseFnskus[] = $baseFnsku;
+            }
+        }
+        $baseFnskus = array_unique($baseFnskus);
+
+        // Get FNSKU data
+        $fnskuData = [];
+        if (!empty($baseFnskus)) {
+            $fnskuRecords = DB::table($this->fnskuTable)
+                ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
+                ->whereIn('FNSKU', $baseFnskus)
+                ->get();
+            
+            foreach ($fnskuRecords as $record) {
+                $fnskuData[$record->FNSKU] = $record;
+            }
+        }
+
+        // Get ASIN data
+        $asinList = [];
+        foreach ($fnskuData as $fnskuRecord) {
+            $asinList[] = $fnskuRecord->ASIN;
+        }
+        $asinList = array_unique($asinList);
+
+        $asinData = [];
+        if (!empty($asinList)) {
+            $asinRecords = DB::table($this->asinTable)
+                ->select('ASIN', 'internal')
+                ->whereIn('ASIN', $asinList)
+                ->get();
+            
+            foreach ($asinRecords as $record) {
+                $asinData[$record->ASIN] = $record;
+            }
+        }
+
+        // Combine data
+        $results = $products->map(function ($product) use ($fnskuData, $asinData, $search) {
+            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            
+            if (isset($fnskuData[$baseFnsku])) {
+                $fnskuRecord = $fnskuData[$baseFnsku];
+                $product->FNSKU = $fnskuRecord->FNSKU;
+                $product->MSKU = $fnskuRecord->MSKU;
+                $product->ASIN = $fnskuRecord->ASIN;
+                $product->grading = $fnskuRecord->grading;
+                $product->storename = $fnskuRecord->storename;
+                
+                if (isset($asinData[$fnskuRecord->ASIN])) {
+                    $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
+                }
+            }
+            
+            return $product;
+        });
+
+        // Apply additional filtering if search term matches FNSKU/ASIN data
+        if (!empty($search)) {
+            $results = $results->filter(function ($product) use ($search) {
+                return stripos($product->MSKU ?? '', $search) !== false ||
+                       stripos($product->ASIN ?? '', $search) !== false ||
+                       stripos($product->AStitle ?? '', $search) !== false ||
+                       stripos($product->serialnumber ?? '', $search) !== false ||
+                       stripos($product->FNSKUviewer ?? '', $search) !== false ||
+                       stripos($product->rtcounter ?? '', $search) !== false;
+            });
+        }
+
+        return response()->json(['data' => $results->values()]);
     }
+
     public function moveToValidation(Request $request)
     {
         // Log that the method was called
@@ -238,18 +416,9 @@ class LabelingController extends BasetablesController
                 'current_location' => $request->current_location
             ]);
 
-            // Check if product exists first with joined data to get FNSKU, MSKU, and ASIN
-            $existingProduct = DB::table($this->productTable . ' as prod')
-                ->select([
-                    'prod.*',
-                    'fnsku.FNSKU',
-                    'fnsku.MSKU',
-                    'fnsku.ASIN',
-                    'fnsku.grading',
-                    'fnsku.storename'
-                ])
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->where('prod.ProductID', $request->product_id)
+            // UPDATED: Check if product exists first and get FNSKU data using base FNSKU
+            $existingProduct = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
                 ->first();
 
             if (!$existingProduct) {
@@ -265,6 +434,16 @@ class LabelingController extends BasetablesController
 
             Log::info('Product found, current location: ' . $existingProduct->ProductModuleLoc);
 
+            // UPDATED: Extract base FNSKU and get related data
+            $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
+            
+            $fnskuRecord = null;
+            if (!empty($baseFnsku)) {
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+            }
+
             // Check for required fields (ASIN, FNSKU, MSKU)
             $missingFields = [];
 
@@ -273,13 +452,13 @@ class LabelingController extends BasetablesController
                 $missingFields[] = 'FNSKU';
             }
 
-            // Check MSKU from joined fnsku table
-            if (empty($existingProduct->MSKU)) {
+            // Check MSKU from fnsku table
+            if (!$fnskuRecord || empty($fnskuRecord->MSKU)) {
                 $missingFields[] = 'MSKU';
             }
 
-            // Check ASIN from joined fnsku table
-            if (empty($existingProduct->ASIN)) {
+            // Check ASIN from fnsku table
+            if (!$fnskuRecord || empty($fnskuRecord->ASIN)) {
                 $missingFields[] = 'ASIN';
             }
 
@@ -292,8 +471,9 @@ class LabelingController extends BasetablesController
                     'missing_fields' => $missingFields,
                     'existing_product' => [
                         'FNSKUviewer' => $existingProduct->FNSKUviewer,
-                        'MSKU' => $existingProduct->MSKU,
-                        'ASIN' => $existingProduct->ASIN
+                        'base_fnsku' => $baseFnsku,
+                        'MSKU' => $fnskuRecord->MSKU ?? null,
+                        'ASIN' => $fnskuRecord->ASIN ?? null
                     ]
                 ]);
 
@@ -308,8 +488,9 @@ class LabelingController extends BasetablesController
             // All required fields are present, proceed with the move
             Log::info('All required fields present, proceeding with move to Validation', [
                 'FNSKU' => $existingProduct->FNSKUviewer,
-                'MSKU' => $existingProduct->MSKU,
-                'ASIN' => $existingProduct->ASIN
+                'base_fnsku' => $baseFnsku,
+                'MSKU' => $fnskuRecord->MSKU,
+                'ASIN' => $fnskuRecord->ASIN
             ]);
 
             // Update the product location in the database
@@ -362,6 +543,7 @@ class LabelingController extends BasetablesController
             ], 500);
         }
     }
+
     public function moveToStockroom(Request $request)
     {
         // Log that the method was called
@@ -398,18 +580,9 @@ class LabelingController extends BasetablesController
                 'current_location' => $request->current_location
             ]);
 
-            // Check if product exists first with joined data to get FNSKU, MSKU, and ASIN
-            $existingProduct = DB::table($this->productTable . ' as prod')
-                ->select([
-                    'prod.*',
-                    'fnsku.FNSKU',
-                    'fnsku.MSKU',
-                    'fnsku.ASIN',
-                    'fnsku.grading',
-                    'fnsku.storename'
-                ])
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->where('prod.ProductID', $request->product_id)
+            // UPDATED: Check if product exists first and get FNSKU data using base FNSKU
+            $existingProduct = DB::table($this->productTable)
+                ->where('ProductID', $request->product_id)
                 ->first();
 
             if (!$existingProduct) {
@@ -425,6 +598,16 @@ class LabelingController extends BasetablesController
 
             Log::info('Product found, current location: ' . $existingProduct->ProductModuleLoc);
 
+            // UPDATED: Extract base FNSKU and get related data
+            $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
+            
+            $fnskuRecord = null;
+            if (!empty($baseFnsku)) {
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+            }
+
             // Check for required fields (ASIN, FNSKU, MSKU)
             $missingFields = [];
 
@@ -433,13 +616,13 @@ class LabelingController extends BasetablesController
                 $missingFields[] = 'FNSKU';
             }
 
-            // Check MSKU from joined fnsku table
-            if (empty($existingProduct->MSKU)) {
+            // Check MSKU from fnsku table
+            if (!$fnskuRecord || empty($fnskuRecord->MSKU)) {
                 $missingFields[] = 'MSKU';
             }
 
-            // Check ASIN from joined fnsku table
-            if (empty($existingProduct->ASIN)) {
+            // Check ASIN from fnsku table
+            if (!$fnskuRecord || empty($fnskuRecord->ASIN)) {
                 $missingFields[] = 'ASIN';
             }
 
@@ -452,8 +635,9 @@ class LabelingController extends BasetablesController
                     'missing_fields' => $missingFields,
                     'existing_product' => [
                         'FNSKUviewer' => $existingProduct->FNSKUviewer,
-                        'MSKU' => $existingProduct->MSKU,
-                        'ASIN' => $existingProduct->ASIN
+                        'base_fnsku' => $baseFnsku,
+                        'MSKU' => $fnskuRecord->MSKU ?? null,
+                        'ASIN' => $fnskuRecord->ASIN ?? null
                     ]
                 ]);
 
@@ -468,8 +652,9 @@ class LabelingController extends BasetablesController
             // All required fields are present, proceed with the move
             Log::info('All required fields present, proceeding with move to Stockroom', [
                 'FNSKU' => $existingProduct->FNSKUviewer,
-                'MSKU' => $existingProduct->MSKU,
-                'ASIN' => $existingProduct->ASIN
+                'base_fnsku' => $baseFnsku,
+                'MSKU' => $fnskuRecord->MSKU,
+                'ASIN' => $fnskuRecord->ASIN
             ]);
 
             // Update the product location in the database
@@ -522,6 +707,7 @@ class LabelingController extends BasetablesController
             ], 500);
         }
     }
+
     public function store(Request $request)
     {
         $validated = $request->validate([
