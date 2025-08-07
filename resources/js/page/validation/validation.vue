@@ -833,10 +833,14 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-success" @click="markAsValid">
+                    <button class="btn btn-success" @click="confirmMarkAsValid">
                         Mark as Valid
                     </button>
-                    <button class="btn btn-danger" @click="markAsInvalid">
+
+                    <button
+                        class="btn btn-danger"
+                        @click="confirmMarkAsInvalid"
+                    >
                         Mark as Invalid
                     </button>
                 </div>
