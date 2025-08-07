@@ -1,5 +1,6 @@
 import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
+import "./validation.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -55,6 +56,12 @@ export default {
             showValidationConfirmationModal: false,
 
             isProcessing: false,
+
+            items: [],
+            activeIndex: 0,
+            basePath: "/images/thumbnails/",
+            loading: false,
+            error: null,
         };
     },
     computed: {
@@ -100,6 +107,15 @@ export default {
             }
 
             return false;
+        },
+
+        imageList() {
+            return Object.keys(this.item)
+                .filter((key) => key.startsWith("img") && this.item[key])
+                .map((key) => this.item[key]);
+        },
+        activeImageUrl() {
+            return this.basePath + this.imageList[this.activeIndex];
         },
     },
     methods: {
@@ -613,29 +629,47 @@ export default {
 
         // Open the validation modal
         async openValidationModal(item) {
-            this.currentValidationItem = item;
-            this.validationNotes = "";
-            this.validationErrors = null;
-            this.validationActiveTab = "product";
-            this.currentValidationItemAsinLoaded = false;
-            this.currentValidationItemAsinImages = [];
+            if (!item) return;
+
+            await this.fetchItems();
+
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
+            this.item = { ...(freshItem || item) };
+
             this.showValidationModal = true;
 
-            // Prevent scrolling when modal is open
             document.body.style.overflow = "hidden";
         },
 
         // Close the validation modal
         closeValidationModal() {
             this.showValidationModal = false;
-            this.currentValidationItem = null;
-            this.validationNotes = "";
-            this.validationErrors = null;
-            this.currentValidationItemAsinImages = [];
-            this.currentValidationItemAsinLoaded = false;
 
-            // Re-enable scrolling
-            document.body.style.overflow = "auto";
+            setTimeout(() => {
+                document.body.style.overflow = "auto";
+            }, 300); // Match with your modal close animation
+        },
+
+        async fetchItems() {
+            this.loading = true;
+            try {
+                const response = await axios.get("/api/validation/products");
+                const payload = response.data;
+
+                // handle both array or wrapped array
+                this.items = Array.isArray(payload)
+                    ? payload
+                    : payload.data || [];
+                console.log(this.items);
+            } catch (err) {
+                console.error("Fetch failed:", err);
+                this.items = []; // fallback
+                this.error = "Failed to load items.";
+            } finally {
+                this.loading = false;
+            }
         },
 
         // Open confirm dialog for valid
@@ -785,6 +819,13 @@ export default {
             } finally {
                 this.isProcessingValidation = false;
             }
+        },
+
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImage;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImage;
         },
     },
 

@@ -504,6 +504,7 @@ select {
     transition: background-color 0.2s;
     color: #212529;
     white-space: nowrap;
+    border: 1px solid;
 }
 
 .header-buttons .btn {
@@ -1002,7 +1003,8 @@ i#togglePassword {
 
 .modal.image-modal,
 .modal.fnsku-modal,
-.modal.edit-modal {
+.modal.edit-modal,
+.modal.validation-modal {
     display: flex !important;
     align-items: center;
     justify-content: center;
@@ -1026,7 +1028,8 @@ i#togglePassword {
 }
 
 .image-modal .modal-body,
-.edit-modal .modal-body {
+.edit-modal .modal-body,
+.validation-modal .modal-body {
     padding: 20px;
 }
 
@@ -1290,7 +1293,8 @@ form.fnskuForm .btn-process {
     font-weight: 600;
 }
 
-.edit-modal .modal-body {
+.edit-modal .modal-body,
+.validation-modal .modal-body {
     height: 700px;
     overflow: auto;
 }

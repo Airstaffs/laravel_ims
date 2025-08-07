@@ -642,3 +642,12 @@ Route::post('/notifications/mark-unread', [NotificationController::class, 'markA
 Route::get('/notifications/unread-count/{id}', [NotificationController::class, 'getUnreadCount']);
 
 Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
+
+// HR Controller
+use App\Http\Controllers\HrController;
+Route::prefix('hr')->group(function () {
+    Route::get('/employees', [HrController::class, 'getEmployees']);
+    Route::get('/time-records', [HrController::class, 'getTimeRecords']);
+    Route::get('/leave-history', [HrController::class, 'getLeaveHistory']);
+    Route::get('/violations', [HrController::class, 'getViolations']);
+});

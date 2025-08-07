@@ -1,0 +1,74 @@
+.validate-badge {
+    background-color: #28a745;
+}
+
+.unvalidated-badge {
+    background-color: #ff9800;
+}
+
+.invalid-badge {
+    background-color: #dc3545;
+}
+
+.center-section {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.title-section {
+    flex: 1;
+    text-align: center;
+}
+
+.validation-details {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.validation-details > div {
+    width: calc(100% / 2 - 10px);
+    padding: 20px;
+    background: #fcfcfc;
+    border-radius: 6px;
+    border: 1px solid #ffffff;
+}
+
+.validation-details > div label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.validation-details > div label span + span {
+    color: #757575;
+}
+
+.validation-details > div:last-child {
+    width: 100%;
+}
+
+.validation-details > div:last-child label {
+    justify-content: flex-start;
+}
+
+form.serialVerificationForm {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.serialVerificationForm .btn-submit {
+}
+
+.validation-module .btn-success,
+.validation-module .btn-danger {
+    color: #ffffff;
+}
