@@ -34,67 +34,14 @@
                                         "
                                     ></i>
                                 </span>
-
-                                <button
-                                    class="btn-showDetails"
-                                    @click="toggleDetailsVisibility"
-                                >
-                                    {{
-                                        showDetails
-                                            ? "Hide extra columns"
-                                            : "Show extra columns"
-                                    }}
-                                </button>
                             </div>
                         </th>
-                        <th class="">Fnsku</th>
-                        <th class="">Msku</th>
-                        <th class="">Asin</th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBM
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBA
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Outbound
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Inbound
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Unfulfillable
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Reserved
-                        </th>
-                        <th class="">Fulfillment</th>
-                        <th class="">Status</th>
-                        <th class="">Serialnumber</th>
+                        <th class="">ASIN</th>
+                        <th class="">Order Number</th>
+                        <th class="">Serial Number</th>
+                        <th class="">Tracking Number</th>
+                        <th class="">Basket Number</th>
+                        <th class="">Quantity</th>
                         <th class="">Actions</th>
                     </tr>
                 </thead>
@@ -124,32 +71,8 @@
                             </td>
                             <td class="sticky-col second-sticky">
                                 <div class="product-container">
-                                    <div
-                                        class="product-image-container"
-                                        @click="openImageModal(item)"
-                                    >
-                                        <!-- Use the actual file path for the main image -->
-                                        <img
-                                            :src="
-                                                '/images/thumbnails/' +
-                                                item.img1
-                                            "
-                                            :alt="
-                                                item.ProductTitle || 'Product'
-                                            "
-                                            class="product-thumbnail clickable-image"
-                                            @error="handleImageError($event)"
-                                        />
-                                        <div
-                                            class="image-count-badge"
-                                            v-if="
-                                                countAdditionalImages(item) > 0
-                                            "
-                                        >
-                                            +{{ countAdditionalImages(item) }}
-                                        </div>
-                                    </div>
                                     <div class="product-info">
+                                        <p>{{ item.astitle }}</p>
                                         <p>
                                             ID#:
                                             <span
@@ -170,148 +93,61 @@
                                                 item.rtcounter
                                             }}</span>
                                         </p>
-                                        <p>{{ item.astitle }}</p>
-                                        <p
-                                            :style="{
-                                                color:
-                                                    item.validation_status ===
-                                                    'validated'
-                                                        ? 'green'
-                                                        : 'orange',
-                                            }"
-                                        >
-                                            ({{ item.validation_status }})
+                                        <p>
+                                            <span
+                                                class="badge"
+                                                :class="
+                                                    item.validation_status +
+                                                    '-badge'
+                                                "
+                                            >
+                                                {{ item.validation_status }}
+                                            </span>
                                         </p>
                                     </div>
                                 </div>
                             </td>
 
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FNSKUviewer }}</span
-                                >
-                            </td>
-
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.MSKUviewer }}</span
-                                >
+                                <span> {{ item.ASIN }} </span>
                             </td>
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.ASINviewer }}</span
-                                >
+                                <span> {{ item.rtid }} </span>
                             </td>
-                            <!-- Hidden -->
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FBMAvailable }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FbaAvailable }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Outbound }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Inbound }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong> {{ item.Reserved }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.Unfulfillable }}</span
-                                >
-                            </td>
-                            <!-- End Hidden -->
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.Fulfilledby }}</span
-                                >
+                                <span> {{ item.serialnumber }} </span>
                             </td>
-
                             <td>
-                                <span><strong></strong> {{ item.Status }}</span>
+                                <span> {{ item.trackingnumber }} </span>
                             </td>
-
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.serialnumber }}</span
-                                >
+                                <span> {{ item.basketnumber }} </span>
+                            </td>
+                            <td>
+                                <span> {{ item.quantity }} </span>
                             </td>
 
                             <!-- Button for more details -->
                             <td>
                                 <div class="action-buttons">
-                                    {{ item.totalquantity }}
                                     <button
-                                        class="btn-details"
-                                        @click="toggleDetails(index)"
-                                    >
-                                        <i class="fas fa-info-circle"></i> More
-                                        Details
-                                    </button>
-
-                                    <span
-                                        ><strong></strong>
-                                        {{ item.actions }}</span
-                                    >
-
-                                    <button
-                                        @click="confirmMoveToLabeling(item)"
-                                        class="action-btn btn-labeling"
-                                        :disabled="isProcessing"
-                                    >
-                                        <i class="bi bi-check-circle"></i> Move
-                                        to Labeling
-                                    </button>
-
-                                    <button
-                                        @click="confirmMoveToStockroom(item)"
-                                        class="action-btn btn-stockroom"
-                                        :disabled="isProcessing"
-                                    >
-                                        <i class="bi bi-box-seam"></i> Move to
-                                        Stockroom
-                                    </button>
-
-                                    <button
-                                        class="btn-validation"
+                                        class="btn btn-viewMore"
                                         @click="openValidationModal(item)"
                                     >
-                                        Open Validation
+                                        View More
                                     </button>
                                 </div>
                             </td>
                         </tr>
                         <tr v-if="expandedRows[index]">
-                            <td :colspan="showDetails ? 18 : 12">
+                            <td :colspan="showDetails ? 9 : 9">
                                 <div
                                     class="expanded-content p-3 border rounded"
                                 >
                                     <p>
-                                        <strong
-                                            >External Title provided by
-                                            Supplier:</strong
-                                        >
+                                        <strong>
+                                            External Title provided by Supplier:
+                                        </strong>
                                         {{ item.ProductTitle }}
                                     </p>
                                     <p>
@@ -568,31 +404,6 @@
             </div>
         </div>
 
-        <!-- Bottom pagination (also centered) -->
-        <div class="pagination-container">
-            <div class="pagination-wrapper">
-                <div class="pagination">
-                    <button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                    >
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                    >
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <!-- Pagination with centered layout -->
         <div class="pagination-container">
             <div class="pagination-wrapper">
@@ -728,6 +539,306 @@
                             @error="handleImageError"
                         />
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showValidationModal" class="modal validation-modal">
+            <div class="modal-overlay" @click="closeValidationModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Product Details</h3>
+
+                    <button
+                        class="btn btn-modal-close"
+                        @click="closeValidationModal"
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="form-grid-wrapper">
+                        <div class="form-col-left">
+                            <div class="image-section" v-if="imageList.length">
+                                <!-- Main Image -->
+                                <div class="main-image">
+                                    <img
+                                        :src="activeImageUrl"
+                                        alt="Main Product Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
+                                </div>
+
+                                <!-- Thumbnails -->
+                                <div class="thumbnail-carousel">
+                                    <div
+                                        v-for="(img, index) in imageList"
+                                        :key="index"
+                                        :class="[
+                                            'thumbnail',
+                                            {
+                                                active: index === activeIndex,
+                                            },
+                                        ]"
+                                        @click="activeIndex = index"
+                                        @mouseenter="activeIndex = index"
+                                    >
+                                        <img
+                                            :src="basePath + img"
+                                            alt="Thumbnail"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-section general-info-section">
+                                <!-- SECTION: General Info -->
+                                <div class="general-info-section">
+                                    <h3 class="form-section-heading">
+                                        General Info
+                                    </h3>
+
+                                    <strong>{{ item.ProductTitle }}</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-col-center">
+                            <div
+                                class="form-section center-section other-section"
+                            >
+                                <div class="title-section">
+                                    <h3>{{ item.ProductTitle }}</h3>
+                                </div>
+
+                                <div class="validation-details">
+                                    <div class="basic-details-section shadow">
+                                        <h3 class="form-section-heading">
+                                            Basic Details
+                                        </h3>
+                                        <fieldset>
+                                            <label>
+                                                <span>Serial Number: </span>
+                                                <span>
+                                                    {{ item.serialnumber }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Date Delivered: </span>
+                                                <span>
+                                                    {{ item.shipdate }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Order Date: </span>
+                                                <span>
+                                                    {{ item.orderdate }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Seller: </span>
+                                                <span>{{ item.seller }}</span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Store: </span>
+                                                <span>
+                                                    {{ item.storename }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                    </div>
+
+                                    <div class="basic-details-section shadow">
+                                        <h3 class="form-section-heading">
+                                            Product Details
+                                        </h3>
+                                        <fieldset>
+                                            <label>
+                                                <span>ASIN: </span>
+                                                <span>
+                                                    {{ item.ASIN }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>FNSKU: </span>
+                                                <span>
+                                                    {{ item.FNSKU }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>MSKU: </span>
+                                                <span>
+                                                    {{ item.MSKU }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>RPN: </span>
+                                                <span>{{ item.RPN }}</span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>PRD: </span>
+                                                <span>
+                                                    {{ item.PRD }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                    </div>
+
+                                    <div class="basic-details-section shadow">
+                                        <h3 class="form-section-heading">
+                                            Shipping & Location
+                                        </h3>
+                                        <fieldset>
+                                            <label>
+                                                <span>Order Number: </span>
+                                                <span>{{ item.rtid }}</span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Tracking: </span>
+                                                <span>
+                                                    {{ item.trackingnumber }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Basket Number: </span>
+                                                <span>
+                                                    {{ item.basketnumber }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Item Number: </span>
+                                                <span>
+                                                    {{ item.itemnumber }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Location: </span>
+                                                <span>
+                                                    {{ item.ProductModuleLoc }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                    </div>
+
+                                    <div class="basic-details-section shadow">
+                                        <h3 class="form-section-heading">
+                                            Status Information
+                                        </h3>
+                                        <fieldset>
+                                            <label>
+                                                <span>Grading: </span>
+                                                <span>{{ item.grading }}</span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Priority: </span>
+                                                <span>
+                                                    {{ item.priorityrank }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span>Validation: </span>
+                                                <span>
+                                                    {{ item.validation_status }}
+                                                </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span></span>
+                                                <span> </span>
+                                            </label>
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>
+                                                <span></span>
+                                                <span> </span>
+                                            </label>
+                                        </fieldset>
+                                    </div>
+
+                                    <div class="basic-details-section shadow">
+                                        <h3 class="form-section-heading">
+                                            Additional Information
+                                        </h3>
+                                        <fieldset>
+                                            <label>
+                                                <span>Notes: </span>
+                                                <span>{{ item.notes }}</span>
+                                            </label>
+                                        </fieldset>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-col-right">
+                            <div class="bg-white rounded shadow p-4">
+                                <div class="border-bottom pb-2">
+                                    <h3 class="text-dark mb-0">
+                                        Serial Number Verification
+                                    </h3>
+                                </div>
+
+                                <form class="serialVerificationForm">
+                                    <input
+                                        class="form-control"
+                                        type="text"
+                                        id="textserial"
+                                        placeholder="Scan or enter serial number..."
+                                    />
+
+                                    <button
+                                        type="submit"
+                                        class="btn btn-submit"
+                                    >
+                                        Verify Serial
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-success" @click="markAsValid">
+                        Mark as Valid
+                    </button>
+                    <button class="btn btn-danger" @click="markAsInvalid">
+                        Mark as Invalid
+                    </button>
                 </div>
             </div>
         </div>
