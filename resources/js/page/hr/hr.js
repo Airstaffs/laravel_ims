@@ -87,6 +87,8 @@ export default {
         }
 
         // Load time records
+        await this.fetchRecords();
+
     },
     methods: {
         // Employee Sheesh
