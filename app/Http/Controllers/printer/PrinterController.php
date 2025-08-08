@@ -24,8 +24,25 @@ class PrinterController extends BasetablesController
     }
 
     /**
+     * Extract base FNSKU from prefixed FNSKU (same as StockroomController)
+     */
+    private function extractBaseFnsku($fnsku)
+    {
+        if (empty($fnsku)) {
+            return $fnsku;
+        }
+
+        // Check if it's a prefixed FNSKU (starts with C followed by digits)
+        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
+            return $matches[2]; // Return the base FNSKU without prefix
+        }
+
+        return $fnsku; // Return as-is if not prefixed
+    }
+
+    /**
      * Check if a serial number meets print conditions
-     * UPDATED: Now supports serial number, PCN, RT/AR counter search
+     * UPDATED to use base FNSKU for database lookups
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -114,7 +131,7 @@ class PrinterController extends BasetablesController
     }
 
     /**
-     * Enhanced search function for printing - supports serial, PCN, RT/AR counter
+     * Enhanced search function for printing - UPDATED to use base FNSKU for database lookups
      *
      * @param string $searchTerm
      * @return object|null
@@ -122,36 +139,9 @@ class PrinterController extends BasetablesController
     protected function searchProductForPrinting($searchTerm)
     {
         try {
-            $query = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.ProductID',
-                    'prod.rtcounter',
-                    'prod.serialnumber',
-                    'prod.serialnumberb',
-                    'prod.serialnumberc',
-                    'prod.serialnumberd',
-                    'prod.ProductModuleLoc',
-                    'prod.printCount',
-                    'prod.warehouselocation',
-                    'prod.notes',
-                    'prod.stickernote',
-                    'prod.basketnumber',
-                    'prod.priorityrank',
-                    'prod.returnstatus',
-                    'prod.validation_status',
-                    'prod.FNSKUviewer',
-                    'prod.itemnumber',
-                    'prod.PCN',
-                    'prod.PRD',
-                    'fnsku.FNSKU',
-                    'fnsku.grading as fnsku_grading',
-                    'fnsku.storename as fnsku_storename',
-                    'asin.ASIN as ASINviewer',
-                    'asin.internal as AStitle',
-                    'asin.asinStatus'
-                ])
+            // UPDATED: Get products first, then match FNSKUs in PHP
+            $productsQuery = DB::table($this->productTable . ' as prod')
+                ->select(['prod.*'])
                 ->where('prod.returnstatus', 'Not Returned')
                 ->where('prod.ProductModuleLoc', '!=', 'Migrated');
 
@@ -159,19 +149,19 @@ class PrinterController extends BasetablesController
             // Check if search term looks like RT counter (RT + numbers)
             if (preg_match('/^RT(\d+)$/i', $searchTerm, $matches)) {
                 $rtNumber = (int)$matches[1];
-                $query->where('prod.rtcounter', $rtNumber);
+                $productsQuery->where('prod.rtcounter', $rtNumber);
                 Log::info('Searching by RT counter:', ['rt_number' => $rtNumber]);
             }
             // Check if search term looks like AR counter (AR + numbers)  
             elseif (preg_match('/^AR(\d+)$/i', $searchTerm, $matches)) {
                 $arNumber = (int)$matches[1];
-                $query->where('prod.rtcounter', $arNumber);
+                $productsQuery->where('prod.rtcounter', $arNumber);
                 Log::info('Searching by AR counter:', ['ar_number' => $arNumber]);
             }
             // Check if it's just a number (could be PCN or RT counter without prefix)
             elseif (is_numeric($searchTerm)) {
                 $number = (int)$searchTerm;
-                $query->where(function($q) use ($number, $searchTerm) {
+                $productsQuery->where(function($q) use ($number, $searchTerm) {
                     $q->where('prod.rtcounter', $number)
                       ->orWhere('prod.itemnumber', $searchTerm)
                       ->orWhere('prod.PCN', $searchTerm)
@@ -181,7 +171,7 @@ class PrinterController extends BasetablesController
             }
             // Otherwise search by serial numbers and other text fields
             else {
-                $query->where(function($q) use ($searchTerm) {
+                $productsQuery->where(function($q) use ($searchTerm) {
                     $q->where('prod.serialnumber', $searchTerm)
                       ->orWhere('prod.serialnumberb', $searchTerm)
                       ->orWhere('prod.serialnumberc', $searchTerm)
@@ -189,26 +179,57 @@ class PrinterController extends BasetablesController
                       ->orWhere('prod.itemnumber', $searchTerm)
                       ->orWhere('prod.PCN', $searchTerm)
                       ->orWhere('prod.PRD', $searchTerm)
-                      ->orWhere('prod.FNSKUviewer', $searchTerm)
-                      ->orWhere('fnsku.ASIN', $searchTerm);
+                      ->orWhere('prod.FNSKUviewer', $searchTerm);
                 });
                 Log::info('Searching by text fields:', ['search_term' => $searchTerm]);
             }
 
-            $result = $query->orderBy('prod.ProductID', 'desc')->first();
-            
-            if ($result) {
-                Log::info('Product found for printing:', [
-                    'ProductID' => $result->ProductID,
-                    'rtcounter' => $result->rtcounter,
-                    'FNSKU' => $result->FNSKUviewer,
-                    'ASIN' => $result->ASINviewer
-                ]);
-            } else {
+            $product = $productsQuery->orderBy('prod.ProductID', 'desc')->first();
+
+            if (!$product) {
                 Log::warning('No product found for search term:', ['search_term' => $searchTerm]);
+                return null;
             }
 
-            return $result;
+            // UPDATED: Now get FNSKU and ASIN data using base FNSKU
+            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            
+            $fnskuRecord = null;
+            if (!empty($baseFnsku)) {
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+            }
+
+            $asinRecord = null;
+            if ($fnskuRecord && !empty($fnskuRecord->ASIN)) {
+                $asinRecord = DB::table($this->asinTable)
+                    ->where('ASIN', $fnskuRecord->ASIN)
+                    ->first();
+            }
+
+            // Add FNSKU and ASIN data to product
+            if ($fnskuRecord) {
+                $product->FNSKU = $fnskuRecord->FNSKU;
+                $product->fnsku_grading = $fnskuRecord->grading;
+                $product->fnsku_storename = $fnskuRecord->storename;
+                $product->ASINviewer = $fnskuRecord->ASIN;
+            }
+
+            if ($asinRecord) {
+                $product->AStitle = $asinRecord->internal;
+                $product->asinStatus = $asinRecord->asinStatus;
+            }
+
+            Log::info('Product found for printing:', [
+                'ProductID' => $product->ProductID,
+                'rtcounter' => $product->rtcounter,
+                'FNSKU' => $product->FNSKUviewer,
+                'base_fnsku' => $baseFnsku,
+                'ASIN' => $product->ASINviewer ?? 'null'
+            ]);
+
+            return $product;
 
         } catch (Exception $e) {
             Log::error('Error in searchProductForPrinting:', [
@@ -222,6 +243,7 @@ class PrinterController extends BasetablesController
 
     /**
      * Search for a product to reprint by serial number, PCN, or RT counter
+     * UPDATED to use base FNSKU for database lookups
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -302,6 +324,7 @@ class PrinterController extends BasetablesController
 
     /**
      * Reprint a single label type
+     * The service handles the FNSKU prefix logic
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -337,24 +360,9 @@ class PrinterController extends BasetablesController
             $user = Auth::user();
             $username = $user ? ($user->username ?? $user->name ?? 'Unknown') : 'System';
 
-            // Get the product with all needed data
-            $product = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.*',
-                    'fnsku.ASIN as ASINviewer',
-                    'fnsku.grading as gradingviewer',
-                    'fnsku.storename as StoreName',
-                    'asin.internal as AStitle',
-                    'asin.asinStatus',
-                    'asin.TRANSPARENCY_QR_STATUS',
-                    'asin.vectorimage',
-                    'asin.instructioncard',
-                    'asin.instructioncard2',
-                    'asin.instructioncard3'
-                ])
-                ->where('prod.ProductID', $productId)
+            // UPDATED: Get the product with base FNSKU lookups (service handles this now)
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $productId)
                 ->first();
 
             if (!$product) {
@@ -365,6 +373,7 @@ class PrinterController extends BasetablesController
             }
 
             // Use the PrintLabelService to print the specific label type
+            // The service now handles the FNSKU prefix system internally
             $printResult = $this->printLabelService->reprintSingleLabel(
                 $productId, 
                 $labelType, 
@@ -393,8 +402,8 @@ class PrinterController extends BasetablesController
                     'label_type' => $labelType,
                     'search_term' => $searchTerm,
                     'printer_name' => $selectedPrinter->printername,
-                    'product_title' => $product->AStitle ?? 'Unknown Title',
-                    'asin' => $product->ASINviewer,
+                    'product_title' => 'Product Title', // Service will populate this
+                    'asin' => 'ASIN', // Service will populate this
                     'fnsku' => $product->FNSKUviewer,
                     'product_data' => [
                         'ProductID' => $product->ProductID,
@@ -426,6 +435,7 @@ class PrinterController extends BasetablesController
 
     /**
      * Search for a product by various criteria (enhanced version for reprint)
+     * UPDATED to use base FNSKU for database lookups
      *
      * @param string $searchTerm
      * @return object|null
@@ -433,42 +443,28 @@ class PrinterController extends BasetablesController
     protected function searchProductByTerm($searchTerm)
     {
         try {
-            $query = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.*',
-                    'fnsku.FNSKU',
-                    'fnsku.grading as fnsku_grading',
-                    'fnsku.storename as fnsku_storename',
-                    'asin.ASIN as ASINviewer',
-                    'asin.internal as AStitle',
-                    'asin.asinStatus',
-                    'asin.vectorimage',
-                    'asin.instructioncard',
-                    'asin.instructioncard2',
-                    'asin.instructioncard3',
-                    'asin.TRANSPARENCY_QR_STATUS'
-                ])
+            // UPDATED: Get products first, then match FNSKUs in PHP
+            $productsQuery = DB::table($this->productTable . ' as prod')
+                ->select(['prod.*'])
                 ->where('prod.returnstatus', 'Not Returned')
                 ->where('prod.ProductModuleLoc', '!=', 'Migrated');
 
             // Check if search term looks like RT counter (RT + numbers)
             if (preg_match('/^RT(\d+)$/i', $searchTerm, $matches)) {
                 $rtNumber = (int)$matches[1];
-                $query->where('prod.rtcounter', $rtNumber);
+                $productsQuery->where('prod.rtcounter', $rtNumber);
                 Log::info('Searching by RT counter:', ['rt_number' => $rtNumber]);
             }
             // Check if search term looks like AR counter (AR + numbers)  
             elseif (preg_match('/^AR(\d+)$/i', $searchTerm, $matches)) {
                 $arNumber = (int)$matches[1];
-                $query->where('prod.rtcounter', $arNumber);
+                $productsQuery->where('prod.rtcounter', $arNumber);
                 Log::info('Searching by AR counter:', ['ar_number' => $arNumber]);
             }
             // Check if it's just a number (could be PCN or RT counter without prefix)
             elseif (is_numeric($searchTerm)) {
                 $number = (int)$searchTerm;
-                $query->where(function($q) use ($number, $searchTerm) {
+                $productsQuery->where(function($q) use ($number, $searchTerm) {
                     $q->where('prod.rtcounter', $number)
                       ->orWhere('prod.itemnumber', $searchTerm)
                       ->orWhere('prod.PCN', $searchTerm)
@@ -478,7 +474,7 @@ class PrinterController extends BasetablesController
             }
             // Otherwise search by serial numbers and other text fields
             else {
-                $query->where(function($q) use ($searchTerm) {
+                $productsQuery->where(function($q) use ($searchTerm) {
                     $q->where('prod.serialnumber', $searchTerm)
                       ->orWhere('prod.serialnumberb', $searchTerm)
                       ->orWhere('prod.serialnumberc', $searchTerm)
@@ -486,26 +482,62 @@ class PrinterController extends BasetablesController
                       ->orWhere('prod.itemnumber', $searchTerm)
                       ->orWhere('prod.PCN', $searchTerm)
                       ->orWhere('prod.PRD', $searchTerm)
-                      ->orWhere('prod.FNSKUviewer', $searchTerm)
-                      ->orWhere('fnsku.ASIN', $searchTerm);
+                      ->orWhere('prod.FNSKUviewer', $searchTerm);
                 });
                 Log::info('Searching by text fields:', ['search_term' => $searchTerm]);
             }
 
-            $result = $query->orderBy('prod.ProductID', 'desc')->first();
-            
-            if ($result) {
-                Log::info('Product found:', [
-                    'ProductID' => $result->ProductID,
-                    'rtcounter' => $result->rtcounter,
-                    'FNSKU' => $result->FNSKUviewer,
-                    'ASIN' => $result->ASINviewer
-                ]);
-            } else {
+            $product = $productsQuery->orderBy('prod.ProductID', 'desc')->first();
+
+            if (!$product) {
                 Log::warning('No product found for search term:', ['search_term' => $searchTerm]);
+                return null;
             }
 
-            return $result;
+            // UPDATED: Now get FNSKU and ASIN data using base FNSKU
+            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            
+            $fnskuRecord = null;
+            if (!empty($baseFnsku)) {
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+            }
+
+            $asinRecord = null;
+            if ($fnskuRecord && !empty($fnskuRecord->ASIN)) {
+                $asinRecord = DB::table($this->asinTable)
+                    ->where('ASIN', $fnskuRecord->ASIN)
+                    ->first();
+            }
+
+            // Add FNSKU and ASIN data to product
+            if ($fnskuRecord) {
+                $product->FNSKU = $fnskuRecord->FNSKU;
+                $product->fnsku_grading = $fnskuRecord->grading;
+                $product->fnsku_storename = $fnskuRecord->storename;
+                $product->ASINviewer = $fnskuRecord->ASIN;
+            }
+
+            if ($asinRecord) {
+                $product->AStitle = $asinRecord->internal;
+                $product->asinStatus = $asinRecord->asinStatus;
+                $product->vectorimage = $asinRecord->vectorimage;
+                $product->instructioncard = $asinRecord->instructioncard;
+                $product->instructioncard2 = $asinRecord->instructioncard2;
+                $product->instructioncard3 = $asinRecord->instructioncard3;
+                $product->TRANSPARENCY_QR_STATUS = $asinRecord->TRANSPARENCY_QR_STATUS;
+            }
+
+            Log::info('Product found:', [
+                'ProductID' => $product->ProductID,
+                'rtcounter' => $product->rtcounter,
+                'FNSKU' => $product->FNSKUviewer,
+                'base_fnsku' => $baseFnsku,
+                'ASIN' => $product->ASINviewer ?? 'null'
+            ]);
+
+            return $product;
 
         } catch (Exception $e) {
             Log::error('Error in searchProductByTerm:', [
@@ -519,6 +551,7 @@ class PrinterController extends BasetablesController
 
     /**
      * Print label for a product
+     * The service handles the FNSKU prefix logic
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -570,37 +603,11 @@ class PrinterController extends BasetablesController
                 ], 400);
             }
 
-            // Double-check the product still exists and meets conditions
-            $product = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.ProductID',
-                    'prod.rtcounter',
-                    'prod.serialnumber',
-                    'prod.serialnumberb',
-                    'prod.serialnumberc',
-                    'prod.serialnumberd',
-                    'prod.ProductModuleLoc',
-                    'prod.printCount',
-                    'prod.warehouselocation',
-                    'prod.notes',
-                    'prod.stickernote',
-                    'prod.basketnumber',
-                    'prod.priorityrank',
-                    'prod.returnstatus',
-                    'prod.validation_status',
-                    'prod.FNSKUviewer',
-                    'fnsku.FNSKU',
-                    'fnsku.grading as fnsku_grading',
-                    'fnsku.storename as fnsku_storename',
-                    'asin.ASIN as ASINviewer',
-                    'asin.internal as AStitle',
-                    'asin.asinStatus'
-                ])
-                ->where('prod.ProductID', $productId)
-                ->where('prod.returnstatus', 'Not Returned')
-                ->where('prod.ProductModuleLoc', '!=', 'Migrated')
+            // UPDATED: Double-check the product still exists and meets conditions using base FNSKU
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $productId)
+                ->where('returnstatus', 'Not Returned')
+                ->where('ProductModuleLoc', '!=', 'Migrated')
                 ->first();
 
             if (!$product) {
@@ -608,6 +615,36 @@ class PrinterController extends BasetablesController
                     'success' => false,
                     'message' => 'Product not found or status changed'
                 ], 404);
+            }
+
+            // UPDATED: Get FNSKU and ASIN data using base FNSKU for condition checking
+            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            
+            $fnskuRecord = null;
+            if (!empty($baseFnsku)) {
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+            }
+
+            $asinRecord = null;
+            if ($fnskuRecord && !empty($fnskuRecord->ASIN)) {
+                $asinRecord = DB::table($this->asinTable)
+                    ->where('ASIN', $fnskuRecord->ASIN)
+                    ->first();
+            }
+
+            // Add FNSKU and ASIN data to product for condition checking
+            if ($fnskuRecord) {
+                $product->FNSKU = $fnskuRecord->FNSKU;
+                $product->fnsku_grading = $fnskuRecord->grading;
+                $product->fnsku_storename = $fnskuRecord->storename;
+                $product->ASINviewer = $fnskuRecord->ASIN;
+            }
+
+            if ($asinRecord) {
+                $product->AStitle = $asinRecord->internal;
+                $product->asinStatus = $asinRecord->asinStatus;
             }
 
             // Check conditions again before printing
@@ -621,6 +658,7 @@ class PrinterController extends BasetablesController
             }
 
             // Use the PrintLabelService to print the label with selected printer
+            // The service now handles all the FNSKU prefix logic internally
             $printResult = $this->printLabelService->printLabel($productId, $username, $selectedPrinter);
 
             // Check if the print service returned a successful result
@@ -667,6 +705,7 @@ class PrinterController extends BasetablesController
 
     /**
      * Check if a product meets the conditions for printing
+     * UPDATED to work with enriched product data (now includes FNSKU/ASIN info)
      *
      * @param object $product The product object
      * @return array Conditions check result
@@ -712,7 +751,6 @@ class PrinterController extends BasetablesController
             }
 
             // 4. Check if required FNSKU or ASIN information is present
-            // FIX: Use the correct field names that are selected in the query
             $fnskuValue = $product->FNSKUviewer ?? null;
             $asinValue = $product->ASINviewer ?? null;
             
@@ -959,40 +997,41 @@ class PrinterController extends BasetablesController
                         
                     $debug['sample_product'] = $sampleProduct;
                     
-                    // Test the complex query with a known serial or just the first product
+                    // UPDATED: Test the new separated query approach
                     if ($sampleProduct) {
                         $testSerial = $sampleProduct->serialnumber ?? $serialNumber;
                         
-                        $testQuery = DB::table($this->productTable . ' as prod')
-                            ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                            ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                            ->select([
-                                'prod.ProductID',
-                                'prod.rtcounter',
-                                'prod.serialnumber',
-                                'prod.serialnumberb',
-                                'prod.serialnumberc',
-                                'prod.serialnumberd',
-                                'prod.ProductModuleLoc',
-                                'prod.printCount',
-                                'prod.warehouselocation',
-                                'prod.notes',
-                                'prod.stickernote',
-                                'prod.basketnumber',
-                                'prod.priorityrank',
-                                'prod.returnstatus',
-                                'prod.FNSKUviewer',
-                                'prod.validation_status',
-                                'fnsku.grading as fnsku_grading',
-                                'fnsku.storename as fnsku_storename',
-                                'asin.ASIN as ASINviewer',
-                                'asin.internal as AStitle',
-                                'asin.asinStatus'
-                            ])
-                            ->where('prod.serialnumber', $testSerial)
+                        // Test product lookup
+                        $testProduct = DB::table($this->productTable)
+                            ->where('serialnumber', $testSerial)
                             ->first();
                             
-                        $debug['test_query_result'] = $testQuery;
+                        $debug['test_product_result'] = $testProduct;
+                        
+                        // Test FNSKU lookup if product found
+                        if ($testProduct && !empty($testProduct->FNSKUviewer)) {
+                            $baseFnsku = $this->extractBaseFnsku($testProduct->FNSKUviewer);
+                            
+                            $testFnskuRecord = DB::table($this->fnskuTable)
+                                ->where('FNSKU', $baseFnsku)
+                                ->first();
+                                
+                            $debug['test_fnsku_result'] = [
+                                'original_fnsku' => $testProduct->FNSKUviewer,
+                                'base_fnsku' => $baseFnsku,
+                                'fnsku_record' => $testFnskuRecord
+                            ];
+                            
+                            // Test ASIN lookup if FNSKU found
+                            if ($testFnskuRecord && !empty($testFnskuRecord->ASIN)) {
+                                $testAsinRecord = DB::table($this->asinTable)
+                                    ->where('ASIN', $testFnskuRecord->ASIN)
+                                    ->first();
+                                    
+                                $debug['test_asin_result'] = $testAsinRecord;
+                            }
+                        }
+                        
                         $debug['test_serial'] = $testSerial;
                     }
                     

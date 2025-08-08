@@ -19,27 +19,18 @@
                         <i class="fas fa-barcode"></i>
                         New Scanned
 
-                        <!-- Notification Badge -->
+                        <!-- FIXED: Improved notification badge with better visibility logic -->
                         <span
-                            v-if="newScannedCount > 0"
+                            v-if="shouldShowBadge"
                             class="notification-badge"
-                            :class="{
-                                'large-number':
-                                    newScannedCount >= 10 &&
-                                    newScannedCount < 100,
-                                'extra-large': newScannedCount >= 100,
-                            }"
-                            :style="{
-                                backgroundColor: '#ff0000 !important',
-                                color: '#ffffff !important',
-                            }"
+                            :class="badgeClasses"
+                            :title="`${newScannedCount} new items scanned today (US time)`"
                         >
-                            {{
-                                newScannedCount > 999 ? "999+" : newScannedCount
-                            }}
+                            {{ displayCount }}
                         </span>
                     </button>
                 </div>
+
             </div>
 
             <div class="store-filter">
@@ -1197,7 +1188,7 @@ import Stockroom from "./stockroom.js";
 export default Stockroom;
 </script>
 
-<style>
+<style scoped>
 .inventory-counts-section {
     display: flex;
     align-items: center;
@@ -1794,10 +1785,21 @@ export default Stockroom;
     }
 }
 
+/* Ensure parent containers don't clip the badge */
+.header-buttons {
+    position: relative;
+    overflow: visible !important;
+}
+
+.top-header {
+    overflow: visible !important;
+}
+
 .btn-new-scanned {
     position: relative;
     background-color: #28a745 !important;
     border-color: #28a745 !important;
+    overflow: visible; /* Allow badge to show outside button */
 }
 
 .btn-new-scanned:hover {
@@ -1807,41 +1809,57 @@ export default Stockroom;
 
 .notification-badge {
     position: absolute;
-    top: -8px;
-    right: -8px;
-    background-color: #dc3545;
-    color: white;
+    top: -12px; /* Moved up more to prevent cutting */
+    right: -12px; /* Moved right more to prevent cutting */
+    background-color: #ff0000 !important; /* BRIGHT RED background - highly visible */
+    color: white !important;
     border-radius: 50%;
-    width: 20px;
-    height: 20px;
-    font-size: 12px;
+    min-width: 22px; /* Minimum width to accommodate numbers */
+    height: 22px;
+    font-size: 11px;
     font-weight: bold;
     display: flex;
     align-items: center;
     justify-content: center;
     border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    animation: pulse 2s infinite;
+    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.6); /* Bright red shadow */
+    z-index: 10; /* Ensure it appears above other elements */
+    animation: pulse-red 2s infinite;
+    padding: 0 4px; /* Add padding for larger numbers */
+    line-height: 1; /* Better line height */
 }
 
-@keyframes pulse {
+/* Updated pulse animation with bright red color */
+@keyframes pulse-red {
     0% {
         transform: scale(1);
+        box-shadow: 0 2px 8px rgba(255, 0, 0, 0.6);
     }
     50% {
         transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(255, 0, 0, 0.8);
     }
     100% {
         transform: scale(1);
+        box-shadow: 0 2px 8px rgba(255, 0, 0, 0.6);
     }
 }
 
-.header-buttons {
-    position: relative;
-    overflow: visible !important;
+/* For larger numbers (10+), make badge slightly wider */
+.notification-badge.large-number {
+    min-width: 26px;
+    height: 22px;
+    font-size: 10px;
+    border-radius: 11px; /* More oval for larger numbers */
 }
 
-.top-header {
-    overflow: visible !important;
+/* Additional styles for very large numbers (100+) */
+.notification-badge.extra-large {
+    min-width: 30px;
+    height: 22px;
+    font-size: 9px;
+    border-radius: 11px;
 }
+
+
 </style>
