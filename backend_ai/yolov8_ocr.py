@@ -32,6 +32,15 @@ def enhance_engraved_text(image: Image.Image):
     combined = cv2.addWeighted(eq, 0.8, edges, 0.5, 0)
     return combined
 
+def to_python(val):
+    if isinstance(val, (np.generic,)):  # numpy float32, int32 etc.
+        return val.item()
+    elif isinstance(val, (list, tuple)):
+        return [to_python(v) for v in val]
+    elif isinstance(val, dict):
+        return {k: to_python(v) for k, v in val.items()}
+    return val
+
 # Main detection function
 def detect_serial_number(image_bytes: bytes):
     try:
@@ -39,35 +48,42 @@ def detect_serial_number(image_bytes: bytes):
         img_np = np.array(image)
 
         method_used = "normal"  # default to normal OCR
-
-        # First OCR attempt (original image)
-        ocr_results = ocr_reader.readtext(img_np)
         serials = []
         raw_ocr = []
 
-        for _, text, _ in ocr_results:
+        # First OCR attempt (original image)
+        ocr_results = ocr_reader.readtext(img_np)
+
+        for bbox, text, _ in ocr_results:
             cleaned = clean_text(text)
             raw_ocr.append(cleaned)
             if is_valid_serial(cleaned):
-                serials.append(cleaned)
+                serials.append({
+                    "text": cleaned,
+                    "bbox": bbox  # 4-point bounding box (x, y coordinates)
+                })
 
-        # If no serials found, try enhanced image
+        # Fallback if no valid serials found
         if not serials:
             enhanced_img = enhance_engraved_text(image)
             ocr_results_enhanced = ocr_reader.readtext(enhanced_img)
-            method_used = "engraved_fallback"  # mark fallback method
+            method_used = "engraved_fallback"
 
-            for _, text, _ in ocr_results_enhanced:
+            for bbox, text, _ in ocr_results_enhanced:
                 cleaned = clean_text(text)
                 raw_ocr.append(cleaned)
                 if is_valid_serial(cleaned):
-                    serials.append(cleaned)
+                    serials.append({
+                        "text": cleaned,
+                        "bbox": bbox
+                    })
 
-        return {
+        return to_python({
             "serials": serials,
             "raw_ocr": raw_ocr,
             "method": method_used
-        }
+        })
+
 
     except Exception as e:
         return {
@@ -76,3 +92,4 @@ def detect_serial_number(image_bytes: bytes):
             "method": None,
             "error": str(e)
         }
+

@@ -8,7 +8,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, replace "*" with your frontend's URL
+    allow_origins=["http://localhost:8000"],  # your Vue dev server origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -17,6 +17,13 @@ app.add_middleware(
 # 🎯 Endpoint for serial detection
 @app.post("/detect")
 async def detect(file: UploadFile = File(...)):
-    image_data = await file.read()
-    result = detect_serial_number(image_data)
-    return result
+    try:
+        image_data = await file.read()
+        result = detect_serial_number(image_data)
+        return result
+    except Exception as e:
+        print(f"❌ Detection error: {str(e)}")  # Debug log in terminal
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Internal server error: {str(e)}"}
+        )

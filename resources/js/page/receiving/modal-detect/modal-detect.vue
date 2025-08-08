@@ -14,73 +14,72 @@
       </div>
 
       <!-- CAMERA MODAL (INLINE) -->
-    <div v-if="enableCamera && showCameraModal" class="camera-modal">
-    <div class="camera-modal-content">
-        <div class="camera-header">
-        <h2>Item Camera</h2>
-        <span class="image-counter">{{ capturedImages.length }} / {{ maxImages }}</span>
-        </div>
-
-        <div class="camera-preview-container">
-            <video id="camera-preview" autoplay playsinline></video>
-            
-            <div class="camera-overlay">
-                <div class="dimmed-background"></div>
-
-                <div class="target-box" ref="targetBox">
-                    <div class="resize-handle top-left"></div>
-                    <div class="resize-handle top-right"></div>
-                    <div class="resize-handle bottom-left"></div>
-                    <div class="resize-handle bottom-right"></div>
+        <div v-if="enableCamera && showCameraModal" class="camera-modal">
+            <div class="camera-modal-content">
+                <div class="camera-header">
+                <h2>Item Camera</h2>
+                <!-- <span class="image-counter">{{ capturedImages.length }} / {{ maxImages }}</span> -->
                 </div>
+
+                <div class="camera-preview-container">
+                    <video id="camera-preview" autoplay playsinline></video>
+                    
+                    <div class="camera-overlay">
+                        <div class="dimmed-background"></div>
+
+                        <div class="target-box" ref="targetBox">
+                            <div class="resize-handle top-left"></div>
+                            <div class="resize-handle top-right"></div>
+                            <div class="resize-handle bottom-left"></div>
+                            <div class="resize-handle bottom-right"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="camera-actions">
+                <button @click="closeCameraModal" class="cancel-btn">
+                    <i class="fas fa-times"></i> Close
+                </button>
+                <button @click="captureImage" class="capture-btn">
+                    <i class="fas fa-camera"></i> Capture
+                </button>
+                </div>
+
+                <!-- <div class="camera-thumbnails">
+                <div v-for="(image, index) in capturedImages" :key="index" class="camera-thumbnail">
+                    <img :src="image.data" alt="Thumbnail" />
+                </div>
+                </div> -->
             </div>
         </div>
 
-
-        <div class="camera-actions">
-        <button @click="closeCameraModal" class="cancel-btn">
-            <i class="fas fa-times"></i> Close
-        </button>
-        <button @click="captureImage" class="capture-btn">
-            <i class="fas fa-camera"></i> Capture
-        </button>
-        </div>
-
-        <div class="camera-thumbnails">
-        <div v-for="(image, index) in capturedImages" :key="index" class="camera-thumbnail">
-            <img :src="image.data" alt="Thumbnail" />
-        </div>
-        </div>
-    </div>
-    </div>
-
-    <!-- Hidden canvas for capture -->
-    <canvas ref="cameraCanvas" class="hidden"></canvas>
-
+        <!-- Hidden canvas for capture -->
+        <canvas ref="cameraCanvas" class="hidden"></canvas>
 
       <!-- Scanner Body -->
       <div class="scanner-body">
         <!-- Uploader Area (only when no image or cropped result) -->
         <div
-          class="border-dashed uploader-area"
-          v-if="!imageUrl && !croppedImage"
-          @dragover.prevent
-          @dragenter.prevent="isDragging = true"
-          @dragleave.prevent="isDragging = false"
-          @drop.prevent="handleDrop"
-          @click="triggerFileInput"
-          :class="{ 'is-dragging': isDragging }"
+        class="border-dashed uploader-area"
+        v-if="!imageUrl && !croppedImage"
+        @dragover.prevent
+        @dragenter.prevent="isDragging = true"
+        @dragleave.prevent="isDragging = false"
+        @drop.prevent="handleDrop"
+        @click="triggerFileInput"
+        :class="{ 'is-dragging': isDragging }"
         >
-          <p>
+        <p>
             Drag & drop an image here, or <span class="text-highlight">click to select</span>
-          </p>
-          <input
+        </p>
+        <input
             ref="fileInput"
             type="file"
             accept="image/*"
             class="hidden"
             @change="onFileChange"
-          />
+            :disabled="loading"
+        />
         </div>
 
         <!-- Image Preview (with cropper) -->
@@ -94,21 +93,28 @@
         </div>
 
         <!-- Cropper Controls -->
-        <div v-if="imageUrl && !croppedImage" class="uploader-controls">
+        <!-- <div v-if="imageUrl && !croppedImage" class="uploader-controls">
           <button @click="rotateLeft" class="btn btn-blue">Rotate Left</button>
           <button @click="rotateRight" class="btn btn-blue">Rotate Right</button>
           <button @click="cropImage" class="btn btn-green">Submit</button>
           <button @click="resetImage" class="btn btn-red">Reset</button>
-        </div>
+        </div> -->
 
         <!-- Cropped Image Output Preview -->
         <div v-if="croppedImage" class="cropped-output">
           <h4 class="mb-2">🖼️ Output Preview</h4>
-          <img :src="croppedImage" alt="Cropped" class="border preview-img" style="max-width: 300px;" />
+          <img
+            :src="croppedImage"
+            alt="Cropped"
+            class="border preview-img"
+            style="max-width: 300px; object-fit: contain; width: 100%; height: auto;"
+            />
+
 
           <div v-if="loading" class="mt-3">
-            <p>⏳ Processing image...</p>
-            </div>
+            <p>⏳ Uploading and scanning image...</p>
+          </div>
+
 
             <div v-if="apiResult" class="mt-3">
             <h4>Detected Serials:</h4>
@@ -172,6 +178,7 @@ export default defineComponent({
     const loading = ref(false)
     const targetBox = ref(null)
 
+
     const rotationStyle = computed(() => ({
       transform: `rotate(${rotation.value}deg)`,
       transition: 'transform 0.3s ease',
@@ -218,6 +225,11 @@ export default defineComponent({
             background: false,
             ready() {
               isCropperReady.value = true
+
+              // Auto-crop and send after ready
+                setTimeout(() => {
+                cropImage()
+                }, 500)
             }
           })
         }
@@ -281,11 +293,36 @@ export default defineComponent({
 
             // Send to FastAPI
             const res = await fetch("http://127.0.0.1:8001/detect", {
-            method: "POST",
-            body: formData
+                method: "POST",
+                body: formData
             });
 
             apiResult.value = await res.json();
+
+            // ✅ Auto-adjust target box if serial is detected
+            if (
+                apiResult.value &&
+                apiResult.value.bboxes &&
+                apiResult.value.bboxes.length > 0
+            ) {
+                const box = apiResult.value.bboxes[0]; // Just take the first for now
+                const video = document.getElementById('camera-preview');
+                const videoRect = video.getBoundingClientRect();
+
+                const scaleX = videoRect.width / apiResult.value.image_width;
+                const scaleY = videoRect.height / apiResult.value.image_height;
+
+                const left = box[0] * scaleX;
+                const top = box[1] * scaleY;
+                const width = (box[2] - box[0]) * scaleX;
+                const height = (box[3] - box[1]) * scaleY;
+
+                const target = targetBox.value;
+                target.style.left = `${left}px`;
+                target.style.top = `${top}px`;
+                target.style.width = `${width}px`;
+                target.style.height = `${height}px`;
+            }
 
         } catch (error) {
             console.error("Error sending image to API:", error);
@@ -293,6 +330,7 @@ export default defineComponent({
             loading.value = false;
         }
     }
+
 
     function resetImage() {
       if (cropper.value && typeof cropper.value.destroy === 'function') {
@@ -316,22 +354,26 @@ export default defineComponent({
     }
 
     function startCamera() {
-        navigator.mediaDevices.getUserMedia({ video: true })
+    navigator.mediaDevices.getUserMedia({ video: true })
         .then((stream) => {
             cameraStream.value = stream
             const video = document.getElementById('camera-preview')
             video.srcObject = stream
 
             nextTick(() => {
-                initDraggableTarget()
+                    initDraggableTarget()
+                })
             })
-        })
             .catch((err) => {
             console.error("🚫 Camera access denied:", err)
         })
     }
 
     function captureImage() {
+
+        if (loading.value) return
+        loading.value = true // disable interaction until done
+
         const video = document.getElementById('camera-preview')
         const canvas = cameraCanvas.value
         const ctx = canvas.getContext('2d')
@@ -350,11 +392,16 @@ export default defineComponent({
         canvas.width = sw
         canvas.height = sh
 
+        // canvas.width = video.videoWidth
+        // canvas.height = video.videoHeight
+        // ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
         ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh)
 
         const dataUrl = canvas.toDataURL('image/png')
         capturedImages.value.push({ data: dataUrl })
 
+        // Send to cropper
         loadImageFromCamera(dataUrl)
         closeCameraModal()
     }
@@ -1499,6 +1546,7 @@ input:checked + .toggle-slider:before {
     font-weight: 700;
     padding: 10px;
 }
+
 /* camera target */
 .camera-preview-container {
     position: relative;
@@ -1536,6 +1584,7 @@ input:checked + .toggle-slider:before {
     background: transparent;
     cursor: grab;
     pointer-events: auto; /* allow mouse/touch events here */
+    transition: all 0.3s ease-in-out;
 }
 
 .resize-handle {
@@ -1553,7 +1602,6 @@ input:checked + .toggle-slider:before {
 .resize-handle.bottom-left { bottom: -7px; left: -7px; cursor: nesw-resize; }
 .resize-handle.bottom-right { bottom: -7px; right: -7px; cursor: nwse-resize; }
 
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .resize-handle {
@@ -1563,6 +1611,7 @@ input:checked + .toggle-slider:before {
     }
 }
 
+/* Responsive adjustments */
 @media (max-width: 600px) {
   .scanner-modal-content {
     width: 100%;

@@ -150,6 +150,7 @@ const componentMapping = {
     "printer": "printer", // 🔴 UPDATED: Add printer mapping
     "Printer": "printer", // 🔴 UPDATED: Add capitalized version
     "Human Resource":"humanresource",
+    "Training":"training",
 };
 
 // Session management mixin
