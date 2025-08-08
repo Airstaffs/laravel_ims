@@ -1,6 +1,6 @@
 <template>
   <div class="p-3">
-    <!--
+    
     <div class="row mb-3">
       <div class="col-md-3">
         <label>Filter by Employee</label>
@@ -22,7 +22,7 @@
       </div>
     </div>
 
-  -->
+  
 
     <table class="table table-bordered table-sm">
       <thead>
@@ -59,18 +59,33 @@
     </table>
 
     <div class="d-flex justify-content-between align-items-center mt-3">
-      <button class="btn btn-outline-secondary" :disabled="page === 1" @click="() => { page--; fetchRecords(); }">
+      <button class="btn btn-outline-secondary" :disabled="page === 1"
+        @click="() => { props.page > 1 && (props.page--, props.fetchRecords()); }">
         Previous
       </button>
 
-      <span>Page {{ page }}</span>
+      <span>Page {{ page }} / {{ totalPages }}</span>
 
-      <button class="btn btn-outline-secondary" @click="() => { page++; fetchRecords(); }">
+      <button class="btn btn-outline-secondary" :disabled="page >= totalPages"
+        @click="() => { props.page < totalPages && (props.page++, props.fetchRecords()); }">
         Next
       </button>
     </div>
   </div>
 </template>
+
+<script setup>
+const props = defineProps({
+  timeRecords: { type: Array, default: () => [] },
+  filters: { type: Object, default: () => ({}) },
+  employeeNames: { type: Array, default: () => [] },
+  page: { type: Number, default: 1 },
+  totalPages: { type: Number, default: 1 },
+  fetchRecords: { type: Function, required: true },
+  sort: { type: Function, required: true },
+  formatDate: { type: Function, required: true },
+});
+</script>
 
 <style scoped>
 th {

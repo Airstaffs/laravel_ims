@@ -88,7 +88,6 @@ export default {
 
         // Load time records
         await this.fetchRecords();
-
     },
     methods: {
         // Employee Sheesh
@@ -121,10 +120,10 @@ export default {
                     },
                 });
 
-                const result = res.data;
+                const result = res.data; // ← here
 
                 // Use Laravel pagination format
-                this.timeRecords = result.data; // ← This is the array of records
+                this.timeRecords = result.data; // ← array of records
                 this.totalPages = result.last_page;
                 this.currentPage = result.current_page;
 
