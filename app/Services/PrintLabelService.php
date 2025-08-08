@@ -28,8 +28,25 @@ class PrintLabelService extends BasetablesController
     }
 
     /**
+     * Extract base FNSKU from prefixed FNSKU (same as StockroomController)
+     */
+    private function extractBaseFnsku($fnsku)
+    {
+        if (empty($fnsku)) {
+            return $fnsku;
+        }
+
+        // Check if it's a prefixed FNSKU (starts with C followed by digits)
+        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
+            return $matches[2]; // Return the base FNSKU without prefix
+        }
+
+        return $fnsku; // Return as-is if not prefixed
+    }
+
+    /**
      * Generate and print a label for a product
-     * UPDATED to work with dynamic printer selection
+     * UPDATED to use base FNSKU for database lookups while preserving display FNSKU
      */
     public function printLabel($productId, $username, $selectedPrinter = null)
     {
@@ -43,28 +60,13 @@ class PrintLabelService extends BasetablesController
                 ]);
             }
 
-            // Get product with proper joins to get all needed data
-            $product = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.*',
-                    'fnsku.ASIN as ASINviewer',
-                    'fnsku.grading as gradingviewer',
-                    'fnsku.storename as StoreName',
-                    'asin.internal as AStitle',
-                    'asin.asinStatus',
-                    'asin.TRANSPARENCY_QR_STATUS',
-                    'asin.vectorimage',
-                    'asin.instructioncard',
-                    'asin.instructioncard2',
-                    'asin.instructioncard3'
-                ])
-                ->where('prod.ProductID', $productId)
-                ->where('prod.returnstatus', 'Not Returned')
-                ->where('prod.ProductModuleLoc', '!=', 'Migrated')
-                ->where('prod.validation_status', 'validated')
-                ->orderBy('prod.ProductID', 'desc')
+            // UPDATED: Get product first, then match FNSKU data using base FNSKU
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $productId)
+                ->where('returnstatus', 'Not Returned')
+                ->where('ProductModuleLoc', '!=', 'Migrated')
+                ->where('validation_status', 'validated')
+                ->orderBy('ProductID', 'desc')
                 ->first();
 
             if (!$product) {
@@ -74,14 +76,55 @@ class PrintLabelService extends BasetablesController
                 ];
             }
 
+            // UPDATED: Extract base FNSKU and get related data
+            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            
+            $fnskuRecord = null;
+            if (!empty($baseFnsku)) {
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+            }
+
+            $asinRecord = null;
+            if ($fnskuRecord && !empty($fnskuRecord->ASIN)) {
+                $asinRecord = DB::table($this->asinTable)
+                    ->where('ASIN', $fnskuRecord->ASIN)
+                    ->first();
+            }
+
+            // UPDATED: Combine data properly
+            $enrichedProduct = clone $product;
+            
+            if ($fnskuRecord) {
+                $enrichedProduct->ASINviewer = $fnskuRecord->ASIN;
+                $enrichedProduct->gradingviewer = $fnskuRecord->grading;
+                $enrichedProduct->StoreName = $fnskuRecord->storename;
+            }
+
+            if ($asinRecord) {
+                $enrichedProduct->AStitle = $asinRecord->internal;
+                $enrichedProduct->asinStatus = $asinRecord->asinStatus;
+                $enrichedProduct->TRANSPARENCY_QR_STATUS = $asinRecord->TRANSPARENCY_QR_STATUS;
+                $enrichedProduct->vectorimage = $asinRecord->vectorimage;
+                $enrichedProduct->instructioncard = $asinRecord->instructioncard;
+                $enrichedProduct->instructioncard2 = $asinRecord->instructioncard2;
+                $enrichedProduct->instructioncard3 = $asinRecord->instructioncard3;
+            }
+
             // Get return counts for all serials
-            $returnCounts = $this->getReturnCounts($product);
+            $returnCounts = $this->getReturnCounts($enrichedProduct);
             
             // Format condition
-            $condition = $this->formatCondition($product->gradingviewer, $product->StoreName, $product->ASINviewer, $product->asinStatus);
+            $condition = $this->formatCondition(
+                $enrichedProduct->gradingviewer ?? '', 
+                $enrichedProduct->StoreName ?? '', 
+                $enrichedProduct->ASINviewer ?? '', 
+                $enrichedProduct->asinStatus ?? ''
+            );
             
             // Generate ZPL code with all functions - COMPLETE VERSION
-            $zplData = $this->generateCompleteZplCode($product, $condition, $returnCounts, $username);
+            $zplData = $this->generateCompleteZplCode($enrichedProduct, $condition, $returnCounts, $username);
             
             // Separate main ZPL from instruction card ZPL
             $mainZpl = $zplData['mainZpl'];
@@ -157,7 +200,7 @@ class PrintLabelService extends BasetablesController
 
     /**
      * Reprint a single label type for a product
-     * NEW METHOD for single label reprinting functionality
+     * UPDATED to use base FNSKU for database lookups
      */
     public function reprintSingleLabel($productId, $labelType, $username, $selectedPrinter = null)
     {
@@ -171,24 +214,9 @@ class PrintLabelService extends BasetablesController
                 ]);
             }
 
-            // Get product with proper joins to get all needed data
-            $product = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.*',
-                    'fnsku.ASIN as ASINviewer',
-                    'fnsku.grading as gradingviewer',
-                    'fnsku.storename as StoreName',
-                    'asin.internal as AStitle',
-                    'asin.asinStatus',
-                    'asin.TRANSPARENCY_QR_STATUS',
-                    'asin.vectorimage',
-                    'asin.instructioncard',
-                    'asin.instructioncard2',
-                    'asin.instructioncard3'
-                ])
-                ->where('prod.ProductID', $productId)
+            // UPDATED: Get product first, then match FNSKU data using base FNSKU
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $productId)
                 ->first();
 
             if (!$product) {
@@ -198,14 +226,55 @@ class PrintLabelService extends BasetablesController
                 ];
             }
 
+            // UPDATED: Extract base FNSKU and get related data
+            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            
+            $fnskuRecord = null;
+            if (!empty($baseFnsku)) {
+                $fnskuRecord = DB::table($this->fnskuTable)
+                    ->where('FNSKU', $baseFnsku)
+                    ->first();
+            }
+
+            $asinRecord = null;
+            if ($fnskuRecord && !empty($fnskuRecord->ASIN)) {
+                $asinRecord = DB::table($this->asinTable)
+                    ->where('ASIN', $fnskuRecord->ASIN)
+                    ->first();
+            }
+
+            // UPDATED: Combine data properly
+            $enrichedProduct = clone $product;
+            
+            if ($fnskuRecord) {
+                $enrichedProduct->ASINviewer = $fnskuRecord->ASIN;
+                $enrichedProduct->gradingviewer = $fnskuRecord->grading;
+                $enrichedProduct->StoreName = $fnskuRecord->storename;
+            }
+
+            if ($asinRecord) {
+                $enrichedProduct->AStitle = $asinRecord->internal;
+                $enrichedProduct->asinStatus = $asinRecord->asinStatus;
+                $enrichedProduct->TRANSPARENCY_QR_STATUS = $asinRecord->TRANSPARENCY_QR_STATUS;
+                $enrichedProduct->vectorimage = $asinRecord->vectorimage;
+                $enrichedProduct->instructioncard = $asinRecord->instructioncard;
+                $enrichedProduct->instructioncard2 = $asinRecord->instructioncard2;
+                $enrichedProduct->instructioncard3 = $asinRecord->instructioncard3;
+            }
+
             // Get return counts for all serials
-            $returnCounts = $this->getReturnCounts($product);
+            $returnCounts = $this->getReturnCounts($enrichedProduct);
             
             // Format condition
-            $condition = $this->formatCondition($product->gradingviewer, $product->StoreName, $product->ASINviewer, $product->asinStatus);
+            $condition = $this->formatCondition(
+                $enrichedProduct->gradingviewer ?? '', 
+                $enrichedProduct->StoreName ?? '', 
+                $enrichedProduct->ASINviewer ?? '', 
+                $enrichedProduct->asinStatus ?? ''
+            );
             
             // Generate ZPL for the specific label type
-            $zpl = $this->generateSingleLabelZpl($product, $labelType, $condition, $returnCounts, $username);
+            $zpl = $this->generateSingleLabelZpl($enrichedProduct, $labelType, $condition, $returnCounts, $username);
             
             if (empty($zpl)) {
                 return [
