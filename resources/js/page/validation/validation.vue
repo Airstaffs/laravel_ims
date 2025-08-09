@@ -596,16 +596,57 @@
                                 </div>
                             </div>
 
-                            <div class="form-section general-info-section">
-                                <!-- SECTION: General Info -->
-                                <div class="general-info-section">
-                                    <h3 class="form-section-heading">
-                                        General Info
-                                    </h3>
+                            <p class="image-label text-center">
+                                <label>
+                                    <p>Images from Product</p>
+                                </label>
+                            </p>
 
-                                    <strong>{{ item.ProductTitle }}</strong>
+                            <hr />
+
+                            <div
+                                class="image-section"
+                                v-if="asinImageList.length"
+                            >
+                                <div class="main-image">
+                                    <img
+                                        :src="activeAsinImageUrl"
+                                        alt="Main ASIN Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
+                                </div>
+
+                                <div class="thumbnail-carousel">
+                                    <div
+                                        v-for="(img, index) in asinImageList"
+                                        :key="'asin-' + index"
+                                        :class="[
+                                            'thumbnail',
+                                            {
+                                                active:
+                                                    index === activeAsinIndex,
+                                            },
+                                        ]"
+                                        @click="activeAsinIndex = index"
+                                        @mouseenter="activeAsinIndex = index"
+                                    >
+                                        <img
+                                            :src="asinBasePath + img"
+                                            alt="ASIN Thumbnail"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
+                                    </div>
                                 </div>
                             </div>
+
+                            <p class="asin-label text-center" v-if="ASIN">
+                                <label>
+                                    <p>Image from <strong>ASIN</strong></p>
+                                    <p>{{ ASIN }}</p>
+                                </label>
+                            </p>
                         </div>
 
                         <div class="form-col-center">

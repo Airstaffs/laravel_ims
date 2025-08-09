@@ -662,6 +662,7 @@ export default {
         },
 
         // Select and save the chosen FNSKU
+
         async selectFnsku(fnsku) {
             console.log("=== FNSKU SELECTION START ===");
             console.log(
@@ -673,7 +674,11 @@ export default {
 
             if (!this.currentItem || !this.currentItem.ProductID) {
                 console.error("No current item selected for FNSKU assignment");
-                alert("Error: No item selected for FNSKU assignment");
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "No item selected for FNSKU assignment",
+                });
                 return;
             }
 
@@ -712,13 +717,31 @@ export default {
                     }
                 }
 
-                if (!confirm(confirmMessage)) {
+                const confirmResult = await Swal.fire({
+                    title: "Confirm Assignment",
+                    text: confirmMessage,
+                    icon: "question",
+                    showCancelButton: true,
+                    confirmButtonText: "Yes",
+                    cancelButtonText: "No",
+                });
+
+                if (!confirmResult.isConfirmed) {
                     return;
                 }
             } catch (error) {
                 console.warn("Could not fetch FNSKU availability info:", error);
                 // Continue with basic confirmation
-                if (!confirm(`Assign FNSKU ${fnsku.FNSKU} to this product?`)) {
+                const confirmResult = await Swal.fire({
+                    title: "Confirm Assignment",
+                    text: `Assign FNSKU ${fnsku.FNSKU} to this product?`,
+                    icon: "question",
+                    showCancelButton: true,
+                    confirmButtonText: "Yes",
+                    cancelButtonText: "No",
+                });
+
+                if (!confirmResult.isConfirmed) {
                     return;
                 }
             }
@@ -761,17 +784,15 @@ export default {
                 ) {
                     console.log("✅ FNSKU update successful");
 
-                    // Get the details from response
                     const details = response.data.details || {};
                     const actualFnskuAssigned =
                         details.actual_fnsku_assigned || fnsku.FNSKU;
                     const remainingUnits = details.remaining_units || "Unknown";
 
-                    // IMPORTANT: Update the current item immediately (dynamic update)
+                    // Update current item in UI
                     this.currentItem.FNSKUviewer = actualFnskuAssigned;
-                    this.currentItem.FNSKU = actualFnskuAssigned; // Also update FNSKU field if it exists
+                    this.currentItem.FNSKU = actualFnskuAssigned;
 
-                    // Find and update the item in the main inventory list (for table update)
                     const itemIndex = this.inventory.findIndex(
                         (item) =>
                             item.ProductID === this.currentItem.ProductID ||
@@ -779,26 +800,13 @@ export default {
                     );
 
                     if (itemIndex !== -1) {
-                        console.log(
-                            "📝 Updating inventory item at index:",
-                            itemIndex
-                        );
-                        // Update the inventory item with new FNSKU
                         this.inventory[itemIndex].FNSKUviewer =
                             actualFnskuAssigned;
                         this.inventory[itemIndex].FNSKU = actualFnskuAssigned;
-
-                        // Force Vue to detect the change
                         this.$forceUpdate();
-
-                        console.log("✅ Inventory updated dynamically");
-                    } else {
-                        console.warn(
-                            "⚠️ Could not find item in inventory for dynamic update"
-                        );
                     }
 
-                    // Show detailed success message
+                    // Success message
                     let successMessage = `✅ FNSKU updated successfully!\n`;
                     successMessage += `Base FNSKU: ${
                         details.new_base_fnsku || fnsku.FNSKU
@@ -810,8 +818,14 @@ export default {
                     }
 
                     successMessage += `Units remaining: ${remainingUnits}`;
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: successMessage,
+                    });
 
-                    alert(successMessage);
+                    // 🔄 Refresh inventory after success
+                    await this.fetchInventory();
 
                     // Close the modal
                     this.hideFnskuModal();
@@ -827,9 +841,11 @@ export default {
                         console.log(
                             "⚠️ Update might be successful but response format unexpected"
                         );
-                        alert(
-                            "FNSKU might have been updated. Please check the table."
-                        );
+                        await Swal.fire({
+                            icon: "warning",
+                            title: "Success",
+                            text: "FNSKU might have been updated. Please check the table.",
+                        });
                         this.hideFnskuModal();
 
                         // Try to refresh just this item
@@ -837,9 +853,11 @@ export default {
                             this.fetchInventory();
                         }, 1000);
                     } else {
-                        alert(
-                            "Failed to update FNSKU: Unexpected response format"
-                        );
+                        await Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: "Failed to update FNSKU: Unexpected response format",
+                        });
                     }
                 }
             } catch (error) {
@@ -887,7 +905,11 @@ export default {
                                 this.$forceUpdate();
                             }
 
-                            alert("✅ FNSKU updated successfully!");
+                            await Swal.fire({
+                                icon: "success",
+                                title: "Success",
+                                text: "FNSKU updated successfully!",
+                            });
                             this.hideFnskuModal();
                             return;
                         }
@@ -901,16 +923,28 @@ export default {
                         errorMessage += `HTTP ${error.response.status} error`;
                     }
 
-                    alert(errorMessage);
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: errorMessage,
+                    });
                 } else if (error.request) {
                     console.error("Network error:", error.request);
-                    alert("Network error - could not reach server");
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Network Error",
+                        text: "Could not reach server",
+                    });
                 } else {
                     console.error(
                         "Request configuration error:",
                         error.message
                     );
-                    alert("Request configuration error: " + error.message);
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Request Error",
+                        text: `Request configuration error: ${error.message}`,
+                    });
                 }
             } finally {
                 this.isUpdatingFnsku = false;
@@ -1141,7 +1175,7 @@ export default {
                 <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
                 <li><strong>ASIN:</strong> ${item.ASIN || "—"}</li>
                 <li><strong>FNSKU:</strong> ${item.FNSKU || "—"}</li>
-                <li><strong>Serial:</strong> ${item.SerialNumber || "—"}</li>
+                <li><strong>Serial:</strong> ${item.serialnumber || "—"}</li>
             </ul>
         `,
                 icon: "question",
@@ -1163,7 +1197,7 @@ export default {
                 !(
                     item.ASIN ||
                     item.FNSKU ||
-                    item.SerialNumber ||
+                    item.serialnumber ||
                     item.BasketNumber ||
                     item.RPN ||
                     item.PRD ||
@@ -1256,7 +1290,7 @@ export default {
                 <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
                 <li><strong>ASIN:</strong> ${item.ASIN || "—"}</li>
                 <li><strong>FNSKU:</strong> ${item.FNSKU || "—"}</li>
-                <li><strong>Serial:</strong> ${item.SerialNumber || "—"}</li>
+                <li><strong>Serial:</strong> ${item.serialnumber || "—"}</li>
             </ul>
         `,
                 icon: "question",

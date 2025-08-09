@@ -15,10 +15,23 @@ use DateTimeZone;
 
 class ValidationController extends BasetablesController
 {
+    private function extractBaseFnsku($fnsku)
+    {
+        if (empty($fnsku)) {
+            return $fnsku;
+        }
+
+        // Check if it's a prefixed FNSKU (starts with C followed by digits)
+        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
+            return $matches[2]; // Return the base FNSKU without prefix
+        }
+
+        return $fnsku; // Return as-is if not prefixed
+    }
+
     public function index(Request $request)
     {
         try {
-            // Log tables being used for debugging
             Log::info('Tables being used:', [
                 'productTable' => $this->productTable,
                 'fnskuTable' => $this->fnskuTable,
@@ -32,63 +45,96 @@ class ValidationController extends BasetablesController
             $location = $request->input('location', 'Validation');
             $includeImages = $request->boolean('include_images', false);
 
-            // Updated query to join with both FNSKU and ASIN tables
-            $query = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', 'prod.FNSKUviewer', '=', 'fnsku.FNSKU')
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
-                ->select([
-                    'prod.*', // All product fields
-                    'fnsku.ASIN',
-                    'fnsku.MSKU',
-                    'fnsku.grading',
-                    'fnsku.storename',
-                    'asin.internal as astitle' // Get title from ASIN table
-                ])
+            // Step 1: Fetch products without JOINs
+            $productsQuery = DB::table($this->productTable . ' as prod')
+                ->select(['prod.*'])
                 ->where('prod.ProductModuleLoc', $location)
                 ->when($search, function ($query) use ($search) {
                     return $query->where(function ($q) use ($search) {
                         $q->where('prod.serialnumber', 'like', "%{$search}%")
                             ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                            ->orWhere('prod.rtcounter', 'like', "%{$search}%")
-                            ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
-                            ->orWhere('asin.internal', 'like', "%{$search}%"); // Search in ASIN title
+                            ->orWhere('prod.rtcounter', 'like', "%{$search}%");
                     });
                 })
                 ->orderBy('prod.lastDateUpdate', 'desc');
 
-            // Get paginated products
-            $products = $query->paginate($perPage);
+            $products = $productsQuery->paginate($perPage);
             Log::info('Products fetched successfully', ['count' => $products->count()]);
 
-            // Debug: Log first product to see the joined data
-            if ($products->count() > 0) {
-                Log::info('First product with joins:', [
-                    'ProductID' => $products->first()->ProductID,
-                    'ASIN' => $products->first()->ASIN,
-                    'astitle' => $products->first()->astitle,
-                    'storename' => $products->first()->storename
-                ]);
+            // Step 2: Extract base FNSKUs
+            $baseFnskus = [];
+            foreach ($products->items() as $product) {
+                if (!empty($product->FNSKUviewer)) {
+                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+                    $baseFnskus[] = $baseFnsku;
+                    $product->baseFnsku = $baseFnsku;
+                }
+            }
+            $baseFnskus = array_unique($baseFnskus);
+
+            // Step 3: Get FNSKU data
+            $fnskuData = [];
+            if (!empty($baseFnskus)) {
+                $fnskuRecords = DB::table($this->fnskuTable)
+                    ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
+                    ->whereIn('FNSKU', $baseFnskus)
+                    ->get();
+
+                foreach ($fnskuRecords as $record) {
+                    $fnskuData[$record->FNSKU] = $record;
+                }
             }
 
-            // If images are requested, fetch them for each product
+            // Step 4: Get ASIN data
+            $asinList = array_column($fnskuData, 'ASIN');
+            $asinList = array_unique($asinList);
+            $asinData = [];
+
+            if (!empty($asinList)) {
+                $asinRecords = DB::table($this->asinTable)
+                    ->select('ASIN', 'internal')
+                    ->whereIn('ASIN', $asinList)
+                    ->get();
+
+                foreach ($asinRecords as $record) {
+                    $asinData[$record->ASIN] = $record;
+                }
+            }
+
+            // Step 5: Enrich products with FNSKU and ASIN info
+            $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData) {
+                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+                $product->FNSKU = $product->FNSKUviewer;
+
+                if (isset($fnskuData[$baseFnsku])) {
+                    $fnskuRecord = $fnskuData[$baseFnsku];
+                    $product->MSKU = $fnskuRecord->MSKU;
+                    $product->ASIN = $fnskuRecord->ASIN;
+                    $product->grading = $fnskuRecord->grading;
+                    $product->storename = $fnskuRecord->storename;
+
+                    if (isset($asinData[$fnskuRecord->ASIN])) {
+                        $product->astitle = $asinData[$fnskuRecord->ASIN]->internal;
+                    }
+                }
+
+                return $product;
+            });
+
+            // Step 6: Add images if requested
             if ($includeImages) {
                 try {
                     $productIds = $products->pluck('ProductID')->toArray();
                     Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
 
-                    // IMPORTANT FIX: Use the original table name with 'tbl' prefix
                     $capturedImagesTableName = $this->capturedImagesTable;
-
-                    // Log the actual table name we're checking
-                    Log::info('Checking table existence', [
-                        'table' => $capturedImagesTableName
-                    ]);
+                    Log::info('Checking table existence', ['table' => $capturedImagesTableName]);
 
                     if (!Schema::hasTable($capturedImagesTableName)) {
                         Log::warning('Captured images table does not exist', [
                             'table' => $capturedImagesTableName
                         ]);
-                        // Add company but skip image fetching
+
                         $products->getCollection()->transform(function ($product) {
                             $product->company = $this->company;
                             return $product;
@@ -96,7 +142,6 @@ class ValidationController extends BasetablesController
                     } else {
                         Log::info('Captured images table exists', ['table' => $capturedImagesTableName]);
 
-                        // Fetch all captured images for these products
                         $capturedImages = DB::table($capturedImagesTableName)
                             ->whereIn('ProductID', $productIds)
                             ->get();
@@ -106,39 +151,29 @@ class ValidationController extends BasetablesController
                             'sample' => $capturedImages->take(1)
                         ]);
 
-                        // Create a lookup by ProductID for efficient access
                         $imagesByProductId = [];
                         foreach ($capturedImages as $img) {
                             $imagesByProductId[$img->ProductID] = $img;
                         }
 
-                        // Add capturedImages data to each product
                         $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
-                            // Always add the company for proper image path construction
                             $product->company = $this->company;
 
-                            // Check if we have image data for this product
                             if (isset($imagesByProductId[$product->ProductID])) {
-                                // Set capturedImages as a proper object
                                 $product->capturedImages = $imagesByProductId[$product->ProductID];
 
-                                // Set img1 directly for the main thumbnail display if not already set
                                 if (empty($product->img1) && !empty($product->capturedImages->capturedimg1)) {
                                     $product->img1 = $product->capturedImages->capturedimg1;
                                 }
 
-                                // Log success for debugging
                                 Log::info('Added captured images to product', [
                                     'ProductID' => $product->ProductID,
                                     'capturedImages' => json_encode($product->capturedImages)
                                 ]);
                             } else {
-                                // Log failure for debugging
                                 Log::info('No captured images found for product', [
                                     'ProductID' => $product->ProductID
                                 ]);
-
-                                // Initialize empty capturedImages object to prevent JS errors
                                 $product->capturedImages = (object)[];
                             }
 
@@ -151,13 +186,18 @@ class ValidationController extends BasetablesController
                         'trace' => $e->getTraceAsString()
                     ]);
 
-                    // Continue without images but with company
                     $products->getCollection()->transform(function ($product) {
                         $product->company = $this->company;
-                        $product->capturedImages = (object)[]; // Initialize empty object to prevent JS errors
+                        $product->capturedImages = (object)[];
                         return $product;
                     });
                 }
+            } else {
+                // Add company info even if images are not included
+                $products->getCollection()->transform(function ($product) {
+                    $product->company = $this->company;
+                    return $product;
+                });
             }
 
             return response()->json($products);
@@ -174,9 +214,7 @@ class ValidationController extends BasetablesController
         }
     }
 
-
     // Move a product from Labeling to Stockroom
-
     public function moveToStockroom(Request $request)
     {
         try {
@@ -228,7 +266,6 @@ class ValidationController extends BasetablesController
             ], 500);
         }
     }
-
 
     public function moveToLabeling(Request $request)
     {
