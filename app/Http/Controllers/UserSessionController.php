@@ -93,6 +93,7 @@ class UserSessionController extends Controller
                 'main_module' => strtolower($mainModule),
                 'sub_modules' => array_map('strtolower', $subModules),
                 'modules' => [
+                    'humanresource' => 'Human Resource',
                     'order' => 'Order',
                     'unreceived' => 'Unreceived',
                     'receiving' => 'Received',
@@ -110,7 +111,8 @@ class UserSessionController extends Controller
                     'asinoption' => 'ASIN Option',
                     'houseage'=> 'Houseage',
                     'asinlist' => 'ASIN List',
-                    'printer' => 'Printer'
+                    'printer' => 'Printer',
+                     
                 ]
             ]);
     
