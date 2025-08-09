@@ -336,7 +336,7 @@ Route::prefix('api/stockroom')->group(function () {
     // amazon items post
     Route::post('post-items-to-amazon', [StockroomController::class, 'PostItemstoAmazon']);
 
-        // NEW: New Scanned Items functionality
+    // NEW: New Scanned Items functionality
     Route::get('new-scanned-count', [StockroomController::class, 'getNewScannedCount']);
     Route::get('new-scanned-items', [StockroomController::class, 'getNewScannedItems']);
     Route::post('update-fbm-status', [StockroomController::class, 'updateFbmStatus']);
@@ -648,6 +648,7 @@ use App\Http\Controllers\HrController;
 Route::prefix('hr')->group(function () {
     Route::get('/employees', [HrController::class, 'getEmployees']);
     Route::get('/time-records', [HrController::class, 'getTimeRecords']);
+    Route::post('/time-records/{id}/edit', [HrController::class, 'editTimeRecord']);
     Route::get('/leave-history', [HrController::class, 'getLeaveHistory']);
     Route::get('/violations', [HrController::class, 'getViolations']);
 });
