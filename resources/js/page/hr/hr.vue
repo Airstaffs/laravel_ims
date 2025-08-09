@@ -4,8 +4,9 @@
     <div class="nav nav-tabs">
       <template v-for="tab in tabs" :key="typeof tab === 'string' ? tab : tab.label">
         <!-- Regular tabs -->
-        <button v-if="typeof tab === 'string'" class="nav-link" :class="{ active: currentView === tab }"
-          @click="currentView = tab">
+        <button v-if="typeof tab === 'string'" class="nav-link"
+          :class="{ active: currentView === tab }"
+          @click="setView(tab)">
           {{ tab }}
         </button>
 
@@ -16,7 +17,7 @@
           </button>
           <ul class="dropdown-menu">
             <li v-for="item in tab.dropdown" :key="item">
-              <a class="dropdown-item" href="#" @click.prevent="currentView = item">
+              <a class="dropdown-item" href="#" @click.prevent="setView(item)">
                 {{ item }}
               </a>
             </li>
@@ -25,12 +26,15 @@
       </template>
     </div>
 
-    <!-- Render current component -->
+    <!-- Render current view directly -->
     <div class="p-3">
-      <component :is="currentViewComponent" :time-records="timeRecords" :filters="filters"
-        :employee-names="employeeNames" :page="page" :total-pages="totalPages" :fetch-records="fetchRecords"
-        :sort="sort" :format-date="formatDate" />
-
+      <Employee v-show="currentView === 'Employee'" />
+      <TimeRecord v-show="currentView === 'Time Record'" :hr-context="hrContext" />
+      <TimeRecordHistory v-show="currentView === 'Time Record Edit History'" />
+      <LeaveHistory v-show="currentView === 'Employee Leave History'" />
+      <RateHistory v-show="currentView === 'Employee Rate History'" />
+      <ViolationsHistory v-show="currentView === 'Violations History'" />
+      <Violations v-show="currentView === 'Violations'" />
     </div>
   </div>
 </template>

@@ -1,3 +1,13 @@
+.validation-module th:nth-child(2),
+.validation-module td:nth-child(2) {
+    width: 310px;
+    max-width: 310px;
+}
+
+.validation-module .product_info {
+    white-space: pre-wrap;
+}
+
 .validated-badge {
     background-color: #28a745;
 }

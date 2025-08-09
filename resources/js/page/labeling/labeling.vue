@@ -117,7 +117,10 @@
                                 <span><strong></strong> {{ item.ASIN }}</span>
                             </td>
                             <td>
-                                <span><strong></strong> {{ item.FNSKUviewer }}</span>
+                                <span
+                                    ><strong></strong>
+                                    {{ item.FNSKUviewer }}</span
+                                >
                             </td>
                             <td>
                                 <span
@@ -1248,11 +1251,19 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <template v-for="(fnsku, index) in validFnskuList" :key="fnsku.FNSKU">
+                                    <template
+                                        v-for="(fnsku, index) in validFnskuList"
+                                        :key="fnsku.FNSKU"
+                                    >
                                         <tr>
                                             <td>
                                                 <img
-                                                    :src="getImageSrc(fnsku.ASIN, 0)"
+                                                    :src="
+                                                        getImageSrc(
+                                                            fnsku.ASIN,
+                                                            0
+                                                        )
+                                                    "
                                                     :alt="`Main image for ${fnsku.ASIN}`"
                                                     class="asin-thumbnail"
                                                     @error="setDefaultImage"
@@ -1260,15 +1271,32 @@
                                             </td>
                                             <td>{{ fnsku.ASIN }}</td>
                                             <td>
-                                                <ul class="list-unstyled m-0 fnsku-title">
+                                                <ul
+                                                    class="list-unstyled m-0 fnsku-title"
+                                                >
                                                     <li>{{ fnsku.astitle }}</li>
-                                                    <li class="text-muted small">
-                                                        {{ fnsku.Units }} in inventory
+                                                    <li
+                                                        class="text-muted small"
+                                                    >
+                                                        {{ fnsku.Units }} in
+                                                        inventory
                                                         <!-- NEW: Show usage info -->
-                                                        <span v-if="fnsku.Units < 11" class="badge bg-warning ms-1">
-                                                            Used {{ 11 - fnsku.Units }} times
+                                                        <span
+                                                            v-if="
+                                                                fnsku.Units < 11
+                                                            "
+                                                            class="badge bg-warning ms-1"
+                                                        >
+                                                            Used
+                                                            {{
+                                                                11 - fnsku.Units
+                                                            }}
+                                                            times
                                                         </span>
-                                                        <span v-else class="badge bg-success ms-1">
+                                                        <span
+                                                            v-else
+                                                            class="badge bg-success ms-1"
+                                                        >
                                                             First use
                                                         </span>
                                                     </li>
@@ -1278,44 +1306,81 @@
                                                 <div>
                                                     {{ fnsku.FNSKU }}
                                                     <!-- NEW: Show what FNSKU will actually be assigned -->
-                                                    <div class="small text-muted">
-                                                        <i class="fas fa-arrow-right"></i>
-                                                        Will assign: <strong>{{ getNextFnskuToUse(fnsku) }}</strong>
+                                                    <div
+                                                        class="small text-muted"
+                                                    >
+                                                        <i
+                                                            class="fas fa-arrow-right"
+                                                        ></i>
+                                                        Will assign:
+                                                        <strong>{{
+                                                            getNextFnskuToUse(
+                                                                fnsku
+                                                            )
+                                                        }}</strong>
                                                     </div>
                                                 </div>
                                             </td>
                                             <td>{{ fnsku.MSKU }}</td>
-                                            <td>{{ getGradingLabel(fnsku.grading) }}</td>
+                                            <td>
+                                                {{
+                                                    getGradingLabel(
+                                                        fnsku.grading
+                                                    )
+                                                }}
+                                            </td>
                                             <td>{{ fnsku.storename }}</td>
                                             <td>
                                                 <div class="fnsku-action">
                                                     <button
-                                                        @click="selectFnsku(fnsku)"
+                                                        @click="
+                                                            selectFnsku(fnsku)
+                                                        "
                                                         class="btn btn-fnsku-select"
                                                         :class="{
-                                                            'fnsku-recommended': fnsku.ASIN === currentItem?.ASINviewer,
+                                                            'fnsku-recommended':
+                                                                fnsku.ASIN ===
+                                                                currentItem?.ASINviewer,
                                                         }"
                                                         :disabled="isSearching"
                                                     >
-                                                        {{ fnsku.ASIN === currentItem?.ASINviewer ? "Recommended" : "Select" }}
+                                                        {{
+                                                            fnsku.ASIN ===
+                                                            currentItem?.ASINviewer
+                                                                ? "Recommended"
+                                                                : "Select"
+                                                        }}
                                                     </button>
-                                                    
+
                                                     <!-- NEW: Info button to show more details -->
                                                     <button
-                                                        @click="showFnskuAvailabilityInfo(fnsku)"
+                                                        @click="
+                                                            showFnskuAvailabilityInfo(
+                                                                fnsku
+                                                            )
+                                                        "
                                                         class="btn btn-sm btn-outline-info ms-1"
                                                         title="Show FNSKU details"
                                                     >
-                                                        <i class="fas fa-info-circle"></i>
+                                                        <i
+                                                            class="fas fa-info-circle"
+                                                        ></i>
                                                     </button>
                                                 </div>
                                             </td>
                                         </tr>
                                     </template>
 
-                                    <tr v-if="filteredFnskuList.length === 0 && !isSearching">
+                                    <tr
+                                        v-if="
+                                            filteredFnskuList.length === 0 &&
+                                            !isSearching
+                                        "
+                                    >
                                         <td colspan="8" class="text-center">
-                                            <span class="fnsku-no-results">No matching FNSKUs found</span>
+                                            <span class="fnsku-no-results"
+                                                >No matching FNSKUs found</span
+                                            >
                                         </td>
                                     </tr>
                                 </tbody>

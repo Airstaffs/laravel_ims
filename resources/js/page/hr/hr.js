@@ -10,7 +10,36 @@ import ViolationsHistory from "./components/violationshistory.vue";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+const DATETIME_FIELDS = [
+    "TimeIn",
+    "TimeOut",
+    "shortbreak_start",
+    "shortbreak_end",
+];
+
+function toLocalInput(dt) {
+    if (!dt) return "";
+    const d = dt.replace(" ", "T");
+    return d.slice(0, 16); // YYYY-MM-DDTHH:MM
+}
+function fromLocalInput(dtLocal) {
+    return dtLocal ? dtLocal.replace("T", " ") + ":00" : null;
+}
+function clone(obj) {
+    return JSON.parse(JSON.stringify(obj || {}));
+}
+
 export default {
+    components: {
+        Employee,
+        TimeRecord,
+        TimeRecordHistory,
+        LeaveHistory,
+        RateHistory,
+        ViolationsHistory,
+        Violations,
+    },
+
     data() {
         return {
             // navbar controller
@@ -22,11 +51,12 @@ export default {
                     label: "History",
                     dropdown: [
                         "Time Record Edit History",
-                        "Employee Leave History", // same component as Leave History
-                        "Employee Rate History", // you can reuse or create new component
-                        "Violations History", // same as Violations.vue
+                        "Employee Leave History",
+                        "Employee Rate History",
+                        "Violations History",
                     ],
                 },
+                "Violations",
             ],
 
             // UI State
@@ -34,18 +64,11 @@ export default {
 
             // Employees
             employees: [],
-            newEmployee: {
-                name: "",
-                position: "",
-            },
+            newEmployee: { name: "", position: "" },
 
             // Time Record
             timeRecords: [],
-            filters: {
-                employee: "",
-                dateFrom: "",
-                dateTo: "",
-            },
+            filters: { employee: "", dateFrom: "", dateTo: "" },
             sortKey: "DateToday",
             sortOrder: "desc",
             page: 1,
@@ -53,24 +76,26 @@ export default {
             totalPages: 1,
             currentPage: 1,
 
+            // Edit modal
+            showEditModal: false,
+            editOriginal: null,
+            editForm: null,
+
+            // Dropdown source
             employeeNames: [],
 
-            // Leave History
+            // Histories
             leaveHistory: [],
-
-            // Violations
             violations: [],
+
+            // universal outbound payload bucket
+            data_sent: null,
+
+            // button spinner
+            submittingEdit: false,
         };
     },
-    components: {
-        Employee,
-        "Time Record": TimeRecord,
-        "Time Record Edit History": TimeRecordHistory,
-        "Employee Leave History": LeaveHistory,
-        "Employee Rate History": RateHistory,
-        "Violations History": ViolationsHistory,
-        Violations,
-    },
+
     async mounted() {
         try {
             const [empRes, leaveRes, violRes] = await Promise.all([
@@ -86,23 +111,25 @@ export default {
             console.error("Failed to load HR data", err);
         }
 
-        // Load time records
         await this.fetchRecords();
     },
+
     methods: {
-        // Employee Sheesh
+        setView(view) {
+            // Switch view but ensure only one main tab at a time
+            this.currentView = view;
+        },
+        // Employees
         addEmployee() {
             if (!this.newEmployee.name || !this.newEmployee.position) {
                 alert("Please fill in all fields.");
                 return;
             }
-
             this.employees.push({
                 id: Date.now(),
                 name: this.newEmployee.name,
                 position: this.newEmployee.position,
             });
-
             this.newEmployee = { name: "", position: "" };
             this.showAddEmployeeModal = false;
         },
@@ -120,20 +147,33 @@ export default {
                     },
                 });
 
-                const result = res.data; // ← here
+                const result = res.data;
 
-                // Use Laravel pagination format
-                this.timeRecords = result.data; // ← array of records
+                this.timeRecords = result.data;
                 this.totalPages = result.last_page;
                 this.currentPage = result.current_page;
 
-                // Get employee names for filtering
-                const names = [...new Set(result.data.map((r) => r.Employee))];
-                this.employeeNames = names;
+                // Build employeeNames from employees (fallback to page data)
+                if (Array.isArray(this.employees) && this.employees.length) {
+                    this.employeeNames = [
+                        ...new Set(
+                            this.employees.map((e) => e.name).filter(Boolean)
+                        ),
+                    ].sort((a, b) => a.localeCompare(b));
+                } else {
+                    this.employeeNames = [
+                        ...new Set(
+                            (result.data || [])
+                                .map((r) => r.Employee)
+                                .filter(Boolean)
+                        ),
+                    ].sort((a, b) => a.localeCompare(b));
+                }
             } catch (err) {
                 console.error("Failed to fetch records", err);
             }
         },
+
         sort(key) {
             if (this.sortKey === key) {
                 this.sortOrder = this.sortOrder === "asc" ? "desc" : "asc";
@@ -143,38 +183,123 @@ export default {
             }
             this.fetchRecords();
         },
+
         formatDate(datetime) {
             if (!datetime) return "-";
             const d = new Date(datetime);
             return d.toLocaleString();
         },
-    },
-    computed: {
-        filteredTimeRecords() {
-            if (this.selectedEmployee === "All") {
-                return this.timeRecords;
+
+        // Edit modal
+        openEdit(row) {
+            this.data_sent = null;
+            this.editOriginal = clone(row);
+            this.editForm = clone(row);
+
+            DATETIME_FIELDS.forEach((k) => {
+                this.editForm[`${k}_local`] = toLocalInput(this.editForm[k]);
+            });
+
+            this.showEditModal = true;
+        },
+
+        closeEdit() {
+            this.showEditModal = false;
+            this.editOriginal = null;
+            this.editForm = null;
+            this.data_sent = null;
+        },
+
+        buildAfterPayload() {
+            const f = this.editForm || {};
+            const after = clone(f);
+
+            DATETIME_FIELDS.forEach((k) => {
+                after[k] = fromLocalInput(f[`${k}_local`]);
+                delete after[`${k}_local`];
+            });
+
+            const allowed = [
+                "ID",
+                "userid",
+                "Employee",
+                "DateToday",
+                "TimeIn",
+                "TimeOut",
+                "shortbreak_start",
+                "shortbreak_end",
+                "shortbreak_totaltime",
+                "Notes",
+                "AdminNote",
+            ];
+            const cleaned = {};
+            allowed.forEach((k) => {
+                if (k in after) cleaned[k] = after[k] ?? null;
+            });
+            return cleaned;
+        },
+
+        async submitEdit() {
+            try {
+                const id = this.editOriginal?.ID || this.editForm?.ID;
+                const after = this.buildAfterPayload();
+
+                this.data_sent = { after };
+
+                this.submittingEdit = true;
+                await axios.post(
+                    `${API_BASE_URL}/hr/time-records/${id}/edit`,
+                    this.data_sent
+                );
+
+                await this.fetchRecords();
+                this.closeEdit();
+            } catch (err) {
+                console.error("Failed to save edit", err);
+            } finally {
+                this.submittingEdit = false;
+                this.data_sent = null;
             }
-            return this.timeRecords.filter(
-                (record) => record.Employee === this.selectedEmployee
-            );
         },
-        employeeOptions() {
-            const names = [...new Set(this.timeRecords.map((r) => r.Employee))];
-            return ["All", ...names];
+
+        // (Optional) helpers for pagination buttons if you want to call them from child templates
+        nextPage() {
+            if (this.page < this.totalPages) {
+                this.page += 1;
+                this.fetchRecords();
+            }
         },
-        componentMap() {
+        prevPage() {
+            if (this.page > 1) {
+                this.page -= 1;
+                this.fetchRecords();
+            }
+        },
+    },
+
+    computed: {
+        hrContext() {
             return {
-                Employee: "Employee",
-                "Time Record": "Time Record",
-                "Time Record Edit History": "Time Record Edit History",
-                "Employee Leave History": "Employee Leave History",
-                "Employee Rate History": "Employee Rate History",
-                "Violations History": "Violations History",
-                Violations: "Violations",
+                // state
+                timeRecords: this.timeRecords,
+                filters: this.filters,
+                employeeNames: this.employeeNames,
+                page: this.page,
+                totalPages: this.totalPages,
+                showEditModal: this.showEditModal,
+                editForm: this.editForm,
+                editOriginal: this.editOriginal,
+                submittingEdit: this.submittingEdit,
+                // actions
+                fetchRecords: this.fetchRecords,
+                sort: this.sort,
+                formatDate: this.formatDate,
+                openEdit: this.openEdit,
+                closeEdit: this.closeEdit,
+                submitEdit: this.submitEdit,
+                nextPage: this.nextPage,
+                prevPage: this.prevPage,
             };
-        },
-        currentViewComponent() {
-            return this.componentMap[this.currentView] || "Employee";
         },
     },
 };

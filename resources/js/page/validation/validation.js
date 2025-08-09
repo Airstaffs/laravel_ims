@@ -59,8 +59,13 @@ export default {
             isProcessing: false,
 
             items: [],
+            item: {},
+            ASIN: "",
             activeIndex: 0,
+            activeAsinIndex: 0,
             basePath: "/images/thumbnails/",
+            asinBasePath: "/images/asinimg/",
+            asinImageCount: 2,
             loading: false,
             error: null,
         };
@@ -115,8 +120,19 @@ export default {
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
         },
+        asinImageList() {
+            if (!this.ASIN) return [];
+
+            return Array.from(
+                { length: this.asinImageCount },
+                (_, i) => `${this.ASIN}_${i}.png`
+            );
+        },
         activeImageUrl() {
             return this.basePath + this.imageList[this.activeIndex];
+        },
+        activeAsinImageUrl() {
+            return this.asinBasePath + this.asinImageList[this.activeAsinIndex];
         },
     },
     methods: {
@@ -639,9 +655,9 @@ export default {
             );
 
             this.item = { ...(freshItem || item) };
+            this.ASIN = this.item.ASIN || "";
 
             this.currentValidationItem = this.item;
-
             this.showValidationModal = true;
 
             document.body.style.overflow = "hidden";
