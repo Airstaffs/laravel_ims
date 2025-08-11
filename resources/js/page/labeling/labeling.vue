@@ -158,6 +158,15 @@
                                         <i class="bi bi-clipboard-check"></i>
                                         SET FNSKU
                                     </button>
+                         <!--split -->
+                                    <button
+                                        @click="confirmSplitItem(item)"
+                                        class="btn btn-split"
+                                        :disabled="isProcessing || !canSplit(item)"
+                                        :title="!canSplit(item) ? 'Cannot split - quantity must be greater than 1' : 'Split into individual items'"
+                                    >
+                                        <i class="bi bi-scissors"></i> Split
+                                    </button>
 
                                     <button
                                         @click="confirmMoveToValidation(item)"
@@ -1531,6 +1540,15 @@
                 </div>
             </div>
         </div>
+
+     <!-- Replace the old split modal HTML with this component -->
+        <splittingModal
+            :show-modal="showSplitModal"
+            :split-item="currentSplitItem"
+            @close="closeSplitModal"
+            @split-success="onSplitSuccess"
+        />
+
     </div>
 </template>
 
