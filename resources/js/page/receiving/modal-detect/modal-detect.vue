@@ -48,13 +48,7 @@
                     <i class="fas fa-camera"></i> Capture
                 </button> -->
                 </div>
-                <!-- Add this inside your modal, ideally below the camera preview and above the actions -->
-            
-                <!-- <div class="camera-thumbnails">
-                <div v-for="(image, index) in capturedImages" :key="index" class="camera-thumbnail">
-                    <img :src="image.data" alt="Thumbnail" />
-                </div>
-                </div> -->
+                
             </div>
         </div>
 
