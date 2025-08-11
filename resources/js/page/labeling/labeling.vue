@@ -36,12 +36,12 @@
                                 </span>
                             </div>
                         </th>
-                        <th class="">Date Delivered</th>
                         <th class="">Serial Number</th>
                         <th class="">ASIN</th>
                         <th class="">FNSKU</th>
                         <th class="">Tracking Number</th>
                         <th class="">Quantity</th>
+                        <th class="">Date Delivered</th>
                         <th class="">Actions</th>
                     </tr>
                 </thead>
@@ -102,43 +102,37 @@
                             </td>
 
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.datedelivered }}</span
-                                >
+                                <span>
+                                    {{ item.serialnumber }}
+                                </span>
                             </td>
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.serialnumber }}</span
-                                >
+                                <span>
+                                    {{ item.ASIN }}
+                                </span>
                             </td>
                             <td>
-                                <span><strong></strong> {{ item.ASIN }}</span>
+                                <span>
+                                    {{ item.FNSKUviewer }}
+                                </span>
                             </td>
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.FNSKUviewer }}</span
-                                >
+                                <span>
+                                    {{ item.trackingnumber }}
+                                </span>
                             </td>
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.trackingnumber }}</span
-                                >
+                                <span> {{ item.quantity }} unit </span>
                             </td>
                             <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.quantity }} unit</span
-                                >
+                                <span>
+                                    {{ item.datedelivered }}
+                                </span>
                             </td>
 
                             <!-- Button for more details -->
                             <td>
                                 <div class="action-buttons">
-                                    {{ item.totalquantity }}
                                     <button
                                         class="btn-details"
                                         @click="toggleDetails(index)"
@@ -158,12 +152,18 @@
                                         <i class="bi bi-clipboard-check"></i>
                                         SET FNSKU
                                     </button>
-                         <!--split -->
+                                    <!--split -->
                                     <button
                                         @click="confirmSplitItem(item)"
                                         class="btn btn-split"
-                                        :disabled="isProcessing || !canSplit(item)"
-                                        :title="!canSplit(item) ? 'Cannot split - quantity must be greater than 1' : 'Split into individual items'"
+                                        :disabled="
+                                            isProcessing || !canSplit(item)
+                                        "
+                                        :title="
+                                            !canSplit(item)
+                                                ? 'Cannot split - quantity must be greater than 1'
+                                                : 'Split into individual items'
+                                        "
                                     >
                                         <i class="bi bi-scissors"></i> Split
                                     </button>
@@ -965,6 +965,17 @@
                                                 :value="item.price"
                                             />
                                         </fieldset>
+
+                                        <fieldset>
+                                            <label>
+                                                <span>Price Shipping</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                :value="item.priceshipping"
+                                            />
+                                        </fieldset>
                                     </div>
                                 </div>
                             </div>
@@ -1540,14 +1551,13 @@
             </div>
         </div>
 
-     <!-- Replace the old split modal HTML with this component -->
+        <!-- Replace the old split modal HTML with this component -->
         <splittingModal
             :show-modal="showSplitModal"
             :split-item="currentSplitItem"
             @close="closeSplitModal"
             @split-success="onSplitSuccess"
         />
-
     </div>
 </template>
 
