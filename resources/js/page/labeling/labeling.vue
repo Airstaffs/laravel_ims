@@ -947,14 +947,13 @@
                                         </fieldset>
 
                                         <fieldset>
-                                            <label
-                                                ><span>Unit Price</span></label
-                                            >
+                                            <label>
+                                                <span>Unit Price</span>
+                                            </label>
                                             <input
-                                                type="text"
-                                                class="form-control form-control-lg text-end bg-light"
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
                                                 :value="item.price"
-                                                readonly
                                             />
                                         </fieldset>
                                     </div>

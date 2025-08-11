@@ -43,9 +43,8 @@ export default {
             },
             items: [],
             activeIndex: 0,
-            basePath: "/images/thumbnails/",
+            basePath: "/images/thumbnails",
             error: null,
-            imageList: [],
             selectedImage: null,
 
             fnskuSearch: "",
@@ -1412,6 +1411,7 @@ export default {
             console.log(this.item);
 
             this.showEditModal = true;
+            this.autoResize();
 
             document.body.style.overflow = "hidden";
         },

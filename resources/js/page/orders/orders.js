@@ -65,7 +65,8 @@ export default {
                 .map((key) => this.item[key]);
         },
         activeImageUrl() {
-            return this.basePath + this.imageList[this.activeIndex];
+            const img = this.imageList?.[this.activeIndex];
+            return img ? this.basePath + img : this.defaultImage;
         },
         serialKeys() {
             return Object.keys(this.item).filter((k) =>
