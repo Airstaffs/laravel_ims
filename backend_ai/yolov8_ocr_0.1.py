@@ -10,9 +10,7 @@ import re
 # Initialize EasyOCR with detection enabled
 ocr_reader = easyocr.Reader(["en"], detector=True)
 
-# =============================
-# Utility functions
-# =============================
+# Clean + validate logic
 def clean_text(text: str) -> str:
     return text.strip().replace(" ", "").upper()
 
@@ -26,6 +24,7 @@ def is_valid_serial(text: str) -> bool:
     junk_words = ["FC", "PATP", "ROHS", "CE", "CHINA"]
     return text not in junk_words
 
+# Preprocessing for engraved/low-contrast text
 def enhance_engraved_text(image: Image.Image):
     img_gray = np.array(image.convert("L"))  # grayscale
     eq = cv2.equalizeHist(img_gray)  # contrast boost
@@ -42,25 +41,27 @@ def to_python(val):
         return {k: to_python(v) for k, v in val.items()}
     return val
 
-# =============================
-# Full detection (used for uploads)
-# =============================
+# Main detection function
 def detect_serial_number(image_bytes: bytes):
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         img_np = np.array(image)
 
-        method_used = "normal"
+        method_used = "normal"  # default to normal OCR
         serials = []
         raw_ocr = []
 
-        # First OCR attempt
+        # First OCR attempt (original image)
         ocr_results = ocr_reader.readtext(img_np)
+
         for bbox, text, _ in ocr_results:
             cleaned = clean_text(text)
             raw_ocr.append(cleaned)
             if is_valid_serial(cleaned):
-                serials.append({"text": cleaned, "bbox": bbox})
+                serials.append({
+                    "text": cleaned,
+                    "bbox": bbox  # 4-point bounding box (x, y coordinates)
+                })
 
         # Fallback if no valid serials found
         if not serials:
@@ -72,13 +73,17 @@ def detect_serial_number(image_bytes: bytes):
                 cleaned = clean_text(text)
                 raw_ocr.append(cleaned)
                 if is_valid_serial(cleaned):
-                    serials.append({"text": cleaned, "bbox": bbox})
+                    serials.append({
+                        "text": cleaned,
+                        "bbox": bbox
+                    })
 
         return to_python({
             "serials": serials,
             "raw_ocr": raw_ocr,
             "method": method_used
         })
+
 
     except Exception as e:
         return {
@@ -87,43 +92,4 @@ def detect_serial_number(image_bytes: bytes):
             "method": None,
             "error": str(e)
         }
-
-# =============================
-# Quick detection (used for live camera)
-# =============================
-def detect_serial_number_quick(image_bytes: bytes):
-    """
-    Faster detection for live camera feed.
-    Runs single OCR pass and returns bbox of first detected text,
-    even if not valid serial.
-    """
-    try:
-        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        img_np = np.array(image)
-
-        ocr_results = ocr_reader.readtext(img_np)
-
-        for bbox, text, _ in ocr_results:
-            cleaned = clean_text(text)
-            if is_valid_serial(cleaned):
-                return to_python({
-                    "found": True,
-                    "serial": cleaned,
-                    "bbox": bbox
-                })
-
-        # If no valid serial, still return first detected bbox (if any text found)
-        if ocr_results:
-            first_bbox, first_text, _ = ocr_results[0]
-            return to_python({
-                "found": False,
-                "raw_text": clean_text(first_text),
-                "bbox": first_bbox
-            })
-
-        # No text at all
-        return {"found": False, "bbox": None}
-
-    except Exception as e:
-        return {"found": False, "error": str(e), "bbox": None}
 
