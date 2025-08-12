@@ -1,0 +1,149 @@
+.fba-container {
+    max-width: 1024px;
+    margin: 40px auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+}
+
+.page-title {
+    margin-bottom: 20px;
+    text-align: center;
+    color: #333;
+}
+
+.btn-toggle-container {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.cart-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+table.cart-table tr > th {
+    text-align: center;
+}
+
+table.cart-table tr > th:first-child {
+    width: 80px;
+}
+
+table.cart-table tr > th:nth-child(2) {
+    width: 300px;
+}
+
+table.cart-table tr > th:nth-child(n + 3):nth-child(-n + 6) {
+    width: 135px;
+}
+
+table.cart-table tr > th:nth-child(n + 2):nth-child(-n + 6) {
+    white-space: pre-wrap;
+}
+
+.cart-button-container {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.exist-shipments-container,
+.create-inbound-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.shipment-block {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+.shipment-header {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.header-button-container {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+}
+
+table.shipment-table {
+    width: 100%;
+}
+
+table.shipment-table tr > th:first-child {
+    width: 150px;
+}
+
+table.shipment-table tr > th:nth-child(n + 3) {
+    width: 100px;
+}
+
+/* Add Item Modal */
+.modal-addItem,
+.modal-showStore {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-close {
+    border: none;
+    font-size: 24px;
+    color: #666;
+}
+
+.modal-addItem .modal-body,
+.modal-showStore .modal-body {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+}
+
+.modal-addItem .modal-content {
+    width: 1024px;
+}
+
+.modal-showStore .modal-content {
+    width: 600px;
+}
+
+.filter-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+}
+
+.filter-container fieldset {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    width: calc(100% / 2);
+}
+
+.filter-container label span {
+    white-space: pre;
+}

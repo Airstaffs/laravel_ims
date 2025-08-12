@@ -63,7 +63,6 @@ class FBAShipmentController extends Controller
             ]);
 
             return response()->json(['success' => true]);
-
         } catch (\Exception $e) {
             Log::error('Failed to add item to shipment', [
                 'error' => $e->getMessage(),
@@ -73,7 +72,6 @@ class FBAShipmentController extends Controller
             return response()->json(['error' => 'Failed to add item to shipment.'], 500);
         }
     }
-
     public function deleteShipmentItem(Request $request)
     {
         $request->validate([
@@ -87,8 +85,23 @@ class FBAShipmentController extends Controller
         return response()->json(['message' => 'Item removed from shipment.']);
     }
 
+    private function extractBaseFnsku($fnsku)
+    {
+        if (empty($fnsku)) {
+            return $fnsku;
+        }
+
+        // Check if it's a prefixed FNSKU (starts with C followed by digits)
+        if (preg_match('/^C(\d+)(.+)$/', $fnsku, $matches)) {
+            return $matches[2]; // Return the base FNSKU without prefix
+        }
+
+        return $fnsku; // Return as-is if not prefixed
+    }
+
     public function fetch_shipment(Request $request)
     {
+        // 1️⃣ Get shipment summaries
         $shipments = DB::table('tblfbashipmenthistory')
             ->select(
                 'shipmentID',
@@ -102,26 +115,42 @@ class FBAShipmentController extends Controller
             ->orderByDesc('latest_shipped')
             ->get();
 
-        // Attach items to each shipment
+        if ($shipments->isEmpty()) {
+            return response()->json([]); // No shipments found
+        }
+
+        // 2️⃣ Fetch ALL items for these shipments in one go
+        $allItems = DB::table('tblfbashipmenthistory')
+            ->where('row_show', 1)
+            ->whereIn('shipmentID', $shipments->pluck('shipmentID'))
+            ->get([
+                'ID',
+                'ProductName',
+                'ASIN',
+                'FNSKU',
+                'MSKU',
+                'Serialnumber',
+                'shipmentID',
+                'Location',
+                'dateshipped'
+            ]);
+
+        // 3️⃣ Add BaseFNSKU to each item
+        foreach ($allItems as $item) {
+            $item->BaseFNSKU = $this->extractBaseFnsku($item->FNSKU);
+        }
+
+        // 4️⃣ Group items by shipmentID
+        $groupedItems = $allItems->groupBy('shipmentID');
+
+        // 5️⃣ Attach items to shipments
         foreach ($shipments as $shipment) {
-            $shipment->items = DB::table('tblfbashipmenthistory')
-                ->where('shipmentID', $shipment->shipmentID)
-                ->where('row_show', 1)
-                ->get([
-                    'ID',
-                    'ProductName',
-                    'ASIN',
-                    'FNSKU',
-                    'MSKU',
-                    'Serialnumber',
-                    'shipmentID',
-                    'Location',
-                    'dateshipped'
-                ]);
+            $shipment->items = $groupedItems[$shipment->shipmentID] ?? [];
         }
 
         return response()->json($shipments);
     }
+
 
     public function package_dimension_fetcher(Request $request)
     {
@@ -204,7 +233,7 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
-        $inboundplanid = $request->input ('inboundplanid', null);
+        $inboundplanid = $request->input('inboundplanid', null);
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
@@ -390,18 +419,18 @@ class FBAShipmentController extends Controller
     public function fetchinboundplans(Request $request)
     {
         $shipmentID = $request->input('shipmentID');
-    
+
         $plans = DB::table('tblfbainboundplans')
             ->where('shipmentID', $shipmentID)
             ->get();
-    
+
         return response()->json([
             'success' => true,
             'message' => '✅ Fetched inbound plans.',
             'data' => $plans
         ]);
     }
-    
+
     public function amazon_catalog_asin($asin, $store, $destinationmarketplace)
     {
 
@@ -795,7 +824,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -935,7 +963,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1086,7 +1113,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1110,8 +1136,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
-        $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'poe99bf0d7-171b-414b-a350-02d4ed88c348'); // from process 2b
 
 
@@ -1228,7 +1254,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1252,8 +1277,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
-        $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'poe99bf0d7-171b-414b-a350-02d4ed88c348'); // from process 2b
 
 
@@ -1370,7 +1395,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1394,8 +1418,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
-        $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfbf5acd47-f457-482c-a27a-2ceecca234f1'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
 
 
@@ -1513,7 +1537,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1537,8 +1560,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
 
 
@@ -1656,7 +1679,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1680,18 +1702,18 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
         $shipmentIdfromAPI = $request->input('shipmentidfromapi', 'sh82013eed-8bd2-4642-aaae-80e7177e4d31');
 
         DB::table('tblfbainboundplans')
-        ->where('inboundplanid', $inboundplanid)
-        ->where('shipmentID', $shipmentID)
-        ->update([
-            'shipmentidfromapi' => $shipmentIdfromAPI,
-            'updated_time' => now() // update timestamp
-        ]);
+            ->where('inboundplanid', $inboundplanid)
+            ->where('shipmentID', $shipmentID)
+            ->update([
+                'shipmentidfromapi' => $shipmentIdfromAPI,
+                'updated_time' => now() // update timestamp
+            ]);
 
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
@@ -1808,7 +1830,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -1832,8 +1853,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');
         $shipDate = $request->input('shipDate', null);
         $packageWeight = $request->input('packageWeight', null);
@@ -1862,12 +1883,12 @@ class FBAShipmentController extends Controller
         $data_additionale['shipmentidfromapi'] = $shipmentidfromapi;
 
         DB::table('tblfbainboundplans')
-        ->where('inboundplanid', $inboundplanid)
-        ->where('shipmentID', $shipmentID)
-        ->update([
-            'placementOptionId' => $placementOptionId,
-            'updated_time' => now() // update timestamp
-        ]);
+            ->where('inboundplanid', $inboundplanid)
+            ->where('shipmentID', $shipmentID)
+            ->update([
+                'placementOptionId' => $placementOptionId,
+                'updated_time' => now() // update timestamp
+            ]);
 
         $companydetails = $this->fetchCompanyDetails();
 
@@ -1976,7 +1997,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -2001,8 +2021,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');
         $shipDate = $request->input('shipDate', null);
         $packageWeight = $request->input('packageWeight', null);
@@ -2013,12 +2033,12 @@ class FBAShipmentController extends Controller
         $shipmentidfromapi = $request->input('shipmentidfromapi', null);
 
         DB::table('tblfbainboundplans')
-        ->where('inboundplanid', $inboundplanid)
-        ->where('shipmentID', $shipmentID)
-        ->update([
-            'totalDeclaredValue' => $totalDeclaredValue,
-            'updated_time' => now()
-        ]);
+            ->where('inboundplanid', $inboundplanid)
+            ->where('shipmentID', $shipmentID)
+            ->update([
+                'totalDeclaredValue' => $totalDeclaredValue,
+                'updated_time' => now()
+            ]);
 
 
 
@@ -2137,7 +2157,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -2161,8 +2180,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');
         $shipDate = $request->input('shipDate', null);
         $packageWeight = $request->input('packageWeight', null);
@@ -2293,7 +2312,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -2317,8 +2335,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wf2be07b3a-417f-4f67-9560-88fae47d2273');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wf2be07b3a-417f-4f67-9560-88fae47d2273'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');
         $shipDate = $request->input('shipDate', null);
         $packageWeight = $request->input('packageWeight', null);
@@ -2446,7 +2464,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -2470,8 +2487,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wf9a0893d7-de79-489e-8dcd-9da76ff37120');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wf9a0893d7-de79-489e-8dcd-9da76ff37120'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');
         $shipDate = $request->input('shipDate', null);
         $packageWeight = $request->input('packageWeight', null);
@@ -2488,12 +2505,12 @@ class FBAShipmentController extends Controller
         $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/placementOptions/' . $placementOptionId . '/confirmation';
 
         DB::table('tblfbainboundplans')
-        ->where('inboundplanid', $inboundplanid)
-        ->where('shipmentID', $shipmentID)
-        ->update([
-            'placementOptionId' => $placementOptionId,
-            'updated_time' => now() // update timestamp
-        ]);
+            ->where('inboundplanid', $inboundplanid)
+            ->where('shipmentID', $shipmentID)
+            ->update([
+                'placementOptionId' => $placementOptionId,
+                'updated_time' => now() // update timestamp
+            ]);
 
 
         if (isset($nextToken) && !empty($nextToken)) {
@@ -2608,7 +2625,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -2632,8 +2648,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');
         $shipDate = $request->input('shipDate', null);
         $packageWeight = $request->input('packageWeight', null);
@@ -2657,12 +2673,12 @@ class FBAShipmentController extends Controller
         $companydetails = $this->fetchCompanyDetails();
 
         DB::table('tblfbainboundplans')
-        ->where('inboundplanid', $inboundplanid)
-        ->where('shipmentID', $shipmentID)
-        ->update([
-            'deliveryWindowOptionId' => $deliveryWindowOptionId,
-            'updated_time' => now() // update timestamp
-        ]);
+            ->where('inboundplanid', $inboundplanid)
+            ->where('shipmentID', $shipmentID)
+            ->update([
+                'deliveryWindowOptionId' => $deliveryWindowOptionId,
+                'updated_time' => now() // update timestamp
+            ]);
 
         if (!$companydetails) {
             return response()->json(['error' => 'Company not found'], 404);
@@ -2770,7 +2786,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -2794,8 +2809,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wf9a0893d7-de79-489e-8dcd-9da76ff37120');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wf9a0893d7-de79-489e-8dcd-9da76ff37120'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');
         $shipDate = $request->input('shipDate', null);
         $packageWeight = $request->input('packageWeight', null);
@@ -2814,12 +2829,12 @@ class FBAShipmentController extends Controller
         $path = '/inbound/fba/2024-03-20/inboundPlans/' . $inboundplanid . '/transportationOptions/confirmation';
 
         DB::table('tblfbainboundplans')
-        ->where('inboundplanid', $inboundplanid)
-        ->where('shipmentID', $shipmentID)
-        ->update([
-            'transportationOptionId' => $transportationOptionId,
-            'updated_time' => now() // update timestamp
-        ]);
+            ->where('inboundplanid', $inboundplanid)
+            ->where('shipmentID', $shipmentID)
+            ->update([
+                'transportationOptionId' => $transportationOptionId,
+                'updated_time' => now() // update timestamp
+            ]);
 
         if (isset($nextToken) && !empty($nextToken)) {
             $data_additionale['nextToken'] = $nextToken;
@@ -2940,7 +2955,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -2964,8 +2978,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wf813528cd-0315-405e-893e-7103412770f0');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wf813528cd-0315-405e-893e-7103412770f0'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e'); // from process 2b
         $shipmentIdfromAPI = $request->input('shipmentidfromapi', 'sh2d562535-fd40-4bd3-8e67-3e0b9446ae03');
 
@@ -3084,7 +3098,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -3110,8 +3123,8 @@ class FBAShipmentController extends Controller
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
-        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb');// from process 1
-        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01');// from process 2b
+        $inboundplanid = $request->input('inboundplanid', 'wfd8036e16-c026-46bf-a372-63cf7e9607fb'); // from process 1
+        $packingGroupId = $request->input('packingGroupId', 'pg81f6f672-a181-4a8b-9e8b-f57f552cfc01'); // from process 2b
         $packingOptionId = $request->input('packingOptionId', 'pgfadeaafb-3918-48d2-8f32-13a48dc9f69e');
         $shipDate = $request->input('shipDate', null);
         $packageWeight = $request->input('packageWeight', null);
@@ -3246,7 +3259,6 @@ class FBAShipmentController extends Controller
                 'body-payload' => json_decode($jsonData, true), // Decode JSON before returning
                 'logs' => $curlInfo,
             ], $response->status());
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -3311,7 +3323,6 @@ class FBAShipmentController extends Controller
                 ],
                 "items" => $itemsArray
             ];
-
         } elseif ($action == 'step2a') {
             $final_json_construct = [];
         } else if ($action == 'step3a') {
@@ -3402,7 +3413,6 @@ class FBAShipmentController extends Controller
                     ]
                 ]
             ];
-
         } elseif ($action == 'step5b') {
             $companydetails = (array) $companydetails;
 
@@ -3413,7 +3423,6 @@ class FBAShipmentController extends Controller
                     ]
                 ]
             ];
-
         } else if ($action == 'step8a') {
             $companydetails = (array) $companydetails;
 
@@ -3514,7 +3523,6 @@ class FBAShipmentController extends Controller
                 // Wait before retrying
                 sleep($retryInterval);
                 $attempt++;
-
             } while ($attempt < $maxRetries);
 
             // If max retries exceeded
@@ -3536,4 +3544,3 @@ class FBAShipmentController extends Controller
     // is a magical world of gumball
 
 }
-
