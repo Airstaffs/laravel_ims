@@ -45,7 +45,9 @@ class tblproduct extends Model
         'trackingnumber3',
         'trackingnumber4',
         'trackingnumber5',
-        'validation'
+        'validation',
+        'price',
+        'tax'
     ];
 
 

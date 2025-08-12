@@ -962,7 +962,7 @@
                                             <input
                                                 type="number"
                                                 class="form-control form-control-lg text-end"
-                                                :value="item.price"
+                                                v-model="item.price"
                                             />
                                         </fieldset>
 
@@ -973,7 +973,18 @@
                                             <input
                                                 type="number"
                                                 class="form-control form-control-lg text-end"
-                                                :value="item.priceshipping"
+                                                v-model="item.priceshipping"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label>
+                                                <span>Tax</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.tax"
                                             />
                                         </fieldset>
                                     </div>
