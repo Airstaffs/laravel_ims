@@ -22,7 +22,7 @@ export default {
     },
     methods: {
         /**
-         * Get total price from both price fields combined
+         * Get total price from all three price fields combined
          */
         getTotalPrice() {
             if (!this.splitItem) return 0;
@@ -30,16 +30,19 @@ export default {
             console.log('🔍 getTotalPrice called for item:', {
                 ProductID: this.splitItem.ProductID,
                 price: this.splitItem.price,
-                priceshipping: this.splitItem.priceshipping
+                priceshipping: this.splitItem.priceshipping,
+                tax: this.splitItem.tax
             });
             
             const price = parseFloat(this.splitItem.price) || 0;
             const priceshipping = parseFloat(this.splitItem.priceshipping) || 0;
-            const total = price + priceshipping;
+            const tax = parseFloat(this.splitItem.tax) || 0;
+            const total = price + priceshipping + tax;
             
-            console.log('🔍 Combined total price:', {
+            console.log('🔍 Combined total price from all fields:', {
                 price: price,
                 priceshipping: priceshipping,
+                tax: tax,
                 total: total
             });
             
@@ -71,7 +74,19 @@ export default {
         },
 
         /**
-         * Calculate combined unit price from both fields
+         * Get unit price for tax field
+         */
+        getUnitTax() {
+            if (!this.splitItem) return 0;
+            
+            const quantity = parseInt(this.splitItem.quantity) || 1;
+            const tax = parseFloat(this.splitItem.tax) || 0;
+            
+            return quantity > 0 ? tax / quantity : 0;
+        },
+
+        /**
+         * Calculate combined unit price from all three fields
          */
         calculateUnitPrice() {
             if (!this.splitItem) return 0;
@@ -80,7 +95,8 @@ export default {
                 ProductID: this.splitItem.ProductID,
                 quantity: this.splitItem.quantity,
                 price: this.splitItem.price,
-                priceshipping: this.splitItem.priceshipping
+                priceshipping: this.splitItem.priceshipping,
+                tax: this.splitItem.tax
             });
             
             const quantity = parseInt(this.splitItem.quantity) || 1;
@@ -93,24 +109,28 @@ export default {
         },
 
         /**
-         * Get price breakdown for display
+         * Get price breakdown for display - now includes tax
          */
         getPriceBreakdown() {
-            if (!this.splitItem) return { hasPrice: false, hasPriceShipping: false };
+            if (!this.splitItem) return { hasPrice: false, hasPriceShipping: false, hasTax: false };
             
             const price = parseFloat(this.splitItem.price) || 0;
             const priceshipping = parseFloat(this.splitItem.priceshipping) || 0;
+            const tax = parseFloat(this.splitItem.tax) || 0;
             const quantity = parseInt(this.splitItem.quantity) || 1;
             
             return {
                 hasPrice: price > 0,
                 hasPriceShipping: priceshipping > 0,
+                hasTax: tax > 0,
                 originalPrice: price,
                 originalPriceShipping: priceshipping,
+                originalTax: tax,
                 unitPrice: quantity > 0 ? price / quantity : 0,
                 unitPriceShipping: quantity > 0 ? priceshipping / quantity : 0,
-                totalOriginal: price + priceshipping,
-                totalUnit: quantity > 0 ? (price + priceshipping) / quantity : 0
+                unitTax: quantity > 0 ? tax / quantity : 0,
+                totalOriginal: price + priceshipping + tax,
+                totalUnit: quantity > 0 ? (price + priceshipping + tax) / quantity : 0
             };
         },
 
@@ -164,7 +184,8 @@ export default {
                 rtcounter: this.splitItem?.rtcounter,
                 quantity: this.splitItem?.quantity,
                 price: this.splitItem?.price,
-                priceshipping: this.splitItem?.priceshipping
+                priceshipping: this.splitItem?.priceshipping,
+                tax: this.splitItem?.tax
             });
 
             if (!this.splitItem || !this.splitItem.ProductID) {
@@ -181,18 +202,20 @@ export default {
                 this.isSplitting = true;
                 console.log('🔍 Starting split API call...');
 
-                // Calculate both price fields
+                // Calculate all three price fields
                 const price = parseFloat(this.splitItem.price) || 0;
                 const priceshipping = parseFloat(this.splitItem.priceshipping) || 0;
-                const totalPrice = price + priceshipping;
+                const tax = parseFloat(this.splitItem.tax) || 0;
+                const totalPrice = price + priceshipping + tax;
 
                 const payload = {
                     product_id: this.splitItem.ProductID,
                     rt_counter: this.splitItem.rtcounter,
                     quantity: parseInt(this.splitItem.quantity),
-                    // Send both price fields separately so backend can split them individually
+                    // Send all three price fields separately so backend can split them individually
                     price: price,
                     priceshipping: priceshipping,
+                    tax: tax,
                     total_price: totalPrice, // Also send combined total for reference
                 };
                 
@@ -236,13 +259,16 @@ export default {
                                 <ul>`;
 
                     if (breakdown.hasPrice) {
-                        successMessage += `<li>Price: $${breakdown.unitPrice.toFixed(2)} (was $${breakdown.originalPrice.toFixed(2)})</li>`;
+                        successMessage += `<li>Price: ${breakdown.unitPrice.toFixed(2)} (was ${breakdown.originalPrice.toFixed(2)})</li>`;
                     }
                     if (breakdown.hasPriceShipping) {
-                        successMessage += `<li>Shipping Price: $${breakdown.unitPriceShipping.toFixed(2)} (was $${breakdown.originalPriceShipping.toFixed(2)})</li>`;
+                        successMessage += `<li>Shipping Price: ${breakdown.unitPriceShipping.toFixed(2)} (was ${breakdown.originalPriceShipping.toFixed(2)})</li>`;
                     }
-                    if (breakdown.hasPrice || breakdown.hasPriceShipping) {
-                        successMessage += `<li><strong>Combined Unit Price: $${breakdown.totalUnit.toFixed(2)}</strong></li>`;
+                    if (breakdown.hasTax) {
+                        successMessage += `<li>Tax: ${breakdown.unitTax.toFixed(2)} (was ${breakdown.originalTax.toFixed(2)})</li>`;
+                    }
+                    if (breakdown.hasPrice || breakdown.hasPriceShipping || breakdown.hasTax) {
+                        successMessage += `<li><strong>Combined Unit Price: ${breakdown.totalUnit.toFixed(2)}</strong></li>`;
                     }
 
                     successMessage += `</ul></div>`;
@@ -252,7 +278,7 @@ export default {
                     }
 
                     if (totalPrice === 0) {
-                        successMessage += `<p class="text-warning"><strong>⚠️ Note:</strong> Items were split with $0.00 price since no original price was set.</p>`;
+                        successMessage += `<p class="text-warning"><strong>⚠️ Note:</strong> Items were split with $0.00 price since no original prices were set.</p>`;
                     }
 
                     successMessage += `</div>`;

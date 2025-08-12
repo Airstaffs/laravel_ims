@@ -4,11 +4,11 @@
         v-if="showModal" 
         class="modal split-modal"
         :class="{ show: showModal }"
-        @click.self="closeModal"
+        @click.self="closeModal($event)"
     >
         <div 
             class="modal-overlay" 
-            @click.stop="closeModal"
+            @click.stop="closeModal($event)"
         ></div>
         
         <div 
@@ -19,7 +19,7 @@
                 <h3>Split Item into Individual Units</h3>
                 <button 
                     class="btn btn-modal-close" 
-                    @click.stop="closeModal" 
+                    @click.stop="closeModal($event)" 
                     type="button"
                     :disabled="isSplitting"
                 >
@@ -35,7 +35,7 @@
                         <p><strong>Product Title:</strong> {{ splitItem.ProductTitle || splitItem.AStitle }}</p>
                         <p><strong>Current Quantity:</strong> {{ splitItem.quantity }}</p>
                         
-                        <!-- Enhanced price display for BOTH price fields -->
+                        <!-- Enhanced price display for ALL THREE price fields -->
                         <div class="price-breakdown">
                             <h5>Price Information</h5>
                             <div v-if="getTotalPrice() > 0">
@@ -57,6 +57,15 @@
                                         <p>Current Total: ${{ getPriceBreakdown().originalPriceShipping.toFixed(2) }}</p>
                                         <p>Price per Unit: ${{ getPriceBreakdown().unitPriceShipping.toFixed(2) }}</p>
                                     </div>
+
+                                    <div v-if="getPriceBreakdown().hasTax" class="price-field-info">
+                                        <div class="price-field-header">
+                                            <i class="fas fa-receipt"></i>
+                                            <strong>Tax Field</strong>
+                                        </div>
+                                        <p>Current Total: ${{ getPriceBreakdown().originalTax.toFixed(2) }}</p>
+                                        <p>Tax per Unit: ${{ getPriceBreakdown().unitTax.toFixed(2) }}</p>
+                                    </div>
                                 </div>
                                 
                                 <div class="combined-total">
@@ -71,9 +80,9 @@
                             <div v-else class="no-price-warning">
                                 <p class="text-warning">
                                     <i class="fas fa-exclamation-triangle"></i> 
-                                    <strong>No price set</strong> - Both price and shipping price are empty or $0.00
+                                    <strong>No price set</strong> - All price fields (price, shipping, tax) are empty or $0.00
                                 </p>
-                                <p class="text-muted small">Each split item will have $0.00 in both price fields</p>
+                                <p class="text-muted small">Each split item will have $0.00 in all price fields</p>
                             </div>
                         </div>
                     </div>
@@ -93,13 +102,16 @@
                                     <li v-if="getPriceBreakdown().hasPriceShipping">
                                         Shipping Price: ${{ getPriceBreakdown().unitPriceShipping.toFixed(2) }}
                                     </li>
+                                    <li v-if="getPriceBreakdown().hasTax">
+                                        Tax: ${{ getPriceBreakdown().unitTax.toFixed(2) }}
+                                    </li>
                                     <li class="combined-price">
                                         <strong>Combined: ${{ calculateUnitPrice().toFixed(2) }}</strong>
                                     </li>
                                 </ul>
                             </li>
                             <li v-else class="text-warning">
-                                Each item will have quantity = 1 and both price fields = $0.00 (no price to split)
+                                Each item will have quantity = 1 and all price fields = $0.00 (no price to split)
                             </li>
                             <li>All items will remain in the Labeling module</li>
                         </ul>
@@ -108,10 +120,10 @@
                     <div class="split-warning">
                         <p><strong>⚠️ Warning:</strong> This action cannot be undone. Are you sure you want to proceed?</p>
                         <p v-if="getTotalPrice() <= 0" class="text-warning">
-                            <strong>Note:</strong> Since there is no price set, all split items will have $0.00 in both price fields.
+                            <strong>Note:</strong> Since there is no price set, all split items will have $0.00 in all price fields.
                         </p>
                         <p v-else class="price-split-warning">
-                            <strong>Price Split:</strong> Both price and shipping price fields will be divided equally among all units.
+                            <strong>Price Split:</strong> Price, shipping price, and tax fields will all be divided equally among all units.
                         </p>
                     </div>
                 </div>
@@ -124,14 +136,14 @@
             </div>
 
             <div class="modal-footer">
-              <!--  <button 
+                <button 
                     class="btn-cancel" 
-                    @click.stop="closeModal" 
+                    @click.stop="closeModal($event)" 
                     type="button" 
                     :disabled="isSplitting"
                 >
                     Cancel
-                </button> -->
+                </button>
                 <button
                     class="btn-confirm btn-split"
                     @click.stop="performSplit"
@@ -185,7 +197,7 @@ export default splittingjs;
 
 .price-fields-breakdown {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 15px;
     margin-bottom: 15px;
 }
