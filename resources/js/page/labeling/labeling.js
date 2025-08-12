@@ -8,8 +8,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
     name: "ProductList",
-     components: {
-        splittingModal
+    components: {
+        splittingModal,
     },
     data() {
         return {
@@ -68,7 +68,6 @@ export default {
             currentSplitItem: null,
         };
     },
-
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
@@ -187,7 +186,7 @@ export default {
             const timesUsed = 11 - fnsku.Units;
 
             if (timesUsed === 0) return "bg-success";
-            if (timesUsed <= 5) return "bg-warning";  // ✅ FIXED: timesUsed (was timesUsused)
+            if (timesUsed <= 5) return "bg-warning"; // ✅ FIXED: timesUsed (was timesUsused)
             return "bg-danger";
         },
 
@@ -1054,10 +1053,13 @@ export default {
 
         async showFnskuAvailabilityInfo(fnsku) {
             try {
-                const response = await axios.get(`${API_BASE_URL}/api/fnsku/availability`, {
-                    params: { fnsku: fnsku.FNSKU },
-                    withCredentials: true,
-                });
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/fnsku/availability`,
+                    {
+                        params: { fnsku: fnsku.FNSKU },
+                        withCredentials: true,
+                    }
+                );
 
                 if (response.data.success && response.data.fnsku_info) {
                     const info = response.data.fnsku_info;
@@ -1111,10 +1113,13 @@ export default {
          */
         async validateFnskuBeforeAssignment(fnsku) {
             try {
-                const response = await axios.get(`${API_BASE_URL}/api/fnsku/availability`, {
-                    params: { fnsku: fnsku.FNSKU },
-                    withCredentials: true,
-                });
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/fnsku/availability`,
+                    {
+                        params: { fnsku: fnsku.FNSKU },
+                        withCredentials: true,
+                    }
+                );
 
                 return response.data.success && response.data.available;
             } catch (error) {
@@ -1422,31 +1427,35 @@ export default {
         async saveEditModal() {
             this.loading = true;
 
-            // Validate required prefixes
-            const errors = [];
-
-            if (this.item.RPN && !/^RPN\d+$/i.test(this.item.RPN)) {
-                errors.push("RPN must start with 'RPN' followed by numbers.");
-            }
-
-            if (this.item.PRD && !/^PRD\d+$/i.test(this.item.PRD)) {
-                errors.push("PRD must start with 'PRD' followed by numbers.");
-            }
-
-            if (this.item.PCN && !/^PCN\d+$/i.test(this.item.PCN)) {
-                errors.push("PCN must start with 'PCN' followed by numbers.");
-            }
+            ["RPN", "PRD", "PCN", "basketnumber"].forEach((k) => {
+                if (this.item[k])
+                    this.item[k] = String(this.item[k]).toUpperCase().trim();
+            });
 
             if (
                 this.item.basketnumber &&
-                !/^BKT\d+$/i.test(this.item.basketnumber)
+                /^\d+$/.test(this.item.basketnumber)
             ) {
+                this.item.basketnumber = `BKT${this.item.basketnumber}`;
+            }
+
+            // Validate required prefixes
+            const errors = [];
+            if (this.item.RPN && !/^RPN\d+$/.test(this.item.RPN))
+                errors.push("RPN must start with 'RPN' followed by numbers.");
+            if (this.item.PRD && !/^PRD\d+$/.test(this.item.PRD))
+                errors.push("PRD must start with 'PRD' followed by numbers.");
+            if (this.item.PCN && !/^PCN\d+$/.test(this.item.PCN))
+                errors.push("PCN must start with 'PCN' followed by numbers.");
+            if (
+                this.item.basketnumber &&
+                !/^BKT\d+$/.test(this.item.basketnumber)
+            )
                 errors.push(
                     "Basket Number must start with 'BKT' followed by numbers."
                 );
-            }
 
-            if (errors.length > 0) {
+            if (errors.length) {
                 this.loading = false;
                 await Swal.fire({
                     icon: "error",
@@ -1465,21 +1474,22 @@ export default {
                         .getAttribute("content"),
                 };
 
+                console.log(
+                    "POST payload:",
+                    JSON.parse(JSON.stringify(payload))
+                );
+
                 const response = await axios.post(
                     "/api/labeling/products",
                     payload
                 );
                 const updated = response.data.product;
 
-                // Update item in list if exists, else add on top
                 const index = this.items.findIndex(
                     (p) => p.ProductID === updated.ProductID
                 );
-                if (index !== -1) {
-                    this.items.splice(index, 1, updated);
-                } else {
-                    this.items.unshift(updated);
-                }
+                if (index !== -1) this.items.splice(index, 1, updated);
+                else this.items.unshift(updated);
 
                 await Swal.fire({
                     icon: "success",
@@ -1491,19 +1501,25 @@ export default {
                 });
 
                 this.closeEditModal();
-                await this.fetchInventory(); // refresh your list/table
+                await this.fetchInventory();
             } catch (error) {
-                console.error("Save failed:", error);
+                console.error("Save failed:", {
+                    message: error.message,
+                    status: error.response?.status,
+                    data: error.response?.data,
+                });
 
                 let message =
                     "An error occurred while saving. Please try again.";
-                if (error.response && error.response.data) {
-                    if (error.response.status === 422) {
-                        const errors = error.response.data.errors;
-                        message = Object.values(errors).flat().join("\n");
-                    } else if (error.response.data.message) {
-                        message = error.response.data.message;
-                    }
+                if (
+                    error.response?.status === 422 &&
+                    error.response.data?.errors
+                ) {
+                    message = Object.values(error.response.data.errors)
+                        .flat()
+                        .join("\n");
+                } else if (error.response?.data?.message) {
+                    message = error.response.data.message;
                 }
 
                 Swal.fire({
@@ -1535,21 +1551,21 @@ export default {
             return gradingMap[grading] || grading;
         },
 
-     canSplit(item) {
-            console.log('🔍 canSplit called for item:', {
+        canSplit(item) {
+            console.log("🔍 canSplit called for item:", {
                 ProductID: item.ProductID,
                 ProductTitle: item.ProductTitle,
                 quantity: item.quantity,
                 price: item.price,
-                priceshipping: item.priceshipping
+                priceshipping: item.priceshipping,
             });
-            
+
             const quantity = parseInt(item.quantity) || 0;
-            console.log('🔍 Quantity parsed:', quantity);
-            
+            console.log("🔍 Quantity parsed:", quantity);
+
             const result = quantity > 1;
-            console.log('🔍 Can split result:', result);
-            
+            console.log("🔍 Can split result:", result);
+
             return result;
         },
 
@@ -1557,48 +1573,48 @@ export default {
          * Show split confirmation dialog and open modal
          */
         confirmSplitItem(item) {
-            console.log('🚀 SPLIT BUTTON CLICKED!');
-            console.log('🔍 Item received:', {
+            console.log("🚀 SPLIT BUTTON CLICKED!");
+            console.log("🔍 Item received:", {
                 ProductID: item.ProductID,
                 ProductTitle: item.ProductTitle,
                 quantity: item.quantity,
                 price: item.price,
-                priceshipping: item.priceshipping
+                priceshipping: item.priceshipping,
             });
-            
+
             // Check quantity first
             const canSplitResult = this.canSplit(item);
-            console.log('🔍 canSplit result:', canSplitResult);
-            
+            console.log("🔍 canSplit result:", canSplitResult);
+
             if (!canSplitResult) {
-                console.log('❌ Cannot split - quantity too low');
+                console.log("❌ Cannot split - quantity too low");
                 Swal.fire({
-                    icon: 'warning',
-                    title: 'Cannot Split',
-                    text: 'This item cannot be split because the quantity is 1 or less.',
+                    icon: "warning",
+                    title: "Cannot Split",
+                    text: "This item cannot be split because the quantity is 1 or less.",
                 });
                 return;
             }
 
             // Check if we have a valid price
             const totalPrice = this.getTotalPrice(item);
-            console.log('🔍 Total price found:', totalPrice);
-            
+            console.log("🔍 Total price found:", totalPrice);
+
             // If no price, show confirmation but allow to proceed
             if (totalPrice <= 0) {
-                console.log('⚠️ No price found - showing confirmation');
+                console.log("⚠️ No price found - showing confirmation");
                 Swal.fire({
-                    icon: 'warning',
-                    title: 'No Price Set',
+                    icon: "warning",
+                    title: "No Price Set",
                     html: `
                         <p>This item has no price or shipping price set.</p>
                         <p><strong>Do you still want to proceed with the split?</strong></p>
                         <p class="text-muted small">Each split item will have $0.00 as the price.</p>
                     `,
                     showCancelButton: true,
-                    confirmButtonText: 'Yes, Split Anyway',
-                    cancelButtonText: 'Cancel',
-                    reverseButtons: true
+                    confirmButtonText: "Yes, Split Anyway",
+                    cancelButtonText: "Cancel",
+                    reverseButtons: true,
                 }).then((result) => {
                     if (result.isConfirmed) {
                         this.openSplitModal(item);
@@ -1615,37 +1631,45 @@ export default {
          * Open the split modal
          */
         openSplitModal(item) {
-            console.log('✅ Opening split modal');
-            
+            console.log("✅ Opening split modal");
+
             // Set the modal data
             this.currentSplitItem = { ...item };
-            console.log('🔍 currentSplitItem set to:', {
+            console.log("🔍 currentSplitItem set to:", {
                 ProductID: this.currentSplitItem.ProductID,
-                quantity: this.currentSplitItem.quantity
+                quantity: this.currentSplitItem.quantity,
             });
-            
+
             // Show the modal
             this.showSplitModal = true;
-            console.log('🔍 After setting: showSplitModal =', this.showSplitModal);
+            console.log(
+                "🔍 After setting: showSplitModal =",
+                this.showSplitModal
+            );
         },
 
         /**
          * Close the split modal
          */
         closeSplitModal() {
-            console.log('🚀 CLOSE SPLIT MODAL CALLED');
-            
+            console.log("🚀 CLOSE SPLIT MODAL CALLED");
+
             this.showSplitModal = false;
             this.currentSplitItem = null;
-            
-            console.log('🔍 After close: showSplitModal =', this.showSplitModal);
+
+            console.log(
+                "🔍 After close: showSplitModal =",
+                this.showSplitModal
+            );
         },
 
         /**
          * Handle successful split - refresh inventory
          */
         async onSplitSuccess() {
-            console.log('🔍 Split success event received - refreshing inventory');
+            console.log(
+                "🔍 Split success event received - refreshing inventory"
+            );
             await this.fetchInventory();
         },
 
@@ -1654,20 +1678,19 @@ export default {
          */
         getTotalPrice(item) {
             if (!item) return 0;
-            
+
             const price = parseFloat(item.price) || 0;
             const priceshipping = parseFloat(item.priceshipping) || 0;
             const total = price + priceshipping;
-            
-            console.log('🔍 getTotalPrice - Combined from both fields:', {
+
+            console.log("🔍 getTotalPrice - Combined from both fields:", {
                 price: price,
                 priceshipping: priceshipping,
-                total: total
+                total: total,
             });
-            
+
             return total;
         },
-
     },
 
     watch: {
@@ -1679,12 +1702,12 @@ export default {
         currentItem() {
             this.selectedImage = this.mainImage;
         },
-        
+
         // Add debug watcher for split modal
         showSplitModal(newVal, oldVal) {
-            console.log('🔍 showSplitModal changed:', oldVal, '->', newVal);
+            console.log("🔍 showSplitModal changed:", oldVal, "->", newVal);
             if (newVal && !this.currentSplitItem) {
-                console.log('⚠️ Modal shown but no currentSplitItem!');
+                console.log("⚠️ Modal shown but no currentSplitItem!");
             }
         },
     },
@@ -1711,9 +1734,12 @@ export default {
 
         window.addEventListener("keydown", handleKeyDown);
         this.handleKeyDown = handleKeyDown; // Store for cleanup
-        
+
         // Debug: Log initial state
-        console.log('🔍 Component mounted. showSplitModal initial state:', this.showSplitModal);
+        console.log(
+            "🔍 Component mounted. showSplitModal initial state:",
+            this.showSplitModal
+        );
     },
 
     beforeDestroy() {

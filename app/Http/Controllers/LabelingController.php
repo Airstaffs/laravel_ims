@@ -40,10 +40,10 @@ class LabelingController extends BasetablesController
         try {
             // Get current user
             $username = Auth::id() ?? (Auth::user()->name ?? 'system');
-            
+
             // Use the itemProcessHistoryTable from BasetablesController pattern
             $historyTable = $this->itemProcessHistoryTable;
-            
+
             Log::info('Attempting to insert history', [
                 'table' => $historyTable,
                 'rtcounter' => $rtCounter,
@@ -60,19 +60,19 @@ class LabelingController extends BasetablesController
                     'Module' => 'Labeling',
                     'Action' => $action,
                 ];
-                
+
                 // Add any additional data if provided
                 $historyData = array_merge($historyData, $additionalData);
-                
+
                 DB::table($historyTable)->insert($historyData);
-                
+
                 Log::info('Item history inserted successfully', [
                     'rtcounter' => $rtCounter,
                     'action' => $action,
                     'table' => $historyTable,
                     'data' => $historyData
                 ]);
-                
+
                 return true;
             } else {
                 Log::warning('History table does not exist, skipping history insert', [
@@ -131,12 +131,12 @@ class LabelingController extends BasetablesController
             // Extract all unique base FNSKUs from products
             $baseFnskus = [];
             $fnskuProductMap = [];
-            
+
             foreach ($products->items() as $product) {
                 if (!empty($product->FNSKUviewer)) {
                     $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
                     $baseFnskus[] = $baseFnsku;
-                    
+
                     if (!isset($fnskuProductMap[$baseFnsku])) {
                         $fnskuProductMap[$baseFnsku] = [];
                     }
@@ -153,7 +153,7 @@ class LabelingController extends BasetablesController
                     ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
                     ->whereIn('FNSKU', $baseFnskus)
                     ->get();
-                
+
                 foreach ($fnskuRecords as $record) {
                     $fnskuData[$record->FNSKU] = $record;
                 }
@@ -172,7 +172,7 @@ class LabelingController extends BasetablesController
                     ->select('ASIN', 'internal')
                     ->whereIn('ASIN', $asinList)
                     ->get();
-                
+
                 foreach ($asinRecords as $record) {
                     $asinData[$record->ASIN] = $record;
                 }
@@ -183,7 +183,7 @@ class LabelingController extends BasetablesController
                 $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData, $search) {
                     // Add FNSKU and ASIN data
                     $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    
+
                     if (isset($fnskuData[$baseFnsku])) {
                         $fnskuRecord = $fnskuData[$baseFnsku];
                         $product->FNSKU = $fnskuRecord->FNSKU;
@@ -191,23 +191,23 @@ class LabelingController extends BasetablesController
                         $product->ASIN = $fnskuRecord->ASIN;
                         $product->grading = $fnskuRecord->grading;
                         $product->storename = $fnskuRecord->storename;
-                        
+
                         if (isset($asinData[$fnskuRecord->ASIN])) {
                             $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
                         }
                     }
-                    
+
                     return $product;
                 });
 
                 // Filter products that match additional search criteria
                 $filteredProducts = $products->getCollection()->filter(function ($product) use ($search) {
                     return stripos($product->MSKU ?? '', $search) !== false ||
-                           stripos($product->ASIN ?? '', $search) !== false ||
-                           stripos($product->AStitle ?? '', $search) !== false ||
-                           stripos($product->serialnumber ?? '', $search) !== false ||
-                           stripos($product->FNSKUviewer ?? '', $search) !== false ||
-                           stripos($product->rtcounter ?? '', $search) !== false;
+                        stripos($product->ASIN ?? '', $search) !== false ||
+                        stripos($product->AStitle ?? '', $search) !== false ||
+                        stripos($product->serialnumber ?? '', $search) !== false ||
+                        stripos($product->FNSKUviewer ?? '', $search) !== false ||
+                        stripos($product->rtcounter ?? '', $search) !== false;
                 });
 
                 $products->setCollection($filteredProducts);
@@ -215,7 +215,7 @@ class LabelingController extends BasetablesController
                 // Add FNSKU and ASIN data to all products
                 $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData) {
                     $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    
+
                     if (isset($fnskuData[$baseFnsku])) {
                         $fnskuRecord = $fnskuData[$baseFnsku];
                         $product->FNSKU = $fnskuRecord->FNSKU;
@@ -223,12 +223,12 @@ class LabelingController extends BasetablesController
                         $product->ASIN = $fnskuRecord->ASIN;
                         $product->grading = $fnskuRecord->grading;
                         $product->storename = $fnskuRecord->storename;
-                        
+
                         if (isset($asinData[$fnskuRecord->ASIN])) {
                             $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
                         }
                     }
-                    
+
                     return $product;
                 });
             }
@@ -380,7 +380,7 @@ class LabelingController extends BasetablesController
                 ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
                 ->whereIn('FNSKU', $baseFnskus)
                 ->get();
-            
+
             foreach ($fnskuRecords as $record) {
                 $fnskuData[$record->FNSKU] = $record;
             }
@@ -399,7 +399,7 @@ class LabelingController extends BasetablesController
                 ->select('ASIN', 'internal')
                 ->whereIn('ASIN', $asinList)
                 ->get();
-            
+
             foreach ($asinRecords as $record) {
                 $asinData[$record->ASIN] = $record;
             }
@@ -408,7 +408,7 @@ class LabelingController extends BasetablesController
         // Combine data
         $results = $products->map(function ($product) use ($fnskuData, $asinData, $search) {
             $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-            
+
             if (isset($fnskuData[$baseFnsku])) {
                 $fnskuRecord = $fnskuData[$baseFnsku];
                 $product->FNSKU = $fnskuRecord->FNSKU;
@@ -416,12 +416,12 @@ class LabelingController extends BasetablesController
                 $product->ASIN = $fnskuRecord->ASIN;
                 $product->grading = $fnskuRecord->grading;
                 $product->storename = $fnskuRecord->storename;
-                
+
                 if (isset($asinData[$fnskuRecord->ASIN])) {
                     $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
                 }
             }
-            
+
             return $product;
         });
 
@@ -429,11 +429,11 @@ class LabelingController extends BasetablesController
         if (!empty($search)) {
             $results = $results->filter(function ($product) use ($search) {
                 return stripos($product->MSKU ?? '', $search) !== false ||
-                       stripos($product->ASIN ?? '', $search) !== false ||
-                       stripos($product->AStitle ?? '', $search) !== false ||
-                       stripos($product->serialnumber ?? '', $search) !== false ||
-                       stripos($product->FNSKUviewer ?? '', $search) !== false ||
-                       stripos($product->rtcounter ?? '', $search) !== false;
+                    stripos($product->ASIN ?? '', $search) !== false ||
+                    stripos($product->AStitle ?? '', $search) !== false ||
+                    stripos($product->serialnumber ?? '', $search) !== false ||
+                    stripos($product->FNSKUviewer ?? '', $search) !== false ||
+                    stripos($product->rtcounter ?? '', $search) !== false;
             });
         }
 
@@ -496,7 +496,7 @@ class LabelingController extends BasetablesController
 
             // UPDATED: Extract base FNSKU and get related data
             $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
-            
+
             $fnskuRecord = null;
             if (!empty($baseFnsku)) {
                 $fnskuRecord = DB::table($this->fnskuTable)
@@ -684,7 +684,7 @@ class LabelingController extends BasetablesController
 
             // UPDATED: Extract base FNSKU and get related data
             $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
-            
+
             $fnskuRecord = null;
             if (!empty($baseFnsku)) {
                 $fnskuRecord = DB::table($this->fnskuTable)
@@ -819,366 +819,364 @@ class LabelingController extends BasetablesController
     /**
      * Split an item into individual units with history tracking
      */
-   public function splitItem(Request $request)
-{
-    Log::info('=== SPLIT ITEM CALLED ===', [
-        'request_data' => $request->all(),
-        'product_table' => $this->productTable,
-        'user' => Auth::user()->name ?? 'system'
-    ]);
-
-    try {
-        // Updated validation - handle both price fields separately
-        $validator = Validator::make($request->all(), [
-            'product_id' => 'required|integer',
-            'rt_counter' => 'required',
-            'quantity' => 'required|integer|min:2',
-            'price' => 'nullable|numeric|min:0',
-            'priceshipping' => 'nullable|numeric|min:0',
-            'total_price' => 'nullable|numeric|min:0',
+    public function splitItem(Request $request)
+    {
+        Log::info('=== SPLIT ITEM CALLED ===', [
+            'request_data' => $request->all(),
+            'product_table' => $this->productTable,
+            'user' => Auth::user()->name ?? 'system'
         ]);
-
-        if ($validator->fails()) {
-            Log::error('Validation failed in splitItem', [
-                'errors' => $validator->errors(),
-                'request_data' => $request->all()
-            ]);
-            
-            // Insert history for failed validation
-            if ($request->rt_counter) {
-                $this->insertItemHistory($request->rt_counter, 'Split Item Failed - Validation Error', [
-                    'errors' => $validator->errors()->toArray(),
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
-            }
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation error',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $productId = $request->product_id;
-        $rtCounter = $request->rt_counter;
-        $currentQuantity = (int)$request->quantity;
-        
-        // Handle both price fields
-        $originalPrice = (float)($request->price ?? 0);
-        $originalPriceShipping = (float)($request->priceshipping ?? 0);
-        $totalPrice = $originalPrice + $originalPriceShipping;
-
-        Log::info('Processing split request with both price fields', [
-            'product_id' => $productId,
-            'rt_counter' => $rtCounter,
-            'current_quantity' => $currentQuantity,
-            'original_price' => $originalPrice,
-            'original_priceshipping' => $originalPriceShipping,
-            'total_price' => $totalPrice
-        ]);
-
-        // Check if quantity is valid for splitting
-        if ($currentQuantity <= 1) {
-            $this->insertItemHistory($rtCounter, 'Split Item Failed - Invalid Quantity', [
-                'quantity' => $currentQuantity,
-                'attempted_by' => Auth::user()->name ?? 'system'
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Split not possible. Quantity must be greater than 1.'
-            ], 422);
-        }
-
-        // Get the original product
-        $originalProduct = DB::table($this->productTable)
-            ->where('ProductID', $productId)
-            ->first();
-
-        if (!$originalProduct) {
-            Log::error('Product not found for splitting', [
-                'product_id' => $productId,
-                'table' => $this->productTable
-            ]);
-            
-            $this->insertItemHistory($rtCounter, 'Split Item Failed - Product Not Found', [
-                'product_id' => $productId,
-                'attempted_by' => Auth::user()->name ?? 'system'
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found'
-            ], 404);
-        }
-
-        Log::info('Original product found', [
-            'ProductID' => $originalProduct->ProductID,
-            'rtcounter' => $originalProduct->rtcounter,
-            'quantity' => $originalProduct->quantity,
-            'price' => $originalProduct->price ?? 'null',
-            'priceshipping' => $originalProduct->priceshipping ?? 'null'
-        ]);
-
-        // Verify the quantity matches what was sent
-        $dbQuantity = (int)($originalProduct->quantity ?? 0);
-        if ($dbQuantity !== $currentQuantity) {
-            Log::warning('Quantity mismatch detected', [
-                'sent_quantity' => $currentQuantity,
-                'db_quantity' => $dbQuantity,
-                'product_id' => $productId
-            ]);
-            
-            $this->insertItemHistory($rtCounter, 'Split Item Failed - Quantity Mismatch', [
-                'sent_quantity' => $currentQuantity,
-                'db_quantity' => $dbQuantity,
-                'attempted_by' => Auth::user()->name ?? 'system'
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Quantity mismatch. The item may have been modified by another user.'
-            ], 422);
-        }
-
-        // Calculate unit prices for BOTH fields
-        $unitPrice = $currentQuantity > 0 ? round($originalPrice / $currentQuantity, 2) : 0;
-        $unitPriceShipping = $currentQuantity > 0 ? round($originalPriceShipping / $currentQuantity, 2) : 0;
-        $totalUnitPrice = $unitPrice + $unitPriceShipping;
-
-        Log::info('Calculated unit prices for both fields', [
-            'original_price' => $originalPrice,
-            'original_priceshipping' => $originalPriceShipping,
-            'total_original' => $totalPrice,
-            'quantity' => $currentQuantity,
-            'unit_price' => $unitPrice,
-            'unit_priceshipping' => $unitPriceShipping,
-            'total_unit_price' => $totalUnitPrice
-        ]);
-
-        // Get current max rtcounter to generate new RT numbers
-        $maxRtResult = DB::table($this->productTable)
-            ->selectRaw('MAX(rtcounter) as maxrt')
-            ->first();
-        
-        $newRt = (int)($maxRtResult->maxrt ?? 0);
-
-        Log::info('Current max RT counter', [
-            'max_rt' => $newRt,
-            'will_start_new_items_from' => $newRt + 1
-        ]);
-
-        // Start database transaction
-        DB::beginTransaction();
 
         try {
-            // Insert history for split start
-            $this->insertItemHistory($rtCounter, 'Split Item', [
-                'original_quantity' => $currentQuantity,
-                'original_price' => $originalPrice,
-                'original_priceshipping' => $originalPriceShipping,
-                'total_original_price' => $totalPrice,
-                'unit_price' => $unitPrice,
-                'unit_priceshipping' => $unitPriceShipping,
-                'total_unit_price' => $totalUnitPrice,
-                'split_by' => Auth::user()->name ?? 'system'
+            // Updated validation - handle both price fields separately
+            $validator = Validator::make($request->all(), [
+                'product_id' => 'required|integer',
+                'rt_counter' => 'required',
+                'quantity' => 'required|integer|min:2',
+                'price' => 'nullable|numeric|min:0',
+                'priceshipping' => 'nullable|numeric|min:0',
+                'total_price' => 'nullable|numeric|min:0',
             ]);
 
-            // Prepare update data for original item - update BOTH price fields
-            $updateData = [
-                'quantity' => 1,
-                'lastDateUpdate' => now()->format('Y-m-d H:i:s')
-            ];
+            if ($validator->fails()) {
+                Log::error('Validation failed in splitItem', [
+                    'errors' => $validator->errors(),
+                    'request_data' => $request->all()
+                ]);
 
-            // Always update both fields (even if they're 0)
-            $updateData['price'] = $unitPrice;
-            $updateData['priceshipping'] = $unitPriceShipping;
+                // Insert history for failed validation
+                if ($request->rt_counter) {
+                    $this->insertItemHistory($request->rt_counter, 'Split Item Failed - Validation Error', [
+                        'errors' => $validator->errors()->toArray(),
+                        'attempted_by' => Auth::user()->name ?? 'system'
+                    ]);
+                }
 
-            // Update original item to quantity = 1 and unit prices
-            $updateResult = DB::table($this->productTable)
-                ->where('ProductID', $productId)
-                ->update($updateData);
-
-            Log::info('Original product updated with both price fields', [
-                'updated_rows' => $updateResult,
-                'new_price' => $unitPrice,
-                'new_priceshipping' => $unitPriceShipping,
-                'update_data' => $updateData
-            ]);
-
-            if ($updateResult === 0) {
-                throw new \Exception("Failed to update original product quantity and prices");
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation error',
+                    'errors' => $validator->errors()
+                ], 422);
             }
 
-            // Insert history for original item update
-            $this->insertItemHistory($rtCounter, 'Original Item Updated After Split', [
-                'new_quantity' => 1,
-                'new_price' => $unitPrice,
-                'new_priceshipping' => $unitPriceShipping,
-                'original_quantity' => $currentQuantity,
+            $productId = $request->product_id;
+            $rtCounter = $request->rt_counter;
+            $currentQuantity = (int)$request->quantity;
+
+            // Handle both price fields
+            $originalPrice = (float)($request->price ?? 0);
+            $originalPriceShipping = (float)($request->priceshipping ?? 0);
+            $totalPrice = $originalPrice + $originalPriceShipping;
+
+            Log::info('Processing split request with both price fields', [
+                'product_id' => $productId,
+                'rt_counter' => $rtCounter,
+                'current_quantity' => $currentQuantity,
                 'original_price' => $originalPrice,
                 'original_priceshipping' => $originalPriceShipping,
-                'updated_by' => Auth::user()->name ?? 'system'
+                'total_price' => $totalPrice
             ]);
 
-            $newItemsCreated = 0;
-            $newRtCounters = [];
+            // Check if quantity is valid for splitting
+            if ($currentQuantity <= 1) {
+                $this->insertItemHistory($rtCounter, 'Split Item Failed - Invalid Quantity', [
+                    'quantity' => $currentQuantity,
+                    'attempted_by' => Auth::user()->name ?? 'system'
+                ]);
 
-            // Create (quantity - 1) new items
-            for ($i = 0; $i < $currentQuantity - 1; $i++) {
-                $newRt++;
-                $newRtCounters[] = $newRt;
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Split not possible. Quantity must be greater than 1.'
+                ], 422);
+            }
 
-                // Create new item data based on the original product
-                $newItemData = [
-                    'ProductTitle' => $originalProduct->ProductTitle ?? null,
-                    'itemnumber' => $originalProduct->itemnumber ?? null,
-                    'RPN' => $originalProduct->RPN ?? null,
-                    'PRD' => $originalProduct->PRD ?? null,
-                    'quantity' => 1,
-                    // Set BOTH price fields to their respective unit prices
-                    'price' => $unitPrice,
-                    'priceshipping' => $unitPriceShipping,
-                    'orderdate' => $originalProduct->orderdate ?? null,
-                    'paymentdate' => $originalProduct->paymentdate ?? null,
-                    'shipdate' => $originalProduct->shipdate ?? null,
-                    'datedelivered' => $originalProduct->datedelivered ?? null,
-                    'description' => $originalProduct->description ?? null,
-                    'supplierNotes' => $originalProduct->supplierNotes ?? null,
-                    'employeeNotes' => $originalProduct->employeeNotes ?? null,
-                    'stickerNotes' => $originalProduct->stickerNotes ?? null,
-                    'trackingnumber' => $originalProduct->trackingnumber ?? null,
-                    'trackingnumber2' => $originalProduct->trackingnumber2 ?? null,
-                    'trackingnumber3' => $originalProduct->trackingnumber3 ?? null,
-                    'trackingnumber4' => $originalProduct->trackingnumber4 ?? null,
-                    'trackingnumber5' => $originalProduct->trackingnumber5 ?? null,
-                    'ProductModuleLoc' => 'Labeling', // Keep in same location
-                    'rtcounter' => $newRt,
-                    'splitfromRT' => $rtCounter, // Track original RT
-                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
-                ];
+            // Get the original product
+            $originalProduct = DB::table($this->productTable)
+                ->where('ProductID', $productId)
+                ->first();
 
-                // Remove null/empty values to prevent database issues
-                $newItemData = array_filter($newItemData, function($value) {
-                    return $value !== null && $value !== '';
-                });
-
-                Log::info('Preparing to insert new item with both price fields', [
-                    'new_rt' => $newRt,
-                    'unit_price' => $unitPrice,
-                    'unit_priceshipping' => $unitPriceShipping,
-                    'data_fields_count' => count($newItemData),
+            if (!$originalProduct) {
+                Log::error('Product not found for splitting', [
+                    'product_id' => $productId,
                     'table' => $this->productTable
                 ]);
 
-                $insertResult = DB::table($this->productTable)->insert($newItemData);
-
-                if (!$insertResult) {
-                    throw new \Exception("Failed to create new item with RT: $newRt");
-                }
-
-                $newItemsCreated++;
-
-                // Insert history for new item
-                $this->insertItemHistory($newRt, 'New Item Created from Split', [
-                    'split_from_rt' => $rtCounter,
-                    'quantity' => 1,
-                    'price' => $unitPrice,
-                    'priceshipping' => $unitPriceShipping,
-                    'total_unit_price' => $totalUnitPrice,
-                    'created_by' => Auth::user()->name ?? 'system'
+                $this->insertItemHistory($rtCounter, 'Split Item Failed - Product Not Found', [
+                    'product_id' => $productId,
+                    'attempted_by' => Auth::user()->name ?? 'system'
                 ]);
 
-                Log::info('New item created successfully with both price fields', [
-                    'new_rt' => $newRt,
-                    'price' => $unitPrice,
-                    'priceshipping' => $unitPriceShipping,
-                    'split_from' => $rtCounter,
-                    'items_created_so_far' => $newItemsCreated
-                ]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found'
+                ], 404);
             }
 
-            // Insert final history for split completion
-            $this->insertItemHistory($rtCounter, 'Split Item Completed Successfully', [
-                'original_quantity' => $currentQuantity,
-                'new_items_created' => $newItemsCreated,
-                'new_rt_counters' => implode(', ', $newRtCounters),
-                'unit_price' => $unitPrice,
-                'unit_priceshipping' => $unitPriceShipping,
-                'total_unit_price' => $totalUnitPrice,
-                'both_price_fields_split' => true,
-                'completed_by' => Auth::user()->name ?? 'system'
+            Log::info('Original product found', [
+                'ProductID' => $originalProduct->ProductID,
+                'rtcounter' => $originalProduct->rtcounter,
+                'quantity' => $originalProduct->quantity,
+                'price' => $originalProduct->price ?? 'null',
+                'priceshipping' => $originalProduct->priceshipping ?? 'null'
             ]);
 
-            // Commit transaction
-            DB::commit();
+            // Verify the quantity matches what was sent
+            $dbQuantity = (int)($originalProduct->quantity ?? 0);
+            if ($dbQuantity !== $currentQuantity) {
+                Log::warning('Quantity mismatch detected', [
+                    'sent_quantity' => $currentQuantity,
+                    'db_quantity' => $dbQuantity,
+                    'product_id' => $productId
+                ]);
 
-            Log::info('Split operation completed successfully with both price fields', [
-                'original_rt' => $rtCounter,
-                'original_quantity' => $currentQuantity,
-                'new_items_created' => $newItemsCreated,
-                'new_rt_counters' => $newRtCounters,
+                $this->insertItemHistory($rtCounter, 'Split Item Failed - Quantity Mismatch', [
+                    'sent_quantity' => $currentQuantity,
+                    'db_quantity' => $dbQuantity,
+                    'attempted_by' => Auth::user()->name ?? 'system'
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Quantity mismatch. The item may have been modified by another user.'
+                ], 422);
+            }
+
+            // Calculate unit prices for BOTH fields
+            $unitPrice = $currentQuantity > 0 ? round($originalPrice / $currentQuantity, 2) : 0;
+            $unitPriceShipping = $currentQuantity > 0 ? round($originalPriceShipping / $currentQuantity, 2) : 0;
+            $totalUnitPrice = $unitPrice + $unitPriceShipping;
+
+            Log::info('Calculated unit prices for both fields', [
+                'original_price' => $originalPrice,
+                'original_priceshipping' => $originalPriceShipping,
+                'total_original' => $totalPrice,
+                'quantity' => $currentQuantity,
                 'unit_price' => $unitPrice,
                 'unit_priceshipping' => $unitPriceShipping,
-                'total_unit_price' => $totalUnitPrice,
-                'total_items_after' => $currentQuantity
+                'total_unit_price' => $totalUnitPrice
+            ]);
+
+            // Get current max rtcounter to generate new RT numbers
+            $maxRtResult = DB::table($this->productTable)
+                ->selectRaw('MAX(rtcounter) as maxrt')
+                ->first();
+
+            $newRt = (int)($maxRtResult->maxrt ?? 0);
+
+            Log::info('Current max RT counter', [
+                'max_rt' => $newRt,
+                'will_start_new_items_from' => $newRt + 1
+            ]);
+
+            // Start database transaction
+            DB::beginTransaction();
+
+            try {
+                // Insert history for split start
+                $this->insertItemHistory($rtCounter, 'Split Item', [
+                    'original_quantity' => $currentQuantity,
+                    'original_price' => $originalPrice,
+                    'original_priceshipping' => $originalPriceShipping,
+                    'total_original_price' => $totalPrice,
+                    'unit_price' => $unitPrice,
+                    'unit_priceshipping' => $unitPriceShipping,
+                    'total_unit_price' => $totalUnitPrice,
+                    'split_by' => Auth::user()->name ?? 'system'
+                ]);
+
+                // Prepare update data for original item - update BOTH price fields
+                $updateData = [
+                    'quantity' => 1,
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s')
+                ];
+
+                // Always update both fields (even if they're 0)
+                $updateData['price'] = $unitPrice;
+                $updateData['priceshipping'] = $unitPriceShipping;
+
+                // Update original item to quantity = 1 and unit prices
+                $updateResult = DB::table($this->productTable)
+                    ->where('ProductID', $productId)
+                    ->update($updateData);
+
+                Log::info('Original product updated with both price fields', [
+                    'updated_rows' => $updateResult,
+                    'new_price' => $unitPrice,
+                    'new_priceshipping' => $unitPriceShipping,
+                    'update_data' => $updateData
+                ]);
+
+                if ($updateResult === 0) {
+                    throw new \Exception("Failed to update original product quantity and prices");
+                }
+
+                // Insert history for original item update
+                $this->insertItemHistory($rtCounter, 'Original Item Updated After Split', [
+                    'new_quantity' => 1,
+                    'new_price' => $unitPrice,
+                    'new_priceshipping' => $unitPriceShipping,
+                    'original_quantity' => $currentQuantity,
+                    'original_price' => $originalPrice,
+                    'original_priceshipping' => $originalPriceShipping,
+                    'updated_by' => Auth::user()->name ?? 'system'
+                ]);
+
+                $newItemsCreated = 0;
+                $newRtCounters = [];
+
+                // Create (quantity - 1) new items
+                for ($i = 0; $i < $currentQuantity - 1; $i++) {
+                    $newRt++;
+                    $newRtCounters[] = $newRt;
+
+                    // Create new item data based on the original product
+                    $newItemData = [
+                        'ProductTitle' => $originalProduct->ProductTitle ?? null,
+                        'itemnumber' => $originalProduct->itemnumber ?? null,
+                        'RPN' => $originalProduct->RPN ?? null,
+                        'PRD' => $originalProduct->PRD ?? null,
+                        'quantity' => 1,
+                        // Set BOTH price fields to their respective unit prices
+                        'price' => $unitPrice,
+                        'priceshipping' => $unitPriceShipping,
+                        'orderdate' => $originalProduct->orderdate ?? null,
+                        'paymentdate' => $originalProduct->paymentdate ?? null,
+                        'shipdate' => $originalProduct->shipdate ?? null,
+                        'datedelivered' => $originalProduct->datedelivered ?? null,
+                        'description' => $originalProduct->description ?? null,
+                        'supplierNotes' => $originalProduct->supplierNotes ?? null,
+                        'employeeNotes' => $originalProduct->employeeNotes ?? null,
+                        'stickerNotes' => $originalProduct->stickerNotes ?? null,
+                        'trackingnumber' => $originalProduct->trackingnumber ?? null,
+                        'trackingnumber2' => $originalProduct->trackingnumber2 ?? null,
+                        'trackingnumber3' => $originalProduct->trackingnumber3 ?? null,
+                        'trackingnumber4' => $originalProduct->trackingnumber4 ?? null,
+                        'trackingnumber5' => $originalProduct->trackingnumber5 ?? null,
+                        'ProductModuleLoc' => 'Labeling', // Keep in same location
+                        'rtcounter' => $newRt,
+                        'splitfromRT' => $rtCounter, // Track original RT
+                        'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
+                    ];
+
+                    // Remove null/empty values to prevent database issues
+                    $newItemData = array_filter($newItemData, function ($value) {
+                        return $value !== null && $value !== '';
+                    });
+
+                    Log::info('Preparing to insert new item with both price fields', [
+                        'new_rt' => $newRt,
+                        'unit_price' => $unitPrice,
+                        'unit_priceshipping' => $unitPriceShipping,
+                        'data_fields_count' => count($newItemData),
+                        'table' => $this->productTable
+                    ]);
+
+                    $insertResult = DB::table($this->productTable)->insert($newItemData);
+
+                    if (!$insertResult) {
+                        throw new \Exception("Failed to create new item with RT: $newRt");
+                    }
+
+                    $newItemsCreated++;
+
+                    // Insert history for new item
+                    $this->insertItemHistory($newRt, 'New Item Created from Split', [
+                        'split_from_rt' => $rtCounter,
+                        'quantity' => 1,
+                        'price' => $unitPrice,
+                        'priceshipping' => $unitPriceShipping,
+                        'total_unit_price' => $totalUnitPrice,
+                        'created_by' => Auth::user()->name ?? 'system'
+                    ]);
+
+                    Log::info('New item created successfully with both price fields', [
+                        'new_rt' => $newRt,
+                        'price' => $unitPrice,
+                        'priceshipping' => $unitPriceShipping,
+                        'split_from' => $rtCounter,
+                        'items_created_so_far' => $newItemsCreated
+                    ]);
+                }
+
+                // Insert final history for split completion
+                $this->insertItemHistory($rtCounter, 'Split Item Completed Successfully', [
+                    'original_quantity' => $currentQuantity,
+                    'new_items_created' => $newItemsCreated,
+                    'new_rt_counters' => implode(', ', $newRtCounters),
+                    'unit_price' => $unitPrice,
+                    'unit_priceshipping' => $unitPriceShipping,
+                    'total_unit_price' => $totalUnitPrice,
+                    'both_price_fields_split' => true,
+                    'completed_by' => Auth::user()->name ?? 'system'
+                ]);
+
+                // Commit transaction
+                DB::commit();
+
+                Log::info('Split operation completed successfully with both price fields', [
+                    'original_rt' => $rtCounter,
+                    'original_quantity' => $currentQuantity,
+                    'new_items_created' => $newItemsCreated,
+                    'new_rt_counters' => $newRtCounters,
+                    'unit_price' => $unitPrice,
+                    'unit_priceshipping' => $unitPriceShipping,
+                    'total_unit_price' => $totalUnitPrice,
+                    'total_items_after' => $currentQuantity
+                ]);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Successfully split item into individual units with proportional price distribution',
+                    'data' => [
+                        'original_rt' => $rtCounter,
+                        'original_quantity' => $currentQuantity,
+                        'new_items_count' => $newItemsCreated,
+                        'new_rt_counters' => $newRtCounters,
+                        'price_breakdown' => [
+                            'original_price' => $originalPrice,
+                            'original_priceshipping' => $originalPriceShipping,
+                            'original_total' => $totalPrice,
+                            'unit_price' => $unitPrice,
+                            'unit_priceshipping' => $unitPriceShipping,
+                            'unit_total' => $totalUnitPrice,
+                        ],
+                        'total_items_after_split' => $currentQuantity,
+                        'both_fields_split' => true
+                    ]
+                ]);
+            } catch (\Exception $e) {
+                // Rollback transaction on any error
+                DB::rollback();
+
+                Log::error('Database transaction failed during split', [
+                    'error' => $e->getMessage(),
+                    'original_rt' => $rtCounter,
+                    'product_id' => $productId
+                ]);
+
+                // Insert error history
+                $this->insertItemHistory($rtCounter, 'Split Item Failed - Database Error', [
+                    'error' => $e->getMessage(),
+                    'attempted_by' => Auth::user()->name ?? 'system'
+                ]);
+
+                throw $e;
+            }
+        } catch (\Exception $e) {
+            Log::error('Exception in splitItem', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'request_data' => $request->all()
             ]);
 
             return response()->json([
-                'success' => true,
-                'message' => 'Successfully split item into individual units with proportional price distribution',
-                'data' => [
-                    'original_rt' => $rtCounter,
-                    'original_quantity' => $currentQuantity,
-                    'new_items_count' => $newItemsCreated,
-                    'new_rt_counters' => $newRtCounters,
-                    'price_breakdown' => [
-                        'original_price' => $originalPrice,
-                        'original_priceshipping' => $originalPriceShipping,
-                        'original_total' => $totalPrice,
-                        'unit_price' => $unitPrice,
-                        'unit_priceshipping' => $unitPriceShipping,
-                        'unit_total' => $totalUnitPrice,
-                    ],
-                    'total_items_after_split' => $currentQuantity,
-                    'both_fields_split' => true
-                ]
-            ]);
-
-        } catch (\Exception $e) {
-            // Rollback transaction on any error
-            DB::rollback();
-            
-            Log::error('Database transaction failed during split', [
-                'error' => $e->getMessage(),
-                'original_rt' => $rtCounter,
-                'product_id' => $productId
-            ]);
-            
-            // Insert error history
-            $this->insertItemHistory($rtCounter, 'Split Item Failed - Database Error', [
-                'error' => $e->getMessage(),
-                'attempted_by' => Auth::user()->name ?? 'system'
-            ]);
-            
-            throw $e;
+                'success' => false,
+                'message' => 'Failed to split item: ' . $e->getMessage(),
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-    } catch (\Exception $e) {
-        Log::error('Exception in splitItem', [
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'request_data' => $request->all()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Failed to split item: ' . $e->getMessage(),
-            'error' => $e->getMessage()
-        ], 500);
     }
-}
     public function store(Request $request)
     {
         try {
@@ -1209,6 +1207,9 @@ class LabelingController extends BasetablesController
                 'trackingnumber3' => 'nullable|string|max:255',
                 'trackingnumber4' => 'nullable|string|max:255',
                 'trackingnumber5' => 'nullable|string|max:255',
+                'price' => 'nullable|numeric',
+                'priceshipping' => 'nullable|numeric',
+                'tax' => 'nullable|numeric',
             ]);
 
             // Get the original product to compare changes
@@ -1257,7 +1258,6 @@ class LabelingController extends BasetablesController
                 'action' => $action,
                 'changes_made' => count($changes)
             ]);
-
         } catch (\Exception $e) {
             Log::error('Error in store method', [
                 'message' => $e->getMessage(),
