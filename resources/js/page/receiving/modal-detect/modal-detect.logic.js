@@ -1,31 +1,23 @@
-import ScannerMixin from '../../../components/ScannerMixin.js';
 import {
   ref,
   watch,
   nextTick,
   defineComponent,
   computed,
-  shallowRef,
-  onMounted,
-  onUnmounted,
+  shallowRef
 } from 'vue';
 import Cropper from 'cropperjs';
 import 'cropperjs/dist/cropper.css';
 
 export default defineComponent({
   name: 'ScannerModal',
-  mixins: [ScannerMixin],
   props: {
     scannerTitle: {
       type: String,
       default: 'Detect Serial Numbers',
-    },
-    enableCamera: {
-      type: Boolean,
-      default: true,
-    },
+    }
   },
-  setup(props, { emit }) {
+  setup(props) {
     // --- State ---
     const imageUrl = ref(null);
     const cropper = shallowRef(null);
@@ -35,20 +27,35 @@ export default defineComponent({
     const isDragging = ref(false);
     const croppedImage = ref(null);
     const isCropperReady = ref(false);
-    const showCameraModal = ref(false);
-    const cameraCanvas = ref(null);
-    const capturedImages = ref([]);
-    const maxImages = 5;
     const apiResult = ref(null);
     const loading = ref(false);
-    const targetBox = ref(null);
-    const detectionInterval = ref(null);
-    const videoElement = ref(null);
-    const cameraPreview = ref(null);
-    const hasCaptured = ref(false);
     const errorMessage = ref('');
+    // Camera modal state 
+    const enableCamera = ref(true);
+    const showCameraModal = ref(false);
+    const cameraPreview = ref(null);
+
+    // Live detection state
+    const targetBox = ref(null);
+    const liveDetectionActive = ref(false);
+    const lastFrameBlob = ref(null);
     let stream = null;
+
+    // Target box state
+    // --- Detection state ---
+    const targetBoxStyle = ref({
+      borderColor: 'rgba(255,0,0,0.9)', // red default
+      position: 'absolute',
+      borderWidth: '2px',
+      borderStyle: 'solid',
+      width: '60%',
+      height: '40%',
+      top: '30%',
+      left: '20%'
+    });
+    let detectionInterval = null;
     let detectionTimeout = null;
+    let detectionFound = false;
 
     // --- File/Image Handling ---
     function triggerFileInput() {
@@ -104,29 +111,30 @@ export default defineComponent({
       });
     });
 
-    async function cropImage(autoCapturedCanvas = null) {
+    async function cropImage() {
       try {
         loading.value = true;
         apiResult.value = null;
-        let blob, dataUrl;
-        if (autoCapturedCanvas) {
-          dataUrl = autoCapturedCanvas.toDataURL('image/jpeg');
-          blob = await new Promise(resolve => autoCapturedCanvas.toBlob(resolve, 'image/jpeg'));
-        } else {
-          const canvas = cropper.value.getCroppedCanvas();
-          dataUrl = canvas.toDataURL('image/jpeg');
-          blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
-        }
+
+        if (!cropper.value) throw new Error('Cropper not ready');
+        const canvas = cropper.value.getCroppedCanvas();
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+
         croppedImage.value = dataUrl;
+
         const formData = new FormData();
         formData.append("file", blob, "capture.jpg");
+
         const response = await fetch("http://127.0.0.1:8001/detect", {
           method: "POST",
           body: formData
         });
+
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const result = await response.json();
         apiResult.value = result;
+
         if (!result.serials || result.serials.length === 0) {
           errorMessage.value = '⚠️ No serials detected.';
         } else {
@@ -164,348 +172,252 @@ export default defineComponent({
       transition: 'transform 0.3s ease',
     }));
 
-    // --- Camera ---
-    function toggleCamera() {
-      showCameraModal.value = true;
-      startCamera();
+    //--- Camera Handling ---
+
+    async function toggleCamera() {
+    if (!showCameraModal.value) {
+      console.log('[Camera] Opening camera…');
+
+      try {
+        // Try back camera first
+        let newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        });
+        stream = newStream;
+
+        // Show modal so the video element is rendered
+        showCameraModal.value = true;
+
+        // Wait for the DOM to update with the video element
+        await nextTick();
+
+        if (cameraPreview.value) {
+          cameraPreview.value.srcObject = stream;
+          await cameraPreview.value.play();
+          console.log('[Camera] Back camera started.');
+          startQuickDetection();
+        } else {
+          console.error('[Camera] cameraPreview ref still not found after nextTick.');
+        }
+      } catch (err) {
+        console.warn('[Camera] Back camera failed, trying front camera:', err);
+
+        try {
+          let newStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user' },
+            audio: false
+          });
+          stream = newStream;
+
+          showCameraModal.value = true;
+          await nextTick();
+
+          if (cameraPreview.value) {
+            cameraPreview.value.srcObject = stream;
+            await cameraPreview.value.play();
+            console.log('[Camera] Front camera started.');
+          } else {
+            console.error('[Camera] cameraPreview ref still not found after nextTick.');
+          }
+        } catch (err2) {
+          console.error('[Camera] Failed to start any camera:', err2);
+          alert('Unable to access camera. Please check permissions and device settings.');
+        }
+      }
+    } else {
+      closeCameraModal();
+    }
     }
 
-    const startCamera = async () => {
-      await nextTick();
-      videoElement.value = cameraPreview.value;
-      if (!videoElement.value) {
-        console.error('Video element not found');
+    // --- live detection ---
+    function waitForVideoReady(videoEl) {
+      return new Promise((resolve) => {
+        // If metadata already available, resolve
+        if (videoEl && videoEl.videoWidth && videoEl.videoHeight) return resolve();
+        // otherwise poll until videoWidth is available
+        const check = () => {
+          if (videoEl && videoEl.videoWidth && videoEl.videoHeight) return resolve();
+          requestAnimationFrame(check);
+        };
+        check();
+      });
+    }
+
+    async function startQuickDetection() {
+      // Ensure video is ready
+      if (!cameraPreview.value) {
+        console.warn('[QuickDetect] No cameraPreview element');
+        detectionFound = false;
+        liveDetectionActive.value = true;
         return;
       }
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' },
-          audio: false,
-        });
-        videoElement.value.srcObject = stream;
-        await videoElement.value.play();
-        nextTick(() => initDraggableTarget());
-        startSerialDetectionLoop();
-      } catch (error) {
-        console.error('Camera error:', error);
-      }
-      hasCaptured.value = false;
-    };
+      await waitForVideoReady(cameraPreview.value);
 
-    const stopCamera = () => {
-      stream?.getTracks().forEach((track) => track.stop());
-      clearInterval(detectionInterval.value);
-    };
+      detectionFound = false;
+      liveDetectionActive.value = true;
+      clearTimeout(detectionTimeout);
 
-    // --- Detection ---
-    const startSerialDetectionLoop = () => {
-      detectionInterval.value = setInterval(runOCROnVideoFrame, 1000);
-    };
+      // 20s fallback timer
+      detectionTimeout = setTimeout(async () => {
+        // stop the active loop
+        liveDetectionActive.value = false;
+        console.log('[QuickDetect] No valid serial after 20s — capturing fallback frame...');
+        await captureAndRunFullDetection();
 
-    const runOCROnVideoFrame = async () => {
-      if (hasCaptured.value || !videoElement.value) return;
-      const canvas = document.createElement('canvas');
-      const video = videoElement.value;
-      const context = canvas.getContext('2d');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const blob = await new Promise((resolve) =>
-        canvas.toBlob(resolve, 'image/jpeg')
-      );
-      try {
-        const formData = new FormData();
-        formData.append('file', blob, 'frame.jpg');
-        const response = await fetch('http://127.0.0.1:8001/detect', {
-          method: 'POST',
-          body: formData,
-        });
-        if (response.ok) {
-          const result = await response.json();
-          if (result?.bboxes?.length) {
-            clearTimeout(detectionTimeout);
-            const box = result.bboxes[0];
-            moveTargetBoxToBoundingBox(box, result.image_width, result.image_height);
-            await nextTick();
-            await autoCaptureFromBox(box, result.image_width, result.image_height);
+      }, 20000);
+
+      // Async loop (prevents overlapping requests)
+      (async () => {
+        while (liveDetectionActive.value && !detectionFound) {
+          try {
+            // capture full-resolution frame (so bbox is in same coordinate space as videoWidth/videoHeight)
+            const canvas = document.createElement('canvas');
+            const videoEl = cameraPreview.value;
+            canvas.width = videoEl.videoWidth;
+            canvas.height = videoEl.videoHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+            // Save last frame for fallback (full res)
+            lastFrameBlob.value = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.8));
+
+            const formData = new FormData();
+            formData.append('file', lastFrameBlob.value, 'frame.jpg');
+
+            const response = await fetch("http://127.0.0.1:8001/detect-camera-frame", {
+              method: 'POST',
+              body: formData
+            });
+
+            if (!response.ok) {
+              console.warn('[QuickDetect] fetch failed', response.status);
+            } else {
+              const result = await response.json();
+
+              if (result.found) {
+                detectionFound = true;
+                liveDetectionActive.value = false;
+                clearTimeout(detectionTimeout);
+                // update and show green box
+                updateTargetBox(result.bbox, 'green');
+                console.log('[QuickDetect] Found serial:', result.serial);
+                // optionally you can set apiResult.value = result here or call submit flow
+              } else if (result.bbox) {
+                // update red box to follow text bbox
+                updateTargetBox(result.bbox, 'red');
+              } else {
+                // no text at all — hide or reset box style
+                if (targetBox.value) {
+                  targetBox.value.style.border = '2px dashed rgba(255,0,0,0.9)';
+                }
+              }
+            }
+          } catch (err) {
+            console.error('[QuickDetect] API error:', err);
           }
-        }
-      } catch (err) {
-        console.error('Detection error:', err);
-      }
-    };
 
-    const moveTargetBoxToBoundingBox = (box, imageWidth, imageHeight) => {
-      const video = videoElement.value;
-      const videoRect = video.getBoundingClientRect();
-      const scaleX = videoRect.width / imageWidth;
-      const scaleY = videoRect.height / imageHeight;
-      const left = box[0] * scaleX;
-      const top = box[1] * scaleY;
-      const width = (box[2] - box[0]) * scaleX;
-      const height = (box[3] - box[1]) * scaleY;
-      Object.assign(targetBox.value.style, {
-        left: `${left}px`,
-        top: `${top}px`,
-        width: `${width}px`,
-        height: `${height}px`,
-      });
-    };
+          // wait 500ms before next capture
+          await new Promise(r => setTimeout(r, 500));
+        } // end loop
+      })();
+    }
 
-    const autoCaptureFromBox = async (box, imageWidth, imageHeight) => {
-      const video = videoElement.value;
-      if (!video) return;
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      const videoRect = video.getBoundingClientRect();
-      const scaleX = video.videoWidth / videoRect.width;
-      const scaleY = video.videoHeight / videoRect.height;
-      const left = box[0] * scaleX;
-      const top = box[1] * scaleY;
-      const width = Math.max(1, (box[2] - box[0]) * scaleX);
-      const height = Math.max(1, (box[3] - box[1]) * scaleY);
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(video, left, top, width, height, 0, 0, width, height);
-      const dataUrl = canvas.toDataURL('image/png');
-      croppedImage.value = dataUrl; // Always set preview!
-      loading.value = true;
-      apiResult.value = null;
-      errorMessage.value = '';
+    function updateTargetBox(bbox, color = 'red') {
+      if (!bbox || !targetBox.value || !cameraPreview.value) return;
+
+      // bbox format: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]]
+      const xs = bbox.map(p => p[0]);
+      const ys = bbox.map(p => p[1]);
+      const minX = Math.min(...xs);
+      const minY = Math.min(...ys);
+      const maxX = Math.max(...xs);
+      const maxY = Math.max(...ys);
+      const width = maxX - minX;
+      const height = maxY - minY;
+
+      // Map from video intrinsic size -> displayed size
+      const videoEl = cameraPreview.value;
+      const rect = videoEl.getBoundingClientRect();
+      const scaleX = rect.width / videoEl.videoWidth;
+      const scaleY = rect.height / videoEl.videoHeight;
+
+      targetBox.value.style.left = `${minX * scaleX}px`;
+      targetBox.value.style.top = `${minY * scaleY}px`;
+      targetBox.value.style.width = `${width * scaleX}px`;
+      targetBox.value.style.height = `${height * scaleY}px`;
+
+      targetBox.value.style.border = `2px dashed ${color === 'green' ? 'rgba(0,255,0,0.9)' : 'rgba(255,0,0,0.9)'}`;
+    }
+
+    async function captureAndRunFullDetection() {
       try {
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        // if we already have lastFrameBlob, use it; otherwise capture full-size now
+        let blob = lastFrameBlob.value;
+        if (!blob && cameraPreview.value) {
+          const canvas = document.createElement('canvas');
+          canvas.width = cameraPreview.value.videoWidth;
+          canvas.height = cameraPreview.value.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(cameraPreview.value, 0, 0, canvas.width, canvas.height);
+          blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        }
+        if (!blob) {
+          console.warn('[FallbackDetect] No blob captured');
+          return;
+        }
+
         const formData = new FormData();
-        formData.append('file', blob, 'cropped.png');
-        const res = await fetch('http://127.0.0.1:8001/detect', {
+        formData.append('file', blob, 'fallback.jpg');
+
+        const response = await fetch("http://127.0.0.1:8001/detect", {
           method: 'POST',
-          body: formData,
+          body: formData
         });
-        if (!res.ok) throw new Error('OCR API returned status ' + res.status);
-        const json = await res.json();
-        apiResult.value = {
-          serials: json.serials || [],
-          raw_ocr: json.raw_ocr || '',
-          bboxes: json.bboxes || [],
-          image_width: json.image_width ?? width ?? null,
-          image_height: json.image_height ?? height ?? null,
-        };
-        if (!apiResult.value.serials.length) {
+        if (!response.ok) {
+          console.error('[FallbackDetect] HTTP error', response.status);
+          return;
+        }
+        const result = await response.json();
+        console.log('[FallbackDetect] Result:', result);
+
+        // show result in your upload preview UI:
+        // convert blob to dataURL to reuse your croppedImage display
+        const objectUrl = URL.createObjectURL(blob);
+        croppedImage.value = objectUrl;
+        apiResult.value = result;
+        if (!result.serials || result.serials.length === 0) {
           errorMessage.value = '⚠️ No serials detected.';
         } else {
           errorMessage.value = '';
         }
-        // Always close camera modal after capture
-        showCameraModal.value = false;
-        stopCamera();
-        hasCaptured.value = true;
+
+        // optionally close camera modal:
+        // closeCameraModal();
       } catch (err) {
-        console.error('OCR API error:', err);
-        errorMessage.value = '❌ Failed to process image. Please try again.';
-        apiResult.value = apiResult.value || { serials: [], raw_ocr: '' };
-        showCameraModal.value = false;
-        stopCamera();
-        hasCaptured.value = true;
+        console.error('[FallbackDetect] Error:', err);
+        errorMessage.value = 'Fallback detection failed.';
       } finally {
-        loading.value = false;
-      }
-    };
-
-    // --- Manual Camera Capture ---
-    async function captureImage() {
-      if (loading.value) return;
-      loading.value = true;
-      apiResult.value = null;
-      errorMessage.value = '';
-      const video = document.getElementById('camera-preview');
-      const canvas = cameraCanvas.value;
-      const ctx = canvas.getContext('2d');
-      const overlayRect = targetBox.value.getBoundingClientRect();
-      const videoRect = video.getBoundingClientRect();
-      const scaleX = video.videoWidth / videoRect.width;
-      const scaleY = video.videoHeight / videoRect.height;
-      const sx = (overlayRect.left - videoRect.left) * scaleX;
-      const sy = (overlayRect.top - videoRect.top) * scaleY;
-      const sw = overlayRect.width * scaleX;
-      const sh = overlayRect.height * scaleY;
-      canvas.width = sw;
-      canvas.height = sh;
-      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, sw, sh);
-      const dataUrl = canvas.toDataURL('image/png');
-      croppedImage.value = dataUrl;
-      capturedImages.value.push({ data: dataUrl });
-
-      try {
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-        const formData = new FormData();
-        formData.append('file', blob, 'cropped.png');
-        const res = await fetch('http://127.0.0.1:8001/detect', {
-          method: 'POST',
-          body: formData,
-        });
-        if (!res.ok) throw new Error('OCR API returned status ' + res.status);
-        const json = await res.json();
-        apiResult.value = {
-          serials: json.serials || [],
-          raw_ocr: json.raw_ocr || '',
-          bboxes: json.bboxes || [],
-          image_width: json.image_width ?? sw ?? null,
-          image_height: json.image_height ?? sh ?? null,
-        };
-        if (!apiResult.value.serials.length) {
-          errorMessage.value = '⚠️ No serials detected.';
-        } else {
-          errorMessage.value = '';
-          clearTimeout(detectionTimeout);
-        }
-      } catch (err) {
-        console.error('OCR API error:', err);
-        errorMessage.value = '❌ Failed to process image. Please try again.';
-        apiResult.value = apiResult.value || { serials: [], raw_ocr: '' };
-      } finally {
-        loading.value = false;
-        hasCaptured.value = true;
-        stopCamera();
-        // DO NOT close modal here!
-      }
-    }
-
-    function loadImageFromCamera(dataUrl) {
-      imageUrl.value = dataUrl;
-      rotation.value = 0;
-      croppedImage.value = null;
-      isCropperReady.value = false;
-    }
-
-    // --- Modal/Timeout/UI ---
-    function closeCameraModal() {
-      showCameraModal.value = false;
-      stopCamera();
-      emit('close');
-    }
-
-    watch(showCameraModal, (isOpen) => {
-      if (isOpen) {
-        clearTimeout(detectionTimeout);
-        detectionTimeout = setTimeout(() => {
-          if (!apiResult.value || !apiResult.value.serials?.length) {
-            stopCamera();
-            // Do NOT close modal automatically!
-            apiResult.value = apiResult.value || { serials: [], raw_ocr: '' };
-            errorMessage.value = '⚠️ No serials detected.';
-            hasCaptured.value = true;
-          }
-        }, 20000);
-      } else {
+        // stop detection flags
+        liveDetectionActive.value = false;
         clearTimeout(detectionTimeout);
         detectionTimeout = null;
-        stopCamera();
       }
-    });
-
-    // --- Draggable Target Box ---
-    function initDraggableTarget() {
-      const target = targetBox.value;
-      if (!target) return;
-      const parentRect = target.parentElement.getBoundingClientRect();
-      target.style.left = `${(parentRect.width - target.offsetWidth) / 2}px`;
-      target.style.top = `${(parentRect.height - target.offsetHeight) / 2}px`;
-      let offsetX = 0,
-        offsetY = 0,
-        dragStartX = 0,
-        dragStartY = 0,
-        isDragging = false,
-        isResizing = false,
-        resizeDir = '';
-      const sensitivity = window.innerWidth < 768 ? 0.7 : 1;
-      const preventScroll = (e) => e.preventDefault();
-      function endDragOrResize() {
-        isDragging = false;
-        isResizing = false;
-        window.removeEventListener('pointermove', onPointerMove);
-        window.removeEventListener('pointerup', endDragOrResize);
-        document.body.style.overflow = '';
-        document.removeEventListener('touchmove', preventScroll);
-      }
-      function onPointerMove(e) {
-        const parentRect = target.parentElement.getBoundingClientRect();
-        if (!isDragging && !isResizing) {
-          if (
-            Math.abs(e.clientX - dragStartX) > 5 ||
-            Math.abs(e.clientY - dragStartY) > 5
-          ) {
-            isDragging = true;
-          } else return;
-        }
-        if (isDragging) {
-          let left = (e.clientX - parentRect.left - offsetX) * sensitivity;
-          let top = (e.clientY - parentRect.top - offsetY) * sensitivity;
-          left = Math.max(0, Math.min(left, parentRect.width - target.offsetWidth));
-          top = Math.max(0, Math.min(top, parentRect.height - target.offsetHeight));
-          target.style.left = `${left}px`;
-          target.style.top = `${top}px`;
-        }
-        if (isResizing) {
-          const rect = target.getBoundingClientRect();
-          if (resizeDir.includes('right')) {
-            target.style.width = `${Math.max(50, (e.clientX - rect.left) * sensitivity)}px`;
-          }
-          if (resizeDir.includes('left')) {
-            const deltaX = (e.clientX - rect.left) * sensitivity;
-            const newLeft = parseFloat(target.style.left) + deltaX;
-            const newWidth = rect.width - deltaX;
-            if (newWidth >= 50) {
-              target.style.left = `${Math.max(0, newLeft)}px`;
-              target.style.width = `${newWidth}px`;
-            }
-          }
-          if (resizeDir.includes('bottom')) {
-            target.style.height = `${Math.max(50, (e.clientY - rect.top) * sensitivity)}px`;
-          }
-          if (resizeDir.includes('top')) {
-            const deltaY = (e.clientY - rect.top) * sensitivity;
-            const newTop = parseFloat(target.style.top) + deltaY;
-            const newHeight = rect.height - deltaY;
-            if (newHeight >= 50) {
-              target.style.top = `${Math.max(0, newTop)}px`;
-              target.style.height = `${newHeight}px`;
-            }
-          }
-        }
-      }
-      target.addEventListener('pointerdown', (e) => {
-        if (e.target.classList.contains('resize-handle')) return;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        offsetX = e.clientX - target.getBoundingClientRect().left;
-        offsetY = e.clientY - target.getBoundingClientRect().top;
-        document.body.style.overflow = 'hidden';
-        document.addEventListener('touchmove', preventScroll, { passive: false });
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', endDragOrResize);
-      });
-      target.querySelectorAll('.resize-handle').forEach((handle) => {
-        handle.addEventListener('pointerdown', (e) => {
-          e.stopPropagation();
-          isResizing = true;
-          resizeDir = handle.classList[1];
-          document.body.style.overflow = 'hidden';
-          document.addEventListener('touchmove', preventScroll, { passive: false });
-          window.addEventListener('pointermove', onPointerMove);
-          window.addEventListener('pointerup', endDragOrResize);
-        });
-      });
     }
 
-    // --- Lifecycle ---
-    onMounted(() => {
-      if (props.enableCamera && showCameraModal.value) {
-        startCamera();
+    function closeCameraModal() {
+      console.log('[Camera] Closing camera.');
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
       }
-    });
-
-    onUnmounted(() => {
-      stopCamera();
-    });
+      liveDetectionActive.value = false; // ensure stopped
+      clearInterval(detectionInterval);
+      clearTimeout(detectionTimeout);
+      detectionInterval = null;
+      detectionTimeout = null;
+      showCameraModal.value = false;
+    }
 
     // --- Expose ---
     return {
@@ -525,19 +437,20 @@ export default defineComponent({
       resetImage,
       rotateLeft,
       rotateRight,
-      toggleCamera,
-      showCameraModal,
-      cameraCanvas,
-      capturedImages,
-      maxImages,
-      startCamera,
-      captureImage,
-      closeCameraModal,
       apiResult,
       loading,
+      errorMessage,
+      // Camera related
+      enableCamera,
+      showCameraModal,
+      cameraPreview,
+      toggleCamera,
+      targetBoxStyle,
+      liveDetectionActive,
       targetBox,
       cameraPreview,
-      errorMessage,
+      startQuickDetection,
+      closeCameraModal
     };
   },
 });

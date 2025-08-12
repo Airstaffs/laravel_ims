@@ -31,7 +31,7 @@
                     <div class="camera-overlay">
                         <div class="dimmed-background"></div>
 
-                        <div class="target-box" ref="targetBox">
+                        <div class="target-box" ref="targetBox" :style="targetBoxStyle">
                             <div class="resize-handle top-left"></div>
                             <div class="resize-handle top-right"></div>
                             <div class="resize-handle bottom-left"></div>
@@ -57,9 +57,6 @@
 
       <!-- Scanner Body -->
       <div class="scanner-body">
-        <div v-if="errorMessage" class="error-message text-red-500" style="margin-top: 1rem;">
-                {{ errorMessage }}
-                </div>
         <!-- Uploader Area -->
         <div
           class="border-dashed uploader-area"
@@ -82,11 +79,6 @@
             @change="onFileChange"
             :disabled="loading"
           />
-        </div>
-
-        <!-- Error Message (always visible if set) -->
-        <div v-if="errorMessage" class="error-message text-red-500" style="margin: 1rem 0;">
-          {{ errorMessage }}
         </div>
 
         <!-- Image Preview (with cropper) -->
@@ -113,6 +105,11 @@
             <p>⏳ Uploading and scanning image...</p>
           </div>
 
+          <!-- Error Message (always visible if set) -->
+        <div v-if="errorMessage" class="error-message text-red-500" style="margin: 1rem 0;">
+          {{ errorMessage }}
+        </div>
+
           <div v-if="apiResult" class="mt-3">
             <h4>Detected Serials:</h4>
             <ul v-if="apiResult.serials && apiResult.serials.length">
@@ -138,6 +135,43 @@
             </button>
           </div>
         </div>
+
+        <!-- Live Camera Detection Preview -->
+    <div v-if="liveDetectionActive" class="live-detection">
+      <h4 class="mb-2">📷 Live Camera Detection</h4>
+
+      <video
+        ref="liveVideo"
+        autoplay
+        muted
+        playsinline
+        class="border rounded"
+        style="max-width: 300px; width: 100%;"
+      ></video>
+
+      <div v-if="liveResult" class="mt-3">
+        <h4>Detected Serial:</h4>
+        <p v-if="liveResult.found" class="text-green-600 font-bold">
+          ✅ {{ liveResult.serial }}
+        </p>
+        <p v-else class="text-red-500">⚠️ No serial found...</p>
+      </div>
+
+      <div v-if="liveError" class="error-message text-red-500 mt-2">
+        {{ liveError }}
+      </div>
+
+      <div class="mt-3 btn-live-output">
+        <button @click="stopLiveDetection" class="btn btn-red">Stop</button>
+        <button
+          v-if="liveResult?.found"
+          @click="submitLiveSerial"
+          class="btn btn-green"
+        >
+          Submit Serial
+        </button>
+      </div>
+    </div>
 
         <!-- Close Button -->
         <div class="scanner-actions">
