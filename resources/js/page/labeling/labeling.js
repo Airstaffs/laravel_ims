@@ -2,10 +2,15 @@ import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./labeling.css";
 import Swal from "sweetalert2";
+// Import the splitting modal component
+import splittingModal from "./modals/splitting/splittingModal.vue";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
     name: "ProductList",
+     components: {
+        splittingModal
+    },
     data() {
         return {
             inventory: [],
@@ -43,9 +48,8 @@ export default {
             },
             items: [],
             activeIndex: 0,
-            basePath: "/images/thumbnails/",
+            basePath: "/images/thumbnails",
             error: null,
-            imageList: [],
             selectedImage: null,
 
             fnskuSearch: "",
@@ -57,8 +61,14 @@ export default {
             isSearching: false,
             currentItem: null,
             showFilters: false,
+
+            // Split Modal properties - FIXED: Explicitly set to false
+            // Split Modal properties - Now only need these two
+            showSplitModal: false,
+            currentSplitItem: null,
         };
     },
+
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
@@ -171,13 +181,13 @@ export default {
         },
 
         /**
-         * Get usage badge class based on usage count
+         * Get usage badge class based on usage count - FIXED TYPO
          */
         getUsageBadgeClass(fnsku) {
             const timesUsed = 11 - fnsku.Units;
 
             if (timesUsed === 0) return "bg-success";
-            if (timesUsused <= 5) return "bg-warning";
+            if (timesUsed <= 5) return "bg-warning";  // ✅ FIXED: timesUsed (was timesUsused)
             return "bg-danger";
         },
 
@@ -620,49 +630,7 @@ export default {
             document.body.style.overflow = "auto";
         },
 
-        // Filter FNSKU list based on search and store
-        filterFnskuList() {
-            const asinPriority = this.currentItem?.ASINviewer;
-            const search = this.fnskuSearch.toLowerCase().trim();
-            const fnskuOnly = this.fnskuExact.toLowerCase().trim();
-            const selectedStore = this.selectedStore;
-            const selectedGrading = this.selectedGrading;
-
-            this.filteredFnskuList = this.fnskuList.filter((fnsku) => {
-                const matchesGeneral =
-                    !search ||
-                    fnsku.ASIN?.toLowerCase().includes(search) ||
-                    fnsku.astitle?.toLowerCase().includes(search);
-
-                const matchesFnskuOnly =
-                    !fnskuOnly ||
-                    fnsku.FNSKU?.toLowerCase().includes(fnskuOnly);
-
-                const matchesStore =
-                    !selectedStore || fnsku.storename === selectedStore;
-
-                const matchesGrading =
-                    !selectedGrading || fnsku.grading === selectedGrading;
-
-                return (
-                    matchesGeneral &&
-                    matchesFnskuOnly &&
-                    matchesStore &&
-                    matchesGrading
-                );
-            });
-
-            this.filteredFnskuList.sort((a, b) => {
-                if (a.ASIN === asinPriority && b.ASIN !== asinPriority)
-                    return -1;
-                if (a.ASIN !== asinPriority && b.ASIN === asinPriority)
-                    return 1;
-                return 0;
-            });
-        },
-
         // Select and save the chosen FNSKU
-
         async selectFnsku(fnsku) {
             console.log("=== FNSKU SELECTION START ===");
             console.log(
@@ -1086,8 +1054,7 @@ export default {
 
         async showFnskuAvailabilityInfo(fnsku) {
             try {
-                const response = await axios.get("/api/fnsku/availability", {
-                    // CORRECT URL
+                const response = await axios.get(`${API_BASE_URL}/api/fnsku/availability`, {
                     params: { fnsku: fnsku.FNSKU },
                     withCredentials: true,
                 });
@@ -1144,8 +1111,7 @@ export default {
          */
         async validateFnskuBeforeAssignment(fnsku) {
             try {
-                const response = await axios.get("/api/fnsku/availability", {
-                    // CORRECT URL
+                const response = await axios.get(`${API_BASE_URL}/api/fnsku/availability`, {
                     params: { fnsku: fnsku.FNSKU },
                     withCredentials: true,
                 });
@@ -1412,6 +1378,7 @@ export default {
             console.log(this.item);
 
             this.showEditModal = true;
+            this.autoResize();
 
             document.body.style.overflow = "hidden";
         },
@@ -1567,6 +1534,140 @@ export default {
             };
             return gradingMap[grading] || grading;
         },
+
+     canSplit(item) {
+            console.log('🔍 canSplit called for item:', {
+                ProductID: item.ProductID,
+                ProductTitle: item.ProductTitle,
+                quantity: item.quantity,
+                price: item.price,
+                priceshipping: item.priceshipping
+            });
+            
+            const quantity = parseInt(item.quantity) || 0;
+            console.log('🔍 Quantity parsed:', quantity);
+            
+            const result = quantity > 1;
+            console.log('🔍 Can split result:', result);
+            
+            return result;
+        },
+
+        /**
+         * Show split confirmation dialog and open modal
+         */
+        confirmSplitItem(item) {
+            console.log('🚀 SPLIT BUTTON CLICKED!');
+            console.log('🔍 Item received:', {
+                ProductID: item.ProductID,
+                ProductTitle: item.ProductTitle,
+                quantity: item.quantity,
+                price: item.price,
+                priceshipping: item.priceshipping
+            });
+            
+            // Check quantity first
+            const canSplitResult = this.canSplit(item);
+            console.log('🔍 canSplit result:', canSplitResult);
+            
+            if (!canSplitResult) {
+                console.log('❌ Cannot split - quantity too low');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Cannot Split',
+                    text: 'This item cannot be split because the quantity is 1 or less.',
+                });
+                return;
+            }
+
+            // Check if we have a valid price
+            const totalPrice = this.getTotalPrice(item);
+            console.log('🔍 Total price found:', totalPrice);
+            
+            // If no price, show confirmation but allow to proceed
+            if (totalPrice <= 0) {
+                console.log('⚠️ No price found - showing confirmation');
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'No Price Set',
+                    html: `
+                        <p>This item has no price or shipping price set.</p>
+                        <p><strong>Do you still want to proceed with the split?</strong></p>
+                        <p class="text-muted small">Each split item will have $0.00 as the price.</p>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes, Split Anyway',
+                    cancelButtonText: 'Cancel',
+                    reverseButtons: true
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.openSplitModal(item);
+                    }
+                });
+                return;
+            }
+
+            // Normal case with valid price
+            this.openSplitModal(item);
+        },
+
+        /**
+         * Open the split modal
+         */
+        openSplitModal(item) {
+            console.log('✅ Opening split modal');
+            
+            // Set the modal data
+            this.currentSplitItem = { ...item };
+            console.log('🔍 currentSplitItem set to:', {
+                ProductID: this.currentSplitItem.ProductID,
+                quantity: this.currentSplitItem.quantity
+            });
+            
+            // Show the modal
+            this.showSplitModal = true;
+            console.log('🔍 After setting: showSplitModal =', this.showSplitModal);
+        },
+
+        /**
+         * Close the split modal
+         */
+        closeSplitModal() {
+            console.log('🚀 CLOSE SPLIT MODAL CALLED');
+            
+            this.showSplitModal = false;
+            this.currentSplitItem = null;
+            
+            console.log('🔍 After close: showSplitModal =', this.showSplitModal);
+        },
+
+        /**
+         * Handle successful split - refresh inventory
+         */
+        async onSplitSuccess() {
+            console.log('🔍 Split success event received - refreshing inventory');
+            await this.fetchInventory();
+        },
+
+        /**
+         * Helper method to get COMBINED total price from both fields
+         */
+        getTotalPrice(item) {
+            if (!item) return 0;
+            
+            const price = parseFloat(item.price) || 0;
+            const priceshipping = parseFloat(item.priceshipping) || 0;
+            const total = price + priceshipping;
+            
+            console.log('🔍 getTotalPrice - Combined from both fields:', {
+                price: price,
+                priceshipping: priceshipping,
+                total: total
+            });
+            
+            return total;
+        },
+
     },
 
     watch: {
@@ -1577,6 +1678,14 @@ export default {
 
         currentItem() {
             this.selectedImage = this.mainImage;
+        },
+        
+        // Add debug watcher for split modal
+        showSplitModal(newVal, oldVal) {
+            console.log('🔍 showSplitModal changed:', oldVal, '->', newVal);
+            if (newVal && !this.currentSplitItem) {
+                console.log('⚠️ Modal shown but no currentSplitItem!');
+            }
         },
     },
 
@@ -1602,6 +1711,9 @@ export default {
 
         window.addEventListener("keydown", handleKeyDown);
         this.handleKeyDown = handleKeyDown; // Store for cleanup
+        
+        // Debug: Log initial state
+        console.log('🔍 Component mounted. showSplitModal initial state:', this.showSplitModal);
     },
 
     beforeDestroy() {

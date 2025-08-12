@@ -874,6 +874,26 @@ export default {
         onThumbnailError(event, index) {
             event.target.src = this.defaultImage;
         },
+
+        goToHouseage(serial) {
+            // Load the Houseage module
+            window.loadContent("houseage");
+
+            // Wait for component render, then set search field
+            setTimeout(() => {
+                const searchInput = document.querySelector("#appsearch input");
+                if (searchInput) {
+                    searchInput.value = serial; // or decodeURIComponent if needed
+                    // Trigger an input event if Vue watches this field
+                    searchInput.dispatchEvent(
+                        new Event("input", { bubbles: true })
+                    );
+                }
+            }, 500); // Adjust delay if needed for your load speed
+
+            highlightNavLink(/* optional */);
+            closeSidebar();
+        },
     },
 
     watch: {

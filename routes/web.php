@@ -389,16 +389,13 @@ Route::prefix('api/returns')->group(function () {
 Route::prefix('api/labeling')->group(function () {
     Route::get('products', [LabelingController::class, 'index']);
     Route::post('products', [LabelingController::class, 'store']);
+    Route::post('split-item', [LabelingController::class, 'splitItem']);
+    
+    // ADD THESE MISSING ROUTES:
+    Route::post('move-to-validation', [LabelingController::class, 'moveToValidation']);
+    Route::post('move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
 });
 
-Route::post('/api/labeling/move-to-validation', [LabelingController::class, 'moveToValidation']);
-Route::post('/api/labeling/move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
-Route::get('/test-labeling-controller', function () {
-    return response()->json([
-        'message' => 'LabelingController is accessible',
-        'timestamp' => now()
-    ]);
-});
 
 Route::post('/test-move-validation', [LabelingController::class, 'moveToValidation']);
 Route::post('/test-move-stockroom', [LabelingController::class, 'moveToStockroom']);

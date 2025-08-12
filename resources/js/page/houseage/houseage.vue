@@ -34,61 +34,20 @@
                                         "
                                     ></i>
                                 </span>
-
-                                <button
-                                    class="btn-showDetails"
-                                    @click="toggleDetailsVisibility"
-                                >
-                                    {{
-                                        showDetails
-                                            ? "Hide extra columns"
-                                            : "Show extra columns"
-                                    }}
-                                </button>
                             </div>
                         </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            ASIN
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FNSKU
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Grading
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Serial Number
-                        </th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            Tracking Number
-                        </th>
-                        <th class="">Quantity</th>
-                        <th class="">Fullfilment Status</th>
-                        <th class="">Warehouse Location</th>
-                        <th class="">Module</th>
-                        <th class="">Date Delivered</th>
-                        <th class="">Return Status</th>
-                        <th class="">Actions</th>
+                        <th>ASIN</th>
+                        <th>FNSKU</th>
+                        <th>Grading</th>
+                        <th>Serial Number</th>
+                        <!-- <th>Tracking Number</th> -->
+                        <th>Quantity</th>
+                        <th>Fullfilment Status</th>
+                        <!-- <th>Warehouse Location</th> -->
+                        <th>Module</th>
+                        <!-- <th>Date Delivered</th> -->
+                        <th>Return Status</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -147,27 +106,21 @@
                                 </div>
                             </td>
 
-                            <td v-if="showDetails">
+                            <td>
                                 <span><strong></strong> {{ item.ASIN }}</span>
                             </td>
-                            <td v-if="showDetails">
+                            <td>
                                 <span><strong></strong> {{ item.FNSKU }}</span>
                             </td>
-                            <td v-if="showDetails">
+                            <td>
                                 <span
                                     ><strong></strong> {{ item.grading }}</span
                                 >
                             </td>
-                            <td v-if="showDetails">
+                            <td>
                                 <span
                                     ><strong></strong>
                                     {{ item.serialnumber }}</span
-                                >
-                            </td>
-                            <td v-if="showDetails">
-                                <span
-                                    ><strong></strong>
-                                    {{ item.trackingnumber }}</span
                                 >
                             </td>
                             <td>
@@ -184,19 +137,7 @@
                             <td>
                                 <span
                                     ><strong></strong>
-                                    {{ item.warehouselocation }}</span
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong>
                                     {{ item.ProductModuleLoc }}</span
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.datedelivered }}</span
                                 >
                             </td>
                             <td>
@@ -341,7 +282,7 @@
                             >
                         </div>
                         <!-- Insert Hidden Here -->
-                        <div class="mobile-detail-row" v-if="showDetails">
+                        <div class="mobile-detail-row">
                             <span class="mobile-detail-label">FBM:</span>
                             <span class="mobile-detal-value">
                                 {{ item.FBMAvailable }}</span

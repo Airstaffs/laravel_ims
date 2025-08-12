@@ -108,6 +108,7 @@ td:last-child {
     color: #0073bb;
     font-weight: 600;
     text-decoration: none;
+    white-space: pre-wrap;
 }
 
 .product-info p:last-child {

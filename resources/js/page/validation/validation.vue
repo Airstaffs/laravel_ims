@@ -109,13 +109,27 @@
                             </td>
 
                             <td>
-                                <span> {{ item.ASIN }} </span>
+                                <a
+                                    :href="`https://www.amazon.com/dp/${item.ASIN}`"
+                                    target="_blank"
+                                >
+                                    {{ item.ASIN }}
+                                </a>
                             </td>
                             <td>
                                 <span> {{ item.rtid }} </span>
                             </td>
                             <td>
-                                <span> {{ item.serialnumber }} </span>
+                                <a
+                                    :href="`/houseage?serial=${encodeURIComponent(
+                                        item.serialnumber
+                                    )}`"
+                                    @click.prevent="
+                                        goToHouseage(item.serialnumber)
+                                    "
+                                >
+                                    {{ item.serialnumber }}
+                                </a>
                             </td>
                             <td>
                                 <span> {{ item.trackingnumber }} </span>
@@ -168,18 +182,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <div class="mobile-showDetails-container">
-                <button
-                    class="btn-showDetailsM"
-                    @click="toggleDetailsVisibility"
-                >
-                    {{
-                        showDetails
-                            ? "Hide extra columns"
-                            : "Show extra columns"
-                    }}
-                </button>
-            </div>
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>

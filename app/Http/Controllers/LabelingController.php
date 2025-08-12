@@ -32,6 +32,66 @@ class LabelingController extends BasetablesController
         return $fnsku; // Return as-is if not prefixed
     }
 
+    /**
+     * Helper method to insert item processing history using BasetablesController pattern
+     */
+    private function insertItemHistory($rtCounter, $action, $additionalData = [])
+    {
+        try {
+            // Get current user
+            $username = Auth::id() ?? (Auth::user()->name ?? 'system');
+            
+            // Use the itemProcessHistoryTable from BasetablesController pattern
+            $historyTable = $this->itemProcessHistoryTable;
+            
+            Log::info('Attempting to insert history', [
+                'table' => $historyTable,
+                'rtcounter' => $rtCounter,
+                'action' => $action,
+                'username' => $username,
+                'additional_data' => $additionalData
+            ]);
+
+            if (Schema::hasTable($historyTable)) {
+                $historyData = [
+                    'rtcounter' => $rtCounter,
+                    'employeeName' => $username,
+                    'EditDate' => now()->format('Y-m-d H:i:s'),
+                    'Module' => 'Labeling',
+                    'Action' => $action,
+                ];
+                
+                // Add any additional data if provided
+                $historyData = array_merge($historyData, $additionalData);
+                
+                DB::table($historyTable)->insert($historyData);
+                
+                Log::info('Item history inserted successfully', [
+                    'rtcounter' => $rtCounter,
+                    'action' => $action,
+                    'table' => $historyTable,
+                    'data' => $historyData
+                ]);
+                
+                return true;
+            } else {
+                Log::warning('History table does not exist, skipping history insert', [
+                    'table' => $historyTable,
+                    'company' => $this->company
+                ]);
+                return false;
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to insert item history', [
+                'rtcounter' => $rtCounter,
+                'action' => $action,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+
     public function index(Request $request)
     {
         try {
@@ -477,6 +537,12 @@ class LabelingController extends BasetablesController
                     ]
                 ]);
 
+                // Insert history for failed attempt
+                $this->insertItemHistory($request->rt_counter, 'Move to Validation Failed - Missing Fields', [
+                    'reason' => $missingFieldsText,
+                    'attempted_by' => Auth::user()->name ?? 'system'
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => "Cannot move to Validation. Missing required fields: {$missingFieldsText}. Please set the FNSKU first.",
@@ -502,6 +568,16 @@ class LabelingController extends BasetablesController
                 ]);
 
             Log::info('Update result: ' . $updateResult . ' rows affected');
+
+            // Insert success history
+            $this->insertItemHistory($request->rt_counter, 'Moved to Validation', [
+                'from_location' => $request->current_location,
+                'to_location' => 'Validation',
+                'fnsku' => $existingProduct->FNSKUviewer,
+                'asin' => $fnskuRecord->ASIN,
+                'msku' => $fnskuRecord->MSKU,
+                'moved_by' => Auth::user()->name ?? 'system'
+            ]);
 
             // Verify the update worked
             $updatedProduct = DB::table($this->productTable)
@@ -531,6 +607,14 @@ class LabelingController extends BasetablesController
                 'trace' => $e->getTraceAsString(),
                 'request_data' => $request->all()
             ]);
+
+            // Insert error history
+            if (isset($request->rt_counter)) {
+                $this->insertItemHistory($request->rt_counter, 'Move to Validation Error', [
+                    'error' => $e->getMessage(),
+                    'attempted_by' => Auth::user()->name ?? 'system'
+                ]);
+            }
 
             return response()->json([
                 'success' => false,
@@ -641,6 +725,12 @@ class LabelingController extends BasetablesController
                     ]
                 ]);
 
+                // Insert history for failed attempt
+                $this->insertItemHistory($request->rt_counter, 'Move to Stockroom Failed - Missing Fields', [
+                    'reason' => $missingFieldsText,
+                    'attempted_by' => Auth::user()->name ?? 'system'
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => "Cannot move to Stockroom. Missing required fields: {$missingFieldsText}. Please set the FNSKU first.",
@@ -666,6 +756,16 @@ class LabelingController extends BasetablesController
                 ]);
 
             Log::info('Update result: ' . $updateResult . ' rows affected');
+
+            // Insert success history
+            $this->insertItemHistory($request->rt_counter, 'Moved to Stockroom', [
+                'from_location' => $request->current_location,
+                'to_location' => 'Stockroom',
+                'fnsku' => $existingProduct->FNSKUviewer,
+                'asin' => $fnskuRecord->ASIN,
+                'msku' => $fnskuRecord->MSKU,
+                'moved_by' => Auth::user()->name ?? 'system'
+            ]);
 
             // Verify the update worked
             $updatedProduct = DB::table($this->productTable)
@@ -696,6 +796,14 @@ class LabelingController extends BasetablesController
                 'request_data' => $request->all()
             ]);
 
+            // Insert error history
+            if (isset($request->rt_counter)) {
+                $this->insertItemHistory($request->rt_counter, 'Move to Stockroom Error', [
+                    'error' => $e->getMessage(),
+                    'attempted_by' => Auth::user()->name ?? 'system'
+                ]);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to move product to Stockroom',
@@ -708,48 +816,471 @@ class LabelingController extends BasetablesController
         }
     }
 
-    public function store(Request $request)
-    {
-        $validated = $request->validate([
-            'ProductID' => 'required|integer',
-            'ProductTitle' => 'nullable|string|max:255',
-            'itemnumber' => 'nullable|string|max:255',
-            'basketnumber' => 'nullable|string|max:255',
-            'RPN' => 'nullable|string|max:255',
-            'PRD' => 'nullable|string|max:255',
-            'PCN' => 'nullable|string|max:255',
-            'priorityrank' => 'nullable|string|max:255',
-            'quantity' => 'nullable|numeric',
-            'orderdate' => 'nullable|date',
-            'paymentdate' => 'nullable|date',
-            'shipdate' => 'nullable|date',
-            'datedelivered' => 'nullable|date',
-            'description' => 'nullable|string',
-            'supplierNotes' => 'nullable|string',
-            'employeeNotes' => 'nullable|string',
-            'stickerNotes' => 'nullable|string',
-            'serialnumber' => 'nullable|string|max:255',
-            'serialnumberb' => 'nullable|string|max:255',
-            'serialnumberc' => 'nullable|string|max:255',
-            'serialnumberd' => 'nullable|string|max:255',
-            'trackingnumber' => 'nullable|string|max:255',
-            'trackingnumber2' => 'nullable|string|max:255',
-            'trackingnumber3' => 'nullable|string|max:255',
-            'trackingnumber4' => 'nullable|string|max:255',
-            'trackingnumber5' => 'nullable|string|max:255',
+    /**
+     * Split an item into individual units with history tracking
+     */
+   public function splitItem(Request $request)
+{
+    Log::info('=== SPLIT ITEM CALLED ===', [
+        'request_data' => $request->all(),
+        'product_table' => $this->productTable,
+        'user' => Auth::user()->name ?? 'system'
+    ]);
+
+    try {
+        // Updated validation - handle both price fields separately
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required|integer',
+            'rt_counter' => 'required',
+            'quantity' => 'required|integer|min:2',
+            'price' => 'nullable|numeric|min:0',
+            'priceshipping' => 'nullable|numeric|min:0',
+            'total_price' => 'nullable|numeric|min:0',
         ]);
 
-        // You can adjust based on your model binding
-        $product = DB::table($this->productTable)
-            ->updateOrInsert(
-                ['ProductID' => $validated['ProductID']],
-                $validated
-            );
+        if ($validator->fails()) {
+            Log::error('Validation failed in splitItem', [
+                'errors' => $validator->errors(),
+                'request_data' => $request->all()
+            ]);
+            
+            // Insert history for failed validation
+            if ($request->rt_counter) {
+                $this->insertItemHistory($request->rt_counter, 'Split Item Failed - Validation Error', [
+                    'errors' => $validator->errors()->toArray(),
+                    'attempted_by' => Auth::user()->name ?? 'system'
+                ]);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $productId = $request->product_id;
+        $rtCounter = $request->rt_counter;
+        $currentQuantity = (int)$request->quantity;
+        
+        // Handle both price fields
+        $originalPrice = (float)($request->price ?? 0);
+        $originalPriceShipping = (float)($request->priceshipping ?? 0);
+        $totalPrice = $originalPrice + $originalPriceShipping;
+
+        Log::info('Processing split request with both price fields', [
+            'product_id' => $productId,
+            'rt_counter' => $rtCounter,
+            'current_quantity' => $currentQuantity,
+            'original_price' => $originalPrice,
+            'original_priceshipping' => $originalPriceShipping,
+            'total_price' => $totalPrice
+        ]);
+
+        // Check if quantity is valid for splitting
+        if ($currentQuantity <= 1) {
+            $this->insertItemHistory($rtCounter, 'Split Item Failed - Invalid Quantity', [
+                'quantity' => $currentQuantity,
+                'attempted_by' => Auth::user()->name ?? 'system'
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Split not possible. Quantity must be greater than 1.'
+            ], 422);
+        }
+
+        // Get the original product
+        $originalProduct = DB::table($this->productTable)
+            ->where('ProductID', $productId)
+            ->first();
+
+        if (!$originalProduct) {
+            Log::error('Product not found for splitting', [
+                'product_id' => $productId,
+                'table' => $this->productTable
+            ]);
+            
+            $this->insertItemHistory($rtCounter, 'Split Item Failed - Product Not Found', [
+                'product_id' => $productId,
+                'attempted_by' => Auth::user()->name ?? 'system'
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Product not found'
+            ], 404);
+        }
+
+        Log::info('Original product found', [
+            'ProductID' => $originalProduct->ProductID,
+            'rtcounter' => $originalProduct->rtcounter,
+            'quantity' => $originalProduct->quantity,
+            'price' => $originalProduct->price ?? 'null',
+            'priceshipping' => $originalProduct->priceshipping ?? 'null'
+        ]);
+
+        // Verify the quantity matches what was sent
+        $dbQuantity = (int)($originalProduct->quantity ?? 0);
+        if ($dbQuantity !== $currentQuantity) {
+            Log::warning('Quantity mismatch detected', [
+                'sent_quantity' => $currentQuantity,
+                'db_quantity' => $dbQuantity,
+                'product_id' => $productId
+            ]);
+            
+            $this->insertItemHistory($rtCounter, 'Split Item Failed - Quantity Mismatch', [
+                'sent_quantity' => $currentQuantity,
+                'db_quantity' => $dbQuantity,
+                'attempted_by' => Auth::user()->name ?? 'system'
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Quantity mismatch. The item may have been modified by another user.'
+            ], 422);
+        }
+
+        // Calculate unit prices for BOTH fields
+        $unitPrice = $currentQuantity > 0 ? round($originalPrice / $currentQuantity, 2) : 0;
+        $unitPriceShipping = $currentQuantity > 0 ? round($originalPriceShipping / $currentQuantity, 2) : 0;
+        $totalUnitPrice = $unitPrice + $unitPriceShipping;
+
+        Log::info('Calculated unit prices for both fields', [
+            'original_price' => $originalPrice,
+            'original_priceshipping' => $originalPriceShipping,
+            'total_original' => $totalPrice,
+            'quantity' => $currentQuantity,
+            'unit_price' => $unitPrice,
+            'unit_priceshipping' => $unitPriceShipping,
+            'total_unit_price' => $totalUnitPrice
+        ]);
+
+        // Get current max rtcounter to generate new RT numbers
+        $maxRtResult = DB::table($this->productTable)
+            ->selectRaw('MAX(rtcounter) as maxrt')
+            ->first();
+        
+        $newRt = (int)($maxRtResult->maxrt ?? 0);
+
+        Log::info('Current max RT counter', [
+            'max_rt' => $newRt,
+            'will_start_new_items_from' => $newRt + 1
+        ]);
+
+        // Start database transaction
+        DB::beginTransaction();
+
+        try {
+            // Insert history for split start
+            $this->insertItemHistory($rtCounter, 'Split Item', [
+                'original_quantity' => $currentQuantity,
+                'original_price' => $originalPrice,
+                'original_priceshipping' => $originalPriceShipping,
+                'total_original_price' => $totalPrice,
+                'unit_price' => $unitPrice,
+                'unit_priceshipping' => $unitPriceShipping,
+                'total_unit_price' => $totalUnitPrice,
+                'split_by' => Auth::user()->name ?? 'system'
+            ]);
+
+            // Prepare update data for original item - update BOTH price fields
+            $updateData = [
+                'quantity' => 1,
+                'lastDateUpdate' => now()->format('Y-m-d H:i:s')
+            ];
+
+            // Always update both fields (even if they're 0)
+            $updateData['price'] = $unitPrice;
+            $updateData['priceshipping'] = $unitPriceShipping;
+
+            // Update original item to quantity = 1 and unit prices
+            $updateResult = DB::table($this->productTable)
+                ->where('ProductID', $productId)
+                ->update($updateData);
+
+            Log::info('Original product updated with both price fields', [
+                'updated_rows' => $updateResult,
+                'new_price' => $unitPrice,
+                'new_priceshipping' => $unitPriceShipping,
+                'update_data' => $updateData
+            ]);
+
+            if ($updateResult === 0) {
+                throw new \Exception("Failed to update original product quantity and prices");
+            }
+
+            // Insert history for original item update
+            $this->insertItemHistory($rtCounter, 'Original Item Updated After Split', [
+                'new_quantity' => 1,
+                'new_price' => $unitPrice,
+                'new_priceshipping' => $unitPriceShipping,
+                'original_quantity' => $currentQuantity,
+                'original_price' => $originalPrice,
+                'original_priceshipping' => $originalPriceShipping,
+                'updated_by' => Auth::user()->name ?? 'system'
+            ]);
+
+            $newItemsCreated = 0;
+            $newRtCounters = [];
+
+            // Create (quantity - 1) new items
+            for ($i = 0; $i < $currentQuantity - 1; $i++) {
+                $newRt++;
+                $newRtCounters[] = $newRt;
+
+                // Create new item data based on the original product
+                $newItemData = [
+                    'ProductTitle' => $originalProduct->ProductTitle ?? null,
+                    'itemnumber' => $originalProduct->itemnumber ?? null,
+                    'RPN' => $originalProduct->RPN ?? null,
+                    'PRD' => $originalProduct->PRD ?? null,
+                    'quantity' => 1,
+                    // Set BOTH price fields to their respective unit prices
+                    'price' => $unitPrice,
+                    'priceshipping' => $unitPriceShipping,
+                    'orderdate' => $originalProduct->orderdate ?? null,
+                    'paymentdate' => $originalProduct->paymentdate ?? null,
+                    'shipdate' => $originalProduct->shipdate ?? null,
+                    'datedelivered' => $originalProduct->datedelivered ?? null,
+                    'description' => $originalProduct->description ?? null,
+                    'supplierNotes' => $originalProduct->supplierNotes ?? null,
+                    'employeeNotes' => $originalProduct->employeeNotes ?? null,
+                    'stickerNotes' => $originalProduct->stickerNotes ?? null,
+                    'trackingnumber' => $originalProduct->trackingnumber ?? null,
+                    'trackingnumber2' => $originalProduct->trackingnumber2 ?? null,
+                    'trackingnumber3' => $originalProduct->trackingnumber3 ?? null,
+                    'trackingnumber4' => $originalProduct->trackingnumber4 ?? null,
+                    'trackingnumber5' => $originalProduct->trackingnumber5 ?? null,
+                    'ProductModuleLoc' => 'Labeling', // Keep in same location
+                    'rtcounter' => $newRt,
+                    'splitfromRT' => $rtCounter, // Track original RT
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
+                ];
+
+                // Remove null/empty values to prevent database issues
+                $newItemData = array_filter($newItemData, function($value) {
+                    return $value !== null && $value !== '';
+                });
+
+                Log::info('Preparing to insert new item with both price fields', [
+                    'new_rt' => $newRt,
+                    'unit_price' => $unitPrice,
+                    'unit_priceshipping' => $unitPriceShipping,
+                    'data_fields_count' => count($newItemData),
+                    'table' => $this->productTable
+                ]);
+
+                $insertResult = DB::table($this->productTable)->insert($newItemData);
+
+                if (!$insertResult) {
+                    throw new \Exception("Failed to create new item with RT: $newRt");
+                }
+
+                $newItemsCreated++;
+
+                // Insert history for new item
+                $this->insertItemHistory($newRt, 'New Item Created from Split', [
+                    'split_from_rt' => $rtCounter,
+                    'quantity' => 1,
+                    'price' => $unitPrice,
+                    'priceshipping' => $unitPriceShipping,
+                    'total_unit_price' => $totalUnitPrice,
+                    'created_by' => Auth::user()->name ?? 'system'
+                ]);
+
+                Log::info('New item created successfully with both price fields', [
+                    'new_rt' => $newRt,
+                    'price' => $unitPrice,
+                    'priceshipping' => $unitPriceShipping,
+                    'split_from' => $rtCounter,
+                    'items_created_so_far' => $newItemsCreated
+                ]);
+            }
+
+            // Insert final history for split completion
+            $this->insertItemHistory($rtCounter, 'Split Item Completed Successfully', [
+                'original_quantity' => $currentQuantity,
+                'new_items_created' => $newItemsCreated,
+                'new_rt_counters' => implode(', ', $newRtCounters),
+                'unit_price' => $unitPrice,
+                'unit_priceshipping' => $unitPriceShipping,
+                'total_unit_price' => $totalUnitPrice,
+                'both_price_fields_split' => true,
+                'completed_by' => Auth::user()->name ?? 'system'
+            ]);
+
+            // Commit transaction
+            DB::commit();
+
+            Log::info('Split operation completed successfully with both price fields', [
+                'original_rt' => $rtCounter,
+                'original_quantity' => $currentQuantity,
+                'new_items_created' => $newItemsCreated,
+                'new_rt_counters' => $newRtCounters,
+                'unit_price' => $unitPrice,
+                'unit_priceshipping' => $unitPriceShipping,
+                'total_unit_price' => $totalUnitPrice,
+                'total_items_after' => $currentQuantity
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Successfully split item into individual units with proportional price distribution',
+                'data' => [
+                    'original_rt' => $rtCounter,
+                    'original_quantity' => $currentQuantity,
+                    'new_items_count' => $newItemsCreated,
+                    'new_rt_counters' => $newRtCounters,
+                    'price_breakdown' => [
+                        'original_price' => $originalPrice,
+                        'original_priceshipping' => $originalPriceShipping,
+                        'original_total' => $totalPrice,
+                        'unit_price' => $unitPrice,
+                        'unit_priceshipping' => $unitPriceShipping,
+                        'unit_total' => $totalUnitPrice,
+                    ],
+                    'total_items_after_split' => $currentQuantity,
+                    'both_fields_split' => true
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            // Rollback transaction on any error
+            DB::rollback();
+            
+            Log::error('Database transaction failed during split', [
+                'error' => $e->getMessage(),
+                'original_rt' => $rtCounter,
+                'product_id' => $productId
+            ]);
+            
+            // Insert error history
+            $this->insertItemHistory($rtCounter, 'Split Item Failed - Database Error', [
+                'error' => $e->getMessage(),
+                'attempted_by' => Auth::user()->name ?? 'system'
+            ]);
+            
+            throw $e;
+        }
+
+    } catch (\Exception $e) {
+        Log::error('Exception in splitItem', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'request_data' => $request->all()
+        ]);
 
         return response()->json([
-            'success' => true,
-            'message' => 'Labeling product saved successfully',
-            'product' => $product
-        ]);
+            'success' => false,
+            'message' => 'Failed to split item: ' . $e->getMessage(),
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+    public function store(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'ProductID' => 'required|integer',
+                'ProductTitle' => 'nullable|string|max:255',
+                'itemnumber' => 'nullable|string|max:255',
+                'basketnumber' => 'nullable|string|max:255',
+                'RPN' => 'nullable|string|max:255',
+                'PRD' => 'nullable|string|max:255',
+                'PCN' => 'nullable|string|max:255',
+                'priorityrank' => 'nullable|string|max:255',
+                'quantity' => 'nullable|numeric',
+                'orderdate' => 'nullable|date',
+                'paymentdate' => 'nullable|date',
+                'shipdate' => 'nullable|date',
+                'datedelivered' => 'nullable|date',
+                'description' => 'nullable|string',
+                'supplierNotes' => 'nullable|string',
+                'employeeNotes' => 'nullable|string',
+                'stickerNotes' => 'nullable|string',
+                'serialnumber' => 'nullable|string|max:255',
+                'serialnumberb' => 'nullable|string|max:255',
+                'serialnumberc' => 'nullable|string|max:255',
+                'serialnumberd' => 'nullable|string|max:255',
+                'trackingnumber' => 'nullable|string|max:255',
+                'trackingnumber2' => 'nullable|string|max:255',
+                'trackingnumber3' => 'nullable|string|max:255',
+                'trackingnumber4' => 'nullable|string|max:255',
+                'trackingnumber5' => 'nullable|string|max:255',
+            ]);
+
+            // Get the original product to compare changes
+            $originalProduct = DB::table($this->productTable)
+                ->where('ProductID', $validated['ProductID'])
+                ->first();
+
+            $isUpdate = $originalProduct ? true : false;
+            $rtCounter = $originalProduct->rtcounter ?? 'Unknown';
+
+            // Update or insert the product
+            $result = DB::table($this->productTable)
+                ->updateOrInsert(
+                    ['ProductID' => $validated['ProductID']],
+                    array_merge($validated, ['lastDateUpdate' => now()->format('Y-m-d H:i:s')])
+                );
+
+            // Determine what changed for history
+            $changes = [];
+            if ($isUpdate && $originalProduct) {
+                foreach ($validated as $key => $value) {
+                    if (property_exists($originalProduct, $key)) {
+                        $oldValue = $originalProduct->$key;
+                        if ($oldValue != $value) {
+                            $changes[$key] = [
+                                'from' => $oldValue,
+                                'to' => $value
+                            ];
+                        }
+                    }
+                }
+            }
+
+            // Insert history record
+            $action = $isUpdate ? 'Product Updated' : 'Product Created';
+            $this->insertItemHistory($rtCounter, $action, [
+                'changes' => $changes,
+                'total_fields_changed' => count($changes),
+                'updated_by' => Auth::user()->name ?? 'system'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Labeling product saved successfully',
+                'product' => $result,
+                'action' => $action,
+                'changes_made' => count($changes)
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error in store method', [
+                'message' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            // Try to insert error history if we have an RT counter
+            if ($request->ProductID) {
+                $product = DB::table($this->productTable)
+                    ->where('ProductID', $request->ProductID)
+                    ->first();
+                if ($product && isset($product->rtcounter)) {
+                    $this->insertItemHistory($product->rtcounter, 'Product Save Failed', [
+                        'error' => $e->getMessage(),
+                        'attempted_by' => Auth::user()->name ?? 'system'
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to save product: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }
