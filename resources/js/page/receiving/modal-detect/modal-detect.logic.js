@@ -264,6 +264,7 @@ export default defineComponent({
         liveDetectionActive.value = false;
         console.log('[QuickDetect] No valid serial after 20s — capturing fallback frame...');
         await captureAndRunFullDetection();
+
       }, 20000);
 
       // Async loop (prevents overlapping requests)
