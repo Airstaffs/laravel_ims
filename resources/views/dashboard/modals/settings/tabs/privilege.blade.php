@@ -113,6 +113,7 @@
                             packing: 'Packing',
                             stockroom: 'Stockroom',
                             productionarea: 'Production Area',
+                            rts: 'RTS',
                             returnscanner: 'Return Scanner',
                             fbmorder: 'FBM Order',
                             houseage: 'Houseage',
@@ -245,6 +246,7 @@
                         'packing': 'Packing',
                         'stockroom': 'Stockroom',
                         'productionarea': 'Production Area',
+                        'rts':'RTS',
                         'returnscanner': 'Return Scanner',
                         'fbmorder': 'FBM Order',
                         'notfound': 'Not Found',
@@ -322,6 +324,7 @@
             'Stockroom': 'stockroom',
             'Validation': 'validation',
             'Production Area': 'productionarea',
+            'RTS': 'rts',
             'Return Scanner': 'returnscanner',
             'FBM Order': 'fbmorder',
             'Not Found': 'notfound',
@@ -329,7 +332,7 @@
         };
 
         const mainModules = ['Human Resource','Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-            'Stockroom', 'Validation','Production Area', 'Return Scanner', 'FBM Order', 'Not Found', 'Houseage'
+            'Stockroom', 'Validation','Production Area','RTS','Return Scanner', 'FBM Order', 'Not Found', 'Houseage'
         ];
 
         const mainModuleHTML = `
@@ -402,6 +405,10 @@
         {
             db: 'productionarea',
             display: 'Production Area'
+        },
+        {
+            db: 'rts',
+            display: 'RTS'
         },
         {
             db: 'returnscanner',
@@ -507,6 +514,7 @@
                     'packing': 'Packing',
                     'stockroom': 'Stockroom',
                     'productionarea': 'Production Area',
+                    'rts': 'RTS',
                     'returnscanner': 'Return Scanner',
                     'fbmorder': 'FBM Order',
                     'notfound': 'Not Found',
@@ -565,6 +573,7 @@
                     'packing': 'Packing',
                     'stockroom': 'Stockroom',
                     'productionarea': 'Production Area',
+                    'rts': 'RTS',
                     'returnscanner': 'Return Scanner',
                     'fbmorder': 'FBM Order',
                     'notfound': 'Not Found',
@@ -619,6 +628,7 @@
             'packing': 'Packing',
             'stockroom': 'Stockroom',
             'productionarea': 'Production Area',
+            'rts': 'RTS',
             'returnscanner': 'Return Scanner',
             'fbmorder': 'FBM Order',
             'notfound': 'Not Found',

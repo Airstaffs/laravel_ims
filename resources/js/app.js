@@ -29,6 +29,7 @@ import Houseage from "./page/houseage/houseage.vue";
 import ASINList from "./page/asinlist/asinlist.vue";
 import PrinterModule from "./page/printer/printer.vue";
 import HumanResource from "./page/hr/hr.vue";
+import RTS from "./page/rts/rts.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
@@ -151,6 +152,7 @@ const componentMapping = {
     "Printer": "printer", // 🔴 UPDATED: Add capitalized version
     "Human Resource":"humanresource",
     "Training":"training",
+    "RTS":"rts",
 };
 
 // Session management mixin
@@ -547,6 +549,7 @@ const app = createApp({
         asinlist :ASINList,
         printer: PrinterModule,
         humanresource: HumanResource,
+        rts: RTS,
     },
 });
 

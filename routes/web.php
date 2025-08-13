@@ -36,6 +36,7 @@ use App\Http\Controllers\ASINlistController;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Controllers\printer\PrinterController;
 use App\Http\Controllers\FnskuController;
+use App\Http\Controllers\RTSController;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
 
@@ -394,6 +395,11 @@ Route::prefix('api/labeling')->group(function () {
     // ADD THESE MISSING ROUTES:
     Route::post('move-to-validation', [LabelingController::class, 'moveToValidation']);
     Route::post('move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
+});
+
+// Routes for RTS Function 
+Route::prefix('api/rts')->group(function () {
+    Route::get('products', [RTSController::class, 'index']);
 });
 
 

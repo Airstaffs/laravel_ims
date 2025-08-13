@@ -42,6 +42,7 @@ class UserSessionController extends Controller
             if ($user->stockroom) $subModules[] = 'stockroom';
             if ($user->validation) $subModules[] = 'validation';
             if ($user->productionarea) $subModules[] = 'productionarea';
+            if ($user->rts) $subModules[] = 'rts';
             if ($user->fnsku) $subModules[] = 'fnsku';
             if ($user->notfound) $subModules[] = 'notfound';
             if ($user->asinoption) $subModules[] = 'asinoption';
@@ -105,6 +106,7 @@ class UserSessionController extends Controller
                     'validation' => 'Validation',
                 //    'fnsku' => 'FNSKU',
                     'productionarea'=>'Production Area',
+                    'rts'=>'RTS',
                     'returnscanner' => 'Return Scanner',
                     'fbmorder' => 'FBM Order',
                     'notfound' => 'Not Found',

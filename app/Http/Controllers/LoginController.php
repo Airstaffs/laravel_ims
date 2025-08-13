@@ -168,6 +168,7 @@ class LoginController extends Controller
             'fnsku',
             'validation',
             'productionarea',
+            'rts',
             'returnscanner',
             'fbmorder',
             'notfound',
