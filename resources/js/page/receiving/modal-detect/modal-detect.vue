@@ -106,21 +106,23 @@
           </div>
 
           <!-- Error Message (always visible if set) -->
-        <div v-if="errorMessage" class="error-message text-red-500" style="margin: 1rem 0;">
-          {{ errorMessage }}
-        </div>
-
           <div v-if="apiResult" class="mt-3">
             <h4>Detected Serials:</h4>
             <ul v-if="apiResult.serials && apiResult.serials.length">
               <li v-for="(serial, index) in apiResult.serials" :key="index">
-                {{ serial }}
+                {{ serial.text }}
               </li>
             </ul>
             <p v-else class="text-red-500">⚠️ No serials detected.</p>
 
             <h4 class="mt-3">Raw OCR:</h4>
-            <pre>{{ Array.isArray(apiResult.raw_ocr) ? apiResult.raw_ocr.join('\n') : apiResult.raw_ocr }}</pre>
+            <pre>
+              {{ Array.isArray(apiResult.raw_ocr) 
+                  ? apiResult.raw_ocr.map(o => `${o.text} (conf: ${o.confidence.toFixed(2)})`).join('\n') 
+                  : apiResult.raw_ocr 
+              }}
+            </pre>
+
           </div>
 
           <div class="mt-3 btn-cropped-output">

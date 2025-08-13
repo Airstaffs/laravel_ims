@@ -28,6 +28,7 @@ async def detect(file: UploadFile = File(...)):
             content={"error": f"Internal server error: {str(e)}"}
         )
 
+# 📷 Camera frame detection (quick detection for live camera feed )
 @app.post("/detect-camera-frame")
 async def detect_camera_frame(file: UploadFile = File(...)):
     try:
