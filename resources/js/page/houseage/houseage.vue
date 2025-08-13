@@ -611,7 +611,7 @@
                                                 <input
                                                     type="text"
                                                     class="form-control"
-                                                    :value="item.rtcounter"
+                                                    :value="item.ProductID"
                                                     placeholder="RT Counter"
                                                 />
                                             </fieldset>
