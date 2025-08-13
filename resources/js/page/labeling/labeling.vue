@@ -653,6 +653,15 @@
                                             </h3>
 
                                             <fieldset>
+                                                <label><span>RT:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    :value="item.rtcounter"
+                                                    placeholder="RT Counter"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
                                                 <label>
                                                     <span>ASIN:</span>
                                                     <span>*</span>
