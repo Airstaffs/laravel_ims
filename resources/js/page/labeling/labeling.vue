@@ -653,6 +653,15 @@
                                             </h3>
 
                                             <fieldset>
+                                                <label><span>RT:</span></label>
+                                                <input
+                                                    type="text"
+                                                    class="form-control"
+                                                    :value="item.rtcounter"
+                                                    placeholder="RT Counter"
+                                                />
+                                            </fieldset>
+                                            <fieldset>
                                                 <label>
                                                     <span>ASIN:</span>
                                                     <span>*</span>
@@ -956,9 +965,9 @@
                                         </fieldset>
 
                                         <fieldset>
-                                            <label>
-                                                <span>Unit Price</span>
-                                            </label>
+                                            <label
+                                                ><span>Unit Price</span></label
+                                            >
                                             <input
                                                 type="number"
                                                 class="form-control form-control-lg text-end"
@@ -967,9 +976,25 @@
                                         </fieldset>
 
                                         <fieldset>
-                                            <label>
-                                                <span>Price Shipping</span>
-                                            </label>
+                                            <label><span>Discount</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.Discount"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Tax</span></label>
+                                            <input
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.tax"
+                                            />
+                                        </fieldset>
+
+                                        <fieldset>
+                                            <label><span>Shipping</span></label>
                                             <input
                                                 type="number"
                                                 class="form-control form-control-lg text-end"
@@ -978,13 +1003,38 @@
                                         </fieldset>
 
                                         <fieldset>
-                                            <label>
-                                                <span>Tax</span>
-                                            </label>
+                                            <label><span>Refund</span></label>
                                             <input
                                                 type="number"
                                                 class="form-control form-control-lg text-end"
-                                                v-model="item.tax"
+                                                v-model="item.refund"
+                                            />
+                                        </fieldset>
+
+                                        <!-- Divider -->
+                                        <hr class="my-4" />
+
+                                        <fieldset>
+                                            <label
+                                                ><span>Sub-total</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light"
+                                                :value="formattedSubtotal"
+                                                readonly
+                                            />
+                                        </fieldset>
+                                        <!-- Total Summary -->
+                                        <fieldset>
+                                            <label
+                                                ><span>Grand Total</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light fw-bold text-success"
+                                                :value="grandTotal"
+                                                readonly
                                             />
                                         </fieldset>
                                     </div>

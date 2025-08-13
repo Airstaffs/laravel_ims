@@ -97,21 +97,43 @@ export default {
             );
         },
 
+        // Safe numeric getters
+        qty() {
+            return Number(this.item.quantity) || 0;
+        },
+        price() {
+            return Number(this.item.price) || 0;
+        },
+        discountValue() {
+            return Number(this.item.discount) || 0;
+        }, // fixed amount
+        taxValue() {
+            return Number(this.item.tax) || 0;
+        }, // fixed amount
+        shipping() {
+            return Number(this.item.priceshipping) || 0;
+        },
+        refund() {
+            return Number(this.item.refund) || 0;
+        },
+
+        subtotal() {
+            return this.qty * this.price;
+        },
+        afterDiscount() {
+            return this.subtotal - this.discountValue;
+        },
+        grandTotalRaw() {
+            return (
+                this.afterDiscount + this.taxValue + this.shipping - this.refund
+            );
+        },
+
         formattedSubtotal() {
-            const total = parseFloat(this.item.TOTAL) || 0;
-            const quantity = parseFloat(this.item.quantity) || 0;
-            return (total * quantity).toFixed(2);
+            return this.subtotal.toFixed(2);
         },
         grandTotal() {
-            const subtotal = this.formattedSubtotal;
-            const discount = parseFloat(this.item.discount) || 0;
-            return (subtotal - discount).toFixed(2);
-        },
-        unitPrice() {
-            const quantity = parseFloat(this.item.quantity);
-            if (!quantity || quantity === 0) return 0;
-
-            return (this.formattedSubtotal / quantity).toFixed(2);
+            return this.grandTotalRaw.toFixed(2);
         },
 
         materialTypes() {

@@ -1157,13 +1157,12 @@
 
                                         <fieldset>
                                             <label
-                                                ><span>Sub-total</span></label
+                                                ><span>Unit Price</span></label
                                             >
                                             <input
-                                                type="text"
-                                                class="form-control form-control-lg text-end bg-light"
-                                                :value="formattedSubtotal"
-                                                readonly
+                                                type="number"
+                                                class="form-control form-control-lg text-end"
+                                                v-model="item.price"
                                             />
                                         </fieldset>
 
@@ -1206,6 +1205,17 @@
                                         <!-- Divider -->
                                         <hr class="my-4" />
 
+                                        <fieldset>
+                                            <label
+                                                ><span>Sub-total</span></label
+                                            >
+                                            <input
+                                                type="text"
+                                                class="form-control form-control-lg text-end bg-light"
+                                                :value="formattedSubtotal"
+                                                readonly
+                                            />
+                                        </fieldset>
                                         <!-- Total Summary -->
                                         <fieldset>
                                             <label
@@ -1215,18 +1225,6 @@
                                                 type="text"
                                                 class="form-control form-control-lg text-end bg-light fw-bold text-success"
                                                 :value="grandTotal"
-                                                readonly
-                                            />
-                                        </fieldset>
-
-                                        <fieldset>
-                                            <label
-                                                ><span>Unit Price</span></label
-                                            >
-                                            <input
-                                                type="text"
-                                                class="form-control form-control-lg text-end bg-light"
-                                                :value="unitPrice"
                                                 readonly
                                             />
                                         </fieldset>

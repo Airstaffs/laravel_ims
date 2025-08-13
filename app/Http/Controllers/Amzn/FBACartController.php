@@ -113,9 +113,9 @@ class FBACartController extends Controller
         $attempts = 0;
         while (
             DB::table('tblfbashipmenthistory')
-                ->where('shipmentID', $shipmentID)
-                ->where('dateshipped', $dateshipped)
-                ->exists()
+            ->where('shipmentID', $shipmentID)
+            ->where('dateshipped', $dateshipped)
+            ->exists()
         ) {
             $attempts++;
             if ($attempts > 10) {
@@ -171,5 +171,4 @@ class FBACartController extends Controller
             'date_shipped' => $dateshipped
         ]);
     }
-
 }
