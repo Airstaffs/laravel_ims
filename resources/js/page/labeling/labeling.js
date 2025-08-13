@@ -164,6 +164,44 @@ export default {
                 };
             });
         },
+
+        qty() {
+            return Number(this.item.quantity) || 0;
+        },
+        price() {
+            return Number(this.item.price) || 0;
+        },
+        discountValue() {
+            return Number(this.item.discount) || 0;
+        }, // fixed amount
+        taxValue() {
+            return Number(this.item.tax) || 0;
+        }, // fixed amount
+        shipping() {
+            return Number(this.item.priceshipping) || 0;
+        },
+        refund() {
+            return Number(this.item.refund) || 0;
+        },
+
+        subtotal() {
+            return this.qty * this.price;
+        },
+        afterDiscount() {
+            return this.subtotal - this.discountValue;
+        },
+        grandTotalRaw() {
+            return (
+                this.afterDiscount + this.taxValue + this.shipping - this.refund
+            );
+        },
+
+        formattedSubtotal() {
+            return this.subtotal.toFixed(2);
+        },
+        grandTotal() {
+            return this.grandTotalRaw.toFixed(2);
+        },
     },
     methods: {
         /**
@@ -1552,82 +1590,82 @@ export default {
         },
 
         canSplit(item) {
-    console.log('🔍 canSplit called for item:', {
-        ProductID: item.ProductID,
-        ProductTitle: item.ProductTitle,
-        quantity: item.quantity,
-        price: item.price,
-        priceshipping: item.priceshipping,
-        tax: item.tax  // ✅ ADDED: tax field
-    });
-    
-    const quantity = parseInt(item.quantity) || 0;
-    console.log('🔍 Quantity parsed:', quantity);
-    
-    const result = quantity > 1;
-    console.log('🔍 Can split result:', result);
-    
-    return result;
-},
+            console.log("🔍 canSplit called for item:", {
+                ProductID: item.ProductID,
+                ProductTitle: item.ProductTitle,
+                quantity: item.quantity,
+                price: item.price,
+                priceshipping: item.priceshipping,
+                tax: item.tax, // ✅ ADDED: tax field
+            });
 
-/**
- * Show split confirmation dialog and open modal
- */
-confirmSplitItem(item) {
-    console.log('🚀 SPLIT BUTTON CLICKED!');
-    console.log('🔍 Item received:', {
-        ProductID: item.ProductID,
-        ProductTitle: item.ProductTitle,
-        quantity: item.quantity,
-        price: item.price,
-        priceshipping: item.priceshipping,
-        tax: item.tax  // ✅ ADDED: tax field
-    });
-    
-    // Check quantity first
-    const canSplitResult = this.canSplit(item);
-    console.log('🔍 canSplit result:', canSplitResult);
-    
-    if (!canSplitResult) {
-        console.log('❌ Cannot split - quantity too low');
-        Swal.fire({
-            icon: 'warning',
-            title: 'Cannot Split',
-            text: 'This item cannot be split because the quantity is 1 or less.',
-        });
-        return;
-    }
+            const quantity = parseInt(item.quantity) || 0;
+            console.log("🔍 Quantity parsed:", quantity);
 
-    // Check if we have a valid price from ALL THREE fields
-    const totalPrice = this.getTotalPrice(item);
-    console.log('🔍 Total price found from all fields:', totalPrice);
-    
-    // If no price, show confirmation but allow to proceed
-    if (totalPrice <= 0) {
-        console.log('⚠️ No price found - showing confirmation');
-        Swal.fire({
-            icon: 'warning',
-            title: 'No Price Set',
-            html: `
+            const result = quantity > 1;
+            console.log("🔍 Can split result:", result);
+
+            return result;
+        },
+
+        /**
+         * Show split confirmation dialog and open modal
+         */
+        confirmSplitItem(item) {
+            console.log("🚀 SPLIT BUTTON CLICKED!");
+            console.log("🔍 Item received:", {
+                ProductID: item.ProductID,
+                ProductTitle: item.ProductTitle,
+                quantity: item.quantity,
+                price: item.price,
+                priceshipping: item.priceshipping,
+                tax: item.tax, // ✅ ADDED: tax field
+            });
+
+            // Check quantity first
+            const canSplitResult = this.canSplit(item);
+            console.log("🔍 canSplit result:", canSplitResult);
+
+            if (!canSplitResult) {
+                console.log("❌ Cannot split - quantity too low");
+                Swal.fire({
+                    icon: "warning",
+                    title: "Cannot Split",
+                    text: "This item cannot be split because the quantity is 1 or less.",
+                });
+                return;
+            }
+
+            // Check if we have a valid price from ALL THREE fields
+            const totalPrice = this.getTotalPrice(item);
+            console.log("🔍 Total price found from all fields:", totalPrice);
+
+            // If no price, show confirmation but allow to proceed
+            if (totalPrice <= 0) {
+                console.log("⚠️ No price found - showing confirmation");
+                Swal.fire({
+                    icon: "warning",
+                    title: "No Price Set",
+                    html: `
                 <p>This item has no price, shipping price, or tax set.</p>
                 <p><strong>Do you still want to proceed with the split?</strong></p>
                 <p class="text-muted small">Each split item will have $0.00 in all price fields.</p>
             `,
-            showCancelButton: true,
-            confirmButtonText: 'Yes, Split Anyway',
-            cancelButtonText: 'Cancel',
-            reverseButtons: true
-        }).then((result) => {
-            if (result.isConfirmed) {
-                this.openSplitModal(item);
+                    showCancelButton: true,
+                    confirmButtonText: "Yes, Split Anyway",
+                    cancelButtonText: "Cancel",
+                    reverseButtons: true,
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.openSplitModal(item);
+                    }
+                });
+                return;
             }
-        });
-        return;
-    }
 
-    // Normal case with valid price
-    this.openSplitModal(item);
-},
+            // Normal case with valid price
+            this.openSplitModal(item);
+        },
 
         /**
          * Open the split modal
@@ -1678,21 +1716,21 @@ confirmSplitItem(item) {
         /**
          * Helper method to get COMBINED total price from both fields
          */
-       getTotalPrice(item) {
+        getTotalPrice(item) {
             if (!item) return 0;
-            
+
             const price = parseFloat(item.price) || 0;
             const priceshipping = parseFloat(item.priceshipping) || 0;
-            const tax = parseFloat(item.tax) || 0;  // ✅ This should be included
+            const tax = parseFloat(item.tax) || 0; // ✅ This should be included
             const total = price + priceshipping + tax;
-            
-            console.log('🔍 getTotalPrice - Combined from all three fields:', {
+
+            console.log("🔍 getTotalPrice - Combined from all three fields:", {
                 price: price,
                 priceshipping: priceshipping,
-                tax: tax,  // ✅ This should be included
-                total: total
+                tax: tax, // ✅ This should be included
+                total: total,
             });
-            
+
             return total;
         },
     },
