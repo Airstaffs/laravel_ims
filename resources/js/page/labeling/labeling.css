@@ -469,10 +469,6 @@ table thead.sticky-header th {
     opacity: 0.6;
 }
 
-.btn-split i {
-    margin-right: 4px;
-}
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .split-modal .modal-content {
