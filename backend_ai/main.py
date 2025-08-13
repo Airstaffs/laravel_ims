@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from yolov8_ocr import detect_serial_number, detect_serial_number_quick
+from fastapi.responses import RedirectResponse, Response
 
 # FastAPI app for OCR detection using YOLOv8 and EasyOCR
 app = FastAPI()
@@ -41,4 +42,6 @@ async def detect_camera_frame(file: UploadFile = File(...)):
             status_code=500,
             content={"error": f"Internal server error: {str(e)}"}
         )
+
+
 
