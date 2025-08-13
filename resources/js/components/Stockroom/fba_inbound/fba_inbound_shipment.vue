@@ -185,40 +185,61 @@
                 <span> Create/Manage/Cancel Inbound Shipments </span>
             </p>
             <form @submit.prevent="createShipment" class="shipment-form">
-                <div class="form-group">
-                    <label>Store:</label>
-                    <input v-model="form.store" />
-                </div>
+                <fieldset class="form-group">
+                    <label>
+                        <strong>Store:</strong>
+                    </label>
+                    <input class="form-control" v-model="form.store" />
+                </fieldset>
 
-                <div class="form-group">
-                    <label>Destination Marketplace:</label>
-                    <input v-model="form.destinationMarketplace" />
-                </div>
+                <fieldset class="form-group">
+                    <label>
+                        <strong>Destination Marketplace:</strong>
+                    </label>
+                    <input
+                        class="form-control"
+                        v-model="form.destinationMarketplace"
+                    />
+                </fieldset>
 
-                <div class="form-group">
-                    <label>Shipment ID:</label>
-                    <input v-model="form.shipmentID" disabled />
-                </div>
+                <fieldset class="form-group">
+                    <label>
+                        <strong>Shipment ID:</strong>
+                    </label>
+                    <input
+                        class="form-control"
+                        v-model="form.shipmentID"
+                        disabled
+                    />
+                </fieldset>
 
-                <button type="submit">🚀 Create Inbound Plan</button>
+                <fieldset class="form-group">
+                    <label></label>
+                    <button type="submit" class="btn btn-createInbound">
+                        🚀 Create Inbound Plan
+                    </button>
+                </fieldset>
             </form>
-            <button @click="viewInboundPlans">📦 View Inbound Plans</button>
 
             <!-- API Response -->
-            <div v-if="response">
-                <br />
-                <p>Created Inboundplanid successfully.</p>
+            <div v-if="response" class="alert alert-success w-100 m-0">
+                <strong>Created Inboundplanid successfully.</strong>
             </div>
+
+            <button class="btn btn-viewInbound" @click="viewInboundPlans">
+                📦 View Inbound Plans
+            </button>
 
             <!-- Step 2A: Generate Packing Options -->
             <hr />
-            <h2>Step 2: Item Check & Verify Package Details</h2>
 
-            <div v-if="packingResponse">
-                <!-- <h3>Packing Response:</h3> -->
-                <p>{{ packingResponse.message }}</p>
-                <!-- <p>Sheesh</p>
-                 <pre>{{ packingResponse }}</pre> -->
+            <p class="step-title">
+                <strong>Step 2:</strong>
+                <span> Item Check & Verify Package Details </span>
+            </p>
+
+            <div v-if="packingResponse" class="alert alert-success w-100 m-0">
+                <strong>{{ packingResponse.message }}</strong>
             </div>
 
             <div v-if="listpackingResponse">
@@ -791,51 +812,52 @@
     </div>
 
     <!-- View Inboundplans Modal -->
-    <div v-if="showInboundPlansModal" class="modal-overlay inboundplans-modal">
-        <div class="modal-content inboundplans-modal-content">
-            <h3>📦 Inbound Plans for Shipment: {{ form.shipmentID }}</h3>
-            <p>{{ inboundPlansMessage }}</p>
+    <div v-if="showInboundPlansModal" class="modal modal-inbound">
+        <div class="modal-overlay" @click="hideInboundPlan"></div>
 
-            <table class="placement-table">
-                <thead>
-                    <tr>
-                        <th>InboundPlanID</th>
-                        <th>PlacementOptionID</th>
-                        <th>PackingGroupID</th>
-                        <th>Created On</th>
-                        <th>Last Updated On</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="(plan, index) in inboundPlansResponse"
-                        :key="index"
-                    >
-                        <td>{{ plan.inboundplanid }}</td>
-                        <td>{{ plan.placementoptionid }}</td>
-                        <td>{{ plan.packinggroupid }}</td>
-                        <td>{{ formatDateTime(plan.created_time) }}</td>
-                        <td>{{ formatDateTime(plan.updated_time) }}</td>
-                        <td>
-                            <button @click="selectInboundPlan(plan)">
-                                📦 Choose Inbound Plan
-                            </button>
-                            <button @click="cancelInboundPlan(plan)">
-                                📦 Cancel Inbound Plan
-                            </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-
-            <div class="modal-footer">
-                <button
-                    @click="showInboundPlansModal = false"
-                    class="btn btn-secondary"
-                >
-                    ❌ Close
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>📦 Inbound Plans for Shipment: {{ form.shipmentID }}</h3>
+                <button class="btn modal-close" @click="hideInboundPlan">
+                    &times;
                 </button>
+            </div>
+
+            <div class="modal-body">
+                <p>{{ inboundPlansMessage }}</p>
+
+                <table class="placement-table">
+                    <thead>
+                        <tr>
+                            <th>InboundPlanID</th>
+                            <th>PlacementOptionID</th>
+                            <th>PackingGroupID</th>
+                            <th>Created On</th>
+                            <th>Last Updated On</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="(plan, index) in inboundPlansResponse"
+                            :key="index"
+                        >
+                            <td>{{ plan.inboundplanid }}</td>
+                            <td>{{ plan.placementoptionid }}</td>
+                            <td>{{ plan.packinggroupid }}</td>
+                            <td>{{ formatDateTime(plan.created_time) }}</td>
+                            <td>{{ formatDateTime(plan.updated_time) }}</td>
+                            <td>
+                                <button @click="selectInboundPlan(plan)">
+                                    📦 Choose Inbound Plan
+                                </button>
+                                <button @click="cancelInboundPlan(plan)">
+                                    📦 Cancel Inbound Plan
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>

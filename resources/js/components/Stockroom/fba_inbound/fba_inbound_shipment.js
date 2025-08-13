@@ -964,6 +964,9 @@ export default {
                     "❌ Unexpected error fetching inbound plans.";
             }
         },
+        hideInboundPlan() {
+            this.showInboundPlansModal = false;
+        },
         selectInboundPlan(plan) {
             // Merge the plan data into the form, keeping existing values if not overwritten
             this.form = {

@@ -97,9 +97,30 @@ table.shipment-table tr > th:nth-child(n + 3) {
     width: 100px;
 }
 
+.step-title {
+    font-size: 20px;
+}
+
+form.shipment-form {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.btn-createInbound,
+.btn-viewInbound {
+    height: 40px;
+}
+
+hr {
+    width: 100%;
+}
+
 /* Add Item Modal */
 .modal-addItem,
-.modal-showStore {
+.modal-showStore,
+.modal-inbound {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -112,7 +133,8 @@ table.shipment-table tr > th:nth-child(n + 3) {
 }
 
 .modal-addItem .modal-body,
-.modal-showStore .modal-body {
+.modal-showStore .modal-body,
+.modal-inbound .modal-body {
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -121,7 +143,8 @@ table.shipment-table tr > th:nth-child(n + 3) {
     gap: 20px;
 }
 
-.modal-addItem .modal-content {
+.modal-addItem .modal-content,
+.modal-inbound .modal-content {
     width: 1024px;
 }
 
