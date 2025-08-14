@@ -1,7 +1,7 @@
 <template>
     <div class="vue-container houseage-module">
         <div class="top-header">
-            <span>Top Header</span>
+            <!-- <span>Top Header</span> -->
         </div>
 
         <h2 class="module-title">Houseage Module</h2>
@@ -538,7 +538,7 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <div class="productTitle">
-                        <h2>Header Here</h2>
+                        <h2>Edit</h2>
                     </div>
                     <button class="btn btn-modal-close" @click="closeEditModal">
                         &times;
