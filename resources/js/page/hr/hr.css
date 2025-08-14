@@ -72,19 +72,62 @@ a.dropdown-item {
 }
 
 .btn-success,
+.btn-primary,
 .btn-secondary {
     height: 40px;
-    width: 100px;
+    min-width: 100px;
 }
 
 /* Time Record */
-.timeRecordFilterForm {
+.time-record-wrapper form {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 10px;
 }
 
-.timeRecordFilterForm fieldset {
+.time-record-wrapper form fieldset {
     flex: 1;
+}
+
+.time-record-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+}
+
+table tbody tr td {
+    white-space: pre-wrap;
+}
+
+.modal-editRecord {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-editRecord .modal-content {
+    width: 800px;
+}
+
+.modal-editRecord .modal-body {
+    padding: 20px;
+}
+
+.modal-editRecord form {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 20px;
+}
+
+.modal-editRecord form fieldset {
+    width: calc(100% / 2 - 20px);
+}
+
+.modal-editRecord form fieldset:last-child {
+    width: 100%;
 }

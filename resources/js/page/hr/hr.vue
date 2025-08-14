@@ -50,7 +50,7 @@
         />
 
         <TimeRecord
-            v-show="currentView === 'Time Record'"
+            v-if="currentView === 'Time Record'"
             :hr-context="hrContext"
         />
         <TimeRecordHistory
