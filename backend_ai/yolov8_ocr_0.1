@@ -84,7 +84,7 @@ def strip_serial_noise(text: str) -> str:
     """
     Remove trailing manufacturing/location words from detected serials.
     """
-    return re.sub(r'(MADE|IN|JAPAN|CHINA|USA|KOREA|MADEIN)$', '', text)
+    return re.sub(r'(MADE|IN|JAPAN|CHINA|USA|KOREA)$', '', text)
 
 def merge_serial_fragments(ocr_results):
     """

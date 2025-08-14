@@ -84,7 +84,7 @@ def strip_serial_noise(text: str) -> str:
     """
     Remove trailing manufacturing/location words from detected serials.
     """
-    return re.sub(r'(MADE|IN|JAPAN|CHINA|USA|KOREA|MADEIN)$', '', text)
+    return re.sub(r'(MADE|IN|JAPAN|CHINA|USA|KOREA)$', '', text)
 
 def merge_serial_fragments(ocr_results):
     """
@@ -127,6 +127,39 @@ def merge_serial_fragments(ocr_results):
 
     return merged
 
+def extract_serial_after_keywords(ocr_list):
+    """
+    Find serial number immediately following SN/SERIAL/SERIAL NUMBER labels.
+    """
+    KEYWORDS = {"SN", "S/N", "SERIAL", "SERIALNO", "SERIALNUMBER"}
+    SKIP_WORDS = {"NO", "NUMBER", "NUM"}
+
+    for idx, o in enumerate(ocr_list):
+        text = o["text"]
+
+        # Case 1: Label and serial in same chunk (e.g., "S/N12345")
+        for k in KEYWORDS:
+            if text.startswith(k) and len(text) > len(k):
+                possible_serial = text[len(k):]
+                if is_valid_serial(possible_serial):
+                    return {
+                        "text": possible_serial,
+                        "confidence": o["confidence"],
+                        "bbox": o["bbox"]
+                    }
+
+        # Case 2: Label in one chunk, serial in next chunk(s)
+        if text in KEYWORDS:
+            look_ahead = idx + 1
+            while look_ahead < len(ocr_list) and ocr_list[look_ahead]["text"] in SKIP_WORDS:
+                look_ahead += 1
+            if look_ahead < len(ocr_list):
+                candidate = ocr_list[look_ahead]
+                if is_valid_serial(candidate["text"]):
+                    return candidate
+
+    return None
+
 # =============================
 # Full detection (used for uploads)
 # =============================
@@ -134,132 +167,60 @@ def detect_serial_number(image_bytes: bytes):
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
         method_used = "preprocessed"
-        serials = []
         raw_ocr = []
 
-        # Preprocess before OCR
+        # ---------- PASS 1: Preprocessed ----------
         preprocessed_img = preprocess_image(image)
         ocr_results = ocr_reader.readtext(
             preprocessed_img,
             allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
         )
 
-        # Store all OCR results
         for bbox, text, conf in ocr_results:
             cleaned = clean_text(text)
-            raw_ocr.append({"text": cleaned, "confidence": conf, "bbox": bbox})
+            raw_ocr.append({"text": strip_serial_noise(cleaned), "confidence": conf, "bbox": bbox})
 
-        # Clean noise words
-        for o in raw_ocr:
-            o["text"] = strip_serial_noise(o["text"])
-
-        # Merge fragments (this may create more valid serial candidates)
         raw_ocr = merge_serial_fragments(raw_ocr)
 
-        # Keywords and skip words
-        KEYWORDS = {"SERIAL", "SERIALNO", "S/N", "SN"}
-        SKIP_AFTER_KEYWORDS = {"NO", "NUMBER", "NUM"}
+        # Step 1: Try keyword extraction
+        chosen_serial = extract_serial_after_keywords(raw_ocr)
 
-        chosen_serial = None
-
-        # 1) Keyword in SAME chunk or next chunk
-        keyword_indexes = [i for i, o in enumerate(raw_ocr) if any(k in o["text"] for k in KEYWORDS)]
-        if keyword_indexes:
-            for idx in keyword_indexes:
-                candidate_text = raw_ocr[idx]["text"]
-
-                # Same-chunk: e.g., "SN07458980460852JAI"
-                for k in KEYWORDS:
-                    if candidate_text.startswith(k) and len(candidate_text) > len(k):
-                        possible_serial = candidate_text[len(k):]
-                        if is_valid_serial(possible_serial):
-                            chosen_serial = {
-                                "text": possible_serial,
-                                "confidence": raw_ocr[idx]["confidence"],
-                                "bbox": raw_ocr[idx]["bbox"]
-                            }
-                            break
-
-                # Next chunk
-                if not chosen_serial:
-                    look_ahead = idx + 1
-                    while look_ahead < len(raw_ocr) and raw_ocr[look_ahead]["text"] in SKIP_AFTER_KEYWORDS:
-                        look_ahead += 1
-                    if look_ahead < len(raw_ocr):
-                        candidate = raw_ocr[look_ahead]
-                        if is_valid_serial(candidate["text"]):
-                            chosen_serial = candidate
-                            break
-
-        # 2) Highest-confidence valid serial
+        # Step 2: Fallback to highest-confidence valid serial
         if not chosen_serial:
-            valid_serials = [
-                o for o in raw_ocr
-                if o["confidence"] >= 0.5 and is_valid_serial(o["text"])
-            ]
+            valid_serials = [o for o in raw_ocr if o["confidence"] >= 0.5 and is_valid_serial(o["text"])]
             if valid_serials:
-                valid_serials.sort(key=lambda x: x["confidence"], reverse=True)
-                chosen_serial = valid_serials[0]
+                chosen_serial = max(valid_serials, key=lambda x: x["confidence"])
 
-        # 3) Engraved fallback
+        # ---------- PASS 2: Engraved Fallback ----------
         if not chosen_serial:
-            enhanced_img = enhance_engraved_text(image)  # numpy array
+            method_used = "engraved_fallback"
+            enhanced_img = enhance_engraved_text(image)
             ocr_results_enhanced = ocr_reader.readtext(
                 enhanced_img,
                 allowlist='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-'
             )
-            method_used = "engraved_fallback"
 
             enhanced_ocr = []
             for bbox, text, conf in ocr_results_enhanced:
                 cleaned = clean_text(text)
-                enhanced_ocr.append({"text": cleaned, "confidence": conf, "bbox": bbox})
+                enhanced_ocr.append({"text": strip_serial_noise(cleaned), "confidence": conf, "bbox": bbox})
                 raw_ocr.append({"text": cleaned, "confidence": conf, "bbox": bbox})
 
-            keyword_indexes = [i for i, o in enumerate(enhanced_ocr) if any(k in o["text"] for k in KEYWORDS)]
-            if keyword_indexes:
-                for idx in keyword_indexes:
-                    candidate_text = enhanced_ocr[idx]["text"]
+            enhanced_ocr = merge_serial_fragments(enhanced_ocr)
 
-                    for k in KEYWORDS:
-                        if candidate_text.startswith(k) and len(candidate_text) > len(k):
-                            possible_serial = candidate_text[len(k):]
-                            if is_valid_serial(possible_serial):
-                                chosen_serial = {
-                                    "text": possible_serial,
-                                    "confidence": enhanced_ocr[idx]["confidence"],
-                                    "bbox": enhanced_ocr[idx]["bbox"]
-                                }
-                                break
-
-                    if not chosen_serial:
-                        look_ahead = idx + 1
-                        while look_ahead < len(enhanced_ocr) and enhanced_ocr[look_ahead]["text"] in SKIP_AFTER_KEYWORDS:
-                            look_ahead += 1
-                        if look_ahead < len(enhanced_ocr):
-                            candidate = enhanced_ocr[look_ahead]
-                            if is_valid_serial(candidate["text"]):
-                                chosen_serial = candidate
-                                break
-
+            chosen_serial = extract_serial_after_keywords(enhanced_ocr) or chosen_serial
             if not chosen_serial:
-                valid_serials = [
-                    o for o in enhanced_ocr
-                    if o["confidence"] >= 0.5 and is_valid_serial(o["text"])
-                ]
+                valid_serials = [o for o in enhanced_ocr if o["confidence"] >= 0.5 and is_valid_serial(o["text"])]
                 if valid_serials:
-                    valid_serials.sort(key=lambda x: x["confidence"], reverse=True)
-                    chosen_serial = valid_serials[0]
+                    chosen_serial = max(valid_serials, key=lambda x: x["confidence"])
 
-        # 3.5) High-contrast inverted pass (FIX: convert PIL -> NumPy)
+        # ---------- PASS 3: High-Contrast Inverted ----------
         if not chosen_serial:
-            from PIL import ImageOps, ImageEnhance
-
             method_used = "high_contrast_inverted"
+            from PIL import ImageOps, ImageEnhance
             inverted_img = ImageOps.invert(image.convert("RGB"))
             contrast_img = ImageEnhance.Contrast(inverted_img).enhance(3)
-
-            contrast_np = np.array(contrast_img)  # <-- crucial fix
+            contrast_np = np.array(contrast_img)
 
             ocr_results_inverted = ocr_reader.readtext(
                 contrast_np,
@@ -269,47 +230,18 @@ def detect_serial_number(image_bytes: bytes):
             inverted_ocr = []
             for bbox, text, conf in ocr_results_inverted:
                 cleaned = clean_text(text)
-                inverted_ocr.append({"text": cleaned, "confidence": conf, "bbox": bbox})
+                inverted_ocr.append({"text": strip_serial_noise(cleaned), "confidence": conf, "bbox": bbox})
                 raw_ocr.append({"text": cleaned, "confidence": conf, "bbox": bbox})
 
             inverted_ocr = merge_serial_fragments(inverted_ocr)
 
-            keyword_indexes = [i for i, o in enumerate(inverted_ocr) if any(k in o["text"] for k in KEYWORDS)]
-            if keyword_indexes:
-                for idx in keyword_indexes:
-                    candidate_text = inverted_ocr[idx]["text"]
-
-                    for k in KEYWORDS:
-                        if candidate_text.startswith(k) and len(candidate_text) > len(k):
-                            possible_serial = candidate_text[len(k):]
-                            if is_valid_serial(possible_serial):
-                                chosen_serial = {
-                                    "text": possible_serial,
-                                    "confidence": inverted_ocr[idx]["confidence"],
-                                    "bbox": inverted_ocr[idx]["bbox"]
-                                }
-                                break
-
-                    if not chosen_serial:
-                        look_ahead = idx + 1
-                        while look_ahead < len(inverted_ocr) and inverted_ocr[look_ahead]["text"] in SKIP_AFTER_KEYWORDS:
-                            look_ahead += 1
-                        if look_ahead < len(inverted_ocr):
-                            candidate = inverted_ocr[look_ahead]
-                            if is_valid_serial(candidate["text"]):
-                                chosen_serial = candidate
-                                break
-
+            chosen_serial = extract_serial_after_keywords(inverted_ocr) or chosen_serial
             if not chosen_serial:
-                valid_serials = [
-                    o for o in inverted_ocr
-                    if o["confidence"] >= 0.4 and is_valid_serial(o["text"])
-                ]
+                valid_serials = [o for o in inverted_ocr if o["confidence"] >= 0.4 and is_valid_serial(o["text"])]
                 if valid_serials:
-                    valid_serials.sort(key=lambda x: x["confidence"], reverse=True)
-                    chosen_serial = valid_serials[0]
+                    chosen_serial = max(valid_serials, key=lambda x: x["confidence"])
 
-        # 4) Return
+        # ---------- RETURN ----------
         serials = [chosen_serial] if chosen_serial else []
         return to_python({
             "serials": serials,
@@ -324,7 +256,7 @@ def detect_serial_number(image_bytes: bytes):
             "method": None,
             "error": str(e)
         }
-
+        
 # =============================
 # Quick detection (used for live camera)
 # =============================

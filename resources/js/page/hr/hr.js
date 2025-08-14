@@ -59,12 +59,39 @@ export default {
                 "Violations",
             ],
 
+            loading: {
+                employees: false,
+                leave: false,
+                violations: false,
+                rateHistory: false,
+            },
+            loaded: {
+                employees: false,
+                leave: false,
+                violations: false,
+                rateHistory: false,
+            },
+
             // UI State
             showAddEmployeeModal: false,
 
             // Employees
             employees: [],
             newEmployee: { name: "", position: "" },
+
+            // Rate editor modal state
+            showRateModal: false,
+            selectedEmployee: null,
+            savingRate: false,
+            rateForm: {
+                employee_id: null,
+                employee_username: null, // snapshot
+                effective_start: "",
+                effective_end: null,
+                monthly_rate: null,
+                hourly_rate: null,
+                currency: "PHP",
+            },
 
             // Time Record
             timeRecords: [],
@@ -93,32 +120,55 @@ export default {
 
             // button spinner
             submittingEdit: false,
+
+            // rate history
+            rateHistory: [],
+            rateHistoryFilterEmployeeId: "",
+            rateHistoryFilterOnlyActive: false,
         };
     },
 
-    async mounted() {
-        try {
-            const [empRes, leaveRes, violRes] = await Promise.all([
-                fetch(`${API_BASE_URL}/hr/employees`),
-                fetch(`${API_BASE_URL}/hr/leave-history`),
-                fetch(`${API_BASE_URL}/hr/violations`),
-            ]);
-
-            this.employees = await empRes.json();
-            this.leaveHistory = await leaveRes.json();
-            this.violations = await violRes.json();
-        } catch (err) {
-            console.error("Failed to load HR data", err);
-        }
-
-        await this.fetchRecords();
-    },
+    async mounted() {},
 
     methods: {
         setView(view) {
             // Switch view but ensure only one main tab at a time
             this.currentView = view;
         },
+
+        async loadView(view) {
+            try {
+                switch (view) {
+                    case "Employee":
+                        await Promise.all([
+                            this.fetchEmployeesOnce(),
+                            this.fetchEmployeeRateHistoryOnce(), // ⬅️ add this
+                        ]);
+                        break;
+
+                    case "Employee Rate History":
+                        await this.fetchEmployeeRateHistoryOnce(); // ⬅️ only history
+                        break;
+
+                    case "Time Record":
+                    case "Time Record Edit History":
+                        await this.fetchRecords();
+                        break;
+
+                    case "Employee Leave History":
+                        await this.fetchLeaveOnce();
+                        break;
+
+                    case "Violations":
+                    case "Violations History":
+                        await this.fetchViolationsOnce();
+                        break;
+                }
+            } catch (e) {
+                console.error("loadView error:", e);
+            }
+        },
+
         // Employees
         addEmployee() {
             if (!this.newEmployee.name || !this.newEmployee.position) {
@@ -132,6 +182,127 @@ export default {
             });
             this.newEmployee = { name: "", position: "" };
             this.showAddEmployeeModal = false;
+        },
+
+        async fetchEmployeesOnce() {
+            if (this.loaded.employees || this.loading.employees) return;
+            this.loading.employees = true;
+            try {
+                const res = await fetch(`${API_BASE_URL}/hr/employees`);
+                const data = await res.json();
+                this.employees = Array.isArray(data)
+                    ? data
+                    : data.employees || [];
+                // (no inline rate editing anymore, so no temp/original prep)
+            } catch (e) {
+                console.error("Failed to load employees", e);
+            } finally {
+                this.loading.employees = false;
+                this.loaded.employees = true;
+            }
+        },
+
+        // edit employee rate
+        openRateModal(emp) {
+            const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            this.selectedEmployee = emp;
+
+            this.rateForm = {
+                employee_id: emp.id,
+                employee_username: emp.username || emp.name || null,
+                effective_start: today,
+                effective_end: null,
+                monthly_rate: null,
+                hourly_rate: null,
+                currency: "PHP",
+            };
+
+            this.showRateModal = true;
+        },
+
+        closeRateModal() {
+            this.showRateModal = false;
+            this.selectedEmployee = null;
+            this.savingRate = false;
+        },
+
+        async submitRate() {
+            // basic validation
+            if (!this.rateForm.employee_id) return alert("Missing employee.");
+            if (!this.rateForm.effective_start)
+                return alert("Effective start is required.");
+            if (!this.rateForm.monthly_rate && !this.rateForm.hourly_rate) {
+                return alert("Provide at least Monthly or Hourly rate.");
+            }
+
+            try {
+                this.savingRate = true;
+
+                // POST create new rate row
+                const url = `${API_BASE_URL}/hr/employees/${this.rateForm.employee_id}/rates`;
+                const payload = {
+                    employee_username: this.rateForm.employee_username, // snapshot (server can ignore and resolve instead)
+                    effective_start: this.rateForm.effective_start,
+                    effective_end: this.rateForm.effective_end || null,
+                    monthly_rate: this.rateForm.monthly_rate,
+                    hourly_rate: this.rateForm.hourly_rate,
+                    currency: this.rateForm.currency || "PHP",
+                };
+
+                await axios.post(url, payload);
+
+                // Optional: reflect a "current rate" snapshot on the employee row for list display
+                if (this.selectedEmployee) {
+                    // choose what to show as "current" (up to you)
+                    if (payload.monthly_rate != null)
+                        this.selectedEmployee.employee_rate =
+                            payload.monthly_rate;
+                }
+
+                this.loaded.employees = false;
+                this.loaded.rateHistory = false;
+
+                this.closeRateModal();
+            } catch (e) {
+                console.error("Failed to save rate", e);
+                alert("Failed to save rate.");
+            } finally {
+                this.savingRate = false;
+            }
+        },
+
+        // employee rate history
+        async fetchEmployeeRateHistoryOnce(employeeId = null) {
+            if (this.loaded.rateHistory || this.loading.rateHistory) return;
+            this.loading.rateHistory = true;
+            try {
+                const url = employeeId
+                    ? `${API_BASE_URL}/hr/employee-rate-history?employee_id=${employeeId}`
+                    : `${API_BASE_URL}/hr/employee-rate-history`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+                this.rateHistory = Array.isArray(data) ? data : data.data || [];
+            } catch (e) {
+                console.error("Failed to load rate history", e);
+            } finally {
+                this.loading.rateHistory = false;
+                this.loaded.rateHistory = true;
+            }
+        },
+
+        isActiveRate(row) {
+            const today = new Date().toISOString().slice(0, 10);
+            return (
+                row.effective_start <= today &&
+                (!row.effective_end || row.effective_end >= today)
+            );
+        },
+
+        async refreshRateHistory(employeeId = null) {
+            // force a refetch regardless of loaded flag
+            this.loaded.rateHistory = false;
+            await this.fetchEmployeeRateHistoryOnce(employeeId);
         },
 
         // Time Records
@@ -188,6 +359,40 @@ export default {
             if (!datetime) return "-";
             const d = new Date(datetime);
             return d.toLocaleString();
+        },
+
+        async fetchLeaveOnce() {
+            if (this.loaded.leave || this.loading.leave) return;
+            this.loading.leave = true;
+            try {
+                const res = await fetch(`${API_BASE_URL}/hr/leave-history`);
+                const data = await res.json();
+                this.leaveHistory = Array.isArray(data)
+                    ? data
+                    : data.leaveHistory || [];
+                this.loaded.leave = true;
+            } catch (e) {
+                console.error("Failed to load leave history", e);
+            } finally {
+                this.loading.leave = false;
+            }
+        },
+
+        async fetchViolationsOnce() {
+            if (this.loaded.violations || this.loading.violations) return;
+            this.loading.violations = true;
+            try {
+                const res = await fetch(`${API_BASE_URL}/hr/violations`);
+                const data = await res.json();
+                this.violations = Array.isArray(data)
+                    ? data
+                    : data.violations || [];
+                this.loaded.violations = true;
+            } catch (e) {
+                console.error("Failed to load violations", e);
+            } finally {
+                this.loading.violations = false;
+            }
         },
 
         // Edit modal
@@ -281,6 +486,9 @@ export default {
         hrContext() {
             return {
                 // state
+                currentView: this.currentView,
+                employees: this.employees,
+                rateHistory: this.rateHistory, // ✅ expose rate history
                 timeRecords: this.timeRecords,
                 filters: this.filters,
                 employeeNames: this.employeeNames,
@@ -290,16 +498,74 @@ export default {
                 editForm: this.editForm,
                 editOriginal: this.editOriginal,
                 submittingEdit: this.submittingEdit,
+
+                // rate modal state
+                showRateModal: this.showRateModal,
+                selectedEmployee: this.selectedEmployee,
+                rateForm: this.rateForm,
+                savingRate: this.savingRate,
+
+                // optional loading flags (handy for spinners in children)
+                loading: this.loading,
+                loaded: this.loaded,
+
                 // actions
-                fetchRecords: this.fetchRecords,
                 sort: this.sort,
                 formatDate: this.formatDate,
-                openEdit: this.openEdit,
-                closeEdit: this.closeEdit,
-                submitEdit: this.submitEdit,
                 nextPage: this.nextPage,
                 prevPage: this.prevPage,
+
+                // time records
+                fetchRecords: this.fetchRecords,
+
+                // rate actions
+                openRateModal: this.openRateModal,
+                closeRateModal: this.closeRateModal,
+                submitRate: this.submitRate,
+
+                // fetchers for lazy-load (children can request refresh)
+                fetchEmployeesOnce: this.fetchEmployeesOnce, // ✅
+                fetchEmployeeRateHistoryOnce: this.fetchEmployeeRateHistoryOnce, // ✅
+                loadView: this.loadView, // optional
+
+                // employee rate history
+                filteredRateHistory: this.filteredRateHistory, // ✅
+                rateHistoryFilterEmployeeId: this.rateHistoryFilterEmployeeId,
+                rateHistoryFilterOnlyActive: this.rateHistoryFilterOnlyActive,
+                isActiveRate: this.isActiveRate,
+                refreshRateHistory: this.refreshRateHistory,
             };
+        },
+
+        // employee Rate History
+        filteredRateHistory() {
+            let list = Array.isArray(this.rateHistory) ? this.rateHistory : [];
+            const empId = this.rateHistoryFilterEmployeeId;
+            const onlyActive = this.rateHistoryFilterOnlyActive;
+            const today = new Date().toISOString().slice(0, 10);
+
+            if (empId) {
+                list = list.filter(
+                    (r) => String(r.employee_id) === String(empId)
+                );
+            }
+            if (onlyActive) {
+                list = list.filter(
+                    (r) =>
+                        r.effective_start <= today &&
+                        (!r.effective_end || r.effective_end >= today)
+                );
+            }
+            return list;
+        },
+    },
+
+    watch: {
+        currentView: {
+            immediate: true,
+            handler(view) {
+                this.loadView(view);
+            },
         },
     },
 };
