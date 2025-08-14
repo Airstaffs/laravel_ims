@@ -6,17 +6,75 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Validation\Rule;
 
 class HrController extends Controller
 {
     public function getEmployees()
     {
-        $employees = DB::table('tbluser')
-            ->select('id', 'username as name', 'office_role as position')
-            ->orderBy('id', 'asc')
+        $today = date('Y-m-d');
+
+        $employees = \DB::table('tbluser as u')
+            ->select(
+                'u.id',
+                'u.username',
+                \DB::raw('u.username as name'),
+                \DB::raw('u.office_role as position'),
+                // current monthly
+                \DB::raw("(SELECT er.monthly_rate
+                       FROM tblemployeerate er
+                       WHERE er.employee_id = u.id
+                         AND er.effective_start <= '{$today}'
+                         AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                       ORDER BY er.effective_start DESC
+                       LIMIT 1) as current_monthly_rate"),
+                // current hourly
+                \DB::raw("(SELECT er.hourly_rate
+                       FROM tblemployeerate er
+                       WHERE er.employee_id = u.id
+                         AND er.effective_start <= '{$today}'
+                         AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                       ORDER BY er.effective_start DESC
+                       LIMIT 1) as current_hourly_rate"),
+                // current currency
+                \DB::raw("(SELECT er.currency
+                       FROM tblemployeerate er
+                       WHERE er.employee_id = u.id
+                         AND er.effective_start <= '{$today}'
+                         AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
+                       ORDER BY er.effective_start DESC
+                       LIMIT 1) as current_currency")
+            )
+            ->orderBy('u.id', 'asc')
             ->get();
 
         return response()->json($employees);
+    }
+
+    public function getEmployeeRateHistory(Request $request)
+    {
+        $employeeId = $request->query('employee_id');
+
+        $q = \DB::table('tblemployeerate as er')
+            ->leftJoin('tbluser as u', 'u.id', '=', 'er.employee_id')
+            ->select(
+                'er.id',
+                'er.employee_id',
+                'u.username',
+                'er.employee_username', // snapshot
+                'er.effective_start',
+                'er.effective_end',
+                'er.monthly_rate',
+                'er.hourly_rate',
+                'er.currency',
+                'er.created_by',
+                'er.created_at'
+            )
+            ->when($employeeId, fn($qq) => $qq->where('er.employee_id', $employeeId))
+            ->orderBy('er.employee_id')
+            ->orderByDesc('er.effective_start');
+
+        return response()->json($q->get());
     }
 
     public function getTimeRecords(Request $request)
@@ -75,15 +133,15 @@ class HrController extends Controller
         // 2) Validate AFTER payload (frontend sends only "after")
         //    You can expand rules as needed.
         $validated = $request->validate([
-            'after'                        => 'required|array',
-            'after.DateToday'              => 'nullable|date_format:Y-m-d',
-            'after.TimeIn'                 => 'nullable|date_format:Y-m-d H:i:s',
-            'after.TimeOut'                => 'nullable|date_format:Y-m-d H:i:s',
-            'after.shortbreak_start'       => 'nullable|date_format:Y-m-d H:i:s',
-            'after.shortbreak_end'         => 'nullable|date_format:Y-m-d H:i:s',
-            'after.shortbreak_totaltime'   => 'nullable|integer|min:0',
-            'after.Notes'                  => 'nullable|string',
-            'after.AdminNote'              => 'nullable|string',
+            'after' => 'required|array',
+            'after.DateToday' => 'nullable|date_format:Y-m-d',
+            'after.TimeIn' => 'nullable|date_format:Y-m-d H:i:s',
+            'after.TimeOut' => 'nullable|date_format:Y-m-d H:i:s',
+            'after.shortbreak_start' => 'nullable|date_format:Y-m-d H:i:s',
+            'after.shortbreak_end' => 'nullable|date_format:Y-m-d H:i:s',
+            'after.shortbreak_totaltime' => 'nullable|integer|min:0',
+            'after.Notes' => 'nullable|string',
+            'after.AdminNote' => 'nullable|string',
             // ignore any other keys the client might send
         ]);
 
@@ -118,7 +176,7 @@ class HrController extends Controller
             $old = $before[$col] ?? null;
 
             // compare as strings to smooth null/empty mismatches
-            if ((string)($old ?? '') !== (string)($new ?? '')) {
+            if ((string) ($old ?? '') !== (string) ($new ?? '')) {
                 $update[$col] = $new;
                 $changes[$col] = ['from' => $old, 'to' => $new];
             }
@@ -149,9 +207,9 @@ class HrController extends Controller
 
             // Log JSON diff only (before/from, after/to)
             DB::table('tblemployeeclocks_edit_history')->insert([
-                'clock_id'       => $id,
-                'edited_by'      => session('userid') ?? null,  // fallback if no auth
-                'changes'        => json_encode($changes, JSON_UNESCAPED_UNICODE),
+                'clock_id' => $id,
+                'edited_by' => session('userid') ?? null,  // fallback if no auth
+                'changes' => json_encode($changes, JSON_UNESCAPED_UNICODE),
                 'edit_timestamp' => now(),
             ]);
 
@@ -165,10 +223,12 @@ class HrController extends Controller
             DB::rollBack();
             return response()->json([
                 'message' => 'Update failed.',
-                'error'   => config('app.debug') ? $e->getMessage() : 'Server error',
+                'error' => config('app.debug') ? $e->getMessage() : 'Server error',
             ], 500);
         }
     }
+
+
 
     public function getLeaveHistory()
     {
@@ -182,5 +242,110 @@ class HrController extends Controller
         return response()->json([
             ['employee' => 'Alice', 'violation' => 'Late', 'date' => '2025-07-30']
         ]);
+    }
+
+    // Employee Rate
+    public function index($employee)
+    {
+        $rows = DB::table('tblemployeerate')
+            ->where('employee_id', $employee)
+            ->orderByDesc('effective_start')
+            ->get();
+
+        return response()->json(['success' => true, 'data' => $rows]);
+    }
+
+    // Optional: get current active rate
+    public function indexRate($employee)
+    {
+        $rows = \DB::table('tblemployeerate')
+            ->where('employee_id', $employee)
+            ->orderByDesc('effective_start')
+            ->get();
+        return response()->json(['success' => true, 'data' => $rows]);
+    }
+
+    public function currentRate($employee)
+    {
+        $today = date('Y-m-d');
+        $row = \DB::table('tblemployeerate')
+            ->where('employee_id', $employee)
+            ->where('effective_start', '<=', $today)
+            ->where(function ($q) use ($today) {
+                $q->whereNull('effective_end')->orWhere('effective_end', '>=', $today);
+            })
+            ->orderByDesc('effective_start')
+            ->first();
+        return response()->json(['success' => true, 'data' => $row]);
+    }
+
+    public function storeRate(Request $request, $employee)
+    {
+        $data = $request->validate([
+            'effective_start' => ['required', 'date'],
+            'effective_end' => ['nullable', 'date', 'after_or_equal:effective_start'],
+            'monthly_rate' => ['nullable', 'numeric'],
+            'hourly_rate' => ['nullable', 'numeric'],
+            'currency' => ['nullable', 'string', 'size:3'],
+        ]);
+
+        if (is_null($data['monthly_rate']) && is_null($data['hourly_rate'])) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Provide at least monthly_rate or hourly_rate.'
+            ], 422);
+        }
+
+        // Resolve snapshot username from your users table
+        $employeeUsername = \DB::table('tbluser')->where('id', $employee)->value('username');
+
+        // Creator snapshot (username); adjust if you store differently
+        $createdBy = session('user_name') ?? optional($request->user())->username ?? null;
+
+        $start = $data['effective_start'];
+        $end = $data['effective_end'] ?? null;
+
+        \DB::beginTransaction();
+        try {
+            // Optional: close currently active open-ended row
+            $active = \DB::table('tblemployeerate')
+                ->where('employee_id', $employee)
+                ->whereNull('effective_end')
+                ->first();
+
+            if ($active && $start > $active->effective_start) {
+                $newEnd = date('Y-m-d', strtotime($start . ' -1 day'));
+                \DB::table('tblemployeerate')
+                    ->where('id', $active->id)
+                    ->update([
+                        'effective_end' => $newEnd,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            // Insert new rate row
+            \DB::table('tblemployeerate')->insert([
+                'employee_id' => (int) $employee,
+                'employee_username' => $employeeUsername,                  // snapshot (Option A)
+                'effective_start' => $start,
+                'effective_end' => $end,
+                'monthly_rate' => $data['monthly_rate'],
+                'hourly_rate' => $data['hourly_rate'],
+                'currency' => strtoupper($data['currency'] ?? 'PHP'),
+                'created_by' => $createdBy,                         // snapshot of creator username
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            \DB::commit();
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            \DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to save rate',
+                'details' => $e->getMessage(),
+            ], 500);
+        }
     }
 }

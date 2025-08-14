@@ -391,7 +391,7 @@ Route::prefix('api/labeling')->group(function () {
     Route::get('products', [LabelingController::class, 'index']);
     Route::post('products', [LabelingController::class, 'store']);
     Route::post('split-item', [LabelingController::class, 'splitItem']);
-    
+
     // ADD THESE MISSING ROUTES:
     Route::post('move-to-validation', [LabelingController::class, 'moveToValidation']);
     Route::post('move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
@@ -650,6 +650,10 @@ Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
 use App\Http\Controllers\HrController;
 Route::prefix('hr')->group(function () {
     Route::get('/employees', [HrController::class, 'getEmployees']);
+    Route::get('/employee-rate-history', [HrController::class, 'getEmployeeRateHistory']);
+    Route::get('/employees/{employee}/rates', [HrController::class, 'indexRate']);
+    Route::get('/employees/{employee}/rates/current', [HrController::class, 'currentRate']);
+    Route::post('/employees/{employee}/rates', [HrController::class, 'storeRate']);
     Route::get('/time-records', [HrController::class, 'getTimeRecords']);
     Route::post('/time-records/{id}/edit', [HrController::class, 'editTimeRecord']);
     Route::get('/leave-history', [HrController::class, 'getLeaveHistory']);
