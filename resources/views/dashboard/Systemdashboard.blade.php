@@ -43,6 +43,7 @@
     <!-- Inline Theme Styles -->
     <style>
         .navbar {
+            height: 60px;
             background-color:
                 {{ session('theme_color', '#007bff') }}
             ;
@@ -90,7 +91,7 @@
                 $freshUser = \App\Models\User::find($currentUser->id);
                 $mainModule = strtolower($freshUser->main_module ?: '');
 
-                $moduleColumns = ['humanresource', 'order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'rts' ,'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist', 'printer'];
+                $moduleColumns = ['humanresource', 'order', 'unreceived', 'receiving', 'labeling', 'testing', 'cleaning', 'packing', 'stockroom', 'validation', 'fnsku', 'productionarea', 'rts', 'returnscanner', 'fbmorder', 'notfound', 'asinoption', 'houseage', 'asinlist', 'printer'];
 
                 foreach ($moduleColumns as $column) {
                     // Only add to subModules if it's enabled AND not the main module

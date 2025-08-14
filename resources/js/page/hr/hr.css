@@ -53,7 +53,8 @@ a.dropdown-item {
     align-items: center;
 }
 
-.modal-addEmployee {
+.modal-addEmployee,
+.modal-rateEmployee {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -63,28 +64,137 @@ a.dropdown-item {
     width: 400px;
 }
 
-.modal-addEmployee .modal-body {
+.modal-addEmployee .modal-body,
+.modal-rateEmployee .modal-body {
     padding: 20px;
 }
 
-.modal-addEmployee .modal-footer {
+.modal-addEmployee form fieldset {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
     gap: 10px;
 }
 
+.modal-addEmployee .modal-footer,
+.modal-rateEmployee .modal-footer {
+    gap: 10px;
+}
+
+.modal-rateEmployee .modal-content {
+    width: 800px;
+}
+
 .btn-success,
+.btn-primary,
 .btn-secondary {
     height: 40px;
-    width: 100px;
+    min-width: 100px;
+    margin: 0;
 }
 
 /* Time Record */
-.timeRecordFilterForm {
+.time-record-wrapper form {
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 10px;
 }
 
-.timeRecordFilterForm fieldset {
+.time-record-wrapper form fieldset {
     flex: 1;
+}
+
+.time-record-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+}
+
+table tbody tr td {
+    white-space: pre-wrap;
+}
+
+.modal-editRecord {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-editRecord .modal-content {
+    width: 800px;
+}
+
+.modal-editRecord .modal-body {
+    padding: 20px;
+}
+
+.modal-editRecord form {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 20px;
+}
+
+.modal-editRecord form fieldset {
+    width: calc(100% / 2 - 20px);
+}
+
+.modal-editRecord form fieldset:last-child {
+    width: 100%;
+}
+
+.nav-tabs .btn-nav.active {
+    font-weight: 600;
+}
+
+.holiday-checkbox {
+    box-shadow: 0 0 6px rgb(0 0 0 / 60%);
+    border: 2px solid #0d6efd;
+    width: 1.1rem;
+    height: 1.1rem;
+}
+
+.holiday-checkbox:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    box-shadow: 0 0 6px rgba(13, 110, 253, 0.6);
+}
+
+/* Keep modal from spanning edge-to-edge even with wide content */
+#holidayModal .modal-dialog {
+  max-width: min(1100px, 95vw);
+}
+
+/* Table should not let one cell expand everything */
+#holidayModal .table-fixed {
+  table-layout: fixed;   /* enforce colgroup widths */
+  width: 100%;
+}
+
+/* Default: truncate to fit columns */
+#holidayModal .table-fixed th,
+#holidayModal .table-fixed td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Let Title wrap but keep height reasonable */
+#holidayModal .title-cell { white-space: normal; }
+#holidayModal .truncate-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;      /* max 2 lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Keep actions compact on small screens */
+@media (max-width: 992px) {
+  #holidayModal colgroup col:nth-child(2) { width: 320px !important; } /* Title */
+  #holidayModal .modal-dialog { max-width: 98vw; }
 }

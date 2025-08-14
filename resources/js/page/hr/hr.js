@@ -7,6 +7,8 @@ import Violations from "./components/violations.vue";
 import TimeRecordHistory from "./components/timerecordhistory.vue";
 import RateHistory from "./components/ratehistory.vue";
 import ViolationsHistory from "./components/violationshistory.vue";
+import HolidayModal from "./components/holidaymodal.vue";
+import bootstrap from "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -38,6 +40,7 @@ export default {
         RateHistory,
         ViolationsHistory,
         Violations,
+        HolidayModal,
     },
 
     data() {
@@ -125,10 +128,31 @@ export default {
             rateHistory: [],
             rateHistoryFilterEmployeeId: "",
             rateHistoryFilterOnlyActive: false,
+
+            // Holiday modal
+            holidayModal: null,
+            holidays: [],
+            holidayYear: new Date().getFullYear(),
+            holidayForm: {
+                holidayID: null,
+                title: "",
+                status: "Regular Holiday",
+                holidate: "", // 'YYYY-MM-DD'
+                is_recurring: false, // boolean in UI; convert to 0/1 for backend
+            },
         };
     },
 
-    async mounted() {},
+    async mounted() {
+        // Initialize Holiday modal
+        const el = document.getElementById("holidayModal");
+        if (el && typeof bootstrap !== "undefined") {
+            this.holidayModal = new bootstrap.Modal(el, {
+                backdrop: "static",
+                keyboard: false,
+            });
+        }
+    },
 
     methods: {
         setView(view) {
@@ -228,20 +252,34 @@ export default {
 
         async submitRate() {
             // basic validation
-            if (!this.rateForm.employee_id) return alert("Missing employee.");
-            if (!this.rateForm.effective_start)
-                return alert("Effective start is required.");
+            if (!this.rateForm.employee_id) {
+                return Swal.fire(
+                    "Missing Employee",
+                    "Please select an employee.",
+                    "warning"
+                );
+            }
+            if (!this.rateForm.effective_start) {
+                return Swal.fire(
+                    "Effective Start Required",
+                    "Please provide an effective start date.",
+                    "warning"
+                );
+            }
             if (!this.rateForm.monthly_rate && !this.rateForm.hourly_rate) {
-                return alert("Provide at least Monthly or Hourly rate.");
+                return Swal.fire(
+                    "Rate Required",
+                    "Please provide at least a monthly or hourly rate.",
+                    "warning"
+                );
             }
 
             try {
                 this.savingRate = true;
 
-                // POST create new rate row
                 const url = `${API_BASE_URL}/hr/employees/${this.rateForm.employee_id}/rates`;
                 const payload = {
-                    employee_username: this.rateForm.employee_username, // snapshot (server can ignore and resolve instead)
+                    employee_username: this.rateForm.employee_username,
                     effective_start: this.rateForm.effective_start,
                     effective_end: this.rateForm.effective_end || null,
                     monthly_rate: this.rateForm.monthly_rate,
@@ -251,21 +289,32 @@ export default {
 
                 await axios.post(url, payload);
 
-                // Optional: reflect a "current rate" snapshot on the employee row for list display
                 if (this.selectedEmployee) {
-                    // choose what to show as "current" (up to you)
-                    if (payload.monthly_rate != null)
+                    if (payload.monthly_rate != null) {
                         this.selectedEmployee.employee_rate =
                             payload.monthly_rate;
+                    }
                 }
 
                 this.loaded.employees = false;
                 this.loaded.rateHistory = false;
 
                 this.closeRateModal();
+
+                Swal.fire(
+                    "Success",
+                    "Employee rate has been saved successfully.",
+                    "success"
+                ).then(() => {
+                    this.fetchEmployeesOnce();
+                });
             } catch (e) {
                 console.error("Failed to save rate", e);
-                alert("Failed to save rate.");
+                Swal.fire(
+                    "Error",
+                    "Failed to save rate. Please try again.",
+                    "error"
+                );
             } finally {
                 this.savingRate = false;
             }
@@ -478,6 +527,98 @@ export default {
             if (this.page > 1) {
                 this.page -= 1;
                 this.fetchRecords();
+            }
+        },
+
+        // Holiday modal
+        openHolidayModal() {
+            this.resetHolidayForm();
+            this.fetchHolidays();
+            if (this.holidayModal) this.holidayModal.show();
+        },
+
+        resetHolidayForm() {
+            this.holidayForm = {
+                holidayID: null,
+                title: "",
+                status: "Regular Holiday",
+                holidate: "",
+                is_recurring: false,
+            };
+        },
+
+        async fetchHolidays() {
+            try {
+                const { data } = await axios.post(
+                    `${API_BASE_URL}/hr/holidays/list`,
+                    {
+                        year: this.holidayYear,
+                    }
+                );
+                if (data?.success) {
+                    this.holidays = data.items || [];
+                } else {
+                    console.warn("Failed to load holidays payload:", data);
+                }
+            } catch (err) {
+                console.error("fetchHolidays error:", err);
+                alert("Failed to load holidays.");
+            }
+        },
+
+        editHoliday(row) {
+            this.holidayForm = {
+                holidayID: row.holidayID,
+                title: row.title,
+                status: row.status,
+                holidate: row.holidate,
+                is_recurring: !!row.is_recurring,
+            };
+            if (this.holidayModal) this.holidayModal.show();
+        },
+
+        async saveHoliday() {
+            const payload = {
+                holidayID: this.holidayForm.holidayID,
+                title: (this.holidayForm.title || "").trim(),
+                status: this.holidayForm.status,
+                holidate: this.holidayForm.holidate,
+                is_recurring: this.holidayForm.is_recurring ? 1 : 0,
+            };
+
+            const url = this.holidayForm.holidayID
+                ? `${API_BASE_URL}/hr/holidays/update`
+                : `${API_BASE_URL}/hr/holidays/store`;
+
+            try {
+                const { data } = await axios.post(url, payload);
+                if (data?.success) {
+                    await this.fetchHolidays();
+                    if (!this.holidayForm.holidayID) this.resetHolidayForm(); // manglimpyo after creation
+                } else {
+                    alert("Validation failed. Please check your inputs.");
+                }
+            } catch (err) {
+                console.error("saveHoliday error:", err);
+                alert("Save failed.");
+            }
+        },
+
+        async deleteHoliday(holidayID) {
+            if (!confirm("Delete this holiday?")) return;
+            try {
+                const { data } = await axios.post(
+                    `${API_BASE_URL}/hr/holidays/delete`,
+                    {
+                        holidayID,
+                    }
+                );
+                if (data?.success) {
+                    await this.fetchHolidays();
+                }
+            } catch (err) {
+                console.error("deleteHoliday error:", err);
+                alert("Delete failed.");
             }
         },
     },

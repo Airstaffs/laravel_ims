@@ -105,7 +105,7 @@ export default {
             return Number(this.item.price) || 0;
         },
         discountValue() {
-            return Number(this.item.discount) || 0;
+            return Number(this.item.Discount) || 0;
         }, // fixed amount
         taxValue() {
             return Number(this.item.tax) || 0;

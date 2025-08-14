@@ -55,7 +55,7 @@ class HouseageController extends BasetablesController
                 ->select([
                     'prod.*'
                 ]);
-                // Removed the location filter as it was commented out in original
+            // Removed the location filter as it was commented out in original
 
             // Apply search to products directly first
             if (!empty($search)) {
@@ -72,12 +72,12 @@ class HouseageController extends BasetablesController
             // Extract all unique base FNSKUs from products
             $baseFnskus = [];
             $fnskuProductMap = [];
-            
+
             foreach ($products->items() as $product) {
                 if (!empty($product->FNSKUviewer)) {
                     $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
                     $baseFnskus[] = $baseFnsku;
-                    
+
                     if (!isset($fnskuProductMap[$baseFnsku])) {
                         $fnskuProductMap[$baseFnsku] = [];
                     }
@@ -94,7 +94,7 @@ class HouseageController extends BasetablesController
                     ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
                     ->whereIn('FNSKU', $baseFnskus)
                     ->get();
-                
+
                 foreach ($fnskuRecords as $record) {
                     $fnskuData[$record->FNSKU] = $record;
                 }
@@ -113,7 +113,7 @@ class HouseageController extends BasetablesController
                     ->select('ASIN', 'internal')
                     ->whereIn('ASIN', $asinList)
                     ->get();
-                
+
                 foreach ($asinRecords as $record) {
                     $asinData[$record->ASIN] = $record;
                 }
@@ -124,7 +124,7 @@ class HouseageController extends BasetablesController
                 $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData, $search) {
                     // Add FNSKU and ASIN data
                     $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    
+
                     if (isset($fnskuData[$baseFnsku])) {
                         $fnskuRecord = $fnskuData[$baseFnsku];
                         // Keep the original FNSKU as displayed (with prefix if it exists)
@@ -133,7 +133,7 @@ class HouseageController extends BasetablesController
                         $product->ASIN = $fnskuRecord->ASIN;
                         $product->grading = $fnskuRecord->grading;
                         $product->storename = $fnskuRecord->storename;
-                        
+
                         if (isset($asinData[$fnskuRecord->ASIN])) {
                             $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
                         }
@@ -141,18 +141,18 @@ class HouseageController extends BasetablesController
                         // If no FNSKU record found, still show the original FNSKU
                         $product->FNSKU = $product->FNSKUviewer;
                     }
-                    
+
                     return $product;
                 });
 
                 // Filter products that match additional search criteria
                 $filteredProducts = $products->getCollection()->filter(function ($product) use ($search) {
                     return stripos($product->MSKU ?? '', $search) !== false ||
-                           stripos($product->ASIN ?? '', $search) !== false ||
-                           stripos($product->AStitle ?? '', $search) !== false ||
-                           stripos($product->serialnumber ?? '', $search) !== false ||
-                           stripos($product->FNSKUviewer ?? '', $search) !== false ||
-                           stripos($product->rtcounter ?? '', $search) !== false;
+                        stripos($product->ASIN ?? '', $search) !== false ||
+                        stripos($product->AStitle ?? '', $search) !== false ||
+                        stripos($product->serialnumber ?? '', $search) !== false ||
+                        stripos($product->FNSKUviewer ?? '', $search) !== false ||
+                        stripos($product->rtcounter ?? '', $search) !== false;
                 });
 
                 $products->setCollection($filteredProducts);
@@ -160,7 +160,7 @@ class HouseageController extends BasetablesController
                 // Add FNSKU and ASIN data to all products
                 $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData) {
                     $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    
+
                     if (isset($fnskuData[$baseFnsku])) {
                         $fnskuRecord = $fnskuData[$baseFnsku];
                         // Keep the original FNSKU as displayed (with prefix if it exists)
@@ -169,7 +169,7 @@ class HouseageController extends BasetablesController
                         $product->ASIN = $fnskuRecord->ASIN;
                         $product->grading = $fnskuRecord->grading;
                         $product->storename = $fnskuRecord->storename;
-                        
+
                         if (isset($asinData[$fnskuRecord->ASIN])) {
                             $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
                         }
@@ -177,7 +177,7 @@ class HouseageController extends BasetablesController
                         // If no FNSKU record found, still show the original FNSKU
                         $product->FNSKU = $product->FNSKUviewer;
                     }
-                    
+
                     return $product;
                 });
             }
@@ -327,6 +327,7 @@ class HouseageController extends BasetablesController
             'trackingnumber4' => 'nullable|string|max:255',
             'trackingnumber5' => 'nullable|string|max:255',
             'validation' => 'nullable|string|max:255',
+            'price' => 'nullable|numeric',
         ]);
 
         // Ensure default for validation

@@ -1,7 +1,8 @@
 <template>
     <div class="hr-module">
-        <nav class="nav-tabs">
-            <ul class="list-unstyled m-0">
+        <nav class="nav-tabs d-flex align-items-center justify-content-between">
+            <!-- LEFT: view tabs / dropdown -->
+            <ul class="list-unstyled m-0 d-flex gap-2 flex-wrap">
                 <li
                     v-for="tab in tabs"
                     :key="typeof tab === 'string' ? tab : tab.label"
@@ -16,29 +17,54 @@
                     </button>
 
                     <template v-else>
-                        <button
-                            class="btn btn-nav btn-dropdown dropdown-toggle"
-                            data-bs-toggle="dropdown"
-                        >
-                            <span>{{ tab.label }}</span>
-                        </button>
-
-                        <ul class="list-unstyled dropdown-menu m-0 p-0">
-                            <li v-for="item in tab.dropdown" :key="item">
-                                <a
-                                    href="#"
-                                    class="dropdown-item"
-                                    @click.prevent="setView(item)"
-                                >
-                                    {{ item }}
-                                </a>
-                            </li>
-                        </ul>
+                        <div class="btn-group">
+                            <button
+                                class="btn btn-nav btn-dropdown dropdown-toggle"
+                                data-bs-toggle="dropdown"
+                            >
+                                <span>{{ tab.label }}</span>
+                            </button>
+                            <ul class="list-unstyled dropdown-menu m-0 p-0">
+                                <li v-for="item in tab.dropdown" :key="item">
+                                    <a
+                                        href="#"
+                                        class="dropdown-item"
+                                        @click.prevent="setView(item)"
+                                    >
+                                        {{ item }}
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
                     </template>
                 </li>
             </ul>
-        </nav>
 
+            <!-- RIGHT: modal triggers (Add dropdown) -->
+            <div class="btn-group">
+                <button
+                    class="btn btn-outline-primary dropdown-toggle"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                >
+                    Add
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li>
+                        <a
+                            href="#"
+                            class="dropdown-item"
+                            @click.prevent="openHolidayModal"
+                        >
+                            Add Holiday
+                        </a>
+                        <a href="#" class="dropdown-item"> Add Announcement</a>
+                    </li>
+                    <!-- (future) add more modal actions here -->
+                </ul>
+            </div>
+        </nav>
+        <!-- Main views -->
         <Employee
             v-if="currentView === 'Employee'"
             :key="currentView"
@@ -50,7 +76,7 @@
         />
 
         <TimeRecord
-            v-show="currentView === 'Time Record'"
+            v-if="currentView === 'Time Record'"
             :hr-context="hrContext"
         />
         <TimeRecordHistory
@@ -60,6 +86,9 @@
         <RateHistory v-show="currentView === 'Employee Rate History'" />
         <ViolationsHistory v-show="currentView === 'Violations History'" />
         <Violations v-show="currentView === 'Violations'" />
+
+        <!-- Modals -->
+        <HolidayModal />
     </div>
 </template>
 
