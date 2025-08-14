@@ -228,20 +228,34 @@ export default {
 
         async submitRate() {
             // basic validation
-            if (!this.rateForm.employee_id) return alert("Missing employee.");
-            if (!this.rateForm.effective_start)
-                return alert("Effective start is required.");
+            if (!this.rateForm.employee_id) {
+                return Swal.fire(
+                    "Missing Employee",
+                    "Please select an employee.",
+                    "warning"
+                );
+            }
+            if (!this.rateForm.effective_start) {
+                return Swal.fire(
+                    "Effective Start Required",
+                    "Please provide an effective start date.",
+                    "warning"
+                );
+            }
             if (!this.rateForm.monthly_rate && !this.rateForm.hourly_rate) {
-                return alert("Provide at least Monthly or Hourly rate.");
+                return Swal.fire(
+                    "Rate Required",
+                    "Please provide at least a monthly or hourly rate.",
+                    "warning"
+                );
             }
 
             try {
                 this.savingRate = true;
 
-                // POST create new rate row
                 const url = `${API_BASE_URL}/hr/employees/${this.rateForm.employee_id}/rates`;
                 const payload = {
-                    employee_username: this.rateForm.employee_username, // snapshot (server can ignore and resolve instead)
+                    employee_username: this.rateForm.employee_username,
                     effective_start: this.rateForm.effective_start,
                     effective_end: this.rateForm.effective_end || null,
                     monthly_rate: this.rateForm.monthly_rate,
@@ -251,21 +265,32 @@ export default {
 
                 await axios.post(url, payload);
 
-                // Optional: reflect a "current rate" snapshot on the employee row for list display
                 if (this.selectedEmployee) {
-                    // choose what to show as "current" (up to you)
-                    if (payload.monthly_rate != null)
+                    if (payload.monthly_rate != null) {
                         this.selectedEmployee.employee_rate =
                             payload.monthly_rate;
+                    }
                 }
 
                 this.loaded.employees = false;
                 this.loaded.rateHistory = false;
 
                 this.closeRateModal();
+
+                Swal.fire(
+                    "Success",
+                    "Employee rate has been saved successfully.",
+                    "success"
+                ).then(() => {
+                    this.fetchEmployeesOnce();
+                });
             } catch (e) {
                 console.error("Failed to save rate", e);
-                alert("Failed to save rate.");
+                Swal.fire(
+                    "Error",
+                    "Failed to save rate. Please try again.",
+                    "error"
+                );
             } finally {
                 this.savingRate = false;
             }

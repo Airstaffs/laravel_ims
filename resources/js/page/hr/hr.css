@@ -53,7 +53,8 @@ a.dropdown-item {
     align-items: center;
 }
 
-.modal-addEmployee {
+.modal-addEmployee,
+.modal-rateEmployee {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -63,12 +64,26 @@ a.dropdown-item {
     width: 400px;
 }
 
-.modal-addEmployee .modal-body {
+.modal-addEmployee .modal-body,
+.modal-rateEmployee .modal-body {
     padding: 20px;
 }
 
-.modal-addEmployee .modal-footer {
+.modal-addEmployee form fieldset {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
     gap: 10px;
+}
+
+.modal-addEmployee .modal-footer,
+.modal-rateEmployee .modal-footer {
+    gap: 10px;
+}
+
+.modal-rateEmployee .modal-content {
+    width: 800px;
 }
 
 .btn-success,
@@ -76,6 +91,7 @@ a.dropdown-item {
 .btn-secondary {
     height: 40px;
     min-width: 100px;
+    margin: 0;
 }
 
 /* Time Record */

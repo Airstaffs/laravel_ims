@@ -14,14 +14,14 @@ class HrController extends Controller
     {
         $today = date('Y-m-d');
 
-        $employees = \DB::table('tbluser as u')
+        $employees = DB::table('tbluser as u')
             ->select(
                 'u.id',
                 'u.username',
-                \DB::raw('u.username as name'),
-                \DB::raw('u.office_role as position'),
+                DB::raw('u.username as name'),
+                DB::raw('u.office_role as position'),
                 // current monthly
-                \DB::raw("(SELECT er.monthly_rate
+                DB::raw("(SELECT er.monthly_rate
                        FROM tblemployeerate er
                        WHERE er.employee_id = u.id
                          AND er.effective_start <= '{$today}'
@@ -29,7 +29,7 @@ class HrController extends Controller
                        ORDER BY er.effective_start DESC
                        LIMIT 1) as current_monthly_rate"),
                 // current hourly
-                \DB::raw("(SELECT er.hourly_rate
+                DB::raw("(SELECT er.hourly_rate
                        FROM tblemployeerate er
                        WHERE er.employee_id = u.id
                          AND er.effective_start <= '{$today}'
@@ -37,7 +37,7 @@ class HrController extends Controller
                        ORDER BY er.effective_start DESC
                        LIMIT 1) as current_hourly_rate"),
                 // current currency
-                \DB::raw("(SELECT er.currency
+                DB::raw("(SELECT er.currency
                        FROM tblemployeerate er
                        WHERE er.employee_id = u.id
                          AND er.effective_start <= '{$today}'
