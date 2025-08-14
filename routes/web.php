@@ -400,6 +400,9 @@ Route::prefix('api/labeling')->group(function () {
 // Routes for RTS Function 
 Route::prefix('api/rts')->group(function () {
     Route::get('products', [RTSController::class, 'index']);
+    Route::post('save-rts-options', [RTSController::class, 'saveRTSOptions']);
+    Route::get('get-rts-options', [RTSController::class, 'getRTSOptions']);
+    
 });
 
 
