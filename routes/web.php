@@ -402,7 +402,7 @@ Route::prefix('api/rts')->group(function () {
     Route::get('products', [RTSController::class, 'index']);
     Route::post('save-rts-options', [RTSController::class, 'saveRTSOptions']);
     Route::get('get-rts-options', [RTSController::class, 'getRTSOptions']);
-    
+
 });
 
 
@@ -657,8 +657,15 @@ Route::prefix('hr')->group(function () {
     Route::get('/employees/{employee}/rates', [HrController::class, 'indexRate']);
     Route::get('/employees/{employee}/rates/current', [HrController::class, 'currentRate']);
     Route::post('/employees/{employee}/rates', [HrController::class, 'storeRate']);
+
     Route::get('/time-records', [HrController::class, 'getTimeRecords']);
     Route::post('/time-records/{id}/edit', [HrController::class, 'editTimeRecord']);
+
     Route::get('/leave-history', [HrController::class, 'getLeaveHistory']);
     Route::get('/violations', [HrController::class, 'getViolations']);
+
+    Route::post('/holidays/list', [HrController::class, 'listHolidays']);
+    Route::post('/holidays/store', [HrController::class, 'storeHoliday']);
+    Route::post('/holidays/update', [HrController::class, 'updateHoliday']);
+    Route::post('/holidays/delete', [HrController::class, 'deleteHoliday']);
 });
