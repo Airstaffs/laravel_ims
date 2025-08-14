@@ -40,19 +40,16 @@
                         <th>FNSKU</th>
                         <th>Grading</th>
                         <th>Serial Number</th>
-                        <!-- <th>Tracking Number</th> -->
                         <th>Quantity</th>
                         <th>Fullfilment Status</th>
-                        <!-- <th>Warehouse Location</th> -->
                         <th>Module</th>
-                        <!-- <th>Date Delivered</th> -->
                         <th>Return Status</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr v-if="loading">
-                        <td colspan="9" class="text-center">
+                        <td colspan="11" class="text-center">
                             <div class="loading-spinner">
                                 <i class="fas fa-spinner fa-spin"></i>
                                 Loading...
@@ -60,7 +57,7 @@
                         </td>
                     </tr>
                     <tr v-else-if="sortedInventory.length === 0">
-                        <td colspan="9" class="text-center">No orders found</td>
+                        <td colspan="11" class="text-center">No orders found</td>
                     </tr>
                     <template
                         v-else
@@ -80,7 +77,6 @@
                                         class="product-image-container"
                                         @click="openImageModal(item)"
                                     >
-                                        <!-- Use the actual file path for the main image -->
                                         <img
                                             :src="
                                                 '/images/thumbnails/' +
@@ -162,6 +158,13 @@
                                         class="btn btn-edit"
                                     >
                                         <i class="bi bi-pencil"></i>Edit
+                                    </button>
+
+                                    <button
+                                        @click="openRTSModal(item)"
+                                        class="btn btn-rts-option"
+                                    >
+                                        <i class="fas fa-tools"></i>RTS Option
                                     </button>
                                 </div>
                             </td>
@@ -281,7 +284,6 @@
                                 {{ item.ASINviewer }}</span
                             >
                         </div>
-                        <!-- Insert Hidden Here -->
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">FBM:</span>
                             <span class="mobile-detal-value">
@@ -320,7 +322,6 @@
                                 {{ item.Reserved }}</span
                             >
                         </div>
-                        <!--  -->
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label"
                                 >Fullfilment:</span
@@ -355,9 +356,12 @@
                             <i class="fas fa-info-circle"></i> Details
                         </button>
 
-                        <!-- <span><strong></strong> {{ item.actions }}</span> -->
                         <button @click="EditItem(item)" class="btn btn-fnsku">
                             <i class="bi bi-clipboard-check"></i> Edit
+                        </button>
+
+                        <button @click="openRTSModal(item)" class="btn btn-rts-option">
+                            <i class="fas fa-tools"></i> RTS Option
                         </button>
                     </div>
 
@@ -465,7 +469,6 @@
                             </button>
                         </div>
 
-                        <!-- Display message if no images in current category -->
                         <div
                             v-if="currentImageSet.length === 0"
                             class="no-images-message"
@@ -473,7 +476,6 @@
                             No images available in this category
                         </div>
 
-                        <!-- Main image display (only shown if we have images) -->
                         <div
                             v-if="currentImageSet.length > 0"
                             class="main-image-container"
@@ -508,7 +510,6 @@
                             {{ currentImageSet.length }}
                         </div>
 
-                        <!-- Thumbnails for the current image set -->
                         <div
                             class="thumbnails-container"
                             v-if="currentImageSet.length > 1"
@@ -532,6 +533,7 @@
             </div>
         </div>
 
+        <!-- Edit Modal -->
         <div v-if="showEditModal" class="modal edit-modal">
             <div class="modal-overlay" @click="closeEditModal"></div>
 
@@ -1298,12 +1300,237 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button
+             <!--     <button
                         type="button"
                         class="btn btn-primary btn-lg text-white"
                         @click="saveEditModal"
                     >
                         <i class="fas fa-save me-2"></i> Save
+                    </button> -->
+                </div>
+            </div>
+        </div>
+
+        <!-- RTS Options Modal -->
+        <div v-if="showRTSModal" class="modal rts-modal">
+            <div class="modal-overlay" @click="closeRTSModal"></div>
+
+            <div class="modal-content rts-modal-content">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2>RTS Options - RT# {{ rtsCurrentItem?.rtcounter }}</h2>
+                    </div>
+                    <button class="btn btn-modal-close" @click="closeRTSModal">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="rts-form-container">
+                        <form @submit.prevent="saveRTSModal" class="rts-form">
+                            <!-- Product Info Header -->
+                            <div class="rts-product-info">
+                                <div class="product-image-mini">
+                                    <img
+                                        :src="'/images/thumbnails/' + (rtsCurrentItem?.img1 || '')"
+                                        :alt="rtsCurrentItem?.ProductTitle || 'Product'"
+                                        @error="handleImageError($event)"
+                                    />
+                                </div>
+                                <div class="product-details">
+                                    <h4>{{ rtsCurrentItem?.ProductTitle }}</h4>
+                                    <p><strong>FNSKU:</strong> {{ rtsCurrentItem?.FNSKU }}</p>
+                                    <p><strong>Serial:</strong> {{ rtsCurrentItem?.serialnumber }}</p>
+                                </div>
+                            </div>
+
+                            <hr class="divider" />
+
+                            <!-- RTS Form Fields -->
+                            <div class="rts-form-grid">
+                                <div class="rts-form-section">
+                                    <!-- Date Field -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Date Filed</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            class="form-control rts-input"
+                                            v-model="rtsForm.dateField"
+                                            required
+                                        />
+                                    </fieldset>
+
+                                    <!-- Filed IN Checkboxes -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Filed IN:</span>
+                                        </label>
+                                        <div class="checkbox-group">
+                                            <label class="checkbox-label">
+                                                <input
+                                                    type="checkbox"
+                                                    v-model="rtsForm.filedInES"
+                                                    class="checkbox-input"
+                                                />
+                                                <span class="checkbox-text">ES</span>
+                                            </label>
+                                            <label class="checkbox-label">
+                                                <input
+                                                    type="checkbox"
+                                                    v-model="rtsForm.filedInPPL"
+                                                    class="checkbox-input"
+                                                />
+                                                <span class="checkbox-text">PPL</span>
+                                            </label>
+                                        </div>
+                                    </fieldset>
+
+                                    <!-- Test Result -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Test Result</span>
+                                        </label>
+                                        <select
+                                            class="form-control rts-select"
+                                            v-model="rtsForm.testResult"
+                                            required
+                                        >
+                                            <option value="">Select Test Result</option>
+                                            <option value="Passed">Passed</option>
+                                            <option value="Failed">Failed</option>
+                                        </select>
+                                    </fieldset>
+
+                                    <!-- Status -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Status</span>
+                                        </label>
+                                        <select
+                                            class="form-control rts-select"
+                                            v-model="rtsForm.status"
+                                            required
+                                        >
+                                            <option value="">Select Status</option>
+                                            <option value="RTS">RTS</option>
+                                            <option value="Dismantle">Dismantle</option>
+                                        </select>
+                                    </fieldset>
+
+                                    <!-- RTS Result -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">RTS Result</span>
+                                        </label>
+                                        <select
+                                            class="form-control rts-select"
+                                            v-model="rtsForm.rtsResult"
+                                            required
+                                        >
+                                            <option value="">Select RTS Result</option>
+                                            <option value="PRNR">PRNR</option>
+                                            <option value="FRNR">FRNR</option>
+                                            <option value="LST">LST</option>
+                                            <option value="Replacement">Replacement</option>
+                                            <option value="Ship-Back">Ship-Back</option>
+                                        </select>
+                                    </fieldset>
+                                </div>
+
+                                <div class="rts-form-section">
+                                    <!-- REFUND STATUS Section -->
+                                    <div class="refund-status-section">
+                                        <h3 class="section-title">REFUND STATUS</h3>
+                                        
+                                        <!-- Amount -->
+                                        <fieldset class="rts-fieldset">
+                                            <label class="rts-label">
+                                                <span class="label-text">Amount:</span>
+                                            </label>
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                class="form-control rts-input"
+                                                v-model="rtsForm.refundAmount"
+                                                placeholder="0.00"
+                                            />
+                                        </fieldset>
+
+                                        <!-- Date of Refund -->
+                                        <fieldset class="rts-fieldset">
+                                            <label class="rts-label">
+                                                <span class="label-text">Date of Refund</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                class="form-control rts-input"
+                                                v-model="rtsForm.refundDate"
+                                            />
+                                        </fieldset>
+
+                                        <!-- Reason of Return -->
+                                        <fieldset class="rts-fieldset">
+                                            <label class="rts-label">
+                                                <span class="label-text">Reason of Return</span>
+                                            </label>
+                                            <textarea
+                                                class="form-control rts-textarea"
+                                                v-model="rtsForm.reasonOfReturn"
+                                                rows="3"
+                                                placeholder="Enter reason for return..."
+                                            ></textarea>
+                                        </fieldset>
+
+                                        <!-- Return TN -->
+                                        <fieldset class="rts-fieldset">
+                                            <label class="rts-label">
+                                                <span class="label-text">Return TN:</span>
+                                            </label>
+                                            <input
+                                                type="text"
+                                                class="form-control rts-input"
+                                                v-model="rtsForm.returnTN"
+                                                placeholder="Enter tracking number"
+                                            />
+                                        </fieldset>
+
+                                        <!-- Notes -->
+                                        <fieldset class="rts-fieldset">
+                                            <label class="rts-label">
+                                                <span class="label-text">Notes</span>
+                                            </label>
+                                            <textarea
+                                                class="form-control rts-textarea"
+                                                v-model="rtsForm.notes"
+                                                rows="4"
+                                                placeholder="Additional notes..."
+                                            ></textarea>
+                                        </fieldset>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        @click="closeRTSModal"
+                    >
+                        <i class="fas fa-times me-2"></i> Cancel
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-primary"
+                        @click="saveRTSModal"
+                        :disabled="loading"
+                    >
+                        <i class="fas fa-save me-2"></i> 
+                        {{ loading ? 'Saving...' : 'Save' }}
                     </button>
                 </div>
             </div>
@@ -1316,192 +1543,853 @@ import RTS from "./rts.js";
 export default RTS;
 </script>
 
-<style>
-/* Search input wrapper for positioning */
-.search-input-wrapper {
-    position: relative;
+<style scoped>
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 7000 !important;
 }
 
-/* Small spinner inside search input */
-.search-loading-spinner {
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-}
-
-.search-loading-spinner .spinner {
-    width: 16px;
-    height: 16px;
-    border: 2px solid #f3f3f3;
-    border-top: 2px solid #007bff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-/* Loading text below search */
-.search-loading-text {
-    text-align: center;
-    color: #6c757d;
-    font-size: 0.9em;
-    margin-top: 8px;
-    font-style: italic;
-}
-
-/* Loading overlay for FNSKU list */
-.fnsku-loading-overlay {
+.modal-overlay {
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.8);
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1;
+}
+
+.modal-content {
+    position: relative;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    z-index: 7001 !important;
+    max-width: 90vw;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* Image Modal Specific */
+.image-modal {
+    z-index: 7500 !important;
+}
+
+.image-modal .modal-content {
+    z-index: 7501 !important;
+}
+
+/* Edit Modal Specific */
+.edit-modal {
+    z-index: 7200 !important;
+}
+
+.edit-modal .modal-content {
+    z-index: 7201 !important;
+}
+
+/* RTS Modal Specific Styles - FIXED CENTERING & COMPACT */
+.rts-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    z-index: 8000 !important;
+    margin: 0 !important;
+    padding: 15px !important;
+    box-sizing: border-box !important;
+}
+
+.rts-modal .modal-overlay {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    z-index: 1 !important;
+}
+
+.rts-modal .modal-content {
+    position: relative !important;
+    max-width: 850px !important;
+    width: 100% !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+    z-index: 8001 !important;
+    margin: 0 auto !important;
+    background: white !important;
+    border-radius: 8px !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid #e9ecef !important;
+}
+
+.rts-modal-content {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    border: 1px solid #e9ecef;
+}
+
+/* SweetAlert2 Z-Index Fix - HIGHEST PRIORITY */
+.swal2-container {
+    z-index: 99999 !important;
+}
+
+.swal2-popup {
+    z-index: 100000 !important;
+}
+
+/* Custom class for top-level SweetAlert */
+.swal2-top-level {
+    z-index: 100001 !important;
+    position: fixed !important;
+}
+
+.swal2-top-level .swal2-popup {
+    z-index: 100002 !important;
+}
+
+/* Ensure SweetAlert2 appears above everything */
+div[aria-labelledby="swal2-title"] {
+    z-index: 100000 !important;
+}
+
+/* Fix for any backdrop issues */
+.swal2-container.swal2-backdrop-show {
+    z-index: 99999 !important;
+}
+
+.swal2-container .swal2-popup {
+    z-index: 100001 !important;
+}
+
+/* Override any inline z-index styles */
+.swal2-container[style*="z-index"] {
+    z-index: 99999 !important;
+}
+
+.swal2-popup[style*="z-index"] {
+    z-index: 100000 !important;
+}
+
+/* Force hide RTS modal when needed */
+.rts-modal.force-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    z-index: -1 !important;
+}
+
+.rts-form-container {
+    padding: 0;
+}
+
+.rts-product-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 15px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.product-image-mini {
+    width: 50px;
+    height: 50px;
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.product-image-mini img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.product-details h4 {
+    margin: 0 0 6px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.2;
+}
+
+.product-details p {
+    margin: 1px 0;
+    font-size: 12px;
+    color: #666;
+    line-height: 1.2;
+}
+
+.divider {
+    margin: 15px 0;
+    border: none;
+    height: 1px;
+    background: #e9ecef;
+}
+
+.rts-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.rts-form-section {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid #007bff;
+}
+
+.rts-fieldset {
+    margin: 0;
+    padding: 0;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.rts-label {
+    margin: 0;
+    font-weight: 500;
+    color: #333;
+}
+
+.label-text {
+    font-size: 13px;
+}
+
+.rts-input,
+.rts-select,
+.rts-textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 13px;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.rts-input:focus,
+.rts-select:focus,
+.rts-textarea:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+.rts-textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 15px;
+    margin-top: 4px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: normal;
+}
+
+.checkbox-input {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.checkbox-text {
+    font-size: 13px;
+    color: #333;
+}
+
+.refund-status-section {
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+}
+
+/* FIXED BUTTON STYLES - ALL SAME WIDTH */
+.btn-details,
+.btn-edit,
+.btn-rts-option {
+    background: #007bff;
+    color: white;
+    border: 1px solid #007bff;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    text-decoration: none;
+    font-weight: 500;
+    white-space: nowrap;
+    margin: 2px 0;
+    width: 100% !important; /* Force same width */
+    min-width: 120px !important; /* Match "More Details" button width */
+    max-width: 120px !important;
+    justify-content: center !important;
+    text-align: center !important;
+    box-sizing: border-box !important;
+}
+
+/* Specific color overrides */
+.btn-edit {
+    background: #ffc107;
+    border-color: #ffc107;
+    color: #212529;
+}
+
+.btn-edit:hover {
+    background: #e0a800;
+    border-color: #d39e00;
+    color: #212529;
+}
+
+.btn-rts-option {
+    background: #28a745;
+    border-color: #28a745;
+    color: white;
+}
+
+.btn-rts-option:hover {
+    background: #218838;
+    border-color: #1e7e34;
+    color: white;
+}
+
+.btn-details:hover {
+    background: #0056b3;
+    border-color: #004085;
+    color: white;
+}
+
+/* Focus states */
+.btn-details:focus,
+.btn-edit:focus,
+.btn-rts-option:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.btn-edit:focus {
+    box-shadow: 0 0 0 2px rgba(255, 193, 7, 0.25);
+}
+
+.btn-rts-option:focus {
+    box-shadow: 0 0 0 2px rgba(40, 167, 69, 0.25);
+}
+
+/* Active states */
+.btn-details:active {
+    background: #004085;
+    border-color: #003d82;
+}
+
+.btn-edit:active {
+    background: #d39e00;
+    border-color: #c69500;
+}
+
+.btn-rts-option:active {
+    background: #1e7e34;
+    border-color: #1c7430;
+}
+
+/* Icon sizes */
+.btn-details i,
+.btn-edit i,
+.btn-rts-option i {
+    font-size: 11px;
+}
+
+/* Modal Header Styling - COMPACT */
+.rts-modal .modal-header {
+    padding: 15px 20px 12px;
+    border-bottom: 1px solid #dee2e6;
+    background: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+}
+
+.rts-modal .modal-header h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.rts-modal .modal-body {
+    padding: 18px 20px;
+    background: white;
+}
+
+.rts-modal .modal-footer {
+    padding: 12px 20px 15px;
+    border-top: 1px solid #dee2e6;
+    background: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* Modal Footer Buttons */
+.rts-modal .modal-footer .btn {
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    border: 1px solid;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.rts-modal .modal-footer .btn-secondary {
+    background: #6c757d;
+    border-color: #6c757d;
+    color: white;
+}
+
+.rts-modal .modal-footer .btn-secondary:hover {
+    background: #5a6268;
+    border-color: #545b62;
+}
+
+.rts-modal .modal-footer .btn-primary {
+    background: #007bff;
+    border-color: #007bff;
+    color: white;
+}
+
+.rts-modal .modal-footer .btn-primary:hover {
+    background: #0056b3;
+    border-color: #004085;
+}
+
+.rts-modal .modal-footer .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* Close button styling */
+.btn-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #6c757d;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
-    border-radius: 8px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
 }
 
-.fnsku-loading-overlay.mobile {
+.btn-modal-close:hover {
+    background: #f8f9fa;
+    color: #495057;
+}
+
+/* FIXED Action buttons container - ALL BUTTONS SAME WIDTH */
+.action-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: stretch; /* Changed from flex-start to stretch */
+    width: 100%;
+}
+
+.action-buttons .btn {
+    width: 100% !important;
+    min-width: 120px !important; /* Set consistent minimum width */
+    max-width: 120px !important; /* Set consistent maximum width */
+    text-align: center !important; /* Center text */
+    justify-content: center !important; /* Center content */
+    padding: 6px 8px !important; /* Consistent padding */
+    font-size: 12px !important;
+    white-space: nowrap !important;
+    box-sizing: border-box !important;
+    margin: 0 !important; /* Remove any margin */
+}
+
+/* Mobile card actions - FIXED BUTTON WIDTHS */
+.mobile-card-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: stretch;
+}
+
+.mobile-card-actions .btn {
+    flex: 1 1 auto !important;
+    min-width: 120px !important;
+    max-width: 120px !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 6px 8px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+}
+
+/* Ensure proper stacking order for all modals */
+.vue-container .modal {
+    z-index: 7000 !important;
+}
+
+.vue-container .image-modal {
+    z-index: 7500 !important;
+}
+
+.vue-container .edit-modal {
+    z-index: 7200 !important;
+}
+
+.vue-container .rts-modal {
+    z-index: 8000 !important;
+}
+
+/* Global SweetAlert2 overrides - HIGHEST PRIORITY */
+:global(.swal2-container) {
+    z-index: 99999 !important;
+}
+
+:global(.swal2-popup) {
+    z-index: 100000 !important;
+}
+
+/* Custom class for top-level SweetAlert */
+:global(.swal2-top-level) {
+    z-index: 100001 !important;
+    position: fixed !important;
+}
+
+:global(.swal2-top-level .swal2-popup) {
+    z-index: 100002 !important;
+}
+
+:global(.swal2-container.swal2-backdrop-show) {
+    z-index: 99999 !important;
+}
+
+:global(div[aria-labelledby="swal2-title"]) {
+    z-index: 100000 !important;
+}
+
+:global(.swal2-container[style*="z-index"]) {
+    z-index: 99999 !important;
+}
+
+:global(.swal2-popup[style*="z-index"]) {
+    z-index: 100000 !important;
+}
+
+/* Force remove modal backdrop classes when needed */
+:global(body.swal2-shown) {
+    overflow: hidden !important;
+}
+
+:global(body.modal-open) {
+    overflow: hidden !important;
+}
+
+/* Prevent scroll when modals are open */
+.vue-container.modal-open {
+    overflow: hidden;
+}
+
+/* Additional safety measures for SweetAlert2 */
+:global(.swal2-container) {
+    pointer-events: auto !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+}
+
+:global(.swal2-backdrop-show) {
+    background-color: rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Ensure buttons work properly in SweetAlert */
+:global(.swal2-actions) {
+    z-index: 100003 !important;
+}
+
+:global(.swal2-confirm) {
+    z-index: 100004 !important;
+}
+
+:global(.swal2-cancel) {
+    z-index: 100004 !important;
+}
+
+/* Fix potential overlay conflicts */
+:global(.swal2-container.swal2-backdrop-show .swal2-popup) {
+    z-index: 100002 !important;
+    position: relative !important;
+}
+
+/* Additional protection against modal conflicts */
+.modal.rts-modal.swal2-active {
+    z-index: 7999 !important;
+}
+
+/* Ensure loading states don't interfere */
+.loading-spinner,
+.loading-spinner-mobile {
+    z-index: 1;
     position: relative;
-    min-height: 200px;
-    background: rgba(248, 249, 250, 0.9);
 }
 
-/* Loading content */
-.loading-content {
-    text-align: center;
-    padding: 20px;
-}
-
-.loading-content p {
-    margin-top: 15px;
-    color: #6c757d;
-    font-weight: 500;
-}
-
-/* Large spinner for overlay */
-.loading-spinner-large {
-    width: 40px;
-    height: 40px;
-    border: 4px solid #f3f3f3;
-    border-top: 4px solid #007bff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto;
-}
-
-/* Blur effect when loading */
-.loading-blur {
-    filter: blur(1px);
-    opacity: 0.6;
-    pointer-events: none;
-    transition: all 0.3s ease;
-}
-
-/* Spinner animation */
-@keyframes spin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
-    }
-}
-
-/* Disabled state for buttons during loading */
-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Search input disabled state */
-.fnsku-search-input:disabled {
-    background-color: #f8f9fa;
-    cursor: not-allowed;
-}
-
-/* Pulse animation for search input when loading */
-.fnsku-search-input:disabled {
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0% {
-        background-color: #f8f9fa;
-    }
-    50% {
-        background-color: #e9ecef;
-    }
-    100% {
-        background-color: #f8f9fa;
-    }
-}
-
-/* Container positioning for overlay */
-.fnsku-list-container,
-.fnsku-card-container {
+/* Prevent any child elements from creating stacking contexts */
+.rts-modal * {
     position: relative;
+    z-index: auto;
 }
 
-/* Ensure table maintains structure during blur */
-.table.loading-blur {
-    table-layout: fixed;
+.rts-modal .modal-content * {
+    position: relative;
+    z-index: auto;
 }
 
-/* Loading state for mobile cards */
-.fnsku-card-container.loading-blur .card {
-    pointer-events: none;
+/* Exception for close button */
+.rts-modal .btn-modal-close {
+    position: relative;
+    z-index: 2;
 }
 
-/* Smooth transitions */
-.fnsku-list-container,
-.fnsku-card-container,
-.search-input-wrapper {
-    transition: all 0.3s ease;
+/* Exception for form controls */
+.rts-modal .rts-input,
+.rts-modal .rts-select,
+.rts-modal .rts-textarea {
+    position: relative;
+    z-index: 1;
 }
 
-/* Loading indicator variants */
-.spinner-small {
-    width: 12px;
-    height: 12px;
-    border-width: 2px;
+/* Final safety net - if everything else fails */
+:global(.swal2-container) {
+    position: fixed !important;
+    z-index: 999999 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
-.spinner-medium {
-    width: 24px;
-    height: 24px;
-    border-width: 3px;
+:global(.swal2-popup) {
+    position: relative !important;
+    z-index: 1000000 !important;
+    margin: auto !important;
 }
 
-.spinner-large {
-    width: 48px;
-    height: 48px;
-    border-width: 4px;
-}
-
-/* Responsive loading overlay */
+/* Mobile Responsive - MORE COMPACT */
 @media (max-width: 768px) {
-    .fnsku-loading-overlay {
-        border-radius: 0;
+    .rts-modal {
+        padding: 8px !important;
+    }
+    
+    .rts-modal .modal-content {
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        max-height: 92vh !important;
+    }
+    
+    .rts-form-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .rts-product-info {
+        flex-direction: row;
+        text-align: left;
+        gap: 8px;
+        padding: 10px;
+        margin-bottom: 12px;
+    }
+    
+    .product-image-mini {
+        width: 45px;
+        height: 45px;
+        margin: 0;
+    }
+    
+    .checkbox-group {
+        justify-content: flex-start;
+        gap: 12px;
     }
 
-    .loading-spinner-large {
-        width: 32px;
-        height: 32px;
-        border-width: 3px;
+    .rts-modal .modal-header {
+        padding: 12px 15px 10px;
     }
 
-    .loading-content {
-        padding: 15px;
+    .rts-modal .modal-body {
+        padding: 12px 15px;
     }
 
-    .loading-content p {
-        font-size: 0.9em;
-        margin-top: 10px;
+    .rts-modal .modal-footer {
+        padding: 10px 15px 12px;
     }
+
+    .rts-modal .modal-header h2 {
+        font-size: 15px;
+    }
+
+    .product-details h4 {
+        font-size: 13px;
+        margin-bottom: 4px;
+    }
+
+    .product-details p {
+        font-size: 11px;
+        margin: 0;
+    }
+
+    .section-title {
+        font-size: 14px;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+    }
+
+    .rts-fieldset {
+        gap: 4px;
+    }
+
+    .label-text {
+        font-size: 12px;
+    }
+
+    .rts-input,
+    .rts-select,
+    .rts-textarea {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+
+    .rts-textarea {
+        min-height: 50px;
+    }
+
+    .refund-status-section {
+        padding: 12px;
+    }
+
+    .divider {
+        margin: 12px 0;
+    }
+
+    /* Ensure SweetAlert2 is responsive on mobile */
+    :global(.swal2-popup) {
+        width: 90% !important;
+        max-width: 400px !important;
+        margin: 0 auto !important;
+    }
+
+    /* Mobile action buttons - consistent width */
+    .action-buttons .btn,
+    .mobile-card-actions .btn {
+        min-width: 100px !important;
+        max-width: 100px !important;
+        font-size: 11px !important;
+        padding: 5px 6px !important;
+    }
+}
+
+/* Additional responsive fixes for very small screens */
+@media (max-width: 480px) {
+    .rts-modal {
+        padding: 5px !important;
+    }
+    
+    .rts-modal .modal-content {
+        width: 100% !important;
+        height: 98vh !important;
+        max-height: 98vh !important;
+        margin: 1vh auto !important;
+        border-radius: 4px !important;
+    }
+    
+    .rts-form-grid {
+        gap: 15px;
+    }
+    
+    .rts-fieldset {
+        gap: 6px;
+    }
+    
+    .section-title {
+        font-size: 16px;
+        margin-bottom: 10px;
+    }
+
+    /* Very small screen button adjustments */
+    .action-buttons .btn,
+    .mobile-card-actions .btn {
+        min-width: 90px !important;
+        max-width: 90px !important;
+        font-size: 10px !important;
+        padding: 4px 6px !important;
+    }
+}
+
+/* Force consistent button behavior */
+.action-buttons {
+    width: 120px; /* Fixed container width */
+}
+
+.mobile-card-actions {
+    justify-content: space-between;
+    align-items: stretch;
+}
+
+/* Ensure no button grows beyond intended size */
+.btn {
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 </style>
