@@ -743,6 +743,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Settings -  Time Record & Userlogs  -----
     let scriptInitialized = false;
     let userLogsScriptInitialized = false;
+    let printerScriptInitialized = false; // Add printer script initialization flag
 
     const settingsTab = document.getElementById("settingsTab");
     settingsTab.addEventListener("shown.bs.tab", function (event) {
@@ -757,7 +758,498 @@ document.addEventListener("DOMContentLoaded", function () {
             initUserLogsScript();
             userLogsScriptInitialized = true;
         }
+
+        // Add printer tab initialization
+        if (targetTab === "#printer" && !printerScriptInitialized) {
+            initPrinterManagement();
+            printerScriptInitialized = true;
+        }
     });
+
+    // ==========================
+    // Printer Management
+    // ==========================
+
+    let deletePrinterId = null;
+    let divorceMarriageId = null;
+
+    function initPrinterManagement() {
+        // Load all printers on initialization
+        fetchAllPrinters();
+        loadAvailablePrinters();
+        
+        // Setup event listeners for sub-tabs
+        setupSubTabListeners();
+        
+        // Setup form event listeners
+        setupFormListeners();
+    }
+
+    function setupSubTabListeners() {
+        // When switching to small label tab
+        document.getElementById('small-label-tab')?.addEventListener('click', function() {
+            fetchPrintersByType('small_label');
+        });
+
+        // When switching to instruction card tab
+        document.getElementById('instruction-card-tab')?.addEventListener('click', function() {
+            fetchPrintersByType('instruction_card');
+        });
+
+        // When switching to married printer tab
+        document.getElementById('married-printer-tab')?.addEventListener('click', function() {
+            fetchMarriedPrinters();
+        });
+    }
+
+    function setupFormListeners() {
+        // Add Printer Form
+        document.getElementById('addPrinterForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            addNewPrinter(this);
+        });
+
+        // Edit Printer Form
+        document.getElementById('editPrinterForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            updatePrinter(this);
+        });
+
+        // Marry Printers Form
+        document.getElementById('marryPrintersForm')?.addEventListener('submit', function(e) {
+            e.preventDefault();
+            marryPrinters(this);
+        });
+
+        // Delete confirmation
+        document.getElementById('confirmDeletePrinter')?.addEventListener('click', function() {
+            deletePrinter();
+        });
+    }
+
+    // Fetch all printers and display in main table
+    function fetchAllPrinters() {
+        fetch('/api/printer-management/get-printers')
+            .then(response => response.json())
+            .then(data => {
+                renderAllPrintersTable(data.printers || []);
+            })
+            .catch(error => {
+                console.error('Error fetching printers:', error);
+                document.getElementById('allPrintersTableBody').innerHTML = 
+                    '<tr><td colspan="5" class="text-center text-danger">Error loading printers</td></tr>';
+            });
+    }
+
+    function renderAllPrintersTable(printers) {
+        const tbody = document.getElementById('allPrintersTableBody');
+        
+        if (printers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No printers found</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = printers.map(printer => {
+            const statusBadge = getStatusBadge(printer.status);
+            const typeBadge = getTypeBadge(printer.printer_type);
+            const marriageStatus = printer.married_to_printer_id ? 
+                '<i class="bi bi-heart-fill text-success" title="Married"></i>' : 
+                '<i class="bi bi-heart text-muted" title="Single"></i>';
+            
+            return `
+                <tr>
+                    <td>${printer.printername} ${marriageStatus}</td>
+                    <td>${typeBadge}</td>
+                    <td>${printer.printerip}:${printer.port || '9100'}</td>
+                    <td>${statusBadge}</td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-primary"
+                                onclick="editPrinter(${printer.printerid})">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success"
+                                onclick="testPrinter(${printer.printerid})">
+                                <i class="bi bi-check-circle"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                onclick="showDeletePrinterConfirmation(${printer.printerid})">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Fetch printers by type for specific tabs
+    function fetchPrintersByType(type) {
+        fetch(`/api/printer-management/get-printers?type=${type}`)
+            .then(response => response.json())
+            .then(data => {
+                if (type === 'small_label') {
+                    renderPrinterCards(data.printers || [], 'smallLabelPrintersGrid');
+                } else if (type === 'instruction_card') {
+                    renderPrinterCards(data.printers || [], 'instructionCardPrintersGrid');
+                }
+            })
+            .catch(error => {
+                console.error(`Error fetching ${type} printers:`, error);
+            });
+    }
+
+    function renderPrinterCards(printers, containerId) {
+        const container = document.getElementById(containerId);
+        
+        if (printers.length === 0) {
+            container.innerHTML = '<div class="col-12"><div class="alert alert-info text-center">No printers found</div></div>';
+            return;
+        }
+
+        container.innerHTML = printers.map(printer => {
+            const statusBadge = getStatusBadge(printer.status);
+            const marriageStatus = printer.married_to_printer_id ? 
+                '<span class="badge bg-success ms-2">Married</span>' : 
+                '<span class="badge bg-secondary ms-2">Single</span>';
+            
+            return `
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card printer-card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0">${printer.printername}${marriageStatus}</h6>
+                            ${statusBadge}
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">
+                                <strong>IP:</strong> ${printer.printerip}<br>
+                                <strong>Port:</strong> ${printer.port || '9100'}<br>
+                                ${printer.description ? `<strong>Description:</strong> ${printer.description}<br>` : ''}
+                                ${printer.married_to_printer_id ? `<strong>Married to ID:</strong> ${printer.married_to_printer_id}` : ''}
+                            </p>
+                        </div>
+                        <div class="card-footer">
+                            <div class="btn-group w-100" role="group">
+                                <button type="button" class="btn btn-outline-primary btn-sm"
+                                    onclick="editPrinter(${printer.printerid})">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm"
+                                    onclick="testPrinter(${printer.printerid})">
+                                    <i class="bi bi-check-circle"></i> Test
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Add new printer
+    function addNewPrinter(form) {
+        const formData = new FormData(form);
+        
+        fetch('/api/printer-management/add-printer', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Printer added successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('addPrinterModal')).hide();
+                form.reset();
+                fetchAllPrinters();
+                loadAvailablePrinters(); // Refresh dropdowns
+            } else {
+                alert(data.message || 'Error adding printer');
+            }
+        })
+        .catch(error => {
+            console.error('Error adding printer:', error);
+            alert('Error adding printer');
+        });
+    }
+
+    // Edit printer
+    window.editPrinter = function(printerId) {
+        fetch(`/api/printer-management/get-printer/${printerId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const printer = data.printer;
+                    document.getElementById('editPrinterId').value = printer.printerid;
+                    document.getElementById('editPrinterName').value = printer.printername;
+                    document.getElementById('editPrinterType').value = printer.printer_type;
+                    document.getElementById('editPrinterIP').value = printer.printerip;
+                    document.getElementById('editPrinterPort').value = printer.port || '';
+                    document.getElementById('editPrinterDescription').value = printer.description || '';
+                    document.getElementById('editPrinterStatus').value = printer.status || 'active';
+                    
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('editPrinterModal')).show();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching printer details:', error);
+                alert('Error fetching printer details');
+            });
+    };
+
+    // Update printer
+    function updatePrinter(form) {
+        const printerId = document.getElementById('editPrinterId').value;
+        const formData = new FormData(form);
+        
+        fetch(`/api/printer-management/update-printer/${printerId}`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Printer updated successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('editPrinterModal')).hide();
+                fetchAllPrinters();
+            } else {
+                alert(data.message || 'Error updating printer');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating printer:', error);
+            alert('Error updating printer');
+        });
+    }
+
+    // Test printer connection
+    window.testPrinter = function(printerId) {
+        fetch(`/api/printer-management/test-printer/${printerId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Printer test successful!');
+            } else {
+                alert('Printer test failed: ' + (data.message || 'Unknown error'));
+            }
+        })
+        .catch(error => {
+            console.error('Error testing printer:', error);
+            alert('Error testing printer connection');
+        });
+    };
+
+    // Delete printer
+    window.showDeletePrinterConfirmation = function(printerId) {
+        deletePrinterId = printerId;
+        bootstrap.Modal.getOrCreateInstance(document.getElementById('deletePrinterModal')).show();
+    };
+
+    function deletePrinter() {
+        if (!deletePrinterId) return;
+        
+        fetch(`/api/printer-management/delete-printer/${deletePrinterId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Printer deleted successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('deletePrinterModal')).hide();
+                fetchAllPrinters();
+                loadAvailablePrinters(); // Refresh dropdowns
+            } else {
+                alert(data.message || 'Error deleting printer');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting printer:', error);
+            alert('Error deleting printer');
+        });
+    }
+
+    // Load available printers for marriage dropdowns
+    function loadAvailablePrinters() {
+        fetch('/api/printer-management/get-available-printers')
+            .then(response => response.json())
+            .then(data => {
+                populateMarriageDropdowns(data.small_label || [], data.instruction_card || []);
+            })
+            .catch(error => {
+                console.error('Error loading available printers:', error);
+            });
+    }
+
+    function populateMarriageDropdowns(smallLabelPrinters, instructionCardPrinters) {
+        const smallLabelSelect = document.getElementById('smallLabelPrinter');
+        const instructionCardSelect = document.getElementById('instructionCardPrinter');
+        
+        // Populate small label printers
+        if (smallLabelSelect) {
+            smallLabelSelect.innerHTML = '<option value="">Select Small Label Printer</option>';
+            smallLabelPrinters.forEach(printer => {
+                smallLabelSelect.innerHTML += `<option value="${printer.printerid}">${printer.printername}</option>`;
+            });
+        }
+        
+        // Populate instruction card printers
+        if (instructionCardSelect) {
+            instructionCardSelect.innerHTML = '<option value="">Select Instruction Card Printer</option>';
+            instructionCardPrinters.forEach(printer => {
+                instructionCardSelect.innerHTML += `<option value="${printer.printerid}">${printer.printername}</option>`;
+            });
+        }
+    }
+
+    // Marry printers
+    function marryPrinters(form) {
+        const formData = new FormData(form);
+        
+        fetch('/api/printer-management/marry-printers', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Printers married successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('marryPrintersModal')).hide();
+                form.reset();
+                fetchMarriedPrinters();
+                loadAvailablePrinters(); // Refresh available printers
+            } else {
+                alert(data.message || 'Error marrying printers');
+            }
+        })
+        .catch(error => {
+            console.error('Error marrying printers:', error);
+            alert('Error marrying printers');
+        });
+    }
+
+    // Fetch and display married printers
+    function fetchMarriedPrinters() {
+        fetch('/api/printer-management/get-married-printers')
+            .then(response => response.json())
+            .then(data => {
+                renderMarriedPrinters(data.marriages || []);
+            })
+            .catch(error => {
+                console.error('Error fetching married printers:', error);
+                document.getElementById('marriedPrintersContainer').innerHTML = 
+                    '<div class="alert alert-danger">Error loading married printers</div>';
+            });
+    }
+
+    function renderMarriedPrinters(marriages) {
+        const container = document.getElementById('marriedPrintersContainer');
+        
+        if (marriages.length === 0) {
+            container.innerHTML = '<div class="alert alert-info text-center">No married printers found</div>';
+            return;
+        }
+
+        container.innerHTML = marriages.map(marriage => `
+            <div class="married-printer-pair p-3 mb-3">
+                <div class="row align-items-center">
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-tag-fill text-primary fs-3"></i>
+                                <h6 class="mt-2 mb-1">${marriage.small_label_printer.printer_name}</h6>
+                                <small class="text-muted">${marriage.small_label_printer.ip_address}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="printer-connection-line my-3"></div>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="card">
+                            <div class="card-body text-center">
+                                <i class="bi bi-card-text-fill text-success fs-3"></i>
+                                <h6 class="mt-2 mb-1">${marriage.instruction_card_printer.printer_name}</h6>
+                                <small class="text-muted">${marriage.instruction_card_printer.ip_address}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <h5 class="text-success">${marriage.marriage_name}</h5>
+                    ${marriage.description ? `<p class="text-muted mb-2">${marriage.description}</p>` : ''}
+                    <button type="button" class="btn btn-outline-danger btn-sm"
+                        onclick="divorcePrinters(${marriage.small_label_printer.printer_id})">
+                        <i class="bi bi-heart-break me-1"></i>
+                        Divorce Printers
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    // Divorce printers
+    window.divorcePrinters = function(marriageId) {
+        if (confirm('Are you sure you want to divorce these printers? This will break their marriage and they will be available for new marriages.')) {
+            fetch(`/api/printer-management/divorce-printers/${marriageId}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Printers divorced successfully!');
+                    fetchMarriedPrinters();
+                    loadAvailablePrinters(); // Refresh available printers
+                } else {
+                    alert(data.message || 'Error divorcing printers');
+                }
+            })
+            .catch(error => {
+                console.error('Error divorcing printers:', error);
+                alert('Error divorcing printers');
+            });
+        }
+    };
+
+    // Helper functions
+    function getStatusBadge(status) {
+        const badges = {
+            'active': '<span class="badge bg-success status-badge">Active</span>',
+            'inactive': '<span class="badge bg-secondary status-badge">Inactive</span>',
+            'maintenance': '<span class="badge bg-warning status-badge">Maintenance</span>'
+        };
+        return badges[status] || badges['inactive'];
+    }
+
+    function getTypeBadge(type) {
+        const badges = {
+            'small_label': '<span class="badge bg-primary">Small Label</span>',
+            'instruction_card': '<span class="badge bg-info">Instruction Card</span>'
+        };
+        return badges[type] || '<span class="badge bg-secondary">Unknown</span>';
+    }
+
+    // ==========================
+    // End Printer Management
+    // ==========================
 
     function initTimeRecordScript() {
         const selectUser = document.getElementById("selectUserDrop");

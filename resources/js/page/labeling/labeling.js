@@ -187,6 +187,9 @@ export default {
         subtotal() {
             return this.qty * this.price;
         },
+        unitprice() {
+            return this.price / this.qty ; 
+        },
         afterDiscount() {
             return this.subtotal - this.discountValue;
         },
@@ -198,6 +201,10 @@ export default {
 
         formattedSubtotal() {
             return this.subtotal.toFixed(2);
+        },
+
+         formattedUnitprice() {
+            return this.unitprice.toFixed(2);
         },
         grandTotal() {
             return this.grandTotalRaw.toFixed(2);
