@@ -110,3 +110,5 @@
         </div>
     </div>
 </template>
+
+<style scoped src="../hr.css"></style>

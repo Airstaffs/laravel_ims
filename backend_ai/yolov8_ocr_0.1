@@ -86,7 +86,6 @@ def strip_serial_noise(text: str) -> str:
     """
     return re.sub(r'(MADE|IN|JAPAN|CHINA|USA|KOREA)$', '', text)
 
-
 def merge_serial_fragments(ocr_results):
     """
     Merge OCR text chunks if they look like parts of the same serial.

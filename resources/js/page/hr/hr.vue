@@ -1,42 +1,66 @@
 <template>
-  <div>
-    <!-- Navigation Tabs -->
-    <div class="nav nav-tabs">
-      <template v-for="tab in tabs" :key="typeof tab === 'string' ? tab : tab.label">
-        <!-- Regular tabs -->
-        <button v-if="typeof tab === 'string'" class="nav-link"
-          :class="{ active: currentView === tab }"
-          @click="setView(tab)">
-          {{ tab }}
-        </button>
+    <div class="hr-module">
+        <nav class="nav-tabs">
+            <ul class="list-unstyled m-0">
+                <li
+                    v-for="tab in tabs"
+                    :key="typeof tab === 'string' ? tab : tab.label"
+                >
+                    <button
+                        v-if="typeof tab === 'string'"
+                        class="btn btn-nav"
+                        :class="{ active: currentView === tab }"
+                        @click="setView(tab)"
+                    >
+                        {{ tab }}
+                    </button>
 
-        <!-- Dropdown tabs -->
-        <div v-else class="nav-item dropdown">
-          <button class="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button">
-            {{ tab.label }}
-          </button>
-          <ul class="dropdown-menu">
-            <li v-for="item in tab.dropdown" :key="item">
-              <a class="dropdown-item" href="#" @click.prevent="setView(item)">
-                {{ item }}
-              </a>
-            </li>
-          </ul>
-        </div>
-      </template>
-    </div>
+                    <template v-else>
+                        <button
+                            class="btn btn-nav btn-dropdown dropdown-toggle"
+                            data-bs-toggle="dropdown"
+                        >
+                            <span>{{ tab.label }}</span>
+                        </button>
 
-    <!-- Render current view directly -->
-    <div class="p-3">
-      <Employee v-show="currentView === 'Employee'" />
-      <TimeRecord v-show="currentView === 'Time Record'" :hr-context="hrContext" />
-      <TimeRecordHistory v-show="currentView === 'Time Record Edit History'" />
-      <LeaveHistory v-show="currentView === 'Employee Leave History'" />
-      <RateHistory v-show="currentView === 'Employee Rate History'" />
-      <ViolationsHistory v-show="currentView === 'Violations History'" />
-      <Violations v-show="currentView === 'Violations'" />
+                        <ul class="list-unstyled dropdown-menu m-0 p-0">
+                            <li v-for="item in tab.dropdown" :key="item">
+                                <a
+                                    href="#"
+                                    class="dropdown-item"
+                                    @click.prevent="setView(item)"
+                                >
+                                    {{ item }}
+                                </a>
+                            </li>
+                        </ul>
+                    </template>
+                </li>
+            </ul>
+        </nav>
+
+        <Employee
+            v-if="currentView === 'Employee'"
+            :key="currentView"
+            :show-add-employee-modal="showAddEmployeeModal"
+            :new-employee="newEmployee"
+            @open-add-employee="showAddEmployeeModal = true"
+            @close-add-employee="showAddEmployeeModal = false"
+            @add-employee="addEmployee"
+        />
+
+        <TimeRecord
+            v-show="currentView === 'Time Record'"
+            :hr-context="hrContext"
+        />
+        <TimeRecordHistory
+            v-show="currentView === 'Time Record Edit History'"
+        />
+        <LeaveHistory v-show="currentView === 'Employee Leave History'" />
+        <RateHistory v-show="currentView === 'Employee Rate History'" />
+        <ViolationsHistory v-show="currentView === 'Violations History'" />
+        <Violations v-show="currentView === 'Violations'" />
     </div>
-  </div>
 </template>
 
 <script>
@@ -44,8 +68,4 @@ import hr from "./hr.js";
 export default hr;
 </script>
 
-<style scoped>
-.nav-tabs .nav-link {
-  cursor: pointer;
-}
-</style>
+<style scoped src="./hr.css"></style>

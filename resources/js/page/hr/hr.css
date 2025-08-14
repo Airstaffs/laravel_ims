@@ -1,8 +1,90 @@
-.hr-module .nav-tabs {
-  margin-bottom: 20px;
+.hr-module {
+    max-width: 1024px;
+    margin: 40px auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
 }
 
-.hr-module .nav-link.active {
-  background-color: #007bff;
-  color: white;
+.nav-tabs > ul {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.nav-tabs > ul li > button {
+    border: 0;
+    font-weight: 600;
+    font-size: 1.2rem;
+    border-radius: 0;
+}
+
+.nav-tabs > ul li > button.active,
+.nav-tabs > ul li > button:hover {
+    background-color: #007bff;
+    color: #fff;
+}
+
+a.dropdown-item {
+    height: 40px;
+    display: flex;
+    justify-content: start;
+    align-items: center;
+}
+
+/* Employee */
+.employee-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+}
+
+.employee-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-addEmployee {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-addEmployee .modal-content {
+    width: 400px;
+}
+
+.modal-addEmployee .modal-body {
+    padding: 20px;
+}
+
+.modal-addEmployee .modal-footer {
+    gap: 10px;
+}
+
+.btn-success,
+.btn-secondary {
+    height: 40px;
+    width: 100px;
+}
+
+/* Time Record */
+.timeRecordFilterForm {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+
+.timeRecordFilterForm fieldset {
+    flex: 1;
 }
