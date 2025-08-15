@@ -52,7 +52,7 @@
                 </thead>
                 <tbody>
                     <tr v-if="loading">
-                        <td colspan="9" class="text-center">
+                        <td colspan="10" class="text-center">
                             <div class="loading-spinner">
                                 <i class="fas fa-spinner fa-spin"></i>
                                 Loading...
