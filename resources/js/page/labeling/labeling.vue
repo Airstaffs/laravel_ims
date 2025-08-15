@@ -966,7 +966,7 @@
 
                                         <fieldset>
                                             <label
-                                                ><span>Unit Price</span></label
+                                                ><span>Total Price</span></label
                                             >
                                             <input
                                                 type="number"
@@ -1016,12 +1016,12 @@
 
                                         <fieldset>
                                             <label
-                                                ><span>Sub-total</span></label
+                                                ><span>Unit Price</span></label
                                             >
                                             <input
                                                 type="text"
                                                 class="form-control form-control-lg text-end bg-light"
-                                                :value="formattedSubtotal"
+                                                :value="formattedUnitprice"
                                                 readonly
                                             />
                                         </fieldset>

@@ -7,6 +7,8 @@ import Violations from "./components/violations.vue";
 import TimeRecordHistory from "./components/timerecordhistory.vue";
 import RateHistory from "./components/ratehistory.vue";
 import ViolationsHistory from "./components/violationshistory.vue";
+import HolidayModal from "./components/holidaymodal.vue";
+import bootstrap from "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -38,6 +40,7 @@ export default {
         RateHistory,
         ViolationsHistory,
         Violations,
+        HolidayModal,
     },
 
     data() {
@@ -125,10 +128,31 @@ export default {
             rateHistory: [],
             rateHistoryFilterEmployeeId: "",
             rateHistoryFilterOnlyActive: false,
+
+            // Holiday modal
+            holidayModal: null,
+            holidays: [],
+            holidayYear: new Date().getFullYear(),
+            holidayForm: {
+                holidayID: null,
+                title: "",
+                status: "Regular Holiday",
+                holidate: "", // 'YYYY-MM-DD'
+                is_recurring: false, // boolean in UI; convert to 0/1 for backend
+            },
         };
     },
 
-    async mounted() {},
+    async mounted() {
+        // Initialize Holiday modal
+        const el = document.getElementById("holidayModal");
+        if (el && typeof bootstrap !== "undefined") {
+            this.holidayModal = new bootstrap.Modal(el, {
+                backdrop: "static",
+                keyboard: false,
+            });
+        }
+    },
 
     methods: {
         setView(view) {
@@ -503,6 +527,98 @@ export default {
             if (this.page > 1) {
                 this.page -= 1;
                 this.fetchRecords();
+            }
+        },
+
+        // Holiday modal
+        openHolidayModal() {
+            this.resetHolidayForm();
+            this.fetchHolidays();
+            if (this.holidayModal) this.holidayModal.show();
+        },
+
+        resetHolidayForm() {
+            this.holidayForm = {
+                holidayID: null,
+                title: "",
+                status: "Regular Holiday",
+                holidate: "",
+                is_recurring: false,
+            };
+        },
+
+        async fetchHolidays() {
+            try {
+                const { data } = await axios.post(
+                    `${API_BASE_URL}/hr/holidays/list`,
+                    {
+                        year: this.holidayYear,
+                    }
+                );
+                if (data?.success) {
+                    this.holidays = data.items || [];
+                } else {
+                    console.warn("Failed to load holidays payload:", data);
+                }
+            } catch (err) {
+                console.error("fetchHolidays error:", err);
+                alert("Failed to load holidays.");
+            }
+        },
+
+        editHoliday(row) {
+            this.holidayForm = {
+                holidayID: row.holidayID,
+                title: row.title,
+                status: row.status,
+                holidate: row.holidate,
+                is_recurring: !!row.is_recurring,
+            };
+            if (this.holidayModal) this.holidayModal.show();
+        },
+
+        async saveHoliday() {
+            const payload = {
+                holidayID: this.holidayForm.holidayID,
+                title: (this.holidayForm.title || "").trim(),
+                status: this.holidayForm.status,
+                holidate: this.holidayForm.holidate,
+                is_recurring: this.holidayForm.is_recurring ? 1 : 0,
+            };
+
+            const url = this.holidayForm.holidayID
+                ? `${API_BASE_URL}/hr/holidays/update`
+                : `${API_BASE_URL}/hr/holidays/store`;
+
+            try {
+                const { data } = await axios.post(url, payload);
+                if (data?.success) {
+                    await this.fetchHolidays();
+                    if (!this.holidayForm.holidayID) this.resetHolidayForm(); // manglimpyo after creation
+                } else {
+                    alert("Validation failed. Please check your inputs.");
+                }
+            } catch (err) {
+                console.error("saveHoliday error:", err);
+                alert("Save failed.");
+            }
+        },
+
+        async deleteHoliday(holidayID) {
+            if (!confirm("Delete this holiday?")) return;
+            try {
+                const { data } = await axios.post(
+                    `${API_BASE_URL}/hr/holidays/delete`,
+                    {
+                        holidayID,
+                    }
+                );
+                if (data?.success) {
+                    await this.fetchHolidays();
+                }
+            } catch (err) {
+                console.error("deleteHoliday error:", err);
+                alert("Delete failed.");
             }
         },
     },

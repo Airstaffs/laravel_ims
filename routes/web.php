@@ -35,6 +35,7 @@ use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\ASINlistController;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Controllers\printer\PrinterController;
+use App\Http\Controllers\PrinterManagementController;
 use App\Http\Controllers\FnskuController;
 use App\Http\Controllers\RTSController;
 use Illuminate\Support\Facades\Http;
@@ -402,7 +403,7 @@ Route::prefix('api/rts')->group(function () {
     Route::get('products', [RTSController::class, 'index']);
     Route::post('save-rts-options', [RTSController::class, 'saveRTSOptions']);
     Route::get('get-rts-options', [RTSController::class, 'getRTSOptions']);
-    
+
 });
 
 
@@ -513,6 +514,39 @@ Route::prefix('api/printer')->group(function () {
     // NEW REPRINT ROUTES
     Route::post('search-for-reprint', [PrinterController::class, 'searchForReprint']);
     Route::post('reprint-single-label', [PrinterController::class, 'reprintSingleLabel']);
+});
+
+
+Route::prefix('api/printer-management')->group(function () {
+    // Get all printers or filter by type for management
+    Route::get('get-printers', [PrinterManagementController::class, 'getAllPrinters']);
+    
+    // Get specific printer details
+    Route::get('get-printer/{id}', [PrinterManagementController::class, 'getPrinter']);
+    
+    // Add new printer
+    Route::post('add-printer', [PrinterManagementController::class, 'addPrinter']);
+    
+    // Update printer
+    Route::post('update-printer/{id}', [PrinterManagementController::class, 'updatePrinter']);
+    
+    // Delete printer
+    Route::delete('delete-printer/{id}', [PrinterManagementController::class, 'deletePrinter']);
+    
+    // Test printer connection
+    Route::post('test-printer/{id}', [PrinterManagementController::class, 'testPrinter']);
+    
+    // Get available printers for marriage (unmarried printers)
+    Route::get('get-available-printers', [PrinterManagementController::class, 'getAvailablePrinters']);
+    
+    // Marry printers
+    Route::post('marry-printers', [PrinterManagementController::class, 'marryPrinters']);
+    
+    // Get married printers
+    Route::get('get-married-printers', [PrinterManagementController::class, 'getMarriedPrinters']);
+    
+    // Divorce printers
+    Route::delete('divorce-printers/{id}', [PrinterManagementController::class, 'divorcePrinters']);
 });
 
 // Routes for FNSKU List Function  
@@ -657,8 +691,15 @@ Route::prefix('hr')->group(function () {
     Route::get('/employees/{employee}/rates', [HrController::class, 'indexRate']);
     Route::get('/employees/{employee}/rates/current', [HrController::class, 'currentRate']);
     Route::post('/employees/{employee}/rates', [HrController::class, 'storeRate']);
+
     Route::get('/time-records', [HrController::class, 'getTimeRecords']);
     Route::post('/time-records/{id}/edit', [HrController::class, 'editTimeRecord']);
+
     Route::get('/leave-history', [HrController::class, 'getLeaveHistory']);
     Route::get('/violations', [HrController::class, 'getViolations']);
+
+    Route::post('/holidays/list', [HrController::class, 'listHolidays']);
+    Route::post('/holidays/store', [HrController::class, 'storeHoliday']);
+    Route::post('/holidays/update', [HrController::class, 'updateHoliday']);
+    Route::post('/holidays/delete', [HrController::class, 'deleteHoliday']);
 });
