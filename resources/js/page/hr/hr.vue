@@ -17,25 +17,23 @@
                     </button>
 
                     <template v-else>
-                        <div class="btn-group">
-                            <button
-                                class="btn btn-nav btn-dropdown dropdown-toggle"
-                                data-bs-toggle="dropdown"
-                            >
-                                <span>{{ tab.label }}</span>
-                            </button>
-                            <ul class="list-unstyled dropdown-menu m-0 p-0">
-                                <li v-for="item in tab.dropdown" :key="item">
-                                    <a
-                                        href="#"
-                                        class="dropdown-item"
-                                        @click.prevent="setView(item)"
-                                    >
-                                        {{ item }}
-                                    </a>
-                                </li>
-                            </ul>
-                        </div>
+                        <button
+                            class="btn btn-nav btn-dropdown dropdown-toggle"
+                            data-bs-toggle="dropdown"
+                        >
+                            <span>{{ tab.label }}</span>
+                        </button>
+                        <ul class="list-unstyled dropdown-menu m-0 p-0">
+                            <li v-for="item in tab.dropdown" :key="item">
+                                <a
+                                    href="#"
+                                    class="dropdown-item"
+                                    @click.prevent="setView(item)"
+                                >
+                                    {{ item }}
+                                </a>
+                            </li>
+                        </ul>
                     </template>
                 </li>
             </ul>
