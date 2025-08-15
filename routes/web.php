@@ -517,35 +517,16 @@ Route::prefix('api/printer')->group(function () {
 });
 
 
-Route::prefix('api/printer-management')->group(function () {
-    // Get all printers or filter by type for management
+Route::prefix('api/printer-management')->middleware(['auth'])->group(function () {
     Route::get('get-printers', [PrinterManagementController::class, 'getAllPrinters']);
-    
-    // Get specific printer details
     Route::get('get-printer/{id}', [PrinterManagementController::class, 'getPrinter']);
-    
-    // Add new printer
     Route::post('add-printer', [PrinterManagementController::class, 'addPrinter']);
-    
-    // Update printer
     Route::post('update-printer/{id}', [PrinterManagementController::class, 'updatePrinter']);
-    
-    // Delete printer
     Route::delete('delete-printer/{id}', [PrinterManagementController::class, 'deletePrinter']);
-    
-    // Test printer connection
     Route::post('test-printer/{id}', [PrinterManagementController::class, 'testPrinter']);
-    
-    // Get available printers for marriage (unmarried printers)
     Route::get('get-available-printers', [PrinterManagementController::class, 'getAvailablePrinters']);
-    
-    // Marry printers
     Route::post('marry-printers', [PrinterManagementController::class, 'marryPrinters']);
-    
-    // Get married printers
     Route::get('get-married-printers', [PrinterManagementController::class, 'getMarriedPrinters']);
-    
-    // Divorce printers
     Route::delete('divorce-printers/{id}', [PrinterManagementController::class, 'divorcePrinters']);
 });
 

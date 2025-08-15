@@ -1,3 +1,89 @@
+// ==========================
+// GLOBAL PRINTER FUNCTIONS - MUST BE AT THE TOP BEFORE DOMContentLoaded
+// ==========================
+
+// Make printer functions globally accessible for onclick handlers
+window.editPrinter = function(printerId) {
+    fetch(`/api/printer-management/get-printer/${printerId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const printer = data.printer;
+                document.getElementById('editPrinterId').value = printer.printerid;
+                document.getElementById('editPrinterName').value = printer.printername;
+                document.getElementById('editPrinterType').value = printer.printer_type;
+                document.getElementById('editPrinterIP').value = printer.printerip;
+                document.getElementById('editPrinterPort').value = printer.port || '';
+                document.getElementById('editPrinterDescription').value = printer.description || '';
+                document.getElementById('editPrinterStatus').value = printer.status || 'active';
+                
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('editPrinterModal')).show();
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching printer details:', error);
+            alert('Error fetching printer details');
+        });
+};
+
+window.testPrinter = function(printerId) {
+    fetch(`/api/printer-management/test-printer/${printerId}`, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Printer test successful!');
+        } else {
+            alert('Printer test failed: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(error => {
+        console.error('Error testing printer:', error);
+        alert('Error testing printer connection');
+    });
+};
+
+window.showDeletePrinterConfirmation = function(printerId) {
+    // Set global variable that's accessible everywhere
+    window.currentDeletePrinterId = printerId;
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('deletePrinterModal')).show();
+};
+
+window.divorcePrinters = function(marriageId) {
+    if (confirm('Are you sure you want to divorce these printers? This will break their marriage and they will be available for new marriages.')) {
+        fetch(`/api/printer-management/divorce-printers/${marriageId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Printers divorced successfully!');
+                // Call the global functions if they exist
+                if (typeof window.refreshPrinterData === 'function') {
+                    window.refreshPrinterData();
+                }
+            } else {
+                alert(data.message || 'Error divorcing printers');
+            }
+        })
+        .catch(error => {
+            console.error('Error divorcing printers:', error);
+            alert('Error divorcing printers');
+        });
+    }
+};
+
+// ==========================
+// START OF YOUR EXISTING DOMContentLoaded CODE
+// ==========================
+
 document.addEventListener("DOMContentLoaded", function () {
     const settingsModalEl = document.getElementById("settingsModal");
     const userListModal = document.getElementById("userListModal");
@@ -267,7 +353,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Show the add store modal and hide the settings modal
     document
         .getElementById("addStoreButton")
-        .addEventListener("click", function () {
+        ?.addEventListener("click", function () {
             // Show the add store modal
             $("#addStoreModal").modal("show");
             $("#settingsModal").modal("hide");
@@ -393,27 +479,29 @@ document.addEventListener("DOMContentLoaded", function () {
             .get("/get-stores")
             .then((response) => {
                 const storeList = document.getElementById("storeList");
-                storeList.innerHTML = ""; // Clear the list before populating it
+                if (storeList) {
+                    storeList.innerHTML = ""; // Clear the list before populating it
 
-                response.data.stores.forEach((store) => {
-                    const listItem = document.createElement("li");
-                    listItem.classList.add("list-group-item");
-                    listItem.innerHTML = `
-                    ${store.storename}
-                    <div class="d-flex justify-content-end gap-2">
-                        <button class="btn btn-secondary btn-sm edit-store-btn"
-                                data-id="${store.store_id}"
-                                data-name="${store.storename}">
-                            Edit
-                        </button>
-                        <button class="btn btn-danger btn-sm delete-store-btn"
-                                data-id="${store.store_id}">
-                            Delete
-                        </button>
-                    </div>
-                `;
-                    storeList.appendChild(listItem);
-                });
+                    response.data.stores.forEach((store) => {
+                        const listItem = document.createElement("li");
+                        listItem.classList.add("list-group-item");
+                        listItem.innerHTML = `
+                        ${store.storename}
+                        <div class="d-flex justify-content-end gap-2">
+                            <button class="btn btn-secondary btn-sm edit-store-btn"
+                                    data-id="${store.store_id}"
+                                    data-name="${store.storename}">
+                                Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm delete-store-btn"
+                                    data-id="${store.store_id}">
+                                Delete
+                            </button>
+                        </div>
+                    `;
+                        storeList.appendChild(listItem);
+                    });
+                }
             })
             .catch((error) => {
                 console.error("Error fetching stores:", error);
@@ -491,8 +579,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function showLoadingIndicator() {
         const container = document.getElementById("storeContainer");
-        container.innerHTML +=
-            '<div class="loading-spinner">Loading stores...</div>';
+        if (container) {
+            container.innerHTML +=
+                '<div class="loading-spinner">Loading stores...</div>';
+        }
     }
 
     function hideLoadingIndicator() {
@@ -503,9 +593,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function showErrorMessage(message) {
-        document.getElementById(
-            "storeContainer"
-        ).innerHTML = `<div class="alert alert-danger">${message}</div>`;
+        const storeContainer = document.getElementById("storeContainer");
+        if (storeContainer) {
+            storeContainer.innerHTML = `<div class="alert alert-danger">${message}</div>`;
+        }
     }
 
     // Event Listeners
@@ -587,7 +678,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document
         .getElementById("editStoreForm")
-        .addEventListener("submit", function (e) {
+        ?.addEventListener("submit", function (e) {
             e.preventDefault(); // Prevent default form submission
 
             const storeId = document.getElementById("editStoreId").value.trim();
@@ -657,7 +748,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Alternatively, if you're using the close button explicitly, you can handle it like this:
     document
         .querySelector("#editStoreModal .btn-close")
-        .addEventListener("click", function () {
+        ?.addEventListener("click", function () {
             // Show the settings modal and select the store tab after closing the edit modal
             $("#settingsModal").modal("show");
             $("#store-tab").tab("show"); // This activates the store tab
@@ -671,29 +762,31 @@ document.addEventListener("DOMContentLoaded", function () {
                 const marketplaceSelect =
                     document.getElementById("selectMarketplace");
 
-                // Clear previous options
-                marketplaceSelect.innerHTML = "";
+                if (marketplaceSelect) {
+                    // Clear previous options
+                    marketplaceSelect.innerHTML = "";
 
-                // Optional: Add a placeholder-like option (disabled)
-                if (response.data.length === 0) {
-                    const placeholder = document.createElement("option");
-                    placeholder.textContent = "No marketplaces available";
-                    placeholder.disabled = true;
-                    marketplaceSelect.appendChild(placeholder);
-                    return;
+                    // Optional: Add a placeholder-like option (disabled)
+                    if (response.data.length === 0) {
+                        const placeholder = document.createElement("option");
+                        placeholder.textContent = "No marketplaces available";
+                        placeholder.disabled = true;
+                        marketplaceSelect.appendChild(placeholder);
+                        return;
+                    }
+
+                    // Populate select with fetched marketplaces
+                    response.data.forEach((marketplace) => {
+                        const option = document.createElement("option");
+                        option.value =
+                            marketplace.value ?? marketplace.id ?? marketplace.name; // fallback chain
+                        option.textContent =
+                            marketplace.name ??
+                            marketplace.label ??
+                            marketplace.value;
+                        marketplaceSelect.appendChild(option);
+                    });
                 }
-
-                // Populate select with fetched marketplaces
-                response.data.forEach((marketplace) => {
-                    const option = document.createElement("option");
-                    option.value =
-                        marketplace.value ?? marketplace.id ?? marketplace.name; // fallback chain
-                    option.textContent =
-                        marketplace.name ??
-                        marketplace.label ??
-                        marketplace.value;
-                    marketplaceSelect.appendChild(option);
-                });
             })
             .catch((error) => {
                 console.error("Error fetching marketplaces:", error);
@@ -703,17 +796,18 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function updateMarketplaceFields() {
         const marketplaceSelect = document.getElementById("selectMarketplace");
+        if (!marketplaceSelect) return;
+        
         const selectedOptions = Array.from(marketplaceSelect.selectedOptions);
 
         // Retrieve existing values from the input fields
-        const currentNames = document
-            .getElementById("editMarketplace")
-            .value.split(",")
-            .map((name) => name.trim());
-        const currentIDs = document
-            .getElementById("editMarketplaceID")
-            .value.split(",")
-            .map((id) => id.trim());
+        const editMarketplace = document.getElementById("editMarketplace");
+        const editMarketplaceID = document.getElementById("editMarketplaceID");
+        
+        if (!editMarketplace || !editMarketplaceID) return;
+        
+        const currentNames = editMarketplace.value.split(",").map((name) => name.trim());
+        const currentIDs = editMarketplaceID.value.split(",").map((id) => id.trim());
 
         // Add new values, avoiding duplicates
         selectedOptions.forEach((option) => {
@@ -724,21 +818,17 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         // Update the fields with the updated values
-        document.getElementById("editMarketplace").value = currentNames
-            .filter(Boolean)
-            .join(", ");
-        document.getElementById("editMarketplaceID").value = currentIDs
-            .filter(Boolean)
-            .join(", ");
+        editMarketplace.value = currentNames.filter(Boolean).join(", ");
+        editMarketplaceID.value = currentIDs.filter(Boolean).join(", ");
     }
 
     // Attach event listeners
     document
         .getElementById("editStoreModal")
-        .addEventListener("show.bs.modal", fetchMarketplaces);
+        ?.addEventListener("show.bs.modal", fetchMarketplaces);
     document
         .getElementById("selectMarketplace")
-        .addEventListener("change", updateMarketplaceFields);
+        ?.addEventListener("change", updateMarketplaceFields);
 
     // Settings -  Time Record & Userlogs  -----
     let scriptInitialized = false;
@@ -746,34 +836,42 @@ document.addEventListener("DOMContentLoaded", function () {
     let printerScriptInitialized = false; // Add printer script initialization flag
 
     const settingsTab = document.getElementById("settingsTab");
-    settingsTab.addEventListener("shown.bs.tab", function (event) {
-        const targetTab = event.target.getAttribute("data-bs-target");
+    if (settingsTab) {
+        settingsTab.addEventListener("shown.bs.tab", function (event) {
+            const targetTab = event.target.getAttribute("data-bs-target");
 
-        if (targetTab === "#usertimerecord" && !scriptInitialized) {
-            initTimeRecordScript();
-            scriptInitialized = true;
-        }
+            if (targetTab === "#usertimerecord" && !scriptInitialized) {
+                initTimeRecordScript();
+                scriptInitialized = true;
+            }
 
-        if (targetTab === "#userlogs" && !userLogsScriptInitialized) {
-            initUserLogsScript();
-            userLogsScriptInitialized = true;
-        }
+            if (targetTab === "#userlogs" && !userLogsScriptInitialized) {
+                initUserLogsScript();
+                userLogsScriptInitialized = true;
+            }
 
-        // Add printer tab initialization
-        if (targetTab === "#printer" && !printerScriptInitialized) {
-            initPrinterManagement();
-            printerScriptInitialized = true;
-        }
-    });
+            // Add printer tab initialization
+            if (targetTab === "#printer" && !printerScriptInitialized) {
+                initPrinterManagement();
+                printerScriptInitialized = true;
+            }
+        });
+    }
 
     // ==========================
-    // Printer Management
+    // Printer Management - UPDATED VERSION WITH ELEMENT CHECKS
     // ==========================
-
-    let deletePrinterId = null;
-    let divorceMarriageId = null;
 
     function initPrinterManagement() {
+        console.log('Initializing printer management...');
+        
+        // Check if required elements exist before proceeding
+        const allPrintersTable = document.getElementById('allPrintersTableBody');
+        if (!allPrintersTable) {
+            console.error('Printer table element not found. Make sure the printer tab HTML is loaded.');
+            return;
+        }
+        
         // Load all printers on initialization
         fetchAllPrinters();
         loadAvailablePrinters();
@@ -783,24 +881,56 @@ document.addEventListener("DOMContentLoaded", function () {
         
         // Setup form event listeners
         setupFormListeners();
+        
+        // Make internal functions globally accessible for refreshing data
+        window.refreshPrinterData = function() {
+            fetchAllPrinters();
+            fetchMarriedPrinters();
+            loadAvailablePrinters();
+        };
     }
 
-    function setupSubTabListeners() {
-        // When switching to small label tab
-        document.getElementById('small-label-tab')?.addEventListener('click', function() {
+   function setupSubTabListeners() {
+    // When switching to small label tab
+    const smallLabelTab = document.getElementById('small-label-tab');
+    if (smallLabelTab) {
+        smallLabelTab.addEventListener('shown.bs.tab', function (e) {
+            console.log('Small label tab shown');
             fetchPrintersByType('small_label');
         });
+    }
 
-        // When switching to instruction card tab
-        document.getElementById('instruction-card-tab')?.addEventListener('click', function() {
+    // When switching to instruction card tab
+    const instructionCardTab = document.getElementById('instruction-card-tab');
+    if (instructionCardTab) {
+        instructionCardTab.addEventListener('shown.bs.tab', function (e) {
+            console.log('Instruction card tab shown');
             fetchPrintersByType('instruction_card');
         });
+    }
 
-        // When switching to married printer tab
-        document.getElementById('married-printer-tab')?.addEventListener('click', function() {
+    // When switching to married printer tab
+    const marriedPrinterTab = document.getElementById('married-printer-tab');
+    if (marriedPrinterTab) {
+        marriedPrinterTab.addEventListener('shown.bs.tab', function (e) {
+            console.log('Married printer tab shown');
             fetchMarriedPrinters();
         });
     }
+
+    // Also add click listeners as backup
+    smallLabelTab?.addEventListener('click', function() {
+        setTimeout(() => fetchPrintersByType('small_label'), 100);
+    });
+
+    instructionCardTab?.addEventListener('click', function() {
+        setTimeout(() => fetchPrintersByType('instruction_card'), 100);
+    });
+
+    marriedPrinterTab?.addEventListener('click', function() {
+        setTimeout(() => fetchMarriedPrinters(), 100);
+    });
+}
 
     function setupFormListeners() {
         // Add Printer Form
@@ -821,7 +951,7 @@ document.addEventListener("DOMContentLoaded", function () {
             marryPrinters(this);
         });
 
-        // Delete confirmation
+        // Delete confirmation - Updated to use global variable
         document.getElementById('confirmDeletePrinter')?.addEventListener('click', function() {
             deletePrinter();
         });
@@ -829,20 +959,37 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Fetch all printers and display in main table
     function fetchAllPrinters() {
+        // Check if element exists before making request
+        const tbody = document.getElementById('allPrintersTableBody');
+        if (!tbody) {
+            console.error('allPrintersTableBody element not found');
+            return;
+        }
+
         fetch('/api/printer-management/get-printers')
             .then(response => response.json())
             .then(data => {
-                renderAllPrintersTable(data.printers || []);
+                if (data.success) {
+                    renderAllPrintersTable(data.printers || []);
+                } else {
+                    console.error('Failed to fetch printers:', data.message);
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading printers</td></tr>';
+                }
             })
             .catch(error => {
                 console.error('Error fetching printers:', error);
-                document.getElementById('allPrintersTableBody').innerHTML = 
-                    '<tr><td colspan="5" class="text-center text-danger">Error loading printers</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-danger">Error loading printers</td></tr>';
             });
     }
 
     function renderAllPrintersTable(printers) {
         const tbody = document.getElementById('allPrintersTableBody');
+        
+        // Double-check element exists
+        if (!tbody) {
+            console.error('allPrintersTableBody element not found in renderAllPrintersTable');
+            return;
+        }
         
         if (printers.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">No printers found</td></tr>';
@@ -858,9 +1005,9 @@ document.addEventListener("DOMContentLoaded", function () {
             
             return `
                 <tr>
-                    <td>${printer.printername} ${marriageStatus}</td>
+                    <td>${printer.printername || 'Unknown'} ${marriageStatus}</td>
                     <td>${typeBadge}</td>
-                    <td>${printer.printerip}:${printer.port || '9100'}</td>
+                    <td>${printer.printerip || 'N/A'}:${printer.port || '9100'}</td>
                     <td>${statusBadge}</td>
                     <td>
                         <div class="btn-group" role="group">
@@ -888,10 +1035,12 @@ document.addEventListener("DOMContentLoaded", function () {
         fetch(`/api/printer-management/get-printers?type=${type}`)
             .then(response => response.json())
             .then(data => {
-                if (type === 'small_label') {
-                    renderPrinterCards(data.printers || [], 'smallLabelPrintersGrid');
-                } else if (type === 'instruction_card') {
-                    renderPrinterCards(data.printers || [], 'instructionCardPrintersGrid');
+                if (data.success) {
+                    if (type === 'small_label') {
+                        renderPrinterCards(data.printers || [], 'smallLabelPrintersGrid');
+                    } else if (type === 'instruction_card') {
+                        renderPrinterCards(data.printers || [], 'instructionCardPrintersGrid');
+                    }
                 }
             })
             .catch(error => {
@@ -901,6 +1050,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function renderPrinterCards(printers, containerId) {
         const container = document.getElementById(containerId);
+        
+        if (!container) {
+            console.error(`Container ${containerId} not found`);
+            return;
+        }
         
         if (printers.length === 0) {
             container.innerHTML = '<div class="col-12"><div class="alert alert-info text-center">No printers found</div></div>';
@@ -917,12 +1071,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 <div class="col-md-6 col-lg-4 mb-3">
                     <div class="card printer-card h-100">
                         <div class="card-header d-flex justify-content-between align-items-center">
-                            <h6 class="mb-0">${printer.printername}${marriageStatus}</h6>
+                            <h6 class="mb-0">${printer.printername || 'Unknown'}${marriageStatus}</h6>
                             ${statusBadge}
                         </div>
                         <div class="card-body">
                             <p class="card-text">
-                                <strong>IP:</strong> ${printer.printerip}<br>
+                                <strong>IP:</strong> ${printer.printerip || 'N/A'}<br>
                                 <strong>Port:</strong> ${printer.port || '9100'}<br>
                                 ${printer.description ? `<strong>Description:</strong> ${printer.description}<br>` : ''}
                                 ${printer.married_to_printer_id ? `<strong>Married to ID:</strong> ${printer.married_to_printer_id}` : ''}
@@ -961,7 +1115,10 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(data => {
             if (data.success) {
                 alert('Printer added successfully!');
-                bootstrap.Modal.getInstance(document.getElementById('addPrinterModal')).hide();
+                const modal = document.getElementById('addPrinterModal');
+                if (modal) {
+                    bootstrap.Modal.getInstance(modal)?.hide();
+                }
                 form.reset();
                 fetchAllPrinters();
                 loadAvailablePrinters(); // Refresh dropdowns
@@ -975,33 +1132,14 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Edit printer
-    window.editPrinter = function(printerId) {
-        fetch(`/api/printer-management/get-printer/${printerId}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    const printer = data.printer;
-                    document.getElementById('editPrinterId').value = printer.printerid;
-                    document.getElementById('editPrinterName').value = printer.printername;
-                    document.getElementById('editPrinterType').value = printer.printer_type;
-                    document.getElementById('editPrinterIP').value = printer.printerip;
-                    document.getElementById('editPrinterPort').value = printer.port || '';
-                    document.getElementById('editPrinterDescription').value = printer.description || '';
-                    document.getElementById('editPrinterStatus').value = printer.status || 'active';
-                    
-                    bootstrap.Modal.getOrCreateInstance(document.getElementById('editPrinterModal')).show();
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching printer details:', error);
-                alert('Error fetching printer details');
-            });
-    };
-
     // Update printer
     function updatePrinter(form) {
-        const printerId = document.getElementById('editPrinterId').value;
+        const printerId = document.getElementById('editPrinterId')?.value;
+        if (!printerId) {
+            alert('Printer ID not found');
+            return;
+        }
+        
         const formData = new FormData(form);
         
         fetch(`/api/printer-management/update-printer/${printerId}`, {
@@ -1015,7 +1153,10 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(data => {
             if (data.success) {
                 alert('Printer updated successfully!');
-                bootstrap.Modal.getInstance(document.getElementById('editPrinterModal')).hide();
+                const modal = document.getElementById('editPrinterModal');
+                if (modal) {
+                    bootstrap.Modal.getInstance(modal)?.hide();
+                }
                 fetchAllPrinters();
             } else {
                 alert(data.message || 'Error updating printer');
@@ -1027,38 +1168,11 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // Test printer connection
-    window.testPrinter = function(printerId) {
-        fetch(`/api/printer-management/test-printer/${printerId}`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Printer test successful!');
-            } else {
-                alert('Printer test failed: ' + (data.message || 'Unknown error'));
-            }
-        })
-        .catch(error => {
-            console.error('Error testing printer:', error);
-            alert('Error testing printer connection');
-        });
-    };
-
-    // Delete printer
-    window.showDeletePrinterConfirmation = function(printerId) {
-        deletePrinterId = printerId;
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('deletePrinterModal')).show();
-    };
-
+    // Delete printer - Updated to use global variable
     function deletePrinter() {
-        if (!deletePrinterId) return;
+        if (!window.currentDeletePrinterId) return;
         
-        fetch(`/api/printer-management/delete-printer/${deletePrinterId}`, {
+        fetch(`/api/printer-management/delete-printer/${window.currentDeletePrinterId}`, {
             method: 'DELETE',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -1068,7 +1182,10 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(data => {
             if (data.success) {
                 alert('Printer deleted successfully!');
-                bootstrap.Modal.getInstance(document.getElementById('deletePrinterModal')).hide();
+                const modal = document.getElementById('deletePrinterModal');
+                if (modal) {
+                    bootstrap.Modal.getInstance(modal)?.hide();
+                }
                 fetchAllPrinters();
                 loadAvailablePrinters(); // Refresh dropdowns
             } else {
@@ -1078,6 +1195,9 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch(error => {
             console.error('Error deleting printer:', error);
             alert('Error deleting printer');
+        })
+        .finally(() => {
+            window.currentDeletePrinterId = null; // Clear the global variable
         });
     }
 
@@ -1086,7 +1206,9 @@ document.addEventListener("DOMContentLoaded", function () {
         fetch('/api/printer-management/get-available-printers')
             .then(response => response.json())
             .then(data => {
-                populateMarriageDropdowns(data.small_label || [], data.instruction_card || []);
+                if (data.success) {
+                    populateMarriageDropdowns(data.small_label || [], data.instruction_card || []);
+                }
             })
             .catch(error => {
                 console.error('Error loading available printers:', error);
@@ -1129,7 +1251,10 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(data => {
             if (data.success) {
                 alert('Printers married successfully!');
-                bootstrap.Modal.getInstance(document.getElementById('marryPrintersModal')).hide();
+                const modal = document.getElementById('marryPrintersModal');
+                if (modal) {
+                    bootstrap.Modal.getInstance(modal)?.hide();
+                }
                 form.reset();
                 fetchMarriedPrinters();
                 loadAvailablePrinters(); // Refresh available printers
@@ -1148,17 +1273,28 @@ document.addEventListener("DOMContentLoaded", function () {
         fetch('/api/printer-management/get-married-printers')
             .then(response => response.json())
             .then(data => {
-                renderMarriedPrinters(data.marriages || []);
+                if (data.success) {
+                    renderMarriedPrinters(data.marriages || []);
+                } else {
+                    console.error('Failed to fetch married printers:', data.message);
+                }
             })
             .catch(error => {
                 console.error('Error fetching married printers:', error);
-                document.getElementById('marriedPrintersContainer').innerHTML = 
-                    '<div class="alert alert-danger">Error loading married printers</div>';
+                const container = document.getElementById('marriedPrintersContainer');
+                if (container) {
+                    container.innerHTML = '<div class="alert alert-danger">Error loading married printers</div>';
+                }
             });
     }
 
     function renderMarriedPrinters(marriages) {
         const container = document.getElementById('marriedPrintersContainer');
+        
+        if (!container) {
+            console.error('marriedPrintersContainer not found');
+            return;
+        }
         
         if (marriages.length === 0) {
             container.innerHTML = '<div class="alert alert-info text-center">No married printers found</div>';
@@ -1202,32 +1338,6 @@ document.addEventListener("DOMContentLoaded", function () {
             </div>
         `).join('');
     }
-
-    // Divorce printers
-    window.divorcePrinters = function(marriageId) {
-        if (confirm('Are you sure you want to divorce these printers? This will break their marriage and they will be available for new marriages.')) {
-            fetch(`/api/printer-management/divorce-printers/${marriageId}`, {
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert('Printers divorced successfully!');
-                    fetchMarriedPrinters();
-                    loadAvailablePrinters(); // Refresh available printers
-                } else {
-                    alert(data.message || 'Error divorcing printers');
-                }
-            })
-            .catch(error => {
-                console.error('Error divorcing printers:', error);
-                alert('Error divorcing printers');
-            });
-        }
-    };
 
     // Helper functions
     function getStatusBadge(status) {
@@ -1295,52 +1405,56 @@ document.addEventListener("DOMContentLoaded", function () {
             const formattedDate = formatDate(timeIn);
             const cardBg = index % 2 === 0 ? "bg-light" : "bg-white";
 
-            tbody.innerHTML += `
-                    <tr>
-                        <td>
-                            <ul class="list-unstyled m-0">
-                                <li><strong>${formattedDate}</strong></li>
-                                <li><strong>IN:</strong> ${formatTime(
-                                    timeIn
-                                )}</li>
-                                <li><strong>OUT:</strong> ${timeOutStr}</li>
-                            </ul>
-                        </td>
-                        <td>${totalHours}</td>
-                        <td>${notes}</td>
-                    </tr>`;
+            if (tbody) {
+                tbody.innerHTML += `
+                        <tr>
+                            <td>
+                                <ul class="list-unstyled m-0">
+                                    <li><strong>${formattedDate}</strong></li>
+                                    <li><strong>IN:</strong> ${formatTime(
+                                        timeIn
+                                    )}</li>
+                                    <li><strong>OUT:</strong> ${timeOutStr}</li>
+                                </ul>
+                            </td>
+                            <td>${totalHours}</td>
+                            <td>${notes}</td>
+                        </tr>`;
+            }
 
-            mobileContainer.innerHTML += `
-                    <div class="card mb-3 shadow-sm ${cardBg}">
-                        <div class="card-body">
-                            <h6 class="mb-1"><strong>${formattedDate}</strong></h6>
-                            <p class="mb-1"><strong>Time In:</strong> ${formatTime(
-                                timeIn
-                            )}</p>
-                            <p class="mb-1"><strong>Time Out:</strong> ${timeOutStr}</p>
-                            <p class="mb-1"><strong>Total Hours:</strong> ${totalHours}</p>
-                            <p class="mb-0"><strong>Notes:</strong> ${
-                                notes !== "-"
-                                    ? `<i class="bi bi-sticky me-1"></i>${notes}`
-                                    : "-"
-                            }</p>
-                        </div>
-                    </div>`;
+            if (mobileContainer) {
+                mobileContainer.innerHTML += `
+                        <div class="card mb-3 shadow-sm ${cardBg}">
+                            <div class="card-body">
+                                <h6 class="mb-1"><strong>${formattedDate}</strong></h6>
+                                <p class="mb-1"><strong>Time In:</strong> ${formatTime(
+                                    timeIn
+                                )}</p>
+                                <p class="mb-1"><strong>Time Out:</strong> ${timeOutStr}</p>
+                                <p class="mb-1"><strong>Total Hours:</strong> ${totalHours}</p>
+                                <p class="mb-0"><strong>Notes:</strong> ${
+                                    notes !== "-"
+                                        ? `<i class="bi bi-sticky me-1"></i>${notes}`
+                                        : "-"
+                                }</p>
+                            </div>
+                        </div>`;
+            }
         }
 
         function fetchTimeRecords() {
-            const userId = selectUser.value || CURRENT_USER_ID;
+            const userId = selectUser?.value || CURRENT_USER_ID;
 
             // Get current date in YYYY-MM-DD format
             const today = new Date().toISOString().split("T")[0];
 
             // Default to 2000-01-01 if empty
-            const start = startDate.value || "2025-01-01";
-            const end = endDate.value || today;
+            const start = startDate?.value || "2025-01-01";
+            const end = endDate?.value || today;
 
             // Populate date inputs visually if empty
-            if (!startDate.value) startDate.value = start;
-            if (!endDate.value) endDate.value = end;
+            if (startDate && !startDate.value) startDate.value = start;
+            if (endDate && !endDate.value) endDate.value = end;
 
             // Validate range
             if (new Date(start) > new Date(end)) {
@@ -1349,8 +1463,8 @@ document.addEventListener("DOMContentLoaded", function () {
             }
 
             // Loading placeholders
-            tbody.innerHTML = `<tr><td colspan="3" class="text-center">Loading records...</td></tr>`;
-            mobileContainer.innerHTML = `<div class="alert alert-info text-center">Loading records...</div>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center">Loading records...</td></tr>`;
+            if (mobileContainer) mobileContainer.innerHTML = `<div class="alert alert-info text-center">Loading records...</div>`;
 
             // Fetch records
             fetch(
@@ -1358,12 +1472,12 @@ document.addEventListener("DOMContentLoaded", function () {
             )
                 .then((response) => response.json())
                 .then((data) => {
-                    tbody.innerHTML = "";
-                    mobileContainer.innerHTML = "";
+                    if (tbody) tbody.innerHTML = "";
+                    if (mobileContainer) mobileContainer.innerHTML = "";
 
                     if (data.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="3" class="text-center">No logs found</td></tr>`;
-                        mobileContainer.innerHTML = `<div class="alert alert-info text-center">No logs found</div>`;
+                        if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center">No logs found</td></tr>`;
+                        if (mobileContainer) mobileContainer.innerHTML = `<div class="alert alert-info text-center">No logs found</div>`;
                         return;
                     }
 
@@ -1373,14 +1487,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 })
                 .catch((error) => {
                     console.error("Error fetching time records:", error);
-                    tbody.innerHTML = `<tr><td colspan="3" class="text-danger text-center">Error loading records</td></tr>`;
-                    mobileContainer.innerHTML = `<div class="alert alert-danger text-center">Error loading records</div>`;
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-danger text-center">Error loading records</td></tr>`;
+                    if (mobileContainer) mobileContainer.innerHTML = `<div class="alert alert-danger text-center">Error loading records</div>`;
                 });
         }
 
         // Event listeners
-        selectUser.addEventListener("change", fetchTimeRecords);
-        filterButton.addEventListener("click", fetchTimeRecords);
+        selectUser?.addEventListener("change", fetchTimeRecords);
+        filterButton?.addEventListener("click", fetchTimeRecords);
 
         // Initial auto-load
         fetchTimeRecords();
@@ -1417,14 +1531,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Fetch and display logs
         function fetchUserLogs() {
-            const userId = selectUser.value || CURRENT_USER_ID;
+            const userId = selectUser?.value || CURRENT_USER_ID;
             const today = new Date().toISOString().split("T")[0];
-            const start = startDate.value || "2025-01-01";
-            const end = endDate.value || today;
+            const start = startDate?.value || "2025-01-01";
+            const end = endDate?.value || today;
 
             // Fill inputs visually if empty
-            if (!startDate.value) startDate.value = start;
-            if (!endDate.value) endDate.value = end;
+            if (startDate && !startDate.value) startDate.value = start;
+            if (endDate && !endDate.value) endDate.value = end;
 
             const params = new URLSearchParams({
                 user_id: userId,
@@ -1433,14 +1547,14 @@ document.addEventListener("DOMContentLoaded", function () {
             });
 
             // Show loading state
-            tbody.innerHTML = `<tr><td colspan="3" class="text-center">Loading logs...</td></tr>`;
-            cardContainer.innerHTML = `<div class="alert alert-info text-center">Loading logs...</div>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center">Loading logs...</td></tr>`;
+            if (cardContainer) cardContainer.innerHTML = `<div class="alert alert-info text-center">Loading logs...</div>`;
 
             fetch(`/get-user-logs?${params}`)
                 .then((response) => response.json())
                 .then((data) => {
-                    tbody.innerHTML = "";
-                    cardContainer.innerHTML = "";
+                    if (tbody) tbody.innerHTML = "";
+                    if (cardContainer) cardContainer.innerHTML = "";
 
                     if (data.length > 0) {
                         data.forEach((log, index) => {
@@ -1450,44 +1564,48 @@ document.addEventListener("DOMContentLoaded", function () {
                                 index % 2 === 0 ? "bg-light" : "bg-white";
 
                             // Desktop table row
-                            tbody.innerHTML += `
-                                    <tr class="tr-notes">
-                                        <td class="td-notes">${log.username}</td>
-                                        <td class="td-notes notes-column">${actions}</td>
-                                        <td class="td-notes">${formattedDate}</td>
-                                    </tr>`;
+                            if (tbody) {
+                                tbody.innerHTML += `
+                                        <tr class="tr-notes">
+                                            <td class="td-notes">${log.username}</td>
+                                            <td class="td-notes notes-column">${actions}</td>
+                                            <td class="td-notes">${formattedDate}</td>
+                                        </tr>`;
+                            }
 
                             // Mobile card
-                            cardContainer.innerHTML += `
-                                    <div class="card mb-3 shadow-sm ${cardBg}">
-                                        <div class="card-body">
-                                            <h6 class="mb-1"><strong>User:</strong> ${
-                                                log.username
-                                            }</h6>
-                                            <p class="mb-1"><strong>Action:</strong> ${
-                                                log.actions
-                                                    ? `<i class="bi bi-sticky me-1"></i>${log.actions}`
-                                                    : "-"
-                                            }</p>
-                                            <p class="mb-0"><strong>Date:</strong> ${formattedDate}</p>
-                                        </div>
-                                    </div>`;
+                            if (cardContainer) {
+                                cardContainer.innerHTML += `
+                                        <div class="card mb-3 shadow-sm ${cardBg}">
+                                            <div class="card-body">
+                                                <h6 class="mb-1"><strong>User:</strong> ${
+                                                    log.username
+                                                }</h6>
+                                                <p class="mb-1"><strong>Action:</strong> ${
+                                                    log.actions
+                                                        ? `<i class="bi bi-sticky me-1"></i>${log.actions}`
+                                                        : "-"
+                                                }</p>
+                                                <p class="mb-0"><strong>Date:</strong> ${formattedDate}</p>
+                                            </div>
+                                        </div>`;
+                            }
                         });
                     } else {
-                        tbody.innerHTML = `<tr><td colspan="3" class="td-notes text-center">No logs found</td></tr>`;
-                        cardContainer.innerHTML = `<div class="alert alert-info text-center">No logs found</div>`;
+                        if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="td-notes text-center">No logs found</td></tr>`;
+                        if (cardContainer) cardContainer.innerHTML = `<div class="alert alert-info text-center">No logs found</div>`;
                     }
                 })
                 .catch((error) => {
                     console.error("Error fetching user logs:", error);
-                    tbody.innerHTML = `<tr><td colspan="3" class="td-notes text-center text-danger">Error loading logs</td></tr>`;
-                    cardContainer.innerHTML = `<div class="alert alert-danger text-center">Error loading logs</div>`;
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="td-notes text-center text-danger">Error loading logs</td></tr>`;
+                    if (cardContainer) cardContainer.innerHTML = `<div class="alert alert-danger text-center">Error loading logs</div>`;
                 });
         }
 
         // Event listeners
-        selectUser.addEventListener("change", fetchUserLogs);
-        filterButton.addEventListener("click", fetchUserLogs);
+        selectUser?.addEventListener("change", fetchUserLogs);
+        filterButton?.addEventListener("click", fetchUserLogs);
 
         // Initial load
         fetchUserLogs();
