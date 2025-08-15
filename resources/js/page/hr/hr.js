@@ -9,6 +9,7 @@ import RateHistory from "./components/ratehistory.vue";
 import ViolationsHistory from "./components/violationshistory.vue";
 import HolidayModal from "./components/holidaymodal.vue";
 import bootstrap from "bootstrap/dist/js/bootstrap.bundle.min.js";
+import AnnouncementModal from "./components/announcementmodal.vue";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -41,6 +42,7 @@ export default {
         ViolationsHistory,
         Violations,
         HolidayModal,
+        AnnouncementModal,
     },
 
     data() {
@@ -139,6 +141,17 @@ export default {
                 status: "Regular Holiday",
                 holidate: "", // 'YYYY-MM-DD'
                 is_recurring: false, // boolean in UI; convert to 0/1 for backend
+            },
+
+            // Announcement modal
+            showAnnouncementModal: false,
+            annSubmitting: false,
+            announcementForm: {
+                title: "",
+                content: "",
+                user_ids: [], // array of selected user IDs
+                groupPH: false, // group quick-select
+                groupUS: false,
             },
         };
     },
@@ -621,6 +634,95 @@ export default {
                 alert("Delete failed.");
             }
         },
+
+        // Announcement modal
+        openAnnouncementModal() {
+            // make sure employees (with accounttype) are loaded for the recipient list
+            this.fetchEmployeesOnce().finally(() => {
+                this.showAnnouncementModal = true;
+            });
+        },
+
+        closeAnnouncementModal() {
+            this.showAnnouncementModal = false;
+            this.annSubmitting = false;
+            // reset form
+            this.announcementForm = {
+                title: "",
+                content: "",
+                user_ids: [],
+                groupPH: false,
+                groupUS: false,
+            };
+        },
+
+        applyAnnouncementGroupSelection() {
+            // recompute recipients from group toggles (users can still tweak manually after)
+            const phIds = this.employees
+                .filter((e) => e.accounttype === "PH")
+                .map((e) => e.id);
+            const usIds = this.employees
+                .filter((e) => e.accounttype === "US")
+                .map((e) => e.id);
+
+            const { groupPH, groupUS } = this.announcementForm;
+
+            if (groupPH && !groupUS) {
+                this.announcementForm.user_ids = [...new Set(phIds)];
+            } else if (!groupPH && groupUS) {
+                this.announcementForm.user_ids = [...new Set(usIds)];
+            } else if (groupPH && groupUS) {
+                this.announcementForm.user_ids = [
+                    ...new Set([...phIds, ...usIds]),
+                ];
+            }
+            // if neither is checked, leave manual selection as-is
+        },
+
+        toggleGroup(groupKey) {
+            if (groupKey === "PH") {
+                this.announcementForm.groupPH = !this.announcementForm.groupPH;
+            } else if (groupKey === "US") {
+                this.announcementForm.groupUS = !this.announcementForm.groupUS;
+            }
+            this.applyAnnouncementGroupSelection();
+        },
+
+        async submitAnnouncement() {
+            if (!this.announcementForm.title.trim()) {
+                alert("Title is required.");
+                return;
+            }
+
+            try {
+                this.annSubmitting = true;
+
+                // coerce ids to numbers (or strings if that’s what your backend expects)
+                const userIds = (this.announcementForm.user_ids || []).map(
+                    (id) => Number(id)
+                );
+
+                const payload = {
+                    title: this.announcementForm.title,
+                    content: this.announcementForm.content,
+                    user_ids: userIds,
+                    groups: [
+                        ...(this.announcementForm.groupPH ? ["PH"] : []),
+                        ...(this.announcementForm.groupUS ? ["US"] : []),
+                    ],
+                };
+
+                await axios.post(`${API_BASE_URL}/hr/announcements`, payload);
+
+                alert("Announcement sent.");
+                this.closeAnnouncementModal();
+            } catch (e) {
+                console.error("Failed to send announcement", e);
+                alert("Failed to send announcement.");
+            } finally {
+                this.annSubmitting = false;
+            }
+        },
     },
 
     computed: {
@@ -659,6 +761,11 @@ export default {
                 // time records
                 fetchRecords: this.fetchRecords,
 
+                // time-record editor actions ✅
+                openEdit: this.openEdit,
+                closeEdit: this.closeEdit,
+                submitEdit: this.submitEdit,
+
                 // rate actions
                 openRateModal: this.openRateModal,
                 closeRateModal: this.closeRateModal,
@@ -675,6 +782,15 @@ export default {
                 rateHistoryFilterOnlyActive: this.rateHistoryFilterOnlyActive,
                 isActiveRate: this.isActiveRate,
                 refreshRateHistory: this.refreshRateHistory,
+
+                // Announcement modal
+                showAnnouncementModal: this.showAnnouncementModal,
+                announcementForm: this.announcementForm,
+                annSubmitting: this.annSubmitting,
+                openAnnouncementModal: this.openAnnouncementModal,
+                closeAnnouncementModal: this.closeAnnouncementModal,
+                submitAnnouncement: this.submitAnnouncement,
+                toggleGroup: this.toggleGroup,
             };
         },
 

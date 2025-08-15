@@ -683,4 +683,8 @@ Route::prefix('hr')->group(function () {
     Route::post('/holidays/store', [HrController::class, 'storeHoliday']);
     Route::post('/holidays/update', [HrController::class, 'updateHoliday']);
     Route::post('/holidays/delete', [HrController::class, 'deleteHoliday']);
+
+    // Announcements (inside HrController)
+    Route::get('/announcements', [HrController::class, 'listAnnouncements']);
+    Route::post('/announcements', [HrController::class, 'storeAnnouncement']);
 });

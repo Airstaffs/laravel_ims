@@ -56,12 +56,19 @@
                         >
                             Add Holiday
                         </a>
-                        <a href="#" class="dropdown-item"> Add Announcement</a>
+                        <a
+                            href="#"
+                            class="dropdown-item"
+                            @click.prevent="openAnnouncementModal"
+                        >
+                            Add Announcement
+                        </a>
                     </li>
                     <!-- (future) add more modal actions here -->
                 </ul>
             </div>
         </nav>
+
         <!-- Main views -->
         <Employee
             v-if="currentView === 'Employee'"
@@ -87,6 +94,7 @@
 
         <!-- Modals -->
         <HolidayModal />
+        <AnnouncementModal :hr-context="hrContext" />
     </div>
 </template>
 

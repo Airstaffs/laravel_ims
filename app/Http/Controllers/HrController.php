@@ -16,30 +16,28 @@ class HrController extends Controller
     {
         $today = date('Y-m-d');
 
-        $employees = DB::table('tbluser as u')
+        $employees = \DB::table('tbluser as u')
             ->select(
                 'u.id',
                 'u.username',
-                DB::raw('u.username as name'),
-                DB::raw('u.office_role as position'),
-                // current monthly
-                DB::raw("(SELECT er.monthly_rate
+                \DB::raw('u.username as name'),
+                \DB::raw('u.office_role as position'),
+                'u.accounttype',  // ✅ include account type
+                \DB::raw("(SELECT er.monthly_rate
                        FROM tblemployeerate er
                        WHERE er.employee_id = u.id
                          AND er.effective_start <= '{$today}'
                          AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
                        ORDER BY er.effective_start DESC
                        LIMIT 1) as current_monthly_rate"),
-                // current hourly
-                DB::raw("(SELECT er.hourly_rate
+                \DB::raw("(SELECT er.hourly_rate
                        FROM tblemployeerate er
                        WHERE er.employee_id = u.id
                          AND er.effective_start <= '{$today}'
                          AND (er.effective_end IS NULL OR er.effective_end >= '{$today}')
                        ORDER BY er.effective_start DESC
                        LIMIT 1) as current_hourly_rate"),
-                // current currency
-                DB::raw("(SELECT er.currency
+                \DB::raw("(SELECT er.currency
                        FROM tblemployeerate er
                        WHERE er.employee_id = u.id
                          AND er.effective_start <= '{$today}'
@@ -352,89 +350,187 @@ class HrController extends Controller
     }
 
     public function listHolidays(Request $request): JsonResponse
-{
-    $year = (int)($request->input('year') ?: Carbon::now()->year);
+    {
+        $year = (int) ($request->input('year') ?: Carbon::now()->year);
 
-    $rows = DB::table('tblholiday')
-        ->select('holidayID','holidate','status','title','is_recurring')
-        ->orderBy('holidate','asc')
-        ->get();
+        $rows = DB::table('tblholiday')
+            ->select('holidayID', 'holidate', 'status', 'title', 'is_recurring')
+            ->orderBy('holidate', 'asc')
+            ->get();
 
-    // Expand display_date for UI based on selected year if recurring
-    $items = $rows->map(function($r) use ($year){
-        $md = Carbon::parse($r->holidate)->format('m-d');
-        $displayDate = $r->is_recurring ? Carbon::createFromFormat('Y-m-d', $year.'-'.$md)->toDateString() : $r->holidate;
-        return [
-            'holidayID'    => (int)$r->holidayID,
-            'holidate'     => $r->holidate,
-            'display_date' => $displayDate,
-            'status'       => $r->status,
-            'title'        => $r->title,
-            'is_recurring' => (int)$r->is_recurring
-        ];
-    })->values();
+        // Expand display_date for UI based on selected year if recurring
+        $items = $rows->map(function ($r) use ($year) {
+            $md = Carbon::parse($r->holidate)->format('m-d');
+            $displayDate = $r->is_recurring ? Carbon::createFromFormat('Y-m-d', $year . '-' . $md)->toDateString() : $r->holidate;
+            return [
+                'holidayID' => (int) $r->holidayID,
+                'holidate' => $r->holidate,
+                'display_date' => $displayDate,
+                'status' => $r->status,
+                'title' => $r->title,
+                'is_recurring' => (int) $r->is_recurring
+            ];
+        })->values();
 
-    return response()->json(['success'=>true,'year'=>$year,'items'=>$items]);
-}
-
-public function storeHoliday(Request $request): JsonResponse
-{
-    $v = Validator::make($request->all(), [
-        'title'        => 'required|string|max:255',
-        'status'       => 'required|string|max:255',
-        'holidate'     => 'required|date',
-        'is_recurring' => 'required|in:0,1'
-    ]);
-
-    if ($v->fails()) {
-        return response()->json(['success'=>false,'errors'=>$v->errors()], 422);
+        return response()->json(['success' => true, 'year' => $year, 'items' => $items]);
     }
 
-    $id = DB::table('tblholiday')->insertGetId([
-        'holidate'     => $request->holidate,
-        'status'       => $request->status,
-        'title'        => $request->title,
-        'is_recurring' => (int)$request->is_recurring
-    ]);
+    public function storeHoliday(Request $request): JsonResponse
+    {
+        $v = Validator::make($request->all(), [
+            'title' => 'required|string|max:255',
+            'status' => 'required|string|max:255',
+            'holidate' => 'required|date',
+            'is_recurring' => 'required|in:0,1'
+        ]);
 
-    return response()->json(['success'=>true,'id'=>$id]);
-}
+        if ($v->fails()) {
+            return response()->json(['success' => false, 'errors' => $v->errors()], 422);
+        }
 
-public function updateHoliday(Request $request): JsonResponse
-{
-    $v = Validator::make($request->all(), [
-        'holidayID'    => 'required|integer|exists:tblholiday,holidayID',
-        'title'        => 'required|string|max:255',
-        'status'       => 'required|string|max:255',
-        'holidate'     => 'required|date',
-        'is_recurring' => 'required|in:0,1'
-    ]);
+        $id = DB::table('tblholiday')->insertGetId([
+            'holidate' => $request->holidate,
+            'status' => $request->status,
+            'title' => $request->title,
+            'is_recurring' => (int) $request->is_recurring
+        ]);
 
-    if ($v->fails()) {
-        return response()->json(['success'=>false,'errors'=>$v->errors()], 422);
+        return response()->json(['success' => true, 'id' => $id]);
     }
 
-    DB::table('tblholiday')->where('holidayID', $request->holidayID)->update([
-        'holidate'     => $request->holidate,
-        'status'       => $request->status,
-        'title'        => $request->title,
-        'is_recurring' => (int)$request->is_recurring
-    ]);
+    public function updateHoliday(Request $request): JsonResponse
+    {
+        $v = Validator::make($request->all(), [
+            'holidayID' => 'required|integer|exists:tblholiday,holidayID',
+            'title' => 'required|string|max:255',
+            'status' => 'required|string|max:255',
+            'holidate' => 'required|date',
+            'is_recurring' => 'required|in:0,1'
+        ]);
 
-    return response()->json(['success'=>true]);
-}
+        if ($v->fails()) {
+            return response()->json(['success' => false, 'errors' => $v->errors()], 422);
+        }
 
-public function deleteHoliday(Request $request): JsonResponse
-{
-    $v = Validator::make($request->all(), [
-        'holidayID' => 'required|integer|exists:tblholiday,holidayID'
-    ]);
+        DB::table('tblholiday')->where('holidayID', $request->holidayID)->update([
+            'holidate' => $request->holidate,
+            'status' => $request->status,
+            'title' => $request->title,
+            'is_recurring' => (int) $request->is_recurring
+        ]);
 
-    if ($v->fails()) {
-        return response()->json(['success'=>false,'errors'=>$v->errors()], 422);
+        return response()->json(['success' => true]);
     }
 
-    DB::table('tblholiday')->where('holidayID', $request->holidayID)->delete();
-    return response()->json(['success'=>true]);
-}
+    public function deleteHoliday(Request $request): JsonResponse
+    {
+        $v = Validator::make($request->all(), [
+            'holidayID' => 'required|integer|exists:tblholiday,holidayID'
+        ]);
+
+        if ($v->fails()) {
+            return response()->json(['success' => false, 'errors' => $v->errors()], 422);
+        }
+
+        DB::table('tblholiday')->where('holidayID', $request->holidayID)->delete();
+        return response()->json(['success' => true]);
+    }
+
+        public function listAnnouncements()
+    {
+        $rows = DB::table('tblannouncements')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json($rows);
+    }
+
+    public function storeAnnouncement(Request $request)
+    {
+        $data = $request->validate([
+            'title'      => ['required', 'string', 'max:255'],
+            'content'    => ['nullable', 'string'],
+            'user_ids'   => ['array'],
+            'user_ids.*' => ['integer'],
+            'groups'     => ['array'], // e.g. ['PH','US']
+        ]);
+
+        // Expand groups into user IDs (server-side safety)
+        $userIds = collect($data['user_ids'] ?? []);
+
+        $groups = collect($data['groups'] ?? [])
+            ->map(fn ($g) => strtoupper(trim($g)))
+            ->filter(fn ($g) => in_array($g, ['PH','US']))
+            ->values();
+
+        if ($groups->isNotEmpty()) {
+            $groupUserIds = DB::table('tbluser')
+                ->whereIn('accounttype', $groups->all())
+                ->pluck('id');
+            $userIds = $userIds->merge($groupUserIds);
+        }
+
+        // Dedup + sanitize
+        $finalUserIds = $userIds->unique()->values()->map(fn($v) => (int)$v)->all();
+
+        $createdByUserId = session('userid') ?? optional($request->user())->id;
+        $createdBy       = session('user_name') ?? optional($request->user())->username;
+
+        DB::beginTransaction();
+        try {
+            // 1) Save announcement history
+            $annId = DB::table('tblannouncements')->insertGetId([
+                'title'              => $data['title'],
+                'content'            => $data['content'] ?? null,
+                'recipients_json'    => json_encode($finalUserIds),
+                'group_filters_json' => $groups->isNotEmpty() ? $groups->implode(',') : null,
+                'created_by'         => $createdBy,
+                'created_by_user_id' => $createdByUserId,
+                'created_at'         => now(),
+                'updated_at'         => now(),
+            ]);
+
+            // 2) Create a notification for recipients
+            $notifId = DB::table('tblnotifications')->insertGetId([
+                'module'      => 'HR',
+                'title'       => 'Announcement: ' . $data['title'],
+                'subtitle'    => null,
+                'content'     => $data['content'] ?? null,
+                'severity'    => 'info',
+                'action_made' => 'announcement_created',
+                'link_data'   => json_encode([
+                    'type' => 'modal',      // or 'redirect' if you have a page
+                    'method' => 'GET',
+                    'url' => null,
+                    'modal_id' => 'announcement-view',
+                    'data' => ['announcement_id' => $annId],
+                ]),
+                'created_at'  => now(),
+            ]);
+
+            // 3) Assign notification to each recipient
+            foreach ($finalUserIds as $uid) {
+                DB::table('tblnotificationsuser')->insert([
+                    'notif_id'    => $notifId,
+                    'userid'      => $uid,
+                    'read_status' => 'unread',
+                    'created_at'  => now(),
+                ]);
+            }
+
+            DB::commit();
+            return response()->json([
+                'success' => true,
+                'announcement_id' => $annId,
+                'notif_id' => $notifId,
+                'recipients' => $finalUserIds,
+            ]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
 }
