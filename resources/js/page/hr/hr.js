@@ -108,6 +108,12 @@ export default {
             totalPages: 1,
             currentPage: 1,
 
+            // Time Record History
+            clockEditHistory: [],
+            loadingClockHistory: false,
+            loadedClockHistory: false,
+            histFilters: { clock_id: "", edited_by: "", from: "", to: "" },
+
             // Edit modal
             showEditModal: false,
             editOriginal: null,
@@ -188,8 +194,11 @@ export default {
                         break;
 
                     case "Time Record":
-                    case "Time Record Edit History":
                         await this.fetchRecords();
+                        break;
+
+                    case "Time Record Edit History":
+                        await this.fetchClockEditHistoryOnce(this.histFilters);
                         break;
 
                     case "Employee Leave History":
@@ -454,6 +463,47 @@ export default {
                 console.error("Failed to load violations", e);
             } finally {
                 this.loading.violations = false;
+            }
+        },
+
+        // Time Records Edit History
+        async fetchClockEditHistoryOnce(params = {}) {
+            if (this.loadedClockHistory || this.loadingClockHistory) return;
+            this.loadingClockHistory = true;
+            try {
+                const { data } = await axios.post(
+                    `${API_BASE_URL}/hr/time-records/edit-history`,
+                    params
+                );
+                this.clockEditHistory = Array.isArray(data)
+                    ? data
+                    : data.data || [];
+            } catch (e) {
+                console.error("Failed to load clock edit history", e);
+            } finally {
+                this.loadingClockHistory = false;
+                this.loadedClockHistory = true;
+            }
+        },
+
+        async refreshClockEditHistory(params = {}) {
+            this.loadedClockHistory = false;
+            await this.fetchClockEditHistoryOnce(params);
+        },
+
+        async fetchClockEditHistoryByClock(clockId) {
+            this.loadingClockHistory = true;
+            try {
+                const { data } = await axios.post(
+                    `${API_BASE_URL}/hr/time-records/${clockId}/edit-history`,
+                    {}
+                );
+                this.clockEditHistory = Array.isArray(data)
+                    ? data
+                    : data.data || [];
+            } finally {
+                this.loadingClockHistory = false;
+                this.loadedClockHistory = true;
             }
         },
 
@@ -765,6 +815,14 @@ export default {
                 openEdit: this.openEdit,
                 closeEdit: this.closeEdit,
                 submitEdit: this.submitEdit,
+
+                // time record edit history
+                clockEditHistory: this.clockEditHistory,
+                loadingClockHistory: this.loadingClockHistory,
+                histFilters: this.histFilters,
+                fetchClockEditHistoryOnce: this.fetchClockEditHistoryOnce,
+                refreshClockEditHistory: this.refreshClockEditHistory,
+                fetchClockEditHistoryByClock: this.fetchClockEditHistoryByClock,
 
                 // rate actions
                 openRateModal: this.openRateModal,

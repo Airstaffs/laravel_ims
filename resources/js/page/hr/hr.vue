@@ -85,7 +85,8 @@
             :hr-context="hrContext"
         />
         <TimeRecordHistory
-            v-show="currentView === 'Time Record Edit History'"
+            v-if="currentView === 'Time Record Edit History'"
+            :hr-context="hrContext"
         />
         <LeaveHistory v-show="currentView === 'Employee Leave History'" />
         <RateHistory v-show="currentView === 'Employee Rate History'" />

@@ -675,6 +675,9 @@ Route::prefix('hr')->group(function () {
 
     Route::get('/time-records', [HrController::class, 'getTimeRecords']);
     Route::post('/time-records/{id}/edit', [HrController::class, 'editTimeRecord']);
+    Route::post('/time-records/edit-history', [HrController::class, 'listClockEditHistory']);
+    Route::post('/time-records/{id}/edit-history', [HrController::class, 'getClockEditHistoryByClock']);
+    
 
     Route::get('/leave-history', [HrController::class, 'getLeaveHistory']);
     Route::get('/violations', [HrController::class, 'getViolations']);

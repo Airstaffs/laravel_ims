@@ -228,6 +228,47 @@ class HrController extends Controller
         }
     }
 
+    public function listClockEditHistory(Request $request): JsonResponse
+    {
+        $q = DB::table('tblemployeeclocks_edit_history')
+            ->orderByDesc('edit_timestamp');
+
+        // (optional) simple filters
+        if ($request->filled('clock_id')) {
+            $q->where('clock_id', (int) $request->clock_id);
+        }
+        if ($request->filled('edited_by')) {
+            $q->where('edited_by', (int) $request->edited_by);
+        }
+        if ($request->filled('from')) {
+            $q->whereDate('edit_timestamp', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $q->whereDate('edit_timestamp', '<=', $request->to);
+        }
+
+        $rows = $q->get()->map(function ($row) {
+            $row->changes = json_decode($row->changes, true);
+            return $row;
+        });
+
+        return response()->json($rows);
+    }
+
+    // GET /api/hr/time-records/{id}/edit-history
+    public function getClockEditHistoryByClock(int $id): JsonResponse
+    {
+        $rows = DB::table('tblemployeeclocks_edit_history')
+            ->where('clock_id', $id)
+            ->orderByDesc('edit_timestamp')
+            ->get()
+            ->map(function ($row) {
+                $row->changes = json_decode($row->changes, true);
+                return $row;
+            });
+
+        return response()->json($rows);
+    }
 
 
     public function getLeaveHistory()
@@ -436,7 +477,7 @@ class HrController extends Controller
         return response()->json(['success' => true]);
     }
 
-        public function listAnnouncements()
+    public function listAnnouncements()
     {
         $rows = DB::table('tblannouncements')
             ->orderByDesc('created_at')
@@ -448,19 +489,19 @@ class HrController extends Controller
     public function storeAnnouncement(Request $request)
     {
         $data = $request->validate([
-            'title'      => ['required', 'string', 'max:255'],
-            'content'    => ['nullable', 'string'],
-            'user_ids'   => ['array'],
+            'title' => ['required', 'string', 'max:255'],
+            'content' => ['nullable', 'string'],
+            'user_ids' => ['array'],
             'user_ids.*' => ['integer'],
-            'groups'     => ['array'], // e.g. ['PH','US']
+            'groups' => ['array'], // e.g. ['PH','US']
         ]);
 
         // Expand groups into user IDs (server-side safety)
         $userIds = collect($data['user_ids'] ?? []);
 
         $groups = collect($data['groups'] ?? [])
-            ->map(fn ($g) => strtoupper(trim($g)))
-            ->filter(fn ($g) => in_array($g, ['PH','US']))
+            ->map(fn($g) => strtoupper(trim($g)))
+            ->filter(fn($g) => in_array($g, ['PH', 'US']))
             ->values();
 
         if ($groups->isNotEmpty()) {
@@ -471,50 +512,50 @@ class HrController extends Controller
         }
 
         // Dedup + sanitize
-        $finalUserIds = $userIds->unique()->values()->map(fn($v) => (int)$v)->all();
+        $finalUserIds = $userIds->unique()->values()->map(fn($v) => (int) $v)->all();
 
         $createdByUserId = session('userid') ?? optional($request->user())->id;
-        $createdBy       = session('user_name') ?? optional($request->user())->username;
+        $createdBy = session('user_name') ?? optional($request->user())->username;
 
         DB::beginTransaction();
         try {
             // 1) Save announcement history
             $annId = DB::table('tblannouncements')->insertGetId([
-                'title'              => $data['title'],
-                'content'            => $data['content'] ?? null,
-                'recipients_json'    => json_encode($finalUserIds),
+                'title' => $data['title'],
+                'content' => $data['content'] ?? null,
+                'recipients_json' => json_encode($finalUserIds),
                 'group_filters_json' => $groups->isNotEmpty() ? $groups->implode(',') : null,
-                'created_by'         => $createdBy,
+                'created_by' => $createdBy,
                 'created_by_user_id' => $createdByUserId,
-                'created_at'         => now(),
-                'updated_at'         => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
             // 2) Create a notification for recipients
             $notifId = DB::table('tblnotifications')->insertGetId([
-                'module'      => 'HR',
-                'title'       => 'Announcement: ' . $data['title'],
-                'subtitle'    => null,
-                'content'     => $data['content'] ?? null,
-                'severity'    => 'info',
+                'module' => 'HR',
+                'title' => 'Announcement: ' . $data['title'],
+                'subtitle' => null,
+                'content' => $data['content'] ?? null,
+                'severity' => 'info',
                 'action_made' => 'announcement_created',
-                'link_data'   => json_encode([
+                'link_data' => json_encode([
                     'type' => 'modal',      // or 'redirect' if you have a page
                     'method' => 'GET',
                     'url' => null,
                     'modal_id' => 'announcement-view',
                     'data' => ['announcement_id' => $annId],
                 ]),
-                'created_at'  => now(),
+                'created_at' => now(),
             ]);
 
             // 3) Assign notification to each recipient
             foreach ($finalUserIds as $uid) {
                 DB::table('tblnotificationsuser')->insert([
-                    'notif_id'    => $notifId,
-                    'userid'      => $uid,
+                    'notif_id' => $notifId,
+                    'userid' => $uid,
                     'read_status' => 'unread',
-                    'created_at'  => now(),
+                    'created_at' => now(),
                 ]);
             }
 
