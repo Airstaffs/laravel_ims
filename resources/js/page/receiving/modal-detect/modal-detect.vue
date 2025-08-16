@@ -114,15 +114,13 @@
               </li>
             </ul>
             <p v-else class="text-red-500">⚠️ No serials detected.</p>
-
-            <h4 class="mt-3">Raw OCR:</h4>
+            <!-- <h4 class="mt-3">Raw OCR:</h4>
             <pre>
               {{ Array.isArray(apiResult.raw_ocr) 
                   ? apiResult.raw_ocr.map(o => `${o.text} (conf: ${o.confidence.toFixed(2)})`).join('\n') 
                   : apiResult.raw_ocr 
               }}
-            </pre>
-
+            </pre> -->
           </div>
 
           <div class="mt-3 btn-cropped-output">
