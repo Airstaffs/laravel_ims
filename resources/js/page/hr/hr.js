@@ -242,13 +242,13 @@ export default {
             this.loading.employees = true;
             try {
                 const res = await fetch(`${API_BASE_URL}/hr/employees`);
-                const data = await res.json();
+                const data = await res.json().catch(() => ({}));
                 this.employees = Array.isArray(data)
                     ? data
-                    : data.employees || [];
-                // (no inline rate editing anymore, so no temp/original prep)
+                    : data?.employees ?? [];
             } catch (e) {
                 console.error("Failed to load employees", e);
+                this.employees = [];
             } finally {
                 this.loading.employees = false;
                 this.loaded.employees = true;

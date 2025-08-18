@@ -89,7 +89,11 @@
             :hr-context="hrContext"
         />
         <LeaveHistory v-show="currentView === 'Employee Leave History'" />
-        <RateHistory v-show="currentView === 'Employee Rate History'" />
+        <RateHistory
+            v-show="currentView === 'Employee Rate History'"
+            :hr-context="hrContext"
+        />
+
         <ViolationsHistory v-show="currentView === 'Violations History'" />
         <Violations v-show="currentView === 'Violations'" />
 
