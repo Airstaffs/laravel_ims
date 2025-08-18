@@ -120,8 +120,11 @@ export default {
         subtotal() {
             return this.qty * this.price;
         },
+        unitprice() {
+            return this.price / this.qty;
+        },
         afterDiscount() {
-            return this.subtotal - this.discountValue;
+            return this.price - this.discountValue;
         },
         grandTotalRaw() {
             return (
@@ -131,6 +134,9 @@ export default {
 
         formattedSubtotal() {
             return this.subtotal.toFixed(2);
+        },
+        formattedUnitprice() {
+            return this.unitprice.toFixed(2);
         },
         grandTotal() {
             return this.grandTotalRaw.toFixed(2);
@@ -761,22 +767,25 @@ export default {
         async saveEditModal() {
             this.loading = true;
 
-            // Validate required prefixes
+            // Validate required prefixes if not blank
             const errors = [];
 
-            if (!/^RPN\d+$/i.test(this.item.RPN)) {
+            if (this.item.RPN && !/^RPN\d+$/i.test(this.item.RPN)) {
                 errors.push("RPN must start with 'RPN' followed by numbers.");
             }
 
-            if (!/^PRD\d+$/i.test(this.item.PRD)) {
+            if (this.item.PRD && !/^PRD\d+$/i.test(this.item.PRD)) {
                 errors.push("PRD must start with 'PRD' followed by numbers.");
             }
 
-            if (!/^PCN\d+$/i.test(this.item.PCN)) {
+            if (this.item.PCN && !/^PCN\d+$/i.test(this.item.PCN)) {
                 errors.push("PCN must start with 'PCN' followed by numbers.");
             }
 
-            if (!/^BKT\d+$/i.test(this.item.basketnumber)) {
+            if (
+                this.item.basketnumber &&
+                !/^BKT\d+$/i.test(this.item.basketnumber)
+            ) {
                 errors.push(
                     "Basket Number must start with 'BKT' followed by numbers."
                 );
@@ -810,6 +819,7 @@ export default {
                 const index = this.items.findIndex(
                     (p) => p.itemnumber === updated.itemnumber
                 );
+
                 if (index !== -1) {
                     this.items.splice(index, 1, updated);
                 } else {
