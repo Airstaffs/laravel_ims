@@ -120,7 +120,8 @@ class HrController extends Controller
      *      "TimeIn": { "from": "2025-08-09 08:00:00", "to": "2025-08-09 09:00:00" },
      *      "Notes": { "from": "Late", "to": "On Time" }
      *  }
-     */
+     * 
+     **/
     public function editTimeRecord(Request $request, int $id): JsonResponse
     {
         // 1) Load BEFORE state from DB
@@ -269,7 +270,6 @@ class HrController extends Controller
 
         return response()->json($rows);
     }
-
 
     public function getLeaveHistory()
     {

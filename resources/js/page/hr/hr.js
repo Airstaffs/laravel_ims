@@ -69,12 +69,14 @@ export default {
                 leave: false,
                 violations: false,
                 rateHistory: false,
+                clockHistory: false,
             },
             loaded: {
                 employees: false,
                 leave: false,
                 violations: false,
                 rateHistory: false,
+                clockHistory: false,
             },
 
             // UI State
@@ -108,11 +110,16 @@ export default {
             totalPages: 1,
             currentPage: 1,
 
-            // Time Record History
-            clockEditHistory: [],
-            loadingClockHistory: false,
-            loadedClockHistory: false,
-            histFilters: { clock_id: "", edited_by: "", from: "", to: "" },
+            // time record edit history
+            clockEditHistory: this.clockEditHistory,
+            histFilters: this.histFilters,
+            fetchClockEditHistoryOnce: this.fetchClockEditHistoryOnce,
+            refreshClockEditHistory: this.refreshClockEditHistory,
+            fetchClockEditHistoryByClock: this.fetchClockEditHistoryByClock,
+
+            // shared flags (children can read loading/loaded here)
+            loading: this.loading,
+            loaded: this.loaded,
 
             // Edit modal
             showEditModal: false,
@@ -468,31 +475,34 @@ export default {
 
         // Time Records Edit History
         async fetchClockEditHistoryOnce(params = {}) {
-            if (this.loadedClockHistory || this.loadingClockHistory) return;
-            this.loadingClockHistory = true;
+            if (this.loaded.clockHistory || this.loading.clockHistory) return;
+            this.loading.clockHistory = true;
             try {
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/time-records/edit-history`,
-                    params
+                    { ...this.histFilters, ...params }
                 );
+
+                // accept several backend shapes
                 this.clockEditHistory = Array.isArray(data)
                     ? data
-                    : data.data || [];
+                    : data.data || data.items || [];
+
+                this.loaded.clockHistory = true;
             } catch (e) {
                 console.error("Failed to load clock edit history", e);
             } finally {
-                this.loadingClockHistory = false;
-                this.loadedClockHistory = true;
+                this.loading.clockHistory = false;
             }
         },
 
         async refreshClockEditHistory(params = {}) {
-            this.loadedClockHistory = false;
+            this.loaded.clockHistory = false;
             await this.fetchClockEditHistoryOnce(params);
         },
 
         async fetchClockEditHistoryByClock(clockId) {
-            this.loadingClockHistory = true;
+            this.loading.clockHistory = true;
             try {
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/time-records/${clockId}/edit-history`,
@@ -500,10 +510,12 @@ export default {
                 );
                 this.clockEditHistory = Array.isArray(data)
                     ? data
-                    : data.data || [];
+                    : data.data || data.items || [];
+                this.loaded.clockHistory = true;
+            } catch (e) {
+                console.error("Failed to load clock edit history by clock", e);
             } finally {
-                this.loadingClockHistory = false;
-                this.loadedClockHistory = true;
+                this.loading.clockHistory = false;
             }
         },
 
