@@ -16,39 +16,7 @@ class tblproduct extends Model
     public $incrementing = false;
     public $timestamps = false;
 
-    protected $fillable = [
-        'itemnumber',
-        'ProductID',
-        'ProductTitle',
-        'rtid',
-        'orderdate',
-        'paymentdate',
-        'shipdate',
-        'datedelivered',
-        'seller',
-        'materialtype',
-        'carrier',
-        'listedcondition',
-        'paymentmethod',
-        'quantity',
-        'Discount',
-        'tax',
-        'priceshipping',
-        'refund',
-        'description',
-        'serialnumber',
-        'serialnumberb',
-        'serialnumberc',
-        'serialnumberd',
-        'trackingnumber',
-        'trackingnumber2',
-        'trackingnumber3',
-        'trackingnumber4',
-        'trackingnumber5',
-        'validation',
-        'price',
-        'tax'
-    ];
+    protected $guarded = [];
 
 
     /**

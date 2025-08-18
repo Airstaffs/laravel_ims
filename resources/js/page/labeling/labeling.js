@@ -188,10 +188,10 @@ export default {
             return this.qty * this.price;
         },
         unitprice() {
-            return this.price / this.qty ; 
+            return this.price / this.qty;
         },
         afterDiscount() {
-            return this.subtotal - this.discountValue;
+            return this.price - this.discountValue;
         },
         grandTotalRaw() {
             return (
@@ -202,8 +202,7 @@ export default {
         formattedSubtotal() {
             return this.subtotal.toFixed(2);
         },
-
-         formattedUnitprice() {
+        formattedUnitprice() {
             return this.unitprice.toFixed(2);
         },
         grandTotal() {
