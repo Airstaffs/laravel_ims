@@ -251,7 +251,7 @@ class HouseageController extends BasetablesController
                                 ]);
 
                                 // Initialize empty capturedImages object to prevent JS errors
-                                $product->capturedImages = (object)[];
+                                $product->capturedImages = (object) [];
                             }
 
                             return $product;
@@ -266,7 +266,7 @@ class HouseageController extends BasetablesController
                     // Continue without images but with company
                     $products->getCollection()->transform(function ($product) {
                         $product->company = $this->company;
-                        $product->capturedImages = (object)[]; // Initialize empty object to prevent JS errors
+                        $product->capturedImages = (object) []; // Initialize empty object to prevent JS errors
                         return $product;
                     });
                 }
@@ -328,6 +328,10 @@ class HouseageController extends BasetablesController
             'trackingnumber5' => 'nullable|string|max:255',
             'validation' => 'nullable|string|max:255',
             'price' => 'nullable|numeric',
+            'RPN' => 'nullable|string',
+            'PRD' => 'nullable|string',
+            'PCN' => 'nullable|string',
+            'basketnumber' => 'nullable|string',
         ]);
 
         // Ensure default for validation
