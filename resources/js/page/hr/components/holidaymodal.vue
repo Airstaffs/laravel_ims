@@ -1,6 +1,6 @@
 <template>
     <div v-if="$parent.showHolidayModal" class="modal modal-holiday">
-        <div class="modal-overlay" @click="$parent.resetHolidayForm()"></div>
+        <div class="modal-overlay" @click="$parent.closeHolidayModal()"></div>
 
         <div class="modal-content">
             <div class="modal-header">
@@ -10,7 +10,7 @@
                     class="btn-close"
                     data-bs-dismiss="modal"
                     aria-label="Close"
-                    @click="$parent.resetHolidayForm()"
+                    @click="$parent.closeHolidayModal()"
                 ></button>
             </div>
 
@@ -81,7 +81,6 @@
                         </div>
                     </fieldset>
                     <fieldset>
-                        <label></label>
                         <button class="btn btn-primary" type="submit">
                             {{
                                 $parent.holidayForm.holidayID ? "Update" : "Add"

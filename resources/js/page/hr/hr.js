@@ -613,6 +613,11 @@ export default {
             };
         },
 
+        closeHolidayModal() {
+            this.resetHolidayForm();
+            this.showHolidayModal = false;
+        },
+
         async fetchHolidays() {
             try {
                 const { data } = await axios.post(
