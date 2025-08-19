@@ -11,5 +11,6 @@
         @include('dashboard.modals.settings.tabs.timerecord')
         @include('dashboard.modals.settings.tabs.userlogs')
         @include('dashboard.modals.settings.tabs.printerTab')
+            @stack('modals')
     </div>
 </div>

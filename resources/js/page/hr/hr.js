@@ -142,7 +142,8 @@ export default {
             rateHistoryFilterOnlyActive: false,
 
             // Holiday modal
-            holidayModal: null,
+            showHolidayModal: false,
+            holidayModal: false,
             holidays: [],
             holidayYear: new Date().getFullYear(),
             holidayForm: {
@@ -615,7 +616,9 @@ export default {
         openHolidayModal() {
             this.resetHolidayForm();
             this.fetchHolidays();
-            if (this.holidayModal) this.holidayModal.show();
+
+            this.showHolidayModal = true;
+            // if (this.holidayModal) this.holidayModal.show();
         },
 
         resetHolidayForm() {
@@ -626,6 +629,11 @@ export default {
                 holidate: "",
                 is_recurring: false,
             };
+        },
+
+        closeHolidayModal() {
+            this.resetHolidayForm();
+            this.showHolidayModal = false;
         },
 
         async fetchHolidays() {

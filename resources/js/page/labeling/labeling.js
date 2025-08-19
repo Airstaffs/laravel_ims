@@ -1206,24 +1206,53 @@ export default {
         },
 
         async moveToValidation(item) {
-            if (
-                !item ||
-                !item.ProductID ||
-                !(
-                    item.ASIN ||
-                    item.FNSKU ||
-                    item.serialnumber ||
-                    item.BasketNumber ||
-                    item.RPN ||
-                    item.PRD ||
-                    item.PCN
-                )
-            ) {
-                console.error("Invalid item data for moving to Validation");
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Missing Product ID",
+                    text: "ProductID is required to move this item to Validation.",
+                });
+                return;
+            }
+
+            const idFields = {
+                ASIN: item?.ASIN,
+                FNSKU: item?.FNSKU,
+                "Serial Number": item?.serialnumber,
+                "Basket Number": item?.BasketNumber,
+                RPN: item?.RPN,
+                PRD: item?.PRD,
+                PCN: item?.PCN,
+            };
+
+            const isFilled = (v) =>
+                v !== undefined && v !== null && String(v).trim() !== "";
+
+            const allKeys = Object.keys(idFields);
+            const filledFields = allKeys.filter((k) => isFilled(idFields[k]));
+            const missingFields = allKeys.filter((k) => !isFilled(idFields[k]));
+
+            if (filledFields.length === 0) {
                 await Swal.fire({
                     icon: "error",
                     title: "Missing Required Fields",
-                    text: "Please ensure at least one identification field is filled (ASIN, FNSKU, Serial Number, Basket Number, RPN, PRD, or PCN).",
+                    html: `<p>Please provide at least one identification field.</p>
+                   <ul style="text-align:left;margin:0;padding-left:1.2rem;">
+                     ${missingFields.map((f) => `<li>${f}</li>`).join("")}
+                   </ul>`,
+                });
+                return;
+            }
+
+            if (missingFields.length > 0) {
+                await Swal.fire({
+                    icon: "error", // use "error" instead of "info"
+                    title: "Some Identification Fields Are Missing",
+                    html: `<p>Please fill in all required identification fields before proceeding.</p>
+                   <ul style="text-align:left;margin:0;padding-left:1.2rem;">
+                     ${missingFields.map((f) => `<li>${f}</li>`).join("")}
+                   </ul>`,
+                    confirmButtonText: "OK",
                 });
                 return;
             }
@@ -1265,7 +1294,9 @@ export default {
                         text: `Item ${item.rtcounter} successfully moved to Validation.`,
                         confirmButtonText: "OK",
                     });
-                    this.fetchInventory();
+                    if (this && typeof this.fetchInventory === "function") {
+                        this.fetchInventory();
+                    }
                 } else {
                     await Swal.fire({
                         icon: "warning",
@@ -1322,7 +1353,6 @@ export default {
 
         async moveToStockroom(item) {
             if (!item || !item.ProductID) {
-                console.error("Invalid item data for moving to Stockroom");
                 await Swal.fire({
                     icon: "error",
                     title: "Invalid Item",
@@ -1331,12 +1361,39 @@ export default {
                 return;
             }
 
+            // --- Identification fields check (only these four) ---
+            const idFields = {
+                "RT Counter": item?.rtcounter,
+                ASIN: item?.ASIN,
+                FNSKU: item?.FNSKU,
+                "Serial Number": item?.serialnumber,
+            };
+
+            const isFilled = (v) =>
+                v !== undefined && v !== null && String(v).trim() !== "";
+
+            const missingFields = Object.keys(idFields).filter(
+                (k) => !isFilled(idFields[k])
+            );
+
+            // ❌ Stop if any are missing
+            if (missingFields.length > 0) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Missing Required Fields",
+                    html: `<p>Please fill in all required fields before proceeding:</p>
+                   <ul style="text-align:left;margin:0;padding-left:1.2rem;">
+                     ${missingFields.map((f) => `<li>${f}</li>`).join("")}
+                   </ul>`,
+                });
+                return; // stop execution
+            }
+
             try {
                 const csrfToken = document
                     .querySelector('meta[name="csrf-token"]')
                     .getAttribute("content");
 
-                // Show loading indicator
                 Swal.fire({
                     title: "Moving to Stockroom...",
                     allowOutsideClick: false,
@@ -1369,7 +1426,9 @@ export default {
                         text: `Item ${item.rtcounter} successfully moved to Stockroom.`,
                         confirmButtonText: "OK",
                     });
-                    this.fetchInventory();
+                    if (this && typeof this.fetchInventory === "function") {
+                        this.fetchInventory();
+                    }
                 } else {
                     await Swal.fire({
                         icon: "warning",

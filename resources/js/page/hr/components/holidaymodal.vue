@@ -1,172 +1,146 @@
 <template>
-    <div class="modal fade" id="holidayModal" tabindex="-1" aria-hidden="true">
-        <div
-            class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered mx-3"
-        >
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Holidays</h5>
+    <div v-if="$parent.showHolidayModal" class="modal modal-holiday">
+        <div class="modal-overlay" @click="$parent.closeHolidayModal()"></div>
+
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Holidays</h5>
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                    @click="$parent.closeHolidayModal()"
+                ></button>
+            </div>
+
+            <div class="modal-body">
+                <div class="controller-header">
+                    <div class="controller-year">
+                        <label>Year (view)</label>
+                        <input
+                            type="number"
+                            class="form-control"
+                            v-model.number="$parent.holidayYear"
+                            min="2000"
+                            max="2100"
+                            @change="$parent.fetchHolidays()"
+                        />
+                    </div>
                     <button
-                        type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal"
-                        aria-label="Close"
-                        @click="$parent.resetHolidayForm()"
-                    ></button>
+                        class="btn btn-outline-secondary ms-auto"
+                        @click="$parent.fetchHolidays()"
+                    >
+                        Refresh
+                    </button>
                 </div>
 
-                <div class="modal-body">
-                    <!-- Top controls -->
-                    <div class="d-flex gap-2 align-items-end flex-wrap">
-                        <div>
-                            <label class="form-label">Year (view)</label>
+                <form @submit.prevent="$parent.saveHoliday()">
+                    <fieldset>
+                        <label>Title</label>
+                        <input
+                            class="form-control"
+                            v-model="$parent.holidayForm.title"
+                            required
+                        />
+                    </fieldset>
+                    <fieldset>
+                        <label>Status</label>
+                        <select
+                            class="form-select"
+                            v-model="$parent.holidayForm.status"
+                            required
+                        >
+                            <option value="Regular Holiday">
+                                Regular Holiday
+                            </option>
+                            <option value="Special Holiday">
+                                Special Holiday
+                            </option>
+                        </select>
+                    </fieldset>
+                    <fieldset>
+                        <label>Date</label>
+                        <input
+                            type="date"
+                            class="form-control"
+                            v-model="$parent.holidayForm.holidate"
+                            required
+                        />
+                    </fieldset>
+                    <fieldset>
+                        <label></label>
+                        <div class="has-checkbox">
                             <input
-                                type="number"
-                                class="form-control"
-                                v-model.number="$parent.holidayYear"
-                                min="2000"
-                                max="2100"
-                                @change="$parent.fetchHolidays()"
+                                class="form-check-input holiday-checkbox m-0"
+                                type="checkbox"
+                                id="isRecurring"
+                                v-model="$parent.holidayForm.is_recurring"
                             />
+                            <label>Recurring yearly</label>
                         </div>
-                        <button
-                            class="btn btn-outline-secondary ms-auto"
-                            @click="$parent.fetchHolidays()"
-                        >
-                            Refresh
+                    </fieldset>
+                    <fieldset>
+                        <button class="btn btn-primary" type="submit">
+                            {{
+                                $parent.holidayForm.holidayID ? "Update" : "Add"
+                            }}
                         </button>
-                    </div>
-
-                    <hr />
-
-                    <!-- Add/Edit form -->
-                    <form @submit.prevent="$parent.saveHoliday()">
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label">Title</label>
-                                <input
-                                    class="form-control"
-                                    v-model="$parent.holidayForm.title"
-                                    required
-                                />
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Status</label>
-                                <select
-                                    class="form-select"
-                                    v-model="$parent.holidayForm.status"
-                                    required
-                                >
-                                    <option value="Regular Holiday">
-                                        Regular Holiday
-                                    </option>
-                                    <option value="Special Holiday">
-                                        Special Holiday
-                                    </option>
-                                </select>
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label">Date</label>
-                                <input
-                                    type="date"
-                                    class="form-control"
-                                    v-model="$parent.holidayForm.holidate"
-                                    required
-                                />
-                            </div>
-                            <div class="col-md-2 d-flex align-items-end">
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input holiday-checkbox"
-                                        type="checkbox"
-                                        id="isRecurring"
-                                        v-model="
-                                            $parent.holidayForm.is_recurring
-                                        "
-                                    />
-                                    <label
-                                        class="form-check-label"
-                                        for="isRecurring"
-                                        >Recurring yearly</label
-                                    >
-                                </div>
-                            </div>
-                            <div class="col-12 d-flex gap-2">
-                                <button class="btn btn-primary" type="submit">
-                                    {{
-                                        $parent.holidayForm.holidayID
-                                            ? "Update"
-                                            : "Add"
-                                    }}
-                                </button>
-                                <button
-                                    class="btn btn-secondary"
-                                    type="button"
-                                    @click="$parent.resetHolidayForm()"
-                                >
-                                    Clear
-                                </button>
-                            </div>
-                        </div>
-                    </form>
-
-                    <hr />
-
-                    <!-- Table -->
-                    <div class="table-responsive">
-                        <table
-                            class="table table-sm table-bordered align-middle table-fixed"
-                            id="holidayTable"
+                        <button
+                            class="btn btn-secondary"
+                            type="button"
+                            @click="$parent.resetHolidayForm()"
                         >
-                            <!-- lock column widths -->
-                            <colgroup>
-                                <col style="width: 10px" />
-                                <!-- # -->
-                                <col style="width: 420px" />
-                                <!-- Title -->
-                                <col style="width: 130px" />
-                                <!-- Status -->
-                                <col style="width: 10px" />
-                                <!-- Date -->
-                                <col style="width: 0px" />
-                                <!-- Recurring -->
-                                <col style="width: 0px" />
-                                <!-- Actions -->
-                            </colgroup>
+                            Clear
+                        </button>
+                    </fieldset>
+                </form>
 
-                            <thead class="table-light">
+                <div class="holiday-table-container">
+                    <table>
+                        <colgroup>
+                            <col style="width: 10px" />
+                            <!-- # -->
+                            <col style="width: 420px" />
+                            <!-- Title -->
+                            <col style="width: 130px" />
+                            <!-- Status -->
+                            <col style="width: 10px" />
+                            <!-- Date -->
+                            <col style="width: 0px" />
+                            <!-- Recurring -->
+                            <col style="width: 0px" />
+                            <!-- Actions -->
+                        </colgroup>
+
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                                <th>Recurring</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            <template
+                                v-for="(h, i) in $parent.holidays"
+                                :key="h.holidayID"
+                            >
                                 <tr>
-                                    <th>#</th>
-                                    <th>Title</th>
-                                    <th>Status</th>
-                                    <th>Date</th>
-                                    <th>Recurring</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                <tr
-                                    v-for="(h, i) in $parent.holidays"
-                                    :key="h.holidayID"
-                                >
                                     <td>{{ i + 1 }}</td>
-                                    <!-- clamp the title -->
-                                    <td class="title-cell">
-                                        <span class="truncate-2">{{
-                                            h.title
-                                        }}</span>
-                                    </td>
+                                    <td>{{ h.title }}</td>
                                     <td>{{ h.status }}</td>
                                     <td>
-                                        <span
-                                            :title="'Stored: ' + h.holidate"
-                                            >{{ h.display_date }}</span
-                                        >
+                                        <span :title="'Stored: ' + h.holidate">
+                                            {{ h.display_date }}
+                                        </span>
                                     </td>
                                     <td>{{ h.is_recurring ? "Yes" : "No" }}</td>
                                     <td>
-                                        <div class="btn-group btn-group-sm">
+                                        <div class="btn-action-container">
                                             <button
                                                 class="btn btn-outline-primary"
                                                 @click="$parent.editHoliday(h)"
@@ -186,30 +160,18 @@
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="!$parent.holidays.length">
-                                    <td
-                                        colspan="6"
-                                        class="text-center text-muted"
-                                    >
-                                        No holidays found.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button
-                        type="button"
-                        class="btn btn-outline-secondary"
-                        data-bs-dismiss="modal"
-                        @click="$parent.resetHolidayForm()"
-                    >
-                        Close
-                    </button>
+                            </template>
+                            <tr v-if="!$parent.holidays.length">
+                                <td colspan="6" class="text-center text-muted">
+                                    No holidays found.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 </template>
+
+<style scoped src="../hr.css"></style>
