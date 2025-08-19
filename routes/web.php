@@ -677,7 +677,7 @@ Route::prefix('hr')->group(function () {
     Route::post('/time-records/{id}/edit', [HrController::class, 'editTimeRecord']);
     Route::post('/time-records/edit-history', [HrController::class, 'listClockEditHistory']);
     Route::post('/time-records/{id}/edit-history', [HrController::class, 'getClockEditHistoryByClock']);
-    
+
 
     Route::get('/leave-history', [HrController::class, 'getLeaveHistory']);
     Route::get('/violations', [HrController::class, 'getViolations']);
@@ -690,4 +690,9 @@ Route::prefix('hr')->group(function () {
     // Announcements (inside HrController)
     Route::get('/announcements', [HrController::class, 'listAnnouncements']);
     Route::post('/announcements', [HrController::class, 'storeAnnouncement']);
+    Route::get('/dash/announcements', [HrController::class, 'dashviewAnnouncement']);
+    Route::post('/dash/announcements/acknowledge', [HrController::class, 'acknowledgeAnnouncement']);
+    Route::get('/announcements/admin', [HrController::class, 'adminListAnnouncements']);
+    Route::post('/announcements/save', [HrController::class, 'saveAnnouncement']);     // create or update (draft/active)
+    Route::post('/announcements/toggle-active', [HrController::class, 'toggleAnnouncementActive']);
 });

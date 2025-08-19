@@ -1,140 +1,108 @@
-<template>
-    <div class="p-2">
-        <!-- Filters -->
-        <div class="row g-2 align-items-end mb-3">
-            <div class="col-12 col-md-3">
-                <label class="form-label">Clock ID</label>
-                <input
-                    type="number"
-                    class="form-control"
-                    v-model="hrContext.histFilters.clock_id"
-                />
-            </div>
-            <div class="col-12 col-md-3">
-                <label class="form-label">Edited By (User ID)</label>
-                <input
-                    type="number"
-                    class="form-control"
-                    v-model="hrContext.histFilters.edited_by"
-                />
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label">From</label>
-                <input
-                    type="date"
-                    class="form-control"
-                    v-model="hrContext.histFilters.from"
-                />
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label">To</label>
-                <input
-                    type="date"
-                    class="form-control"
-                    v-model="hrContext.histFilters.to"
-                />
-            </div>
-
-            <div class="col-12 d-flex gap-2">
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    :disabled="$parent.hrContext.loading.clockHistory"
-                    @click="
-                        $parent.hrContext.refreshClockEditHistory(
-                            $parent.hrContext.histFilters
-                        )
-                    "
-                >
-                    <span
-                        v-if="$parent.hrContext.loading.clockHistory"
-                        class="spinner-border spinner-border-sm me-1"
-                    ></span>
-                    Apply
-                </button>
-
-                <button
-                    type="button"
-                    class="btn btn-outline-dark"
-                    @click="clearFilters()"
-                >
-                    Clear
-                </button>
-            </div>
-        </div>
-
-        <!-- Table -->
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 60px">#</th>
-                        <th>Clock ID</th>
-                        <th>Edited By</th>
-                        <th>When</th>
-                        <th>Changes</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="(row, i) in hrContext.clockEditHistory"
-                        :key="row.id"
-                    >
-                        <td>{{ i + 1 }}</td>
-                        <td>{{ row.clock_id }}</td>
-                        <td>{{ row.edited_by }}</td>
-                        <td>{{ hrContext.formatDate(row.edit_timestamp) }}</td>
-                        <td>
-                            <ul class="m-0 ps-3">
-                                <li
-                                    v-for="(chg, field) in parseChanges(
-                                        row.changes
-                                    )"
-                                    :key="field"
-                                >
-                                    <strong>{{ field }}</strong
-                                    >: <em>{{ chg.from ?? "—" }}</em> →
-                                    <em>{{ chg.to ?? "—" }}</em>
-                                </li>
-                            </ul>
-                        </td>
-                    </tr>
-
-                    <!-- empty state -->
-                    <tr
-                        v-if="
-                            !$parent.hrContext.clockEditHistory.length &&
-                            !$parent.hrContext.loading.clockHistory
-                        "
-                    >
-                        <td colspan="5" class="text-center text-muted py-3">
-                            No edit history found.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</template>
-
 <script setup>
-const { hrContext } = defineProps({
-    hrContext: { type: Object, required: true },
+import { reactive, watch } from 'vue';
+
+const props = defineProps({
+  hrContext: { type: Object, required: true }
 });
 
-const parseChanges = (json) => {
-    try {
-        return typeof json === "string" ? JSON.parse(json || "{}") : json || {};
-    } catch {
-        return {};
-    }
-};
+// local copy to bind v-model safely
+const localFilters = reactive({ clock_id: '', edited_by: '', from: '', to: '' });
 
-function clearFilters() {
-    hrContext.histFilters.clock_id = "";
-    hrContext.histFilters.edited_by = "";
-    hrContext.histFilters.from = "";
-    hrContext.histFilters.to = "";
-    hrContext.refreshClockEditHistory({});
+// hydrate local from parent when available
+watch(
+  () => props.hrContext?.histFilters,
+  (val) => { if (val) Object.assign(localFilters, val); },
+  { immediate: true, deep: true }
+);
+
+function apply() {
+  // push local filters to parent loader
+  props.hrContext?.refreshClockEditHistory?.({ ...localFilters });
+  // optionally keep parent copy in sync:
+  if (props.hrContext?.histFilters) Object.assign(props.hrContext.histFilters, localFilters);
+}
+
+function clear() {
+  localFilters.clock_id = '';
+  localFilters.edited_by = '';
+  localFilters.from = '';
+  localFilters.to = '';
+  apply();
+}
+
+function parseChanges(changes) {
+  if (!changes) return {};
+  if (typeof changes === 'object') return changes;
+  try { return JSON.parse(changes); } catch { return {}; }
 }
 </script>
+
+<template>
+  <div class="p-2">
+    <!-- Filters -->
+    <div class="row g-2 align-items-end mb-3">
+      <div class="col-12 col-md-3">
+        <label class="form-label">Clock ID</label>
+        <input type="number" class="form-control" v-model="localFilters.clock_id" />
+      </div>
+      <div class="col-12 col-md-3">
+        <label class="form-label">Edited By (User ID)</label>
+        <input type="number" class="form-control" v-model="localFilters.edited_by" />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">From</label>
+        <input type="date" class="form-control" v-model="localFilters.from" />
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label">To</label>
+        <input type="date" class="form-control" v-model="localFilters.to" />
+      </div>
+
+      <div class="col-12 d-flex gap-2">
+        <button type="button" class="btn btn-outline-secondary" @click="apply">
+          Apply
+        </button>
+        <button type="button" class="btn btn-outline-dark" @click="clear">
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-responsive">
+      <table class="table table-sm table-bordered align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width:60px">#</th>
+            <th>Clock ID</th>
+            <th>Edited By</th>
+            <th>When</th>
+            <th>Changes</th>
+          </tr>
+        </thead>
+        <tbody v-if="Array.isArray(hrContext?.clockEditHistory)">
+          <tr v-for="(row,i) in hrContext.clockEditHistory" :key="row?.id ?? `hist-${i}`">
+            <td>{{ i + 1 }}</td>
+            <td>{{ row?.clock_id ?? '—' }}</td>
+            <td>{{ row?.edited_by ?? '—' }}</td>
+            <td>{{ hrContext?.formatDate ? hrContext.formatDate(row?.edit_timestamp) : (row?.edit_timestamp ?? '—') }}</td>
+            <td>
+              <ul class="m-0 ps-3">
+                <li v-for="(chg, field) in parseChanges(row?.changes)" :key="field">
+                  <strong>{{ field }}</strong>:
+                  <em>{{ chg?.from ?? '—' }}</em> → <em>{{ chg?.to ?? '—' }}</em>
+                </li>
+              </ul>
+            </td>
+          </tr>
+          <tr v-if="!hrContext.clockEditHistory.length">
+            <td colspan="5" class="text-center text-muted py-3">No edit history found.</td>
+          </tr>
+        </tbody>
+        <tbody v-else>
+          <tr><td colspan="5" class="text-center text-muted py-3">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</template>

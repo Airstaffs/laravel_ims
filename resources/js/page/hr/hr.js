@@ -32,6 +32,14 @@ function clone(obj) {
     return JSON.parse(JSON.stringify(obj || {}));
 }
 
+function debounce(fn, t = 300) {
+    let to;
+    return (...args) => {
+        clearTimeout(to);
+        to = setTimeout(() => fn(...args), t);
+    };
+}
+
 export default {
     components: {
         Employee,
@@ -110,17 +118,6 @@ export default {
             totalPages: 1,
             currentPage: 1,
 
-            // time record edit history
-            clockEditHistory: this.clockEditHistory,
-            histFilters: this.histFilters,
-            fetchClockEditHistoryOnce: this.fetchClockEditHistoryOnce,
-            refreshClockEditHistory: this.refreshClockEditHistory,
-            fetchClockEditHistoryByClock: this.fetchClockEditHistoryByClock,
-
-            // shared flags (children can read loading/loaded here)
-            loading: this.loading,
-            loaded: this.loaded,
-
             // Edit modal
             showEditModal: false,
             editOriginal: null,
@@ -158,14 +155,23 @@ export default {
 
             // Announcement modal
             showAnnouncementModal: false,
+            showManageAnnouncements: false,
             annSubmitting: false,
             announcementForm: {
+                id: null,
                 title: "",
                 content: "",
-                user_ids: [], // array of selected user IDs
-                groupPH: false, // group quick-select
+                start_at: "",
+                end_at: "",
+                status: "draft",
+                user_ids: [],
+                groupPH: false,
                 groupUS: false,
+                _mode: null,
             },
+            // Manage modal table
+            manageFilter: { status: "all", q: "" },
+            manageRows: [],
         };
     },
 
@@ -708,13 +714,17 @@ export default {
         closeAnnouncementModal() {
             this.showAnnouncementModal = false;
             this.annSubmitting = false;
-            // reset form
             this.announcementForm = {
+                id: null,
                 title: "",
                 content: "",
+                start_at: "",
+                end_at: "",
+                status: "draft",
                 user_ids: [],
                 groupPH: false,
                 groupUS: false,
+                _mode: null,
             };
         },
 
@@ -750,39 +760,171 @@ export default {
             this.applyAnnouncementGroupSelection();
         },
 
-        async submitAnnouncement() {
+        async submitAnnouncement(mode = null) {
+            // allow buttons to pass 'draft' | 'active'; or use form.status
+            const saveMode = mode || this.announcementForm.status || "draft";
+
             if (!this.announcementForm.title.trim()) {
                 alert("Title is required.");
                 return;
             }
+            if (
+                this.announcementForm.start_at &&
+                this.announcementForm.end_at
+            ) {
+                if (
+                    new Date(this.announcementForm.start_at) >
+                    new Date(this.announcementForm.end_at)
+                ) {
+                    alert("Start must be before End.");
+                    return;
+                }
+            }
+
+            this.annSubmitting = true;
+            this.announcementForm._mode = saveMode;
 
             try {
-                this.annSubmitting = true;
-
-                // coerce ids to numbers (or strings if that’s what your backend expects)
-                const userIds = (this.announcementForm.user_ids || []).map(
-                    (id) => Number(id)
-                );
-
-                const payload = {
+                const ANN_API = `${API_BASE_URL}/hr/announcements`; // <-- if your routes are under /hr, change to `${API_BASE_URL}/hr/announcements`
+                const body = {
+                    id: this.announcementForm.id || null,
                     title: this.announcementForm.title,
-                    content: this.announcementForm.content,
-                    user_ids: userIds,
-                    groups: [
-                        ...(this.announcementForm.groupPH ? ["PH"] : []),
-                        ...(this.announcementForm.groupUS ? ["US"] : []),
-                    ],
+                    message: this.announcementForm.content,
+                    start_at: this.announcementForm.start_at || null, // datetime-local (local tz)
+                    end_at: this.announcementForm.end_at || null,
+                    save_mode: saveMode, // 'draft' | 'active'
+                    // send selected recipients; backend can map ids->usernames if needed
+                    recipients: Array.isArray(this.announcementForm.user_ids)
+                        ? this.announcementForm.user_ids
+                        : [],
                 };
 
-                await axios.post(`${API_BASE_URL}/hr/announcements`, payload);
+                const { data } = await axios.post(`${ANN_API}/save`, body, {
+                    withCredentials: true,
+                });
+                if (!data?.success)
+                    throw new Error(data?.message || "Save failed");
 
-                alert("Announcement sent.");
-                this.closeAnnouncementModal();
+                // auto-refresh Manage list if open
+                if (this.showManageAnnouncements)
+                    await this.refreshManageAnnouncements();
+
+                alert(
+                    saveMode === "active"
+                        ? "Saved & Activated"
+                        : "Saved as Draft"
+                );
+
+                // if new create, clear; if editing, keep form (optional)
+                if (!this.announcementForm.id) {
+                    this.closeAnnouncementModal();
+                }
             } catch (e) {
-                console.error("Failed to send announcement", e);
-                alert("Failed to send announcement.");
+                console.error("submitAnnouncement error:", e);
+                alert(e?.message || "Failed to save announcement.");
             } finally {
                 this.annSubmitting = false;
+                this.announcementForm._mode = null;
+            }
+        },
+
+        openManageAnnouncements() {
+            this.showManageAnnouncements = true;
+            this.refreshManageAnnouncements();
+        },
+        closeManageAnnouncements() {
+            this.showManageAnnouncements = false;
+        },
+        debouncedRefreshManage: debounce(function () {
+            this.refreshManageAnnouncements();
+        }, 300),
+
+        async refreshManageAnnouncements() {
+            try {
+                const ANN_API = `${API_BASE_URL}/hr/announcements`; // or `/hr/announcements`
+                const params = new URLSearchParams();
+                if (this.manageFilter.status !== "all")
+                    params.set("status", this.manageFilter.status);
+                if (this.manageFilter.q) params.set("q", this.manageFilter.q);
+
+                const url = `${ANN_API}/admin${
+                    params.toString() ? `?${params.toString()}` : ""
+                }`;
+                const { data } = await axios.get(url, {
+                    withCredentials: true,
+                });
+                this.manageRows = Array.isArray(data) ? data : [];
+            } catch (e) {
+                console.error("refreshManageAnnouncements error:", e);
+                this.manageRows = [];
+            }
+        },
+
+        prefillAnnouncementForm(row) {
+            // helper to convert 'YYYY-MM-DD HH:mm:ss' -> 'YYYY-MM-DDTHH:MM'
+            const toLocalInput = (s) => {
+                if (!s) return "";
+                return s.replace(" ", "T").slice(0, 16);
+            };
+
+            // if manage rows contain usernames, map to IDs; if already IDs, just set directly
+            const idsFromUsernames = (arr) => {
+                if (!Array.isArray(arr)) return [];
+                const usernameToId = new Map(
+                    this.employees.map((e) => [
+                        String(e.username),
+                        Number(e.id),
+                    ])
+                );
+                return arr
+                    .map((u) => usernameToId.get(String(u)))
+                    .filter((v) => Number.isFinite(v));
+            };
+
+            this.showAnnouncementModal = true;
+
+            this.announcementForm = {
+                id: row.id,
+                title: row.title || "",
+                content: row.message || "",
+                start_at: toLocalInput(row.start_at || ""),
+                end_at: toLocalInput(row.end_at || ""),
+                status: row.is_active ? "active" : "draft",
+                user_ids: Array.isArray(row.recipients)
+                    ? typeof row.recipients[0] === "number"
+                        ? row.recipients.map(Number)
+                        : idsFromUsernames(row.recipients)
+                    : [],
+                groupPH: false,
+                groupUS: false,
+                _mode: null,
+            };
+        },
+
+        async toggleAnnouncementActive(row) {
+            try {
+                const ANN_API = `${API_BASE_URL}/hr/announcements`; // or `/hr/announcements`
+                const { data } = await axios.post(
+                    `${ANN_API}/toggle-active`,
+                    {
+                        id: row.id,
+                        make_active: !row.is_active,
+                    },
+                    { withCredentials: true }
+                );
+                if (!data?.success)
+                    throw new Error(data?.message || "Toggle failed");
+
+                await this.refreshManageAnnouncements();
+
+                if (this.announcementForm.id === row.id) {
+                    this.announcementForm.status = !row.is_active
+                        ? "active"
+                        : "draft";
+                }
+            } catch (e) {
+                console.error("toggleAnnouncementActive error:", e);
+                alert(e?.message || "Failed to update status.");
             }
         },
     },
@@ -793,7 +935,7 @@ export default {
                 // state
                 currentView: this.currentView,
                 employees: this.employees,
-                rateHistory: this.rateHistory, // ✅ expose rate history
+                rateHistory: this.rateHistory,
                 timeRecords: this.timeRecords,
                 filters: this.filters,
                 employeeNames: this.employeeNames,
@@ -803,6 +945,7 @@ export default {
                 editForm: this.editForm,
                 editOriginal: this.editOriginal,
                 submittingEdit: this.submittingEdit,
+                timeRecords: this.timeRecords,
 
                 // rate modal state
                 showRateModal: this.showRateModal,
@@ -810,57 +953,75 @@ export default {
                 rateForm: this.rateForm,
                 savingRate: this.savingRate,
 
-                // optional loading flags (handy for spinners in children)
+                // loading maps
                 loading: this.loading,
                 loaded: this.loaded,
 
-                // actions
-                sort: this.sort,
-                formatDate: this.formatDate,
-                nextPage: this.nextPage,
-                prevPage: this.prevPage,
+                // actions (WRAPPED to preserve `this`)
+                sort: (key) => this.sort(key),
+                formatDate: (dt) => this.formatDate(dt),
+                nextPage: () => this.nextPage(),
+                prevPage: () => this.prevPage(),
 
                 // time records
-                fetchRecords: this.fetchRecords,
+                fetchRecords: () => this.fetchRecords(),
 
-                // time-record editor actions ✅
-                openEdit: this.openEdit,
-                closeEdit: this.closeEdit,
-                submitEdit: this.submitEdit,
+                // time-record editor
+                openEdit: (row) => this.openEdit(row),
+                closeEdit: () => this.closeEdit(),
+                submitEdit: () => this.submitEdit(),
 
-                // time record edit history
+                // edit history
                 clockEditHistory: this.clockEditHistory,
-                loadingClockHistory: this.loadingClockHistory,
                 histFilters: this.histFilters,
-                fetchClockEditHistoryOnce: this.fetchClockEditHistoryOnce,
-                refreshClockEditHistory: this.refreshClockEditHistory,
-                fetchClockEditHistoryByClock: this.fetchClockEditHistoryByClock,
+                histFilters: this.histFilters ?? {
+                    clock_id: "",
+                    edited_by: "",
+                    from: "",
+                    to: "",
+                },
+                refreshClockEditHistory: (p = {}) =>
+                    this.refreshClockEditHistory(p),
+                fetchClockEditHistoryOnce: (p = {}) =>
+                    this.fetchClockEditHistoryOnce(p),
+                refreshClockEditHistory: (p = {}) =>
+                    this.refreshClockEditHistory(p),
+                fetchClockEditHistoryByClock: (id) =>
+                    this.fetchClockEditHistoryByClock(id),
 
                 // rate actions
-                openRateModal: this.openRateModal,
-                closeRateModal: this.closeRateModal,
-                submitRate: this.submitRate,
+                openRateModal: (emp) => this.openRateModal(emp),
+                closeRateModal: () => this.closeRateModal(),
+                submitRate: () => this.submitRate(),
 
-                // fetchers for lazy-load (children can request refresh)
-                fetchEmployeesOnce: this.fetchEmployeesOnce, // ✅
-                fetchEmployeeRateHistoryOnce: this.fetchEmployeeRateHistoryOnce, // ✅
-                loadView: this.loadView, // optional
+                // lazy fetchers
+                fetchEmployeesOnce: () => this.fetchEmployeesOnce(),
+                fetchEmployeeRateHistoryOnce: (id = null) =>
+                    this.fetchEmployeeRateHistoryOnce(id),
+                loadView: (v) => this.loadView(v),
 
                 // employee rate history
-                filteredRateHistory: this.filteredRateHistory, // ✅
+                filteredRateHistory: this.filteredRateHistory,
                 rateHistoryFilterEmployeeId: this.rateHistoryFilterEmployeeId,
                 rateHistoryFilterOnlyActive: this.rateHistoryFilterOnlyActive,
-                isActiveRate: this.isActiveRate,
-                refreshRateHistory: this.refreshRateHistory,
+                isActiveRate: (row) => this.isActiveRate(row),
+                refreshRateHistory: (id = null) => this.refreshRateHistory(id),
 
-                // Announcement modal
+                // announcement modal
                 showAnnouncementModal: this.showAnnouncementModal,
                 announcementForm: this.announcementForm,
                 annSubmitting: this.annSubmitting,
-                openAnnouncementModal: this.openAnnouncementModal,
-                closeAnnouncementModal: this.closeAnnouncementModal,
-                submitAnnouncement: this.submitAnnouncement,
-                toggleGroup: this.toggleGroup,
+                // announcement actions
+                openManageAnnouncements: () => this.openManageAnnouncements(),
+                closeManageAnnouncements: () => this.closeManageAnnouncements(),
+                refreshManageAnnouncements: () =>
+                    this.refreshManageAnnouncements(),
+                debouncedRefreshManage: () => this.debouncedRefreshManage(),
+                prefillAnnouncementForm: (row) =>
+                    this.prefillAnnouncementForm(row),
+                toggleAnnouncementActive: (row) =>
+                    this.toggleAnnouncementActive(row),
+                submitAnnouncement: (mode) => this.submitAnnouncement(mode),
             };
         },
 
