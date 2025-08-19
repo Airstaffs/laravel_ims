@@ -793,7 +793,7 @@ export default {
             this.announcementForm._mode = saveMode;
 
             try {
-                const ANN_API = `${API_BASE_URL}/hr/announcements`; // <-- if your routes are under /hr, change to `${API_BASE_URL}/hr/announcements`
+                const SAVE_URL = `${API_BASE_URL}/hr/announcements/save`;
                 const body = {
                     id: this.announcementForm.id || null,
                     title: this.announcementForm.title,
@@ -801,13 +801,12 @@ export default {
                     start_at: this.announcementForm.start_at || null, // datetime-local (local tz)
                     end_at: this.announcementForm.end_at || null,
                     save_mode: saveMode, // 'draft' | 'active'
-                    // send selected recipients; backend can map ids->usernames if needed
                     recipients: Array.isArray(this.announcementForm.user_ids)
                         ? this.announcementForm.user_ids
                         : [],
                 };
 
-                const { data } = await axios.post(`${ANN_API}/save`, body, {
+                const { data } = await axios.post(SAVE_URL, body, {
                     withCredentials: true,
                 });
                 if (!data?.success)
@@ -843,19 +842,20 @@ export default {
         closeManageAnnouncements() {
             this.showManageAnnouncements = false;
         },
+        // NOTE: requires a debounce(fn, wait) helper in scope
         debouncedRefreshManage: debounce(function () {
             this.refreshManageAnnouncements();
         }, 300),
 
         async refreshManageAnnouncements() {
             try {
-                const ANN_API = `${API_BASE_URL}/hr/announcements`; // or `/hr/announcements`
+                const ADMIN_URL = `${API_BASE_URL}/hr/announcements/admin`;
                 const params = new URLSearchParams();
                 if (this.manageFilter.status !== "all")
                     params.set("status", this.manageFilter.status);
                 if (this.manageFilter.q) params.set("q", this.manageFilter.q);
 
-                const url = `${ANN_API}/admin${
+                const url = `${ADMIN_URL}${
                     params.toString() ? `?${params.toString()}` : ""
                 }`;
                 const { data } = await axios.get(url, {
@@ -870,10 +870,8 @@ export default {
 
         prefillAnnouncementForm(row) {
             // helper to convert 'YYYY-MM-DD HH:mm:ss' -> 'YYYY-MM-DDTHH:MM'
-            const toLocalInput = (s) => {
-                if (!s) return "";
-                return s.replace(" ", "T").slice(0, 16);
-            };
+            const toLocalInput = (s) =>
+                s ? s.replace(" ", "T").slice(0, 16) : "";
 
             // if manage rows contain usernames, map to IDs; if already IDs, just set directly
             const idsFromUsernames = (arr) => {
@@ -911,15 +909,16 @@ export default {
 
         async toggleAnnouncementActive(row) {
             try {
-                const ANN_API = `${API_BASE_URL}/hr/announcements`; // or `/hr/announcements`
+                const TOGGLE_URL = `${API_BASE_URL}/hr/announcements/toggle-active`;
                 const { data } = await axios.post(
-                    `${ANN_API}/toggle-active`,
+                    TOGGLE_URL,
                     {
                         id: row.id,
                         make_active: !row.is_active,
                     },
                     { withCredentials: true }
                 );
+
                 if (!data?.success)
                     throw new Error(data?.message || "Toggle failed");
 
@@ -934,6 +933,15 @@ export default {
                 console.error("toggleAnnouncementActive error:", e);
                 alert(e?.message || "Failed to update status.");
             }
+        },
+
+        toggleGroup(groupKey) {
+            if (groupKey === "PH") {
+                this.announcementForm.groupPH = !this.announcementForm.groupPH;
+            } else if (groupKey === "US") {
+                this.announcementForm.groupUS = !this.announcementForm.groupUS;
+            }
+            this.applyAnnouncementGroupSelection();
         },
     },
 
@@ -1015,21 +1023,32 @@ export default {
                 isActiveRate: (row) => this.isActiveRate(row),
                 refreshRateHistory: (id = null) => this.refreshRateHistory(id),
 
-                // announcement modal
+                // announcement + manage (PUT THIS INSIDE the object you return in hrContext)
                 showAnnouncementModal: this.showAnnouncementModal,
                 announcementForm: this.announcementForm,
                 annSubmitting: this.annSubmitting,
-                // announcement actions
+                openAnnouncementModal: () => this.openAnnouncementModal(),
+                closeAnnouncementModal: () => this.closeAnnouncementModal(),
+                submitAnnouncement: (mode) => this.submitAnnouncement(mode),
+                toggleGroup: (g) => this.toggleGroup(g),
+
+                // 👇 NEW: manage modal exposure
+                showManageAnnouncements: this.showManageAnnouncements,
+                manageFilter: this.manageFilter,
+                manageRows: this.manageRows,
                 openManageAnnouncements: () => this.openManageAnnouncements(),
                 closeManageAnnouncements: () => this.closeManageAnnouncements(),
                 refreshManageAnnouncements: () =>
                     this.refreshManageAnnouncements(),
-                debouncedRefreshManage: () => this.debouncedRefreshManage(),
+
+                // ⚠️ Important: pass the *function reference* so debounce stays stable
+                debouncedRefreshManage: this.debouncedRefreshManage,
+
+                // edit from manage table
                 prefillAnnouncementForm: (row) =>
                     this.prefillAnnouncementForm(row),
                 toggleAnnouncementActive: (row) =>
                     this.toggleAnnouncementActive(row),
-                submitAnnouncement: (mode) => this.submitAnnouncement(mode),
             };
         },
 
