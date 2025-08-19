@@ -1250,6 +1250,7 @@
     <script src="{{ asset('js/attendance.js') }}"></script>
     <script src="{{ asset('js/account-record.js') }}"></script>
     <script src="{{ asset('js/account-privilege.js') }}"></script>
+    @stack('modals')
 </body>
 
 </html>
