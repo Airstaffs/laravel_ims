@@ -1185,7 +1185,9 @@ export default {
             const result = await Swal.fire({
                 title: "Confirm Move to Validation",
                 html: `
-            <p>Are you sure you want to move this item to <strong>Validation</strong>?</p>
+            <p>Are you sure you want to move 
+            <strong>${item.ProductTitle || "—"}</strong>
+            to <strong>Validation</strong>?</p>
             <ul style="text-align:left">
                 <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
                 <li><strong>ASIN:</strong> ${item.ASIN || "—"}</li>
@@ -1331,7 +1333,9 @@ export default {
             const result = await Swal.fire({
                 title: "Confirm Move to Stockroom",
                 html: `
-            <p>Are you sure you want to move this item to the <strong>Stockroom</strong>?</p>
+            <p>Are you sure you want to move 
+            <strong>${item.ProductTitle || "—"}</strong>
+            to the <strong>Stockroom</strong>?</p>
             <ul style="text-align:left">
                 <li><strong>RT Counter:</strong> ${item.rtcounter || "N/A"}</li>
                 <li><strong>ASIN:</strong> ${item.ASIN || "—"}</li>
