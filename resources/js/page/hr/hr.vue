@@ -70,15 +70,7 @@
         </nav>
 
         <!-- Main views -->
-        <Employee
-            v-if="currentView === 'Employee'"
-            :key="currentView"
-            :show-add-employee-modal="showAddEmployeeModal"
-            :new-employee="newEmployee"
-            @open-add-employee="showAddEmployeeModal = true"
-            @close-add-employee="showAddEmployeeModal = false"
-            @add-employee="addEmployee"
-        />
+        <Employee v-if="currentView === 'Employee'" :hr-context="hrContext" />
 
         <TimeRecord
             v-if="currentView === 'Time Record'"
@@ -86,10 +78,15 @@
         />
         <TimeRecordHistory
             v-if="currentView === 'Time Record Edit History'"
+            :key="currentView"
             :hr-context="hrContext"
         />
         <LeaveHistory v-show="currentView === 'Employee Leave History'" />
-        <RateHistory v-show="currentView === 'Employee Rate History'" />
+        <RateHistory
+            v-show="currentView === 'Employee Rate History'"
+            :hr-context="hrContext"
+        />
+
         <ViolationsHistory v-show="currentView === 'Violations History'" />
         <Violations v-show="currentView === 'Violations'" />
 

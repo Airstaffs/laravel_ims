@@ -120,7 +120,8 @@ class HrController extends Controller
      *      "TimeIn": { "from": "2025-08-09 08:00:00", "to": "2025-08-09 09:00:00" },
      *      "Notes": { "from": "Late", "to": "On Time" }
      *  }
-     */
+     * 
+     **/
     public function editTimeRecord(Request $request, int $id): JsonResponse
     {
         // 1) Load BEFORE state from DB
@@ -269,7 +270,6 @@ class HrController extends Controller
 
         return response()->json($rows);
     }
-
 
     public function getLeaveHistory()
     {
@@ -574,4 +574,209 @@ class HrController extends Controller
             ], 500);
         }
     }
+
+    public function acknowledgeAnnouncement(Request $request)
+    {
+        $request->validate([
+            'announcement_id' => 'required|integer|exists:tblannouncements,id',
+        ]);
+
+        $username = $request->input('username', session('user_name'));
+        if (!$username) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Username missing (session or payload).',
+            ], 422);
+        }
+
+        $ann = DB::table('tblannouncements')->where('id', $request->announcement_id)->first();
+        if (!$ann) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Announcement not found.',
+            ], 404);
+        }
+
+        // ----- Option A: Simple read-modify-write (good enough for low contention) -----
+        $readby = is_array($ann->readby) ? $ann->readby : (json_decode($ann->readby, true) ?? []);
+        if (!in_array($username, $readby, true)) {
+            $readby[] = $username;
+            DB::table('tblannouncements')
+                ->where('id', $ann->id)
+                ->update(['readby' => json_encode(array_values(array_unique($readby)))]);
+        }
+
+        return response()->json([
+            'success'         => true,
+            'announcement_id' => $ann->id,
+            'readby'          => $readby,
+        ]);
+    }
+
+    public function saveAnnouncement(Request $request)
+{
+    $data = $request->validate([
+        'id'        => ['nullable','integer','exists:tblannouncements,id'],
+        'title'     => ['required','string','max:255'],
+        'message'   => ['nullable','string'],           // from UI: content -> message
+        'start_at'  => ['nullable','string'],           // 'YYYY-MM-DDTHH:MM' local
+        'end_at'    => ['nullable','string'],
+        'save_mode' => ['required','in:draft,active'],  // status
+        'recipients'=> ['nullable'],                    // array of user IDs or []
+    ]);
+
+    $userTz = session('usertimezone', 'Asia/Manila');
+
+    // Convert local → UTC for DB
+    $startUtc = $data['start_at'] ? \Carbon\Carbon::parse($data['start_at'], $userTz)->setTimezone('UTC') : null;
+    $endUtc   = $data['end_at']   ? \Carbon\Carbon::parse($data['end_at'],   $userTz)->setTimezone('UTC') : null;
+
+    // sanitize recipients to int[]
+    $recips = $request->input('recipients', []);
+    if (!is_array($recips)) $recips = [];
+    $recips = collect($recips)->map(fn($v)=>(int)$v)->unique()->values()->all();
+
+    $row = [
+        'title'           => $data['title'],
+        'content'         => $data['message'] ?? null,
+        'start_at'        => $startUtc,
+        'end_at'          => $endUtc,
+        'is_active'       => $data['save_mode']==='active' ? 1 : 0,
+        'recipients_json' => json_encode($recips),
+        'updated_at'      => now('UTC'),
+    ];
+
+    if (!empty($data['id'])) {
+        \DB::table('tblannouncements')->where('id', $data['id'])->update($row);
+        $id = (int)$data['id'];
+    } else {
+        $row['priority']   = 0;
+        $row['readby']     = json_encode([]);
+        $row['created_at'] = now('UTC');
+        $id = \DB::table('tblannouncements')->insertGetId($row);
+    }
+
+    return response()->json(['success'=>true,'id'=>$id]);
+}
+
+public function adminListAnnouncements(Request $request)
+{
+    $userTz   = session('usertimezone', 'Asia/Manila');
+    $username = session('user_name') ?? null;
+
+    $status = $request->query('status', 'all');   // all|active|draft
+    $q      = trim($request->query('q', ''));
+
+    $rows = \DB::table('tblannouncements')
+        ->when($status==='active', fn($q)=>$q->where('is_active',1))
+        ->when($status==='draft',  fn($q)=>$q->where('is_active',0))
+        ->when($q!=='', function($qq) use($q){
+            $qq->where(function($w) use($q){
+                $w->where('title','like',"%$q%")
+                  ->orWhere('content','like',"%$q%");
+            });
+        })
+        ->orderByDesc('is_active')
+        ->orderByDesc('priority')
+        ->orderBy('created_at','desc')
+        ->get();
+
+    $payload = $rows->map(function($r) use($userTz,$username){
+        $readby     = is_array($r->readby) ? $r->readby : (json_decode($r->readby,true) ?? []);
+        $recipients = json_decode($r->recipients_json, true);
+
+        $startLocal = $r->start_at ? \Carbon\Carbon::parse($r->start_at,'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+        $endLocal   = $r->end_at   ? \Carbon\Carbon::parse($r->end_at,'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+
+        return [
+            'id'           => $r->id,
+            'title'        => $r->title,
+            'message'      => $r->content,
+            'start_at'     => $startLocal,
+            'end_at'       => $endLocal,
+            'is_active'    => (int)$r->is_active === 1,
+            'readby_count' => is_array($readby) ? count($readby) : 0,
+            'read_by_me'   => $username ? in_array($username, $readby, true) : false,
+            // recipients can be [] of user IDs (preferred) — UI maps to names
+            'recipients'   => is_array($recipients) ? $recipients : [],
+        ];
+    })->values();
+
+    return response()->json($payload);
+}
+
+public function toggleAnnouncementActive(Request $request)
+{
+    $data = $request->validate([
+        'id' => ['required','integer','exists:tblannouncements,id'],
+        'make_active' => ['required','boolean'],
+    ]);
+
+    \DB::table('tblannouncements')
+        ->where('id', $data['id'])
+        ->update(['is_active' => $data['make_active'] ? 1 : 0, 'updated_at'=>now('UTC')]);
+
+    return response()->json(['success'=>true]);
+}
+
+public function dashviewAnnouncement(Request $request)
+{
+    $userTz   = session('usertimezone', 'Asia/Manila');
+    $username = session('user_name') ?? null;
+    $userId   = session('userid'); // <-- used for recipients gating
+
+    $nowUtc = \Carbon\Carbon::now('UTC');
+    $includeAck = (bool) $request->boolean('include_ack', false);
+
+    $rows = \DB::table('tblannouncements')
+        ->where('is_active', 1)
+        ->where(function ($q) use ($nowUtc) {
+            $q->whereNull('start_at')->orWhere('start_at', '<=', $nowUtc);
+        })
+        ->where(function ($q) use ($nowUtc) {
+            $q->whereNull('end_at')->orWhere('end_at', '>=', $nowUtc);
+        })
+        ->orderByDesc('priority')
+        ->orderBy('start_at', 'desc')
+        ->get();
+
+    // recipients gating: if recipients_json not empty, restrict to those including current user id
+    if ($userId) {
+        $rows = $rows->filter(function($r) use ($userId) {
+            $rec = json_decode($r->recipients_json, true);
+            if (is_array($rec) && count($rec)>0) {
+                return in_array((int)$userId, array_map('intval', $rec), true);
+            }
+            return true; // empty means "everyone"
+        })->values();
+    }
+
+    if (!$includeAck && $username) {
+        $rows = $rows->reject(function ($r) use ($username) {
+            $readby = is_array($r->readby) ? $r->readby : (json_decode($r->readby, true) ?? []);
+            return in_array($username, $readby, true);
+        })->values();
+    }
+
+    $payload = $rows->map(function ($r) use ($userTz) {
+        $startLocal = $r->start_at ? \Carbon\Carbon::parse($r->start_at, 'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+        $endLocal   = $r->end_at   ? \Carbon\Carbon::parse($r->end_at,   'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+
+        return [
+            'id'       => $r->id,
+            'title'    => $r->title,
+            'message'  => $r->content,
+            'start_at' => $startLocal,
+            'end_at'   => $endLocal,
+            'readby'   => is_array($r->readby) ? $r->readby : (json_decode($r->readby, true) ?? []),
+            'priority' => (int) ($r->priority ?? 0),
+        ];
+    });
+
+    return response()->json($payload);
+}
+
+
+
+
 }
