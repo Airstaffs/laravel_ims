@@ -117,6 +117,8 @@ export default {
             limit: 25,
             totalPages: 1,
             currentPage: 1,
+            expandedClockId: null,
+            historyLoading: false,
 
             // Edit modal
             showEditModal: false,
@@ -480,6 +482,45 @@ export default {
             }
         },
 
+        toggleHistory(clockId) {
+            // collapse if clicking the same row
+            if (this.expandedClockId === clockId) {
+                this.expandedClockId = null;
+                return;
+            }
+
+            // open new row and load history
+            this.expandedClockId = clockId;
+            this.historyLoading = true;
+
+            // reuse your existing API call
+            this.fetchClockEditHistoryByClock(clockId)
+                .catch((e) => console.error("load history error", e))
+                .finally(() => {
+                    this.historyLoading = false;
+                });
+        },
+
+        // tiny helper to compute changed keys when backend returns before/after objects
+        prettyDiff(before = {}, after = {}) {
+            const keys = Array.from(
+                new Set([
+                    ...Object.keys(before || {}),
+                    ...Object.keys(after || {}),
+                ])
+            );
+            return keys
+                .filter(
+                    (k) =>
+                        String(before?.[k] ?? "") !== String(after?.[k] ?? "")
+                )
+                .map((k) => ({
+                    key: k,
+                    from: before?.[k] ?? "",
+                    to: after?.[k] ?? "",
+                }));
+        },
+
         // Time Records Edit History
         async fetchClockEditHistoryOnce(params = {}) {
             if (this.loaded.clockHistory || this.loading.clockHistory) return;
@@ -794,6 +835,19 @@ export default {
 
             try {
                 const SAVE_URL = `${API_BASE_URL}/hr/announcements/save`;
+                const csrf =
+                    (typeof window !== "undefined" && window.csrfToken) ||
+                    document
+                        .querySelector('meta[name="csrf-token"]')
+                        ?.getAttribute("content") ||
+                    null;
+
+                if (!csrf) {
+                    console.warn(
+                        'CSRF token not found. Add window.csrfToken or a <meta name="csrf-token"> tag.'
+                    );
+                }
+
                 const body = {
                     id: this.announcementForm.id || null,
                     title: this.announcementForm.title,
@@ -808,11 +862,12 @@ export default {
 
                 const { data } = await axios.post(SAVE_URL, body, {
                     withCredentials: true,
+                    headers: { "X-CSRF-TOKEN": csrf },
                 });
+
                 if (!data?.success)
                     throw new Error(data?.message || "Save failed");
 
-                // auto-refresh Manage list if open
                 if (this.showManageAnnouncements)
                     await this.refreshManageAnnouncements();
 
@@ -822,7 +877,6 @@ export default {
                         : "Saved as Draft"
                 );
 
-                // if new create, clear; if editing, keep form (optional)
                 if (!this.announcementForm.id) {
                     this.closeAnnouncementModal();
                 }
@@ -981,6 +1035,10 @@ export default {
 
                 // time records
                 fetchRecords: () => this.fetchRecords(),
+                expandedClockId: this.expandedClockId,
+                historyLoading: this.historyLoading,
+                toggleHistory: (id) => this.toggleHistory(id),
+                prettyDiff: (b, a) => this.prettyDiff(b, a),
 
                 // time-record editor
                 openEdit: (row) => this.openEdit(row),
