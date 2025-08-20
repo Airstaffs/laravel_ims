@@ -227,3 +227,7 @@ table tbody tr td {
     align-items: stretch;
     gap: 10px;
 }
+
+.tr-clickable {
+    cursor: pointer;
+}
