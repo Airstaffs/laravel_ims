@@ -1,32 +1,335 @@
 // ==========================
-// GLOBAL PRINTER FUNCTIONS - MUST BE AT THE TOP BEFORE DOMContentLoaded
+// COMPLETE PRINTER MANAGEMENT WITH ENHANCED MODAL FIX
 // ==========================
 
-// Make printer functions globally accessible for onclick handlers
+// Global state management for modals
+window.printerModalState = {
+    settingsModalInstance: null,
+    activeModal: null,
+    originalBackdrop: null
+};
+
+// Global printer modal management functions
+function cleanupModalBackdrops() {
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => {
+        if (backdrop) {
+            backdrop.remove();
+        }
+    });
+    
+    const activeModals = document.querySelectorAll('.modal.show');
+    if (activeModals.length === 0) {
+        document.body.classList.remove('modal-open');
+        document.body.style.paddingRight = '';
+        document.body.style.overflow = '';
+    }
+}
+
+function forceModalInteractive(modalElement) {
+    if (!modalElement) return;
+    
+    modalElement.style.pointerEvents = 'auto';
+    modalElement.style.zIndex = '1055';
+    
+    const modalDialog = modalElement.querySelector('.modal-dialog');
+    if (modalDialog) {
+        modalDialog.style.pointerEvents = 'auto';
+        modalDialog.style.zIndex = '1056';
+    }
+    
+    const modalContent = modalElement.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.style.pointerEvents = 'auto';
+        modalContent.style.zIndex = '1057';
+        modalContent.style.opacity = '1';
+        modalContent.style.filter = 'none';
+    }
+    
+    const formElements = modalElement.querySelectorAll('input, select, textarea, button');
+    formElements.forEach(element => {
+        element.style.pointerEvents = 'auto';
+    });
+}
+
+function preventSettingsModalInterference() {
+    const settingsModal = document.getElementById('settingsModal');
+    if (settingsModal) {
+        settingsModal.style.zIndex = '1040';
+        settingsModal.style.display = 'block';
+        settingsModal.classList.add('show');
+    }
+}
+
+function ensurePrinterTabActive() {
+    setTimeout(() => {
+        const printerTab = document.getElementById('printer-tab');
+        const printerPane = document.getElementById('printer');
+        
+        if (printerTab && printerPane) {
+            document.querySelectorAll('#settingsTab .nav-item').forEach(tab => {
+                tab.classList.remove('active');
+                tab.setAttribute('aria-selected', 'false');
+            });
+            
+            document.querySelectorAll('#settingsTabContent .tab-pane').forEach(pane => {
+                pane.classList.remove('show', 'active');
+            });
+            
+            printerTab.classList.add('active');
+            printerTab.setAttribute('aria-selected', 'true');
+            printerPane.classList.add('show', 'active');
+            
+            const currentSubTab = window.printerTabState?.subTab || 'printer-list-tab';
+            const subTab = document.getElementById(currentSubTab);
+            const subTabContent = document.getElementById(currentSubTab.replace('-tab', ''));
+            
+            if (subTab && subTabContent) {
+                document.querySelectorAll('#printerSubTabs .nav-link').forEach(tab => {
+                    tab.classList.remove('active');
+                    tab.setAttribute('aria-selected', 'false');
+                });
+                document.querySelectorAll('#printerSubTabContent .tab-pane').forEach(pane => {
+                    pane.classList.remove('show', 'active');
+                });
+                
+                subTab.classList.add('active');
+                subTab.setAttribute('aria-selected', 'true');
+                subTabContent.classList.add('show', 'active');
+            }
+        }
+    }, 100);
+}
+
+function handlePrinterModalOpen(modalId, modalElement) {
+    console.log(`Opening printer modal: ${modalId}`);
+    
+    window.printerModalState.activeModal = modalId;
+    
+    preventSettingsModalInterference();
+    
+    modalElement.style.zIndex = '1055';
+    modalElement.style.display = 'block';
+    
+    setTimeout(() => {
+        forceModalInteractive(modalElement);
+        
+        const backdrop = document.querySelector('.modal-backdrop:last-of-type');
+        if (backdrop) {
+            backdrop.style.zIndex = '1050';
+            backdrop.style.pointerEvents = 'none';
+        }
+    }, 50);
+}
+
+function handlePrinterModalClose(modalId, modalElement) {
+    console.log(`Closing printer modal: ${modalId}`);
+    
+    modalElement.style.zIndex = '';
+    modalElement.style.pointerEvents = '';
+    
+    const modalDialog = modalElement.querySelector('.modal-dialog');
+    const modalContent = modalElement.querySelector('.modal-content');
+    
+    if (modalDialog) modalDialog.style.pointerEvents = '';
+    if (modalContent) {
+        modalContent.style.pointerEvents = '';
+        modalContent.style.opacity = '';
+        modalContent.style.filter = '';
+    }
+    
+    window.printerModalState.activeModal = null;
+    
+    setTimeout(() => {
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal) {
+            settingsModal.style.zIndex = '1050';
+            settingsModal.style.display = 'block';
+            settingsModal.classList.add('show');
+            
+            document.body.classList.add('modal-open');
+            
+            cleanupModalBackdrops();
+            
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.style.zIndex = '1040';
+            document.body.appendChild(backdrop);
+            
+            ensurePrinterTabActive();
+        }
+    }, 100);
+}
+
+// Global printer functions
 window.editPrinter = function(printerId) {
+    console.log('Edit printer clicked for ID:', printerId);
+    
+    cleanupModalBackdrops();
+    
     fetch(`/api/printer-management/get-printer/${printerId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
                 const printer = data.printer;
+                console.log('Printer data received:', printer);
+                
+                const modal = document.getElementById('editPrinterModal');
+                if (!modal) {
+                    console.error('Edit printer modal not found in DOM!');
+                    alert('Edit modal not found. Please ensure the modal HTML is loaded.');
+                    return;
+                }
+                
                 document.getElementById('editPrinterId').value = printer.printerid;
-                document.getElementById('editPrinterName').value = printer.printername;
-                document.getElementById('editPrinterType').value = printer.printer_type;
-                document.getElementById('editPrinterIP').value = printer.printerip;
-                document.getElementById('editPrinterPort').value = printer.port || '';
+                document.getElementById('editPrinterName').value = printer.printername || '';
+                document.getElementById('editPrinterType').value = printer.printer_type || '';
+                document.getElementById('editPrinterIP').value = printer.printerip || '';
+                document.getElementById('editPrinterPort').value = printer.port || '9100';
                 document.getElementById('editPrinterDescription').value = printer.description || '';
                 document.getElementById('editPrinterStatus').value = printer.status || 'active';
                 
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('editPrinterModal')).show();
+                const form = modal.querySelector('#editPrinterForm');
+                if (form) {
+                    form.classList.remove('was-validated');
+                    
+                    const feedbacks = form.querySelectorAll('.invalid-feedback');
+                    feedbacks.forEach(feedback => feedback.style.display = 'none');
+                    
+                    const inputs = form.querySelectorAll('.form-control, .form-select');
+                    inputs.forEach(input => {
+                        input.classList.remove('is-valid', 'is-invalid');
+                    });
+                }
+                
+                console.log('Form fields populated, showing modal...');
+                
+                handlePrinterModalOpen('editPrinterModal', modal);
+                
+                try {
+                    const modalInstance = new bootstrap.Modal(modal, {
+                        backdrop: 'static',
+                        keyboard: true,
+                        focus: true
+                    });
+                    
+                    modalInstance.show();
+                    
+                    setTimeout(() => {
+                        forceModalInteractive(modal);
+                        
+                        const firstInput = modal.querySelector('input:not([type="hidden"]):not([readonly])');
+                        if (firstInput) {
+                            firstInput.focus();
+                        }
+                    }, 100);
+                    
+                    console.log('Edit modal show() called successfully');
+                    
+                } catch (error) {
+                    console.error('Error showing edit modal:', error);
+                    
+                    modal.style.display = 'block';
+                    modal.classList.add('show');
+                    document.body.classList.add('modal-open');
+                    
+                    if (!document.querySelector('.modal-backdrop')) {
+                        const backdrop = document.createElement('div');
+                        backdrop.className = 'modal-backdrop fade show';
+                        backdrop.style.zIndex = '1050';
+                        backdrop.style.pointerEvents = 'none';
+                        document.body.appendChild(backdrop);
+                    }
+                    
+                    forceModalInteractive(modal);
+                }
+                
+            } else {
+                console.error('Error fetching printer details:', data.message);
+                alert('Error fetching printer details: ' + (data.message || 'Unknown error'));
             }
         })
         .catch(error => {
             console.error('Error fetching printer details:', error);
-            alert('Error fetching printer details');
+            alert('Error fetching printer details. Please try again.');
         });
 };
 
+window.showAddPrinterModal = function() {
+    console.log('Show add printer modal called');
+    
+    cleanupModalBackdrops();
+    
+    const modal = document.getElementById('addPrinterModal');
+    if (!modal) {
+        console.error('Add printer modal not found in DOM!');
+        alert('Add printer modal not found. Please ensure the modal HTML is loaded.');
+        return;
+    }
+    
+    const form = modal.querySelector('#addPrinterForm');
+    if (form) {
+        form.reset();
+        form.classList.remove('was-validated');
+        
+        const feedbacks = form.querySelectorAll('.invalid-feedback');
+        feedbacks.forEach(feedback => feedback.style.display = 'none');
+        
+        const inputs = form.querySelectorAll('.form-control, .form-select');
+        inputs.forEach(input => {
+            input.classList.remove('is-valid', 'is-invalid');
+        });
+    }
+    
+    handlePrinterModalOpen('addPrinterModal', modal);
+    
+    try {
+        const modalInstance = new bootstrap.Modal(modal, {
+            backdrop: 'static',
+            keyboard: true,
+            focus: true
+        });
+        
+        modalInstance.show();
+        
+        setTimeout(() => {
+            forceModalInteractive(modal);
+            
+            const firstInput = modal.querySelector('input:not([type="hidden"])');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }, 100);
+        
+        console.log('Add modal show() called successfully');
+        
+    } catch (error) {
+        console.error('Error showing add printer modal:', error);
+        
+        modal.style.display = 'block';
+        modal.classList.add('show');
+        document.body.classList.add('modal-open');
+        
+        if (!document.querySelector('.modal-backdrop')) {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'modal-backdrop fade show';
+            backdrop.style.zIndex = '1050';
+            backdrop.style.pointerEvents = 'none';
+            document.body.appendChild(backdrop);
+        }
+        
+        forceModalInteractive(modal);
+    }
+};
+
 window.testPrinter = function(printerId) {
+    const originalEvent = event;
+    const testBtn = originalEvent.target.closest('button');
+    const originalText = testBtn.innerHTML;
+    
+    testBtn.disabled = true;
+    testBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Testing...';
+    
     fetch(`/api/printer-management/test-printer/${printerId}`, {
         method: 'POST',
         headers: {
@@ -36,25 +339,60 @@ window.testPrinter = function(printerId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Printer test successful!');
+            if (typeof showToast === 'function') {
+                showToast('✅ Printer test successful!', 'success');
+            } else {
+                alert('Printer test successful!');
+            }
         } else {
-            alert('Printer test failed: ' + (data.message || 'Unknown error'));
+            if (typeof showToast === 'function') {
+                showToast('❌ Printer test failed: ' + (data.message || 'Unknown error'), 'error');
+            } else {
+                alert('Printer test failed: ' + (data.message || 'Unknown error'));
+            }
         }
     })
     .catch(error => {
         console.error('Error testing printer:', error);
-        alert('Error testing printer connection');
+        if (typeof showToast === 'function') {
+            showToast('❌ Error testing printer connection', 'error');
+        } else {
+            alert('Error testing printer connection');
+        }
+    })
+    .finally(() => {
+        testBtn.disabled = false;
+        testBtn.innerHTML = originalText;
     });
 };
 
 window.showDeletePrinterConfirmation = function(printerId) {
-    // Set global variable that's accessible everywhere
     window.currentDeletePrinterId = printerId;
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('deletePrinterModal')).show();
+    
+    cleanupModalBackdrops();
+    
+    const modal = document.getElementById('deletePrinterModal');
+    if (!modal) {
+        console.error('Delete printer modal not found in DOM!');
+        alert('Delete printer modal not found. Please ensure the modal HTML is loaded.');
+        return;
+    }
+    
+    handlePrinterModalOpen('deletePrinterModal', modal);
+    
+    modal.style.zIndex = '1060';
+    const modalInstance = bootstrap.Modal.getOrCreateInstance(modal);
+    modalInstance.show();
 };
 
 window.divorcePrinters = function(marriageId) {
     if (confirm('Are you sure you want to divorce these printers? This will break their marriage and they will be available for new marriages.')) {
+        const confirmBtn = event.target;
+        const originalText = confirmBtn.innerHTML;
+        
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Divorcing...';
+        
         fetch(`/api/printer-management/divorce-printers/${marriageId}`, {
             method: 'DELETE',
             headers: {
@@ -64,27 +402,97 @@ window.divorcePrinters = function(marriageId) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('Printers divorced successfully!');
-                // Call the global functions if they exist
+                if (typeof showToast === 'function') {
+                    showToast('💔 Printers divorced successfully!', 'success');
+                } else {
+                    alert('Printers divorced successfully!');
+                }
+                
                 if (typeof window.refreshPrinterData === 'function') {
                     window.refreshPrinterData();
                 }
+                
+                setTimeout(() => {
+                    if (typeof fetchMarriedPrinters === 'function') {
+                        fetchMarriedPrinters();
+                    }
+                    if (typeof fetchAllPrinters === 'function') {
+                        fetchAllPrinters();
+                    }
+                    if (typeof loadAvailablePrinters === 'function') {
+                        loadAvailablePrinters();
+                    }
+                }, 100);
             } else {
-                alert(data.message || 'Error divorcing printers');
+                if (typeof showToast === 'function') {
+                    showToast('❌ ' + (data.message || 'Error divorcing printers'), 'error');
+                } else {
+                    alert(data.message || 'Error divorcing printers');
+                }
             }
         })
         .catch(error => {
             console.error('Error divorcing printers:', error);
-            alert('Error divorcing printers');
+            if (typeof showToast === 'function') {
+                showToast('❌ Error divorcing printers', 'error');
+            } else {
+                alert('Error divorcing printers');
+            }
+        })
+        .finally(() => {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = originalText;
         });
     }
 };
 
-// ==========================
-// START OF YOUR EXISTING DOMContentLoaded CODE
-// ==========================
-
+// Main DOMContentLoaded event
 document.addEventListener("DOMContentLoaded", function () {
+    // Initialize modal management
+    initializeModalManagement();
+    
+    // Track printer modal state to prevent tab switching
+    let printerModalOpen = false;
+    
+    function handlePrinterModalOpenState() {
+        printerModalOpen = true;
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal) {
+            settingsModal.classList.add('printer-modal-open');
+        }
+    }
+    
+    function handlePrinterModalCloseState() {
+        printerModalOpen = false;
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal) {
+            settingsModal.classList.remove('printer-modal-open');
+            
+            setTimeout(() => {
+                ensurePrinterTabActive();
+                cleanupModalBackdrops();
+                settingsModal.style.zIndex = '1050';
+            }, 100);
+        }
+    }
+    
+    const printerModals = ['addPrinterModal', 'editPrinterModal', 'deletePrinterModal', 'marryPrintersModal'];
+    
+    printerModals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.addEventListener('show.bs.modal', function() {
+                handlePrinterModalOpenState();
+                handlePrinterModalOpen(modalId, this);
+            });
+            
+            modal.addEventListener('hidden.bs.modal', function() {
+                handlePrinterModalCloseState();
+                handlePrinterModalClose(modalId, this);
+            });
+        }
+    });
+
     const settingsModalEl = document.getElementById("settingsModal");
     const userListModal = document.getElementById("userListModal");
     const editUserModal = document.getElementById("editUserModal");
@@ -105,7 +513,12 @@ document.addEventListener("DOMContentLoaded", function () {
         this.classList.toggle("bi-eye-slash");
     });
 
+    // Settings modal event handlers
     settingsModalEl.addEventListener("shown.bs.modal", function () {
+        if (printerModalOpen) {
+            return;
+        }
+        
         const defaultTab = document.querySelector("#design-tab");
         if (defaultTab) {
             const tabInstance = bootstrap.Tab.getOrCreateInstance(defaultTab);
@@ -124,6 +537,10 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     settingsModalEl.addEventListener("hidden.bs.modal", function () {
+        if (printerModalOpen) {
+            return;
+        }
+        
         document.querySelectorAll("#settingsTab .nav-link").forEach((tab) => {
             tab.classList.remove("active");
             tab.setAttribute("aria-selected", "false");
@@ -142,10 +559,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    // ==========================
     // User Management
-    // ==========================
-
     let deleteUserId = null;
     let skipModalCycle = false;
 
@@ -205,7 +619,6 @@ document.addEventListener("DOMContentLoaded", function () {
         fetchUsers();
     });
 
-    // Clean up backdrop after closing
     userListModal?.addEventListener("hidden.bs.modal", function () {
         if (
             !document
@@ -249,7 +662,6 @@ document.addEventListener("DOMContentLoaded", function () {
         bootstrap.Modal.getInstance(userListModal)?.hide();
         bootstrap.Modal.getInstance(settingsModalEl)?.hide();
 
-        // Prevent recursive modal cycle
         skipModalCycle = true;
 
         document.getElementById("edit_user_id").value = userId;
@@ -292,14 +704,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
         });
 
-    // Show User List after editing (prevent recursion)
     editUserModal?.addEventListener("hidden.bs.modal", () => {
-        // Ensure focus is blurred to avoid aria-hidden conflicts
         if (editUserModal.contains(document.activeElement)) {
             document.activeElement.blur();
         }
 
-        // Show the settings modal after edit closes
         const userListModalInstance =
             bootstrap.Modal.getOrCreateInstance(userListModal);
         userListModalInstance.show();
@@ -350,16 +759,14 @@ document.addEventListener("DOMContentLoaded", function () {
         .querySelector('meta[name="csrf-token"]')
         .getAttribute("content");
 
-    // Show the add store modal and hide the settings modal
+    // Store management functions
     document
         .getElementById("addStoreButton")
         ?.addEventListener("click", function () {
-            // Show the add store modal
             $("#addStoreModal").modal("show");
             $("#settingsModal").modal("hide");
         });
 
-    // Add Store Submission
     document
         .getElementById("addStoreForm")
         ?.addEventListener("submit", function (e) {
@@ -377,7 +784,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            // Normalize and check for duplicate
             const existingStores = Array.from(
                 document.querySelectorAll("#storeList li")
             );
@@ -394,15 +800,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            console.log(Strabbreviation);
-
             axios
                 .post("/add-store", { storename: storeName, Strabbreviation: Strabbreviation })
                 .then((response) => {
                     if (!response.data.success)
                         throw new Error("Failed to add store.");
 
-                    // Add new store to list
                     const newItem = document.createElement("li");
                     newItem.className = "list-group-item";
                     newItem.innerHTML = `
@@ -425,14 +828,12 @@ document.addEventListener("DOMContentLoaded", function () {
                         `Store "${response.data.store.storename}" added successfully!`
                     );
 
-                    // Hide addStoreModal and reset form
                     const addStoreModal = bootstrap.Modal.getInstance(
                         document.getElementById("addStoreModal")
                     );
                     addStoreModal?.hide();
                     e.target.reset();
 
-                    // On modal hide, show settings modal with store tab active
                     const settingsModal = new bootstrap.Modal(
                         document.getElementById("settingsModal")
                     );
@@ -444,14 +845,12 @@ document.addEventListener("DOMContentLoaded", function () {
                         function handler() {
                             settingsModal.show();
 
-                            // Activate store tab
                             const storeTab =
                                 document.getElementById("store-tab");
                             const tabInstance =
                                 bootstrap.Tab.getOrCreateInstance(storeTab);
                             tabInstance.show();
 
-                            // Remove listener after first execution
                             addStoreModalEl.removeEventListener(
                                 "hidden.bs.modal",
                                 handler
@@ -473,14 +872,13 @@ document.addEventListener("DOMContentLoaded", function () {
         fetchStoreList();
     });
 
-    // Function to fetch and display store list from the server
     function fetchStoreList() {
         axios
             .get("/get-stores")
             .then((response) => {
                 const storeList = document.getElementById("storeList");
                 if (storeList) {
-                    storeList.innerHTML = ""; // Clear the list before populating it
+                    storeList.innerHTML = "";
 
                     response.data.stores.forEach((store) => {
                         const listItem = document.createElement("li");
@@ -508,9 +906,8 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     }
 
-    // Re-fetch store list when switching to the "Store List" tab
     $("#store-tab").on("click", function () {
-        fetchStoreList(); // Re-fetch the store list when the tab is clicked
+        fetchStoreList();
     });
 
     function refreshStoreList() {
@@ -546,7 +943,6 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateStoreList(stores) {
         const storeContainer = document.getElementById("storeContainer");
 
-        // Save current checkbox states
         const currentStates = new Map();
         document
             .querySelectorAll('input[name="privileges_stores[]"]')
@@ -557,7 +953,6 @@ document.addEventListener("DOMContentLoaded", function () {
         let storeListHTML = '<h6>Stores</h6><div class="row mb-3">';
 
         stores.forEach((store) => {
-            // Check if we have a saved state, otherwise use the server state
             const isChecked = currentStates.has(store.store_column)
                 ? currentStates.get(store.store_column)
                 : store.is_checked;
@@ -599,9 +994,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     }
 
-    // Event Listeners
     document.addEventListener("DOMContentLoaded", function () {
-        // Initialize privilege tab listener
         const privilegeTab = document.getElementById("privilege-tab");
         if (privilegeTab) {
             privilegeTab.addEventListener("click", function () {
@@ -612,7 +1005,6 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
 
-        // Initialize select user change listener
         const selectUser = document.getElementById("selectUser");
         if (selectUser) {
             selectUser.addEventListener("change", function () {
@@ -622,14 +1014,13 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
     });
+
     // Delete Store functionality
     document.addEventListener("click", function (e) {
         if (e.target.classList.contains("delete-store-btn")) {
             const storeId = e.target.dataset.id;
 
-            // Confirm before deleting
             if (confirm("Are you sure you want to delete this store?")) {
-                // Send the delete request to the backend
                 axios
                     .delete(`/delete-store/${storeId}`)
                     .then((response) => {
@@ -651,13 +1042,11 @@ document.addEventListener("DOMContentLoaded", function () {
     $(document).on("click", ".edit-store-btn", function () {
         const storeId = $(this).data("id");
         $("#settingsModal").modal("hide");
-        // Fetch the store details using the store ID
         axios
             .get(`/get-store/${storeId}`)
             .then((response) => {
                 const store = response.data.store;
 
-                // Populate the modal with the current store details
                 $("#editStoreId").val(store.store_id);
                 $("#editStoreName").val(store.storename);
                 $("#editClientID").val(store.client_id);
@@ -667,7 +1056,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 $("#editMarketplace").val(store.Marketplace);
                 $("#editMarketplaceID").val(store.MarketplaceID);
 
-                // Show the modal
                 $("#editStoreModal").modal("show");
             })
             .catch((error) => {
@@ -679,7 +1067,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document
         .getElementById("editStoreForm")
         ?.addEventListener("submit", function (e) {
-            e.preventDefault(); // Prevent default form submission
+            e.preventDefault();
 
             const storeId = document.getElementById("editStoreId").value.trim();
             if (!storeId) {
@@ -687,9 +1075,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 return;
             }
 
-            // Gather the updated data from the form
             const updatedStoreData = {
-                store_id: storeId, // Should match the store_id column in the database
+                store_id: storeId,
                 storename:
                     document.getElementById("editStoreName").value.trim() ||
                     null,
@@ -713,9 +1100,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     null,
             };
 
-            console.log(updatedStoreData);
-
-            // Send request to update store
             axios
                 .post("/update-store/" + storeId, updatedStoreData, {
                     headers: {
@@ -725,7 +1109,6 @@ document.addEventListener("DOMContentLoaded", function () {
                     },
                 })
                 .then((response) => {
-                    console.log(response);
                     if (response.data.success) {
                         alert("Store updated successfully");
                         fetchStoreList();
@@ -733,7 +1116,6 @@ document.addEventListener("DOMContentLoaded", function () {
                         $("#settingsModal").modal("show");
                         $("#store-tab").tab("show");
                     } else {
-                        // Display the error message returned by the server
                         alert(
                             response.data.message || "Failed to update store"
                         );
@@ -745,13 +1127,11 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
         });
 
-    // Alternatively, if you're using the close button explicitly, you can handle it like this:
     document
         .querySelector("#editStoreModal .btn-close")
         ?.addEventListener("click", function () {
-            // Show the settings modal and select the store tab after closing the edit modal
             $("#settingsModal").modal("show");
-            $("#store-tab").tab("show"); // This activates the store tab
+            $("#store-tab").tab("show");
         });
 
     function fetchMarketplaces() {
@@ -763,10 +1143,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     document.getElementById("selectMarketplace");
 
                 if (marketplaceSelect) {
-                    // Clear previous options
                     marketplaceSelect.innerHTML = "";
 
-                    // Optional: Add a placeholder-like option (disabled)
                     if (response.data.length === 0) {
                         const placeholder = document.createElement("option");
                         placeholder.textContent = "No marketplaces available";
@@ -775,11 +1153,10 @@ document.addEventListener("DOMContentLoaded", function () {
                         return;
                     }
 
-                    // Populate select with fetched marketplaces
                     response.data.forEach((marketplace) => {
                         const option = document.createElement("option");
                         option.value =
-                            marketplace.value ?? marketplace.id ?? marketplace.name; // fallback chain
+                            marketplace.value ?? marketplace.id ?? marketplace.name;
                         option.textContent =
                             marketplace.name ??
                             marketplace.label ??
@@ -800,7 +1177,6 @@ document.addEventListener("DOMContentLoaded", function () {
         
         const selectedOptions = Array.from(marketplaceSelect.selectedOptions);
 
-        // Retrieve existing values from the input fields
         const editMarketplace = document.getElementById("editMarketplace");
         const editMarketplaceID = document.getElementById("editMarketplaceID");
         
@@ -809,7 +1185,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const currentNames = editMarketplace.value.split(",").map((name) => name.trim());
         const currentIDs = editMarketplaceID.value.split(",").map((id) => id.trim());
 
-        // Add new values, avoiding duplicates
         selectedOptions.forEach((option) => {
             if (!currentNames.includes(option.textContent)) {
                 currentNames.push(option.textContent);
@@ -817,12 +1192,10 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
 
-        // Update the fields with the updated values
         editMarketplace.value = currentNames.filter(Boolean).join(", ");
         editMarketplaceID.value = currentIDs.filter(Boolean).join(", ");
     }
 
-    // Attach event listeners
     document
         .getElementById("editStoreModal")
         ?.addEventListener("show.bs.modal", fetchMarketplaces);
@@ -830,10 +1203,10 @@ document.addEventListener("DOMContentLoaded", function () {
         .getElementById("selectMarketplace")
         ?.addEventListener("change", updateMarketplaceFields);
 
-    // Settings -  Time Record & Userlogs  -----
+    // Settings tabs initialization
     let scriptInitialized = false;
     let userLogsScriptInitialized = false;
-    let printerScriptInitialized = false; // Add printer script initialization flag
+    let printerScriptInitialized = false;
 
     const settingsTab = document.getElementById("settingsTab");
     if (settingsTab) {
@@ -850,7 +1223,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 userLogsScriptInitialized = true;
             }
 
-            // Add printer tab initialization
             if (targetTab === "#printer" && !printerScriptInitialized) {
                 initPrinterManagement();
                 printerScriptInitialized = true;
@@ -858,31 +1230,27 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    // ==========================
-    // Printer Management - UPDATED VERSION WITH ELEMENT CHECKS
-    // ==========================
-
+    // Printer Management Initialization
     function initPrinterManagement() {
         console.log('Initializing printer management...');
         
-        // Check if required elements exist before proceeding
         const allPrintersTable = document.getElementById('allPrintersTableBody');
         if (!allPrintersTable) {
             console.error('Printer table element not found. Make sure the printer tab HTML is loaded.');
             return;
         }
         
-        // Load all printers on initialization
+        window.printerTabState = {
+            mainTab: 'printer',
+            subTab: 'printer-list-tab'
+        };
+        
         fetchAllPrinters();
         loadAvailablePrinters();
         
-        // Setup event listeners for sub-tabs
         setupSubTabListeners();
-        
-        // Setup form event listeners
         setupFormListeners();
         
-        // Make internal functions globally accessible for refreshing data
         window.refreshPrinterData = function() {
             fetchAllPrinters();
             fetchMarriedPrinters();
@@ -890,81 +1258,142 @@ document.addEventListener("DOMContentLoaded", function () {
         };
     }
 
-   function setupSubTabListeners() {
-    // When switching to small label tab
-    const smallLabelTab = document.getElementById('small-label-tab');
-    if (smallLabelTab) {
-        smallLabelTab.addEventListener('shown.bs.tab', function (e) {
-            console.log('Small label tab shown');
-            fetchPrintersByType('small_label');
+    function setupSubTabListeners() {
+        const smallLabelTab = document.getElementById('small-label-tab');
+        if (smallLabelTab) {
+            smallLabelTab.addEventListener('shown.bs.tab', function (e) {
+                console.log('Small label tab shown');
+                window.printerTabState.subTab = 'small-label-tab';
+                fetchPrintersByType('small_label');
+            });
+        }
+
+        const instructionCardTab = document.getElementById('instruction-card-tab');
+        if (instructionCardTab) {
+            instructionCardTab.addEventListener('shown.bs.tab', function (e) {
+                console.log('Instruction card tab shown');
+                window.printerTabState.subTab = 'instruction-card-tab';
+                fetchPrintersByType('instruction_card');
+            });
+        }
+
+        const marriedPrinterTab = document.getElementById('married-printer-tab');
+        if (marriedPrinterTab) {
+            marriedPrinterTab.addEventListener('shown.bs.tab', function (e) {
+                console.log('Married printer tab shown');
+                window.printerTabState.subTab = 'married-printer-tab';
+                fetchMarriedPrinters();
+            });
+        }
+
+        const printerListTab = document.getElementById('printer-list-tab');
+        if (printerListTab) {
+            printerListTab.addEventListener('shown.bs.tab', function (e) {
+                console.log('All printers tab shown');
+                window.printerTabState.subTab = 'printer-list-tab';
+                fetchAllPrinters();
+            });
+        }
+
+        smallLabelTab?.addEventListener('click', function() {
+            window.printerTabState.subTab = 'small-label-tab';
+            setTimeout(() => fetchPrintersByType('small_label'), 100);
+        });
+
+        instructionCardTab?.addEventListener('click', function() {
+            window.printerTabState.subTab = 'instruction-card-tab';
+            setTimeout(() => fetchPrintersByType('instruction_card'), 100);
+        });
+
+        marriedPrinterTab?.addEventListener('click', function() {
+            window.printerTabState.subTab = 'married-printer-tab';
+            setTimeout(() => fetchMarriedPrinters(), 100);
+        });
+
+        printerListTab?.addEventListener('click', function() {
+            window.printerTabState.subTab = 'printer-list-tab';
+            setTimeout(() => fetchAllPrinters(), 100);
         });
     }
-
-    // When switching to instruction card tab
-    const instructionCardTab = document.getElementById('instruction-card-tab');
-    if (instructionCardTab) {
-        instructionCardTab.addEventListener('shown.bs.tab', function (e) {
-            console.log('Instruction card tab shown');
-            fetchPrintersByType('instruction_card');
-        });
-    }
-
-    // When switching to married printer tab
-    const marriedPrinterTab = document.getElementById('married-printer-tab');
-    if (marriedPrinterTab) {
-        marriedPrinterTab.addEventListener('shown.bs.tab', function (e) {
-            console.log('Married printer tab shown');
-            fetchMarriedPrinters();
-        });
-    }
-
-    // Also add click listeners as backup
-    smallLabelTab?.addEventListener('click', function() {
-        setTimeout(() => fetchPrintersByType('small_label'), 100);
-    });
-
-    instructionCardTab?.addEventListener('click', function() {
-        setTimeout(() => fetchPrintersByType('instruction_card'), 100);
-    });
-
-    marriedPrinterTab?.addEventListener('click', function() {
-        setTimeout(() => fetchMarriedPrinters(), 100);
-    });
-}
 
     function setupFormListeners() {
-        // Add Printer Form
-        document.getElementById('addPrinterForm')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-            addNewPrinter(this);
-        });
+        const addPrinterForm = document.getElementById('addPrinterForm');
+        if (addPrinterForm) {
+            addPrinterForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!this.checkValidity()) {
+                    this.classList.add('was-validated');
+                    return;
+                }
+                
+                this.classList.add('was-validated');
+                addNewPrinter(this);
+            });
+        }
 
-        // Edit Printer Form
-        document.getElementById('editPrinterForm')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-            updatePrinter(this);
-        });
+        const editPrinterForm = document.getElementById('editPrinterForm');
+        if (editPrinterForm) {
+            editPrinterForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!this.checkValidity()) {
+                    this.classList.add('was-validated');
+                    return;
+                }
+                
+                this.classList.add('was-validated');
+                updatePrinter(this);
+            });
+        }
 
-        // Marry Printers Form
-        document.getElementById('marryPrintersForm')?.addEventListener('submit', function(e) {
-            e.preventDefault();
-            marryPrinters(this);
-        });
+        const marryPrintersForm = document.getElementById('marryPrintersForm');
+        if (marryPrintersForm) {
+            marryPrintersForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!this.checkValidity()) {
+                    this.classList.add('was-validated');
+                    return;
+                }
+                
+                this.classList.add('was-validated');
+                marryPrinters(this);
+            });
+        }
 
-        // Delete confirmation - Updated to use global variable
-        document.getElementById('confirmDeletePrinter')?.addEventListener('click', function() {
-            deletePrinter();
+        const confirmDeleteBtn = document.getElementById('confirmDeletePrinter');
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', function() {
+                deletePrinter();
+            });
+        }
+        
+        const ipInputs = document.querySelectorAll('input[name="ip_address"]');
+        ipInputs.forEach(input => {
+            input.addEventListener('input', function() {
+                const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+                if (this.value && !ipRegex.test(this.value)) {
+                    this.setCustomValidity('Please enter a valid IP address');
+                } else {
+                    this.setCustomValidity('');
+                }
+            });
         });
     }
 
     // Fetch all printers and display in main table
     function fetchAllPrinters() {
-        // Check if element exists before making request
         const tbody = document.getElementById('allPrintersTableBody');
         if (!tbody) {
             console.error('allPrintersTableBody element not found');
             return;
         }
+
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">Loading printers...</td></tr>';
 
         fetch('/api/printer-management/get-printers')
             .then(response => response.json())
@@ -985,7 +1414,6 @@ document.addEventListener("DOMContentLoaded", function () {
     function renderAllPrintersTable(printers) {
         const tbody = document.getElementById('allPrintersTableBody');
         
-        // Double-check element exists
         if (!tbody) {
             console.error('allPrintersTableBody element not found in renderAllPrintersTable');
             return;
@@ -1012,15 +1440,18 @@ document.addEventListener("DOMContentLoaded", function () {
                     <td>
                         <div class="btn-group" role="group">
                             <button type="button" class="btn btn-sm btn-outline-primary"
-                                onclick="editPrinter(${printer.printerid})">
+                                onclick="editPrinter(${printer.printerid})"
+                                title="Edit Printer">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-success"
-                                onclick="testPrinter(${printer.printerid})">
+                                onclick="testPrinter(${printer.printerid})"
+                                title="Test Printer">
                                 <i class="bi bi-check-circle"></i>
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-danger"
-                                onclick="showDeletePrinterConfirmation(${printer.printerid})">
+                                onclick="showDeletePrinterConfirmation(${printer.printerid})"
+                                title="Delete Printer">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
@@ -1028,6 +1459,281 @@ document.addEventListener("DOMContentLoaded", function () {
                 </tr>
             `;
         }).join('');
+    }
+
+    // Add new printer
+    function addNewPrinter(form) {
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Adding...';
+        
+        fetch('/api/printer-management/add-printer', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('✅ Printer added successfully!', 'success');
+                
+                const modal = document.getElementById('addPrinterModal');
+                if (modal) {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                }
+                
+                form.reset();
+                
+                fetchAllPrinters();
+                loadAvailablePrinters();
+                
+                setTimeout(() => {
+                    const currentSubTab = window.printerTabState?.subTab || 'printer-list-tab';
+                    if (currentSubTab === 'small-label-tab') {
+                        fetchPrintersByType('small_label');
+                    } else if (currentSubTab === 'instruction-card-tab') {
+                        fetchPrintersByType('instruction_card');
+                    } else if (currentSubTab === 'married-printer-tab') {
+                        fetchMarriedPrinters();
+                    }
+                }, 100);
+            } else {
+                showToast('❌ ' + (data.message || 'Error adding printer'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error adding printer:', error);
+            showToast('❌ Error adding printer. Please try again.', 'error');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+        });
+    }
+
+    // Update printer
+    function updatePrinter(form) {
+        const printerId = document.getElementById('editPrinterId')?.value;
+        if (!printerId) {
+            showToast('❌ Printer ID not found', 'error');
+            return;
+        }
+        
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Updating...';
+        
+        fetch(`/api/printer-management/update-printer/${printerId}`, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('✅ Printer updated successfully!', 'success');
+                
+                const modal = document.getElementById('editPrinterModal');
+                if (modal) {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                }
+                
+                fetchAllPrinters();
+                
+                setTimeout(() => {
+                    const currentSubTab = window.printerTabState?.subTab || 'printer-list-tab';
+                    if (currentSubTab === 'small-label-tab') {
+                        fetchPrintersByType('small_label');
+                    } else if (currentSubTab === 'instruction-card-tab') {
+                        fetchPrintersByType('instruction_card');
+                    } else if (currentSubTab === 'married-printer-tab') {
+                        fetchMarriedPrinters();
+                    }
+                }, 100);
+            } else {
+                showToast('❌ ' + (data.message || 'Error updating printer'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating printer:', error);
+            showToast('❌ Error updating printer. Please try again.', 'error');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+        });
+    }
+
+    // Delete printer
+    function deletePrinter() {
+        if (!window.currentDeletePrinterId) {
+            showToast('❌ Printer ID not found', 'error');
+            return;
+        }
+        
+        const confirmBtn = document.getElementById('confirmDeletePrinter');
+        const originalBtnText = confirmBtn.innerHTML;
+        
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Deleting...';
+        }
+        
+        fetch(`/api/printer-management/delete-printer/${window.currentDeletePrinterId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('✅ Printer deleted successfully!', 'success');
+                
+                const modal = document.getElementById('deletePrinterModal');
+                if (modal) {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                }
+                
+                fetchAllPrinters();
+                loadAvailablePrinters();
+                
+                setTimeout(() => {
+                    const currentSubTab = window.printerTabState?.subTab || 'printer-list-tab';
+                    if (currentSubTab === 'small-label-tab') {
+                        fetchPrintersByType('small_label');
+                    } else if (currentSubTab === 'instruction-card-tab') {
+                        fetchPrintersByType('instruction_card');
+                    } else if (currentSubTab === 'married-printer-tab') {
+                        fetchMarriedPrinters();
+                    }
+                }, 100);
+            } else {
+                showToast('❌ ' + (data.message || 'Error deleting printer'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting printer:', error);
+            showToast('❌ Error deleting printer. Please try again.', 'error');
+        })
+        .finally(() => {
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = originalBtnText;
+            }
+            window.currentDeletePrinterId = null;
+        });
+    }
+
+    // Load available printers for marriage dropdowns
+    function loadAvailablePrinters() {
+        fetch('/api/printer-management/get-available-printers')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    populateMarriageDropdowns(data.small_label || [], data.instruction_card || []);
+                } else {
+                    console.error('Failed to load available printers:', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading available printers:', error);
+            });
+    }
+
+    function populateMarriageDropdowns(smallLabelPrinters, instructionCardPrinters) {
+        const smallLabelSelect = document.getElementById('smallLabelPrinter');
+        const instructionCardSelect = document.getElementById('instructionCardPrinter');
+        
+        if (smallLabelSelect) {
+            smallLabelSelect.innerHTML = '<option value="">Select Small Label Printer</option>';
+            smallLabelPrinters.forEach(printer => {
+                smallLabelSelect.innerHTML += `<option value="${printer.printerid}">${printer.printername} (${printer.printerip})</option>`;
+            });
+        }
+        
+        if (instructionCardSelect) {
+            instructionCardSelect.innerHTML = '<option value="">Select Instruction Card Printer</option>';
+            instructionCardPrinters.forEach(printer => {
+                instructionCardSelect.innerHTML += `<option value="${printer.printerid}">${printer.printername} (${printer.printerip})</option>`;
+            });
+        }
+    }
+
+    // Marry printers
+    function marryPrinters(form) {
+        const formData = new FormData(form);
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnText = submitBtn.innerHTML;
+        
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="spinner-border spinner-border-sm me-1"></i>Marrying...';
+        
+        fetch('/api/printer-management/marry-printers', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('💕 Printers married successfully!', 'success');
+                
+                const modal = document.getElementById('marryPrintersModal');
+                if (modal) {
+                    const modalInstance = bootstrap.Modal.getInstance(modal);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+                }
+                
+                form.reset();
+                
+                fetchMarriedPrinters();
+                fetchAllPrinters();
+                loadAvailablePrinters();
+                
+                window.printerTabState.subTab = 'married-printer-tab';
+                setTimeout(() => {
+                    const marriedTab = document.getElementById('married-printer-tab');
+                    if (marriedTab) {
+                        const tabInstance = bootstrap.Tab.getOrCreateInstance(marriedTab);
+                        tabInstance.show();
+                    }
+                }, 100);
+            } else {
+                showToast('❌ ' + (data.message || 'Error marrying printers'), 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error marrying printers:', error);
+            showToast('❌ Error marrying printers. Please try again.', 'error');
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnText;
+        });
     }
 
     // Fetch printers by type for specific tabs
@@ -1041,6 +1747,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     } else if (type === 'instruction_card') {
                         renderPrinterCards(data.printers || [], 'instructionCardPrintersGrid');
                     }
+                } else {
+                    console.error(`Failed to fetch ${type} printers:`, data.message);
                 }
             })
             .catch(error => {
@@ -1085,11 +1793,13 @@ document.addEventListener("DOMContentLoaded", function () {
                         <div class="card-footer">
                             <div class="btn-group w-100" role="group">
                                 <button type="button" class="btn btn-outline-primary btn-sm"
-                                    onclick="editPrinter(${printer.printerid})">
+                                    onclick="editPrinter(${printer.printerid})"
+                                    title="Edit Printer">
                                     <i class="bi bi-pencil"></i> Edit
                                 </button>
                                 <button type="button" class="btn btn-outline-success btn-sm"
-                                    onclick="testPrinter(${printer.printerid})">
+                                    onclick="testPrinter(${printer.printerid})"
+                                    title="Test Printer">
                                     <i class="bi bi-check-circle"></i> Test
                                 </button>
                             </div>
@@ -1100,176 +1810,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }).join('');
     }
 
-    // Add new printer
-    function addNewPrinter(form) {
-        const formData = new FormData(form);
-        
-        fetch('/api/printer-management/add-printer', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Printer added successfully!');
-                const modal = document.getElementById('addPrinterModal');
-                if (modal) {
-                    bootstrap.Modal.getInstance(modal)?.hide();
-                }
-                form.reset();
-                fetchAllPrinters();
-                loadAvailablePrinters(); // Refresh dropdowns
-            } else {
-                alert(data.message || 'Error adding printer');
-            }
-        })
-        .catch(error => {
-            console.error('Error adding printer:', error);
-            alert('Error adding printer');
-        });
-    }
-
-    // Update printer
-    function updatePrinter(form) {
-        const printerId = document.getElementById('editPrinterId')?.value;
-        if (!printerId) {
-            alert('Printer ID not found');
+    // Fetch and display married printers
+    function fetchMarriedPrinters() {
+        const container = document.getElementById('marriedPrintersContainer');
+        if (!container) {
+            console.error('marriedPrintersContainer not found');
             return;
         }
         
-        const formData = new FormData(form);
-        
-        fetch(`/api/printer-management/update-printer/${printerId}`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Printer updated successfully!');
-                const modal = document.getElementById('editPrinterModal');
-                if (modal) {
-                    bootstrap.Modal.getInstance(modal)?.hide();
-                }
-                fetchAllPrinters();
-            } else {
-                alert(data.message || 'Error updating printer');
-            }
-        })
-        .catch(error => {
-            console.error('Error updating printer:', error);
-            alert('Error updating printer');
-        });
-    }
+        container.innerHTML = '<div class="alert alert-info text-center">Loading married printers...</div>';
 
-    // Delete printer - Updated to use global variable
-    function deletePrinter() {
-        if (!window.currentDeletePrinterId) return;
-        
-        fetch(`/api/printer-management/delete-printer/${window.currentDeletePrinterId}`, {
-            method: 'DELETE',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Printer deleted successfully!');
-                const modal = document.getElementById('deletePrinterModal');
-                if (modal) {
-                    bootstrap.Modal.getInstance(modal)?.hide();
-                }
-                fetchAllPrinters();
-                loadAvailablePrinters(); // Refresh dropdowns
-            } else {
-                alert(data.message || 'Error deleting printer');
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting printer:', error);
-            alert('Error deleting printer');
-        })
-        .finally(() => {
-            window.currentDeletePrinterId = null; // Clear the global variable
-        });
-    }
-
-    // Load available printers for marriage dropdowns
-    function loadAvailablePrinters() {
-        fetch('/api/printer-management/get-available-printers')
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    populateMarriageDropdowns(data.small_label || [], data.instruction_card || []);
-                }
-            })
-            .catch(error => {
-                console.error('Error loading available printers:', error);
-            });
-    }
-
-    function populateMarriageDropdowns(smallLabelPrinters, instructionCardPrinters) {
-        const smallLabelSelect = document.getElementById('smallLabelPrinter');
-        const instructionCardSelect = document.getElementById('instructionCardPrinter');
-        
-        // Populate small label printers
-        if (smallLabelSelect) {
-            smallLabelSelect.innerHTML = '<option value="">Select Small Label Printer</option>';
-            smallLabelPrinters.forEach(printer => {
-                smallLabelSelect.innerHTML += `<option value="${printer.printerid}">${printer.printername}</option>`;
-            });
-        }
-        
-        // Populate instruction card printers
-        if (instructionCardSelect) {
-            instructionCardSelect.innerHTML = '<option value="">Select Instruction Card Printer</option>';
-            instructionCardPrinters.forEach(printer => {
-                instructionCardSelect.innerHTML += `<option value="${printer.printerid}">${printer.printername}</option>`;
-            });
-        }
-    }
-
-    // Marry printers
-    function marryPrinters(form) {
-        const formData = new FormData(form);
-        
-        fetch('/api/printer-management/marry-printers', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Printers married successfully!');
-                const modal = document.getElementById('marryPrintersModal');
-                if (modal) {
-                    bootstrap.Modal.getInstance(modal)?.hide();
-                }
-                form.reset();
-                fetchMarriedPrinters();
-                loadAvailablePrinters(); // Refresh available printers
-            } else {
-                alert(data.message || 'Error marrying printers');
-            }
-        })
-        .catch(error => {
-            console.error('Error marrying printers:', error);
-            alert('Error marrying printers');
-        });
-    }
-
-    // Fetch and display married printers
-    function fetchMarriedPrinters() {
         fetch('/api/printer-management/get-married-printers')
             .then(response => response.json())
             .then(data => {
@@ -1277,14 +1827,12 @@ document.addEventListener("DOMContentLoaded", function () {
                     renderMarriedPrinters(data.marriages || []);
                 } else {
                     console.error('Failed to fetch married printers:', data.message);
+                    container.innerHTML = '<div class="alert alert-danger text-center">Error loading married printers</div>';
                 }
             })
             .catch(error => {
                 console.error('Error fetching married printers:', error);
-                const container = document.getElementById('marriedPrintersContainer');
-                if (container) {
-                    container.innerHTML = '<div class="alert alert-danger">Error loading married printers</div>';
-                }
+                container.innerHTML = '<div class="alert alert-danger text-center">Error loading married printers</div>';
             });
     }
 
@@ -1330,7 +1878,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     <h5 class="text-success">${marriage.marriage_name}</h5>
                     ${marriage.description ? `<p class="text-muted mb-2">${marriage.description}</p>` : ''}
                     <button type="button" class="btn btn-outline-danger btn-sm"
-                        onclick="divorcePrinters(${marriage.small_label_printer.printer_id})">
+                        onclick="divorcePrinters(${marriage.small_label_printer.printer_id})"
+                        title="Divorce Printers">
                         <i class="bi bi-heart-break me-1"></i>
                         Divorce Printers
                     </button>
@@ -1357,10 +1906,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return badges[type] || '<span class="badge bg-secondary">Unknown</span>';
     }
 
-    // ==========================
-    // End Printer Management
-    // ==========================
-
+    // Time Record Script
     function initTimeRecordScript() {
         const selectUser = document.getElementById("selectUserDrop");
         const startDate = document.getElementById("start_date");
@@ -1445,28 +1991,21 @@ document.addEventListener("DOMContentLoaded", function () {
         function fetchTimeRecords() {
             const userId = selectUser?.value || CURRENT_USER_ID;
 
-            // Get current date in YYYY-MM-DD format
             const today = new Date().toISOString().split("T")[0];
-
-            // Default to 2000-01-01 if empty
             const start = startDate?.value || "2025-01-01";
             const end = endDate?.value || today;
 
-            // Populate date inputs visually if empty
             if (startDate && !startDate.value) startDate.value = start;
             if (endDate && !endDate.value) endDate.value = end;
 
-            // Validate range
             if (new Date(start) > new Date(end)) {
                 alert("Please select a valid date range.");
                 return;
             }
 
-            // Loading placeholders
             if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center">Loading records...</td></tr>`;
             if (mobileContainer) mobileContainer.innerHTML = `<div class="alert alert-info text-center">Loading records...</div>`;
 
-            // Fetch records
             fetch(
                 `/get-time-records/${userId}?start_date=${start}&end_date=${end}`
             )
@@ -1492,14 +2031,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
         }
 
-        // Event listeners
         selectUser?.addEventListener("change", fetchTimeRecords);
         filterButton?.addEventListener("click", fetchTimeRecords);
 
-        // Initial auto-load
         fetchTimeRecords();
     }
 
+    // User Logs Script
     function initUserLogsScript() {
         const selectUser = document.getElementById("selectUserDrop_logs");
         const startDate = document.getElementById("start_date_logs");
@@ -1508,7 +2046,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const tbody = document.getElementById("userlogsData");
         const cardContainer = document.getElementById("userlogsCardView");
 
-        // Format full datetime
         function formatDateTime(dateTime) {
             return new Date(dateTime).toLocaleString("en-US", {
                 month: "short",
@@ -1520,7 +2057,6 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
 
-        // Format just date
         function formatDate(dateTime) {
             return new Date(dateTime).toLocaleDateString("en-US", {
                 month: "short",
@@ -1529,14 +2065,12 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }
 
-        // Fetch and display logs
         function fetchUserLogs() {
             const userId = selectUser?.value || CURRENT_USER_ID;
             const today = new Date().toISOString().split("T")[0];
             const start = startDate?.value || "2025-01-01";
             const end = endDate?.value || today;
 
-            // Fill inputs visually if empty
             if (startDate && !startDate.value) startDate.value = start;
             if (endDate && !endDate.value) endDate.value = end;
 
@@ -1546,7 +2080,6 @@ document.addEventListener("DOMContentLoaded", function () {
                 end_date_logs: end,
             });
 
-            // Show loading state
             if (tbody) tbody.innerHTML = `<tr><td colspan="3" class="text-center">Loading logs...</td></tr>`;
             if (cardContainer) cardContainer.innerHTML = `<div class="alert alert-info text-center">Loading logs...</div>`;
 
@@ -1563,7 +2096,6 @@ document.addEventListener("DOMContentLoaded", function () {
                             const cardBg =
                                 index % 2 === 0 ? "bg-light" : "bg-white";
 
-                            // Desktop table row
                             if (tbody) {
                                 tbody.innerHTML += `
                                         <tr class="tr-notes">
@@ -1573,7 +2105,6 @@ document.addEventListener("DOMContentLoaded", function () {
                                         </tr>`;
                             }
 
-                            // Mobile card
                             if (cardContainer) {
                                 cardContainer.innerHTML += `
                                         <div class="card mb-3 shadow-sm ${cardBg}">
@@ -1603,11 +2134,96 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
         }
 
-        // Event listeners
         selectUser?.addEventListener("change", fetchUserLogs);
         filterButton?.addEventListener("click", fetchUserLogs);
 
-        // Initial load
         fetchUserLogs();
     }
+
+    // Add the missing function for showing delete confirmation
+    window.showDeleteConfirmation = function(userId, username) {
+        deleteUserId = userId;
+        bootstrap.Modal.getOrCreateInstance(deleteUserModal).show();
+    };
 });
+
+// Modal management initialization
+function initializeModalManagement() {
+    const settingsModal = document.getElementById('settingsModal');
+    if (!settingsModal) return;
+
+    window.printerModalState.settingsModalInstance = bootstrap.Modal.getOrCreateInstance(settingsModal, {
+        backdrop: 'static',
+        keyboard: false
+    });
+
+    settingsModal.addEventListener('hide.bs.modal', function(e) {
+        if (window.printerModalState.activeModal) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+        }
+    });
+
+    setupPrinterModalListeners();
+}
+
+function setupPrinterModalListeners() {
+    const printerModalIds = ['addPrinterModal', 'editPrinterModal', 'deletePrinterModal', 'marryPrintersModal'];
+    
+    printerModalIds.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+
+        modal.addEventListener('show.bs.modal', function(e) {
+            console.log(`${modalId} is opening`);
+            handlePrinterModalOpen(modalId, this);
+        });
+
+        modal.addEventListener('shown.bs.modal', function(e) {
+            console.log(`${modalId} is now visible`);
+            forceModalInteractive(this);
+        });
+
+        modal.addEventListener('hide.bs.modal', function(e) {
+            console.log(`${modalId} is closing`);
+            handlePrinterModalClose(modalId, this);
+        });
+
+        modal.addEventListener('hidden.bs.modal', function(e) {
+            console.log(`${modalId} is now hidden`);
+            handlePrinterModalClose(modalId, this);
+        });
+    });
+}
+
+// Utility function for toast notifications
+function showToast(message, type = 'info') {
+    let toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toastContainer';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    const toastId = 'toast-' + Date.now();
+    const bgClass = type === 'success' ? 'bg-success' : type === 'error' ? 'bg-danger' : 'bg-info';
+    
+    const toastHTML = `
+        <div id="${toastId}" class="toast ${bgClass} text-white" role="alert">
+            <div class="toast-body">${message}</div>
+        </div>
+    `;
+    
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, { delay: 3000 });
+    toast.show();
+    
+    toastElement.addEventListener('hidden.bs.toast', function() {
+        this.remove();
+    });
+}

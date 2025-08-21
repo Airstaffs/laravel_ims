@@ -544,6 +544,145 @@
         </div>
     </div>
 
+<div id="announcementModal" class="modal-overlay-announcement">
+  <div class="modal-box-announce">
+    <div class="modal-header-announce">
+      <h2 id="announcementTitle">Announcement</h2>
+      <button class="close-btn-announce" onclick="closeAnnouncement()">×</button>
+    </div>
+    <div class="modal-body-announce">
+      <p id="announcementMessage"></p>
+      <small id="announcementDuration"></small>
+      <div class="readby-announce">
+        <strong>Read by:</strong> <span id="announcementReadBy">None</span>
+      </div>
+    </div>
+    <div class="modal-footer-announce">
+      <button id="ackBtn-announce" onclick="acknowledgeAnnouncement()">Acknowledge</button>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+(() => {
+  const ANN_ENDPOINT = 'hr/dash/announcements';
+  const ACK_ENDPOINT = 'hr/dash/announcements/acknowledge';
+  const POLL_MS = 60_000; // every minute
+
+  let lastShownId = null;
+  let isFetching = false;
+  let controller = null;
+
+  function isModalOpen() {
+    const el = document.getElementById('announcementModal');
+    return el && el.classList.contains('show');
+  }
+
+  function renderAnnouncement(ann) {
+    document.getElementById("announcementTitle").innerText = ann.title ?? 'Announcement';
+    document.getElementById("announcementMessage").innerText = ann.message ?? '';
+    const start = ann.start_at || '';
+    const end   = ann.end_at   || '';
+    document.getElementById("announcementDuration").innerText =
+      (start || end) ? `Duration: ${start} → ${end}` : '';
+    const readbyText = (Array.isArray(ann.readby) && ann.readby.length) ? ann.readby.join(", ") : "None";
+    document.getElementById("announcementReadBy").innerText = readbyText;
+
+    window.__currentAnnouncementId = ann.id;
+  }
+
+  function showAnnouncement(ann) {
+    renderAnnouncement(ann);
+    lastShownId = ann.id;
+    openAnnouncement(); // uses .show class
+  }
+
+  async function fetchAnnouncements() {
+    if (isFetching) return [];
+    isFetching = true;
+    controller?.abort();
+    controller = new AbortController();
+    try {
+      const res = await fetch(ANN_ENDPOINT, { credentials: 'same-origin', signal: controller.signal });
+      const list = await res.json();
+      return Array.isArray(list) ? list : [];
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error('Error loading announcements:', err);
+      return [];
+    } finally {
+      isFetching = false;
+    }
+  }
+
+  async function checkAndShow() {
+    if (isModalOpen()) return;   // don't interrupt the user
+    if (document.hidden) return; // pause when tab not visible
+
+    const list = await fetchAnnouncements();
+    if (!list.length) return;
+
+    const ann = list[0]; // your API already filters by time & acknowledgements
+    if (ann && ann.id !== lastShownId) {
+      showAnnouncement(ann);
+    }
+  }
+
+  // Expose open/close helpers (use .show class)
+  window.openAnnouncement = function () {
+    document.getElementById('announcementModal').classList.add('show');
+  };
+  window.closeAnnouncement = function () {
+    document.getElementById('announcementModal').classList.remove('show');
+  };
+
+  // Expose acknowledge with success close + debounce next show
+  window.acknowledgeAnnouncement = async function () {
+    const annId = window.__currentAnnouncementId;
+    if (!annId) return closeAnnouncement();
+
+    try {
+      const res = await fetch(ACK_ENDPOINT, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-TOKEN": "{{ csrf_token() }}"
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({ announcement_id: annId })
+      });
+      const resp = await res.json();
+      if (resp && resp.success) {
+        closeAnnouncement();
+        lastShownId = annId; // don't reshow the same one on the next tick
+      } else {
+        alert(resp?.message || 'Failed to acknowledge.');
+      }
+    } catch {
+      alert('Network error.');
+    }
+  };
+
+  // Boot + poll
+  document.addEventListener("DOMContentLoaded", () => {
+    // initial check
+    checkAndShow();
+
+    // avoid duplicate intervals (e.g., hot reload)
+    if (window.__announcementPollHandle) clearInterval(window.__announcementPollHandle);
+
+    // poll every minute
+    window.__announcementPollHandle = setInterval(checkAndShow, POLL_MS);
+
+    // also check when the tab becomes visible again
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) checkAndShow();
+    });
+  });
+})();
+</script>
+
     <!-- Notifications Dropdown Modal -->
     <div class="modal fade" id="notifModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -1250,6 +1389,7 @@
     <script src="{{ asset('js/attendance.js') }}"></script>
     <script src="{{ asset('js/account-record.js') }}"></script>
     <script src="{{ asset('js/account-privilege.js') }}"></script>
+    @stack('modals')
 </body>
 
 </html>

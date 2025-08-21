@@ -52,6 +52,7 @@
         <table class="table table-bordered">
             <thead>
                 <tr>
+                    <th @click="hrContext.sort('ID')">Clock ID</th>
                     <th @click="hrContext.sort('Employee')">Employee</th>
                     <th @click="hrContext.sort('DateToday')">Date</th>
                     <th>Time In</th>
@@ -63,30 +64,165 @@
                     <th>Action</th>
                 </tr>
             </thead>
+
             <tbody>
-                <tr
+                <template
                     v-for="record in hrContext.timeRecords"
                     :key="record?.ID || record?.id"
                 >
-                    <td>{{ record?.Employee || "-" }}</td>
-                    <td>{{ record?.DateToday || "-" }}</td>
-                    <td>{{ hrContext.formatDate(record?.TimeIn) }}</td>
-                    <td>{{ hrContext.formatDate(record?.TimeOut) }}</td>
-                    <td>
-                        {{ hrContext.formatDate(record?.shortbreak_start) }}
-                    </td>
-                    <td>{{ hrContext.formatDate(record?.shortbreak_end) }}</td>
-                    <td>{{ record?.shortbreak_totaltime || 0 }} mins</td>
-                    <td>{{ record?.Notes || "-" }}</td>
-                    <td>
-                        <button
-                            class="btn btn-sm btn-outline-primary"
-                            @click="hrContext.openEdit(record)"
-                        >
-                            Edit
-                        </button>
-                    </td>
-                </tr>
+                    <!-- Clickable data row -->
+                    <tr
+                        class="tr-clickable"
+                        @click="
+                            hrContext.toggleHistory(record?.ID || record?.id)
+                        "
+                    >
+                        <td>{{ record?.ID || record?.id || "-" }}</td>
+                        <td>{{ record?.Employee || "-" }}</td>
+                        <td>{{ record?.DateToday || "-" }}</td>
+                        <td>{{ hrContext.formatDate(record?.TimeIn) }}</td>
+                        <td>{{ hrContext.formatDate(record?.TimeOut) }}</td>
+                        <td>
+                            {{ hrContext.formatDate(record?.shortbreak_start) }}
+                        </td>
+                        <td>
+                            {{ hrContext.formatDate(record?.shortbreak_end) }}
+                        </td>
+                        <td>{{ record?.shortbreak_totaltime || 0 }} mins</td>
+                        <td>{{ record?.Notes || "-" }}</td>
+                        <td>
+                            <button
+                                class="btn btn-sm btn-outline-primary"
+                                @click.stop="hrContext.openEdit(record)"
+                            >
+                                Edit
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Inline history row -->
+                    <tr
+                        v-if="
+                            hrContext.expandedClockId ===
+                            (record?.ID || record?.id)
+                        "
+                        class="bg-light"
+                    >
+                        <td :colspan="10">
+                            <div class="d-flex align-items-center gap-2 mb-2">
+                                <strong class="me-2">Edit History</strong>
+                                <span
+                                    v-if="hrContext.historyLoading"
+                                    class="spinner-border spinner-border-sm"
+                                ></span>
+                            </div>
+
+                            <!-- No history -->
+                            <div
+                                v-if="
+                                    !hrContext.historyLoading &&
+                                    (!hrContext.clockEditHistory ||
+                                        !hrContext.clockEditHistory.length)
+                                "
+                                class="text-muted small"
+                            >
+                                No edits recorded for this clock.
+                            </div>
+
+                            <!-- History table -->
+                            <div v-else class="table-responsive">
+                                <table class="table table-sm table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 180px">
+                                                Edited At
+                                            </th>
+                                            <th style="width: 160px">
+                                                Edited By
+                                            </th>
+                                            <th>Changes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr
+                                            v-for="(
+                                                h, idx
+                                            ) in hrContext.clockEditHistory"
+                                            :key="idx"
+                                        >
+                                            <td>
+                                                {{
+                                                    h.edited_at ||
+                                                    h.created_at ||
+                                                    "-"
+                                                }}
+                                            </td>
+                                            <td>
+                                                {{
+                                                    h.edited_by ||
+                                                    h.user ||
+                                                    h.username ||
+                                                    "-"
+                                                }}
+                                            </td>
+                                            <td>
+                                                <template
+                                                    v-if="h.before && h.after"
+                                                >
+                                                    <ul class="mb-0 small">
+                                                        <li
+                                                            v-for="(
+                                                                chg, i
+                                                            ) in hrContext.prettyDiff(
+                                                                h.before,
+                                                                h.after
+                                                            )"
+                                                            :key="i"
+                                                        >
+                                                            <code>{{
+                                                                chg.key
+                                                            }}</code
+                                                            >:
+                                                            <span
+                                                                class="text-decoration-line-through text-muted"
+                                                                >{{
+                                                                    chg.from
+                                                                }}</span
+                                                            >
+                                                            →
+                                                            <strong>{{
+                                                                chg.to
+                                                            }}</strong>
+                                                        </li>
+                                                    </ul>
+                                                </template>
+                                                <template
+                                                    v-else-if="
+                                                        h.changes ||
+                                                        h.delta ||
+                                                        h.after
+                                                    "
+                                                >
+                                                    <pre class="small mb-0">{{
+                                                        h.changes ||
+                                                        h.delta ||
+                                                        h.after
+                                                    }}</pre>
+                                                </template>
+                                                <template v-else>
+                                                    <span
+                                                        class="text-muted small"
+                                                        >—</span
+                                                    >
+                                                </template>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </td>
+                    </tr>
+                </template>
             </tbody>
         </table>
 

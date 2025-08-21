@@ -1344,6 +1344,64 @@ form.fnskuForm .btn-process {
     width: 300px;
     white-space: pre-wrap;
 }
+/* Overlay + show helper */
+.modal-overlay-announcement {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6); /* <-- backdrop */
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+.modal-overlay-announcement.show { display: flex; }
+
+/* Modal card */
+.modal-box-announce {
+  background: #fff;              /* <-- the white background */
+  border-radius: 10px;
+  width: 420px;
+  max-width: 92%;
+  padding: 20px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+  animation: announceFadeIn .22s ease-out;
+}
+
+/* Header / body / footer */
+.modal-header-announce {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.close-btn-announce {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.modal-body-announce { max-height: 55vh; overflow: auto; }
+.modal-body-announce p { margin: 10px 0; }
+.modal-footer-announce { text-align: right; margin-top: 12px; }
+
+#ackBtn-announce {
+  background: #007bff;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+#ackBtn-announce:hover { background: #0056b3; }
+
+.readby-announce { margin-top: 10px; font-size: 0.9em; color: #555; }
+
+/* Animation */
+@keyframes announceFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
 @media (max-width: 767px) {
     .desktop {

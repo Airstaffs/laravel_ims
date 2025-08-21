@@ -1052,7 +1052,7 @@
                                             class="form-control no-resize"
                                             v-model="item.description"
                                             placeholder="Description"
-                                            rows="1"
+                                            rows="2"
                                             @input="autoResize"
                                         ></textarea>
                                     </fieldset>
@@ -1066,7 +1066,7 @@
                                             class="form-control no-resize"
                                             v-model="item.supplierNotes"
                                             placeholder="Supplier Notes"
-                                            rows="1"
+                                            rows="2"
                                             @input="autoResize"
                                         ></textarea>
                                     </fieldset>
@@ -1080,7 +1080,7 @@
                                             class="form-control no-resize"
                                             v-model="item.employeeNotes"
                                             placeholder="Employee Notes"
-                                            rows="1"
+                                            rows="2"
                                             @input="autoResize"
                                         ></textarea>
                                     </fieldset>
@@ -1094,7 +1094,7 @@
                                             class="form-control no-resize"
                                             v-model="item.stickerNotes"
                                             placeholder="Sticker Notes"
-                                            rows="1"
+                                            rows="2"
                                             @input="autoResize"
                                         ></textarea>
                                     </fieldset>

@@ -802,6 +802,30 @@ export default {
                 return;
             }
 
+            if (this.item.serialnumber != null) {
+                this.item.serialnumber =
+                    String(this.item.serialnumber).toUpperCase().trim() || null;
+            }
+
+            if (this.item.serialnumber) {
+                const sn = this.item.serialnumber;
+                const dup = this.items.find(
+                    (p) =>
+                        (p.serialnumber || "").toUpperCase().trim() === sn &&
+                        p.itemnumber !== this.item.itemnumber
+                );
+                if (dup) {
+                    this.loading = false;
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Duplicate Serial Number",
+                        text: `The serial number "${sn}" is already used by another product.`,
+                        confirmButtonText: "OK",
+                    });
+                    return;
+                }
+            }
+
             try {
                 const payload = {
                     ...this.item,
@@ -829,19 +853,44 @@ export default {
                 await Swal.fire({
                     icon: "success",
                     title: "Saved!",
-                    text: "The houseage product has been saved successfully.",
+                    text:
+                        response.data.message ||
+                        "The houseage product has been saved successfully.",
                     confirmButtonText: "OK",
                 });
 
                 this.closeEditModal();
                 await this.fetchInventory();
             } catch (error) {
-                console.error("Save failed:", error);
+                console.error("Save failed:", {
+                    message: error.message,
+                    status: error.response?.status,
+                    data: error.response?.data,
+                });
 
-                Swal.fire({
+                let message =
+                    "An error occurred while saving. Please check the input or try again later.";
+
+                if (error.response?.status === 422) {
+                    const err = error.response.data;
+                    if (err?.errors?.serialnumber?.length) {
+                        message = err.errors.serialnumber.join("\n");
+                    } else if (
+                        typeof err?.message === "string" &&
+                        err.message
+                    ) {
+                        message = err.message;
+                    } else if (err?.errors) {
+                        message = Object.values(err.errors).flat().join("\n");
+                    }
+                } else if (error.response?.data?.message) {
+                    message = error.response.data.message;
+                }
+
+                await Swal.fire({
                     icon: "error",
                     title: "Save Failed",
-                    text: "An error occurred while saving. Please check the input or try again later.",
+                    text: message,
                     confirmButtonText: "OK",
                 });
             } finally {
