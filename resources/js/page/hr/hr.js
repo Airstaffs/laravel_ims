@@ -60,16 +60,20 @@ export default {
             tabs: [
                 "Employee",
                 "Time Record",
-                {
-                    label: "History",
-                    dropdown: [
-                        "Time Record Edit History",
-                        "Employee Leave History",
-                        "Employee Rate History",
-                        "Violations History",
-                    ],
-                },
                 "Violations",
+                "Announcement",
+                "Holiday",
+                "History",
+
+                // {
+                //     label: "History",
+                //     dropdown: [
+                //         "Time Record Edit History",
+                //         "Employee Leave History",
+                //         "Employee Rate History",
+                //         "Violations History",
+                //     ],
+                // },
             ],
 
             loading: {
@@ -89,6 +93,7 @@ export default {
 
             // UI State
             showAddEmployeeModal: false,
+            showAddAnnouncementModal: false,
 
             // Employees
             employees: [],
@@ -178,6 +183,11 @@ export default {
         };
     },
 
+    created() {
+        if (!this.currentView && this.tabs.length)
+            this.currentView = this.tabs[0];
+    },
+
     async mounted() {
         // Initialize Holiday modal
         const el = document.getElementById("holidayModal");
@@ -191,7 +201,6 @@ export default {
 
     methods: {
         setView(view) {
-            // Switch view but ensure only one main tab at a time
             this.currentView = view;
         },
 
@@ -646,6 +655,7 @@ export default {
                 this.fetchRecords();
             }
         },
+
         prevPage() {
             if (this.page > 1) {
                 this.page -= 1;
@@ -1000,6 +1010,13 @@ export default {
     },
 
     computed: {
+        activeLabel() {
+            if (!this.currentView) return "";
+            return typeof this.currentView === "string"
+                ? this.currentView
+                : this.currentView.label;
+        },
+
         hrContext() {
             return {
                 // state
@@ -1134,10 +1151,15 @@ export default {
     },
 
     watch: {
-        currentView: {
+        tabs: {
             immediate: true,
-            handler(view) {
-                this.loadView(view);
+            handler(n) {
+                if (
+                    (!this.currentView || !n.includes(this.currentView)) &&
+                    n.length
+                ) {
+                    this.currentView = n[0];
+                }
             },
         },
     },
