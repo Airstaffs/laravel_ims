@@ -30,6 +30,8 @@
                 v-if="currentView === 'Announcement'"
                 :hr-context="hrContext"
             />
+
+            <HolidayModal v-if="currentView === 'Holiday'" />
         </div>
     </div>
 
@@ -48,9 +50,6 @@
         />
 
         <ViolationsHistory v-show="currentView === 'Violations History'" />
-
-        <!-- Modals -->
-        <HolidayModal />
     </div>
 </template>
 

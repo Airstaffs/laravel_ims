@@ -1,4 +1,5 @@
 import axios from "axios";
+import Swal from "sweetalert2";
 
 import Employee from "./components/employee.vue";
 import LeaveHistory from "./components/leavehistory.vue";
@@ -75,6 +76,8 @@ export default {
                 //     ],
                 // },
             ],
+
+            localYear: this.year,
 
             loading: {
                 employees: false,
@@ -201,7 +204,42 @@ export default {
 
     methods: {
         setView(view) {
-            this.currentView = view;
+            // Derive a string value from either a string or an object tab
+            const viewLabel = (
+                typeof view === "string"
+                    ? view
+                    : view?.label ?? view?.name ?? view?.text ?? ""
+            )
+                .toString()
+                .trim();
+
+            this.currentView = viewLabel;
+
+            const isHoliday = viewLabel.toLowerCase() === "holiday";
+
+            if (isHoliday) {
+                // Prefer local method; fall back to parent if needed
+                const run =
+                    typeof this.fetchHolidays === "function"
+                        ? this.fetchHolidays
+                        : this.$parent &&
+                          typeof this.$parent.fetchHolidays === "function"
+                        ? this.$parent.fetchHolidays
+                        : null;
+
+                if (run) {
+                    run();
+                } else {
+                    console.warn(
+                        "fetchHolidays() not found on this component or parent."
+                    );
+                }
+            }
+        },
+
+        yearChanged() {
+            this.$emit("update:year", this.localYear);
+            this.$emit("changed", this.localYear); // optional event
         },
 
         async loadView(view) {
@@ -689,12 +727,13 @@ export default {
 
         async fetchHolidays() {
             try {
+                const year = this.holidayYear || new Date().getFullYear();
+
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/holidays/list`,
-                    {
-                        year: this.holidayYear,
-                    }
+                    { year }
                 );
+
                 if (data?.success) {
                     this.holidays = data.items || [];
                 } else {
@@ -717,6 +756,8 @@ export default {
             if (this.holidayModal) this.holidayModal.show();
         },
 
+        // import Swal from 'sweetalert2'
+
         async saveHoliday() {
             const payload = {
                 holidayID: this.holidayForm.holidayID,
@@ -731,34 +772,116 @@ export default {
                 : `${API_BASE_URL}/hr/holidays/store`;
 
             try {
+                // Removed loading modal
                 const { data } = await axios.post(url, payload);
+
                 if (data?.success) {
                     await this.fetchHolidays();
                     if (!this.holidayForm.holidayID) this.resetHolidayForm(); // manglimpyo after creation
+
+                    await Swal.fire({
+                        icon: "success",
+                        title: this.holidayForm.holidayID
+                            ? "Holiday updated!"
+                            : "Holiday created!",
+                        text: "Your changes have been saved.",
+                        confirmButtonText: "OK",
+                    });
+
+                    this.showHolidayModal = false;
                 } else {
-                    alert("Validation failed. Please check your inputs.");
+                    const details =
+                        data?.message ||
+                        (data?.errors &&
+                            Object.values(data.errors).flat().join("\n")) ||
+                        "Please check your inputs.";
+
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Validation failed",
+                        text: details,
+                    });
                 }
             } catch (err) {
                 console.error("saveHoliday error:", err);
-                alert("Save failed.");
+
+                const details =
+                    err?.response?.data?.message ||
+                    (err?.response?.data?.errors &&
+                        Object.values(err.response.data.errors)
+                            .flat()
+                            .join("\n")) ||
+                    err?.message ||
+                    "Something went wrong.";
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Save failed",
+                    text: details,
+                });
             }
         },
 
         async deleteHoliday(holidayID) {
-            if (!confirm("Delete this holiday?")) return;
+            // SweetAlert confirmation (replaces window.confirm)
+            const { isConfirmed } = await Swal.fire({
+                title: "Delete this holiday?",
+                text: "This action cannot be undone.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Yes, delete",
+                cancelButtonText: "Cancel",
+                reverseButtons: true,
+                focusCancel: true,
+            });
+
+            if (!isConfirmed) return;
+
             try {
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/holidays/delete`,
-                    {
-                        holidayID,
-                    }
+                    { holidayID }
                 );
+
                 if (data?.success) {
                     await this.fetchHolidays();
+
+                    // Centered success dialog (not a toast)
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Holiday deleted",
+                        text: "The holiday has been removed.",
+                        confirmButtonText: "OK",
+                    });
+                } else {
+                    const details =
+                        data?.message ||
+                        (data?.errors &&
+                            Object.values(data.errors).flat().join("\n")) ||
+                        "Please try again.";
+
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Delete failed",
+                        text: details,
+                    });
                 }
             } catch (err) {
                 console.error("deleteHoliday error:", err);
-                alert("Delete failed.");
+                const details =
+                    err?.response?.data?.message ||
+                    (err?.response?.data?.errors &&
+                        Object.values(err.response.data.errors)
+                            .flat()
+                            .join("\n")) ||
+                    err?.message ||
+                    "Something went wrong.";
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Delete failed",
+                    text: details,
+                });
             }
         },
 
