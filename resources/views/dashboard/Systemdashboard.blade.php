@@ -279,7 +279,7 @@
         window.defaultComponent = "{{ strtolower(session('main_module', 'dashboard')) }}";
         window.allowedModules = @json(array_map('strtolower', session('sub_modules', [])));
         window.mainModule = "{{ strtolower(session('main_module', 'dashboard')) }}";
-        window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation'];
+        window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation', 'scheduling'];
     </script>
 
     <div id="main-content" class="content">

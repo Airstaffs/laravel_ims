@@ -695,17 +695,17 @@ Route::prefix('hr')->group(function () {
     Route::get('/announcements/admin', [HrController::class, 'adminListAnnouncements']);
     Route::post('/announcements/save', [HrController::class, 'saveAnnouncement']);     // create or update (draft/active)
     Route::post('/announcements/toggle-active', [HrController::class, 'toggleAnnouncementActive']);
+
+    Route::get('/timesched', [HrController::class, 'listTimesched']);
+    Route::post('/timesched', [HrController::class, 'createTimesched']);
+    Route::put('/timesched/{id}', [HrController::class, 'updateTimesched']);
+    Route::delete('/timesched/{id}', [HrController::class, 'deleteTimesched']);
+    Route::get('/usersched', [HrController::class, 'listUserSched']);
+    Route::post('/usersched', [HrController::class, 'createUserSched']);
+    Route::put('/usersched/{id}', [HrController::class, 'updateUserSched']);
+    Route::delete('/usersched/{id}', [HrController::class, 'deleteUserSched']);
 });
 
-Route::prefix('hr/schedule')->group(function () {
-    Route::post('/', [HrController::class, 'createSchedule']);
-    Route::get('/',  [HrController::class, 'listSchedules']);
-    Route::put('/{id}', [HrController::class, 'updateSchedule']);
-    Route::delete('/{id}', [HrController::class, 'deleteSchedule']);
-
-    // weekly sheesh
-    Route::post('/apply-range', [HrController::class, 'upsertSchedulesRange']);
-});
 // Add this BEFORE the fallback route
 Route::get('/aiTraining', function () {
     return view('aiTraining'); // Blade file wrapper for Vue

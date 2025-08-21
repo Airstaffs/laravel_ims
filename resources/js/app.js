@@ -44,6 +44,7 @@ const asyncComponentMap = {
     mskucreation: () =>
         import("./page/asinoption/fnskucreation/creation_msku.vue"),
     // Remove printer from async loading since it's now imported directly
+    scheduling: () => import ("./page/hr/components/scheduling.vue"),
 };
 
 // Make it globally accessible for the modal
