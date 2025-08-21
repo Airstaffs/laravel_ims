@@ -8,6 +8,9 @@
                 <button class="btn btn-manual" @click="openDetectSerialModal">
                     <i class="fas fa-keyboard"></i> Detect Serial Numbers
                 </button>
+                <a href="{{ url('/aiTraining') }}" class="btn btn-training">
+                    <i class="fas fa-robot"></i> Detection Training
+                </a>
             </div>
         </div>
 
