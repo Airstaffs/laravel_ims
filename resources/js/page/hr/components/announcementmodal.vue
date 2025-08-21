@@ -4,7 +4,7 @@
             <h4>Manage Announcements</h4>
             <button
                 class="btn btn-primary text-white m-0"
-                @click="$parent.showAddAnnouncementModal = true"
+                @click="$parent.openAddAnnouncementModal()"
             >
                 Add Announcement
             </button>
@@ -127,7 +127,7 @@
         >
             <div
                 class="modal-overlay"
-                @click="$parent.showAddAnnouncementModal = false"
+                @click="$parent.closeAddAnnouncementModal()"
             ></div>
 
             <div class="modal-content">
@@ -312,7 +312,7 @@
                         <button
                             class="btn btn-outline-secondary"
                             type="button"
-                            @click="$parent.showAddAnnouncementModal = false"
+                            @click="$parent.closeAddAnnouncementModal()"
                         >
                             Cancel
                         </button>

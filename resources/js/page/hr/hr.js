@@ -41,6 +41,19 @@ function debounce(fn, t = 300) {
     };
 }
 
+const emptyAnnouncementForm = () => ({
+    id: null,
+    title: "",
+    content: "",
+    start_at: "",
+    end_at: "",
+    status: "draft",
+    user_ids: [],
+    groupPH: false,
+    groupUS: false,
+    _mode: null,
+});
+
 export default {
     components: {
         Employee,
@@ -284,6 +297,10 @@ export default {
 
         openAddEmployeeModal() {
             this.showAddEmployeeModal = true;
+        },
+
+        closeAddEmployeeModal() {
+            this.showAddEmployeeModal = false;
         },
 
         // Employees
@@ -893,9 +910,18 @@ export default {
             }
         },
 
+        openAddAnnouncementModal() {
+            this.showAddAnnouncementModal = true;
+            Object.assign(this.announcementForm, emptyAnnouncementForm());
+        },
+
+        closeAddAnnouncementModal() {
+            this.showAddAnnouncementModal = false; // was true
+            Object.assign(this.announcementForm, emptyAnnouncementForm());
+        },
+
         // Announcement modal
         openAnnouncementModal() {
-            // make sure employees (with accounttype) are loaded for the recipient list
             this.fetchEmployeesOnce().finally(() => {
                 this.showAnnouncementModal = true;
             });

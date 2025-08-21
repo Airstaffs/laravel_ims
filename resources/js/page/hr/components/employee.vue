@@ -63,7 +63,7 @@
         >
             <div
                 class="modal-overlay"
-                @click="$parent.showAddEmployeeModal = false"
+                @click="$parent.closeAddEmployeeModal()"
             ></div>
 
             <div class="modal-content">
@@ -98,7 +98,7 @@
 
                     <button
                         class="btn btn-secondary text-white"
-                        @click="$parent.showAddEmployeeModal = false"
+                        @click="$parent.closeAddEmployeeModal()"
                     >
                         Cancel
                     </button>
