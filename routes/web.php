@@ -706,3 +706,10 @@ Route::prefix('hr/schedule')->group(function () {
     // weekly sheesh
     Route::post('/apply-range', [HrController::class, 'upsertSchedulesRange']);
 });
+// Add this BEFORE the fallback route
+Route::get('/aiTraining', function () {
+    return view('aiTraining'); // Blade file wrapper for Vue
+})->middleware(['auth']); // if you want it only for logged users
+
+
+

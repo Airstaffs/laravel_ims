@@ -30,6 +30,7 @@ import ASINList from "./page/asinlist/asinlist.vue";
 import PrinterModule from "./page/printer/printer.vue";
 import HumanResource from "./page/hr/hr.vue";
 import RTS from "./page/rts/rts.vue";
+import Training from "./page/aiTraining/training.vue";
 
 // Session management configuration
 const SESSION_DEBUG = true; // Set to false in production
@@ -644,6 +645,7 @@ const app = createApp({
         printer: PrinterModule,
         humanresource: HumanResource,
         rts: RTS,
+        training: Training,
     },
 });
 
@@ -971,3 +973,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 20 * 60 * 1000); // Every 20 minutes
     }
 });
+
+if (document.getElementById("ai-app")) {
+    const aiApp = createApp({});
+    aiApp.component("training", Training);
+    aiApp.mount("#ai-app");
+}
