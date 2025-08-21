@@ -696,3 +696,13 @@ Route::prefix('hr')->group(function () {
     Route::post('/announcements/save', [HrController::class, 'saveAnnouncement']);     // create or update (draft/active)
     Route::post('/announcements/toggle-active', [HrController::class, 'toggleAnnouncementActive']);
 });
+
+Route::prefix('hr/schedule')->group(function () {
+    Route::post('/', [HrController::class, 'createSchedule']);
+    Route::get('/',  [HrController::class, 'listSchedules']);
+    Route::put('/{id}', [HrController::class, 'updateSchedule']);
+    Route::delete('/{id}', [HrController::class, 'deleteSchedule']);
+
+    // weekly sheesh
+    Route::post('/apply-range', [HrController::class, 'upsertSchedulesRange']);
+});

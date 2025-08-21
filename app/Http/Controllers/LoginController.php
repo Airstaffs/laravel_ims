@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Log;
 class LoginController extends Controller
 {
     protected $userLogService;
+    const DB_TZ = 'America/Los_Angeles';
 
     public function __construct(UserLogService $userLogService)
     {
@@ -103,36 +104,76 @@ class LoginController extends Controller
         }
     }
 
-    private function storeUserSession($user, $request)
+    private function validateTz(?string $tz): ?string
     {
-        $timezoneSetting = json_decode($user->timezone_setting, true);
-        $autoSync = $timezoneSetting['auto_sync'] ?? true;
+        return ($tz && in_array($tz, \DateTimeZone::listIdentifiers(), true)) ? $tz : null;
+    }
 
-        // Detect user's timezone using IP (or JS or fallback)
-        $detectedTimezone = $this->detectTimezoneFromRequest($request);
+    /** Hard defaults for the setting */
+    private function defaultTimezoneSetting(): array
+    {
+        return ['usertimezone' => 'America/Los_Angeles', 'auto_sync' => true];
+    }
 
-        if ($autoSync && $detectedTimezone) {
-            // Update the user's timezone in DB if auto_sync is true
-            $timezoneSetting['usertimezone'] = $detectedTimezone;
+    /** Detect timezone from request; fall back to LA */
+    private function detectTimezoneFromRequest(Request $request): string
+    {
+        $candidates = [
+            $request->input('timezone'),
+            $request->header('X-Timezone'),
+        ];
 
+        foreach ($candidates as $tz) {
+            if ($valid = $this->validateTz($tz)) {
+                return $valid;
+            }
+        }
+        // HARD DEFAULT if nothing valid
+        return 'America/Los_Angeles';
+    }
+
+    private function storeUserSession($user, Request $request)
+    {
+        // Parse existing JSON (could be null/invalid)
+        $existing = json_decode($user->timezone_setting ?? '', true);
+        if (!is_array($existing))
+            $existing = [];
+
+        // Merge with defaults to ensure both keys exist
+        $setting = array_merge($this->defaultTimezoneSetting(), $existing);
+
+        // Ensure values are valid types
+        $setting['auto_sync'] = (bool) ($setting['auto_sync'] ?? true);
+        $setting['usertimezone'] = $this->validateTz($setting['usertimezone']) ?? 'America/Los_Angeles';
+
+        // Detect current tz (or LA) and update if auto_sync is ON
+        $detected = $this->detectTimezoneFromRequest($request);
+        $originalJson = json_encode($setting);
+
+        if ($setting['auto_sync'] === true) {
+            if ($detected !== $setting['usertimezone']) {
+                $setting['usertimezone'] = $detected;
+            }
+        }
+
+        // If keys were missing before OR value changed, persist back to DB
+        $needsUpdate = ($originalJson !== json_encode($setting))
+            || !array_key_exists('usertimezone', $existing)
+            || !array_key_exists('auto_sync', $existing);
+
+        if ($needsUpdate) {
             DB::table('tbluser')->where('id', $user->id)->update([
-                'timezone_setting' => json_encode($timezoneSetting)
+                'timezone_setting' => json_encode($setting),
             ]);
         }
 
-        // Store timezone in session
+        // Session always carries a valid TZ (LA if all else fails)
         $request->session()->put([
             'user_name' => $user->username,
             'profile_picture' => $user->profile_picture,
             'userid' => $user->id,
-            'usertimezone' => $timezoneSetting['usertimezone'] ?? 'America/Los_Angeles'
+            'usertimezone' => $setting['usertimezone'],
         ]);
-    }
-
-    private function detectTimezoneFromRequest(Request $request)
-    {
-        // Prefer form input first, fallback to header or default
-        return $request->input('timezone') ?? $request->header('X-Timezone') ?? date_default_timezone_get();
     }
 
     private function storeSystemDesign($request)
