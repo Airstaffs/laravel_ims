@@ -14,22 +14,13 @@
         </div>
 
         <div class="main-content">
-            <Employee
-                v-if="currentView === 'Employee'"
-                :hr-context="hrContext"
-            />
+            <Employee v-if="currentView === 'Employee'" />
 
-            <TimeRecord
-                v-if="currentView === 'Time Record'"
-                :hr-context="hrContext"
-            />
+            <TimeRecord v-if="currentView === 'Time Record'" />
 
             <Violations v-if="currentView === 'Violations'" />
 
-            <AnnouncementModal
-                v-if="currentView === 'Announcement'"
-                :hr-context="hrContext"
-            />
+            <AnnouncementModal v-if="currentView === 'Announcement'" />
 
             <HolidayModal v-if="currentView === 'Holiday'" />
         </div>

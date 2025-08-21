@@ -204,7 +204,7 @@ export default {
 
     methods: {
         setView(view) {
-            // Derive a string value from either a string or an object tab
+            // 1) Derive label
             const viewLabel = (
                 typeof view === "string"
                     ? view
@@ -215,28 +215,32 @@ export default {
 
             this.currentView = viewLabel;
 
-            const isHoliday = viewLabel.toLowerCase() === "holiday";
+            // 2) Map views -> method names
+            const actions = {
+                employee: "fetchEmployeesOnce",
+                "time record": "fetchRecords",
+                violations: "fetchViolationsOnce",
+                announcement: "refreshManageAnnouncements",
+                holiday: "fetchHolidays",
+            };
 
-            if (isHoliday) {
-                // Prefer local method; fall back to parent if needed
-                const run =
-                    typeof this.fetchHolidays === "function"
-                        ? this.fetchHolidays
-                        : this.$parent &&
-                          typeof this.$parent.fetchHolidays === "function"
-                        ? this.$parent.fetchHolidays
-                        : null;
+            // 3) Resolve callable from this or parent, then run
+            const fnName = actions[viewLabel.toLowerCase()];
+            if (!fnName) return;
 
-                if (run) {
-                    run();
-                } else {
-                    console.warn(
-                        "fetchHolidays() not found on this component or parent."
-                    );
-                }
+            const getFn = (ctx, name) =>
+                ctx && typeof ctx[name] === "function" ? ctx[name] : null;
+
+            const run = getFn(this, fnName) || getFn(this.$parent, fnName);
+
+            if (run) {
+                run();
+            } else {
+                console.warn(
+                    `${fnName}() not found on this component or parent.`
+                );
             }
         },
-
         yearChanged() {
             this.$emit("update:year", this.localYear);
             this.$emit("changed", this.localYear); // optional event
@@ -276,6 +280,10 @@ export default {
             } catch (e) {
                 console.error("loadView error:", e);
             }
+        },
+
+        openAddEmployeeModal() {
+            this.showAddEmployeeModal = true;
         },
 
         // Employees
