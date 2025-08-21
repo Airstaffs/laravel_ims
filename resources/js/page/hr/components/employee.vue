@@ -4,7 +4,7 @@
             <h4>Employees</h4>
             <button
                 class="btn btn-primary text-white m-0"
-                @click="$parent.showAddEmployeeModal = true"
+                @click="$parent.openAddEmployeeModal()"
             >
                 Add Employee
             </button>
@@ -22,10 +22,7 @@
             </thead>
 
             <tbody>
-                <tr
-                    v-for="(emp, index) in $parent.hrContext.employees"
-                    :key="emp.id"
-                >
+                <tr v-for="(emp, index) in $parent.employees" :key="emp.id">
                     <td>{{ index + 1 }}</td>
                     <td>{{ emp.name }}</td>
                     <td>{{ emp.position }}</td>
@@ -66,7 +63,7 @@
         >
             <div
                 class="modal-overlay"
-                @click="$parent.showAddEmployeeModal = false"
+                @click="$parent.closeAddEmployeeModal()"
             ></div>
 
             <div class="modal-content">
@@ -101,7 +98,7 @@
 
                     <button
                         class="btn btn-secondary text-white"
-                        @click="$parent.showAddEmployeeModal = false"
+                        @click="$parent.closeAddEmployeeModal()"
                     >
                         Cancel
                     </button>

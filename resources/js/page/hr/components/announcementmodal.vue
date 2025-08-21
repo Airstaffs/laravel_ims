@@ -4,7 +4,7 @@
             <h4>Manage Announcements</h4>
             <button
                 class="btn btn-primary text-white m-0"
-                @click="$parent.showAddAnnouncementModal = true"
+                @click="$parent.openAddAnnouncementModal()"
             >
                 Add Announcement
             </button>
@@ -47,7 +47,7 @@
                 </tr>
             </thead>
             <tbody>
-                <template v-for="row in hrContext.manageRows" :key="row.id">
+                <template v-for="row in $parent.manageRows" :key="row.id">
                     <tr>
                         <td>{{ row.title || "(untitled)" }}</td>
                         <td>
@@ -67,8 +67,9 @@
                             <span
                                 v-if="row.recipients === 'ALL'"
                                 class="badge bg-info text-dark"
-                                >All Users</span
                             >
+                                All Users
+                            </span>
                             <span
                                 v-else-if="
                                     Array.isArray(row.recipients) &&
@@ -79,18 +80,21 @@
                             <span v-else class="text-muted">—</span>
                         </td>
                         <td>
-                            <span v-if="row.read_by_me" class="badge bg-primary"
-                                >Yes</span
+                            <span
+                                v-if="row.read_by_me"
+                                class="badge bg-primary"
                             >
-                            <span v-else class="badge bg-light text-dark"
-                                >No</span
-                            >
+                                Yes
+                            </span>
+                            <span v-else class="badge bg-light text-dark">
+                                No
+                            </span>
                         </td>
                         <td>{{ row.readby_count ?? 0 }}</td>
                         <td class="d-flex flex-wrap gap-2">
                             <button
                                 class="btn btn-sm btn-outline-primary"
-                                @click="hrContext.prefillAnnouncementForm(row)"
+                                @click="$parent.prefillAnnouncementForm(row)"
                             >
                                 Edit
                             </button>
@@ -101,7 +105,7 @@
                                         ? 'btn-outline-warning'
                                         : 'btn-outline-success'
                                 "
-                                @click="hrContext.toggleAnnouncementActive(row)"
+                                @click="$parent.toggleAnnouncementActive(row)"
                             >
                                 {{ row.is_active ? "Deactivate" : "Activate" }}
                             </button>
@@ -109,7 +113,7 @@
                     </tr>
                 </template>
 
-                <tr v-if="!hrContext.manageRows.length">
+                <tr v-if="!$parent.manageRows.length">
                     <td colspan="7" class="text-center text-muted">
                         No announcements found.
                     </td>
@@ -123,7 +127,7 @@
         >
             <div
                 class="modal-overlay"
-                @click="$parent.showAddAnnouncementModal = false"
+                @click="$parent.closeAddAnnouncementModal()"
             ></div>
 
             <div class="modal-content">
@@ -308,7 +312,7 @@
                         <button
                             class="btn btn-outline-secondary"
                             type="button"
-                            @click="$parent.showAddAnnouncementModal = false"
+                            @click="$parent.closeAddAnnouncementModal()"
                         >
                             Cancel
                         </button>
@@ -319,7 +323,7 @@
     </div>
 
     <div
-        v-if="hrContext.showManageAnnouncements"
+        v-if="$parent.showManageAnnouncements"
         class="modal-mask"
         style="z-index: 1060"
     >
@@ -328,13 +332,13 @@
                 <h5 class="m-0">Manage Announcements</h5>
                 <button
                     class="btn btn-sm btn-outline-secondary ms-auto"
-                    @click="hrContext.refreshManageAnnouncements()"
+                    @click="$parent.refreshManageAnnouncements()"
                 >
                     Refresh
                 </button>
                 <button
                     class="btn btn-sm btn-dark ms-2"
-                    @click="hrContext.closeManageAnnouncements()"
+                    @click="$parent.closeManageAnnouncements()"
                 >
                     Close
                 </button>
@@ -345,8 +349,8 @@
                     <label class="form-label">Show</label>
                     <select
                         class="form-select"
-                        v-model="hrContext.manageFilter.status"
-                        @change="hrContext.refreshManageAnnouncements()"
+                        v-model="$parent.manageFilter.status"
+                        @change="$parent.refreshManageAnnouncements()"
                     >
                         <option value="all">All</option>
                         <option value="active">Active</option>
@@ -357,8 +361,8 @@
                     <label class="form-label">Search</label>
                     <input
                         class="form-control"
-                        v-model.trim="hrContext.manageFilter.q"
-                        @input="hrContext.debouncedRefreshManage()"
+                        v-model.trim="$parent.manageFilter.q"
+                        @input="$parent.debouncedRefreshManage()"
                         placeholder="Title or message"
                     />
                 </div>
@@ -378,7 +382,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="row in hrContext.manageRows" :key="row.id">
+                        <tr v-for="row in $parent.manageRows" :key="row.id">
                             <td>{{ row.title || "(untitled)" }}</td>
                             <td>
                                 {{
@@ -427,7 +431,7 @@
                                 <button
                                     class="btn btn-sm btn-outline-primary"
                                     @click="
-                                        hrContext.prefillAnnouncementForm(row)
+                                        $parent.prefillAnnouncementForm(row)
                                     "
                                 >
                                     Edit
@@ -440,7 +444,7 @@
                                             : 'btn-outline-success'
                                     "
                                     @click="
-                                        hrContext.toggleAnnouncementActive(row)
+                                        $parent.toggleAnnouncementActive(row)
                                     "
                                 >
                                     {{
@@ -451,7 +455,7 @@
                                 </button>
                             </td>
                         </tr>
-                        <tr v-if="!hrContext.manageRows.length">
+                        <tr v-if="!$parent.manageRows.length">
                             <td colspan="7" class="text-center text-muted">
                                 No announcements found.
                             </td>
@@ -462,12 +466,6 @@
         </div>
     </div>
 </template>
-
-<script setup>
-const { hrContext } = defineProps({
-    hrContext: { type: Object, required: true },
-});
-</script>
 
 <style scoped>
 /* re-use your existing modal styles; these are fallbacks if needed */

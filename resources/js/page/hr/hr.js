@@ -1,4 +1,5 @@
 import axios from "axios";
+import Swal from "sweetalert2";
 
 import Employee from "./components/employee.vue";
 import LeaveHistory from "./components/leavehistory.vue";
@@ -40,6 +41,19 @@ function debounce(fn, t = 300) {
     };
 }
 
+const emptyAnnouncementForm = () => ({
+    id: null,
+    title: "",
+    content: "",
+    start_at: "",
+    end_at: "",
+    status: "draft",
+    user_ids: [],
+    groupPH: false,
+    groupUS: false,
+    _mode: null,
+});
+
 export default {
     components: {
         Employee,
@@ -75,6 +89,8 @@ export default {
                 //     ],
                 // },
             ],
+
+            localYear: this.year,
 
             loading: {
                 employees: false,
@@ -201,7 +217,46 @@ export default {
 
     methods: {
         setView(view) {
-            this.currentView = view;
+            // 1) Derive label
+            const viewLabel = (
+                typeof view === "string"
+                    ? view
+                    : view?.label ?? view?.name ?? view?.text ?? ""
+            )
+                .toString()
+                .trim();
+
+            this.currentView = viewLabel;
+
+            // 2) Map views -> method names
+            const actions = {
+                employee: "fetchEmployeesOnce",
+                "time record": "fetchRecords",
+                violations: "fetchViolationsOnce",
+                announcement: "refreshManageAnnouncements",
+                holiday: "fetchHolidays",
+            };
+
+            // 3) Resolve callable from this or parent, then run
+            const fnName = actions[viewLabel.toLowerCase()];
+            if (!fnName) return;
+
+            const getFn = (ctx, name) =>
+                ctx && typeof ctx[name] === "function" ? ctx[name] : null;
+
+            const run = getFn(this, fnName) || getFn(this.$parent, fnName);
+
+            if (run) {
+                run();
+            } else {
+                console.warn(
+                    `${fnName}() not found on this component or parent.`
+                );
+            }
+        },
+        yearChanged() {
+            this.$emit("update:year", this.localYear);
+            this.$emit("changed", this.localYear); // optional event
         },
 
         async loadView(view) {
@@ -238,6 +293,14 @@ export default {
             } catch (e) {
                 console.error("loadView error:", e);
             }
+        },
+
+        openAddEmployeeModal() {
+            this.showAddEmployeeModal = true;
+        },
+
+        closeAddEmployeeModal() {
+            this.showAddEmployeeModal = false;
         },
 
         // Employees
@@ -689,12 +752,13 @@ export default {
 
         async fetchHolidays() {
             try {
+                const year = this.holidayYear || new Date().getFullYear();
+
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/holidays/list`,
-                    {
-                        year: this.holidayYear,
-                    }
+                    { year }
                 );
+
                 if (data?.success) {
                     this.holidays = data.items || [];
                 } else {
@@ -717,6 +781,8 @@ export default {
             if (this.holidayModal) this.holidayModal.show();
         },
 
+        // import Swal from 'sweetalert2'
+
         async saveHoliday() {
             const payload = {
                 holidayID: this.holidayForm.holidayID,
@@ -731,40 +797,131 @@ export default {
                 : `${API_BASE_URL}/hr/holidays/store`;
 
             try {
+                // Removed loading modal
                 const { data } = await axios.post(url, payload);
+
                 if (data?.success) {
                     await this.fetchHolidays();
                     if (!this.holidayForm.holidayID) this.resetHolidayForm(); // manglimpyo after creation
+
+                    await Swal.fire({
+                        icon: "success",
+                        title: this.holidayForm.holidayID
+                            ? "Holiday updated!"
+                            : "Holiday created!",
+                        text: "Your changes have been saved.",
+                        confirmButtonText: "OK",
+                    });
+
+                    this.showHolidayModal = false;
                 } else {
-                    alert("Validation failed. Please check your inputs.");
+                    const details =
+                        data?.message ||
+                        (data?.errors &&
+                            Object.values(data.errors).flat().join("\n")) ||
+                        "Please check your inputs.";
+
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Validation failed",
+                        text: details,
+                    });
                 }
             } catch (err) {
                 console.error("saveHoliday error:", err);
-                alert("Save failed.");
+
+                const details =
+                    err?.response?.data?.message ||
+                    (err?.response?.data?.errors &&
+                        Object.values(err.response.data.errors)
+                            .flat()
+                            .join("\n")) ||
+                    err?.message ||
+                    "Something went wrong.";
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Save failed",
+                    text: details,
+                });
             }
         },
 
         async deleteHoliday(holidayID) {
-            if (!confirm("Delete this holiday?")) return;
+            // SweetAlert confirmation (replaces window.confirm)
+            const { isConfirmed } = await Swal.fire({
+                title: "Delete this holiday?",
+                text: "This action cannot be undone.",
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Yes, delete",
+                cancelButtonText: "Cancel",
+                reverseButtons: true,
+                focusCancel: true,
+            });
+
+            if (!isConfirmed) return;
+
             try {
                 const { data } = await axios.post(
                     `${API_BASE_URL}/hr/holidays/delete`,
-                    {
-                        holidayID,
-                    }
+                    { holidayID }
                 );
+
                 if (data?.success) {
                     await this.fetchHolidays();
+
+                    // Centered success dialog (not a toast)
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Holiday deleted",
+                        text: "The holiday has been removed.",
+                        confirmButtonText: "OK",
+                    });
+                } else {
+                    const details =
+                        data?.message ||
+                        (data?.errors &&
+                            Object.values(data.errors).flat().join("\n")) ||
+                        "Please try again.";
+
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Delete failed",
+                        text: details,
+                    });
                 }
             } catch (err) {
                 console.error("deleteHoliday error:", err);
-                alert("Delete failed.");
+                const details =
+                    err?.response?.data?.message ||
+                    (err?.response?.data?.errors &&
+                        Object.values(err.response.data.errors)
+                            .flat()
+                            .join("\n")) ||
+                    err?.message ||
+                    "Something went wrong.";
+
+                await Swal.fire({
+                    icon: "error",
+                    title: "Delete failed",
+                    text: details,
+                });
             }
+        },
+
+        openAddAnnouncementModal() {
+            this.showAddAnnouncementModal = true;
+            Object.assign(this.announcementForm, emptyAnnouncementForm());
+        },
+
+        closeAddAnnouncementModal() {
+            this.showAddAnnouncementModal = false; // was true
+            Object.assign(this.announcementForm, emptyAnnouncementForm());
         },
 
         // Announcement modal
         openAnnouncementModal() {
-            // make sure employees (with accounttype) are loaded for the recipient list
             this.fetchEmployeesOnce().finally(() => {
                 this.showAnnouncementModal = true;
             });

@@ -1,16 +1,12 @@
 <template>
     <div class="time-record-wrapper">
-        <!-- Filters -->
         <form>
             <fieldset>
                 <label>Filber By Employee</label>
-                <select
-                    v-model="hrContext.filters.employee"
-                    class="form-control"
-                >
+                <select v-model="$parent.filters.employee" class="form-control">
                     <option value="">All</option>
                     <option
-                        v-for="name in hrContext.employeeNames"
+                        v-for="name in $parent.employeeNames"
                         :key="name"
                         :value="name"
                     >
@@ -23,7 +19,7 @@
                 <label>Date From</label>
                 <input
                     type="date"
-                    v-model="hrContext.filters.dateFrom"
+                    v-model="$parent.filters.dateFrom"
                     class="form-control"
                 />
             </fieldset>
@@ -32,7 +28,7 @@
                 <label>Date To</label>
                 <input
                     type="date"
-                    v-model="hrContext.filters.dateTo"
+                    v-model="$parent.filters.dateTo"
                     class="form-control"
                 />
             </fieldset>
@@ -41,7 +37,7 @@
                 <label></label>
                 <button
                     class="btn btn-primary w-100"
-                    @click="hrContext.fetchRecords"
+                    @click="$parent.fetchRecords"
                 >
                     Apply Filters
                 </button>
@@ -52,9 +48,9 @@
         <table class="table table-bordered">
             <thead>
                 <tr>
-                    <th @click="hrContext.sort('ID')">Clock ID</th>
-                    <th @click="hrContext.sort('Employee')">Employee</th>
-                    <th @click="hrContext.sort('DateToday')">Date</th>
+                    <th @click="$parent.sort('ID')">Clock ID</th>
+                    <th @click="$parent.sort('Employee')">Employee</th>
+                    <th @click="$parent.sort('DateToday')">Date</th>
                     <th>Time In</th>
                     <th>Time Out</th>
                     <th>Break Start</th>
@@ -67,33 +63,31 @@
 
             <tbody>
                 <template
-                    v-for="record in hrContext.timeRecords"
+                    v-for="record in $parent.timeRecords"
                     :key="record?.ID || record?.id"
                 >
                     <!-- Clickable data row -->
                     <tr
                         class="tr-clickable"
-                        @click="
-                            hrContext.toggleHistory(record?.ID || record?.id)
-                        "
+                        @click="$parent.toggleHistory(record?.ID || record?.id)"
                     >
                         <td>{{ record?.ID || record?.id || "-" }}</td>
                         <td>{{ record?.Employee || "-" }}</td>
                         <td>{{ record?.DateToday || "-" }}</td>
-                        <td>{{ hrContext.formatDate(record?.TimeIn) }}</td>
-                        <td>{{ hrContext.formatDate(record?.TimeOut) }}</td>
+                        <td>{{ $parent.formatDate(record?.TimeIn) }}</td>
+                        <td>{{ $parent.formatDate(record?.TimeOut) }}</td>
                         <td>
-                            {{ hrContext.formatDate(record?.shortbreak_start) }}
+                            {{ $parent.formatDate(record?.shortbreak_start) }}
                         </td>
                         <td>
-                            {{ hrContext.formatDate(record?.shortbreak_end) }}
+                            {{ $parent.formatDate(record?.shortbreak_end) }}
                         </td>
                         <td>{{ record?.shortbreak_totaltime || 0 }} mins</td>
                         <td>{{ record?.Notes || "-" }}</td>
                         <td>
                             <button
                                 class="btn btn-sm btn-outline-primary"
-                                @click.stop="hrContext.openEdit(record)"
+                                @click.stop="$parent.openEdit(record)"
                             >
                                 Edit
                             </button>
@@ -103,7 +97,7 @@
                     <!-- Inline history row -->
                     <tr
                         v-if="
-                            hrContext.expandedClockId ===
+                            $parent.expandedClockId ===
                             (record?.ID || record?.id)
                         "
                         class="bg-light"
@@ -112,7 +106,7 @@
                             <div class="d-flex align-items-center gap-2 mb-2">
                                 <strong class="me-2">Edit History</strong>
                                 <span
-                                    v-if="hrContext.historyLoading"
+                                    v-if="$parent.historyLoading"
                                     class="spinner-border spinner-border-sm"
                                 ></span>
                             </div>
@@ -120,9 +114,9 @@
                             <!-- No history -->
                             <div
                                 v-if="
-                                    !hrContext.historyLoading &&
-                                    (!hrContext.clockEditHistory ||
-                                        !hrContext.clockEditHistory.length)
+                                    !$parent.historyLoading &&
+                                    (!$parent.clockEditHistory ||
+                                        !$parent.clockEditHistory.length)
                                 "
                                 class="text-muted small"
                             >
@@ -147,7 +141,7 @@
                                         <tr
                                             v-for="(
                                                 h, idx
-                                            ) in hrContext.clockEditHistory"
+                                            ) in $parent.clockEditHistory"
                                             :key="idx"
                                         >
                                             <td>
@@ -173,7 +167,7 @@
                                                         <li
                                                             v-for="(
                                                                 chg, i
-                                                            ) in hrContext.prettyDiff(
+                                                            ) in $parent.prettyDiff(
                                                                 h.before,
                                                                 h.after
                                                             )"
@@ -230,18 +224,18 @@
         <div class="d-flex justify-content-between align-items-center mt-3">
             <button
                 class="btn btn-outline-secondary"
-                :disabled="hrContext.page === 1"
-                @click="hrContext.prevPage()"
+                :disabled="$parent.page === 1"
+                @click="$parent.prevPage()"
             >
                 Previous
             </button>
 
-            <span>Page {{ hrContext.page }} / {{ hrContext.totalPages }}</span>
+            <span>Page {{ $parent.page }} / {{ $parent.totalPages }}</span>
 
             <button
                 class="btn btn-outline-secondary"
-                :disabled="hrContext.page >= hrContext.totalPages"
-                @click="hrContext.nextPage()"
+                :disabled="$parent.page >= $parent.totalPages"
+                @click="$parent.nextPage()"
             >
                 Next
             </button>
@@ -249,20 +243,20 @@
     </div>
 
     <!-- Edit Modal -->
-    <div v-if="hrContext.showEditModal" class="modal modal-editRecord">
-        <div class="modal-overlay" @click="hrContext.closeEdit"></div>
+    <div v-if="$parent.showEditModal" class="modal modal-editRecord">
+        <div class="modal-overlay" @click="$parent.closeEdit"></div>
 
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">
                     Edit Time Record (ID:
-                    {{ hrContext.editOriginal?.ID }})
+                    {{ $parent.editOriginal?.ID }})
                 </h5>
 
                 <button
                     type="button"
                     class="btn-close"
-                    @click="hrContext.closeEdit"
+                    @click="$parent.closeEdit"
                 ></button>
             </div>
 
@@ -273,7 +267,7 @@
                         <input
                             type="text"
                             class="form-control"
-                            v-model="hrContext.editForm.Employee"
+                            v-model="$parent.editForm.Employee"
                             disabled
                         />
                     </fieldset>
@@ -283,7 +277,7 @@
                         <input
                             type="date"
                             class="form-control"
-                            v-model="hrContext.editForm.DateToday"
+                            v-model="$parent.editForm.DateToday"
                         />
                     </fieldset>
 
@@ -292,7 +286,7 @@
                         <input
                             type="datetime-local"
                             class="form-control"
-                            v-model="hrContext.editForm.TimeIn_local"
+                            v-model="$parent.editForm.TimeIn_local"
                         />
                     </fieldset>
 
@@ -301,7 +295,7 @@
                         <input
                             type="datetime-local"
                             class="form-control"
-                            v-model="hrContext.editForm.TimeOut_local"
+                            v-model="$parent.editForm.TimeOut_local"
                         />
                     </fieldset>
 
@@ -310,7 +304,7 @@
                         <input
                             type="datetime-local"
                             class="form-control"
-                            v-model="hrContext.editForm.shortbreak_start_local"
+                            v-model="$parent.editForm.shortbreak_start_local"
                         />
                     </fieldset>
 
@@ -319,7 +313,7 @@
                         <input
                             type="datetime-local"
                             class="form-control"
-                            v-model="hrContext.editForm.shortbreak_end_local"
+                            v-model="$parent.editForm.shortbreak_end_local"
                         />
                     </fieldset>
 
@@ -330,7 +324,7 @@
                             min="0"
                             class="form-control"
                             v-model.number="
-                                hrContext.editForm.shortbreak_totaltime
+                                $parent.editForm.shortbreak_totaltime
                             "
                         />
                     </fieldset>
@@ -344,7 +338,7 @@
                         <textarea
                             class="form-control"
                             rows="3"
-                            v-model="hrContext.editForm.Notes"
+                            v-model="$parent.editForm.Notes"
                         >
                         </textarea>
                     </fieldset>
@@ -354,15 +348,15 @@
             <div class="modal-footer">
                 <button
                     class="btn btn-primary text-white m-0"
-                    @click="hrContext.submitEdit"
-                    :disabled="hrContext.submittingEdit"
+                    @click="$parent.submitEdit"
+                    :disabled="$parent.submittingEdit"
                 >
                     Save changes
                 </button>
 
                 <button
                     class="btn btn-secondary text-white m-0"
-                    @click="hrContext.closeEdit"
+                    @click="$parent.closeEdit"
                 >
                     Cancel
                 </button>
@@ -370,11 +364,5 @@
         </div>
     </div>
 </template>
-
-<script setup>
-const { hrContext } = defineProps({
-    hrContext: { type: Object, required: true },
-});
-</script>
 
 <style scoped src="../hr.css"></style>
