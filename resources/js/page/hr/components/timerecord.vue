@@ -1,6 +1,6 @@
 <template>
     <div class="time-record-wrapper">
-        <form>
+        <form @submit.prevent="$parent.fetchRecords()">
             <fieldset>
                 <label>Filber By Employee</label>
                 <select v-model="$parent.filters.employee" class="form-control">
