@@ -1,81 +1,34 @@
 <template>
     <div class="hr-module">
-        <nav class="nav-tabs d-flex align-items-center justify-content-between">
-            <!-- LEFT: view tabs / dropdown -->
-            <ul class="list-unstyled m-0 d-flex gap-2 flex-wrap">
+        <div class="sidebar-nav">
+            <ul class="list-unstyled m-0">
                 <li
                     v-for="tab in tabs"
-                    :key="typeof tab === 'string' ? tab : tab.label"
+                    :key="tab"
+                    :class="{ active: tab === currentView }"
+                    @click="setView(tab)"
                 >
-                    <button
-                        v-if="typeof tab === 'string'"
-                        class="btn btn-nav"
-                        :class="{ active: currentView === tab }"
-                        @click="setView(tab)"
-                    >
-                        {{ tab }}
-                    </button>
-
-                    <template v-else>
-                        <button
-                            class="btn btn-nav btn-dropdown dropdown-toggle"
-                            data-bs-toggle="dropdown"
-                        >
-                            <span>{{ tab.label }}</span>
-                        </button>
-                        <ul class="list-unstyled dropdown-menu m-0 p-0">
-                            <li v-for="item in tab.dropdown" :key="item">
-                                <a
-                                    href="#"
-                                    class="dropdown-item"
-                                    @click.prevent="setView(item)"
-                                >
-                                    {{ item }}
-                                </a>
-                            </li>
-                        </ul>
-                    </template>
+                    {{ tab }}
                 </li>
             </ul>
+        </div>
 
-            <!-- RIGHT: modal triggers (Add dropdown) -->
-            <div class="btn-group">
-                <button
-                    class="btn btn-outline-primary dropdown-toggle"
-                    data-bs-toggle="dropdown"
-                    aria-expanded="false"
-                >
-                    Add
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <a
-                            href="#"
-                            class="dropdown-item"
-                            @click.prevent="openHolidayModal"
-                        >
-                            Add Holiday
-                        </a>
-                        <a
-                            href="#"
-                            class="dropdown-item"
-                            @click.prevent="openAnnouncementModal"
-                        >
-                            Add Announcement
-                        </a>
-                    </li>
-                    <!-- (future) add more modal actions here -->
-                </ul>
-            </div>
-        </nav>
+        <div class="main-content">
+            <Employee v-if="currentView === 'Employee'" />
 
+            <TimeRecord v-if="currentView === 'Time Record'" />
+
+            <Violations v-if="currentView === 'Violations'" />
+
+            <AnnouncementModal v-if="currentView === 'Announcement'" />
+
+            <HolidayModal v-if="currentView === 'Holiday'" />
+        </div>
+    </div>
+
+    <div class="hr-module">
         <!-- Main views -->
-        <Employee v-if="currentView === 'Employee'" :hr-context="hrContext" />
 
-        <TimeRecord
-            v-if="currentView === 'Time Record'"
-            :hr-context="hrContext"
-        />
         <TimeRecordHistory
             v-if="currentView === 'Time Record Edit History'"
             :key="currentView"
@@ -88,11 +41,6 @@
         />
 
         <ViolationsHistory v-show="currentView === 'Violations History'" />
-        <Violations v-show="currentView === 'Violations'" />
-
-        <!-- Modals -->
-        <HolidayModal />
-        <AnnouncementModal :hr-context="hrContext" />
     </div>
 </template>
 

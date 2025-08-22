@@ -9,9 +9,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class HrController extends Controller
 {
+    private const DB_TZ = 'America/Los_Angeles';
+
     public function getEmployees()
     {
         $today = date('Y-m-d');
@@ -607,176 +610,363 @@ class HrController extends Controller
         }
 
         return response()->json([
-            'success'         => true,
+            'success' => true,
             'announcement_id' => $ann->id,
-            'readby'          => $readby,
+            'readby' => $readby,
         ]);
     }
 
     public function saveAnnouncement(Request $request)
-{
-    $data = $request->validate([
-        'id'        => ['nullable','integer','exists:tblannouncements,id'],
-        'title'     => ['required','string','max:255'],
-        'message'   => ['nullable','string'],           // from UI: content -> message
-        'start_at'  => ['nullable','string'],           // 'YYYY-MM-DDTHH:MM' local
-        'end_at'    => ['nullable','string'],
-        'save_mode' => ['required','in:draft,active'],  // status
-        'recipients'=> ['nullable'],                    // array of user IDs or []
-    ]);
+    {
+        $data = $request->validate([
+            'id' => ['nullable', 'integer', 'exists:tblannouncements,id'],
+            'title' => ['required', 'string', 'max:255'],
+            'message' => ['nullable', 'string'],           // from UI: content -> message
+            'start_at' => ['nullable', 'string'],           // 'YYYY-MM-DDTHH:MM' local
+            'end_at' => ['nullable', 'string'],
+            'save_mode' => ['required', 'in:draft,active'],  // status
+            'recipients' => ['nullable'],                    // array of user IDs or []
+        ]);
 
-    $userTz = session('usertimezone', 'Asia/Manila');
+        $userTz = session('usertimezone', 'Asia/Manila');
 
-    // Convert local → UTC for DB
-    $startUtc = $data['start_at'] ? \Carbon\Carbon::parse($data['start_at'], $userTz)->setTimezone('UTC') : null;
-    $endUtc   = $data['end_at']   ? \Carbon\Carbon::parse($data['end_at'],   $userTz)->setTimezone('UTC') : null;
+        // Convert local → UTC for DB
+        $startUtc = $data['start_at'] ? Carbon::parse($data['start_at'], $userTz)->setTimezone('UTC') : null;
+        $endUtc = $data['end_at'] ? Carbon::parse($data['end_at'], $userTz)->setTimezone('UTC') : null;
 
-    // sanitize recipients to int[]
-    $recips = $request->input('recipients', []);
-    if (!is_array($recips)) $recips = [];
-    $recips = collect($recips)->map(fn($v)=>(int)$v)->unique()->values()->all();
+        // sanitize recipients to int[]
+        $recips = $request->input('recipients', []);
+        if (!is_array($recips))
+            $recips = [];
+        $recips = collect($recips)->map(fn($v) => (int) $v)->unique()->values()->all();
 
-    $row = [
-        'title'           => $data['title'],
-        'content'         => $data['message'] ?? null,
-        'start_at'        => $startUtc,
-        'end_at'          => $endUtc,
-        'is_active'       => $data['save_mode']==='active' ? 1 : 0,
-        'recipients_json' => json_encode($recips),
-        'updated_at'      => now('UTC'),
-    ];
-
-    if (!empty($data['id'])) {
-        \DB::table('tblannouncements')->where('id', $data['id'])->update($row);
-        $id = (int)$data['id'];
-    } else {
-        $row['priority']   = 0;
-        $row['readby']     = json_encode([]);
-        $row['created_at'] = now('UTC');
-        $id = \DB::table('tblannouncements')->insertGetId($row);
-    }
-
-    return response()->json(['success'=>true,'id'=>$id]);
-}
-
-public function adminListAnnouncements(Request $request)
-{
-    $userTz   = session('usertimezone', 'Asia/Manila');
-    $username = session('user_name') ?? null;
-
-    $status = $request->query('status', 'all');   // all|active|draft
-    $q      = trim($request->query('q', ''));
-
-    $rows = \DB::table('tblannouncements')
-        ->when($status==='active', fn($q)=>$q->where('is_active',1))
-        ->when($status==='draft',  fn($q)=>$q->where('is_active',0))
-        ->when($q!=='', function($qq) use($q){
-            $qq->where(function($w) use($q){
-                $w->where('title','like',"%$q%")
-                  ->orWhere('content','like',"%$q%");
-            });
-        })
-        ->orderByDesc('is_active')
-        ->orderByDesc('priority')
-        ->orderBy('created_at','desc')
-        ->get();
-
-    $payload = $rows->map(function($r) use($userTz,$username){
-        $readby     = is_array($r->readby) ? $r->readby : (json_decode($r->readby,true) ?? []);
-        $recipients = json_decode($r->recipients_json, true);
-
-        $startLocal = $r->start_at ? \Carbon\Carbon::parse($r->start_at,'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
-        $endLocal   = $r->end_at   ? \Carbon\Carbon::parse($r->end_at,'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
-
-        return [
-            'id'           => $r->id,
-            'title'        => $r->title,
-            'message'      => $r->content,
-            'start_at'     => $startLocal,
-            'end_at'       => $endLocal,
-            'is_active'    => (int)$r->is_active === 1,
-            'readby_count' => is_array($readby) ? count($readby) : 0,
-            'read_by_me'   => $username ? in_array($username, $readby, true) : false,
-            // recipients can be [] of user IDs (preferred) — UI maps to names
-            'recipients'   => is_array($recipients) ? $recipients : [],
+        $row = [
+            'title' => $data['title'],
+            'content' => $data['message'] ?? null,
+            'start_at' => $startUtc,
+            'end_at' => $endUtc,
+            'is_active' => $data['save_mode'] === 'active' ? 1 : 0,
+            'recipients_json' => json_encode($recips),
+            'updated_at' => now('UTC'),
         ];
-    })->values();
 
-    return response()->json($payload);
-}
+        if (!empty($data['id'])) {
+            \DB::table('tblannouncements')->where('id', $data['id'])->update($row);
+            $id = (int) $data['id'];
+        } else {
+            $row['priority'] = 0;
+            $row['readby'] = json_encode([]);
+            $row['created_at'] = now('UTC');
+            $id = \DB::table('tblannouncements')->insertGetId($row);
+        }
 
-public function toggleAnnouncementActive(Request $request)
-{
-    $data = $request->validate([
-        'id' => ['required','integer','exists:tblannouncements,id'],
-        'make_active' => ['required','boolean'],
-    ]);
-
-    \DB::table('tblannouncements')
-        ->where('id', $data['id'])
-        ->update(['is_active' => $data['make_active'] ? 1 : 0, 'updated_at'=>now('UTC')]);
-
-    return response()->json(['success'=>true]);
-}
-
-public function dashviewAnnouncement(Request $request)
-{
-    $userTz   = session('usertimezone', 'Asia/Manila');
-    $username = session('user_name') ?? null;
-    $userId   = session('userid'); // <-- used for recipients gating
-
-    $nowUtc = \Carbon\Carbon::now('UTC');
-    $includeAck = (bool) $request->boolean('include_ack', false);
-
-    $rows = \DB::table('tblannouncements')
-        ->where('is_active', 1)
-        ->where(function ($q) use ($nowUtc) {
-            $q->whereNull('start_at')->orWhere('start_at', '<=', $nowUtc);
-        })
-        ->where(function ($q) use ($nowUtc) {
-            $q->whereNull('end_at')->orWhere('end_at', '>=', $nowUtc);
-        })
-        ->orderByDesc('priority')
-        ->orderBy('start_at', 'desc')
-        ->get();
-
-    // recipients gating: if recipients_json not empty, restrict to those including current user id
-    if ($userId) {
-        $rows = $rows->filter(function($r) use ($userId) {
-            $rec = json_decode($r->recipients_json, true);
-            if (is_array($rec) && count($rec)>0) {
-                return in_array((int)$userId, array_map('intval', $rec), true);
-            }
-            return true; // empty means "everyone"
-        })->values();
+        return response()->json(['success' => true, 'id' => $id]);
     }
 
-    if (!$includeAck && $username) {
-        $rows = $rows->reject(function ($r) use ($username) {
+    public function adminListAnnouncements(Request $request)
+    {
+        $userTz = session('usertimezone', 'Asia/Manila');
+        $username = session('user_name') ?? null;
+
+        $status = $request->query('status', 'all');   // all|active|draft
+        $q = trim($request->query('q', ''));
+
+        $rows = \DB::table('tblannouncements')
+            ->when($status === 'active', fn($q) => $q->where('is_active', 1))
+            ->when($status === 'draft', fn($q) => $q->where('is_active', 0))
+            ->when($q !== '', function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('title', 'like', "%$q%")
+                        ->orWhere('content', 'like', "%$q%");
+                });
+            })
+            ->orderByDesc('is_active')
+            ->orderByDesc('priority')
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $payload = $rows->map(function ($r) use ($userTz, $username) {
             $readby = is_array($r->readby) ? $r->readby : (json_decode($r->readby, true) ?? []);
-            return in_array($username, $readby, true);
+            $recipients = json_decode($r->recipients_json, true);
+
+            $startLocal = $r->start_at ? Carbon::parse($r->start_at, 'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+            $endLocal = $r->end_at ? Carbon::parse($r->end_at, 'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+
+            return [
+                'id' => $r->id,
+                'title' => $r->title,
+                'message' => $r->content,
+                'start_at' => $startLocal,
+                'end_at' => $endLocal,
+                'is_active' => (int) $r->is_active === 1,
+                'readby_count' => is_array($readby) ? count($readby) : 0,
+                'read_by_me' => $username ? in_array($username, $readby, true) : false,
+                // recipients can be [] of user IDs (preferred) — UI maps to names
+                'recipients' => is_array($recipients) ? $recipients : [],
+            ];
         })->values();
+
+        return response()->json($payload);
     }
 
-    $payload = $rows->map(function ($r) use ($userTz) {
-        $startLocal = $r->start_at ? \Carbon\Carbon::parse($r->start_at, 'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
-        $endLocal   = $r->end_at   ? \Carbon\Carbon::parse($r->end_at,   'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+    public function toggleAnnouncementActive(Request $request)
+    {
+        $data = $request->validate([
+            'id' => ['required', 'integer', 'exists:tblannouncements,id'],
+            'make_active' => ['required', 'boolean'],
+        ]);
 
-        return [
-            'id'       => $r->id,
-            'title'    => $r->title,
-            'message'  => $r->content,
-            'start_at' => $startLocal,
-            'end_at'   => $endLocal,
-            'readby'   => is_array($r->readby) ? $r->readby : (json_decode($r->readby, true) ?? []),
-            'priority' => (int) ($r->priority ?? 0),
+        \DB::table('tblannouncements')
+            ->where('id', $data['id'])
+            ->update(['is_active' => $data['make_active'] ? 1 : 0, 'updated_at' => now('UTC')]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function dashviewAnnouncement(Request $request)
+    {
+        $userTz = session('usertimezone', 'Asia/Manila');
+        $username = session('user_name') ?? null;
+        $userId = session('userid'); // <-- used for recipients gating
+
+        $nowUtc = Carbon::now('UTC');
+        $includeAck = (bool) $request->boolean('include_ack', false);
+
+        $rows = \DB::table('tblannouncements')
+            ->where('is_active', 1)
+            ->where(function ($q) use ($nowUtc) {
+                $q->whereNull('start_at')->orWhere('start_at', '<=', $nowUtc);
+            })
+            ->where(function ($q) use ($nowUtc) {
+                $q->whereNull('end_at')->orWhere('end_at', '>=', $nowUtc);
+            })
+            ->orderByDesc('priority')
+            ->orderBy('start_at', 'desc')
+            ->get();
+
+        // recipients gating: if recipients_json not empty, restrict to those including current user id
+        if ($userId) {
+            $rows = $rows->filter(function ($r) use ($userId) {
+                $rec = json_decode($r->recipients_json, true);
+                if (is_array($rec) && count($rec) > 0) {
+                    return in_array((int) $userId, array_map('intval', $rec), true);
+                }
+                return true; // empty means "everyone"
+            })->values();
+        }
+
+        if (!$includeAck && $username) {
+            $rows = $rows->reject(function ($r) use ($username) {
+                $readby = is_array($r->readby) ? $r->readby : (json_decode($r->readby, true) ?? []);
+                return in_array($username, $readby, true);
+            })->values();
+        }
+
+        $payload = $rows->map(function ($r) use ($userTz) {
+            $startLocal = $r->start_at ? Carbon::parse($r->start_at, 'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+            $endLocal = $r->end_at ? Carbon::parse($r->end_at, 'UTC')->setTimezone($userTz)->format('Y-m-d H:i:s') : null;
+
+            return [
+                'id' => $r->id,
+                'title' => $r->title,
+                'message' => $r->content,
+                'start_at' => $startLocal,
+                'end_at' => $endLocal,
+                'readby' => is_array($r->readby) ? $r->readby : (json_decode($r->readby, true) ?? []),
+                'priority' => (int) ($r->priority ?? 0),
+            ];
+        });
+
+        return response()->json($payload);
+    }
+
+    private function dayName(int $dow): string
+    {
+        return [0 => 'Everyday', 1 => 'Mon', 2 => 'Tue', 3 => 'Wed', 4 => 'Thu', 5 => 'Fri', 6 => 'Sat', 7 => 'Sun'][$dow] ?? '???';
+    }
+
+    private function makeTitle(int $dow, string $start, string $end, bool $overn): string
+    {
+        $dash = '–';
+        return $this->dayName($dow) . ' ' . substr($start, 0, 5) . $dash . substr($end, 0, 5) . ($overn ? ' (+1)' : '');
+    }
+    private function dbNow(): Carbon
+    {
+        return Carbon::now('America/Los_Angeles');
+    }
+
+    public function listTimesched(Request $r)
+    {
+        $q = DB::table('tbltimesched');
+        if ($r->filled('day_of_week'))
+            $q->where('day_of_week', (int) $r->input('day_of_week'));
+        if ($r->filled('is_active'))
+            $q->where('is_active', (int) $r->input('is_active'));
+        $q->orderBy('day_of_week')->orderBy('start_time');
+        return response()->json(['success' => true, 'data' => $q->get()]);
+    }
+
+    public function createTimesched(Request $r)
+    {
+        $d = $r->validate([
+            'day_of_week' => 'required|integer|min:0|max:7',
+            'start_time' => 'required|date_format:H:i',
+            'end_time' => 'required|date_format:H:i',
+            'end_next_day' => 'nullable|boolean',
+            'unpaid_break_minutes' => 'nullable|integer|min:0|max:600',
+            'title' => 'nullable|string|max:120',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $overn = (bool) ($d['end_next_day'] ?? false);
+        $s = \Carbon\Carbon::createFromFormat('H:i', $d['start_time']);
+        $e = \Carbon\Carbon::createFromFormat('H:i', $d['end_time']);
+        if (!$overn && $e->lessThanOrEqualTo($s)) {
+            return response()->json(['success' => false, 'error' => 'end_time must be after start_time for same-day'], 422);
+        }
+        $title = $d['title'] ?? $this->makeTitle((int) $d['day_of_week'], $d['start_time'], $d['end_time'], $overn);
+
+        $id = DB::table('tbltimesched')->insertGetId([
+            'day_of_week' => (int) $d['day_of_week'],
+            'start_time' => $d['start_time'],
+            'end_time' => $d['end_time'],
+            'end_next_day' => $overn ? 1 : 0,
+            'unpaid_break_minutes' => (int) ($d['unpaid_break_minutes'] ?? 60),
+            'title' => $title,
+            'is_active' => (int) ($d['is_active'] ?? 1),
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+            'created_at' => $this->dbNow(),
+            'updated_at' => $this->dbNow(),
+        ]);
+
+        return response()->json(['success' => true, 'id' => $id]);
+    }
+
+    public function updateTimesched($id, Request $r)
+    {
+        $row = DB::table('tbltimesched')->where('timeschedId', $id)->first();
+        if (!$row)
+            return response()->json(['success' => false, 'error' => 'not found'], 404);
+
+        $d = $r->validate([
+            'day_of_week' => 'nullable|integer|min:0|max:7',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i',
+            'end_next_day' => 'nullable|boolean',
+            'unpaid_break_minutes' => 'nullable|integer|min:0|max:600',
+            'title' => 'nullable|string|max:120',
+            'is_active' => 'nullable|boolean',
+        ]);
+
+        $dow = (int) ($d['day_of_week'] ?? $row->day_of_week);
+        $start = $d['start_time'] ?? $row->start_time;
+        $end = $d['end_time'] ?? $row->end_time;
+        $overn = array_key_exists('end_next_day', $d) ? (bool) $d['end_next_day'] : (bool) $row->end_next_day;
+
+        $s = \Carbon\Carbon::createFromFormat('H:i', $start);
+        $e = \Carbon\Carbon::createFromFormat('H:i', $end);
+        if (!$overn && $e->lessThanOrEqualTo($s)) {
+            return response()->json(['success' => false, 'error' => 'end_time must be after start_time for same-day'], 422);
+        }
+
+        $payload = [
+            'day_of_week' => $dow,
+            'start_time' => $start,
+            'end_time' => $end,
+            'end_next_day' => $overn ? 1 : 0,
+            'unpaid_break_minutes' => (int) ($d['unpaid_break_minutes'] ?? $row->unpaid_break_minutes),
+            'title' => $d['title'] ?? $this->makeTitle($dow, $start, $end, $overn),
+            'is_active' => (int) ($d['is_active'] ?? $row->is_active),
+            'updated_by' => Auth::id(),
+            'updated_at' => $this->dbNow(),
         ];
-    });
 
-    return response()->json($payload);
-}
+        DB::table('tbltimesched')->where('timeschedId', $id)->update($payload);
+        return response()->json(['success' => true]);
+    }
 
+    public function deleteTimesched($id)
+    {
+        $ok = DB::table('tbltimesched')->where('timeschedId', $id)->delete();
+        return response()->json(['success' => (bool) $ok]);
+    }
 
+    public function listUserSched(Request $r)
+    {
+        $r->validate(['userId' => 'required|integer']);
+        $q = DB::table('tblusersched as us')
+            ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
+            ->where('us.userId', $r->integer('userId'))
+            ->selectRaw('us.userschedId, us.userId, us.schedId, us.schednote,
+                     us.effective_from, us.effective_to,
+                     ts.day_of_week, ts.start_time, ts.end_time, ts.end_next_day, ts.title, ts.is_active as sched_active')
+            ->orderBy('ts.day_of_week')->orderBy('ts.start_time');
 
+        return response()->json(['success' => true, 'data' => $q->get()]);
+    }
 
+    public function createUserSched(Request $r)
+    {
+        $d = $r->validate([
+            'userId' => 'required|integer',
+            'schedId' => 'required|integer',
+            'schednote' => 'nullable|string|max:255',
+            'effective_from' => 'nullable|date',
+            'effective_to' => 'nullable|date|after_or_equal:effective_from',
+        ]);
+
+        $id = DB::table('tblusersched')->insertGetId([
+            'userId' => (int) $d['userId'],
+            'schedId' => (int) $d['schedId'],
+            'schednote' => $d['schednote'] ?? null,
+            'effective_from' => $d['effective_from'] ?? null,   // LA dates
+            'effective_to' => $d['effective_to'] ?? null,
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+            'created_at' => \Carbon\Carbon::now('America/Los_Angeles'),
+            'updated_at' => \Carbon\Carbon::now('America/Los_Angeles'),
+        ]);
+
+        return response()->json(['success' => true, 'id' => $id]);
+    }
+
+    public function updateUserSched($id, Request $r)
+    {
+        $row = DB::table('tblusersched')->where('userschedId', $id)->first();
+        if (!$row)
+            return response()->json(['success' => false, 'error' => 'not found'], 404);
+
+        $d = $r->validate([
+            'schedId' => 'nullable|integer',
+            'schednote' => 'nullable|string|max:255',
+            'effective_from' => 'nullable|date',
+            'effective_to' => 'nullable|date',
+        ]);
+
+        // enforce range only if both provided
+        if (
+            !empty($d['effective_from']) && !empty($d['effective_to']) &&
+            \Carbon\Carbon::parse($d['effective_to'])->lt(\Carbon\Carbon::parse($d['effective_from']))
+        ) {
+            return response()->json(['success' => false, 'error' => 'effective_to must be on/after effective_from'], 422);
+        }
+
+        DB::table('tblusersched')->where('userschedId', $id)->update([
+            'schedId' => $d['schedId'] ?? $row->schedId,
+            'schednote' => $d['schednote'] ?? $row->schednote,
+            'effective_from' => array_key_exists('effective_from', $d) ? $d['effective_from'] : $row->effective_from,
+            'effective_to' => array_key_exists('effective_to', $d) ? $d['effective_to'] : $row->effective_to,
+            'updated_by' => Auth::id(),
+            'updated_at' => \Carbon\Carbon::now('America/Los_Angeles'),
+        ]);
+
+        return response()->json(['success' => true]);
+    }
+
+    public function deleteUserSched($id)
+    {
+        $ok = DB::table('tblusersched')->where('userschedId', $id)->delete();
+        return response()->json(['success' => (bool) $ok]);
+    }
 }

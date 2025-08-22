@@ -6,6 +6,8 @@ use App\Models\tblproduct;
 use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Rpn;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -294,6 +296,13 @@ class HouseageController extends BasetablesController
 
     public function store(Request $request)
     {
+        $table = (new \App\Models\tblproduct)->getTable();
+
+        if ($request->has('serialnumber')) {
+            $sn = \Illuminate\Support\Str::upper(trim((string) $request->input('serialnumber')));
+            $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
+        }
+
         $validated = $request->validate([
             'ProductID' => 'required|integer',
             'itemnumber' => 'required|string|max:255',
@@ -334,13 +343,23 @@ class HouseageController extends BasetablesController
             'basketnumber' => 'nullable|string',
         ]);
 
-        // Ensure default for validation
         $validated['validation'] = $validated['validation'] ?? 'unvalidated';
 
-        // You may log or inspect this if needed
-        // dd($validated);
+        if (!empty($validated['serialnumber'])) {
+            $exists = \App\Models\tblproduct::where('serialnumber', $validated['serialnumber'])
+                ->where('itemnumber', '<>', $validated['itemnumber'])
+                ->exists();
 
-        $product = tblproduct::updateOrCreate(
+            if ($exists) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Serial Number '{$validated['serialnumber']}' is already assigned to another product."
+                ], 422);
+            }
+        }
+
+        // Proceed with insert/update
+        $product = \App\Models\tblproduct::updateOrCreate(
             ['itemnumber' => $validated['itemnumber']],
             $validated
         );

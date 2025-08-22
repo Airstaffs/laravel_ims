@@ -99,9 +99,39 @@
                                             +{{ countAllImages(item) }}
                                         </div>
                                     </div>
-                                    <div class="product-info clickable">
-                                        <p>RT# : {{ item.rtcounter }}</p>
+                                    <div class="product-info">
                                         <p>{{ item.ProductTitle }}</p>
+                                        <p>
+                                            ID#:
+                                            <span
+                                                v-if="
+                                                    item.storename ===
+                                                    'Allrenewed'
+                                                "
+                                                >AR {{ item.rtcounter }}</span
+                                            >
+                                            <span
+                                                v-else-if="
+                                                    item.storename ===
+                                                    'Renovartech'
+                                                "
+                                                >RT {{ item.rtcounter }}</span
+                                            >
+                                            <span v-else>{{
+                                                item.rtcounter
+                                            }}</span>
+                                        </p>
+                                        <p>
+                                            <span
+                                                class="badge"
+                                                :class="
+                                                    item.validation_status +
+                                                    '-badge'
+                                                "
+                                            >
+                                                {{ item.validation_status }}
+                                            </span>
+                                        </p>
                                     </div>
                                 </div>
                             </td>

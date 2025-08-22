@@ -702,4 +702,21 @@ Route::prefix('hr')->group(function () {
     Route::get('/announcements/admin', [HrController::class, 'adminListAnnouncements']);
     Route::post('/announcements/save', [HrController::class, 'saveAnnouncement']);     // create or update (draft/active)
     Route::post('/announcements/toggle-active', [HrController::class, 'toggleAnnouncementActive']);
+
+    Route::get('/timesched', [HrController::class, 'listTimesched']);
+    Route::post('/timesched', [HrController::class, 'createTimesched']);
+    Route::put('/timesched/{id}', [HrController::class, 'updateTimesched']);
+    Route::delete('/timesched/{id}', [HrController::class, 'deleteTimesched']);
+    Route::get('/usersched', [HrController::class, 'listUserSched']);
+    Route::post('/usersched', [HrController::class, 'createUserSched']);
+    Route::put('/usersched/{id}', [HrController::class, 'updateUserSched']);
+    Route::delete('/usersched/{id}', [HrController::class, 'deleteUserSched']);
 });
+
+// Add this BEFORE the fallback route
+Route::get('/aiTraining', function () {
+    return view('aiTraining'); // Blade file wrapper for Vue
+})->middleware(['auth']); // if you want it only for logged users
+
+
+
