@@ -324,7 +324,7 @@ class PrinterController extends BasetablesController
 
     /**
      * Reprint a single label type
-     * The service handles the FNSKU prefix logic
+     * UPDATED to work with new printer management system
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -344,7 +344,7 @@ class PrinterController extends BasetablesController
             $printerId = $request->printer_id;
             $searchTerm = $request->search_term;
             
-            // Get selected printer info
+            // Get selected printer info with marriage details
             $selectedPrinter = DB::table('tblprinters')
                 ->where('printerid', $printerId)
                 ->first();
@@ -355,12 +355,20 @@ class PrinterController extends BasetablesController
                     'message' => 'Selected printer not found'
                 ], 404);
             }
+
+            // Check if printer is active
+            if ($selectedPrinter->status !== 'active') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected printer is not active. Current status: ' . $selectedPrinter->status
+                ], 400);
+            }
             
             // Get username safely
             $user = Auth::user();
             $username = $user ? ($user->username ?? $user->name ?? 'Unknown') : 'System';
 
-            // UPDATED: Get the product with base FNSKU lookups (service handles this now)
+            // Get the product with base FNSKU lookups
             $product = DB::table($this->productTable)
                 ->where('ProductID', $productId)
                 ->first();
@@ -372,13 +380,15 @@ class PrinterController extends BasetablesController
                 ], 404);
             }
 
+            // Determine which printer to use based on label type
+            $targetPrinter = $this->determinePrinterForLabelType($selectedPrinter, $labelType);
+
             // Use the PrintLabelService to print the specific label type
-            // The service now handles the FNSKU prefix system internally
             $printResult = $this->printLabelService->reprintSingleLabel(
                 $productId, 
                 $labelType, 
                 $username, 
-                $selectedPrinter
+                $targetPrinter
             );
 
             // Check if the print service returned a successful result
@@ -392,18 +402,19 @@ class PrinterController extends BasetablesController
                         'employeeName' => $username,
                         'editDate' => now()->format('Y-m-d H:i:s'),
                         'Module' => 'Label Reprinting',
-                        'Action' => 'Single label reprinted (' . $labelType . ') for ' . ($product->FNSKUviewer ?? 'unknown FNSKU') . ' on ' . $selectedPrinter->printername . ' - Search: ' . $searchTerm
+                        'Action' => 'Single label reprinted (' . $labelType . ') for ' . ($product->FNSKUviewer ?? 'unknown FNSKU') . ' on ' . $targetPrinter->printername . ' - Search: ' . $searchTerm
                     ]);
                 }
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Label reprinted successfully to ' . $selectedPrinter->printername,
+                    'message' => 'Label reprinted successfully to ' . $targetPrinter->printername,
                     'label_type' => $labelType,
                     'search_term' => $searchTerm,
-                    'printer_name' => $selectedPrinter->printername,
-                    'product_title' => 'Product Title', // Service will populate this
-                    'asin' => 'ASIN', // Service will populate this
+                    'printer_name' => $targetPrinter->printername,
+                    'printer_ip' => $targetPrinter->printerip,
+                    'product_title' => 'Product Title',
+                    'asin' => 'ASIN',
                     'fnsku' => $product->FNSKUviewer,
                     'product_data' => [
                         'ProductID' => $product->ProductID,
@@ -551,7 +562,7 @@ class PrinterController extends BasetablesController
 
     /**
      * Print label for a product
-     * The service handles the FNSKU prefix logic
+     * UPDATED to work with married printer system
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -570,16 +581,17 @@ class PrinterController extends BasetablesController
             $printerId = $request->printer_id;
             $printData = $request->print_data;
             
-            // Get selected printer info
+            // Get selected printer info with marriage details
             $selectedPrinter = DB::table('tblprinters')
                 ->where('printerid', $printerId)
                 ->first();
 
-            // Add this debug logging:
             Log::info('Selected printer details:', [
                 'printer_id' => $printerId,
                 'printer_data' => $selectedPrinter,
-                'printer_ip' => $selectedPrinter->printerip ?? 'NOT FOUND'
+                'printer_ip' => $selectedPrinter->printerip ?? 'NOT FOUND',
+                'printer_type' => $selectedPrinter->printer_type ?? 'NOT FOUND',
+                'married_to' => $selectedPrinter->married_to_printer_id ?? 'Single'
             ]);
                 
             if (!$selectedPrinter) {
@@ -587,6 +599,14 @@ class PrinterController extends BasetablesController
                     'success' => false,
                     'message' => 'Selected printer not found'
                 ], 404);
+            }
+
+            // Check if printer is active
+            if ($selectedPrinter->status !== 'active') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Selected printer is not active. Current status: ' . $selectedPrinter->status
+                ], 400);
             }
             
             // Get username safely
@@ -603,7 +623,7 @@ class PrinterController extends BasetablesController
                 ], 400);
             }
 
-            // UPDATED: Double-check the product still exists and meets conditions using base FNSKU
+            // Double-check the product still exists and meets conditions
             $product = DB::table($this->productTable)
                 ->where('ProductID', $productId)
                 ->where('returnstatus', 'Not Returned')
@@ -617,7 +637,7 @@ class PrinterController extends BasetablesController
                 ], 404);
             }
 
-            // UPDATED: Get FNSKU and ASIN data using base FNSKU for condition checking
+            // Get FNSKU and ASIN data using base FNSKU for condition checking
             $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
             
             $fnskuRecord = null;
@@ -657,17 +677,20 @@ class PrinterController extends BasetablesController
                 ], 400);
             }
 
-            // Use the PrintLabelService to print the label with selected printer
-            // The service now handles all the FNSKU prefix logic internally
-            $printResult = $this->printLabelService->printLabel($productId, $username, $selectedPrinter);
+            // NEW: Use enhanced printer management system for married printers
+            $printResult = $this->printLabelService->printLabelWithMarriedPrinters(
+                $productId, 
+                $username, 
+                $selectedPrinter
+            );
 
             // Check if the print service returned a successful result
             if ($printResult['status'] === 'success') {
                 return response()->json([
                     'success' => true,
-                    'message' => 'Label printed successfully to ' . $selectedPrinter->printername,
+                    'message' => $printResult['message'],
                     'serial_number' => $serialNumber,
-                    'printer_name' => $selectedPrinter->printername,
+                    'printer_info' => $printResult['printer_info'] ?? [],
                     'print_count' => ($product->printCount ?? 0) + 1,
                     'product_title' => $product->AStitle ?? 'Unknown Title',
                     'asin' => $product->ASINviewer,
@@ -700,6 +723,94 @@ class PrinterController extends BasetablesController
                 'success' => false,
                 'message' => 'Error printing label: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * NEW: Determine which printer to use based on label type and marriage status
+     *
+     * @param object $selectedPrinter
+     * @param string $labelType
+     * @return object
+     */
+    protected function determinePrinterForLabelType($selectedPrinter, $labelType)
+    {
+        try {
+            // Define which label types go to which printer type
+            $instructionCardLabels = [
+                'instruction_cards',
+                'vector_image'
+            ];
+
+            $smallLabelTypes = [
+                'serial_labels',
+                'fnsku_label',
+                'title_label',
+                'item_number_label',
+                'timestamp_label',
+                'sticker_note_label',
+                'warehouse_location_label',
+                'rtcounter_label',
+                'qr_manual',
+                'qr_serial',
+                'transparency_qr',
+                'print_count'
+            ];
+
+            // If the selected printer is married, determine the appropriate printer
+            if (!empty($selectedPrinter->married_to_printer_id)) {
+                $marriedPrinter = DB::table('tblprinters')
+                    ->where('printerid', $selectedPrinter->married_to_printer_id)
+                    ->first();
+
+                if ($marriedPrinter && $marriedPrinter->status === 'active') {
+                    // If we need instruction card printer and current is small label
+                    if (in_array($labelType, $instructionCardLabels) && 
+                        $selectedPrinter->printer_type === 'small_label' && 
+                        $marriedPrinter->printer_type === 'instruction_card') {
+                        
+                        Log::info('Using married instruction card printer for label type:', [
+                            'label_type' => $labelType,
+                            'switching_from' => $selectedPrinter->printername,
+                            'switching_to' => $marriedPrinter->printername
+                        ]);
+                        
+                        return $marriedPrinter;
+                    }
+                    
+                    // If we need small label printer and current is instruction card
+                    if (in_array($labelType, $smallLabelTypes) && 
+                        $selectedPrinter->printer_type === 'instruction_card' && 
+                        $marriedPrinter->printer_type === 'small_label') {
+                        
+                        Log::info('Using married small label printer for label type:', [
+                            'label_type' => $labelType,
+                            'switching_from' => $selectedPrinter->printername,
+                            'switching_to' => $marriedPrinter->printername
+                        ]);
+                        
+                        return $marriedPrinter;
+                    }
+                } else if ($marriedPrinter) {
+                    Log::warning('Married printer is not active:', [
+                        'married_printer' => $marriedPrinter->printername,
+                        'status' => $marriedPrinter->status
+                    ]);
+                }
+            }
+
+            // Use the originally selected printer if no marriage routing needed
+            return $selectedPrinter;
+
+        } catch (Exception $e) {
+            Log::error('Error determining printer for label type:', [
+                'error' => $e->getMessage(),
+                'label_type' => $labelType,
+                'printer_id' => $selectedPrinter->printerid ?? 'unknown'
+            ]);
+
+            // Return original printer as fallback
+            return $selectedPrinter;
         }
     }
 
@@ -941,6 +1052,135 @@ class PrinterController extends BasetablesController
     }
 
     /**
+     * NEW: Get available printers with marriage information
+     * UPDATED to include marriage details and status
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getPrinters()
+    {
+        try {
+            $printers = DB::table('tblprinters as p1')
+                ->leftJoin('tblprinters as p2', 'p1.married_to_printer_id', '=', 'p2.printerid')
+                ->select([
+                    'p1.printerid',
+                    'p1.printername',
+                    'p1.printerip',
+                    'p1.port',
+                    'p1.printer_type',
+                    'p1.status',
+                    'p1.married_to_printer_id',
+                    'p1.marriage_name',
+                    'p1.marriage_description',
+                    'p2.printername as married_printer_name',
+                    'p2.printerip as married_printer_ip',
+                    'p2.printer_type as married_printer_type',
+                    'p2.status as married_printer_status'
+                ])
+                ->where('p1.status', 'active')
+                ->orderBy('p1.printername')
+                ->get();
+
+            // Enhanced printer data with marriage information
+            $enhancedPrinters = $printers->map(function ($printer) {
+                $isMarried = !empty($printer->married_to_printer_id);
+                $marriageInfo = '';
+                
+                if ($isMarried) {
+                    $marriageInfo = " (Married to {$printer->married_printer_name})";
+                    
+                    // Check if married printer is active
+                    if ($printer->married_printer_status !== 'active') {
+                        $marriageInfo .= " - Partner Inactive";
+                    }
+                }
+
+                return [
+                    'printerid' => $printer->printerid,
+                    'printername' => $printer->printername . $marriageInfo,
+                    'printername_short' => $printer->printername,
+                    'printerip' => $printer->printerip,
+                    'port' => $printer->port,
+                    'printer_type' => $printer->printer_type,
+                    'status' => $printer->status,
+                    'is_married' => $isMarried,
+                    'marriage_name' => $printer->marriage_name,
+                    'marriage_description' => $printer->marriage_description,
+                    'married_printer' => $isMarried ? [
+                        'id' => $printer->married_to_printer_id,
+                        'name' => $printer->married_printer_name,
+                        'ip' => $printer->married_printer_ip,
+                        'type' => $printer->married_printer_type,
+                        'status' => $printer->married_printer_status
+                    ] : null
+                ];
+            });
+            
+            return response()->json([
+                'success' => true,
+                'printers' => $enhancedPrinters
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Error fetching printers:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch printers: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * NEW: Get married printer pairs for synchronized printing
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getMarriedPrinterPairs()
+    {
+        try {
+            $marriages = DB::table('tblprinters as sl')
+                ->join('tblprinters as ic', 'sl.married_to_printer_id', '=', 'ic.printerid')
+                ->where('sl.printer_type', 'small_label')
+                ->where('ic.printer_type', 'instruction_card')
+                ->where('sl.status', 'active')
+                ->where('ic.status', 'active')
+                ->whereNotNull('sl.married_to_printer_id')
+                ->select([
+                    'sl.printerid as small_label_id',
+                    'sl.printername as small_label_name',
+                    'sl.printerip as small_label_ip',
+                    'sl.port as small_label_port',
+                    'ic.printerid as instruction_card_id',
+                    'ic.printername as instruction_card_name',
+                    'ic.printerip as instruction_card_ip',
+                    'ic.port as instruction_card_port',
+                    'sl.marriage_name',
+                    'sl.marriage_description'
+                ])
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'married_pairs' => $marriages
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Error fetching married printer pairs:', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch married printer pairs: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Debug database structure and query
      *
      * @param Request $request
@@ -955,18 +1195,21 @@ class PrinterController extends BasetablesController
             $productTableExists = DB::getSchemaBuilder()->hasTable($this->productTable);
             $fnskuTableExists = DB::getSchemaBuilder()->hasTable($this->fnskuTable);
             $asinTableExists = DB::getSchemaBuilder()->hasTable($this->asinTable);
+            $printerTableExists = DB::getSchemaBuilder()->hasTable('tblprinters');
             
             $debug = [
                 'table_names' => [
                     'product_table' => $this->productTable,
                     'fnsku_table' => $this->fnskuTable,
                     'asin_table' => $this->asinTable,
+                    'printer_table' => 'tblprinters',
                     'history_table' => $this->itemProcessHistoryTable ?? 'Not set'
                 ],
                 'table_existence' => [
                     'product_exists' => $productTableExists,
                     'fnsku_exists' => $fnskuTableExists,
-                    'asin_exists' => $asinTableExists
+                    'asin_exists' => $asinTableExists,
+                    'printer_exists' => $printerTableExists
                 ]
             ];
             
@@ -981,6 +1224,28 @@ class PrinterController extends BasetablesController
             
             if ($asinTableExists) {
                 $debug['asin_columns'] = DB::getSchemaBuilder()->getColumnListing($this->asinTable);
+            }
+
+            if ($printerTableExists) {
+                $debug['printer_columns'] = DB::getSchemaBuilder()->getColumnListing('tblprinters');
+                
+                // Get sample printer data with marriage info
+                $samplePrinters = DB::table('tblprinters as p1')
+                    ->leftJoin('tblprinters as p2', 'p1.married_to_printer_id', '=', 'p2.printerid')
+                    ->select([
+                        'p1.printerid',
+                        'p1.printername',
+                        'p1.printer_type',
+                        'p1.status',
+                        'p1.married_to_printer_id',
+                        'p1.marriage_name',
+                        'p2.printername as married_to_name',
+                        'p2.printer_type as married_to_type'
+                    ])
+                    ->limit(3)
+                    ->get();
+                    
+                $debug['sample_printers'] = $samplePrinters;
             }
             
             // Test a simple query on the product table
@@ -997,7 +1262,7 @@ class PrinterController extends BasetablesController
                         
                     $debug['sample_product'] = $sampleProduct;
                     
-                    // UPDATED: Test the new separated query approach
+                    // Test the new separated query approach
                     if ($sampleProduct) {
                         $testSerial = $sampleProduct->serialnumber ?? $serialNumber;
                         
@@ -1075,29 +1340,6 @@ class PrinterController extends BasetablesController
                 'success' => false,
                 'message' => 'Debug error: ' . $e->getMessage(),
                 'trace' => $e->getTraceAsString()
-            ], 500);
-        }
-    }
-
-    /**
-     * Get all available printers
-     */
-    public function getPrinters()
-    {
-        try {
-            $printers = DB::table('tblprinters')
-                ->select('printerid', 'printername', 'printerip')
-                ->orderBy('printername')
-                ->get();
-            
-            return response()->json([
-                'success' => true,
-                'printers' => $printers
-            ]);
-        } catch (Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch printers: ' . $e->getMessage()
             ], 500);
         }
     }

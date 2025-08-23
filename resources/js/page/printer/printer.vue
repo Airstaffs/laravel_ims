@@ -5,7 +5,7 @@
       ref="scannerComponent"
       :hideButton="true"
       :enableCamera="false"
-      :scannerTitle="'Label Printer'"
+      :scannerTitle="'Enhanced Label Printer'"
       :storagePrefix="'printer'"
       :displayFields="['serial_number', 'status']"
       :initialMode="'auto'"
@@ -35,7 +35,7 @@
 
           <!-- Print All Labels Tab -->
           <div v-if="activeTab === 'print'" class="tab-content">
-            <!-- Printer Selection Dropdown -->
+            <!-- Enhanced Printer Selection with Marriage Info -->
             <div class="input-group">
               <label for="printerSelect">Select Printer</label>
               <select 
@@ -49,16 +49,37 @@
                   {{ loadingPrinters ? 'Loading printers...' : 'Choose a printer' }}
                 </option>
                 <option 
-                  v-for="printer in printers" 
-                  :key="printer.printerid" 
+                  v-for="printer in uniquePrinters" 
+                  :key="printer.printerid"
                   :value="parseInt(printer.printerid)"
+                  :class="{ 'married-printer': printer.is_married }"
                 >
-                  {{ printer.printername }}
+                  {{ printer.printername_short }}
+                  <span v-if="printer.is_married && printer.married_printer">
+                    (Married to {{ printer.married_printer.name }})
+                  </span>
+                  <span v-if="printer.is_married" class="marriage-indicator">💕</span>
                 </option>
               </select>
+              
+              <!-- Marriage Info Display -->
+              <div v-if="selectedPrinterInfo && selectedPrinterInfo.is_married" class="marriage-info">
+                <div class="marriage-details">
+                  <i class="fas fa-heart text-danger"></i>
+                  <span class="marriage-text">
+                    Married to: {{ selectedPrinterInfo.married_printer.name }}
+                  </span>
+                  <span class="marriage-name" v-if="selectedPrinterInfo.marriage_name">
+                    ({{ selectedPrinterInfo.marriage_name }})
+                  </span>
+                </div>
+                <div class="marriage-description" v-if="selectedPrinterInfo.marriage_description">
+                  {{ selectedPrinterInfo.marriage_description }}
+                </div>
+              </div>
             </div>
             
-              <div class="input-group">
+            <div class="input-group">
               <label for="printerSerial">Serial Number / PCN / RT Counter</label>
               <input 
                 type="text" 
@@ -79,13 +100,14 @@
               class="submit-button"
               :disabled="!serialNumber || isProcessing || !selectedPrinter"
             >
-              <i class="fas fa-print"></i> Print All Labels
+              <i class="fas fa-print"></i> 
+              {{ selectedPrinterInfo && selectedPrinterInfo.is_married ? 'Print to Married Printers' : 'Print All Labels' }}
             </button>
           </div>
 
           <!-- Reprint Single Label Tab -->
           <div v-if="activeTab === 'reprint'" class="tab-content">
-            <!-- Printer Selection for Reprint -->
+            <!-- Enhanced Printer Selection for Reprint -->
             <div class="input-group">
               <label for="reprintPrinterSelect">Select Printer</label>
               <select 
@@ -99,13 +121,35 @@
                   {{ loadingPrinters ? 'Loading printers...' : 'Choose a printer' }}
                 </option>
                 <option 
-                  v-for="printer in printers" 
+                  v-for="printer in uniquePrinters" 
                   :key="printer.printerid" 
                   :value="parseInt(printer.printerid)"
+                  :class="{ 'married-printer': printer.is_married }"
                 >
-                  {{ printer.printername }}
+                  {{ printer.printername_short }}
+                  <span v-if="printer.is_married && printer.married_printer">
+                    (Married to {{ printer.married_printer.name }})
+                  </span>
+                  <span v-if="printer.is_married" class="marriage-indicator">💕</span>
                 </option>
               </select>
+              
+              <!-- Reprint Marriage Info Display -->
+              <div v-if="reprintSelectedPrinterInfo && reprintSelectedPrinterInfo.is_married" class="marriage-info">
+                <div class="marriage-details">
+                  <i class="fas fa-heart text-danger"></i>
+                  <span class="marriage-text">
+                    Married to: {{ reprintSelectedPrinterInfo.married_printer.name }}
+                  </span>
+                  <span class="marriage-name" v-if="reprintSelectedPrinterInfo.marriage_name">
+                    ({{ reprintSelectedPrinterInfo.marriage_name }})
+                  </span>
+                </div>
+                <div class="smart-routing-info">
+                  <i class="fas fa-route"></i>
+                  Smart routing: Labels will be sent to the appropriate printer automatically
+                </div>
+              </div>
             </div>
 
             <!-- Search Input -->
@@ -123,7 +167,7 @@
               >
             </div>
 
-            <!-- Label Type Selection -->
+            <!-- Enhanced Label Type Selection with Categories -->
             <div class="input-group" v-if="availableLabelTypes.length > 0">
               <label for="labelTypeSelect">Select Label Type to Print</label>
               <select 
@@ -133,17 +177,41 @@
                 class="label-type-select"
               >
                 <option :value="null" disabled>Choose a label type</option>
-                <option 
-                  v-for="labelType in availableLabelTypes" 
-                  :key="labelType.key" 
-                  :value="labelType.key"
-                >
-                  {{ labelType.name }} {{ labelType.description ? `- ${labelType.description}` : '' }}
-                </option>
+                <optgroup label="Small Labels">
+                  <option 
+                    v-for="labelType in smallLabelTypes" 
+                    :key="labelType.key" 
+                    :value="labelType.key"
+                  >
+                    {{ labelType.name }} {{ labelType.description ? `- ${labelType.description}` : '' }}
+                  </option>
+                </optgroup>
+                <optgroup label="Instruction Cards" v-if="instructionCardTypes.length > 0">
+                  <option 
+                    v-for="labelType in instructionCardTypes" 
+                    :key="labelType.key" 
+                    :value="labelType.key"
+                  >
+                    {{ labelType.name }} {{ labelType.description ? `- ${labelType.description}` : '' }}
+                  </option>
+                </optgroup>
               </select>
+              
+              <!-- Label Type Routing Info -->
+              <div v-if="selectedLabelType && reprintSelectedPrinterInfo && reprintSelectedPrinterInfo.is_married" class="label-routing-info">
+                <div class="routing-indicator">
+                  <i class="fas fa-arrow-right"></i>
+                  <span v-if="isInstructionCardLabel(selectedLabelType)">
+                    Will print to: {{ reprintSelectedPrinterInfo.married_printer.name }} (Instruction Card Printer)
+                  </span>
+                  <span v-else>
+                    Will print to: {{ getSmallLabelPrinterName(reprintSelectedPrinterInfo) }} (Small Label Printer)
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <!-- Product Info Display -->
+            <!-- Enhanced Product Info Display -->
             <div v-if="reprintProductInfo" class="product-info-card">
               <h4><i class="fas fa-info-circle"></i> Product Information</h4>
               <div class="info-grid">
@@ -173,16 +241,28 @@
                   <span class="label">Current Print Count:</span>
                   <span class="value">{{ reprintProductInfo.printCount || 0 }}</span>
                 </div>
+                <div class="info-item">
+                  <span class="label">Location:</span>
+                  <span class="value">{{ reprintProductInfo.ProductModuleLoc || 'N/A' }}</span>
+                </div>
+                <div class="info-item" v-if="reprintProductInfo.warehouselocation">
+                  <span class="label">Warehouse Location:</span>
+                  <span class="value">{{ reprintProductInfo.warehouselocation }}</span>
+                </div>
               </div>
             </div>
 
-            <!-- Reprint Button -->
+            <!-- Enhanced Reprint Button -->
             <button 
               @click="processReprint" 
               class="submit-button reprint-button"
               :disabled="!selectedLabelType || isProcessing || !reprintSelectedPrinter || !reprintProductInfo"
             >
-              <i class="fas fa-redo"></i> Reprint Selected Label
+              <i class="fas fa-redo"></i> 
+              Reprint {{ selectedLabelTypeName }}
+              <span v-if="reprintSelectedPrinterInfo && reprintSelectedPrinterInfo.is_married" class="married-print-indicator">
+                (Smart Routed)
+              </span>
             </button>
           </div>
         </div>
@@ -202,18 +282,79 @@ export default {
     ScannerComponent
   },
   computed: {
-    selectedPrinterName() {
-      if (!this.selectedPrinter) return '';
-      const printer = this.printers.find(p => p.printerid == this.selectedPrinter);
-      return printer ? printer.printername : '';
+    // Filter printers to show only unique entries (no duplicates from married pairs)
+    uniquePrinters() {
+      if (!this.printers || this.printers.length === 0) {
+        return [];
+      }
+
+      const seenMarriageKeys = new Set();
+      const filtered = [];
+      
+      for (const printer of this.printers) {
+        if (printer.is_married && printer.married_printer && printer.married_printer.id) {
+          // Create a consistent marriage key using sorted printer IDs
+          const marriageIds = [printer.printerid, printer.married_printer.id].sort((a, b) => a - b);
+          const marriageKey = marriageIds.join('-');
+          
+          // Only add if we haven't seen this marriage pair yet
+          if (!seenMarriageKeys.has(marriageKey)) {
+            seenMarriageKeys.add(marriageKey);
+            // Always add the printer with the smaller ID for consistency
+            if (printer.printerid === marriageIds[0]) {
+              filtered.push(printer);
+              console.log('Added married printer (primary):', printer.printername_short, '→', printer.married_printer.name);
+            }
+          }
+        } else {
+          // For non-married printers, always add them
+          filtered.push(printer);
+          console.log('Added single printer:', printer.printername_short);
+        }
+      }
+      
+      console.log('Total printers loaded:', this.printers.length);
+      console.log('Filtered unique printers:', filtered.length);
+      console.log('Filtered list:', filtered.map(p => `${p.printername_short}${p.is_married ? ' (Married)' : ''}`));
+      
+      return filtered;
     },
+    
+    selectedPrinterInfo() {
+      if (!this.selectedPrinter) return null;
+      return this.printers.find(p => p.printerid == this.selectedPrinter);
+    },
+    
+    reprintSelectedPrinterInfo() {
+      if (!this.reprintSelectedPrinter) return null;
+      return this.printers.find(p => p.printerid == this.reprintSelectedPrinter);
+    },
+    
+    selectedPrinterName() {
+      return this.selectedPrinterInfo ? this.selectedPrinterInfo.printername_short : '';
+    },
+    
     reprintSelectedPrinterName() {
-      if (!this.reprintSelectedPrinter) return '';
-      const printer = this.printers.find(p => p.printerid == this.reprintSelectedPrinter);
-      return printer ? printer.printername : '';
+      return this.reprintSelectedPrinterInfo ? this.reprintSelectedPrinterInfo.printername_short : '';
+    },
+    
+    selectedLabelTypeName() {
+      if (!this.selectedLabelType) return '';
+      const labelType = this.availableLabelTypes.find(lt => lt.key === this.selectedLabelType);
+      return labelType ? labelType.name : this.selectedLabelType;
+    },
+    
+    smallLabelTypes() {
+      return this.availableLabelTypes.filter(lt => lt.category === 'small');
+    },
+    
+    instructionCardTypes() {
+      return this.availableLabelTypes.filter(lt => lt.category === 'instruction');
     }
   },
-  emits: ['close-modal'], // Declare the emit for Vue 3
+  
+  emits: ['close-modal'],
+  
   data() {
     return {
       // Existing data
@@ -225,35 +366,45 @@ export default {
       loadingPrinters: false,
       
       // New reprint data
-      activeTab: 'print', // 'print' or 'reprint'
+      activeTab: 'print',
       reprintSelectedPrinter: null,
       reprintSearchTerm: '',
       reprintProductInfo: null,
       selectedLabelType: null,
+      
+      // Performance optimization
+      autoProcessTimer: null,
+      autoSearchTimer: null,
+      
       availableLabelTypes: [
-        { key: 'serial_labels', name: 'Serial Number Labels', description: 'All serial number labels (A, B, C, D)' },
-        { key: 'fnsku_label', name: 'FNSKU Label', description: 'Main FNSKU barcode label' },
-        { key: 'title_label', name: 'Title Label', description: 'Product title with RT/AR package number' },
-        { key: 'item_number_label', name: 'Item Number Label', description: 'Item number with barcode' },
-        { key: 'timestamp_label', name: 'Timestamp Label', description: 'Priority and timestamp information' },
-        { key: 'sticker_note_label', name: 'Sticker Note Label', description: 'Custom notes and comments' },
-        { key: 'warehouse_location_label', name: 'Warehouse Location Label', description: 'Storage location information' },
-        { key: 'rtcounter_label', name: 'RT/AR Counter Label', description: 'RT/AR counter with barcode' },
-        { key: 'qr_manual', name: 'QR Code - Manual', description: 'QR code for user manual' },
-        { key: 'qr_serial', name: 'QR Code - Serial Photos', description: 'QR code for serial photos' },
-        { key: 'vector_image', name: 'Vector Image', description: 'Product vector image' },
-        { key: 'instruction_cards', name: 'Instruction Cards', description: 'All instruction cards' },
-        { key: 'transparency_qr', name: 'Transparency QR Status', description: 'Amazon transparency status' },
-        { key: 'print_count', name: 'Print Count Label', description: 'Current print count information' }
+        // Small Label Types
+        { key: 'serial_labels', name: 'Serial Number Labels', description: 'All serial number labels (A, B, C, D)', category: 'small' },
+        { key: 'fnsku_label', name: 'FNSKU Label', description: 'Main FNSKU barcode label', category: 'small' },
+        { key: 'title_label', name: 'Title Label', description: 'Product title with RT/AR package number', category: 'small' },
+        { key: 'item_number_label', name: 'Item Number Label', description: 'Item number with barcode', category: 'small' },
+        { key: 'timestamp_label', name: 'Timestamp Label', description: 'Priority and timestamp information', category: 'small' },
+        { key: 'sticker_note_label', name: 'Sticker Note Label', description: 'Custom notes and comments', category: 'small' },
+        { key: 'warehouse_location_label', name: 'Warehouse Location Label', description: 'Storage location information', category: 'small' },
+        { key: 'rtcounter_label', name: 'RT/AR Counter Label', description: 'RT/AR counter with barcode', category: 'small' },
+        { key: 'qr_manual', name: 'QR Code - Manual', description: 'QR code for user manual', category: 'small' },
+        { key: 'qr_serial', name: 'QR Code - Serial Photos', description: 'QR code for serial photos', category: 'small' },
+        { key: 'transparency_qr', name: 'Transparency QR Status', description: 'Amazon transparency status', category: 'small' },
+        { key: 'print_count', name: 'Print Count Label', description: 'Current print count information', category: 'small' },
+        
+        // Instruction Card Types
+        { key: 'vector_image', name: 'Vector Image', description: 'Product vector image', category: 'instruction' },
+        { key: 'instruction_cards', name: 'Instruction Cards', description: 'All instruction cards', category: 'instruction' }
       ]
     };
   },
+  
   mounted() {
     // Load printers first, then open scanner
     this.loadPrinters().then(() => {
       this.openPrinterScanner();
     });
   },
+  
   methods: {
     async loadPrinters() {
       this.loadingPrinters = true;
@@ -280,14 +431,16 @@ export default {
         }
         
         const data = await response.json();
-        console.log('Raw API response:', data); // Debug log
+        console.log('Raw API response:', data);
         
         if (data.success) {
           this.printers = data.printers || [];
-          console.log('Loaded printers:', this.printers); // Debug log
+          console.log('Loaded printers with marriage info:', this.printers);
           
-          // Load saved printer selection
-          this.loadSavedPrinter();
+          // Load saved printer selection after printers are loaded
+          this.$nextTick(() => {
+            this.loadSavedPrinter();
+          });
         } else {
           console.error('Failed to load printers:', data.message);
           this.showError('Failed to load printers: ' + data.message);
@@ -306,16 +459,29 @@ export default {
       const savedPrinter = localStorage.getItem('selectedPrinter');
       const savedReprintPrinter = localStorage.getItem('reprintSelectedPrinter');
       
-      if (savedPrinter && this.printers.find(p => p.printerid == savedPrinter)) {
+      console.log('Loading saved printers:', { savedPrinter, savedReprintPrinter });
+      console.log('Available unique printers:', this.uniquePrinters.map(p => ({ id: p.printerid, name: p.printername_short })));
+      
+      // Check if saved printer exists in uniquePrinters
+      if (savedPrinter && this.uniquePrinters.find(p => p.printerid == savedPrinter)) {
         this.selectedPrinter = parseInt(savedPrinter);
+        console.log('Restored main printer:', savedPrinter);
       }
       
-      if (savedReprintPrinter && this.printers.find(p => p.printerid == savedReprintPrinter)) {
+      if (savedReprintPrinter && this.uniquePrinters.find(p => p.printerid == savedReprintPrinter)) {
         this.reprintSelectedPrinter = parseInt(savedReprintPrinter);
-      } else if (savedPrinter && this.printers.find(p => p.printerid == savedPrinter)) {
+        console.log('Restored reprint printer:', savedReprintPrinter);
+      } else if (savedPrinter && this.uniquePrinters.find(p => p.printerid == savedPrinter)) {
         // Use main printer as default for reprint
         this.reprintSelectedPrinter = parseInt(savedPrinter);
+        console.log('Using main printer as reprint default:', savedPrinter);
       }
+      
+      console.log('Final printer selections:', {
+        selectedPrinter: this.selectedPrinter,
+        reprintSelectedPrinter: this.reprintSelectedPrinter,
+        uniquePrintersCount: this.uniquePrinters.length
+      });
     },
     
     onPrinterChange() {
@@ -323,6 +489,16 @@ export default {
       if (this.selectedPrinter) {
         localStorage.setItem('selectedPrinter', this.selectedPrinter.toString());
         this.focusInput();
+        
+        // Log marriage info
+        const printerInfo = this.selectedPrinterInfo;
+        if (printerInfo && printerInfo.is_married) {
+          console.log('Selected married printer:', {
+            primary: printerInfo.printername_short,
+            married_to: printerInfo.married_printer.name,
+            marriage_name: printerInfo.marriage_name
+          });
+        }
       }
     },
 
@@ -331,7 +507,38 @@ export default {
       if (this.reprintSelectedPrinter) {
         localStorage.setItem('reprintSelectedPrinter', this.reprintSelectedPrinter.toString());
         this.focusReprintInput();
+        
+        // Log marriage info for reprint
+        const printerInfo = this.reprintSelectedPrinterInfo;
+        if (printerInfo && printerInfo.is_married) {
+          console.log('Selected married printer for reprint:', {
+            primary: printerInfo.printername_short,
+            married_to: printerInfo.married_printer.name,
+            marriage_name: printerInfo.marriage_name
+          });
+        }
       }
+    },
+
+    isInstructionCardLabel(labelType) {
+      const instructionCardLabels = ['vector_image', 'instruction_cards'];
+      return instructionCardLabels.includes(labelType);
+    },
+
+    getSmallLabelPrinterName(printerInfo) {
+      if (!printerInfo.is_married) return printerInfo.printername_short;
+      
+      // If the selected printer is small label type, use it
+      if (printerInfo.printer_type === 'small_label') {
+        return printerInfo.printername_short;
+      }
+      
+      // If the married printer is small label type, use it
+      if (printerInfo.married_printer && printerInfo.married_printer.type === 'small_label') {
+        return printerInfo.married_printer.name;
+      }
+      
+      return printerInfo.printername_short;
     },
     
     openPrinterScanner() {
@@ -342,12 +549,12 @@ export default {
     },
     
     onScannerOpened() {
-      console.log('Printer scanner opened');
+      console.log('Enhanced printer scanner opened');
       this.focusActiveInput();
     },
     
     onScannerClosed() {
-      console.log('Printer scanner closed');
+      console.log('Enhanced printer scanner closed');
       // Clean up the printer app when scanner closes
       this.handleScannerClose();
     },
@@ -358,16 +565,36 @@ export default {
     },
     
     onSerialInput() {
-      // Auto-process if in auto mode and serial looks complete
-      if (!this.isManualMode && this.serialNumber.length >= 8 && this.selectedPrinter) {
-        this.processPrintScan();
+      // Clear any existing timer
+      if (this.autoProcessTimer) {
+        clearTimeout(this.autoProcessTimer);
+      }
+      
+      // Auto-process if in auto mode and serial looks complete (optimized with debouncing)
+      if (!this.isManualMode && this.serialNumber.length >= 8 && this.selectedPrinter && !this.isProcessing) {
+        // Add small delay to prevent multiple rapid calls
+        this.autoProcessTimer = setTimeout(() => {
+          if (!this.isProcessing) {
+            this.processPrintScan();
+          }
+        }, 300); // 300ms delay
       }
     },
 
     onReprintSearchInput() {
-      // Auto-search if in auto mode and input looks complete
-      if (!this.isManualMode && this.reprintSearchTerm.length >= 5 && this.reprintSelectedPrinter) {
-        this.searchForReprint();
+      // Clear any existing timer
+      if (this.autoSearchTimer) {
+        clearTimeout(this.autoSearchTimer);
+      }
+      
+      // Auto-search if in auto mode and input looks complete (optimized with debouncing)
+      if (!this.isManualMode && this.reprintSearchTerm.length >= 5 && this.reprintSelectedPrinter && !this.isProcessing) {
+        // Add small delay to prevent multiple rapid calls
+        this.autoSearchTimer = setTimeout(() => {
+          if (!this.isProcessing) {
+            this.searchForReprint();
+          }
+        }, 300); // 300ms delay
       }
     },
 
@@ -382,10 +609,15 @@ export default {
         return;
       }
 
+      console.time('searchForReprint');
       this.$refs.scannerComponent.startLoading('Searching for product...');
       this.isProcessing = true;
       
       try {
+        // Add timeout to search request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+        
         const response = await fetch('/api/printer/search-for-reprint', {
           method: 'POST',
           headers: {
@@ -394,8 +626,12 @@ export default {
           },
           body: JSON.stringify({
             search_term: this.reprintSearchTerm.trim()
-          })
+          }),
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+        console.timeEnd('searchForReprint');
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -414,10 +650,17 @@ export default {
         }
         
       } catch (error) {
-        console.error('Search error:', error);
+        console.timeEnd('searchForReprint');
+        
+        if (error.name === 'AbortError') {
+          this.showError('Search timed out - please try again');
+        } else {
+          console.error('Search error:', error);
+          this.showError('Search failed: ' + error.message);
+        }
+        
         this.reprintProductInfo = null;
         this.selectedLabelType = null;
-        this.showError('Search failed: ' + error.message);
       } finally {
         this.$refs.scannerComponent.stopLoading();
         this.isProcessing = false;
@@ -435,12 +678,13 @@ export default {
         return;
       }
 
-      this.$refs.scannerComponent.startLoading('Reprinting label...');
+      const printerInfo = this.reprintSelectedPrinterInfo;
+      const labelTypeName = this.selectedLabelTypeName;
+      
+      this.$refs.scannerComponent.startLoading(`Reprinting ${labelTypeName}...`);
       this.isProcessing = true;
       
       try {
-        const selectedPrinterData = this.printers.find(p => p.printerid == this.reprintSelectedPrinter);
-        
         const response = await fetch('/api/printer/reprint-single-label', {
           method: 'POST',
           headers: {
@@ -451,7 +695,7 @@ export default {
             product_id: this.reprintProductInfo.ProductID,
             label_type: this.selectedLabelType,
             printer_id: this.reprintSelectedPrinter,
-            printer_name: selectedPrinterData ? selectedPrinterData.printername : 'Unknown',
+            printer_name: printerInfo ? printerInfo.printername_short : 'Unknown',
             search_term: this.reprintSearchTerm
           })
         });
@@ -487,17 +731,18 @@ export default {
     },
 
     handleReprintSuccess(result) {
-      const labelTypeName = this.availableLabelTypes.find(lt => lt.key === this.selectedLabelType)?.name || this.selectedLabelType;
+      const labelTypeName = this.selectedLabelTypeName;
+      const printerInfo = result.printer_name || 'Unknown Printer';
       
       // Add to scanner success
       this.$refs.scannerComponent.addSuccessScan({
         serial_number: this.reprintSearchTerm,
-        status: `Reprinted: ${labelTypeName}`,
+        status: `Reprinted: ${labelTypeName} → ${printerInfo}`,
         timestamp: new Date().toISOString()
       });
       
       // Show success notification
-      this.$refs.scannerComponent.showScanSuccess(`${labelTypeName} reprinted successfully`);
+      this.$refs.scannerComponent.showScanSuccess(`${labelTypeName} reprinted successfully to ${printerInfo}`);
       
       // Play success sound
       SoundService.successScan(false);
@@ -531,7 +776,7 @@ export default {
       this.focusReprintInput();
     },
     
-    // Existing methods continue...
+    // Enhanced print processing with married printer support
     async processPrintScan() {
       if (!this.serialNumber.trim()) {
         this.showError('Please enter a serial number');
@@ -543,25 +788,58 @@ export default {
         return;
       }
       
+      const printerInfo = this.selectedPrinterInfo;
+      const loadingMessage = printerInfo && printerInfo.is_married ? 
+        'Checking database and preparing married printers...' : 
+        'Checking database...';
+      
+      console.log('Starting print process:', {
+        serial_number: this.serialNumber,
+        printer_id: this.selectedPrinter,
+        printer_info: printerInfo
+      });
+      
       // Show loading state
-      this.$refs.scannerComponent.startLoading('Checking database...');
+      this.$refs.scannerComponent.startLoading(loadingMessage);
       this.isProcessing = true;
       
       try {
         // Check database with your conditions
+        console.log('Checking print conditions...');
         const result = await this.checkPrintConditions(this.serialNumber);
         
+        console.log('Print conditions result:', result);
+        
         if (result.success) {
-          // Print the label
-          await this.printLabel(result.data);
+          // Print the label with enhanced married printer support
+          console.log('Print conditions passed, attempting to print...');
+          const printResult = await this.printLabel(result.data);
+          console.log('Print completed successfully:', printResult);
           this.handlePrintSuccess(result.data);
         } else {
+          console.log('Print conditions failed:', result.message);
           this.handlePrintError(result.message);
         }
         
       } catch (error) {
-        console.error('Print processing error:', error);
-        this.handlePrintError('Database error occurred');
+        console.error('Print processing error details:', {
+          error: error.message,
+          stack: error.stack,
+          serial_number: this.serialNumber,
+          printer_id: this.selectedPrinter
+        });
+        
+        // Provide more specific error messages
+        let errorMessage = 'Database error occurred';
+        if (error.message.includes('HTTP error! status: 500')) {
+          errorMessage = 'Server error occurred. Please check the application logs and try again.';
+        } else if (error.message.includes('Print service error:')) {
+          errorMessage = error.message;
+        } else if (error.message.includes('Network')) {
+          errorMessage = 'Network connection error. Please check your connection and try again.';
+        }
+        
+        this.handlePrintError(errorMessage);
       } finally {
         this.$refs.scannerComponent.stopLoading();
         this.isProcessing = false;
@@ -571,7 +849,12 @@ export default {
     
     async checkPrintConditions(serialNumber) {
       try {
-        // Use the new API endpoint
+        console.time('checkPrintConditions');
+        
+        // Use the existing API endpoint with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+        
         const response = await fetch('/api/printer/check-serial', {
           method: 'POST',
           headers: {
@@ -580,8 +863,12 @@ export default {
           },
           body: JSON.stringify({
             serial_number: serialNumber
-          })
+          }),
+          signal: controller.signal
         });
+        
+        clearTimeout(timeoutId);
+        console.timeEnd('checkPrintConditions');
         
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
@@ -603,6 +890,15 @@ export default {
         }
         
       } catch (error) {
+        console.timeEnd('checkPrintConditions');
+        if (error.name === 'AbortError') {
+          console.error('Print conditions check timed out');
+          return {
+            success: false,
+            message: 'Database check timed out - please try again'
+          };
+        }
+        
         console.error('Database check error:', error);
         return {
           success: false,
@@ -613,12 +909,34 @@ export default {
     
     async printLabel(data) {
       try {
-        // Get selected printer info
-        const selectedPrinterData = this.printers.find(p => p.printerid == this.selectedPrinter);
-        const printerName = selectedPrinterData ? selectedPrinterData.printername : 'Unknown Printer';
+        console.time('printLabel');
         
-        // Use the existing API endpoint and include printer info
-       const response = await fetch('/api/printer/print-label', {
+        const printerInfo = this.selectedPrinterInfo;
+        const printerName = printerInfo ? printerInfo.printername_short : 'Unknown Printer';
+        
+        // Enhanced logging for married printers
+        if (printerInfo && printerInfo.is_married) {
+          console.log('Printing with married printer system:', {
+            primary_printer: printerName,
+            married_to: printerInfo.married_printer.name,
+            marriage_name: printerInfo.marriage_name
+          });
+        }
+        
+        console.log('Sending print request with data:', {
+          serial_number: this.serialNumber,
+          printer_id: this.selectedPrinter,
+          printer_name: printerName,
+          print_data_keys: Object.keys(data),
+          data_size: JSON.stringify(data).length
+        });
+        
+        // Add timeout to print request
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for printing
+        
+        // Use the updated API endpoint that supports married printers
+        const response = await fetch('/api/printer/print-label', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -629,14 +947,42 @@ export default {
             printer_id: this.selectedPrinter,
             printer_name: printerName,
             print_data: data
-          })
+          }),
+          signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
+        console.timeEnd('printLabel');
+        
+        // Log the response details
+        console.log('Print API response status:', response.status);
+        
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          // Try to get error details from response
+          let errorMessage = `HTTP error! status: ${response.status}`;
+          try {
+            const errorText = await response.text();
+            console.error('Print API error response body:', errorText);
+            
+            // Try to parse as JSON first
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMessage = errorJson.message || errorMessage;
+            } catch (jsonError) {
+              // If not JSON, use the text directly if it's useful
+              if (errorText.length > 0 && errorText.length < 200) {
+                errorMessage += ': ' + errorText;
+              }
+            }
+          } catch (textError) {
+            console.error('Could not read error response body:', textError);
+          }
+          
+          throw new Error(errorMessage);
         }
         
         const result = await response.json();
+        console.log('Print API success response:', result);
         
         if (!result.success) {
           throw new Error(result.message || 'Print failed');
@@ -645,21 +991,50 @@ export default {
         return result;
         
       } catch (error) {
-        console.error('Print service error:', error);
+        console.timeEnd('printLabel');
+        
+        if (error.name === 'AbortError') {
+          console.error('Print request timed out');
+          throw new Error('Print request timed out - please try again');
+        }
+        
+        console.error('Print service error details:', {
+          error: error.message,
+          stack: error.stack,
+          serial_number: this.serialNumber,
+          printer_id: this.selectedPrinter
+        });
         throw new Error('Print service error: ' + error.message);
       }
     },
     
     handlePrintSuccess(data) {
+      const printerInfo = this.selectedPrinterInfo;
+      let statusMessage = 'Printed';
+      
+      // Enhanced success message for married printers
+      if (printerInfo && printerInfo.is_married) {
+        statusMessage = `Printed to married printers`;
+        if (printerInfo.marriage_name) {
+          statusMessage += ` (${printerInfo.marriage_name})`;
+        }
+      } else {
+        statusMessage = `Printed to ${printerInfo.printername_short}`;
+      }
+      
       // Add to scanner success
       this.$refs.scannerComponent.addSuccessScan({
         serial_number: this.serialNumber,
-        status: 'Printed',
+        status: statusMessage,
         timestamp: new Date().toISOString()
       });
       
-      // Show success notification
-      this.$refs.scannerComponent.showScanSuccess(this.serialNumber);
+      // Show enhanced success notification
+      const successMsg = printerInfo && printerInfo.is_married ? 
+        `Labels printed to married printer system successfully!` :
+        `Labels printed to ${printerInfo.printername_short} successfully!`;
+      
+      this.$refs.scannerComponent.showScanSuccess(successMsg);
       
       // Play success sound
       SoundService.successScan(false);
@@ -718,6 +1093,14 @@ export default {
     },
     
     handleScannerClose() {
+      // Clean up timers
+      if (this.autoProcessTimer) {
+        clearTimeout(this.autoProcessTimer);
+      }
+      if (this.autoSearchTimer) {
+        clearTimeout(this.autoSearchTimer);
+      }
+      
       // Clean up the printer app when closing
       if (window.cleanupPrinterApp) {
         window.cleanupPrinterApp();
@@ -729,6 +1112,16 @@ export default {
           window.location.href = '/dashboard';
         }
       }
+    }
+  },
+  
+  // Add cleanup when component is destroyed
+  beforeUnmount() {
+    if (this.autoProcessTimer) {
+      clearTimeout(this.autoProcessTimer);
+    }
+    if (this.autoSearchTimer) {
+      clearTimeout(this.autoSearchTimer);
     }
   }
 };
@@ -787,6 +1180,75 @@ export default {
   gap: 15px;
 }
 
+/* Marriage Info Styling */
+.marriage-info {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 8px;
+}
+
+.marriage-details {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #856404;
+}
+
+.marriage-details i {
+  color: #dc3545;
+}
+
+.marriage-text {
+  color: #495057;
+}
+
+.marriage-name {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.marriage-description {
+  margin-top: 5px;
+  font-size: 13px;
+  color: #6c757d;
+  font-style: italic;
+}
+
+.smart-routing-info {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #0056b3;
+}
+
+.label-routing-info {
+  background-color: #e7f3ff;
+  border: 1px solid #b3d9ff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-top: 8px;
+}
+
+.routing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #0056b3;
+  font-weight: 500;
+}
+
+.married-print-indicator {
+  font-size: 12px;
+  color: #dc3545;
+  font-weight: normal;
+}
+
 /* Form Elements */
 .input-group {
   display: flex;
@@ -829,6 +1291,16 @@ export default {
 .label-type-select {
   background-color: white;
   cursor: pointer;
+}
+
+.married-printer {
+  background-color: #fff3cd !important;
+  color: #856404 !important;
+}
+
+.marriage-indicator {
+  margin-left: 5px;
+  font-size: 12px;
 }
 
 /* Product Info Card */
@@ -1100,6 +1572,34 @@ export default {
     overflow-wrap: break-word;
     max-width: 100%;
   }
+
+  /* Marriage info mobile styling */
+  .marriage-info {
+    padding: 8px 10px;
+    margin-top: 6px;
+  }
+
+  .marriage-details {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 13px;
+  }
+
+  .smart-routing-info {
+    margin-top: 6px;
+    font-size: 12px;
+  }
+
+  .label-routing-info {
+    padding: 6px 8px;
+    margin-top: 6px;
+  }
+
+  .routing-indicator {
+    flex-wrap: wrap;
+    gap: 4px;
+    font-size: 12px;
+  }
 }
 
 /* Extra small devices (phones, less than 576px) */
@@ -1168,6 +1668,18 @@ export default {
   
   .info-item .value {
     font-size: 15px;
+  }
+
+  .marriage-info {
+    padding: 6px 8px;
+  }
+
+  .marriage-details {
+    font-size: 12px;
+  }
+
+  .smart-routing-info {
+    font-size: 11px;
   }
 }
 

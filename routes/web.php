@@ -496,24 +496,31 @@ Route::prefix('api/houseage')->group(function () {
 Route::prefix('api/printer')->group(function () {
     // Check if serial number meets print conditions
     Route::post('check-serial', [PrinterController::class, 'checkSerial']);
-    // Print label for a product
+    
+    // Print label for a product (now supports married printers)
     Route::post('print-label', [PrinterController::class, 'printLabel']);
+    
     // Get printer status
     Route::get('status', [PrinterController::class, 'getStatus']);
-    // Get print history for a serial number
-    Route::post('print-history', [PrinterController::class, 'getPrintHistory']);
+    
     // Test printer connection
     Route::get('test-connection', [PrinterController::class, 'testConnection']);
-    // Get printing statistics
-    Route::get('stats', [PrinterController::class, 'getStats']);
+    
     // Test print functionality
     Route::post('test-print', [PrinterController::class, 'testPrint']);
-    // Get all printers - FIXED: removed the extra /printer/
+    
+    // Get all printers with marriage information (enhanced version)
     Route::get('get-printers', [PrinterController::class, 'getPrinters']);
-
-    // NEW REPRINT ROUTES
+    
+    // NEW: Get married printer pairs for synchronized printing
+    Route::get('get-married-pairs', [PrinterController::class, 'getMarriedPrinterPairs']);
+    
+    // REPRINT ROUTES (now support smart routing)
     Route::post('search-for-reprint', [PrinterController::class, 'searchForReprint']);
     Route::post('reprint-single-label', [PrinterController::class, 'reprintSingleLabel']);
+    
+    // Debug routes (helpful for troubleshooting)
+    Route::post('debug-database', [PrinterController::class, 'debugDatabase']);
 });
 
 
