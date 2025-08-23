@@ -361,3 +361,29 @@ table tbody tr td {
     gap: 10px;
     margin-top: 10px;
 }
+
+/* History */
+.history-header ul {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.history-header ul > li {
+    display: inline-block;
+    padding: 8px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+}
+
+.history-header ul > li:hover {
+    border-bottom: 1px solid #007bff;
+}
+
+.history-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+}
