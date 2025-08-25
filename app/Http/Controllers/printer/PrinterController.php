@@ -323,8 +323,8 @@ class PrinterController extends BasetablesController
     }
 
     /**
-     * Reprint a single label type
-     * UPDATED to work with new printer management system
+     * UPDATED: Reprint a single label type with STRICT ENFORCEMENT
+     * Now supports strict printer type enforcement with clear error messages
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
@@ -380,8 +380,20 @@ class PrinterController extends BasetablesController
                 ], 404);
             }
 
-            // Determine which printer to use based on label type
-            $targetPrinter = $this->determinePrinterForLabelType($selectedPrinter, $labelType);
+            // STRICT COMPATIBILITY CHECK
+            $compatibilityCheck = $this->checkPrinterLabelCompatibility($selectedPrinter, $labelType);
+            
+            if (!$compatibilityCheck['compatible']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $compatibilityCheck['message'],
+                    'suggested_action' => $compatibilityCheck['suggested_action'] ?? null,
+                    'available_printers' => $compatibilityCheck['available_printers'] ?? null
+                ], 400);
+            }
+
+            // Determine the target printer to use (could be different due to smart routing)
+            $targetPrinter = $compatibilityCheck['target_printer'];
 
             // Use the PrintLabelService to print the specific label type
             $printResult = $this->printLabelService->reprintSingleLabel(
@@ -397,25 +409,29 @@ class PrinterController extends BasetablesController
                 if (isset($this->itemProcessHistoryTable) && 
                     DB::getSchemaBuilder()->hasTable($this->itemProcessHistoryTable)) {
                     
+                    $actionDescription = $this->getReprintActionDescription($selectedPrinter, $targetPrinter, $labelType);
+                    
                     DB::table($this->itemProcessHistoryTable)->insert([
                         'rtcounter' => $product->rtcounter,
                         'employeeName' => $username,
                         'editDate' => now()->format('Y-m-d H:i:s'),
                         'Module' => 'Label Reprinting',
-                        'Action' => 'Single label reprinted (' . $labelType . ') for ' . ($product->FNSKUviewer ?? 'unknown FNSKU') . ' on ' . $targetPrinter->printername . ' - Search: ' . $searchTerm
+                        'Action' => $actionDescription . ' for ' . ($product->FNSKUviewer ?? 'unknown FNSKU') . ' - Search: ' . $searchTerm
                     ]);
                 }
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Label reprinted successfully to ' . $targetPrinter->printername,
+                    'message' => $printResult['message'] ?? 'Label reprinted successfully',
                     'label_type' => $labelType,
                     'search_term' => $searchTerm,
-                    'printer_name' => $targetPrinter->printername,
-                    'printer_ip' => $targetPrinter->printerip,
-                    'product_title' => 'Product Title',
-                    'asin' => 'ASIN',
-                    'fnsku' => $product->FNSKUviewer,
+                    'printer_info' => [
+                        'selected_printer' => $selectedPrinter->printername,
+                        'target_printer' => $targetPrinter->printername,
+                        'target_printer_ip' => $targetPrinter->printerip,
+                        'was_routed' => $selectedPrinter->printerid !== $targetPrinter->printerid,
+                        'routing_reason' => $compatibilityCheck['routing_reason'] ?? null
+                    ],
                     'product_data' => [
                         'ProductID' => $product->ProductID,
                         'rtcounter' => $product->rtcounter,
@@ -440,6 +456,349 @@ class PrinterController extends BasetablesController
             return response()->json([
                 'success' => false,
                 'message' => 'Error reprinting label: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * NEW: Check printer and label compatibility with STRICT ENFORCEMENT
+     * This method handles the logic for married printers and single printer compatibility
+     *
+     * @param object $selectedPrinter
+     * @param string $labelType
+     * @return array
+     */
+    protected function checkPrinterLabelCompatibility($selectedPrinter, $labelType)
+    {
+        try {
+            // Define label type categories - CORRECTED: vector_image is small label
+            $instructionCardLabels = [
+                'instruction_cards'  // Only instruction cards go to instruction card printer
+            ];
+
+            $smallLabelTypes = [
+                'serial_labels',
+                'fnsku_label', 
+                'title_label',
+                'item_number_label',
+                'timestamp_label',
+                'sticker_note_label',
+                'warehouse_location_label',
+                'rtcounter_label',
+                'qr_manual',
+                'qr_serial',
+                'transparency_qr',
+                'print_count',
+                'vector_image'  // Vector image goes to small label printer
+            ];
+
+            $isInstructionCardLabel = in_array($labelType, $instructionCardLabels);
+            $isSmallLabel = in_array($labelType, $smallLabelTypes);
+
+            // If printer is married, use smart routing
+            if (!empty($selectedPrinter->married_to_printer_id)) {
+                return $this->handleMarriedPrinterRouting($selectedPrinter, $labelType, $isInstructionCardLabel, $isSmallLabel);
+            }
+            
+            // For single printers, check strict compatibility
+            return $this->handleSinglePrinterCompatibility($selectedPrinter, $labelType, $isInstructionCardLabel, $isSmallLabel);
+
+        } catch (Exception $e) {
+            Log::error('Error checking printer label compatibility:', [
+                'error' => $e->getMessage(),
+                'printer_id' => $selectedPrinter->printerid ?? 'unknown',
+                'label_type' => $labelType
+            ]);
+
+            return [
+                'compatible' => false,
+                'message' => 'Error checking printer compatibility: ' . $e->getMessage(),
+                'target_printer' => $selectedPrinter
+            ];
+        }
+    }
+
+    /**
+     * NEW: Handle married printer routing logic - STRICT ENFORCEMENT FOR REPRINT
+     * For reprint, even married printers must have the exact type needed
+     *
+     * @param object $selectedPrinter
+     * @param string $labelType
+     * @param bool $isInstructionCardLabel
+     * @param bool $isSmallLabel
+     * @return array
+     */
+    protected function handleMarriedPrinterRouting($selectedPrinter, $labelType, $isInstructionCardLabel, $isSmallLabel)
+    {
+        try {
+            // Get the married printer
+            $marriedPrinter = DB::table('tblprinters')
+                ->where('printerid', $selectedPrinter->married_to_printer_id)
+                ->where('status', 'active')
+                ->first();
+
+            if (!$marriedPrinter) {
+                return [
+                    'compatible' => false,
+                    'message' => 'Married printer is not available or inactive. Please select a different printer.',
+                    'suggested_action' => 'Select a single printer of the correct type',
+                    'target_printer' => $selectedPrinter
+                ];
+            }
+
+            // STRICT ENFORCEMENT: Check if either printer in the marriage can handle the label type
+            if ($isInstructionCardLabel) {
+                // Need instruction card printer
+                if ($selectedPrinter->printer_type === 'instruction_card') {
+                    return [
+                        'compatible' => true,
+                        'message' => 'Using selected instruction card printer from married pair',
+                        'target_printer' => $selectedPrinter,
+                        'routing_reason' => 'Selected printer is correct type for instruction cards'
+                    ];
+                } else if ($marriedPrinter->printer_type === 'instruction_card') {
+                    return [
+                        'compatible' => true,
+                        'message' => 'Smart routing: Using married instruction card printer',
+                        'target_printer' => $marriedPrinter,
+                        'routing_reason' => 'Routed to married instruction card printer'
+                    ];
+                } else {
+                    // Neither printer can handle instruction cards
+                    $instructionCardPrinters = DB::table('tblprinters')
+                        ->where('printer_type', 'instruction_card')
+                        ->where('status', 'active')
+                        ->select('printerid', 'printername', 'printer_type')
+                        ->get();
+
+                    return [
+                        'compatible' => false,
+                        'message' => 'Neither printer in this married pair can print instruction cards. Please select an instruction card printer.',
+                        'suggested_action' => 'Select an instruction card printer from the list below:',
+                        'available_printers' => $instructionCardPrinters->toArray(),
+                        'target_printer' => $selectedPrinter
+                    ];
+                }
+            } else if ($isSmallLabel) {
+                // Need small label printer
+                if ($selectedPrinter->printer_type === 'small_label') {
+                    return [
+                        'compatible' => true,
+                        'message' => 'Using selected small label printer from married pair',
+                        'target_printer' => $selectedPrinter,
+                        'routing_reason' => 'Selected printer is correct type for small labels'
+                    ];
+                } else if ($marriedPrinter->printer_type === 'small_label') {
+                    return [
+                        'compatible' => true,
+                        'message' => 'Smart routing: Using married small label printer',
+                        'target_printer' => $marriedPrinter,
+                        'routing_reason' => 'Routed to married small label printer'
+                    ];
+                } else {
+                    // Neither printer can handle small labels
+                    $smallLabelPrinters = DB::table('tblprinters')
+                        ->where('printer_type', 'small_label')
+                        ->where('status', 'active')
+                        ->select('printerid', 'printername', 'printer_type')
+                        ->get();
+
+                    return [
+                        'compatible' => false,
+                        'message' => 'Neither printer in this married pair can print small labels. Please select a small label printer.',
+                        'suggested_action' => 'Select a small label printer from the list below:',
+                        'available_printers' => $smallLabelPrinters->toArray(),
+                        'target_printer' => $selectedPrinter
+                    ];
+                }
+            } else {
+                // Unknown label type - use selected printer
+                return [
+                    'compatible' => true,
+                    'message' => 'Using selected printer for unknown label type',
+                    'target_printer' => $selectedPrinter,
+                    'routing_reason' => 'Unknown label type, no routing applied'
+                ];
+            }
+
+        } catch (Exception $e) {
+            Log::error('Error in married printer routing:', [
+                'error' => $e->getMessage(),
+                'selected_printer_id' => $selectedPrinter->printerid
+            ]);
+
+            return [
+                'compatible' => false,
+                'message' => 'Error checking married printer compatibility: ' . $e->getMessage(),
+                'target_printer' => $selectedPrinter
+            ];
+        }
+    }
+
+    /**
+     * NEW: Handle single printer compatibility check - STRICT ENFORCEMENT
+     * For reprint, we enforce strict compatibility - no cross-type printing allowed
+     *
+     * @param object $selectedPrinter
+     * @param string $labelType
+     * @param bool $isInstructionCardLabel
+     * @param bool $isSmallLabel
+     * @return array
+     */
+    protected function handleSinglePrinterCompatibility($selectedPrinter, $labelType, $isInstructionCardLabel, $isSmallLabel)
+    {
+        try {
+            // STRICT ENFORCEMENT: No cross-type printing allowed
+            if ($isInstructionCardLabel && $selectedPrinter->printer_type !== 'instruction_card') {
+                // Get available instruction card printers
+                $instructionCardPrinters = DB::table('tblprinters')
+                    ->where('printer_type', 'instruction_card')
+                    ->where('status', 'active')
+                    ->select('printerid', 'printername', 'printer_type')
+                    ->get();
+
+                return [
+                    'compatible' => false,
+                    'message' => 'Instruction card labels can only be printed on instruction card printers. Please select an instruction card printer.',
+                    'suggested_action' => 'Select an instruction card printer from the list below:',
+                    'available_printers' => $instructionCardPrinters->toArray(),
+                    'target_printer' => $selectedPrinter
+                ];
+            }
+
+            if ($isSmallLabel && $selectedPrinter->printer_type !== 'small_label') {
+                // Get available small label printers
+                $smallLabelPrinters = DB::table('tblprinters')
+                    ->where('printer_type', 'small_label')
+                    ->where('status', 'active')
+                    ->select('printerid', 'printername', 'printer_type')
+                    ->get();
+
+                return [
+                    'compatible' => false,
+                    'message' => 'Small labels (including vector images) can only be printed on small label printers. Please select a small label printer.',
+                    'suggested_action' => 'Select a small label printer from the list below:',
+                    'available_printers' => $smallLabelPrinters->toArray(),
+                    'target_printer' => $selectedPrinter
+                ];
+            }
+
+            // Compatible - same printer type as required
+            return [
+                'compatible' => true,
+                'message' => 'Printer is compatible with selected label type',
+                'target_printer' => $selectedPrinter,
+                'routing_reason' => 'Direct printing to selected printer'
+            ];
+
+        } catch (Exception $e) {
+            Log::error('Error in single printer compatibility check:', [
+                'error' => $e->getMessage(),
+                'printer_id' => $selectedPrinter->printerid
+            ]);
+
+            return [
+                'compatible' => false,
+                'message' => 'Error checking printer compatibility: ' . $e->getMessage(),
+                'target_printer' => $selectedPrinter
+            ];
+        }
+    }
+
+    /**
+     * NEW: Generate description for reprint action in history log
+     *
+     * @param object $selectedPrinter
+     * @param object $targetPrinter
+     * @param string $labelType
+     * @return string
+     */
+    protected function getReprintActionDescription($selectedPrinter, $targetPrinter, $labelType)
+    {
+        $labelTypeName = ucwords(str_replace('_', ' ', $labelType));
+        
+        if ($selectedPrinter->printerid === $targetPrinter->printerid) {
+            return "Single label reprinted ({$labelTypeName}) on {$selectedPrinter->printername}";
+        } else {
+            return "Single label reprinted ({$labelTypeName}) - Smart routed from {$selectedPrinter->printername} to {$targetPrinter->printername}";
+        }
+    }
+
+    /**
+     * NEW: Get available printers for specific label type
+     * This helps the frontend suggest appropriate printers
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getAvailablePrintersForLabelType(Request $request)
+    {
+        try {
+            $request->validate([
+                'label_type' => 'required|string'
+            ]);
+
+            $labelType = $request->label_type;
+            
+            // Define label type categories - CORRECTED
+            $instructionCardLabels = ['instruction_cards'];
+            $isInstructionCardLabel = in_array($labelType, $instructionCardLabels);
+            
+            if ($isInstructionCardLabel) {
+                // Get instruction card printers (including married pairs that have instruction card capability)
+                $printers = DB::table('tblprinters as p1')
+                    ->leftJoin('tblprinters as p2', 'p1.married_to_printer_id', '=', 'p2.printerid')
+                    ->where('p1.status', 'active')
+                    ->where(function($query) {
+                        $query->where('p1.printer_type', 'instruction_card')
+                              ->orWhere('p2.printer_type', 'instruction_card');
+                    })
+                    ->select([
+                        'p1.printerid',
+                        'p1.printername',
+                        'p1.printer_type',
+                        'p1.married_to_printer_id',
+                        'p1.marriage_name',
+                        'p2.printername as married_printer_name',
+                        'p2.printer_type as married_printer_type'
+                    ])
+                    ->get();
+            } else {
+                // Get small label printers (including married pairs that have small label capability)
+                $printers = DB::table('tblprinters as p1')
+                    ->leftJoin('tblprinters as p2', 'p1.married_to_printer_id', '=', 'p2.printerid')
+                    ->where('p1.status', 'active')
+                    ->where(function($query) {
+                        $query->where('p1.printer_type', 'small_label')
+                              ->orWhere('p2.printer_type', 'small_label');
+                    })
+                    ->select([
+                        'p1.printerid',
+                        'p1.printername', 
+                        'p1.printer_type',
+                        'p1.married_to_printer_id',
+                        'p1.marriage_name',
+                        'p2.printername as married_printer_name',
+                        'p2.printer_type as married_printer_type'
+                    ])
+                    ->get();
+            }
+
+            return response()->json([
+                'success' => true,
+                'label_type' => $labelType,
+                'compatible_printers' => $printers
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Error getting available printers for label type:', [
+                'error' => $e->getMessage(),
+                'label_type' => $request->label_type ?? 'unknown'
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error fetching compatible printers: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -723,94 +1082,6 @@ class PrinterController extends BasetablesController
                 'success' => false,
                 'message' => 'Error printing label: ' . $e->getMessage()
             ], 500);
-        }
-    }
-
-    /**
-     * NEW: Determine which printer to use based on label type and marriage status
-     *
-     * @param object $selectedPrinter
-     * @param string $labelType
-     * @return object
-     */
-    protected function determinePrinterForLabelType($selectedPrinter, $labelType)
-    {
-        try {
-            // Define which label types go to which printer type
-            $instructionCardLabels = [
-                'instruction_cards',
-                'vector_image'
-            ];
-
-            $smallLabelTypes = [
-                'serial_labels',
-                'fnsku_label',
-                'title_label',
-                'item_number_label',
-                'timestamp_label',
-                'sticker_note_label',
-                'warehouse_location_label',
-                'rtcounter_label',
-                'qr_manual',
-                'qr_serial',
-                'transparency_qr',
-                'print_count'
-            ];
-
-            // If the selected printer is married, determine the appropriate printer
-            if (!empty($selectedPrinter->married_to_printer_id)) {
-                $marriedPrinter = DB::table('tblprinters')
-                    ->where('printerid', $selectedPrinter->married_to_printer_id)
-                    ->first();
-
-                if ($marriedPrinter && $marriedPrinter->status === 'active') {
-                    // If we need instruction card printer and current is small label
-                    if (in_array($labelType, $instructionCardLabels) && 
-                        $selectedPrinter->printer_type === 'small_label' && 
-                        $marriedPrinter->printer_type === 'instruction_card') {
-                        
-                        Log::info('Using married instruction card printer for label type:', [
-                            'label_type' => $labelType,
-                            'switching_from' => $selectedPrinter->printername,
-                            'switching_to' => $marriedPrinter->printername
-                        ]);
-                        
-                        return $marriedPrinter;
-                    }
-                    
-                    // If we need small label printer and current is instruction card
-                    if (in_array($labelType, $smallLabelTypes) && 
-                        $selectedPrinter->printer_type === 'instruction_card' && 
-                        $marriedPrinter->printer_type === 'small_label') {
-                        
-                        Log::info('Using married small label printer for label type:', [
-                            'label_type' => $labelType,
-                            'switching_from' => $selectedPrinter->printername,
-                            'switching_to' => $marriedPrinter->printername
-                        ]);
-                        
-                        return $marriedPrinter;
-                    }
-                } else if ($marriedPrinter) {
-                    Log::warning('Married printer is not active:', [
-                        'married_printer' => $marriedPrinter->printername,
-                        'status' => $marriedPrinter->status
-                    ]);
-                }
-            }
-
-            // Use the originally selected printer if no marriage routing needed
-            return $selectedPrinter;
-
-        } catch (Exception $e) {
-            Log::error('Error determining printer for label type:', [
-                'error' => $e->getMessage(),
-                'label_type' => $labelType,
-                'printer_id' => $selectedPrinter->printerid ?? 'unknown'
-            ]);
-
-            // Return original printer as fallback
-            return $selectedPrinter;
         }
     }
 
@@ -1340,6 +1611,36 @@ class PrinterController extends BasetablesController
                 'success' => false,
                 'message' => 'Debug error: ' . $e->getMessage(),
                 'trace' => $e->getTraceAsString()
+            ], 500);
+        }
+    }
+
+    /**
+     * Clear any cache or temporary files
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function clearCache()
+    {
+        try {
+            // Clear Laravel cache
+            \Artisan::call('cache:clear');
+            \Artisan::call('config:clear');
+            \Artisan::call('view:clear');
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Cache cleared successfully'
+            ]);
+            
+        } catch (Exception $e) {
+            Log::error('Error clearing cache:', [
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error clearing cache: ' . $e->getMessage()
             ], 500);
         }
     }
