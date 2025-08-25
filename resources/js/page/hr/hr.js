@@ -2,16 +2,14 @@ import axios from "axios";
 import Swal from "sweetalert2";
 
 import Employee from "./components/employee.vue";
-import LeaveHistory from "./components/leavehistory.vue";
 import TimeRecord from "./components/timerecord.vue";
 import Violations from "./components/violations.vue";
-import TimeRecordHistory from "./components/timerecordhistory.vue";
-import RateHistory from "./components/ratehistory.vue";
-import ViolationsHistory from "./components/violationshistory.vue";
+
 import HolidayModal from "./components/holidaymodal.vue";
 import bootstrap from "bootstrap/dist/js/bootstrap.bundle.min.js";
 import AnnouncementModal from "./components/announcementmodal.vue";
 import scheduling from "./components/scheduling.vue";
+import History from "./components/history.vue";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -64,14 +62,11 @@ export default {
     components: {
         Employee,
         TimeRecord,
-        TimeRecordHistory,
-        LeaveHistory,
-        RateHistory,
-        ViolationsHistory,
         Violations,
         HolidayModal,
         AnnouncementModal,
         scheduling,
+        History,
     },
 
     data() {
@@ -238,7 +233,7 @@ export default {
             this.currentView = this.tabs[0];
     },
 
-    async mounted() {
+    mounted() {
         // Initialize Holiday modal
         const el = document.getElementById("holidayModal");
         if (el && typeof bootstrap !== "undefined") {

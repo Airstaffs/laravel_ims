@@ -1,6 +1,5 @@
 <template>
     <div class="leave-history-section">
-        <h4>Employee Leave History</h4>
         <table class="table table-bordered">
             <thead>
                 <tr>
