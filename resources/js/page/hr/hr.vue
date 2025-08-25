@@ -23,6 +23,8 @@
             <AnnouncementModal v-if="currentView === 'Announcement'" />
 
             <HolidayModal v-if="currentView === 'Holiday'" />
+
+            <scheduling v-if="currentView === 'Scheduling'" :ctx="hrContext" />
         </div>
     </div>
 

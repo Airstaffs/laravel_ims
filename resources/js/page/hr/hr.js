@@ -11,6 +11,7 @@ import ViolationsHistory from "./components/violationshistory.vue";
 import HolidayModal from "./components/holidaymodal.vue";
 import bootstrap from "bootstrap/dist/js/bootstrap.bundle.min.js";
 import AnnouncementModal from "./components/announcementmodal.vue";
+import scheduling from "./components/scheduling.vue";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -54,6 +55,11 @@ const emptyAnnouncementForm = () => ({
     _mode: null,
 });
 
+const SCHED_EP = {
+    timesched: `${API_BASE_URL}/hr/timesched`,
+    usersched: `${API_BASE_URL}/hr/usersched`,
+};
+
 export default {
     components: {
         Employee,
@@ -65,6 +71,7 @@ export default {
         Violations,
         HolidayModal,
         AnnouncementModal,
+        scheduling,
     },
 
     data() {
@@ -78,7 +85,7 @@ export default {
                 "Announcement",
                 "Holiday",
                 "History",
-
+                "Scheduling",
                 // {
                 //     label: "History",
                 //     dropdown: [
@@ -98,6 +105,7 @@ export default {
                 violations: false,
                 rateHistory: false,
                 clockHistory: false,
+                scheduling: false,
             },
             loaded: {
                 employees: false,
@@ -105,6 +113,7 @@ export default {
                 violations: false,
                 rateHistory: false,
                 clockHistory: false,
+                scheduling: false,
             },
 
             // UI State
@@ -196,6 +205,31 @@ export default {
             // Manage modal table
             manageFilter: { status: "all", q: "" },
             manageRows: [],
+
+            // Scheduling
+            sched_times: [],
+            sched_filter: { day: "", active: "" },
+            sched_tForm: {
+                day_of_week: 1,
+                start_time: "",
+                end_time: "",
+                end_next_day: false,
+                unpaid_break_minutes: 60,
+                title: "",
+                is_active: true,
+            },
+            sched_editTId: null,
+
+            sched_userlinks: [],
+            sched_uForm: {
+                userId: null,
+                schedId: "",
+                schednote: "",
+                effective_from: "",
+                effective_to: "",
+            },
+            sched_editUId: null,
+            sched_selectedUserId: null,
         };
     },
 
@@ -227,6 +261,12 @@ export default {
                 .trim();
 
             this.currentView = viewLabel;
+
+            // ensures Scheduling loads employees + data
+            if (viewLabel === "Scheduling") {
+                this.loadView("Scheduling");
+                return;
+            }
 
             // 2) Map views -> method names
             const actions = {
@@ -288,6 +328,21 @@ export default {
                     case "Violations":
                     case "Violations History":
                         await this.fetchViolationsOnce();
+                        break;
+
+                    case "Scheduling":
+                        await Promise.all([
+                            this.fetchEmployeesOnce(),
+                            this.fetchSchedulingOnce(),
+                        ]);
+                        // pick first employee if none selected yet
+                        if (
+                            !this.sched_selectedUserId &&
+                            Array.isArray(this.employees) &&
+                            this.employees.length
+                        ) {
+                            this.schedOnSelectUser(this.employees[0].id);
+                        }
                         break;
                 }
             } catch (e) {
@@ -1164,6 +1219,270 @@ export default {
             }
             this.applyAnnouncementGroupSelection();
         },
+
+        // Scheduling
+        async fetchSchedulingOnce() {
+            if (this.loaded.scheduling || this.loading.scheduling) return;
+            this.loading.scheduling = true;
+            try {
+                await this.schedLoadTemplates();
+            } finally {
+                this.loading.scheduling = false;
+                this.loaded.scheduling = true;
+            }
+        },
+        // Scheduling helpers
+        schedDayName(d) {
+            const m = {
+                0: "Everyday",
+                1: "Mon",
+                2: "Tue",
+                3: "Wed",
+                4: "Thu",
+                5: "Fri",
+                6: "Sat",
+                7: "Sun",
+            };
+            return m[Number(d)] ?? "???";
+        },
+        schedHhmm(t) {
+            return (t || "").slice(0, 5);
+        },
+        schedResetTForm() {
+            this.sched_editTId = null;
+            this.sched_tForm = {
+                day_of_week: 1,
+                start_time: "",
+                end_time: "",
+                end_next_day: false,
+                unpaid_break_minutes: 60,
+                title: "",
+                is_active: true,
+            };
+        },
+        schedResetUForm() {
+            this.sched_editUId = null;
+            this.sched_uForm = {
+                userId: this.sched_selectedUserId || null,
+                schedId: "",
+                schednote: "",
+                effective_from: "",
+                effective_to: "",
+                is_active: true,
+            };
+        },
+
+        async schedLoadTemplates() {
+            try {
+                const p = new URLSearchParams();
+                if (this.sched_filter.day !== "")
+                    p.set("day_of_week", this.sched_filter.day);
+                if (this.sched_filter.active !== "")
+                    p.set("is_active", this.sched_filter.active);
+                const url = `${SCHED_EP.timesched}${
+                    p.toString() ? `?${p}` : ""
+                }`;
+                const { data } = await axios.get(url);
+                this.sched_times = Array.isArray(data?.data) ? data.data : [];
+            } catch (e) {
+                console.error("schedLoadTemplates", e);
+                Swal.fire("Error", "Failed to load templates.", "error");
+            }
+        },
+        async schedSaveTemplate() {
+            try {
+                const f = this.sched_tForm;
+                const payload = {
+                    day_of_week: f.day_of_week,
+                    start_time: f.start_time,
+                    end_time: f.end_time,
+                    end_next_day: !!f.end_next_day,
+                    unpaid_break_minutes: f.unpaid_break_minutes,
+                    title: f.title || undefined,
+                    is_active: !!f.is_active,
+                };
+                if (this.sched_editTId) {
+                    await axios.put(
+                        `${SCHED_EP.timesched}/${this.sched_editTId}`,
+                        payload
+                    );
+                    Swal.fire("Updated", "Template updated.", "success");
+                } else {
+                    await axios.post(SCHED_EP.timesched, payload);
+                    Swal.fire("Created", "Template created.", "success");
+                }
+                this.schedResetTForm();
+                await this.schedLoadTemplates();
+            } catch (e) {
+                const msg =
+                    e?.response?.data?.error || e?.message || "Save failed.";
+                Swal.fire("Error", msg, "error");
+            }
+        },
+        schedStartEditTemplate(row) {
+            this.sched_editTId = row.timeschedId;
+            this.sched_tForm = {
+                day_of_week: Number(row.day_of_week),
+                start_time: this.schedHhmm(row.start_time),
+                end_time: this.schedHhmm(row.end_time),
+                end_next_day: Number(row.end_next_day) === 1,
+                unpaid_break_minutes: Number(row.unpaid_break_minutes),
+                title: row.title || "",
+                is_active: Number(row.is_active) === 1,
+            };
+        },
+        async schedDeleteTemplate(row) {
+            const ok = await Swal.fire({
+                title: `Delete template #${row.timeschedId}?`,
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Delete",
+            }).then((r) => r.isConfirmed);
+            if (!ok) return;
+            try {
+                await axios.delete(`${SCHED_EP.timesched}/${row.timeschedId}`);
+                if (this.sched_editTId === row.timeschedId)
+                    this.schedResetTForm();
+                await this.schedLoadTemplates();
+                Swal.fire("Deleted", "Template removed.", "success");
+            } catch (e) {
+                Swal.fire("Error", "Delete failed.", "error");
+            }
+        },
+
+        async schedLoadUserLinks(userId = null) {
+            const uid =
+                Number(
+                    userId ??
+                        this.sched_selectedUserId ??
+                        this.sched_uForm.userId
+                ) || null;
+            if (!uid) {
+                return Swal.fire("Oops", "Select a user", "info");
+            }
+            try {
+                const { data } = await axios.get(
+                    `${SCHED_EP.usersched}?userId=${encodeURIComponent(uid)}`
+                );
+                this.sched_userlinks = Array.isArray(data?.data)
+                    ? data.data
+                    : [];
+                // keep forms in sync with the selected user
+                this.sched_selectedUserId = uid;
+                this.sched_uForm.userId = uid;
+            } catch (e) {
+                console.error("schedLoadUserLinks", e);
+                Swal.fire("Error", "Failed to load user links.", "error");
+            }
+        },
+
+        async schedSaveUserLink() {
+            try {
+                const f = this.sched_uForm;
+                if (!f.userId || !f.schedId) {
+                    Swal.fire(
+                        "Error",
+                        "User and Template are required.",
+                        "warning"
+                    );
+                    return;
+                }
+                const payload = {
+                    userId: f.userId,
+                    schedId: f.schedId,
+                    schednote: f.schednote || undefined,
+                    effective_from: f.effective_from || undefined,
+                    effective_to: f.effective_to || undefined,
+                    is_active: f.is_active ? 1 : 0,
+                };
+                if (this.sched_editUId) {
+                    await axios.put(
+                        `${SCHED_EP.usersched}/${this.sched_editUId}`,
+                        {
+                            schedId: payload.schedId,
+                            schednote: payload.schednote,
+                            effective_from: payload.effective_from,
+                            effective_to: payload.effective_to,
+                            is_active: payload.is_active,
+                        }
+                    );
+                    Swal.fire("Updated", "Link updated.", "success");
+                } else {
+                    await axios.post(SCHED_EP.usersched, payload);
+                    Swal.fire("Linked", "Template linked to user.", "success");
+                }
+                this.schedResetUForm();
+                await this.schedLoadUserLinks(this.sched_uForm.userId);
+            } catch (e) {
+                const msg =
+                    e?.response?.data?.error || e?.message || "Save failed.";
+                Swal.fire("Error", msg, "error");
+            }
+        },
+        schedStartEditUserLink(row) {
+            this.sched_editUId = row.userschedId;
+            this.sched_uForm = {
+                userId: row.userId,
+                schedId: row.schedId,
+                schednote: row.schednote || "",
+                effective_from: row.effective_from || "",
+                effective_to: row.effective_to || "",
+                is_active: Number(row.is_active ?? 1) === 1,
+            };
+        },
+        async schedDeleteUserLink(row) {
+            const ok = await Swal.fire({
+                title: `Delete link #${row.userschedId}?`,
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonText: "Delete",
+            }).then((r) => r.isConfirmed);
+            if (!ok) return;
+            try {
+                await axios.delete(`${SCHED_EP.usersched}/${row.userschedId}`);
+                if (this.sched_editUId === row.userschedId)
+                    this.schedResetUForm();
+                await this.schedLoadUserLinks(
+                    this.sched_selectedUserId || row.userId
+                );
+                Swal.fire("Deleted", "Link removed.", "success");
+            } catch (e) {
+                Swal.fire("Error", "Delete failed.", "error");
+            }
+        },
+
+        // when user is chosen in <select>
+        schedOnSelectUser(id) {
+            const val = Number(id) || null;
+            this.sched_selectedUserId = val;
+            this.sched_uForm.userId = val;
+            if (val) this.schedLoadUserLinks(val); // auto-refresh list when you pick a user
+        },
+
+        // load links for the selected user
+        async schedLoadUserLinksSelected() {
+            if (!this.sched_selectedUserId)
+                return Swal.fire("Oops", "Select a user", "info");
+            await this.schedLoadUserLinks(); // this uses sched_uForm.userId or selectedUserId internally
+        },
+    },
+
+    async openScheduling() {
+        // force-load employees if never loaded or list is empty (handles earlier failures)
+        if (
+            !this.loaded.employees ||
+            !Array.isArray(this.employees) ||
+            this.employees.length === 0
+        ) {
+            this.loaded.employees = false;
+            await this.fetchEmployeesOnce();
+        }
+        await this.fetchSchedulingOnce();
+
+        // optional: preselect first user and load links
+        if (!this.sched_selectedUserId && this.employees.length) {
+            this.schedOnSelectUser(this.employees[0].id);
+        }
     },
 
     computed: {
@@ -1281,6 +1600,37 @@ export default {
                     this.prefillAnnouncementForm(row),
                 toggleAnnouncementActive: (row) =>
                     this.toggleAnnouncementActive(row),
+
+                // Scheduling
+                sched_times: this.sched_times,
+                sched_filter: this.sched_filter,
+                sched_tForm: this.sched_tForm,
+                sched_editTId: this.sched_editTId,
+                sched_userlinks: this.sched_userlinks,
+                sched_uForm: this.sched_uForm,
+                sched_editUId: this.sched_editUId,
+                sched_selectedUserId: this.sched_selectedUserId,
+
+                schedDayName: (d) => this.schedDayName(d),
+                schedHhmm: (t) => this.schedHhmm(t),
+
+                schedLoadTemplates: () => this.schedLoadTemplates(),
+                schedSaveTemplate: () => this.schedSaveTemplate(),
+                schedStartEditTemplate: (row) =>
+                    this.schedStartEditTemplate(row),
+                schedDeleteTemplate: (row) => this.schedDeleteTemplate(row),
+                schedResetTForm: () => this.schedResetTForm(),
+
+                schedLoadUserLinks: () => this.schedLoadUserLinks(),
+                schedSaveUserLink: () => this.schedSaveUserLink(),
+                schedStartEditUserLink: (row) =>
+                    this.schedStartEditUserLink(row),
+                schedDeleteUserLink: (row) => this.schedDeleteUserLink(row),
+                schedResetUForm: () => this.schedResetUForm(),
+
+                schedOnSelectUser: (id) => this.schedOnSelectUser(id),
+                schedLoadUserLinksSelected: () =>
+                    this.schedLoadUserLinksSelected(),
             };
         },
 

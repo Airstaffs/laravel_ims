@@ -112,23 +112,151 @@ class AttendanceController extends Controller
         );
     }
 
+    private function resolveDayStatusLA(Carbon $nowLA): array
+    {
+        $laDate = $nowLA->toDateString();          // YYYY-MM-DD (LA)
+        $mmdd = $nowLA->format('m-d');
+
+        $holiday = DB::table('tblholiday')
+            ->where('holidate', $laDate)
+            ->orWhere(function ($q) use ($mmdd) {
+                $q->where('is_recurring', 1)
+                    ->whereRaw('DATE_FORMAT(holidate, "%m-%d") = ?', [$mmdd]);
+            })
+            ->orderByRaw("
+            CASE status
+              WHEN 'Regular Holiday' THEN 1
+              WHEN 'Special Holiday' THEN 2
+              ELSE 99
+            END
+        ")
+            ->first();
+
+        return [
+            'status' => $holiday ? ($holiday->status ?? 'Normal') : 'Normal',
+            'holidayID' => $holiday->holidayID ?? null,
+            'holidayTitle' => $holiday->title ?? null,
+            'date' => $laDate,
+        ];
+    }
+
     public function clockIn(Request $request)
     {
-        $currentUserId = Auth::user()->id;
-        $currentUsername = Auth::user()->username;
-        $currentDateTime = Carbon::now('America/Los_Angeles');
+        $uid = Auth::id();
+        $uname = Auth::user()->username;
+        $tz = 'America/Los_Angeles';
+        $now = \Carbon\Carbon::now($tz);
 
+        // 1) Block if already clocked-in (no TimeOut yet)
+        $open = DB::table('tblemployeeclocks')
+            ->where('userid', $uid)
+            ->whereNull('TimeOut')
+            ->orderBy('ID', 'desc')
+            ->first();
+
+        if ($open) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You already have an open clock-in. Please clock out first.',
+            ], 409);
+        }
+
+        // 2) Find active schedule links covering today (and yesterday for overnight)
+        $dowToday = (int) $now->isoWeekday();          // 1=Mon..7=Sun
+        $dowYesterday = (int) $now->copy()->subDay()->isoWeekday();
+        $today = $now->toDateString();              // YYYY-MM-DD
+        $yesterday = $now->copy()->subDay()->toDateString();
+
+        $links = DB::table('tblusersched as us')
+            ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
+            ->select(
+                'us.userschedId',
+                'us.userId',
+                'us.schedId',
+                'us.effective_from',
+                'us.effective_to',
+                'us.is_active',
+                'ts.day_of_week',
+                'ts.start_time',
+                'ts.end_time',
+                'ts.end_next_day',
+                'ts.title'
+            )
+            ->where('us.userId', $uid)
+            ->where('us.is_active', 1)
+            ->where(function ($q) use ($today) {
+                $q->whereNull('us.effective_from')->orWhere('us.effective_from', '<=', $today);
+            })
+            ->where(function ($q) use ($today) {
+                $q->whereNull('us.effective_to')->orWhere('us.effective_to', '>=', $today);
+            })
+            // consider schedules for today, yesterday (for overnight), and Everyday(0)
+            ->whereIn('ts.day_of_week', [0, $dowToday, $dowYesterday])
+            ->orderBy('ts.day_of_week')
+            ->get();
+
+        if ($links->isEmpty()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You have no schedule assigned for today.',
+            ], 403);
+        }
+
+        // 3) Check if NOW is inside any window
+        $match = null;
+        foreach ($links as $r) {
+            // Helper to build LA datetime from anchor date + time string
+            $startToday = \Carbon\Carbon::parse($today . ' ' . $r->start_time, $tz);
+            $endToday = \Carbon\Carbon::parse($today . ' ' . $r->end_time, $tz);
+            if ((int) $r->end_next_day === 1)
+                $endToday->addDay();
+
+            // Case A: schedule for today (or Everyday)
+            if ((int) $r->day_of_week === 0 || (int) $r->day_of_week === $dowToday) {
+                if ($now->between($startToday, $endToday, true)) {
+                    $match = $r;
+                    break;
+                }
+            }
+
+            // Case B: overnight schedule anchored yesterday (or Everyday)
+            if ((int) $r->end_next_day === 1 && ((int) $r->day_of_week === 0 || (int) $r->day_of_week === $dowYesterday)) {
+                $startY = \Carbon\Carbon::parse($yesterday . ' ' . $r->start_time, $tz);
+                $endY = \Carbon\Carbon::parse($yesterday . ' ' . $r->end_time, $tz)->addDay();
+                if ($now->between($startY, $endY, true)) {
+                    $match = $r;
+                    break;
+                }
+            }
+        }
+
+        if (!$match) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are outside your scheduled window right now.',
+            ], 403);
+        }
+
+        // LA calendar only
+        $day = $this->resolveDayStatusLA($now);
+
+        // 4) Create clock-in
         DB::table('tblemployeeclocks')->insert([
-            'userid' => $currentUserId,
-            'Employee' => $currentUsername,
-            'TimeIn' => $currentDateTime,
+            'userid' => $uid,
+            'Employee' => $uname,
+            'DateToday' => $now->toDateString(),   // LA date
+            'TimeIn' => $now,                   // LA datetime
+            'day_status' => $day['status'],         // Normal | Regular Holiday | Special Holiday
+            'holidayID' => $day['holidayID'],      // nullable
+            'Notes' => $match->title ? ('Matched schedule: ' . $match->title) : null,
         ]);
 
         $this->userLogService->log('Clockin');
 
         return response()->json([
             'success' => true,
-            'message' => 'Clocked in successfully at ' . $currentDateTime->format('h:i A'),
+            'message' => 'Clocked in at ' . $now->format('h:i A') . ' (LA) • ' . $day['holidayTitle'],
+            'meta' => ['holiday' => $day['holidayTitle'], 'date' => $day['date']],
         ]);
     }
 
