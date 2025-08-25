@@ -296,9 +296,13 @@ export default {
 
             this.currentView = viewLabel;
 
-            // ensures Scheduling loads employees + data
             if (viewLabel === "Scheduling") {
                 this.loadView("Scheduling");
+                return;
+            }
+
+            if (viewLabel === "History") {
+                this.openHistory();
                 return;
             }
 
@@ -1245,15 +1249,6 @@ export default {
             }
         },
 
-        toggleGroup(groupKey) {
-            if (groupKey === "PH") {
-                this.announcementForm.groupPH = !this.announcementForm.groupPH;
-            } else if (groupKey === "US") {
-                this.announcementForm.groupUS = !this.announcementForm.groupUS;
-            }
-            this.applyAnnouncementGroupSelection();
-        },
-
         // Scheduling
         async fetchSchedulingOnce() {
             if (this.loaded.scheduling || this.loading.scheduling) return;
@@ -1499,26 +1494,82 @@ export default {
                 return Swal.fire("Oops", "Select a user", "info");
             await this.schedLoadUserLinks(); // this uses sched_uForm.userId or selectedUserId internally
         },
+
+        // history manager
+        openHistory() {
+            this.historyApply(); // initial fetch
+        },
+
+        switchHistoryType(t) {
+            if (this.history.type === t) return;
+            this.history.type = t;
+            this.historyApply();
+        },
+
+        historyApply() {
+            this.history.rows = [];
+            this.history.nextPage = null;
+            return this.historyFetch(1);
+        },
+
+        historyClear() {
+            this.history.filters = {
+                clock_id: "",
+                editor_id: "",
+                from: "",
+                to: "",
+            };
+            return this.historyApply();
+        },
+
+        async historyFetch(page = 1) {
+            if (this.history.loading) return;
+            this.history.loading = true;
+            try {
+                const f = this.history.filters;
+                const { data } = await axios.get(`${API_BASE_URL}/hr/history`, {
+                    params: {
+                        type: this.history.type,
+                        clock_id: f.clock_id || undefined,
+                        editor_id: f.editor_id || undefined,
+                        from: f.from || undefined,
+                        to: f.to || undefined,
+                        page,
+                    },
+                });
+                const rows = Array.isArray(data?.data)
+                    ? data.data
+                    : data?.items || [];
+                this.history.rows =
+                    page === 1 ? rows : this.history.rows.concat(rows);
+                this.history.nextPage = data?.next_page ?? null;
+            } finally {
+                this.history.loading = false;
+            }
+        },
+
+        historyLoadMore() {
+            if (this.history.nextPage) this.historyFetch(this.history.nextPage);
+        },
+
+        async openScheduling() {
+            // force-load employees if never loaded or list is empty (handles earlier failures)
+            if (
+                !this.loaded.employees ||
+                !Array.isArray(this.employees) ||
+                this.employees.length === 0
+            ) {
+                this.loaded.employees = false;
+                await this.fetchEmployeesOnce();
+            }
+            await this.fetchSchedulingOnce();
+
+            // optional: preselect first user and load links
+            if (!this.sched_selectedUserId && this.employees.length) {
+                this.schedOnSelectUser(this.employees[0].id);
+            }
+        },
     },
-
-    async openScheduling() {
-        // force-load employees if never loaded or list is empty (handles earlier failures)
-        if (
-            !this.loaded.employees ||
-            !Array.isArray(this.employees) ||
-            this.employees.length === 0
-        ) {
-            this.loaded.employees = false;
-            await this.fetchEmployeesOnce();
-        }
-        await this.fetchSchedulingOnce();
-
-        // optional: preselect first user and load links
-        if (!this.sched_selectedUserId && this.employees.length) {
-            this.schedOnSelectUser(this.employees[0].id);
-        }
-    },
-
     computed: {
         activeLabel() {
             if (!this.currentView) return "";
@@ -1542,7 +1593,6 @@ export default {
                 editForm: this.editForm,
                 editOriginal: this.editOriginal,
                 submittingEdit: this.submittingEdit,
-                timeRecords: this.timeRecords,
 
                 // rate modal state
                 showRateModal: this.showRateModal,
@@ -1574,7 +1624,6 @@ export default {
 
                 // edit history
                 clockEditHistory: this.clockEditHistory,
-                histFilters: this.histFilters,
                 histFilters: this.histFilters ?? {
                     clock_id: "",
                     edited_by: "",
@@ -1665,6 +1714,13 @@ export default {
                 schedOnSelectUser: (id) => this.schedOnSelectUser(id),
                 schedLoadUserLinksSelected: () =>
                     this.schedLoadUserLinksSelected(),
+
+                // history manager
+                history: this.history,
+                switchHistoryType: (t) => this.switchHistoryType(t),
+                historyApply: () => this.historyApply(),
+                historyClear: () => this.historyClear(),
+                historyLoadMore: () => this.historyLoadMore(),
             };
         },
 
