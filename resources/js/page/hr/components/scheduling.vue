@@ -1,23 +1,22 @@
 <template>
-    <div class="sched-wrap">
-        <header class="head">
-            <h1>Scheduling</h1>
-            <nav class="tabs">
-                <button
+    <div class="sched-container">
+        <header class="sched-header">
+            <!-- <h1>Scheduling</h1> -->
+            <ul class="list-unstyled m-0">
+                <li
                     :class="{ active: tab === 'templates' }"
                     @click="tab = 'templates'"
                 >
                     Schedules
-                </button>
-                <button
+                </li>
+                <li
                     :class="{ active: tab === 'userlinks' }"
                     @click="tab = 'userlinks'"
                 >
                     User Schedules
-                </button>
-            </nav>
+                </li>
+            </ul>
 
-            <!-- Shared datalist (once) -->
             <datalist id="empnames">
                 <option
                     v-for="e in ctx.employees || []"
@@ -29,18 +28,22 @@
             </datalist>
         </header>
 
-        <!-- TEMPLATES -->
         <section v-show="tab === 'templates'" class="pane">
             <div class="grid">
-                <form class="card" @submit.prevent="ctx.schedSaveTemplate()">
-                    <h2>
+                <form
+                    class="section-form"
+                    @submit.prevent="ctx.schedSaveTemplate()"
+                >
+                    <h2 class="form-title">
                         {{
                             ctx.sched_editTId ? "Edit Template" : "New Template"
                         }}
                     </h2>
-                    <div class="row">
+
+                    <fieldset>
                         <label>Day</label>
                         <select
+                            class="form-control"
                             v-model.number="ctx.sched_tForm.day_of_week"
                             required
                         >
@@ -52,30 +55,34 @@
                                 {{ opt.label }}
                             </option>
                         </select>
-                    </div>
-                    <div class="row two">
-                        <p class="hint">Effective</p>
-                        <div>
-                            <label>Start</label>
-                            <input
-                                type="time"
-                                v-model="ctx.sched_tForm.start_time"
-                                required
-                            />
+                    </fieldset>
+
+                    <fieldset>
+                        <label>Effective</label>
+                        <div class="effective-container">
+                            <fieldset>
+                                <label>Start</label>
+                                <input
+                                    class="form-control"
+                                    type="time"
+                                    v-model="ctx.sched_tForm.start_time"
+                                    required
+                                />
+                            </fieldset>
+                            <fieldset>
+                                <label>End</label>
+                                <input
+                                    class="form-control"
+                                    type="time"
+                                    v-model="ctx.sched_tForm.end_time"
+                                    required
+                                />
+                            </fieldset>
                         </div>
-                        <div>
-                            <label>End</label>
-                            <input
-                                type="time"
-                                v-model="ctx.sched_tForm.end_time"
-                                required
-                            />
-                        </div>
-                        <p class="hint">
-                            Time in <b>America/Los_Angeles</b>.
-                        </p>
-                    </div>
-                    <div class="row">
+                        <p class="hint">Time in <b>America/Los_Angeles</b>.</p>
+                    </fieldset>
+
+                    <fieldset>
                         <label class="chk">
                             <input
                                 type="checkbox"
@@ -83,10 +90,12 @@
                             />
                             Crosses midnight (ends next day)
                         </label>
-                    </div>
-                    <div class="row">
+                    </fieldset>
+
+                    <fieldset>
                         <label>Unpaid break (mins)</label>
                         <input
+                            class="form-control"
                             type="number"
                             min="0"
                             max="600"
@@ -94,16 +103,19 @@
                                 ctx.sched_tForm.unpaid_break_minutes
                             "
                         />
-                    </div>
-                    <div class="row">
+                    </fieldset>
+
+                    <fieldset>
                         <label>Title (optional)</label>
                         <input
+                            class="form-control"
                             type="text"
                             v-model="ctx.sched_tForm.title"
                             placeholder="Leave blank to auto-generate"
                         />
-                    </div>
-                    <div class="row">
+                    </fieldset>
+
+                    <fieldset>
                         <label class="chk">
                             <input
                                 type="checkbox"
@@ -111,22 +123,23 @@
                             />
                             Active
                         </label>
-                    </div>
-                    <div class="actions">
+                    </fieldset>
+
+                    <div class="actions-container">
                         <button type="submit">
                             {{ ctx.sched_editTId ? "Update" : "Create" }}
                         </button>
                         <button
                             type="button"
                             v-if="ctx.sched_editTId"
-                            class="ghost"
+                            class="btn btn-ghost"
                             @click="ctx.schedResetTForm()"
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            class="ghost"
+                            class="btn btn-ghost"
                             @click="ctx.schedLoadTemplates()"
                         >
                             ⟳ Refresh
@@ -134,11 +147,14 @@
                     </div>
                 </form>
 
-                <div class="card">
-                    <div class="list-head">
-                        <div class="filters">
+                <div class="list-table-container">
+                    <form class="filters-container">
+                        <fieldset>
                             <label>Day</label>
-                            <select v-model="ctx.sched_filter.day">
+                            <select
+                                v-model="ctx.sched_filter.day"
+                                class="form-control"
+                            >
                                 <option value="">All</option>
                                 <option
                                     v-for="opt in dayOptions"
@@ -148,22 +164,29 @@
                                     {{ opt.label }}
                                 </option>
                             </select>
+                        </fieldset>
+
+                        <fieldset>
                             <label>Status</label>
-                            <select v-model="ctx.sched_filter.active">
+                            <select
+                                v-model="ctx.sched_filter.active"
+                                class="form-control"
+                            >
                                 <option value="">All</option>
                                 <option value="1">Active</option>
                                 <option value="0">Inactive</option>
                             </select>
-                            <button
-                                class="ghost"
-                                @click="ctx.schedLoadTemplates()"
-                            >
-                                Apply
-                            </button>
-                        </div>
-                    </div>
+                        </fieldset>
 
-                    <table class="tbl">
+                        <button
+                            class="btn btn-ghost"
+                            @click="ctx.schedLoadTemplates()"
+                        >
+                            Apply
+                        </button>
+                    </form>
+
+                    <table class="table table-bordered m-0">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -172,7 +195,7 @@
                                 <th>Break</th>
                                 <th>Title</th>
                                 <th>Status</th>
-                                <th class="right">Actions</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -183,14 +206,14 @@
                                 <td>{{ row.timeschedId }}</td>
                                 <td>{{ ctx.schedDayName(row.day_of_week) }}</td>
                                 <td>
-                                    {{ ctx.schedHhmm(row.start_time) }}–{{
-                                        ctx.schedHhmm(row.end_time)
-                                    }}
+                                    {{ ctx.schedHhmm(row.start_time) }} –
+                                    {{ ctx.schedHhmm(row.end_time) }}
                                     <span
                                         v-if="Number(row.end_next_day) === 1"
                                         class="tag"
-                                        >+1</span
                                     >
+                                        +1
+                                    </span>
                                 </td>
                                 <td>{{ row.unpaid_break_minutes }} min</td>
                                 <td>{{ row.title }}</td>
@@ -210,15 +233,15 @@
                                         }}
                                     </span>
                                 </td>
-                                <td class="right">
+                                <td class="actions">
                                     <button
-                                        class="small"
+                                        class="btn-small"
                                         @click="ctx.schedStartEditTemplate(row)"
                                     >
                                         Edit
                                     </button>
                                     <button
-                                        class="small danger"
+                                        class="btn-small danger"
                                         @click="ctx.schedDeleteTemplate(row)"
                                     >
                                         Delete
@@ -241,20 +264,24 @@
             </div>
         </section>
 
-        <!-- USER LINKS -->
         <section v-show="tab === 'userlinks'" class="pane">
             <div class="grid">
-                <form class="card" @submit.prevent="ctx.schedSaveUserLink()">
-                    <h2>
+                <form
+                    class="section-form"
+                    @submit.prevent="ctx.schedSaveUserLink()"
+                >
+                    <h2 class="form-title">
                         {{
                             ctx.sched_editUId
                                 ? "Edit User Link"
                                 : "New User Link"
                         }}
                     </h2>
-                    <div class="row">
+
+                    <fieldset>
                         <label>User</label>
                         <select
+                            class="form-control"
                             v-model.number="ctx.sched_selectedUserId"
                             @change="
                                 ctx.schedOnSelectUser(ctx.sched_selectedUserId)
@@ -271,7 +298,6 @@
                             </option>
                         </select>
 
-                        <!-- backend still receives the numeric ID via form -->
                         <input
                             type="hidden"
                             v-model.number="ctx.sched_uForm.userId"
@@ -281,11 +307,12 @@
                             style="color: #a00"
                             >Select a user.</small
                         >
-                    </div>
+                    </fieldset>
 
-                    <div class="row">
+                    <fieldset>
                         <label>Template</label>
                         <select
+                            class="form-control"
                             v-model.number="ctx.sched_uForm.schedId"
                             required
                         >
@@ -297,40 +324,47 @@
                             >
                                 #{{ t.timeschedId }} •
                                 {{ ctx.schedDayName(t.day_of_week) }}
-                                {{ ctx.schedHhmm(t.start_time) }}–{{
-                                    ctx.schedHhmm(t.end_time)
-                                }}{{
+                                {{ ctx.schedHhmm(t.start_time) }} –
+                                {{ ctx.schedHhmm(t.end_time) }}
+                                {{
                                     Number(t.end_next_day) === 1 ? " (+1)" : ""
                                 }}
                             </option>
                         </select>
-                    </div>
-                    <div class="row two">
-                        <div>
-                            <label>Effective From (LA)</label>
-                            <input
-                                type="date"
-                                v-model="ctx.sched_uForm.effective_from"
-                            />
+                    </fieldset>
+
+                    <fieldset>
+                        <div class="effective-container">
+                            <fieldset>
+                                <label>Effective From (LA)</label>
+                                <input
+                                    class="form-control"
+                                    type="date"
+                                    v-model="ctx.sched_uForm.effective_from"
+                                />
+                            </fieldset>
+                            <fieldset>
+                                <label>Effective To (LA)</label>
+                                <input
+                                    class="form-control"
+                                    type="date"
+                                    v-model="ctx.sched_uForm.effective_to"
+                                />
+                            </fieldset>
                         </div>
-                        <div>
-                            <label>Effective To (LA)</label>
-                            <input
-                                type="date"
-                                v-model="ctx.sched_uForm.effective_to"
-                            />
-                        </div>
-                    </div>
-                    <div class="row">
+                    </fieldset>
+
+                    <fieldset>
                         <label>Note</label>
                         <input
+                            class="form-control"
                             type="text"
                             v-model="ctx.sched_uForm.schednote"
                             maxlength="255"
                         />
-                    </div>
+                    </fieldset>
 
-                    <div class="row">
+                    <fieldset>
                         <label class="chk">
                             <input
                                 type="checkbox"
@@ -338,23 +372,23 @@
                             />
                             Active
                         </label>
-                    </div>
+                    </fieldset>
 
-                    <div class="actions">
+                    <div class="actions-container">
                         <button type="submit">
                             {{ ctx.sched_editUId ? "Update" : "Link" }}
                         </button>
                         <button
                             type="button"
                             v-if="ctx.sched_editUId"
-                            class="ghost"
+                            class="btn btn-ghost"
                             @click="ctx.schedResetUForm()"
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
-                            class="ghost"
+                            class="btn btn-ghost"
                             @click="ctx.schedLoadUserLinks()"
                         >
                             ⟳ Refresh Links
@@ -362,11 +396,12 @@
                     </div>
                 </form>
 
-                <div class="card">
-                    <div class="list-head">
-                        <div class="filters">
+                <div class="list-table-container">
+                    <form class="filters-container">
+                        <fieldset>
                             <label>User</label>
                             <select
+                                class="form-control"
                                 v-model="ctx.sched_selectedUserId"
                                 @change="
                                     ctx.schedOnSelectUser(
@@ -383,24 +418,24 @@
                                     {{ e.name || e.username }}
                                 </option>
                             </select>
+                        </fieldset>
 
-                            <button
-                                class="ghost"
-                                @click="ctx.schedLoadUserLinksSelected()"
-                            >
-                                Load
-                            </button>
+                        <button
+                            class="btn btn-ghost"
+                            @click="ctx.schedLoadUserLinksSelected()"
+                        >
+                            Load
+                        </button>
 
-                            <button
-                                class="ghost"
-                                @click="ctx.schedLoadTemplates()"
-                            >
-                                Refresh Templates
-                            </button>
-                        </div>
-                    </div>
+                        <button
+                            class="btn btn-ghost"
+                            @click="ctx.schedLoadTemplates()"
+                        >
+                            Refresh Templates
+                        </button>
+                    </form>
 
-                    <table class="tbl">
+                    <table class="table table-bordered m-0">
                         <thead>
                             <tr>
                                 <th>#</th>
@@ -410,7 +445,7 @@
                                 <th>Eff. To</th>
                                 <th>Note</th>
                                 <th>Status</th>
-                                <th class="right">Actions</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -424,9 +459,8 @@
                                     {{ ctx.schedDayName(row.day_of_week) }}
                                 </td>
                                 <td>
-                                    {{ ctx.schedHhmm(row.start_time) }}–{{
-                                        ctx.schedHhmm(row.end_time)
-                                    }}
+                                    {{ ctx.schedHhmm(row.start_time) }} –
+                                    {{ ctx.schedHhmm(row.end_time) }}
                                     <span
                                         v-if="Number(row.end_next_day) === 1"
                                         class="tag"
@@ -452,15 +486,15 @@
                                         }}
                                     </span>
                                 </td>
-                                <td class="right">
+                                <td class="actions">
                                     <button
-                                        class="small"
+                                        class="btn-small"
                                         @click="ctx.schedStartEditUserLink(row)"
                                     >
                                         Edit
                                     </button>
                                     <button
-                                        class="small danger"
+                                        class="btn-small danger"
                                         @click="ctx.schedDeleteUserLink(row)"
                                     >
                                         Delete
@@ -512,91 +546,77 @@ const ctx = computed(() => props.ctx || {});
 </script>
 
 <style scoped>
-.sched-wrap {
-    max-width: 1100px;
-    margin: 24px auto;
-    padding: 0 16px;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-}
-.head {
+.sched-container {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
 }
+.sched-header ul li {
+    display: inline-block;
+    padding: 8px 15px;
+    cursor: pointer;
+}
+.sched-header ul li.active {
+    border-bottom: 2px solid #007bff;
+    font-weight: bold;
+}
+
 .head h1 {
     font-size: 20px;
     margin: 0;
 }
-.tabs {
-    display: flex;
-    gap: 8px;
-}
-.tabs button {
-    padding: 8px 12px;
-    border: 1px solid #0d6efd;
-    background: #ffffff;
-    border-radius: 8px;
-    cursor: pointer;
-    color: #000000;
-}
-.tabs button.active {
-    background: #0d6efd;
-    color: #fff;
-    border-color: #0d6efd;
-}
+
 .pane .grid {
     display: grid;
     grid-template-columns: 360px 1fr;
     gap: 16px;
 }
-.card {
+
+.grid .section-form,
+.grid .list-table-container {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
-    padding: 14px;
+    padding: 20px;
 }
-.card h2 {
+
+.form-title {
     margin: 0 0 12px;
     font-size: 16px;
+    font-weight: 600;
 }
-.row {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin-bottom: 10px;
-}
-.row.two {
-    flex-direction: row;
-    gap: 12px;
-}
-.row.two > div {
-    flex: 1;
-}
+
 label {
     font-size: 12px;
     color: #555;
 }
-input[type="time"],
-input[type="text"],
-input[type="date"],
-input[type="number"],
-select {
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    padding: 8px 10px;
-    font-size: 14px;
+
+.effective-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
 }
+
+.effective-container fieldset {
+    flex: 1;
+}
+
 .chk {
     display: flex;
     align-items: center;
     gap: 8px;
 }
-.actions {
+
+.actions-container {
     display: flex;
-    gap: 8px;
-    margin-top: 6px;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
 }
+
 button {
     border: none;
     background: #0d6efd;
@@ -605,60 +625,72 @@ button {
     border-radius: 8px;
     cursor: pointer;
 }
-button.ghost {
+
+button.btn-ghost {
+    height: 40px;
     background: #f3f4f6;
     color: #111;
 }
-button.small {
+
+button.btn-small {
     padding: 6px 10px;
     font-size: 12px;
 }
-button.danger {
+
+button.btn-small.danger {
     background: #ef4444;
 }
-.list-head {
+
+.grid .list-table-container {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
 }
-.filters {
+
+.filters-container {
     display: flex;
-    align-items: end;
-    gap: 8px;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 10px;
 }
-.tbl {
-    width: 100%;
-    border-collapse: collapse;
+
+.filters-container fieldset {
+    flex: 1;
 }
-.tbl th,
-.tbl td {
-    padding: 8px 10px;
-    border-bottom: 1px solid #eee;
-    font-size: 14px;
-    text-align: left;
+
+.list-table-container table {
+    font-size: 12px;
+    color: #555;
+    vertical-align: middle;
 }
-.tbl .right {
-    text-align: right;
+
+.actions {
+    display: flex;
+    gap: 5px;
 }
-.empty {
-    text-align: center;
-    padding: 16px;
-    color: #777;
+
+.actions button {
+    flex: 1;
 }
+
 .pill {
     padding: 2px 8px;
     border-radius: 999px;
     font-size: 12px;
 }
+
 .pill.ok {
     background: #e8f5e9;
     color: #1b5e20;
 }
+
 .pill.muted {
     background: #f3f4f6;
     color: #6b7280;
 }
+
 .tag {
     font-size: 11px;
     color: #6b7280;
@@ -667,11 +699,19 @@ button.danger {
     border-radius: 999px;
     margin-left: 6px;
 }
+
 .hint {
     color: #6b7280;
     font-size: 12px;
     margin-top: 8px;
 }
+
+.empty {
+    text-align: center;
+    padding: 16px;
+    color: #777;
+}
+
 @media (max-width: 900px) {
     .pane .grid {
         grid-template-columns: 1fr;
