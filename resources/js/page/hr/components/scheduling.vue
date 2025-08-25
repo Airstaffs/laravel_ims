@@ -7,7 +7,7 @@
                     :class="{ active: tab === 'templates' }"
                     @click="tab = 'templates'"
                 >
-                    Schedule
+                    Schedules
                 </button>
                 <button
                     :class="{ active: tab === 'userlinks' }"
@@ -16,23 +16,34 @@
                     User Schedules
                 </button>
             </nav>
+
+            <!-- Shared datalist (once) -->
+            <datalist id="empnames">
+                <option
+                    v-for="e in ctx.employees || []"
+                    :key="e.id"
+                    :value="e.name || e.username"
+                >
+                    {{ e.username }} (#{{ e.id }})
+                </option>
+            </datalist>
         </header>
 
-        <!-- Alerts -->
-        <div v-if="flash.msg" :class="['flash', flash.type]">
-            <span>{{ flash.msg }}</span>
-            <button class="x" @click="flash.msg = ''">×</button>
-        </div>
-
-        <!-- =============== TEMPLATES TAB =============== -->
+        <!-- TEMPLATES -->
         <section v-show="tab === 'templates'" class="pane">
             <div class="grid">
-                <!-- Create / Edit form -->
-                <form class="card" @submit.prevent="saveTimesched">
-                    <h2>{{ editTId ? "Edit Template" : "New Template" }}</h2>
+                <form class="card" @submit.prevent="ctx.schedSaveTemplate()">
+                    <h2>
+                        {{
+                            ctx.sched_editTId ? "Edit Template" : "New Template"
+                        }}
+                    </h2>
                     <div class="row">
                         <label>Day</label>
-                        <select v-model.number="tForm.day_of_week" required>
+                        <select
+                            v-model.number="ctx.sched_tForm.day_of_week"
+                            required
+                        >
                             <option
                                 v-for="opt in dayOptions"
                                 :key="opt.value"
@@ -43,11 +54,12 @@
                         </select>
                     </div>
                     <div class="row two">
+                        <p class="hint">Effective</p>
                         <div>
                             <label>Start</label>
                             <input
                                 type="time"
-                                v-model="tForm.start_time"
+                                v-model="ctx.sched_tForm.start_time"
                                 required
                             />
                         </div>
@@ -55,16 +67,19 @@
                             <label>End</label>
                             <input
                                 type="time"
-                                v-model="tForm.end_time"
+                                v-model="ctx.sched_tForm.end_time"
                                 required
                             />
                         </div>
+                        <p class="hint">
+                            Time in <b>America/Los_Angeles</b>.
+                        </p>
                     </div>
                     <div class="row">
                         <label class="chk">
                             <input
                                 type="checkbox"
-                                v-model="tForm.end_next_day"
+                                v-model="ctx.sched_tForm.end_next_day"
                             />
                             Crosses midnight (ends next day)
                         </label>
@@ -75,48 +90,55 @@
                             type="number"
                             min="0"
                             max="600"
-                            v-model.number="tForm.unpaid_break_minutes"
+                            v-model.number="
+                                ctx.sched_tForm.unpaid_break_minutes
+                            "
                         />
                     </div>
                     <div class="row">
                         <label>Title (optional)</label>
                         <input
                             type="text"
-                            v-model="tForm.title"
+                            v-model="ctx.sched_tForm.title"
                             placeholder="Leave blank to auto-generate"
                         />
                     </div>
                     <div class="row">
                         <label class="chk">
-                            <input type="checkbox" v-model="tForm.is_active" />
+                            <input
+                                type="checkbox"
+                                v-model="ctx.sched_tForm.is_active"
+                            />
                             Active
                         </label>
                     </div>
                     <div class="actions">
                         <button type="submit">
-                            {{ editTId ? "Update" : "Create" }}
+                            {{ ctx.sched_editTId ? "Update" : "Create" }}
                         </button>
                         <button
                             type="button"
-                            v-if="editTId"
+                            v-if="ctx.sched_editTId"
                             class="ghost"
-                            @click="resetTForm"
+                            @click="ctx.schedResetTForm()"
                         >
                             Cancel
                         </button>
+                        <button
+                            type="button"
+                            class="ghost"
+                            @click="ctx.schedLoadTemplates()"
+                        >
+                            ⟳ Refresh
+                        </button>
                     </div>
-                    <p class="hint">
-                        All times stored/checked in <b>America/Los_Angeles</b>.
-                        Day “0” = Everyday.
-                    </p>
                 </form>
 
-                <!-- List -->
                 <div class="card">
                     <div class="list-head">
                         <div class="filters">
                             <label>Day</label>
-                            <select v-model="filter.day">
+                            <select v-model="ctx.sched_filter.day">
                                 <option value="">All</option>
                                 <option
                                     v-for="opt in dayOptions"
@@ -127,18 +149,18 @@
                                 </option>
                             </select>
                             <label>Status</label>
-                            <select v-model="filter.active">
+                            <select v-model="ctx.sched_filter.active">
                                 <option value="">All</option>
                                 <option value="1">Active</option>
                                 <option value="0">Inactive</option>
                             </select>
-                            <button class="ghost" @click="loadTimesched">
+                            <button
+                                class="ghost"
+                                @click="ctx.schedLoadTemplates()"
+                            >
                                 Apply
                             </button>
                         </div>
-                        <button class="ghost" @click="loadTimesched">
-                            ⟳ Refresh
-                        </button>
                     </div>
 
                     <table class="tbl">
@@ -154,12 +176,15 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="row in timesched" :key="row.timeschedId">
+                            <tr
+                                v-for="row in ctx.sched_times"
+                                :key="row.timeschedId"
+                            >
                                 <td>{{ row.timeschedId }}</td>
-                                <td>{{ dayName(row.day_of_week) }}</td>
+                                <td>{{ ctx.schedDayName(row.day_of_week) }}</td>
                                 <td>
-                                    {{ hhmm(row.start_time) }}–{{
-                                        hhmm(row.end_time)
+                                    {{ ctx.schedHhmm(row.start_time) }}–{{
+                                        ctx.schedHhmm(row.end_time)
                                     }}
                                     <span
                                         v-if="Number(row.end_next_day) === 1"
@@ -188,19 +213,24 @@
                                 <td class="right">
                                     <button
                                         class="small"
-                                        @click="startEditTimesched(row)"
+                                        @click="ctx.schedStartEditTemplate(row)"
                                     >
                                         Edit
                                     </button>
                                     <button
                                         class="small danger"
-                                        @click="delTimesched(row)"
+                                        @click="ctx.schedDeleteTemplate(row)"
                                     >
                                         Delete
                                     </button>
                                 </td>
                             </tr>
-                            <tr v-if="timesched.length === 0">
+                            <tr
+                                v-if="
+                                    !ctx.sched_times ||
+                                    ctx.sched_times.length === 0
+                                "
+                            >
                                 <td colspan="7" class="empty">
                                     No templates yet.
                                 </td>
@@ -211,32 +241,64 @@
             </div>
         </section>
 
-        <!-- =============== USER LINKS TAB =============== -->
+        <!-- USER LINKS -->
         <section v-show="tab === 'userlinks'" class="pane">
             <div class="grid">
-                <!-- Link form -->
-                <form class="card" @submit.prevent="saveUserLink">
-                    <h2>{{ editUId ? "Edit User Link" : "New User Link" }}</h2>
+                <form class="card" @submit.prevent="ctx.schedSaveUserLink()">
+                    <h2>
+                        {{
+                            ctx.sched_editUId
+                                ? "Edit User Link"
+                                : "New User Link"
+                        }}
+                    </h2>
                     <div class="row">
-                        <label>User ID</label>
-                        <input
-                            type="number"
-                            v-model.number="uForm.userId"
+                        <label>User</label>
+                        <select
+                            v-model.number="ctx.sched_selectedUserId"
+                            @change="
+                                ctx.schedOnSelectUser(ctx.sched_selectedUserId)
+                            "
                             required
+                        >
+                            <option :value="null" disabled>Select user…</option>
+                            <option
+                                v-for="e in ctx.employees || []"
+                                :key="e.id"
+                                :value="e.id"
+                            >
+                                {{ e.name || e.username }}
+                            </option>
+                        </select>
+
+                        <!-- backend still receives the numeric ID via form -->
+                        <input
+                            type="hidden"
+                            v-model.number="ctx.sched_uForm.userId"
                         />
+                        <small
+                            v-if="!ctx.sched_uForm.userId"
+                            style="color: #a00"
+                            >Select a user.</small
+                        >
                     </div>
+
                     <div class="row">
                         <label>Template</label>
-                        <select v-model.number="uForm.schedId" required>
+                        <select
+                            v-model.number="ctx.sched_uForm.schedId"
+                            required
+                        >
                             <option disabled value="">Select…</option>
                             <option
-                                v-for="t in timesched"
+                                v-for="t in ctx.sched_times"
                                 :key="t.timeschedId"
                                 :value="t.timeschedId"
                             >
                                 #{{ t.timeschedId }} •
-                                {{ dayName(t.day_of_week) }}
-                                {{ hhmm(t.start_time) }}–{{ hhmm(t.end_time)
+                                {{ ctx.schedDayName(t.day_of_week) }}
+                                {{ ctx.schedHhmm(t.start_time) }}–{{
+                                    ctx.schedHhmm(t.end_time)
                                 }}{{
                                     Number(t.end_next_day) === 1 ? " (+1)" : ""
                                 }}
@@ -246,54 +308,96 @@
                     <div class="row two">
                         <div>
                             <label>Effective From (LA)</label>
-                            <input type="date" v-model="uForm.effective_from" />
+                            <input
+                                type="date"
+                                v-model="ctx.sched_uForm.effective_from"
+                            />
                         </div>
                         <div>
                             <label>Effective To (LA)</label>
-                            <input type="date" v-model="uForm.effective_to" />
+                            <input
+                                type="date"
+                                v-model="ctx.sched_uForm.effective_to"
+                            />
                         </div>
                     </div>
                     <div class="row">
                         <label>Note</label>
                         <input
                             type="text"
-                            v-model="uForm.schednote"
+                            v-model="ctx.sched_uForm.schednote"
                             maxlength="255"
                         />
                     </div>
+
+                    <div class="row">
+                        <label class="chk">
+                            <input
+                                type="checkbox"
+                                v-model="ctx.sched_uForm.is_active"
+                            />
+                            Active
+                        </label>
+                    </div>
+
                     <div class="actions">
                         <button type="submit">
-                            {{ editUId ? "Update" : "Link" }}
+                            {{ ctx.sched_editUId ? "Update" : "Link" }}
                         </button>
                         <button
                             type="button"
-                            v-if="editUId"
+                            v-if="ctx.sched_editUId"
                             class="ghost"
-                            @click="resetUForm"
+                            @click="ctx.schedResetUForm()"
                         >
                             Cancel
                         </button>
+                        <button
+                            type="button"
+                            class="ghost"
+                            @click="ctx.schedLoadUserLinks()"
+                        >
+                            ⟳ Refresh Links
+                        </button>
                     </div>
-                    <p class="hint">Leave dates empty to apply indefinitely.</p>
                 </form>
 
-                <!-- User links list -->
                 <div class="card">
                     <div class="list-head">
                         <div class="filters">
-                            <label>User ID</label>
-                            <input
-                                type="number"
-                                v-model.number="currentUserId"
-                                placeholder="e.g. 12"
-                            />
-                            <button class="ghost" @click="loadUserLinks">
+                            <label>User</label>
+                            <select
+                                v-model="ctx.sched_selectedUserId"
+                                @change="
+                                    ctx.schedOnSelectUser(
+                                        ctx.sched_selectedUserId
+                                    )
+                                "
+                            >
+                                <option :value="null">Select user…</option>
+                                <option
+                                    v-for="e in ctx.employees || []"
+                                    :key="e.id"
+                                    :value="e.id"
+                                >
+                                    {{ e.name || e.username }}
+                                </option>
+                            </select>
+
+                            <button
+                                class="ghost"
+                                @click="ctx.schedLoadUserLinksSelected()"
+                            >
                                 Load
                             </button>
+
+                            <button
+                                class="ghost"
+                                @click="ctx.schedLoadTemplates()"
+                            >
+                                Refresh Templates
+                            </button>
                         </div>
-                        <button class="ghost" @click="loadUserLinks">
-                            ⟳ Refresh
-                        </button>
                     </div>
 
                     <table class="tbl">
@@ -305,19 +409,23 @@
                                 <th>Eff. From</th>
                                 <th>Eff. To</th>
                                 <th>Note</th>
+                                <th>Status</th>
                                 <th class="right">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="row in userlinks" :key="row.userschedId">
+                            <tr
+                                v-for="row in ctx.sched_userlinks"
+                                :key="row.userschedId"
+                            >
                                 <td>{{ row.userschedId }}</td>
                                 <td>
                                     #{{ row.schedId }} —
-                                    {{ dayName(row.day_of_week) }}
+                                    {{ ctx.schedDayName(row.day_of_week) }}
                                 </td>
                                 <td>
-                                    {{ hhmm(row.start_time) }}–{{
-                                        hhmm(row.end_time)
+                                    {{ ctx.schedHhmm(row.start_time) }}–{{
+                                        ctx.schedHhmm(row.end_time)
                                     }}
                                     <span
                                         v-if="Number(row.end_next_day) === 1"
@@ -328,23 +436,44 @@
                                 <td>{{ row.effective_from || "—" }}</td>
                                 <td>{{ row.effective_to || "—" }}</td>
                                 <td>{{ row.schednote || "—" }}</td>
+                                <td>
+                                    <span
+                                        :class="[
+                                            'pill',
+                                            Number(row.is_active) === 1
+                                                ? 'ok'
+                                                : 'muted',
+                                        ]"
+                                    >
+                                        {{
+                                            Number(row.is_active) === 1
+                                                ? "Active"
+                                                : "Inactive"
+                                        }}
+                                    </span>
+                                </td>
                                 <td class="right">
                                     <button
                                         class="small"
-                                        @click="startEditUserLink(row)"
+                                        @click="ctx.schedStartEditUserLink(row)"
                                     >
                                         Edit
                                     </button>
                                     <button
                                         class="small danger"
-                                        @click="delUserLink(row)"
+                                        @click="ctx.schedDeleteUserLink(row)"
                                     >
                                         Delete
                                     </button>
                                 </td>
                             </tr>
-                            <tr v-if="userlinks.length === 0">
-                                <td colspan="7" class="empty">
+                            <tr
+                                v-if="
+                                    !ctx.sched_userlinks ||
+                                    ctx.sched_userlinks.length === 0
+                                "
+                            >
+                                <td colspan="8" class="empty">
                                     No links loaded.
                                 </td>
                             </tr>
@@ -357,10 +486,15 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted, computed } from "vue";
+import { ref, computed } from "vue";
 
-const tab = ref("templates");
-const flash = reactive({ msg: "", type: "ok" });
+const props = defineProps({
+    ctx: {
+        type: Object,
+        default: () =>
+            typeof window !== "undefined" ? window.HR_CONTEXT || {} : {},
+    },
+});
 
 const dayOptions = [
     { value: 0, label: "Everyday" },
@@ -373,243 +507,8 @@ const dayOptions = [
     { value: 7, label: "Sun" },
 ];
 
-const dayName = (d) => {
-    const map = {
-        0: "Everyday",
-        1: "Mon",
-        2: "Tue",
-        3: "Wed",
-        4: "Thu",
-        5: "Fri",
-        6: "Sat",
-        7: "Sun",
-    };
-    return map[Number(d)] ?? "???";
-};
-const hhmm = (t) => (t || "").slice(0, 5);
-
-const csrf = () =>
-    document
-        .querySelector('meta[name="csrf-token"]')
-        ?.getAttribute("content") || "";
-const j = (obj) => JSON.stringify(obj);
-const api = async (url, method = "GET", body = null) => {
-    const res = await fetch(url, {
-        method,
-        headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-            "X-CSRF-TOKEN": csrf(),
-        },
-        body: body ? j(body) : null,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || data.success === false) {
-        throw new Error(data.error || data.message || `HTTP ${res.status}`);
-    }
-    return data;
-};
-
-/* --------- TEMPLATES --------- */
-const timesched = ref([]);
-const filter = reactive({ day: "", active: "" });
-
-const tForm = reactive({
-    day_of_week: 1,
-    start_time: "",
-    end_time: "",
-    end_next_day: false,
-    unpaid_break_minutes: 60,
-    title: "",
-    is_active: true,
-});
-const editTId = ref(null);
-
-const resetTForm = () => {
-    editTId.value = null;
-    Object.assign(tForm, {
-        day_of_week: 1,
-        start_time: "",
-        end_time: "",
-        end_next_day: false,
-        unpaid_break_minutes: 60,
-        title: "",
-        is_active: true,
-    });
-};
-
-const loadTimesched = async () => {
-    try {
-        const q = [];
-        if (filter.day !== "")
-            q.push(`day_of_week=${encodeURIComponent(filter.day)}`);
-        if (filter.active !== "")
-            q.push(`is_active=${encodeURIComponent(filter.active)}`);
-        const url = `/hr/timesched${q.length ? "?" + q.join("&") : ""}`;
-        const { data } = await api(url, "GET");
-        timesched.value = data;
-    } catch (e) {
-        notify(e.message, "err");
-    }
-};
-
-const saveTimesched = async () => {
-    try {
-        const payload = {
-            day_of_week: tForm.day_of_week,
-            start_time: tForm.start_time,
-            end_time: tForm.end_time,
-            end_next_day: !!tForm.end_next_day,
-            unpaid_break_minutes: tForm.unpaid_break_minutes,
-            title: tForm.title || undefined,
-            is_active: !!tForm.is_active,
-        };
-        if (editTId.value) {
-            await api(`/hr/timesched/${editTId.value}`, "PUT", payload);
-            notify("Template updated.");
-        } else {
-            await api("/hr/timesched", "POST", payload);
-            notify("Template created.");
-        }
-        resetTForm();
-        await loadTimesched();
-    } catch (e) {
-        notify(e.message, "err");
-    }
-};
-
-const startEditTimesched = (row) => {
-    editTId.value = row.timeschedId;
-    Object.assign(tForm, {
-        day_of_week: Number(row.day_of_week),
-        start_time: hhmm(row.start_time),
-        end_time: hhmm(row.end_time),
-        end_next_day: Number(row.end_next_day) === 1,
-        unpaid_break_minutes: Number(row.unpaid_break_minutes),
-        title: row.title || "",
-        is_active: Number(row.is_active) === 1,
-    });
-};
-
-const delTimesched = async (row) => {
-    if (!confirm(`Delete template #${row.timeschedId}?`)) return;
-    try {
-        await api(`/hr/timesched/${row.timeschedId}`, "DELETE");
-        notify("Template deleted.");
-        if (editTId.value === row.timeschedId) resetTForm();
-        await loadTimesched();
-    } catch (e) {
-        notify(e.message, "err");
-    }
-};
-
-/* --------- USER LINKS --------- */
-const userlinks = ref([]);
-const currentUserId = ref(null);
-const uForm = reactive({
-    userId: null,
-    schedId: "",
-    schednote: "",
-    effective_from: "",
-    effective_to: "",
-});
-const editUId = ref(null);
-
-const resetUForm = () => {
-    editUId.value = null;
-    Object.assign(uForm, {
-        userId: currentUserId.value || null,
-        schedId: "",
-        schednote: "",
-        effective_from: "",
-        effective_to: "",
-    });
-};
-
-const loadUserLinks = async () => {
-    if (!currentUserId.value) {
-        notify("Enter a User ID", "err");
-        return;
-    }
-    try {
-        const { data } = await api(
-            `/hr/usersched?userId=${encodeURIComponent(currentUserId.value)}`,
-            "GET"
-        );
-        userlinks.value = data;
-        if (!uForm.userId) uForm.userId = currentUserId.value;
-    } catch (e) {
-        notify(e.message, "err");
-    }
-};
-
-const saveUserLink = async () => {
-    try {
-        if (!uForm.userId || !uForm.schedId) {
-            notify("User and Template are required.", "err");
-            return;
-        }
-        const payload = {
-            userId: uForm.userId,
-            schedId: uForm.schedId,
-            schednote: uForm.schednote || undefined,
-            effective_from: uForm.effective_from || undefined,
-            effective_to: uForm.effective_to || undefined,
-        };
-        if (editUId.value) {
-            await api(`/hr/usersched/${editUId.value}`, "PUT", {
-                schedId: payload.schedId,
-                schednote: payload.schednote,
-                effective_from: payload.effective_from,
-                effective_to: payload.effective_to,
-            });
-            notify("Link updated.");
-        } else {
-            await api("/hr/usersched", "POST", payload);
-            notify("Link created.");
-        }
-        resetUForm();
-        await loadUserLinks();
-    } catch (e) {
-        notify(e.message, "err");
-    }
-};
-
-const startEditUserLink = (row) => {
-    editUId.value = row.userschedId;
-    Object.assign(uForm, {
-        userId: row.userId,
-        schedId: row.schedId,
-        schednote: row.schednote || "",
-        effective_from: row.effective_from || "",
-        effective_to: row.effective_to || "",
-    });
-};
-
-const delUserLink = async (row) => {
-    if (!confirm(`Delete link #${row.userschedId}?`)) return;
-    try {
-        await api(`/hr/usersched/${row.userschedId}`, "DELETE");
-        notify("Link deleted.");
-        if (editUId.value === row.userschedId) resetUForm();
-        await loadUserLinks();
-    } catch (e) {
-        notify(e.message, "err");
-    }
-};
-
-/* --------- UX helpers --------- */
-function notify(msg, type = "ok") {
-    flash.msg = msg;
-    flash.type = type;
-    setTimeout(() => {
-        if (flash.msg === msg) flash.msg = "";
-    }, 4000);
-}
-
-onMounted(() => {
-    loadTimesched();
-});
+const tab = ref("templates");
+const ctx = computed(() => props.ctx || {});
 </script>
 
 <style scoped>
@@ -635,40 +534,16 @@ onMounted(() => {
 }
 .tabs button {
     padding: 8px 12px;
-    border: 1px solid #ddd;
-    background: #64a2e9;
+    border: 1px solid #0d6efd;
+    background: #ffffff;
     border-radius: 8px;
     cursor: pointer;
+    color: #000000;
 }
 .tabs button.active {
     background: #0d6efd;
     color: #fff;
     border-color: #0d6efd;
-}
-.flash {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    margin: 12px 0;
-    font-size: 14px;
-}
-.flash.ok {
-    background: #e8f4ff;
-    color: #0b5ed7;
-    border: 1px solid #b6dbff;
-}
-.flash.err {
-    background: #fff1f0;
-    color: #a8071a;
-    border: 1px solid #ffccc7;
-}
-.flash .x {
-    all: unset;
-    cursor: pointer;
-    font-weight: 700;
 }
 .pane .grid {
     display: grid;

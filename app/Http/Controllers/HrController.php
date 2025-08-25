@@ -895,15 +895,29 @@ class HrController extends Controller
     public function listUserSched(Request $r)
     {
         $r->validate(['userId' => 'required|integer']);
-        $q = DB::table('tblusersched as us')
+
+        $rows = DB::table('tblusersched as us')
             ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
             ->where('us.userId', $r->integer('userId'))
-            ->selectRaw('us.userschedId, us.userId, us.schedId, us.schednote,
-                     us.effective_from, us.effective_to,
-                     ts.day_of_week, ts.start_time, ts.end_time, ts.end_next_day, ts.title, ts.is_active as sched_active')
-            ->orderBy('ts.day_of_week')->orderBy('ts.start_time');
+            ->selectRaw("
+            us.userschedId,
+            us.userId,
+            us.schedId,
+            us.schednote,
+            us.effective_from,
+            us.effective_to,
+            us.is_active,               
+            ts.day_of_week,
+            ts.start_time,
+            ts.end_time,
+            ts.end_next_day,
+            ts.title,
+            ts.is_active as sched_active
+        ")
+            ->orderBy('ts.day_of_week')->orderBy('ts.start_time')
+            ->get();
 
-        return response()->json(['success' => true, 'data' => $q->get()]);
+        return response()->json(['success' => true, 'data' => $rows]);
     }
 
     public function createUserSched(Request $r)
@@ -914,14 +928,16 @@ class HrController extends Controller
             'schednote' => 'nullable|string|max:255',
             'effective_from' => 'nullable|date',
             'effective_to' => 'nullable|date|after_or_equal:effective_from',
+            'is_active' => 'sometimes|boolean',   // ⬅️ accept from UI
         ]);
 
         $id = DB::table('tblusersched')->insertGetId([
             'userId' => (int) $d['userId'],
             'schedId' => (int) $d['schedId'],
             'schednote' => $d['schednote'] ?? null,
-            'effective_from' => $d['effective_from'] ?? null,   // LA dates
+            'effective_from' => $d['effective_from'] ?? null,
             'effective_to' => $d['effective_to'] ?? null,
+            'is_active' => array_key_exists('is_active', $d) ? (int) $d['is_active'] : 1, // default active
             'created_by' => Auth::id(),
             'updated_by' => Auth::id(),
             'created_at' => \Carbon\Carbon::now('America/Los_Angeles'),
@@ -942,9 +958,9 @@ class HrController extends Controller
             'schednote' => 'nullable|string|max:255',
             'effective_from' => 'nullable|date',
             'effective_to' => 'nullable|date',
+            'is_active' => 'nullable|boolean',   // ⬅️ allow toggling
         ]);
 
-        // enforce range only if both provided
         if (
             !empty($d['effective_from']) && !empty($d['effective_to']) &&
             \Carbon\Carbon::parse($d['effective_to'])->lt(\Carbon\Carbon::parse($d['effective_from']))
@@ -957,6 +973,7 @@ class HrController extends Controller
             'schednote' => $d['schednote'] ?? $row->schednote,
             'effective_from' => array_key_exists('effective_from', $d) ? $d['effective_from'] : $row->effective_from,
             'effective_to' => array_key_exists('effective_to', $d) ? $d['effective_to'] : $row->effective_to,
+            'is_active' => array_key_exists('is_active', $d) ? (int) $d['is_active'] : $row->is_active,
             'updated_by' => Auth::id(),
             'updated_at' => \Carbon\Carbon::now('America/Los_Angeles'),
         ]);

@@ -23,12 +23,15 @@
             <AnnouncementModal v-if="currentView === 'Announcement'" />
 
             <HolidayModal v-if="currentView === 'Holiday'" />
+
+            <History v-if="currentView === 'History'" />
+
+            <scheduling v-if="currentView === 'Scheduling'" :ctx="hrContext" />
         </div>
     </div>
 
     <div class="hr-module">
         <!-- Main views -->
-
         <TimeRecordHistory
             v-if="currentView === 'Time Record Edit History'"
             :key="currentView"
