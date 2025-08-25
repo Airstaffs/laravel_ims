@@ -225,6 +225,45 @@ export default {
             },
             sched_editUId: null,
             sched_selectedUserId: null,
+
+            // history states
+            history: {
+                type: "time", // 'time' | 'leave' | 'rate' | 'violation'
+                filters: { clock_id: "", editor_id: "", from: "", to: "" },
+                rows: [],
+                nextPage: null,
+                loading: false,
+                columnsByType: {
+                    time: [
+                        { key: "#", width: 60 },
+                        { key: "clock_id", label: "Clock ID" },
+                        { key: "edited_by.name", label: "Edited By" },
+                        { key: "when", label: "When" },
+                        { key: "changes", label: "Changes", render: "diff" },
+                    ],
+                    leave: [
+                        { key: "#", width: 60 },
+                        { key: "employee", label: "Employee" },
+                        { key: "edited_by.name", label: "Edited By" },
+                        { key: "when", label: "When" },
+                        { key: "changes", label: "Changes", render: "diff" },
+                    ],
+                    rate: [
+                        { key: "#", width: 60 },
+                        { key: "employee", label: "Employee" },
+                        { key: "edited_by.name", label: "Edited By" },
+                        { key: "when", label: "When" },
+                        { key: "changes", label: "Rate Δ", render: "diff" },
+                    ],
+                    violation: [
+                        { key: "#", width: 60 },
+                        { key: "employee", label: "Employee" },
+                        { key: "edited_by.name", label: "Edited By" },
+                        { key: "when", label: "When" },
+                        { key: "changes", label: "Details", render: "diff" },
+                    ],
+                },
+            },
         };
     },
 
