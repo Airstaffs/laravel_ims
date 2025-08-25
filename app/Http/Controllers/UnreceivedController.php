@@ -24,11 +24,10 @@ class UnreceivedController extends BasetablesController
             ->where('ProductModuleLoc', $location)
             ->when($search, function($query) use ($search) {
                 return $query->where(function($q) use ($search) {
-                    $q->where('AStitle', 'like', "%{$search}%")
-                      ->orWhere('serialnumber', 'like', "%{$search}%")
-                      ->orWhere('FNSKUviewer', 'like', "%{$search}%")
-                      ->orWhere('MSKUviewer', 'like', "%{$search}%")
-                      ->orWhere('ASINviewer', 'like', "%{$search}%")
+                    $q->where('ProductTitle', 'like', "%{$search}%")
+                      ->orWhere('rtid', 'like', "%{$search}%")
+                      ->orWhere('itemnumber', 'like', "%{$search}%")
+                      ->orWhere('trackingnumber', 'like', "%{$search}%")
                       ->orWhere('rtcounter', 'like', "%{$search}%");
                 });
             })

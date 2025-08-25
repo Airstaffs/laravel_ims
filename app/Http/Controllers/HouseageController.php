@@ -49,140 +49,62 @@ class HouseageController extends BasetablesController
 
             $perPage = $request->input('per_page', 10);
             $search = $request->input('search', '');
-            // $location = 'Orders'; // Commented out as it was commented in original
             $includeImages = $request->boolean('include_images', false);
 
-            // UPDATED: Get products first, then match FNSKUs in PHP (like StockroomController)
+            // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
             $productsQuery = DB::table($this->productTable . ' as prod')
+                ->leftJoin($this->fnskuTable . ' as fnsku', function($join) {
+                    $join->on(DB::raw("CASE 
+                        WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
+                        THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
+                        ELSE prod.FNSKUviewer 
+                    END"), '=', 'fnsku.FNSKU');
+                })
+                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->select([
-                    'prod.*'
+                    'prod.*',
+                    'fnsku.ASIN',
+                    'fnsku.MSKU',
+                    'fnsku.grading',
+                    'fnsku.storename',
+                    'asin.internal as AStitle',
+                    'asin.metakeyword'
                 ]);
-            // Removed the location filter as it was commented out in original
 
-            // Apply search to products directly first
+            // Apply comprehensive search including ASIN and metakeyword
             if (!empty($search)) {
                 $productsQuery->where(function ($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
+                        ->orWhere('prod.rtid', 'like', "%{$search}%")
+                        ->orWhere('prod.itemnumber', 'like', "%{$search}%")
+                        ->orWhere('prod.PCN', 'like', "%{$search}%")
+                        ->orWhere('prod.RPN', 'like', "%{$search}%")
+                        ->orWhere('prod.PRD', 'like', "%{$search}%")
                         ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
-                        ->orWhere('prod.rtcounter', 'like', "%{$search}%");
+                        ->orWhere('prod.rtcounter', 'like', "%{$search}%")
+                        // Add FNSKU table search
+                        ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
+                        ->orWhere('fnsku.MSKU', 'like', "%{$search}%")
+                        // Add ASIN table search
+                        ->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
                 });
             }
 
             $products = $productsQuery->paginate($perPage);
-            Log::info('Products fetched successfully', ['count' => $products->count()]);
+            Log::info('Products fetched successfully with joins', ['count' => $products->count()]);
 
-            // Extract all unique base FNSKUs from products
-            $baseFnskus = [];
-            $fnskuProductMap = [];
-
-            foreach ($products->items() as $product) {
-                if (!empty($product->FNSKUviewer)) {
-                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    $baseFnskus[] = $baseFnsku;
-
-                    if (!isset($fnskuProductMap[$baseFnsku])) {
-                        $fnskuProductMap[$baseFnsku] = [];
-                    }
-                    $fnskuProductMap[$baseFnsku][] = $product;
-                }
-            }
-
-            $baseFnskus = array_unique($baseFnskus);
-
-            // Get FNSKU data for base FNSKUs
-            $fnskuData = [];
-            if (!empty($baseFnskus)) {
-                $fnskuRecords = DB::table($this->fnskuTable)
-                    ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
-                    ->whereIn('FNSKU', $baseFnskus)
-                    ->get();
-
-                foreach ($fnskuRecords as $record) {
-                    $fnskuData[$record->FNSKU] = $record;
-                }
-            }
-
-            // Get ASIN data
-            $asinList = [];
-            foreach ($fnskuData as $fnskuRecord) {
-                $asinList[] = $fnskuRecord->ASIN;
-            }
-            $asinList = array_unique($asinList);
-
-            $asinData = [];
-            if (!empty($asinList)) {
-                $asinRecords = DB::table($this->asinTable)
-                    ->select('ASIN', 'internal')
-                    ->whereIn('ASIN', $asinList)
-                    ->get();
-
-                foreach ($asinRecords as $record) {
-                    $asinData[$record->ASIN] = $record;
-                }
-            }
-
-            // Apply additional search filters if needed
-            if (!empty($search)) {
-                $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData, $search) {
-                    // Add FNSKU and ASIN data
-                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-
-                    if (isset($fnskuData[$baseFnsku])) {
-                        $fnskuRecord = $fnskuData[$baseFnsku];
-                        // Keep the original FNSKU as displayed (with prefix if it exists)
-                        $product->FNSKU = $product->FNSKUviewer; // Show the actual FNSKU with prefix
-                        $product->MSKU = $fnskuRecord->MSKU;
-                        $product->ASIN = $fnskuRecord->ASIN;
-                        $product->grading = $fnskuRecord->grading;
-                        $product->storename = $fnskuRecord->storename;
-
-                        if (isset($asinData[$fnskuRecord->ASIN])) {
-                            $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
-                        }
-                    } else {
-                        // If no FNSKU record found, still show the original FNSKU
-                        $product->FNSKU = $product->FNSKUviewer;
-                    }
-
-                    return $product;
-                });
-
-                // Filter products that match additional search criteria
-                $filteredProducts = $products->getCollection()->filter(function ($product) use ($search) {
-                    return stripos($product->MSKU ?? '', $search) !== false ||
-                        stripos($product->ASIN ?? '', $search) !== false ||
-                        stripos($product->AStitle ?? '', $search) !== false ||
-                        stripos($product->serialnumber ?? '', $search) !== false ||
-                        stripos($product->FNSKUviewer ?? '', $search) !== false ||
-                        stripos($product->rtcounter ?? '', $search) !== false;
-                });
-
-                $products->setCollection($filteredProducts);
-            } else {
-                // Add FNSKU and ASIN data to all products
-                $products->getCollection()->transform(function ($product) use ($fnskuData, $asinData) {
-                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-
-                    if (isset($fnskuData[$baseFnsku])) {
-                        $fnskuRecord = $fnskuData[$baseFnsku];
-                        // Keep the original FNSKU as displayed (with prefix if it exists)
-                        $product->FNSKU = $product->FNSKUviewer; // Show the actual FNSKU with prefix
-                        $product->MSKU = $fnskuRecord->MSKU;
-                        $product->ASIN = $fnskuRecord->ASIN;
-                        $product->grading = $fnskuRecord->grading;
-                        $product->storename = $fnskuRecord->storename;
-
-                        if (isset($asinData[$fnskuRecord->ASIN])) {
-                            $product->AStitle = $asinData[$fnskuRecord->ASIN]->internal;
-                        }
-                    } else {
-                        // If no FNSKU record found, still show the original FNSKU
-                        $product->FNSKU = $product->FNSKUviewer;
-                    }
-
-                    return $product;
-                });
-            }
+            // Transform products to ensure proper FNSKU display and add missing data
+            $products->getCollection()->transform(function ($product) {
+                // Keep the original FNSKU as displayed (with prefix if it exists)
+                $product->FNSKU = $product->FNSKUviewer;
+                
+                // Ensure we have the company for proper path construction
+                $product->company = $this->company;
+                
+                return $product;
+            });
 
             // If images are requested, fetch them for each product
             if ($includeImages) {
@@ -190,10 +112,8 @@ class HouseageController extends BasetablesController
                     $productIds = $products->pluck('ProductID')->toArray();
                     Log::info('Product IDs for image fetch', ['count' => count($productIds), 'ids' => $productIds]);
 
-                    // IMPORTANT FIX: Use the original table name with 'tbl' prefix
                     $capturedImagesTableName = $this->capturedImagesTable;
 
-                    // Log the actual table name we're checking
                     Log::info('Checking table existence', [
                         'table' => $capturedImagesTableName
                     ]);
@@ -202,9 +122,10 @@ class HouseageController extends BasetablesController
                         Log::warning('Captured images table does not exist', [
                             'table' => $capturedImagesTableName
                         ]);
-                        // Add company but skip image fetching
+                        
+                        // Add empty capturedImages object to prevent JS errors
                         $products->getCollection()->transform(function ($product) {
-                            $product->company = $this->company;
+                            $product->capturedImages = (object) [];
                             return $product;
                         });
                     } else {
@@ -226,14 +147,10 @@ class HouseageController extends BasetablesController
                             $imagesByProductId[$img->ProductID] = $img;
                         }
 
-                        // Add capturedImages data and company to each product
+                        // Add capturedImages data to each product
                         $products->getCollection()->transform(function ($product) use ($imagesByProductId) {
-                            // Always add the company for proper image path construction
-                            $product->company = $this->company;
-
                             // Check if we have image data for this product
                             if (isset($imagesByProductId[$product->ProductID])) {
-                                // Set capturedImages as a proper object
                                 $product->capturedImages = $imagesByProductId[$product->ProductID];
 
                                 // Set img1 directly for the main thumbnail display if not already set
@@ -241,18 +158,15 @@ class HouseageController extends BasetablesController
                                     $product->img1 = $product->capturedImages->capturedimg1;
                                 }
 
-                                // Log success for debugging
                                 Log::info('Added captured images to product', [
                                     'ProductID' => $product->ProductID,
                                     'capturedImages' => json_encode($product->capturedImages)
                                 ]);
                             } else {
-                                // Log failure for debugging
                                 Log::info('No captured images found for product', [
                                     'ProductID' => $product->ProductID
                                 ]);
 
-                                // Initialize empty capturedImages object to prevent JS errors
                                 $product->capturedImages = (object) [];
                             }
 
@@ -265,17 +179,16 @@ class HouseageController extends BasetablesController
                         'trace' => $e->getTraceAsString()
                     ]);
 
-                    // Continue without images but with company
+                    // Continue without images but add empty capturedImages object
                     $products->getCollection()->transform(function ($product) {
-                        $product->company = $this->company;
-                        $product->capturedImages = (object) []; // Initialize empty object to prevent JS errors
+                        $product->capturedImages = (object) [];
                         return $product;
                     });
                 }
             } else {
-                // Even if images are not requested, still add company info
+                // Even if images are not requested, initialize empty capturedImages
                 $products->getCollection()->transform(function ($product) {
-                    $product->company = $this->company;
+                    $product->capturedImages = (object) [];
                     return $product;
                 });
             }
