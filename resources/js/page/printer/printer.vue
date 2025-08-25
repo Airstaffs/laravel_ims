@@ -58,14 +58,12 @@
                   <span v-if="printer.is_married && printer.married_printer">
                     (Married to {{ printer.married_printer.name }})
                   </span>
-                  <span v-if="printer.is_married" class="marriage-indicator">💕</span>
                 </option>
               </select>
               
               <!-- Marriage Info Display -->
               <div v-if="selectedPrinterInfo && selectedPrinterInfo.is_married" class="marriage-info">
                 <div class="marriage-details">
-                  <i class="fas fa-heart text-danger"></i>
                   <span class="marriage-text">
                     Married to: {{ selectedPrinterInfo.married_printer.name }}
                   </span>
@@ -105,7 +103,7 @@
             </button>
           </div>
 
-          <!-- Reprint Single Label Tab -->
+          <!-- Reprint Single Label Tab - STRICT ENFORCEMENT -->
           <div v-if="activeTab === 'reprint'" class="tab-content">
             <!-- Enhanced Printer Selection for Reprint -->
             <div class="input-group">
@@ -116,40 +114,21 @@
                 @change="onReprintPrinterChange"
                 :disabled="isProcessing || loadingPrinters"
                 class="printer-select"
+                :class="{ 'has-warning': compatibilityWarning && compatibilityWarning.type === 'error' }"
               >
                 <option :value="null" disabled>
                   {{ loadingPrinters ? 'Loading printers...' : 'Choose a printer' }}
                 </option>
                 <option 
-                  v-for="printer in uniquePrinters" 
+                  v-for="printer in allIndividualPrinters" 
                   :key="printer.printerid" 
                   :value="parseInt(printer.printerid)"
-                  :class="{ 'married-printer': printer.is_married }"
                 >
-                  {{ printer.printername_short }}
-                  <span v-if="printer.is_married && printer.married_printer">
-                    (Married to {{ printer.married_printer.name }})
-                  </span>
-                  <span v-if="printer.is_married" class="marriage-indicator">💕</span>
+                  {{ printer.displayName }}
                 </option>
               </select>
               
-              <!-- Reprint Marriage Info Display -->
-              <div v-if="reprintSelectedPrinterInfo && reprintSelectedPrinterInfo.is_married" class="marriage-info">
-                <div class="marriage-details">
-                  <i class="fas fa-heart text-danger"></i>
-                  <span class="marriage-text">
-                    Married to: {{ reprintSelectedPrinterInfo.married_printer.name }}
-                  </span>
-                  <span class="marriage-name" v-if="reprintSelectedPrinterInfo.marriage_name">
-                    ({{ reprintSelectedPrinterInfo.marriage_name }})
-                  </span>
-                </div>
-                <div class="smart-routing-info">
-                  <i class="fas fa-route"></i>
-                  Smart routing: Labels will be sent to the appropriate printer automatically
-                </div>
-              </div>
+              <!-- No marriage info display needed for individual printer selection -->
             </div>
 
             <!-- Search Input -->
@@ -167,17 +146,19 @@
               >
             </div>
 
-            <!-- Enhanced Label Type Selection with Categories -->
+            <!-- Enhanced Label Type Selection with Strict Compatibility -->
             <div class="input-group" v-if="availableLabelTypes.length > 0">
               <label for="labelTypeSelect">Select Label Type to Print</label>
               <select 
                 id="labelTypeSelect"
                 v-model="selectedLabelType"
+                @change="onLabelTypeChanged"
                 :disabled="isProcessing"
                 class="label-type-select"
+                :class="{ 'has-warning': compatibilityWarning && compatibilityWarning.type === 'error' }"
               >
                 <option :value="null" disabled>Choose a label type</option>
-                <optgroup label="Small Labels">
+                <optgroup label="Small Labels (Small Label Printer Required)">
                   <option 
                     v-for="labelType in smallLabelTypes" 
                     :key="labelType.key" 
@@ -186,7 +167,7 @@
                     {{ labelType.name }} {{ labelType.description ? `- ${labelType.description}` : '' }}
                   </option>
                 </optgroup>
-                <optgroup label="Instruction Cards" v-if="instructionCardTypes.length > 0">
+                <optgroup label="Instruction Cards (Instruction Card Printer Required)" v-if="instructionCardTypes.length > 0">
                   <option 
                     v-for="labelType in instructionCardTypes" 
                     :key="labelType.key" 
@@ -197,16 +178,42 @@
                 </optgroup>
               </select>
               
-              <!-- Label Type Routing Info -->
-              <div v-if="selectedLabelType && reprintSelectedPrinterInfo && reprintSelectedPrinterInfo.is_married" class="label-routing-info">
+              <!-- NEW: STRICT Compatibility Warning Display -->
+              <div v-if="compatibilityWarning" class="compatibility-warning" :class="compatibilityWarning.type">
+                <div class="warning-header">
+                  <i class="fas fa-exclamation-triangle text-danger"></i>
+                  <span class="warning-title">Printer Incompatibility</span>
+                </div>
+                <p class="warning-message">{{ compatibilityWarning.message }}</p>
+                <div class="strict-enforcement-note">
+                  <strong>Strict Enforcement:</strong> For single label reprinting, each label type must use the correct printer type. No exceptions.
+                </div>
+              </div>
+
+              <!-- NEW: Printer Suggestions -->
+              <div v-if="showPrinterSuggestions && suggestedPrinters.length > 0" class="printer-suggestions">
+                <h4><i class="fas fa-lightbulb"></i> Compatible Printers Available</h4>
+                <div class="suggested-printer-list">
+                  <button 
+                    v-for="printer in suggestedPrinters" 
+                    :key="printer.printerid"
+                    @click="selectSuggestedPrinter(printer)"
+                    class="suggested-printer-btn"
+                  >
+                    <i class="fas fa-print"></i>
+                    {{ printer.printername }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- NEW: Smart Routing Info -->
+              <div v-if="smartRoutingInfo && !compatibilityWarning" class="smart-routing-display">
                 <div class="routing-indicator">
-                  <i class="fas fa-arrow-right"></i>
-                  <span v-if="isInstructionCardLabel(selectedLabelType)">
-                    Will print to: {{ reprintSelectedPrinterInfo.married_printer.name }} (Instruction Card Printer)
-                  </span>
-                  <span v-else>
-                    Will print to: {{ getSmallLabelPrinterName(reprintSelectedPrinterInfo) }} (Small Label Printer)
-                  </span>
+                  <i class="fas fa-arrow-right text-success"></i>
+                  <span class="routing-message">{{ smartRoutingInfo.message }}</span>
+                </div>
+                <div class="target-printer">
+                  Target: <strong>{{ smartRoutingInfo.targetPrinter }}</strong>
                 </div>
               </div>
             </div>
@@ -252,15 +259,19 @@
               </div>
             </div>
 
-            <!-- Enhanced Reprint Button -->
+            <!-- Enhanced Reprint Button with Strict Enforcement -->
             <button 
               @click="processReprint" 
               class="submit-button reprint-button"
-              :disabled="!selectedLabelType || isProcessing || !reprintSelectedPrinter || !reprintProductInfo"
+              :disabled="!selectedLabelType || isProcessing || !reprintSelectedPrinter || !reprintProductInfo || (compatibilityWarning && compatibilityWarning.type === 'error')"
+              :class="{ 'has-compatibility-warning': compatibilityWarning && compatibilityWarning.type === 'error' }"
             >
               <i class="fas fa-redo"></i> 
               Reprint {{ selectedLabelTypeName }}
-              <span v-if="reprintSelectedPrinterInfo && reprintSelectedPrinterInfo.is_married" class="married-print-indicator">
+              <span v-if="smartRoutingInfo" class="smart-routed-indicator">
+                → {{ smartRoutingInfo.targetPrinter }}
+              </span>
+              <span v-else-if="reprintSelectedPrinterInfo && reprintSelectedPrinterInfo.is_married" class="married-print-indicator">
                 (Smart Routed)
               </span>
             </button>
@@ -282,7 +293,7 @@ export default {
     ScannerComponent
   },
   computed: {
-    // Filter printers to show only unique entries (no duplicates from married pairs)
+    // Filter printers to show only unique entries (no duplicates from married pairs) - FOR MAIN PRINT TAB ONLY
     uniquePrinters() {
       if (!this.printers || this.printers.length === 0) {
         return [];
@@ -319,6 +330,55 @@ export default {
       
       return filtered;
     },
+
+    // NEW: All individual printers for reprint dropdown - shows ALL printers individually
+    allIndividualPrinters() {
+      if (!this.printers || this.printers.length === 0) {
+        return [];
+      }
+
+      // Create individual printer entries from all printers
+      const individualPrinters = [];
+      
+      for (const printer of this.printers) {
+        // Add the main printer
+        individualPrinters.push({
+          ...printer,
+          displayName: printer.printername_short,
+          isFromMarriage: printer.is_married
+        });
+
+        // If married, also add the married printer as a separate option
+        if (printer.is_married && printer.married_printer && printer.married_printer.id) {
+          // Check if we already added this married printer
+          const marriedExists = individualPrinters.find(p => p.printerid === printer.married_printer.id);
+          if (!marriedExists) {
+            individualPrinters.push({
+              printerid: printer.married_printer.id,
+              printername_short: printer.married_printer.name,
+              printerip: printer.married_printer.ip,
+              printer_type: printer.married_printer.type,
+              status: printer.married_printer.status,
+              is_married: true,
+              married_printer: {
+                id: printer.printerid,
+                name: printer.printername_short,
+                type: printer.printer_type
+              },
+              displayName: printer.married_printer.name,
+              isFromMarriage: true
+            });
+          }
+        }
+      }
+
+      // Remove duplicates and sort by name
+      const unique = individualPrinters.filter((printer, index, self) => 
+        index === self.findIndex(p => p.printerid === printer.printerid)
+      );
+
+      return unique.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    },
     
     selectedPrinterInfo() {
       if (!this.selectedPrinter) return null;
@@ -327,7 +387,7 @@ export default {
     
     reprintSelectedPrinterInfo() {
       if (!this.reprintSelectedPrinter) return null;
-      return this.printers.find(p => p.printerid == this.reprintSelectedPrinter);
+      return this.allIndividualPrinters.find(p => p.printerid == this.reprintSelectedPrinter);
     },
     
     selectedPrinterName() {
@@ -365,19 +425,26 @@ export default {
       printers: [],
       loadingPrinters: false,
       
-      // New reprint data
+      // Enhanced reprint data with strict enforcement
       activeTab: 'print',
       reprintSelectedPrinter: null,
       reprintSearchTerm: '',
       reprintProductInfo: null,
       selectedLabelType: null,
       
+      // NEW: Strict compatibility enforcement
+      compatibilityWarning: null,
+      suggestedPrinters: [],
+      showPrinterSuggestions: false,
+      smartRoutingInfo: null,
+      
       // Performance optimization
       autoProcessTimer: null,
       autoSearchTimer: null,
       
+      // CORRECTED: Label types with vector_image in small labels
       availableLabelTypes: [
-        // Small Label Types
+        // Small Label Types - INCLUDING VECTOR IMAGE
         { key: 'serial_labels', name: 'Serial Number Labels', description: 'All serial number labels (A, B, C, D)', category: 'small' },
         { key: 'fnsku_label', name: 'FNSKU Label', description: 'Main FNSKU barcode label', category: 'small' },
         { key: 'title_label', name: 'Title Label', description: 'Product title with RT/AR package number', category: 'small' },
@@ -390,12 +457,18 @@ export default {
         { key: 'qr_serial', name: 'QR Code - Serial Photos', description: 'QR code for serial photos', category: 'small' },
         { key: 'transparency_qr', name: 'Transparency QR Status', description: 'Amazon transparency status', category: 'small' },
         { key: 'print_count', name: 'Print Count Label', description: 'Current print count information', category: 'small' },
+        { key: 'vector_image', name: 'Vector Image', description: 'Product vector image (SMALL LABEL PRINTER)', category: 'small' },
         
-        // Instruction Card Types
-        { key: 'vector_image', name: 'Vector Image', description: 'Product vector image', category: 'instruction' },
-        { key: 'instruction_cards', name: 'Instruction Cards', description: 'All instruction cards', category: 'instruction' }
+        // Instruction Card Types - ONLY INSTRUCTION CARDS
+        { key: 'instruction_cards', name: 'Instruction Cards', description: 'All instruction cards (INSTRUCTION CARD PRINTER ONLY)', category: 'instruction' }
       ]
     };
+  },
+
+  watch: {
+    selectedLabelType() {
+      this.onLabelTypeChanged();
+    }
   },
   
   mounted() {
@@ -461,18 +534,20 @@ export default {
       
       console.log('Loading saved printers:', { savedPrinter, savedReprintPrinter });
       console.log('Available unique printers:', this.uniquePrinters.map(p => ({ id: p.printerid, name: p.printername_short })));
+      console.log('Available individual printers:', this.allIndividualPrinters.map(p => ({ id: p.printerid, name: p.displayName })));
       
-      // Check if saved printer exists in uniquePrinters
+      // Check if saved printer exists in uniquePrinters (for main print tab)
       if (savedPrinter && this.uniquePrinters.find(p => p.printerid == savedPrinter)) {
         this.selectedPrinter = parseInt(savedPrinter);
         console.log('Restored main printer:', savedPrinter);
       }
       
-      if (savedReprintPrinter && this.uniquePrinters.find(p => p.printerid == savedReprintPrinter)) {
+      // Check if saved reprint printer exists in allIndividualPrinters (for reprint tab)
+      if (savedReprintPrinter && this.allIndividualPrinters.find(p => p.printerid == savedReprintPrinter)) {
         this.reprintSelectedPrinter = parseInt(savedReprintPrinter);
         console.log('Restored reprint printer:', savedReprintPrinter);
-      } else if (savedPrinter && this.uniquePrinters.find(p => p.printerid == savedPrinter)) {
-        // Use main printer as default for reprint
+      } else if (savedPrinter && this.allIndividualPrinters.find(p => p.printerid == savedPrinter)) {
+        // Use main printer as default for reprint if it exists in individual list
         this.reprintSelectedPrinter = parseInt(savedPrinter);
         console.log('Using main printer as reprint default:', savedPrinter);
       }
@@ -480,7 +555,8 @@ export default {
       console.log('Final printer selections:', {
         selectedPrinter: this.selectedPrinter,
         reprintSelectedPrinter: this.reprintSelectedPrinter,
-        uniquePrintersCount: this.uniquePrinters.length
+        uniquePrintersCount: this.uniquePrinters.length,
+        individualPrintersCount: this.allIndividualPrinters.length
       });
     },
     
@@ -508,6 +584,14 @@ export default {
         localStorage.setItem('reprintSelectedPrinter', this.reprintSelectedPrinter.toString());
         this.focusReprintInput();
         
+        // Clear any previous warnings
+        this.clearCompatibilityWarning();
+        
+        // Check compatibility if we already have a label type selected
+        if (this.selectedLabelType) {
+          this.checkLabelTypePrinterCompatibility();
+        }
+
         // Log marriage info for reprint
         const printerInfo = this.reprintSelectedPrinterInfo;
         if (printerInfo && printerInfo.is_married) {
@@ -520,25 +604,199 @@ export default {
       }
     },
 
-    isInstructionCardLabel(labelType) {
-      const instructionCardLabels = ['vector_image', 'instruction_cards'];
-      return instructionCardLabels.includes(labelType);
+    /**
+     * ENHANCED: Handle label type selection with STRICT printer compatibility check
+     */
+    onLabelTypeChanged() {
+      if (!this.selectedLabelType || !this.reprintSelectedPrinter) {
+        this.clearCompatibilityWarning();
+        return;
+      }
+
+      // Check compatibility immediately when label type changes
+      this.checkLabelTypePrinterCompatibility();
     },
 
-    getSmallLabelPrinterName(printerInfo) {
-      if (!printerInfo.is_married) return printerInfo.printername_short;
-      
-      // If the selected printer is small label type, use it
-      if (printerInfo.printer_type === 'small_label') {
-        return printerInfo.printername_short;
+    /**
+     * NEW: Check label type and printer compatibility with STRICT ENFORCEMENT
+     */
+    async checkLabelTypePrinterCompatibility() {
+      if (!this.selectedLabelType || !this.reprintSelectedPrinter) return;
+
+      try {
+        // Define label categories - CORRECTED: vector_image is small label
+        const instructionCardLabels = ['instruction_cards'];
+        const isInstructionCardLabel = instructionCardLabels.includes(this.selectedLabelType);
+        
+        const printerInfo = this.reprintSelectedPrinterInfo;
+        if (!printerInfo) return;
+
+        // STRICT ENFORCEMENT: Check for exact incompatibilities
+        if (isInstructionCardLabel && printerInfo.printer_type === 'small_label') {
+          // Check if married printer can handle it
+          if (printerInfo.is_married && printerInfo.married_printer && 
+              printerInfo.married_printer.type === 'instruction_card') {
+            // Married pair can handle it via smart routing
+            this.showSmartRoutingInfo(true, printerInfo);
+            this.clearCompatibilityWarning();
+          } else {
+            // Cannot handle instruction cards
+            this.showIncompatibilityWarning(
+              'instruction_card',
+              'Instruction card labels can ONLY be printed on instruction card printers. Please select an instruction card printer.'
+            );
+          }
+          return;
+        }
+
+        if (!isInstructionCardLabel && printerInfo.printer_type === 'instruction_card') {
+          // Check if married printer can handle small labels
+          if (printerInfo.is_married && printerInfo.married_printer && 
+              printerInfo.married_printer.type === 'small_label') {
+            // Married pair can handle it via smart routing
+            this.showSmartRoutingInfo(false, printerInfo);
+            this.clearCompatibilityWarning();
+          } else {
+            // Cannot handle small labels (including vector)
+            this.showIncompatibilityWarning(
+              'small_label',
+              'Small labels (including vector images) can ONLY be printed on small label printers. Please select a small label printer.'
+            );
+          }
+          return;
+        }
+
+        // If we get here, direct compatibility is good
+        this.clearCompatibilityWarning();
+        
+        // Show direct printer usage info
+        if (printerInfo.is_married) {
+          this.showDirectPrinterInfo(isInstructionCardLabel, printerInfo);
+        }
+
+      } catch (error) {
+        console.error('Error checking compatibility:', error);
       }
-      
-      // If the married printer is small label type, use it
-      if (printerInfo.married_printer && printerInfo.married_printer.type === 'small_label') {
-        return printerInfo.married_printer.name;
+    },
+
+    /**
+     * NEW: Show incompatibility warning and fetch suggested printers - STRICT ENFORCEMENT
+     */
+    async showIncompatibilityWarning(requiredPrinterType, message) {
+      this.compatibilityWarning = {
+        message: message,
+        type: 'error'
+      };
+
+      // Fetch suggested printers
+      try {
+        const response = await fetch('/api/printer/get-available-printers-for-label-type', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+          },
+          body: JSON.stringify({
+            label_type: this.selectedLabelType
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success) {
+            this.suggestedPrinters = data.compatible_printers;
+            this.showPrinterSuggestions = true;
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching suggested printers:', error);
       }
+    },
+
+    /**
+     * NEW: Show direct printer usage info for married printers when no routing needed
+     */
+    showDirectPrinterInfo(isInstructionCardLabel, printerInfo) {
+      let message = '';
+      let targetPrinter = '';
+
+      if (isInstructionCardLabel && printerInfo.printer_type === 'instruction_card') {
+        message = 'Will use selected instruction card printer';
+        targetPrinter = printerInfo.printername_short;
+      } else if (!isInstructionCardLabel && printerInfo.printer_type === 'small_label') {
+        message = 'Will use selected small label printer';
+        targetPrinter = printerInfo.printername_short;
+      }
+
+      if (message) {
+        this.smartRoutingInfo = {
+          message: message,
+          targetPrinter: targetPrinter,
+          type: 'info'
+        };
+      }
+    },
+
+    /**
+     * NEW: Show smart routing information for married printers
+     */
+    showSmartRoutingInfo(isInstructionCardLabel, printerInfo) {
+      if (!printerInfo.is_married) return;
+
+      let targetPrinterName = '';
+      let routingMessage = '';
+
+      if (isInstructionCardLabel) {
+        if (printerInfo.printer_type === 'instruction_card') {
+          targetPrinterName = printerInfo.printername_short;
+          routingMessage = 'Will use selected instruction card printer';
+        } else if (printerInfo.married_printer && printerInfo.married_printer.type === 'instruction_card') {
+          targetPrinterName = printerInfo.married_printer.name;
+          routingMessage = 'Smart routing: Will use married instruction card printer';
+        }
+      } else {
+        if (printerInfo.printer_type === 'small_label') {
+          targetPrinterName = printerInfo.printername_short;
+          routingMessage = 'Will use selected small label printer';
+        } else if (printerInfo.married_printer && printerInfo.married_printer.type === 'small_label') {
+          targetPrinterName = printerInfo.married_printer.name;
+          routingMessage = 'Smart routing: Will use married small label printer';
+        }
+      }
+
+      if (targetPrinterName) {
+        this.smartRoutingInfo = {
+          message: routingMessage,
+          targetPrinter: targetPrinterName,
+          type: 'info'
+        };
+      }
+    },
+
+    /**
+     * NEW: Clear compatibility warnings and suggestions
+     */
+    clearCompatibilityWarning() {
+      this.compatibilityWarning = null;
+      this.suggestedPrinters = [];
+      this.showPrinterSuggestions = false;
+      this.smartRoutingInfo = null;
+    },
+
+    /**
+     * NEW: Switch to a suggested printer
+     */
+    selectSuggestedPrinter(printer) {
+      this.reprintSelectedPrinter = printer.printerid;
+      this.showPrinterSuggestions = false;
+      this.clearCompatibilityWarning();
       
-      return printerInfo.printername_short;
+      // Re-check compatibility with new printer
+      this.$nextTick(() => {
+        this.checkLabelTypePrinterCompatibility();
+      });
+
+      console.log('Switched to suggested printer:', printer.printername);
     },
     
     openPrinterScanner() {
@@ -642,10 +900,12 @@ export default {
         if (data.success) {
           this.reprintProductInfo = data.product_data;
           this.selectedLabelType = null; // Reset label selection
+          this.clearCompatibilityWarning(); // Clear any warnings
           console.log('Product found for reprint:', this.reprintProductInfo);
         } else {
           this.reprintProductInfo = null;
           this.selectedLabelType = null;
+          this.clearCompatibilityWarning();
           this.showError(data.message || 'Product not found');
         }
         
@@ -661,12 +921,16 @@ export default {
         
         this.reprintProductInfo = null;
         this.selectedLabelType = null;
+        this.clearCompatibilityWarning();
       } finally {
         this.$refs.scannerComponent.stopLoading();
         this.isProcessing = false;
       }
     },
 
+    /**
+     * ENHANCED: Process reprint with STRICT compatibility enforcement
+     */
     async processReprint() {
       if (!this.selectedLabelType) {
         this.showError('Please select a label type to reprint');
@@ -675,6 +939,12 @@ export default {
       
       if (!this.reprintProductInfo) {
         this.showError('No product selected for reprint');
+        return;
+      }
+
+      // STRICT: Final compatibility check before proceeding
+      if (this.compatibilityWarning && this.compatibilityWarning.type === 'error') {
+        this.showError('Please resolve printer compatibility issues before reprinting');
         return;
       }
 
@@ -707,9 +977,14 @@ export default {
         const result = await response.json();
         
         if (result.success) {
-          this.handleReprintSuccess(result);
+          this.handleEnhancedReprintSuccess(result);
         } else {
-          this.handleReprintError(result.message || 'Reprint failed');
+          // Check if it's a compatibility error with suggestions
+          if (result.available_printers && result.available_printers.length > 0) {
+            this.handleCompatibilityError(result);
+          } else {
+            this.handleReprintError(result.message || 'Reprint failed');
+          }
         }
         
       } catch (error) {
@@ -721,28 +996,29 @@ export default {
       }
     },
 
-    getSerialNumbers(product) {
-      const serials = [];
-      if (product.serialnumber) serials.push(`A: ${product.serialnumber}`);
-      if (product.serialnumberb) serials.push(`B: ${product.serialnumberb}`);
-      if (product.serialnumberc) serials.push(`C: ${product.serialnumberc}`);
-      if (product.serialnumberd) serials.push(`D: ${product.serialnumberd}`);
-      return serials.length > 0 ? serials.join(', ') : 'N/A';
-    },
-
-    handleReprintSuccess(result) {
+    /**
+     * NEW: Handle enhanced reprint success with routing information
+     */
+    handleEnhancedReprintSuccess(result) {
       const labelTypeName = this.selectedLabelTypeName;
-      const printerInfo = result.printer_name || 'Unknown Printer';
+      let successMessage = `${labelTypeName} reprinted successfully`;
+      
+      // Add routing information if applicable
+      if (result.printer_info && result.printer_info.was_routed) {
+        successMessage += ` (Smart routed to ${result.printer_info.target_printer})`;
+      } else if (result.printer_info) {
+        successMessage += ` to ${result.printer_info.target_printer || result.printer_info.selected_printer}`;
+      }
       
       // Add to scanner success
       this.$refs.scannerComponent.addSuccessScan({
         serial_number: this.reprintSearchTerm,
-        status: `Reprinted: ${labelTypeName} → ${printerInfo}`,
+        status: `Reprinted: ${labelTypeName} → ${result.printer_info?.target_printer || 'Printer'}`,
         timestamp: new Date().toISOString()
       });
       
       // Show success notification
-      this.$refs.scannerComponent.showScanSuccess(`${labelTypeName} reprinted successfully to ${printerInfo}`);
+      this.$refs.scannerComponent.showScanSuccess(successMessage);
       
       // Play success sound
       SoundService.successScan(false);
@@ -750,7 +1026,28 @@ export default {
       // Clear form
       this.clearReprintForm();
       
-      console.log('Label reprinted successfully:', result);
+      console.log('Enhanced reprint completed:', result);
+    },
+
+    /**
+     * NEW: Handle compatibility error with printer suggestions
+     */
+    handleCompatibilityError(result) {
+      this.compatibilityWarning = {
+        message: result.message,
+        type: 'error'
+      };
+      
+      this.suggestedPrinters = result.available_printers || [];
+      this.showPrinterSuggestions = this.suggestedPrinters.length > 0;
+      
+      // Show error notification
+      this.$refs.scannerComponent.showScanError(result.message);
+      
+      // Play error sound
+      SoundService.error(true);
+      
+      console.error('Compatibility error with suggestions:', result);
     },
 
     handleReprintError(message) {
@@ -769,11 +1066,24 @@ export default {
       console.error('Reprint failed:', message);
     },
 
+    /**
+     * ENHANCED: Clear reprint form with compatibility warnings
+     */
     clearReprintForm() {
       this.reprintSearchTerm = '';
       this.reprintProductInfo = null;
       this.selectedLabelType = null;
+      this.clearCompatibilityWarning();
       this.focusReprintInput();
+    },
+
+    getSerialNumbers(product) {
+      const serials = [];
+      if (product.serialnumber) serials.push(`A: ${product.serialnumber}`);
+      if (product.serialnumberb) serials.push(`B: ${product.serialnumberb}`);
+      if (product.serialnumberc) serials.push(`C: ${product.serialnumberc}`);
+      if (product.serialnumberd) serials.push(`D: ${product.serialnumberd}`);
+      return serials.length > 0 ? serials.join(', ') : 'N/A';
     },
     
     // Enhanced print processing with married printer support
@@ -1226,21 +1536,133 @@ export default {
   color: #0056b3;
 }
 
-.label-routing-info {
+/* NEW: Enhanced compatibility and routing styles - STRICT ENFORCEMENT */
+.has-warning {
+  border-color: #dc3545 !important;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2) !important;
+}
+
+.compatibility-warning {
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 4px solid;
+}
+
+.compatibility-warning.error {
+  background-color: #fff5f5;
+  border-left-color: #e53e3e;
+  color: #742a2a;
+  border: 2px solid #feb2b2;
+}
+
+.strict-enforcement-note {
+  margin-top: 10px;
+  padding: 8px;
+  background-color: #fed7d7;
+  border-radius: 4px;
+  font-size: 13px;
+  border-left: 3px solid #e53e3e;
+}
+
+.compatibility-warning.info {
+  background-color: #f0f9ff;
+  border-left-color: #3182ce;
+  color: #2a69ac;
+}
+
+.warning-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.warning-message {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.printer-suggestions {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 15px;
+  margin-top: 10px;
+}
+
+.printer-suggestions h4 {
+  margin: 0 0 12px 0;
+  color: #495057;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.printer-suggestions h4 i {
+  color: #ffc107;
+}
+
+.suggested-printer-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggested-printer-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.suggested-printer-btn:hover {
+  background-color: #0056b3;
+  transform: translateY(-1px);
+}
+
+.smart-routing-display {
   background-color: #e7f3ff;
   border: 1px solid #b3d9ff;
   border-radius: 6px;
-  padding: 8px 10px;
-  margin-top: 8px;
+  padding: 10px;
+  margin-top: 10px;
 }
 
 .routing-indicator {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.routing-message {
+  font-size: 14px;
   color: #0056b3;
   font-weight: 500;
+}
+
+.target-printer {
+  font-size: 13px;
+  color: #495057;
+  margin-left: 24px;
+}
+
+.smart-routed-indicator {
+  font-size: 12px;
+  color: #28a745;
+  font-weight: normal;
+  margin-left: 8px;
 }
 
 .married-print-indicator {
@@ -1390,6 +1812,16 @@ export default {
   background-color: #e68900;
 }
 
+.submit-button.has-compatibility-warning {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.submit-button.has-compatibility-warning:hover {
+  background-color: #6c757d;
+  transform: none;
+}
+
 .submit-button i {
   font-size: 14px;
 }
@@ -1401,7 +1833,6 @@ export default {
     gap: 15px;
   }
   
-  /* Keep tabs horizontal on mobile - just smaller */
   .tab-navigation {
     display: flex;
     flex-direction: row;
@@ -1457,7 +1888,6 @@ export default {
     font-weight: 700;
   }
   
-  /* Fix input overflow issues */
   .input-group input,
   .printer-select,
   .label-type-select {
@@ -1465,7 +1895,7 @@ export default {
     max-width: 100%;
     box-sizing: border-box;
     padding: 16px 15px;
-    font-size: 16px; /* Prevent iOS zoom */
+    font-size: 16px;
     border-radius: 8px;
     border: 2px solid #ddd;
     min-height: 54px;
@@ -1476,7 +1906,6 @@ export default {
     overflow-wrap: break-word;
   }
   
-  /* Fix placeholder text overflow */
   .input-group input::placeholder {
     font-size: 14px;
     color: #999;
@@ -1485,7 +1914,6 @@ export default {
     white-space: nowrap;
   }
   
-  /* Specific fix for search input */
   #reprintSearch {
     font-size: 16px !important;
   }
@@ -1495,7 +1923,6 @@ export default {
     line-height: 1.2;
   }
   
-  /* Fix select dropdown arrow on mobile */
   .printer-select,
   .label-type-select {
     background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
@@ -1517,7 +1944,6 @@ export default {
     box-sizing: border-box;
   }
   
-  /* Product Info Card Mobile */
   .product-info-card {
     padding: 20px 15px;
     margin: 15px 0;
@@ -1573,7 +1999,6 @@ export default {
     max-width: 100%;
   }
 
-  /* Marriage info mobile styling */
   .marriage-info {
     padding: 8px 10px;
     margin-top: 6px;
@@ -1590,15 +2015,39 @@ export default {
     font-size: 12px;
   }
 
-  .label-routing-info {
-    padding: 6px 8px;
-    margin-top: 6px;
+  .printer-suggestions {
+    padding: 12px;
   }
-
+  
+  .suggested-printer-list {
+    flex-direction: column;
+  }
+  
+  .suggested-printer-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 12px;
+    font-size: 14px;
+  }
+  
+  .smart-routing-display {
+    padding: 8px;
+  }
+  
   .routing-indicator {
-    flex-wrap: wrap;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 4px;
-    font-size: 12px;
+  }
+  
+  .target-printer {
+    margin-left: 0;
+  }
+  
+  .warning-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
   }
 }
 
@@ -1736,7 +2185,6 @@ export default {
     transition: transform 0.1s ease;
   }
   
-  /* Improve touch targets */
   .input-group input,
   .printer-select,
   .label-type-select,
