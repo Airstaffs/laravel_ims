@@ -387,3 +387,35 @@ table tbody tr td {
     align-items: stretch;
     gap: 20px;
 }
+
+/* Time Record History */
+.time-record-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+}
+
+.time-record-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 10px;
+}
+
+.time-record-header fieldset {
+    flex: 1;
+}
+
+.time-record-header .has-button {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+.has-button button {
+    height: 40px;
+    flex: 1;
+}

@@ -74,15 +74,15 @@
                     <td>{{ row.effective_start }}</td>
                     <td>{{ row.effective_end || "Present" }}</td>
                     <td>
-                        <span v-if="row.monthly_rate != null"
-                            >₱{{ Number(row.monthly_rate).toFixed(2) }}</span
-                        >
+                        <span v-if="row.monthly_rate != null">
+                            ₱{{ Number(row.monthly_rate).toFixed(2) }}
+                        </span>
                         <span v-else>-</span>
                     </td>
                     <td>
-                        <span v-if="row.hourly_rate != null"
-                            >₱{{ Number(row.hourly_rate).toFixed(2) }}</span
-                        >
+                        <span v-if="row.hourly_rate != null">
+                            ₱{{ Number(row.hourly_rate).toFixed(2) }}
+                        </span>
                         <span v-else>-</span>
                     </td>
                     <td>{{ row.currency || "PHP" }}</td>
@@ -94,8 +94,9 @@
                         <span
                             v-if="$parent.isActiveRate(row)"
                             class="badge bg-success"
-                            >Active</span
                         >
+                            Active
+                        </span>
                         <span v-else class="badge bg-secondary">Inactive</span>
                     </td>
                 </tr>

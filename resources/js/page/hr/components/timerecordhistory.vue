@@ -2,18 +2,15 @@
 import { reactive, watch } from "vue";
 
 const props = defineProps({
-    // rows to render (parent-owned)
     history: { type: Array, default: () => [] },
-    // optional formatter from parent
+    // Parent can override; default shows raw if parent doesn't provide one
     formatDate: { type: Function, default: (ts) => ts ?? "—" },
-    // optional initial filter values from parent
     initialFilters: {
         type: Object,
         default: () => ({ clock_id: "", edited_by: "", from: "", to: "" }),
     },
 });
 
-// emits for parent to handle data fetching / side effects
 const emit = defineEmits(["apply", "clear"]);
 
 const localFilters = reactive({
@@ -23,7 +20,6 @@ const localFilters = reactive({
     to: "",
 });
 
-// hydrate local from parent-provided initial filters
 watch(
     () => props.initialFilters,
     (val) => {
@@ -33,7 +29,6 @@ watch(
 );
 
 function apply() {
-    // tell parent to refresh using current filters
     emit("apply", { ...localFilters });
 }
 
@@ -43,128 +38,161 @@ function clear() {
     localFilters.from = "";
     localFilters.to = "";
     emit("clear");
-    // optional: immediately re-apply with cleared filters
     emit("apply", { ...localFilters });
 }
 
+// --- Helpers ---
+// Normalize lots of possible "changes" shapes into { field: {from,to} }
 function parseChanges(changes) {
     if (!changes) return {};
-    if (typeof changes === "object") return changes;
-    try {
-        return JSON.parse(changes);
-    } catch {
-        return {};
+    // Already a map?
+    if (typeof changes === "object" && !Array.isArray(changes)) {
+        const out = {};
+        for (const [k, v] of Object.entries(changes)) {
+            if (Array.isArray(v)) out[k] = { from: v[0], to: v[1] };
+            else if (v && typeof v === "object")
+                out[k] = { from: v.from, to: v.to };
+            else out[k] = { from: undefined, to: v };
+        }
+        return out;
     }
+    // JSON string?
+    if (typeof changes === "string") {
+        try {
+            return parseChanges(JSON.parse(changes));
+        } catch {
+            return {};
+        }
+    }
+    // Array of records [{field,from,to}]?
+    if (Array.isArray(changes)) {
+        const out = {};
+        for (const rec of changes) {
+            if (!rec) continue;
+            const key = rec.field || rec.key || rec.name;
+            if (key) out[key] = { from: rec.from, to: rec.to };
+        }
+        return out;
+    }
+    return {};
+}
+
+// For template use; avoids re-parsing logic in-place
+function normalizedChanges(changes) {
+    return parseChanges(changes);
+}
+
+// Nicely format field names
+function prettyLabel(s) {
+    if (!s) return "";
+    return String(s)
+        .replace(/[_\-]+/g, " ")
+        .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+        .replace(/\s+/g, " ")
+        .replace(/^./, (ch) => ch.toUpperCase());
+}
+
+// Show dashes for empty values
+function displayVal(v) {
+    return v === undefined || v === null || v === "" ? "—" : v;
 }
 </script>
 
 <template>
-    <div class="p-2">
-        <!-- Filters -->
-        <div class="row g-2 align-items-end mb-3">
-            <div class="col-12 col-md-3">
-                <label class="form-label">Clock ID</label>
+    <div class="time-record-section">
+        <div class="time-record-header">
+            <fieldset>
+                <label>Clock ID</label>
                 <input
                     type="number"
                     class="form-control"
                     v-model="localFilters.clock_id"
                 />
-            </div>
-            <div class="col-12 col-md-3">
-                <label class="form-label">Edited By (User ID)</label>
+            </fieldset>
+            <fieldset>
+                <label>Edited By (User ID)</label>
                 <input
                     type="number"
                     class="form-control"
                     v-model="localFilters.edited_by"
                 />
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label">From</label>
+            </fieldset>
+            <fieldset>
+                <label>From</label>
                 <input
                     type="date"
                     class="form-control"
                     v-model="localFilters.from"
                 />
-            </div>
-            <div class="col-6 col-md-3">
-                <label class="form-label">To</label>
+            </fieldset>
+            <fieldset>
+                <label>To</label>
                 <input
                     type="date"
                     class="form-control"
                     v-model="localFilters.to"
                 />
-            </div>
-
-            <div class="col-12 d-flex gap-2">
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    @click="apply"
-                >
-                    Apply
-                </button>
-                <button
-                    type="button"
-                    class="btn btn-outline-dark"
-                    @click="clear"
-                >
-                    Clear
-                </button>
-            </div>
-        </div>
-
-        <!-- Table -->
-        <div class="table-responsive">
-            <table class="table table-sm table-bordered align-middle">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width: 60px">#</th>
-                        <th>Clock ID</th>
-                        <th>Edited By</th>
-                        <th>When</th>
-                        <th>Changes</th>
-                    </tr>
-                </thead>
-
-                <tbody v-if="Array.isArray(history)">
-                    <tr
-                        v-for="(row, i) in history"
-                        :key="row?.id ?? `hist-${i}`"
+            </fieldset>
+            <fieldset>
+                <label></label>
+                <div class="has-button">
+                    <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="apply"
                     >
-                        <td>{{ i + 1 }}</td>
-                        <td>{{ row?.clock_id ?? "—" }}</td>
-                        <td>{{ row?.edited_by ?? "—" }}</td>
-                        <td>{{ formatDate(row?.edit_timestamp) }}</td>
-                        <td>
-                            <ul class="m-0 ps-3">
-                                <li
-                                    v-for="(chg, field) in parseChanges(
-                                        row?.changes
-                                    )"
-                                    :key="field"
-                                >
-                                    <strong>{{ field }}</strong
-                                    >: <em>{{ chg?.from ?? "—" }}</em> →
-                                    <em>{{ chg?.to ?? "—" }}</em>
-                                </li>
-                            </ul>
-                        </td>
-                    </tr>
-                    <tr v-if="!history.length">
-                        <td colspan="5" class="text-center text-muted py-3">
-                            No edit history found.
-                        </td>
-                    </tr>
-                </tbody>
-
-                <tbody v-else>
-                    <tr>
-                        <td colspan="5" class="text-center text-muted py-3">
-                            Loading…
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                        Apply
+                    </button>
+                    <button
+                        type="button"
+                        class="btn btn-outline-dark"
+                        @click="clear"
+                    >
+                        Clear
+                    </button>
+                </div>
+            </fieldset>
         </div>
+
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Clock ID</th>
+                    <th>Edited By</th>
+                    <th>When</th>
+                    <th>Changes</th>
+                </tr>
+            </thead>
+
+            <tbody v-if="Array.isArray(history) && history.length">
+                <tr v-for="(row, i) in history" :key="row?.id ?? `hist-${i}`">
+                    <td>{{ i + 1 }}</td>
+                    <td>{{ row?.clock_id ?? "—" }}</td>
+                    <td>{{ row?.edited_by ?? "—" }}</td>
+                    <td>{{ formatDate(row?.edit_timestamp) }}</td>
+
+                    <td>
+                        <ul class="m-0 ps-3">
+                            <li
+                                v-for="(chg, field) in normalizedChanges(
+                                    row?.changes
+                                )"
+                                :key="field"
+                                v-if="chg"
+                            >
+                                <strong>{{ prettyLabel(field) }}</strong
+                                >:
+                                <em>{{ displayVal(chg?.from) }}</em>
+                                →
+                                <em>{{ displayVal(chg?.to) }}</em>
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </template>
+
+<style scoped src="../hr.css"></style>
