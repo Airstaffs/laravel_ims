@@ -3,12 +3,43 @@
         <div class="sidebar-nav">
             <ul class="list-unstyled m-0">
                 <li
-                    v-for="tab in tabs"
-                    :key="tab"
                     :class="{ active: tab === currentView }"
-                    @click="setView(tab)"
+                    v-for="tab in [currentView]"
+                    :key="tab"
+                    @click="toggleDropdown"
                 >
-                    {{ tab }}
+                    <div
+                        class="d-flex justify-content-between align-items-center"
+                        style="height: 40px"
+                    >
+                        <span @click="setView(tab)">
+                            {{ tab }}
+                        </span>
+                        <span style="cursor: pointer">
+                            <i
+                                :class="
+                                    dropdownOpen
+                                        ? 'fa fa-chevron-up'
+                                        : 'fa fa-chevron-down'
+                                "
+                            ></i>
+                        </span>
+                    </div>
+
+                    <!-- Dropdown for other tabs -->
+                    <ul v-if="dropdownOpen" class="list-unstyled">
+                        <li
+                            v-for="tab in tabs.filter((t) => t !== currentView)"
+                            :key="tab"
+                            @click="
+                                setView(tab);
+                                toggleDropdown;
+                            "
+                            style="cursor: pointer"
+                        >
+                            {{ tab }}
+                        </li>
+                    </ul>
                 </li>
             </ul>
         </div>
@@ -28,22 +59,6 @@
 
             <scheduling v-if="currentView === 'Scheduling'" :ctx="hrContext" />
         </div>
-    </div>
-
-    <div class="hr-module">
-        <!-- Main views -->
-        <TimeRecordHistory
-            v-if="currentView === 'Time Record Edit History'"
-            :key="currentView"
-            :hr-context="hrContext"
-        />
-        <LeaveHistory v-show="currentView === 'Employee Leave History'" />
-        <RateHistory
-            v-show="currentView === 'Employee Rate History'"
-            :hr-context="hrContext"
-        />
-
-        <ViolationsHistory v-show="currentView === 'Violations History'" />
     </div>
 </template>
 

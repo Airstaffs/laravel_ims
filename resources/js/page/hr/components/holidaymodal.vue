@@ -24,40 +24,104 @@
             </div>
         </div>
 
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Title</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Recurring</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
+        <div class="d-md-none">
+            <div
+                class="hol-card shadow-sm rounded-3 mb-2 p-3"
+                v-for="(h, i) in $parent.holidays"
+                :key="h.holidayID"
+            >
+                <!-- Header -->
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="me-3 flex-grow-1">
+                        <div class="fw-semibold text-truncate">
+                            {{ h.title || "—" }}
+                        </div>
+                        <div class="text-secondary small">
+                            <span class="me-2">#{{ i + 1 }}</span>
+                            <span :title="'Stored: ' + (h.holidate || '')">
+                                {{ h.display_date || "—" }}
+                            </span>
+                        </div>
+                    </div>
+                    <span class="badge text-bg-light">{{
+                        h.is_recurring ? "Recurring" : "One-time"
+                    }}</span>
+                </div>
 
-            <tbody>
-                <template v-for="(h, i) in $parent.holidays" :key="h.holidayID">
+                <!-- Status -->
+                <div class="mt-2">
+                    <span class="status-pill">
+                        {{ h.status || "—" }}
+                    </span>
+                </div>
+
+                <!-- Actions -->
+                <div class="mt-3">
+                    <div class="d-flex flex-row gap-2">
+                        <button
+                            class="btn btn-primary flex-fill btn-sm"
+                            @click="$parent.editHoliday(h)"
+                        >
+                            Edit
+                        </button>
+                        <button
+                            class="btn btn-outline-danger flex-fill btn-sm"
+                            @click="$parent.deleteHoliday(h.holidayID)"
+                        >
+                            Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Desktop / Medium+ screens: Enhanced table -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="table align-middle table-hover mb-0">
+                <thead class="table-light sticky-top">
                     <tr>
-                        <td>{{ i + 1 }}</td>
-                        <td>{{ h.title }}</td>
-                        <td>{{ h.status }}</td>
+                        <th style="width: 72px">#</th>
+                        <th>Title</th>
+                        <th>Status</th>
+                        <th style="width: 220px">Date</th>
+                        <th style="width: 150px">Recurring</th>
+                        <th style="width: 220px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="(h, i) in $parent.holidays" :key="h.holidayID">
+                        <td class="text-secondary">{{ i + 1 }}</td>
+                        <td
+                            class="fw-semibold text-truncate"
+                            style="max-width: 360px"
+                        >
+                            {{ h.title || "—" }}
+                        </td>
                         <td>
-                            <span :title="'Stored: ' + h.holidate">
-                                {{ h.display_date }}
+                            <span class="status-pill">{{
+                                h.status || "—"
+                            }}</span>
+                        </td>
+                        <td class="text-secondary">
+                            <span :title="'Stored: ' + (h.holidate || '')">
+                                {{ h.display_date || "—" }}
                             </span>
                         </td>
-                        <td>{{ h.is_recurring ? "Yes" : "No" }}</td>
                         <td>
-                            <div class="btn-action-container">
+                            <span class="badge text-bg-light">
+                                {{ h.is_recurring ? "Yes" : "No" }}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-2">
                                 <button
-                                    class="btn btn-outline-primary"
+                                    class="btn btn-outline-primary btn-sm"
                                     @click="$parent.editHoliday(h)"
                                 >
                                     Edit
                                 </button>
                                 <button
-                                    class="btn btn-outline-danger"
+                                    class="btn btn-outline-danger btn-sm"
                                     @click="$parent.deleteHoliday(h.holidayID)"
                                 >
                                     Delete
@@ -65,9 +129,9 @@
                             </div>
                         </td>
                     </tr>
-                </template>
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div v-if="$parent.showHolidayModal" class="modal modal-addHoliday">
