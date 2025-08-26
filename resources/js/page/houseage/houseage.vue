@@ -1,8 +1,8 @@
 <template>
     <div class="vue-container houseage-module">
-        <div class="top-header">
-            <!-- <span>Top Header</span> -->
-        </div>
+        <!-- <div class="top-header">
+            <span>Top Header</span>
+        </div> -->
 
         <h2 class="module-title">Houseage Module</h2>
 
@@ -386,7 +386,10 @@
                         </button>
 
                         <!-- <span><strong></strong> {{ item.actions }}</span> -->
-                        <button @click="EditItem(item)" class="btn btn-fnsku">
+                        <button
+                            @click="openEditModal(item)"
+                            class="btn btn-fnsku"
+                        >
                             <i class="bi bi-clipboard-check"></i> Edit
                         </button>
                     </div>

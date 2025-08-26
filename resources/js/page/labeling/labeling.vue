@@ -1,8 +1,8 @@
 <template>
     <div class="vue-container labeling-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <span>Top Header</span>
-        </div>
+        </div> -->
 
         <h2 class="module-title">Labeling Module</h2>
 
@@ -407,6 +407,13 @@
                             :disabled="isProcessing"
                         >
                             <i class="bi bi-box-seam"></i> Move to Stockroom
+                        </button>
+
+                        <button
+                            @click="openEditModal(item)"
+                            class="btn btn-edit"
+                        >
+                            <i class="bi bi-pencil"></i>Edit
                         </button>
                     </div>
 

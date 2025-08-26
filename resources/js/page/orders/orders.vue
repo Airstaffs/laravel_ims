@@ -1,8 +1,8 @@
 <template>
     <div class="vue-container orders-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <span>Top Header</span>
-        </div>
+        </div> -->
 
         <h2 class="module-title">Order Module</h2>
 
