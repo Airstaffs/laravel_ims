@@ -55,6 +55,7 @@
 
             <RateHistory
                 v-if="$parent.hrContext.history.type === 'rate'"
+                :key="$parent.hrContext.history.type"
                 :hr-context="$parent.hrContext"
                 class="rate"
             />
