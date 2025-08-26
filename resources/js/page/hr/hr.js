@@ -91,6 +91,8 @@ export default {
                 //     ],
                 // },
             ],
+            dropdownOpen: false,
+            showFilters: true,
 
             localYear: this.year,
 
@@ -234,6 +236,7 @@ export default {
     },
 
     mounted() {
+        this.setView("Employee");
         // Initialize Holiday modal
         const el = document.getElementById("holidayModal");
         if (el && typeof bootstrap !== "undefined") {
@@ -289,6 +292,15 @@ export default {
                 );
             }
         },
+
+        toggleDropdown() {
+            this.dropdownOpen = !this.dropdownOpen;
+        },
+
+        toggleFilters() {
+            this.showFilters = !this.showFilters;
+        },
+
         yearChanged() {
             this.$emit("update:year", this.localYear);
             this.$emit("changed", this.localYear); // optional event
