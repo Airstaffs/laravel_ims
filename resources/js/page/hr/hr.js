@@ -58,6 +58,205 @@ const SCHED_EP = {
     usersched: `${API_BASE_URL}/hr/usersched`,
 };
 
+function toLegacyClockPayload(f) {
+    return {
+        clock_id: f.clock_id || undefined,
+        edited_by: f.editor_id || f.edited_by || undefined, // map name mismatch
+        from: f.from || undefined,
+        to: f.to || undefined,
+    };
+}
+
+// take whatever the legacy API returns and normalize to your unified row shape
+function adaptClockEditRow(r, i = 0) {
+    // 'when' field fallbacks
+    const when =
+        r.when || r.edit_timestamp || r.created_at || r.updated_at || null;
+
+    // 'edited_by' as object if possible
+    const edited_by =
+        r.edited_by && typeof r.edited_by === "object"
+            ? r.edited_by
+            : {
+                  id:
+                      r.edited_by_id ??
+                      r.editor_id ??
+                      r.user_id ??
+                      r.userId ??
+                      null,
+                  name:
+                      r.edited_by_name ??
+                      r.editor_name ??
+                      r.username ??
+                      r.user ??
+                      r.editor ??
+                      r.edited_by ??
+                      null,
+              };
+
+    // prefer explicit changes; else compute from before/after
+    const changes =
+        r.changes && r.changes !== ""
+            ? r.changes
+            : Array.isArray(this?.prettyDiff)
+            ? []
+            : null; // placeholder when no helper
+    // if you have prettyDiff on hrContext (you do), use it:
+    const computedChanges =
+        !changes && this.prettyDiff
+            ? this.prettyDiff(r.before || r.old || {}, r.after || r.new || {})
+            : changes || [];
+
+    return {
+        id:
+            r.id ??
+            r.ID ??
+            `clock-${r.clock_id ?? r.ClockID ?? i}-${when ?? i}`,
+        clock_id: r.clock_id ?? r.ClockID ?? r.id ?? r.ID ?? null,
+        edited_by,
+        when,
+        changes: computedChanges,
+    };
+}
+
+const historyAdapters = {
+    time: (r, i, ctx) => {
+        const when =
+            r.when || r.edit_timestamp || r.created_at || r.updated_at || null;
+        const edited_by =
+            typeof r.edited_by === "object"
+                ? r.edited_by
+                : {
+                      id: r.edited_by_id ?? r.editor_id ?? null,
+                      name:
+                          r.edited_by_name ??
+                          r.editor_name ??
+                          r.edited_by ??
+                          null,
+                  };
+
+        const changes =
+            r.changes && r.changes !== ""
+                ? r.changes
+                : ctx.prettyDiff
+                ? ctx.prettyDiff(
+                      r.before || r.old || {},
+                      r.after || r.new || {}
+                  )
+                : [];
+
+        return {
+            id:
+                r.id ??
+                r.ID ??
+                `clock-${r.clock_id ?? r.ClockID ?? i}-${when ?? i}`,
+            clock_id: r.clock_id ?? r.ClockID ?? null,
+            edited_by,
+            when,
+            changes,
+        };
+    },
+
+    // stubs for future types; fill these when you wire endpoints
+    leave: (r) => ({
+        id: r.id,
+        employee: r.employee,
+        edited_by: r.edited_by,
+        when: r.when,
+        changes: r.changes,
+    }),
+    rate: (r) => ({
+        id: r.id,
+        employee: r.employee,
+        edited_by: r.edited_by,
+        when: r.when,
+        changes: r.changes,
+    }),
+    violation: (r) => ({
+        id: r.id,
+        employee: r.employee,
+        edited_by: r.edited_by,
+        when: r.when,
+        changes: r.changes,
+    }),
+};
+
+// --- fetchers per type ---
+const historyFetchers = {
+    // live today
+    async time(ctx, page) {
+        // legacy endpoint (no pagination yet)
+        const f = ctx.history.filters;
+        const payload = {
+            clock_id: f.clock_id || undefined,
+            edited_by: f.editor_id || f.edited_by || undefined,
+            from: f.from || undefined,
+            to: f.to || undefined,
+        };
+        const { data } = await axios.post(
+            `${API_BASE_URL}/hr/time-records/edit-history`,
+            payload
+        );
+        const raw = Array.isArray(data)
+            ? data
+            : data?.data || data?.items || [];
+        const rows = raw.map((r, i) => historyAdapters.time(r, i, ctx));
+        return { rows, nextPage: null };
+    },
+
+    // future paths (replace stubs with real calls when ready)
+    async leave(ctx, page) {
+        const f = ctx.history.filters;
+        const { data } = await axios.get(`${API_BASE_URL}/hr/history`, {
+            params: {
+                type: "leave",
+                from: f.from || undefined,
+                to: f.to || undefined,
+                page,
+            },
+        });
+        const raw = Array.isArray(data?.data) ? data.data : data?.items || [];
+        return {
+            rows: raw.map((r, i) => historyAdapters.leave(r, i, ctx)),
+            nextPage: data?.next_page ?? null,
+        };
+    },
+
+    async rate(ctx, page) {
+        const f = ctx.history.filters;
+        const { data } = await axios.get(`${API_BASE_URL}/hr/history`, {
+            params: {
+                type: "rate",
+                from: f.from || undefined,
+                to: f.to || undefined,
+                page,
+            },
+        });
+        const raw = Array.isArray(data?.data) ? data.data : data?.items || [];
+        return {
+            rows: raw.map((r, i) => historyAdapters.rate(r, i, ctx)),
+            nextPage: data?.next_page ?? null,
+        };
+    },
+
+    async violation(ctx, page) {
+        const f = ctx.history.filters;
+        const { data } = await axios.get(`${API_BASE_URL}/hr/history`, {
+            params: {
+                type: "violation",
+                from: f.from || undefined,
+                to: f.to || undefined,
+                page,
+            },
+        });
+        const raw = Array.isArray(data?.data) ? data.data : data?.items || [];
+        return {
+            rows: raw.map((r, i) => historyAdapters.violation(r, i, ctx)),
+            nextPage: data?.next_page ?? null,
+        };
+    },
+};
+
 export default {
     components: {
         Employee,
@@ -227,6 +426,56 @@ export default {
             },
             sched_editUId: null,
             sched_selectedUserId: null,
+
+            // history states
+            history: {
+                type: "time", // 'time' | 'leave' | 'rate' | 'violation'
+                filters: { clock_id: "", editor_id: "", from: "", to: "" },
+                rows: [],
+                nextPage: null,
+                loading: false,
+                columnsByType: {
+                    time: [
+                        { key: "#", width: 60 },
+                        { key: "clock_id", label: "Clock ID" },
+                        { key: "edited_by.name", label: "Edited By" },
+                        { key: "when", label: "When" },
+                        { key: "changes", label: "Changes", render: "diff" },
+                    ],
+                    leave: [
+                        { key: "#", width: 60 },
+                        { key: "employee", label: "Employee" },
+                        { key: "edited_by.name", label: "Edited By" },
+                        { key: "when", label: "When" },
+                        { key: "changes", label: "Changes", render: "diff" },
+                    ],
+                    rate: [
+                        { key: "#", width: 60 },
+                        { key: "employee", label: "Employee" },
+                        { key: "edited_by.name", label: "Edited By" },
+                        { key: "when", label: "When" },
+                        { key: "changes", label: "Rate Δ", render: "diff" },
+                    ],
+                    violation: [
+                        { key: "#", width: 60 },
+                        { key: "employee", label: "Employee" },
+                        { key: "edited_by.name", label: "Edited By" },
+                        { key: "when", label: "When" },
+                        { key: "changes", label: "Details", render: "diff" },
+                    ],
+                },
+            },
+            historyFlags: {
+                time: true,
+                leave: false,
+                rate: false,
+                violation: false,
+            },
+            get historyTabs() {
+                return Object.entries(this.historyFlags)
+                    .filter(([, on]) => on)
+                    .map(([t]) => t); // ['time', ...]
+            },
         };
     },
 
@@ -260,9 +509,13 @@ export default {
 
             this.currentView = viewLabel;
 
-            // ensures Scheduling loads employees + data
             if (viewLabel === "Scheduling") {
                 this.loadView("Scheduling");
+                return;
+            }
+
+            if (viewLabel === "History") {
+                this.openHistory();
                 return;
             }
 
@@ -1218,15 +1471,6 @@ export default {
             }
         },
 
-        toggleGroup(groupKey) {
-            if (groupKey === "PH") {
-                this.announcementForm.groupPH = !this.announcementForm.groupPH;
-            } else if (groupKey === "US") {
-                this.announcementForm.groupUS = !this.announcementForm.groupUS;
-            }
-            this.applyAnnouncementGroupSelection();
-        },
-
         // Scheduling
         async fetchSchedulingOnce() {
             if (this.loaded.scheduling || this.loading.scheduling) return;
@@ -1472,26 +1716,96 @@ export default {
                 return Swal.fire("Oops", "Select a user", "info");
             await this.schedLoadUserLinks(); // this uses sched_uForm.userId or selectedUserId internally
         },
+
+        // history manager
+        openHistory() {
+            this.historyApply(); // initial fetch
+        },
+
+        switchHistoryType(t) {
+            if (this.history.type === t) return;
+            this.history.type = t;
+            this.historyApply();
+        },
+
+        historyApply() {
+            this.history.rows = [];
+            this.history.nextPage = null;
+            return this.historyFetch(1);
+        },
+
+        historyClear() {
+            this.history.filters = {
+                clock_id: "",
+                editor_id: "",
+                from: "",
+                to: "",
+            };
+            return this.historyApply();
+        },
+
+        async historyFetch(page = 1) {
+            if (this.history.loading) return;
+            this.history.loading = true;
+            try {
+                const fetcher = historyFetchers[this.history.type];
+                if (!fetcher)
+                    throw new Error(
+                        `No fetcher for type: ${this.history.type}`
+                    );
+                const { rows, nextPage } = await fetcher(this, page);
+                this.history.rows =
+                    page === 1 ? rows : this.history.rows.concat(rows);
+                this.history.nextPage = nextPage;
+            } finally {
+                this.history.loading = false;
+            }
+        },
+
+        historyLoadMore() {
+            if (this.history.nextPage) this.historyFetch(this.history.nextPage);
+        },
+
+        switchHistoryType(t) {
+            if (this.history.type === t) return;
+            this.history.type = t;
+
+            // Load per sub-tab
+            if (t === "time") {
+                this.historyApply(); // legacy time edit history (already done)
+            } else if (t === "leave") {
+                if (!this.loaded.leave && !this.loading.leave)
+                    this.fetchLeaveOnce();
+            } else if (t === "rate") {
+                if (!this.loaded.rateHistory && !this.loading.rateHistory) {
+                    this.fetchEmployeeRateHistoryOnce(
+                        this.rateHistoryFilterEmployeeId || null
+                    );
+                }
+            } else if (t === "violation") {
+                if (!this.loaded.violations && !this.loading.violations)
+                    this.fetchViolationsOnce();
+            }
+        },
+
+        async openScheduling() {
+            // force-load employees if never loaded or list is empty (handles earlier failures)
+            if (
+                !this.loaded.employees ||
+                !Array.isArray(this.employees) ||
+                this.employees.length === 0
+            ) {
+                this.loaded.employees = false;
+                await this.fetchEmployeesOnce();
+            }
+            await this.fetchSchedulingOnce();
+
+            // optional: preselect first user and load links
+            if (!this.sched_selectedUserId && this.employees.length) {
+                this.schedOnSelectUser(this.employees[0].id);
+            }
+        },
     },
-
-    async openScheduling() {
-        // force-load employees if never loaded or list is empty (handles earlier failures)
-        if (
-            !this.loaded.employees ||
-            !Array.isArray(this.employees) ||
-            this.employees.length === 0
-        ) {
-            this.loaded.employees = false;
-            await this.fetchEmployeesOnce();
-        }
-        await this.fetchSchedulingOnce();
-
-        // optional: preselect first user and load links
-        if (!this.sched_selectedUserId && this.employees.length) {
-            this.schedOnSelectUser(this.employees[0].id);
-        }
-    },
-
     computed: {
         activeLabel() {
             if (!this.currentView) return "";
@@ -1515,7 +1829,6 @@ export default {
                 editForm: this.editForm,
                 editOriginal: this.editOriginal,
                 submittingEdit: this.submittingEdit,
-                timeRecords: this.timeRecords,
 
                 // rate modal state
                 showRateModal: this.showRateModal,
@@ -1547,7 +1860,6 @@ export default {
 
                 // edit history
                 clockEditHistory: this.clockEditHistory,
-                histFilters: this.histFilters,
                 histFilters: this.histFilters ?? {
                     clock_id: "",
                     edited_by: "",
@@ -1638,6 +1950,13 @@ export default {
                 schedOnSelectUser: (id) => this.schedOnSelectUser(id),
                 schedLoadUserLinksSelected: () =>
                     this.schedLoadUserLinksSelected(),
+
+                // history manager
+                history: this.history,
+                switchHistoryType: (t) => this.switchHistoryType(t),
+                historyApply: () => this.historyApply(),
+                historyClear: () => this.historyClear(),
+                historyLoadMore: () => this.historyLoadMore(),
             };
         },
 
