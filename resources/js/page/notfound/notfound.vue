@@ -1,8 +1,8 @@
 <template>
     <div class="vue-container production-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <span>Top Header</span>
-        </div>
+        </div> -->
 
         <h1 class="module-title">NotFound Items</h1>
 

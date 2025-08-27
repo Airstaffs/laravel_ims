@@ -236,6 +236,7 @@ table tbody tr td {
 }
 
 .sidebar-nav ul {
+    width: 175px;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -249,24 +250,11 @@ table tbody tr td {
     border-left: 1px solid #fff;
 }
 
-.sidebar-nav ul li:hover,
-.sidebar-nav ul li.active {
-    font-weight: 500;
-    color: #0e0e0e;
-    background-color: #d9f5fd;
-}
-
-.sidebar-nav ul li:hover {
-    color: #0e0e0e;
-    font-weight: 500;
-    background-color: #d9f5fd;
-}
-
 .sidebar-nav ul li.active {
     color: #0e0e0e;
     font-weight: 500;
-    background-color: #e1e1e1;
-    border-left: 1px solid #007bff;
+    /* background-color: #e1e1e1;
+    border-left: 1px solid #007bff; */
 }
 
 .main-content {
@@ -418,4 +406,91 @@ table tbody tr td {
 .has-button button {
     height: 40px;
     flex: 1;
+}
+
+/* Minimal, tasteful enhancements */
+.emp-card {
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.emp-index {
+    min-width: 2rem;
+    text-align: center;
+}
+
+.rate-label {
+    letter-spacing: 0.2px;
+}
+
+.rate-value {
+    font-variant-numeric: tabular-nums;
+}
+
+.rate-chip {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    background: rgba(13, 110, 253, 0.06); /* primary, very light */
+    font-variant-numeric: tabular-nums;
+}
+
+.table thead.sticky-top {
+    top: 0;
+    z-index: 1;
+}
+
+.rate-history-section.rate {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 20px;
+}
+
+.rate-history-header {
+    display: flex;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.rate-history-header fieldset {
+    flex: 1;
+}
+
+@media (max-width: 768px) {
+    .hr-module {
+        width: 100%;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-start;
+        margin: 0;
+    }
+
+    .sidebar-nav {
+        width: calc(100% - 20px);
+        margin: 10px auto 0;
+    }
+
+    .sidebar-nav ul {
+        width: 100%;
+    }
+
+    .btn {
+        padding-top: 0.625rem;
+        padding-bottom: 0.625rem;
+    }
+
+    .filter-controls {
+        flex-direction: column;
+        align-items: stretch !important;
+        gap: 0 !important;
+    }
+
+    .time-record-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+    }
 }

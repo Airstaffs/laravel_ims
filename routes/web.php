@@ -403,7 +403,7 @@ Route::prefix('api/rts')->group(function () {
     Route::get('products', [RTSController::class, 'index']);
     Route::post('save-rts-options', [RTSController::class, 'saveRTSOptions']);
     Route::get('get-rts-options', [RTSController::class, 'getRTSOptions']);
-
+    Route::post('products', [RTSController::class, 'store']);
 });
 
 
@@ -496,29 +496,29 @@ Route::prefix('api/houseage')->group(function () {
 Route::prefix('api/printer')->group(function () {
     // Check if serial number meets print conditions
     Route::post('check-serial', [PrinterController::class, 'checkSerial']);
-    
+
     // Print label for a product (now supports married printers)
     Route::post('print-label', [PrinterController::class, 'printLabel']);
-    
+
     // Get printer status
     Route::get('status', [PrinterController::class, 'getStatus']);
-    
+
     // Test printer connection
     Route::get('test-connection', [PrinterController::class, 'testConnection']);
-    
+
     // Test print functionality
     Route::post('test-print', [PrinterController::class, 'testPrint']);
-    
+
     // Get all printers with marriage information (enhanced version)
     Route::get('get-printers', [PrinterController::class, 'getPrinters']);
-    
+
     // NEW: Get married printer pairs for synchronized printing
     Route::get('get-married-pairs', [PrinterController::class, 'getMarriedPrinterPairs']);
-    
+
     // REPRINT ROUTES (now support smart routing)
     Route::post('search-for-reprint', [PrinterController::class, 'searchForReprint']);
     Route::post('reprint-single-label', [PrinterController::class, 'reprintSingleLabel']);
-    
+
     // Debug routes (helpful for troubleshooting)
     Route::post('debug-database', [PrinterController::class, 'debugDatabase']);
 

@@ -19,7 +19,7 @@ export default {
             showDetails: false,
             defaultImage:
                 "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=",
-            
+
             // Image Modal state
             showImageModal: false,
             regularImages: [],
@@ -48,18 +48,18 @@ export default {
             showRTSModal: false,
             rtsCurrentItem: null,
             rtsForm: {
-                dateField: '',
+                dateField: "",
                 filedInES: false,
                 filedInPPL: false,
-                testResult: '',
-                status: '',
-                rtsResult: '',
-                refundAmount: '',
-                refundDate: '',
-                reasonOfReturn: '',
-                returnTN: '',
-                notes: ''
-            }
+                testResult: "",
+                status: "",
+                rtsResult: "",
+                refundAmount: "",
+                refundDate: "",
+                reasonOfReturn: "",
+                returnTN: "",
+                notes: "",
+            },
         };
     },
 
@@ -67,7 +67,7 @@ export default {
         searchQuery() {
             return eventBus.searchQuery;
         },
-        
+
         sortedInventory() {
             if (!this.sortColumn) return this.inventory;
             return [...this.inventory].sort((a, b) => {
@@ -91,7 +91,7 @@ export default {
                 .filter((key) => key.startsWith("img") && this.item[key])
                 .map((key) => this.item[key]);
         },
-        
+
         activeImageUrl() {
             return this.basePath + this.imageList[this.activeIndex];
         },
@@ -101,7 +101,7 @@ export default {
                 /^serialnumber[a-z]?$/.test(k)
             );
         },
-        
+
         trackingKeys() {
             return Object.keys(this.item).filter((k) =>
                 /^trackingnumber\d*$/.test(k)
@@ -113,13 +113,13 @@ export default {
             const quantity = parseFloat(this.item.quantity) || 0;
             return (total * quantity).toFixed(2);
         },
-        
+
         grandTotal() {
             const subtotal = this.formattedSubtotal;
             const discount = parseFloat(this.item.discount) || 0;
             return (subtotal - discount).toFixed(2);
         },
-        
+
         unitPrice() {
             const quantity = parseFloat(this.item.quantity);
             if (!quantity || quantity === 0) return 0;
@@ -136,7 +136,7 @@ export default {
                 ),
             ].sort();
         },
-        
+
         sourceTypes() {
             if (!Array.isArray(this.items)) return [];
             return [
@@ -147,7 +147,7 @@ export default {
                 ),
             ].sort();
         },
-        
+
         carrierOptions() {
             if (!Array.isArray(this.items)) return [];
             return [
@@ -158,7 +158,7 @@ export default {
                 ),
             ].sort();
         },
-        
+
         storeNames() {
             if (!Array.isArray(this.items)) return [];
             return [
@@ -169,7 +169,7 @@ export default {
                 ),
             ].sort();
         },
-        
+
         priorityRanks() {
             if (!Array.isArray(this.items)) return [];
             return [
@@ -180,7 +180,7 @@ export default {
                 ),
             ].sort();
         },
-        
+
         validationStatuses() {
             if (!Array.isArray(this.items)) return [];
             return [
@@ -238,7 +238,9 @@ export default {
         },
 
         countAllImages(item) {
-            return this.countRegularImages(item) + this.countCapturedImages(item);
+            return (
+                this.countRegularImages(item) + this.countCapturedImages(item)
+            );
         },
 
         // Image modal methods
@@ -259,7 +261,10 @@ export default {
                 }
             }
 
-            if (item.capturedImages && typeof item.capturedImages === "object") {
+            if (
+                item.capturedImages &&
+                typeof item.capturedImages === "object"
+            ) {
                 for (let i = 1; i <= 12; i++) {
                     const filename = `${item.rtcounter}_img${i}.jpg`;
                     const path = `/images/product_images/${companyFolder}/${filename}`;
@@ -267,12 +272,18 @@ export default {
                 }
             }
 
-            if (this.regularImages.length === 0 && this.capturedImages.length === 0) {
+            if (
+                this.regularImages.length === 0 &&
+                this.capturedImages.length === 0
+            ) {
                 this.regularImages.push(this.defaultImage);
             }
 
             this.activeTab = this.regularImages.length ? "regular" : "captured";
-            this.currentImageSet = this.activeTab === "regular" ? this.regularImages : this.capturedImages;
+            this.currentImageSet =
+                this.activeTab === "regular"
+                    ? this.regularImages
+                    : this.capturedImages;
 
             this.showImageModal = true;
             document.body.style.overflow = "hidden";
@@ -281,7 +292,8 @@ export default {
         switchTab(tab) {
             this.activeTab = tab;
             this.currentImageIndex = 0;
-            this.currentImageSet = tab === "regular" ? this.regularImages : this.capturedImages;
+            this.currentImageSet =
+                tab === "regular" ? this.regularImages : this.capturedImages;
         },
 
         closeImageModal() {
@@ -313,19 +325,26 @@ export default {
             this.loading = true;
             try {
                 console.log("Fetching inventory...");
-                const response = await axios.get(`${API_BASE_URL}/api/rts/products`, {
-                    params: {
-                        search: this.searchQuery,
-                        page: this.currentPage,
-                        per_page: this.perPage,
-                        location: "",
-                        include_images: true,
-                    },
-                });
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/rts/products`,
+                    {
+                        params: {
+                            search: this.searchQuery,
+                            page: this.currentPage,
+                            per_page: this.perPage,
+                            location: "",
+                            include_images: true,
+                        },
+                    }
+                );
 
                 this.inventory = response.data.data;
                 this.totalPages = response.data.last_page;
-                console.log("Inventory loaded:", this.inventory.length, "items");
+                console.log(
+                    "Inventory loaded:",
+                    this.inventory.length,
+                    "items"
+                );
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
             } finally {
@@ -338,7 +357,9 @@ export default {
             try {
                 const response = await axios.get("/api/rts/products");
                 const payload = response.data;
-                this.items = Array.isArray(payload) ? payload : payload.data || [];
+                this.items = Array.isArray(payload)
+                    ? payload
+                    : payload.data || [];
             } catch (err) {
                 console.error("Fetch failed:", err);
                 this.items = [];
@@ -398,7 +419,9 @@ export default {
             if (!item) return;
             console.log("Opening edit modal for item:", item);
 
-            const freshItem = this.items.find(i => i.itemnumber === item.itemnumber);
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
             this.item = { ...(freshItem || item) };
             this.showEditModal = true;
             document.body.style.overflow = "hidden";
@@ -424,14 +447,19 @@ export default {
         },
 
         autoResize() {
-            ["productTextarea", "descriptionarea", "supplierNotesarea", "employeeNotesarea", "stickerNotesarea"]
-                .forEach((refName) => {
-                    const el = this.$refs[refName];
-                    if (el) {
-                        el.style.height = "auto";
-                        el.style.height = el.scrollHeight + "px";
-                    }
-                });
+            [
+                "productTextarea",
+                "descriptionarea",
+                "supplierNotesarea",
+                "employeeNotesarea",
+                "stickerNotesarea",
+            ].forEach((refName) => {
+                const el = this.$refs[refName];
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
         },
 
         getLabel(index) {
@@ -452,7 +480,9 @@ export default {
                 errors.push("PCN must start with 'PCN' followed by numbers.");
             }
             if (!/^BKT\d+$/i.test(this.item.basketnumber)) {
-                errors.push("Basket Number must start with 'BKT' followed by numbers.");
+                errors.push(
+                    "Basket Number must start with 'BKT' followed by numbers."
+                );
             }
 
             if (errors.length > 0) {
@@ -469,13 +499,17 @@ export default {
             try {
                 const payload = {
                     ...this.item,
-                    _token: document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
+                    _token: document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
                 };
 
                 const response = await axios.post("/api/rts/products", payload);
                 const updated = response.data.product;
 
-                const index = this.items.findIndex(p => p.itemnumber === updated.itemnumber);
+                const index = this.items.findIndex(
+                    (p) => p.itemnumber === updated.itemnumber
+                );
                 if (index !== -1) {
                     this.items.splice(index, 1, updated);
                 } else {
@@ -507,23 +541,26 @@ export default {
         // RTS Modal Methods
         async openRTSModal(item) {
             if (!item) return;
-            
+
             console.log("Opening RTS modal for item:", item);
-            
+
             this.rtsCurrentItem = { ...item };
             this.resetRTSForm();
-            
+
             // Set today's date as default
-            const today = new Date().toISOString().split('T')[0];
+            const today = new Date().toISOString().split("T")[0];
             this.rtsForm.dateField = today;
-            
+
             this.showRTSModal = true;
             document.body.style.overflow = "hidden";
-            
+
             // Fetch existing RTS data for this item
             await this.fetchExistingRTSData(item);
-            
-            console.log("RTS Modal should be open now. showRTSModal:", this.showRTSModal);
+
+            console.log(
+                "RTS Modal should be open now. showRTSModal:",
+                this.showRTSModal
+            );
         },
 
         async fetchExistingRTSData(item) {
@@ -535,15 +572,18 @@ export default {
             try {
                 console.log("Fetching existing RTS data for:", {
                     rtcounter: item.rtcounter,
-                    ProductID: item.ProductID
+                    ProductID: item.ProductID,
                 });
 
-                const response = await axios.get(`${API_BASE_URL}/api/rts/get-rts-options`, {
-                    params: {
-                        rtcounter: item.rtcounter,
-                        ProductID: item.ProductID
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/rts/get-rts-options`,
+                    {
+                        params: {
+                            rtcounter: item.rtcounter,
+                            ProductID: item.ProductID,
+                        },
                     }
-                });
+                );
 
                 if (response.data.success && response.data.data) {
                     const existingData = response.data.data;
@@ -551,20 +591,24 @@ export default {
 
                     // Populate the form with existing data
                     this.rtsForm = {
-                        dateField: existingData.dateField || this.rtsForm.dateField,
+                        dateField:
+                            existingData.dateField || this.rtsForm.dateField,
                         filedInES: existingData.filedInES || false,
                         filedInPPL: existingData.filedInPPL || false,
-                        testResult: existingData.testResult || '',
-                        status: existingData.status || '',
-                        rtsResult: existingData.rtsResult || '',
-                        refundAmount: existingData.refundAmount || '',
-                        refundDate: existingData.refundDate || '',
-                        reasonOfReturn: existingData.reasonOfReturn || '',
-                        returnTN: existingData.returnTN || '',
-                        notes: existingData.notes || ''
+                        testResult: existingData.testResult || "",
+                        status: existingData.status || "",
+                        rtsResult: existingData.rtsResult || "",
+                        refundAmount: existingData.refundAmount || "",
+                        refundDate: existingData.refundDate || "",
+                        reasonOfReturn: existingData.reasonOfReturn || "",
+                        returnTN: existingData.returnTN || "",
+                        notes: existingData.notes || "",
                     };
 
-                    console.log("Updated form with existing data:", this.rtsForm);
+                    console.log(
+                        "Updated form with existing data:",
+                        this.rtsForm
+                    );
                 } else {
                     console.log("No existing RTS data found for this item");
                 }
@@ -578,132 +622,148 @@ export default {
             this.showRTSModal = false;
             this.rtsCurrentItem = null;
             this.resetRTSForm();
-            
+
             // Force remove modal classes and restore body scroll
             document.body.style.overflow = "auto";
-            document.body.classList.remove('modal-open');
-            
+            document.body.classList.remove("modal-open");
+
             // Force remove any modal backdrops that might be stuck
-            const existingBackdrops = document.querySelectorAll('.modal-backdrop');
-            existingBackdrops.forEach(backdrop => backdrop.remove());
-            
+            const existingBackdrops =
+                document.querySelectorAll(".modal-backdrop");
+            existingBackdrops.forEach((backdrop) => backdrop.remove());
+
             console.log("RTS Modal closed, showRTSModal:", this.showRTSModal);
         },
 
         resetRTSForm() {
             this.rtsForm = {
-                dateField: '',
+                dateField: "",
                 filedInES: false,
                 filedInPPL: false,
-                testResult: '',
-                status: '',
-                rtsResult: '',
-                refundAmount: '',
-                refundDate: '',
-                reasonOfReturn: '',
-                returnTN: '',
-                notes: ''
+                testResult: "",
+                status: "",
+                rtsResult: "",
+                refundAmount: "",
+                refundDate: "",
+                reasonOfReturn: "",
+                returnTN: "",
+                notes: "",
             };
         },
 
         async saveRTSModal() {
-    // Validate required fields first
-    if (!this.rtsForm.dateField || !this.rtsForm.testResult || 
-        !this.rtsForm.status || !this.rtsForm.rtsResult) {
-        
-        // Close RTS modal first, then show error
-        this.closeRTSModal();
-        
-        setTimeout(async () => {
-            await Swal.fire({
-                icon: 'error',
-                title: 'Validation Error',
-                text: 'Please fill in all required fields (Date Field, Test Result, Status, and RTS Result).',
-                confirmButtonText: 'OK',
-                // Ensure SweetAlert appears on top
-                customClass: {
-                    container: 'swal2-top-level'
-                },
-                backdrop: true,
-                allowOutsideClick: false
-            });
-        }, 100);
-        return;
-    }
+            // Validate required fields first
+            if (
+                !this.rtsForm.dateField ||
+                !this.rtsForm.testResult ||
+                !this.rtsForm.status ||
+                !this.rtsForm.rtsResult
+            ) {
+                // Close RTS modal first, then show error
+                this.closeRTSModal();
 
-    this.loading = true;
-    
-    try {
-        const payload = {
-            rtcounter: this.rtsCurrentItem.rtcounter,
-            ProductID: this.rtsCurrentItem.ProductID,
-            FNSKU: this.rtsCurrentItem.FNSKU,
-            serialnumber: this.rtsCurrentItem.serialnumber,
-            ...this.rtsForm,
-            _token: document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-        };
+                setTimeout(async () => {
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Validation Error",
+                        text: "Please fill in all required fields (Date Field, Test Result, Status, and RTS Result).",
+                        confirmButtonText: "OK",
+                        // Ensure SweetAlert appears on top
+                        customClass: {
+                            container: "swal2-top-level",
+                        },
+                        backdrop: true,
+                        allowOutsideClick: false,
+                    });
+                }, 100);
+                return;
+            }
 
-        console.log('RTS Options payload:', payload);
+            this.loading = true;
 
-        const response = await axios.post(`${API_BASE_URL}/api/rts/save-rts-options`, payload);
-        
-        // Close modal first
-        this.closeRTSModal();
-        
-        if (response.data.success) {
-            // Show success message after modal is closed
-            setTimeout(async () => {
-                await Swal.fire({
-                    icon: 'success',
-                    title: 'Saved!',
-                    text: 'RTS options have been saved successfully.',
-                    confirmButtonText: 'OK',
-                    customClass: {
-                        container: 'swal2-top-level'
-                    },
-                    backdrop: true,
-                    allowOutsideClick: false
-                });
-                
-                // Refresh data after success message
-                await this.fetchInventory();
-            }, 100);
-        } else {
-            throw new Error(response.data.message || 'Unknown error occurred');
-        }
-        
-    } catch (error) {
-        console.error('Save RTS options failed:', error);
-        
-        // Close modal first
-        this.closeRTSModal();
-        
-        let errorMessage = 'An error occurred while saving RTS options. Please try again.';
-        
-        if (error.response && error.response.data && error.response.data.message) {
-            errorMessage = error.response.data.message;
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
-        
-        // Show error message after modal is closed
-        setTimeout(async () => {
-            await Swal.fire({
-                icon: 'error',
-                title: 'Save Failed',
-                text: errorMessage,
-                confirmButtonText: 'OK',
-                customClass: {
-                    container: 'swal2-top-level'
-                },
-                backdrop: true,
-                allowOutsideClick: false
-            });
-        }, 100);
-    } finally {
-        this.loading = false;
-    }
-}
+            try {
+                const payload = {
+                    rtcounter: this.rtsCurrentItem.rtcounter,
+                    ProductID: this.rtsCurrentItem.ProductID,
+                    FNSKU: this.rtsCurrentItem.FNSKU,
+                    serialnumber: this.rtsCurrentItem.serialnumber,
+                    ...this.rtsForm,
+                    _token:
+                        document
+                            .querySelector('meta[name="csrf-token"]')
+                            ?.getAttribute("content") || "",
+                };
+
+                console.log("RTS Options payload:", payload);
+
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/rts/save-rts-options`,
+                    payload
+                );
+
+                // Close modal first
+                this.closeRTSModal();
+
+                if (response.data.success) {
+                    // Show success message after modal is closed
+                    setTimeout(async () => {
+                        await Swal.fire({
+                            icon: "success",
+                            title: "Saved!",
+                            text: "RTS options have been saved successfully.",
+                            confirmButtonText: "OK",
+                            customClass: {
+                                container: "swal2-top-level",
+                            },
+                            backdrop: true,
+                            allowOutsideClick: false,
+                        });
+
+                        // Refresh data after success message
+                        await this.fetchInventory();
+                    }, 100);
+                } else {
+                    throw new Error(
+                        response.data.message || "Unknown error occurred"
+                    );
+                }
+            } catch (error) {
+                console.error("Save RTS options failed:", error);
+
+                // Close modal first
+                this.closeRTSModal();
+
+                let errorMessage =
+                    "An error occurred while saving RTS options. Please try again.";
+
+                if (
+                    error.response &&
+                    error.response.data &&
+                    error.response.data.message
+                ) {
+                    errorMessage = error.response.data.message;
+                } else if (error.message) {
+                    errorMessage = error.message;
+                }
+
+                // Show error message after modal is closed
+                setTimeout(async () => {
+                    await Swal.fire({
+                        icon: "error",
+                        title: "Save Failed",
+                        text: errorMessage,
+                        confirmButtonText: "OK",
+                        customClass: {
+                            container: "swal2-top-level",
+                        },
+                        backdrop: true,
+                        allowOutsideClick: false,
+                    });
+                }, 100);
+            } finally {
+                this.loading = false;
+            }
+        },
     },
 
     watch: {
@@ -718,7 +778,12 @@ export default {
         this.fetchInventory();
 
         const handleKeyDown = (e) => {
-            if (!this.showImageModal && !this.showRTSModal && !this.showEditModal) return;
+            if (
+                !this.showImageModal &&
+                !this.showRTSModal &&
+                !this.showEditModal
+            )
+                return;
 
             switch (e.key) {
                 case "Escape":

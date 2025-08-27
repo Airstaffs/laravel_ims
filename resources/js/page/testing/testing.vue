@@ -1,8 +1,8 @@
 <template>
     <div class="vue-container testing-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <span>Top Header</span>
-        </div>
+        </div> -->
 
         <h2 class="module-title">Testing Module</h2>
 

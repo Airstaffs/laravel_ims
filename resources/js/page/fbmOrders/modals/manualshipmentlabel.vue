@@ -166,7 +166,7 @@
                             />
                             <button
                                 type="button"
-                                class="btn btn-outline-success position-absolute top-50 end-0 translate-middle-y me-2"
+                                class="btn btn-outline-success position-absolute top-50 end-0 translate-middle-y"
                                 style="z-index: 10"
                                 @click="addCarrierDescription"
                             >
