@@ -62,7 +62,7 @@ class ImageProcessingService
     }
     
     /**
-     * Convert image QR for serial number
+     * Convert image QR for serial number - Updated to match new layout
      */
     public function convertImageQRserial($serial)
     {
@@ -92,93 +92,132 @@ class ImageProcessingService
                 return $this->generateSimpleQRZpl($serial);
             }
             
-            $outputImageWidth = 400;
-            $outputImageHeight = 250;
-            
+            // Set dimensions for the output image (matching the new layout)
+            $outputImageWidth = 400; // Width in pixels
+            $outputImageHeight = 200; // Height in pixels (changed from 250 to match manual)
+
+            // Create a blank image with the specified dimensions
             $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+
+            // Fill the background with white color
             $white = \imagecolorallocate($image, 255, 255, 255);
             \imagefill($image, 0, 0, $white);
-            
-            $availableWidthForQRCode = $outputImageWidth - 40;
-            $availableHeightForQRCode = $outputImageHeight - 80;
-            
+
+            // Add text "Scan QR Code" at the top (matching manual positioning)
+            $scanMeText = "Scan QR Code";
+            $scanMeFontSize = 20; // Font size for "Scan QR Code"
+            $textColor = \imagecolorallocate($image, 0, 0, 0); // Black
+
+            if (file_exists($this->fontsPath)) {
+                // Calculate text bounding box for "Scan QR Code"
+                $bbox = \imagettfbbox($scanMeFontSize, 0, $this->fontsPath, $scanMeText);
+                $scanMeTextWidth = $bbox[2] - $bbox[0];
+                $scanMeTextX = ($outputImageWidth - $scanMeTextWidth) / 2; // Center text horizontally
+
+                // Adjust this value to move the text closer to the top (same as manual)
+                $scanMeTextY = 50; // Move text higher
+
+                \imagettftext($image, $scanMeFontSize, 0, $scanMeTextX, $scanMeTextY, $textColor, $this->fontsPath, $scanMeText);
+            } else {
+                // Use built-in font
+                $scanMeTextWidth = strlen($scanMeText) * 10;
+                $scanMeTextX = ($outputImageWidth - $scanMeTextWidth) / 2;
+                $scanMeTextY = 30;
+                \imagestring($image, 3, $scanMeTextX, $scanMeTextY, $scanMeText, $textColor);
+            }
+
+            // Calculate QR code size and position (same calculation as manual)
+            $availableWidthForQRCode = $outputImageWidth - 40; // Subtract margins
+            $availableHeightForQRCode = $outputImageHeight - (file_exists($this->fontsPath) ? 50 : 30) - 20 - 20; // Subtract text height and extra padding
+
             $qrScaleFactor = min($availableWidthForQRCode / \imagesx($qrCodeImage), $availableHeightForQRCode / \imagesy($qrCodeImage));
-            
-            // Add explicit casting to integers for these calculated dimensions
             $scaledQrCodeWidth = (int)(\imagesx($qrCodeImage) * $qrScaleFactor);
             $scaledQrCodeHeight = (int)(\imagesy($qrCodeImage) * $qrScaleFactor);
-            
+
+            // Scale the QR code
             $scaledQrCodeImage = \imagecreatetruecolor($scaledQrCodeWidth, $scaledQrCodeHeight);
             \imagecopyresampled($scaledQrCodeImage, $qrCodeImage, 0, 0, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
             \imagedestroy($qrCodeImage);
-            
-            // Move QR code slightly higher and add explicit casting
-            $dstX = (int)(($outputImageWidth - $scaledQrCodeWidth) / 2);
-            $dstY = 5; // Moved higher
+
+            // Merge QR code with the blank image (same positioning as manual)
+            $dstX = 20; // Margin from the left
+            $dstY = (file_exists($this->fontsPath) ? 50 : 30) + 20 + 10; // Position QR code just below the text
             \imagecopy($image, $scaledQrCodeImage, $dstX, $dstY, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight);
             \imagedestroy($scaledQrCodeImage);
-            
-            $bottomText1 = "Photos of this item is saved on the cloud.";
-            $bottomText2 = "Scan to view.";
-            
-            $black = \imagecolorallocate($image, 0, 0, 0);
-            $bottomFontSize = 14;
-            
-            // Use font if available, otherwise use built-in font
+
+            // Add title text beside the QR code (same positioning as manual)
+            $title = "To view this item's photos in the cloud"; // New text content
+            $titleFontSize = 20; // Font size for title
+            $titleColor = \imagecolorallocate($image, 0, 0, 0); // Black
+
             if (file_exists($this->fontsPath)) {
-                // Move bottom text slightly higher and add explicit casting
-                $textBoxBottom1 = \imagettfbbox($bottomFontSize, 0, $this->fontsPath, $bottomText1);
-                $textWidthBottom1 = abs($textBoxBottom1[4] - $textBoxBottom1[0]);
-                $textXBottom1 = (int)(($outputImageWidth - $textWidthBottom1) / 2);
-                $textYBottom1 = $outputImageHeight - 50; // Moved higher
-                
-                \imagettftext($image, $bottomFontSize, 0, $textXBottom1, $textYBottom1, $black, $this->fontsPath, $bottomText1);
-                
-                $textBoxBottom2 = \imagettfbbox($bottomFontSize, 0, $this->fontsPath, $bottomText2);
-                $textWidthBottom2 = abs($textBoxBottom2[4] - $textBoxBottom2[0]);
-                $textXBottom2 = (int)(($outputImageWidth - $textWidthBottom2) / 2);
-                $textYBottom2 = $textYBottom1 + 18; // Reduced spacing
-                
-                \imagettftext($image, $bottomFontSize, 0, $textXBottom2, $textYBottom2, $black, $this->fontsPath, $bottomText2);
+                // Wrap the title text to fit within the image width
+                $maxWidth = $outputImageWidth - $dstX - $scaledQrCodeWidth - 30; // Max width for the title text
+                $lines = [];
+                $words = explode(' ', $title);
+                $currentLine = '';
+
+                foreach ($words as $word) {
+                    $testLine = $currentLine . ($currentLine ? ' ' : '') . $word;
+                    $bbox = \imagettfbbox($titleFontSize, 0, $this->fontsPath, $testLine);
+
+                    if (($bbox[2] - $bbox[0]) > $maxWidth) {
+                        $lines[] = $currentLine;
+                        $currentLine = $word;
+                    } else {
+                        $currentLine = $testLine;
+                    }
+                }
+                $lines[] = $currentLine; // Add the last line
+
+                // Calculate title position (same as manual)
+                $lineHeight = $titleFontSize + 5; // Space between lines
+                $titleY = $dstY + ($scaledQrCodeHeight - (count($lines) * $lineHeight)) / 2; // Center vertically
+
+                foreach ($lines as $index => $line) {
+                    $bbox = \imagettfbbox($titleFontSize, 0, $this->fontsPath, $line);
+                    $titleWidth = $bbox[2] - $bbox[0];
+                    $titleX = $dstX + $scaledQrCodeWidth + 25; // Padding from the QR code
+                    $lineY = $titleY + ($index * $lineHeight) + $titleFontSize; // Vertical position of each line
+
+                    \imagettftext($image, $titleFontSize, 0, $titleX, $lineY, $titleColor, $this->fontsPath, $line);
+                }
             } else {
-                // Use built-in font
-                $textWidthBottom1 = strlen($bottomText1) * 10; // Approximate width
-                $textXBottom1 = (int)(($outputImageWidth - $textWidthBottom1) / 2);
-                $textYBottom1 = $outputImageHeight - 50;
-                
-                \imagestring($image, 3, $textXBottom1, $textYBottom1, $bottomText1, $black);
-                
-                $textWidthBottom2 = strlen($bottomText2) * 10;
-                $textXBottom2 = (int)(($outputImageWidth - $textWidthBottom2) / 2);
-                $textYBottom2 = $textYBottom1 + 18;
-                
-                \imagestring($image, 3, $textXBottom2, $textYBottom2, $bottomText2, $black);
+                // Use built-in font for title
+                $titleX = $dstX + $scaledQrCodeWidth + 25;
+                $titleY = $dstY + 20;
+                \imagestring($image, 2, $titleX, $titleY, substr($title, 0, 20), $titleColor);
+                \imagestring($image, 2, $titleX, $titleY + 15, substr($title, 20, 20), $titleColor);
             }
-            
-            // Convert to ZPL
+
             $binaryString = "";
+
+            // Convert image pixels to binary string
             for ($y = 0; $y < $outputImageHeight; $y++) {
                 for ($x = 0; $x < $outputImageWidth; $x++) {
                     $color = \imagecolorat($image, $x, $y);
                     $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
                 }
             }
-            
+
+            // Free up memory
             \imagedestroy($image);
-            
+
+            // Convert binary string to hexadecimal string
             $hexString = '';
             for ($i = 0; $i < strlen($binaryString); $i += 8) {
                 $byteString = substr($binaryString, $i, 8);
                 $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
             }
-            
-            // Use explicit casting for the bytesPerRow calculation
+
+            // Calculate bytes per row
             $bytesPerRow = (int)ceil($outputImageWidth / 8);
-            
+
+            // Construct ZPL command
             $zplCommand = "^XA\n";
             $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
             $zplCommand .= "^XZ";
-            
+
             return $zplCommand;
             
         } catch (Exception $e) {
