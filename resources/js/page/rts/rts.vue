@@ -1305,13 +1305,13 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button
+                    <!-- <button
                         type="button"
                         class="btn btn-primary btn-lg text-white"
                         @click="saveEditModal"
                     >
                         <i class="fas fa-save me-2"></i> Save
-                    </button>
+                    </button> -->
                 </div>
             </div>
         </div>
