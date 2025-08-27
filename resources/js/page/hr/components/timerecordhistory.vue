@@ -1,11 +1,16 @@
 <script setup>
-import { reactive, watch, computed } from "vue";
+import { reactive, watch, computed, ref } from "vue";
 
 const props = defineProps({
     hrContext: { type: Object, required: true },
 });
 
 const ctx = computed(() => props.hrContext || null); // guard
+
+const showFilters = ref(true);
+function toggleFilters() {
+    showFilters.value = !showFilters.value;
+}
 
 const localFilters = reactive({
     clock_id: "",
@@ -83,9 +88,12 @@ const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v
 </script>
 
 <template>
-    <!-- Guard rendering until ctx is ready -->
     <div v-if="ctx?.history" class="time-record-section">
-        <div class="time-record-header">
+        <button class="btn btn-toggle d-md-none" @click="toggleFilters">
+            <i class="fas fa-sliders-h"></i>
+        </button>
+
+        <div class="time-record-header" v-if="showFilters">
             <fieldset>
                 <label>Clock ID</label>
                 <input
@@ -139,54 +147,155 @@ const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v
             </fieldset>
         </div>
 
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Clock ID</th>
-                    <th>Edited By</th>
-                    <th>When</th>
-                    <th>Changes</th>
-                </tr>
-            </thead>
-
-            <tbody
+        <!-- Mobile / Small screens: Card list -->
+        <div class="d-md-none">
+            <!-- Empty state -->
+            <div
                 v-if="
-                    Array.isArray(ctx.history.rows) && ctx.history.rows.length
+                    !(
+                        Array.isArray(ctx.history.rows) &&
+                        ctx.history.rows.length
+                    )
                 "
+                class="text-center text-muted py-4"
             >
-                <tr
-                    v-for="(row, i) in ctx.history.rows"
-                    :key="row?.id ?? `hist-${i}`"
-                >
-                    <td>{{ i + 1 }}</td>
-                    <td>{{ row?.clock_id ?? "—" }}</td>
-                    <td>{{ row?.edited_by?.name ?? row?.edited_by ?? "—" }}</td>
-                    <td>
-                        {{
-                            (ctx.formatDate ? ctx.formatDate : (x) => x ?? "—")(
-                                row?.when || row?.edit_timestamp
-                            )
-                        }}
-                    </td>
-                    <td>
-                        <ul class="m-0 ps-3">
-                            <li
-                                v-for="(chg, field) in normalizedChanges(
-                                    row?.changes
-                                )"
-                                :key="field"
-                                v-if="chg"
+                No edit history found.
+            </div>
+
+            <!-- Cards -->
+            <div
+                class="hist-card shadow-sm rounded-3 mb-2 p-3"
+                v-for="(row, i) in ctx.history.rows"
+                :key="row?.id ?? `hist-${i}`"
+            >
+                <div class="d-flex justify-content-between align-items-start">
+                    <div class="me-3 flex-grow-1">
+                        <div class="small text-secondary">Clock ID</div>
+                        <div class="fw-semibold text-truncate">
+                            {{ row?.clock_id ?? "—" }}
+                        </div>
+                    </div>
+                    <span class="badge text-bg-light">#{{ i + 1 }}</span>
+                </div>
+
+                <div class="row g-2 mt-2">
+                    <div class="col-6">
+                        <div class="label text-secondary small">Edited By</div>
+                        <div class="value text-truncate">
+                            {{ row?.edited_by?.name ?? row?.edited_by ?? "—" }}
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="label text-secondary small">When</div>
+                        <div class="value">
+                            {{
+                                (ctx.formatDate
+                                    ? ctx.formatDate
+                                    : (x) => x ?? "—")(
+                                    row?.when || row?.edit_timestamp
+                                )
+                            }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-2">
+                    <div class="label text-secondary small mb-1">Changes</div>
+                    <ul class="changes-list mb-0 ps-3">
+                        <li
+                            v-for="(chg, field) in normalizedChanges(
+                                row?.changes
+                            )"
+                            :key="field"
+                            v-if="chg"
+                            class="small"
+                        >
+                            <code class="me-1">{{ prettyLabel(field) }}</code>
+                            <span
+                                class="text-muted text-decoration-line-through"
                             >
-                                <strong>{{ prettyLabel(field) }}</strong
-                                >: <em>{{ displayVal(chg?.from) }}</em> →
-                                <em>{{ displayVal(chg?.to) }}</em>
-                            </li>
-                        </ul>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+                                {{ displayVal(chg?.from) }}
+                            </span>
+                            &nbsp;→&nbsp;
+                            <strong>{{ displayVal(chg?.to) }}</strong>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Desktop / Medium+ screens: Enhanced table -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="table align-middle table-hover mb-0">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th style="width: 64px">#</th>
+                        <th style="width: 140px">Clock ID</th>
+                        <th style="width: 220px">Edited By</th>
+                        <th style="width: 220px">When</th>
+                        <th>Changes</th>
+                    </tr>
+                </thead>
+
+                <tbody
+                    v-if="
+                        Array.isArray(ctx.history.rows) &&
+                        ctx.history.rows.length
+                    "
+                >
+                    <tr
+                        v-for="(row, i) in ctx.history.rows"
+                        :key="row?.id ?? `hist-${i}`"
+                    >
+                        <td class="text-secondary">{{ i + 1 }}</td>
+                        <td class="fw-semibold">{{ row?.clock_id ?? "—" }}</td>
+                        <td class="text-truncate">
+                            {{ row?.edited_by?.name ?? row?.edited_by ?? "—" }}
+                        </td>
+                        <td>
+                            {{
+                                (ctx.formatDate
+                                    ? ctx.formatDate
+                                    : (x) => x ?? "—")(
+                                    row?.when || row?.edit_timestamp
+                                )
+                            }}
+                        </td>
+                        <td>
+                            <ul class="mb-0 ps-3">
+                                <li
+                                    v-for="(chg, field) in normalizedChanges(
+                                        row?.changes
+                                    )"
+                                    :key="field"
+                                    v-if="chg"
+                                    class="small"
+                                >
+                                    <code class="me-1">{{
+                                        prettyLabel(field)
+                                    }}</code>
+                                    <span
+                                        class="text-muted text-decoration-line-through"
+                                    >
+                                        {{ displayVal(chg?.from) }}
+                                    </span>
+                                    &nbsp;→&nbsp;
+                                    <strong>{{ displayVal(chg?.to) }}</strong>
+                                </li>
+                            </ul>
+                        </td>
+                    </tr>
+                </tbody>
+
+                <tbody v-else>
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            No edit history found.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 
     <div v-else class="p-3">Loading…</div>

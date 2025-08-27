@@ -1,8 +1,8 @@
 <template>
     <div class="vue-container houseage-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <span>Top Header</span>
-        </div>
+        </div> -->
 
         <h2 class="module-title">RTS Module</h2>
 
@@ -57,7 +57,9 @@
                         </td>
                     </tr>
                     <tr v-else-if="sortedInventory.length === 0">
-                        <td colspan="11" class="text-center">No orders found</td>
+                        <td colspan="11" class="text-center">
+                            No orders found
+                        </td>
                     </tr>
                     <template
                         v-else
@@ -360,7 +362,10 @@
                             <i class="bi bi-clipboard-check"></i> Edit
                         </button>
 
-                        <button @click="openRTSModal(item)" class="btn btn-rts-option">
+                        <button
+                            @click="openRTSModal(item)"
+                            class="btn btn-rts-option"
+                        >
                             <i class="fas fa-tools"></i> RTS Option
                         </button>
                     </div>
@@ -1300,13 +1305,13 @@
                 </div>
 
                 <div class="modal-footer">
-             <!--     <button
+                    <button
                         type="button"
                         class="btn btn-primary btn-lg text-white"
                         @click="saveEditModal"
                     >
                         <i class="fas fa-save me-2"></i> Save
-                    </button> -->
+                    </button>
                 </div>
             </div>
         </div>
@@ -1318,7 +1323,9 @@
             <div class="modal-content rts-modal-content">
                 <div class="modal-header">
                     <div class="productTitle">
-                        <h2>RTS Options - RT# {{ rtsCurrentItem?.rtcounter }}</h2>
+                        <h2>
+                            RTS Options - RT# {{ rtsCurrentItem?.rtcounter }}
+                        </h2>
                     </div>
                     <button class="btn btn-modal-close" @click="closeRTSModal">
                         &times;
@@ -1332,15 +1339,27 @@
                             <div class="rts-product-info">
                                 <div class="product-image-mini">
                                     <img
-                                        :src="'/images/thumbnails/' + (rtsCurrentItem?.img1 || '')"
-                                        :alt="rtsCurrentItem?.ProductTitle || 'Product'"
+                                        :src="
+                                            '/images/thumbnails/' +
+                                            (rtsCurrentItem?.img1 || '')
+                                        "
+                                        :alt="
+                                            rtsCurrentItem?.ProductTitle ||
+                                            'Product'
+                                        "
                                         @error="handleImageError($event)"
                                     />
                                 </div>
                                 <div class="product-details">
                                     <h4>{{ rtsCurrentItem?.ProductTitle }}</h4>
-                                    <p><strong>FNSKU:</strong> {{ rtsCurrentItem?.FNSKU }}</p>
-                                    <p><strong>Serial:</strong> {{ rtsCurrentItem?.serialnumber }}</p>
+                                    <p>
+                                        <strong>FNSKU:</strong>
+                                        {{ rtsCurrentItem?.FNSKU }}
+                                    </p>
+                                    <p>
+                                        <strong>Serial:</strong>
+                                        {{ rtsCurrentItem?.serialnumber }}
+                                    </p>
                                 </div>
                             </div>
 
@@ -1352,7 +1371,9 @@
                                     <!-- Date Field -->
                                     <fieldset class="rts-fieldset">
                                         <label class="rts-label">
-                                            <span class="label-text">Date Filed</span>
+                                            <span class="label-text"
+                                                >Date Filed</span
+                                            >
                                         </label>
                                         <input
                                             type="date"
@@ -1365,7 +1386,9 @@
                                     <!-- Filed IN Checkboxes -->
                                     <fieldset class="rts-fieldset">
                                         <label class="rts-label">
-                                            <span class="label-text">Filed IN:</span>
+                                            <span class="label-text"
+                                                >Filed IN:</span
+                                            >
                                         </label>
                                         <div class="checkbox-group">
                                             <label class="checkbox-label">
@@ -1374,7 +1397,9 @@
                                                     v-model="rtsForm.filedInES"
                                                     class="checkbox-input"
                                                 />
-                                                <span class="checkbox-text">ES</span>
+                                                <span class="checkbox-text"
+                                                    >ES</span
+                                                >
                                             </label>
                                             <label class="checkbox-label">
                                                 <input
@@ -1382,7 +1407,9 @@
                                                     v-model="rtsForm.filedInPPL"
                                                     class="checkbox-input"
                                                 />
-                                                <span class="checkbox-text">PPL</span>
+                                                <span class="checkbox-text"
+                                                    >PPL</span
+                                                >
                                             </label>
                                         </div>
                                     </fieldset>
@@ -1390,51 +1417,73 @@
                                     <!-- Test Result -->
                                     <fieldset class="rts-fieldset">
                                         <label class="rts-label">
-                                            <span class="label-text">Test Result</span>
+                                            <span class="label-text"
+                                                >Test Result</span
+                                            >
                                         </label>
                                         <select
                                             class="form-control rts-select"
                                             v-model="rtsForm.testResult"
                                             required
                                         >
-                                            <option value="">Select Test Result</option>
-                                            <option value="Passed">Passed</option>
-                                            <option value="Failed">Failed</option>
+                                            <option value="">
+                                                Select Test Result
+                                            </option>
+                                            <option value="Passed">
+                                                Passed
+                                            </option>
+                                            <option value="Failed">
+                                                Failed
+                                            </option>
                                         </select>
                                     </fieldset>
 
                                     <!-- Status -->
                                     <fieldset class="rts-fieldset">
                                         <label class="rts-label">
-                                            <span class="label-text">Status</span>
+                                            <span class="label-text"
+                                                >Status</span
+                                            >
                                         </label>
                                         <select
                                             class="form-control rts-select"
                                             v-model="rtsForm.status"
                                             required
                                         >
-                                            <option value="">Select Status</option>
+                                            <option value="">
+                                                Select Status
+                                            </option>
                                             <option value="RTS">RTS</option>
-                                            <option value="Dismantle">Dismantle</option>
+                                            <option value="Dismantle">
+                                                Dismantle
+                                            </option>
                                         </select>
                                     </fieldset>
 
                                     <!-- RTS Result -->
                                     <fieldset class="rts-fieldset">
                                         <label class="rts-label">
-                                            <span class="label-text">RTS Result</span>
+                                            <span class="label-text"
+                                                >RTS Result</span
+                                            >
                                         </label>
                                         <select
                                             class="form-control rts-select"
                                             v-model="rtsForm.rtsResult"
                                             required
                                         >
-                                            <option value="">Select RTS Result</option>
+                                            <option value="">
+                                                Select RTS Result
+                                            </option>
                                             <option value="PRNR">PRNR</option>
                                             <option value="FRNR">FRNR</option>
                                             <option value="LST">LST</option>
-                                            <option value="Replacement">Replacement</option>
-                                            <option value="Ship-Back">Ship-Back</option>
+                                            <option value="Replacement">
+                                                Replacement
+                                            </option>
+                                            <option value="Ship-Back">
+                                                Ship-Back
+                                            </option>
                                         </select>
                                     </fieldset>
                                 </div>
@@ -1442,12 +1491,16 @@
                                 <div class="rts-form-section">
                                     <!-- REFUND STATUS Section -->
                                     <div class="refund-status-section">
-                                        <h3 class="section-title">REFUND STATUS</h3>
-                                        
+                                        <h3 class="section-title">
+                                            REFUND STATUS
+                                        </h3>
+
                                         <!-- Amount -->
                                         <fieldset class="rts-fieldset">
                                             <label class="rts-label">
-                                                <span class="label-text">Amount:</span>
+                                                <span class="label-text"
+                                                    >Amount:</span
+                                                >
                                             </label>
                                             <input
                                                 type="number"
@@ -1461,7 +1514,9 @@
                                         <!-- Date of Refund -->
                                         <fieldset class="rts-fieldset">
                                             <label class="rts-label">
-                                                <span class="label-text">Date of Refund</span>
+                                                <span class="label-text"
+                                                    >Date of Refund</span
+                                                >
                                             </label>
                                             <input
                                                 type="date"
@@ -1473,7 +1528,9 @@
                                         <!-- Reason of Return -->
                                         <fieldset class="rts-fieldset">
                                             <label class="rts-label">
-                                                <span class="label-text">Reason of Return</span>
+                                                <span class="label-text"
+                                                    >Reason of Return</span
+                                                >
                                             </label>
                                             <textarea
                                                 class="form-control rts-textarea"
@@ -1486,7 +1543,9 @@
                                         <!-- Return TN -->
                                         <fieldset class="rts-fieldset">
                                             <label class="rts-label">
-                                                <span class="label-text">Return TN:</span>
+                                                <span class="label-text"
+                                                    >Return TN:</span
+                                                >
                                             </label>
                                             <input
                                                 type="text"
@@ -1499,7 +1558,9 @@
                                         <!-- Notes -->
                                         <fieldset class="rts-fieldset">
                                             <label class="rts-label">
-                                                <span class="label-text">Notes</span>
+                                                <span class="label-text"
+                                                    >Notes</span
+                                                >
                                             </label>
                                             <textarea
                                                 class="form-control rts-textarea"
@@ -1529,8 +1590,8 @@
                         @click="saveRTSModal"
                         :disabled="loading"
                     >
-                        <i class="fas fa-save me-2"></i> 
-                        {{ loading ? 'Saving...' : 'Save' }}
+                        <i class="fas fa-save me-2"></i>
+                        {{ loading ? "Saving..." : "Save" }}
                     </button>
                 </div>
             </div>
@@ -2231,19 +2292,19 @@ div[aria-labelledby="swal2-title"] {
     .rts-modal {
         padding: 8px !important;
     }
-    
+
     .rts-modal .modal-content {
         width: 100% !important;
         max-width: none !important;
         margin: 0 !important;
         max-height: 92vh !important;
     }
-    
+
     .rts-form-grid {
         grid-template-columns: 1fr;
         gap: 15px;
     }
-    
+
     .rts-product-info {
         flex-direction: row;
         text-align: left;
@@ -2251,13 +2312,13 @@ div[aria-labelledby="swal2-title"] {
         padding: 10px;
         margin-bottom: 12px;
     }
-    
+
     .product-image-mini {
         width: 45px;
         height: 45px;
         margin: 0;
     }
-    
+
     .checkbox-group {
         justify-content: flex-start;
         gap: 12px;
@@ -2344,7 +2405,7 @@ div[aria-labelledby="swal2-title"] {
     .rts-modal {
         padding: 5px !important;
     }
-    
+
     .rts-modal .modal-content {
         width: 100% !important;
         height: 98vh !important;
@@ -2352,15 +2413,15 @@ div[aria-labelledby="swal2-title"] {
         margin: 1vh auto !important;
         border-radius: 4px !important;
     }
-    
+
     .rts-form-grid {
         gap: 15px;
     }
-    
+
     .rts-fieldset {
         gap: 6px;
     }
-    
+
     .section-title {
         font-size: 16px;
         margin-bottom: 10px;
