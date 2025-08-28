@@ -897,6 +897,83 @@ export default {
                 this.loading = false;
             }
         },
+
+        async checkDuplicateSerial(serial) {
+            if (!serial) return;
+
+            const token = document
+                .querySelector('meta[name="csrf-token"]')
+                ?.getAttribute("content");
+
+            try {
+                const response = await fetch(
+                    "/api/houseage/check-duplicate-serial",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            ...(token ? { "X-CSRF-TOKEN": token } : {}),
+                        },
+                        body: JSON.stringify({ serial }),
+                    }
+                );
+
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(
+                        `HTTP ${response.status}: ${text.slice(0, 200)}`
+                    );
+                }
+
+                const data = await response.json();
+
+                if (data.duplicate) {
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Duplicate Serial Found",
+                        html: `
+            <p>This serial already exists.</p>
+            <p><b>Product ID:</b> ${data.product_id ?? "N/A"}</p>
+            <p><b>Title:</b> ${data.product_title ?? "N/A"}</p>
+          `,
+                        showCancelButton: true,
+                        confirmButtonText: "View Original Item",
+                        cancelButtonText: "OK",
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // 1) close the modal
+                            if (typeof this.closeEditModal === "function") {
+                                this.closeEditModal();
+                            } else {
+                                // fallback if closeEditModal isn't available
+                                this.showEditModal = false;
+                            }
+
+                            // 2) after a short delay, set the search box value and trigger input
+                            setTimeout(() => {
+                                const searchInput =
+                                    document.querySelector("#appsearch input");
+                                if (searchInput) {
+                                    searchInput.value = serial; // use decodeURIComponent(serial) if needed
+                                    searchInput.dispatchEvent(
+                                        new Event("input", { bubbles: true })
+                                    );
+                                }
+                            }, 500);
+                        }
+                    });
+                }
+            } catch (err) {
+                console.error("Duplicate check failed:", err);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Something went wrong while checking duplicates.",
+                });
+            }
+        },
     },
 
     watch: {

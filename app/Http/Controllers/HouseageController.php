@@ -53,7 +53,7 @@ class HouseageController extends BasetablesController
 
             // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
             $productsQuery = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', function($join) {
+                ->leftJoin($this->fnskuTable . ' as fnsku', function ($join) {
                     $join->on(DB::raw("CASE 
                         WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
                         THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
@@ -99,10 +99,10 @@ class HouseageController extends BasetablesController
             $products->getCollection()->transform(function ($product) {
                 // Keep the original FNSKU as displayed (with prefix if it exists)
                 $product->FNSKU = $product->FNSKUviewer;
-                
+
                 // Ensure we have the company for proper path construction
                 $product->company = $this->company;
-                
+
                 return $product;
             });
 
@@ -122,7 +122,7 @@ class HouseageController extends BasetablesController
                         Log::warning('Captured images table does not exist', [
                             'table' => $capturedImagesTableName
                         ]);
-                        
+
                         // Add empty capturedImages object to prevent JS errors
                         $products->getCollection()->transform(function ($product) {
                             $product->capturedImages = (object) [];
@@ -283,4 +283,39 @@ class HouseageController extends BasetablesController
             'product' => $product
         ]);
     }
+
+    public function checkDuplicateSerial(Request $request)
+    {
+        $serial = $request->input('serial');
+
+        if (empty($serial)) {
+            return response()->json(['duplicate' => false]);
+        }
+
+        $cols = array_filter(
+            \Illuminate\Support\Facades\Schema::getColumnListing($this->productTable),
+            fn($c) => str_starts_with($c, 'serial')
+        );
+
+        $existing = DB::table($this->productTable)
+            ->select('ProductID', 'ProductTitle')
+            ->where(function ($q) use ($cols, $serial) {
+                foreach ($cols as $c) {
+                    $q->orWhere($c, $serial);
+                }
+            })
+            ->first();
+
+
+        if ($existing) {
+            return response()->json([
+                'duplicate' => true,
+                'product_id' => $existing->ProductID,
+                'product_title' => $existing->ProductTitle
+            ]);
+        }
+
+        return response()->json(['duplicate' => false]);
+    }
+
 }

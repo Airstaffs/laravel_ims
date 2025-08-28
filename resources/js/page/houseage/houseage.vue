@@ -792,6 +792,11 @@
                                                         type="text"
                                                         class="form-control"
                                                         v-model="item[key]"
+                                                        @blur="
+                                                            checkDuplicateSerial(
+                                                                item[key]
+                                                            )
+                                                        "
                                                     />
                                                 </fieldset>
                                             </template>
