@@ -843,121 +843,122 @@ class ImageProcessingService
      * Generate serial-specific images from template images
      */
     public function generateSerialImagesFromTemplates($serialNumber, $templatePath1, $templatePath2)
-    {
-        try {
-            if (empty($serialNumber)) {
-                Log::error('Serial number is required');
-                return false;
-            }
-            
-            // Check if template files exist
-            if (!file_exists($templatePath1)) {
-                Log::error('Template file does not exist: ' . $templatePath1);
-                return false;
-            }
-            
-            if (!file_exists($templatePath2)) {
-                Log::error('Template file does not exist: ' . $templatePath2);
-                return false;
-            }
-            
-            $details = "serial number : " . $serialNumber;
-            $generatedImages = [];
-            
-            // Convert template images to base64
-            $templateImages = [
-                base64_encode(file_get_contents($templatePath1)),
-                base64_encode(file_get_contents($templatePath2))
-            ];
-            
-            // Process each template image
-            foreach ($templateImages as $index => $imageData) {
-                // Decode base64 image data
-                $decodedImage = base64_decode($imageData);
-                if (!$decodedImage) {
-                    Log::error('Failed to decode template image at index ' . $index);
-                    continue;
-                }
-                
-                $width = 794;
-                $height = 1123;
-                
-                // Create a canvas with a white background
-                $canvas = \imagecreatetruecolor($width, $height);
-                if (!$canvas) {
-                    Log::error('Failed to create canvas');
-                    continue;
-                }
-                
-                $white = \imagecolorallocate($canvas, 255, 255, 255);
-                \imagefill($canvas, 0, 0, $white);
-                
-                if ($image = @\imagecreatefromstring($decodedImage)) {
-                    // Scale and copy uploaded image
-                    $scaledImage = \imagecreatetruecolor($width, $height);
-                    \imagefill($scaledImage, 0, 0, $white);
-                    \imagecopyresampled($scaledImage, $image, 0, 0, 0, 0, $width, $height, \imagesx($image), \imagesy($image));
-                    \imagecopy($canvas, $scaledImage, 0, 0, 0, 0, $width, $height);
-                    \imagedestroy($scaledImage);
-                    \imagedestroy($image);
-                    
-                    // Add text with different coordinates based on the page index
-                    $blue = \imagecolorallocate($canvas, 0, 0, 255);
-                    
-                    if ($index == 0) { // First page
-                        $textX = $width - 120;
-                        $textY = $height - 420;
-                        if (file_exists($this->fontsPath)) {
-                            \imagettftext($canvas, 14, 90, $textX, $textY, $blue, $this->fontsPath, $details);
-                        } else {
-                            // Fallback if font doesn't exist
-                            \imagestring($canvas, 5, $width - 200, $height - 50, $details, $blue);
-                        }
-                    } elseif ($index == 1) { // Second page
-                        $textX = $width - 500;
-                        $textY = $height - 300;
-                        if (file_exists($this->fontsPath)) {
-                            \imagettftext($canvas, 18, 90, $textX, $textY, $blue, $this->fontsPath, $details);
-                        } else {
-                            // Fallback if font doesn't exist
-                            \imagestring($canvas, 5, $width - 300, $height - 100, $details, $blue);
-                        }
-                    }
-                } else {
-                    Log::error('Failed to create image from template data');
-                    \imagedestroy($canvas);
-                    continue;
-                }
-                
-                // Create output directory if it doesn't exist
-                $outputDir = storage_path('app/public/images/warranty/generated_images');
-                if (!file_exists($outputDir)) {
-                    mkdir($outputDir, 0777, true);
-                }
-                
-                $outputPath = $outputDir . '/' . $serialNumber . '_page_' . ($index + 1) . '.png';
-                
-                // Save the canvas as a PNG image
-                if (\imagepng($canvas, $outputPath)) {
-                    $generatedImages[] = $outputPath;
-                } else {
-                    Log::error('Failed to save image to: ' . $outputPath);
-                }
-                
-                \imagedestroy($canvas);
-            }
-            
-            return !empty($generatedImages) ? $generatedImages : false;
-            
-        } catch (Exception $e) {
-            Log::error('Error in generateSerialImagesFromTemplates:', [
-                'error' => $e->getMessage(),
-                'serialNumber' => $serialNumber
-            ]);
-            
+{
+    try {
+        if (empty($serialNumber)) {
+            Log::error('Serial number is required');
             return false;
         }
+        
+        // Check if template files exist
+        if (!file_exists($templatePath1)) {
+            Log::error('Template file does not exist: ' . $templatePath1);
+            return false;
+        }
+        
+        if (!file_exists($templatePath2)) {
+            Log::error('Template file does not exist: ' . $templatePath2);
+            return false;
+        }
+        
+        $details = "SN : " . $serialNumber; // Changed from "serial number : " to "SN : "
+        $generatedImages = [];
+        
+        // Convert template images to base64
+        $templateImages = [
+            base64_encode(file_get_contents($templatePath1)),
+            base64_encode(file_get_contents($templatePath2))
+        ];
+        
+        // Process each template image
+        foreach ($templateImages as $index => $imageData) {
+            // Decode base64 image data
+            $decodedImage = base64_decode($imageData);
+            if (!$decodedImage) {
+                Log::error('Failed to decode template image at index ' . $index);
+                continue;
+            }
+            
+            $width = 794;
+            $height = 1123;
+            
+            // Create a canvas with a white background
+            $canvas = \imagecreatetruecolor($width, $height);
+            if (!$canvas) {
+                Log::error('Failed to create canvas');
+                continue;
+            }
+            
+            $white = \imagecolorallocate($canvas, 255, 255, 255);
+            \imagefill($canvas, 0, 0, $white);
+            
+            if ($image = @\imagecreatefromstring($decodedImage)) {
+                // Scale and copy uploaded image
+                $scaledImage = \imagecreatetruecolor($width, $height);
+                \imagefill($scaledImage, 0, 0, $white);
+                \imagecopyresampled($scaledImage, $image, 0, 0, 0, 0, $width, $height, \imagesx($image), \imagesy($image));
+                \imagecopy($canvas, $scaledImage, 0, 0, 0, 0, $width, $height);
+                \imagedestroy($scaledImage);
+                \imagedestroy($image);
+                
+                // Add text with different coordinates based on the page index
+                $blue = \imagecolorallocate($canvas, 0, 0, 255);
+                
+                if ($index == 0) { // First page
+                    // MODIFIED: Move text higher up and make it bigger for first image
+                    $textX = $width - 500; // Changed from -120 to -500
+                    $textY = $height - 320; // Changed from -420 to -320 (moved up)
+                    if (file_exists($this->fontsPath)) {
+                        \imagettftext($canvas, 36, 90, $textX, $textY, $blue, $this->fontsPath, $details); // Changed from size 14 to 36
+                    } else {
+                        // Adjusted fallback position
+                        \imagestring($canvas, 5, $width - 200, $height - 250, $details, $blue);
+                    }
+                } elseif ($index == 1) { // Second page
+                    $textX = $width - 500; // Changed from -500 to -500 (consistent)
+                    $textY = $height - 300;
+                    if (file_exists($this->fontsPath)) {
+                        \imagettftext($canvas, 28, 90, $textX, $textY, $blue, $this->fontsPath, $details); // Changed from size 18 to 28
+                    } else {
+                        // Fallback if font doesn't exist
+                        \imagestring($canvas, 5, $width - 300, $height - 100, $details, $blue);
+                    }
+                }
+            } else {
+                Log::error('Failed to create image from template data');
+                \imagedestroy($canvas);
+                continue;
+            }
+            
+            // Create output directory if it doesn't exist
+            $outputDir = storage_path('app/public/images/warranty/generated_images');
+            if (!file_exists($outputDir)) {
+                mkdir($outputDir, 0777, true);
+            }
+            
+            $outputPath = $outputDir . '/' . $serialNumber . '_page_' . ($index + 1) . '.png';
+            
+            // Save the canvas as a PNG image
+            if (\imagepng($canvas, $outputPath)) {
+                $generatedImages[] = $outputPath;
+            } else {
+                Log::error('Failed to save image to: ' . $outputPath);
+            }
+            
+            \imagedestroy($canvas);
+        }
+        
+        return !empty($generatedImages) ? $generatedImages : false;
+        
+    } catch (Exception $e) {
+        Log::error('Error in generateSerialImagesFromTemplates:', [
+            'error' => $e->getMessage(),
+            'serialNumber' => $serialNumber
+        ]);
+        
+        return false;
     }
+}
     
     /**
      * Ensure serial images exist, creating them from templates if they don't
@@ -990,6 +991,157 @@ class ImageProcessingService
             return false;
         }
     }
+
+    public function generateQRforInstructionCard($serialNumber)
+{
+    try {
+        if (empty($serialNumber)) {
+            Log::error("Serial number is required for QR instruction card");
+            return "";
+        }
+        
+        // Define paths using Laravel structure
+        $templatePath = public_path('images/warranty/templates/InstructionCardSerialQR.png');
+        
+        // Check if template exists
+        if (!file_exists($templatePath)) {
+            Log::error("QR instruction card template not found: " . $templatePath);
+            return "^XA^FO50,50^ADN,18,18^FDQR template not found^FS^XZ";
+        }
+        
+        // Create the QR code URL
+        $manual = url('storage/serial_qr/' . $serialNumber . '.png');
+        
+        // Generate QR code in temp directory
+        $qrCodePath = $this->imagesPath . '/temp/qr_' . $serialNumber . '.png';
+        if (!file_exists(dirname($qrCodePath))) {
+            mkdir(dirname($qrCodePath), 0777, true);
+        }
+        
+        if (class_exists('QRcode')) {
+            \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 5);
+        } else {
+            Log::warning('QRcode class not available for instruction card');
+            return "^XA^FO50,50^ADN,18,18^FDQRcode library not available^FS^XZ";
+        }
+        
+        // Load the template
+        $imageData = base64_encode(file_get_contents($templatePath));
+        $decodedImage = base64_decode($imageData);
+        
+        if (!$decodedImage) {
+            Log::error("Failed to decode QR instruction card template");
+            return "^XA^FO50,50^ADN,18,18^FDTemplate decode failed^FS^XZ";
+        }
+        
+        // Set dimensions for the output image (portrait for sticker)
+        $outputImageWidth = 800;
+        $outputImageHeight = 1200;
+        
+        // Create a blank image with the specified dimensions
+        $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+        
+        // Fill the background with white color
+        $white = \imagecolorallocate($image, 255, 255, 255);
+        $black = \imagecolorallocate($image, 0, 0, 0);
+        \imagefill($image, 0, 0, $white);
+        
+        // Load and scale the template
+        if ($templateImage = @\imagecreatefromstring($decodedImage)) {
+            // Rotate the template image 90 degrees counter-clockwise to landscape orientation
+            $rotatedTemplate = \imagerotate($templateImage, 90, $white);
+            \imagedestroy($templateImage);
+            
+            $scaledImage = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            \imagefill($scaledImage, 0, 0, $white);
+            \imagecopyresampled($scaledImage, $rotatedTemplate, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight, \imagesx($rotatedTemplate), \imagesy($rotatedTemplate));
+            \imagecopy($image, $scaledImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight);
+            \imagedestroy($scaledImage);
+            \imagedestroy($rotatedTemplate);
+            
+            // Add serial number - adjusted for rotated template
+            $serialTextY = 950; // Adjusted for rotated layout sideways
+            $serialTextX = 280; // Adjusted for rotated layout downward/upward
+            
+            if (file_exists($this->fontsPath)) {
+                // Create bold effect by drawing the text multiple times with slight offsets
+                \imagettftext($image, 52, 90, $serialTextX, $serialTextY, $black, $this->fontsPath, $serialNumber);
+                \imagettftext($image, 52, 90, $serialTextX + 1, $serialTextY, $black, $this->fontsPath, $serialNumber);
+                \imagettftext($image, 52, 90, $serialTextX, $serialTextY + 1, $black, $this->fontsPath, $serialNumber);
+                \imagettftext($image, 52, 90, $serialTextX + 1, $serialTextY + 1, $black, $this->fontsPath, $serialNumber);
+            } else {
+                // Fallback if TTF font not available
+                \imagestring($image, 5, $serialTextX, $serialTextY, $serialNumber, $black);
+                Log::warning('TTF font not available, using fallback for QR instruction card');
+            }
+            
+            // Load and add QR code - adjusted for rotated template
+            if (file_exists($qrCodePath)) {
+                $qrCodeImage = \imagecreatefrompng($qrCodePath);
+                if ($qrCodeImage) {
+                    // Position QR code - adjusted for rotated layout
+                    $qrX = 450; // Adjusted for rotated layout
+                    $qrY = 500; // Adjusted for rotated layout  
+                    $qrSize = 200; // QR code size
+                    
+                    // Resize and place QR code
+                    \imagecopyresampled($image, $qrCodeImage, $qrX, $qrY, 0, 0, $qrSize, $qrSize, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
+                    \imagedestroy($qrCodeImage);
+                }
+                
+                // Clean up temporary QR code file
+                unlink($qrCodePath);
+            }
+            
+        } else {
+            Log::error("Failed to create image from QR instruction card template data");
+            \imagedestroy($image);
+            return "^XA^FO50,50^ADN,18,18^FDTemplate processing failed^FS^XZ";
+        }
+        
+        // Convert image to binary string for ZPL
+        $binaryString = "";
+        
+        // Convert image pixels to binary string
+        for ($y = 0; $y < $outputImageHeight; $y++) {
+            for ($x = 0; $x < $outputImageWidth; $x++) {
+                $color = \imagecolorat($image, $x, $y);
+                $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
+            }
+        }
+        
+        // Free up memory
+        \imagedestroy($image);
+        
+        // Convert binary string to hexadecimal string
+        $hexString = '';
+        for ($i = 0; $i < strlen($binaryString); $i += 8) {
+            $byteString = substr($binaryString, $i, 8);
+            $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
+        }
+        
+        // Calculate bytes per row
+        $bytesPerRow = ceil($outputImageWidth / 8);
+        
+        // Construct ZPL command
+        $zplCommand = "^XA\n";
+        $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
+        $zplCommand .= "^XZ";
+        
+        Log::info('Generated QR instruction card ZPL successfully for serial: ' . $serialNumber);
+        
+        return $zplCommand;
+        
+    } catch (Exception $e) {
+        Log::error('Error generating QR instruction card:', [
+            'error' => $e->getMessage(),
+            'serial_number' => $serialNumber,
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return "^XA^FO50,50^ADN,18,18^FDError generating QR card^FS^XZ";
+    }
+}
     
     /**
      * Safe wrapper for image conversion that checks if the input file exists

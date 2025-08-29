@@ -53,6 +53,13 @@ export default {
             basePath: "/images/thumbnails/",
             loading: false,
             error: null,
+
+            serialImageFile: null,
+            serialImageUrl: "",
+            serialImageUploading: false,
+            uploadProgress: 0,
+            serialImageError: "",
+            serialImagePath: "",
         };
     },
     computed: {
@@ -973,6 +980,124 @@ export default {
                     text: "Something went wrong while checking duplicates.",
                 });
             }
+        },
+
+        onSerialImageSelected(evt) {
+            // Always get the file FIRST
+            const input = evt?.target ?? this.$refs.serialInput;
+            const file = input?.files?.[0] || null;
+
+            if (!file) {
+                this.serialImageError = "No file selected.";
+                return;
+            }
+
+            // Now it's safe to use `file`
+            if (!file.type.startsWith("image/")) {
+                this.serialImageError = "Please select an image file.";
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                // 5MB
+                this.serialImageError = "Max size is 5MB.";
+                return;
+            }
+
+            this.serialImageError = "";
+            this.serialImageFile = file;
+
+            const reader = new FileReader();
+            reader.onload = () => (this.serialImageUrl = reader.result);
+            reader.readAsDataURL(file);
+        },
+
+        async uploadSerialImage() {
+            if (!this.serialImageFile) return;
+
+            // require a serial number (first non-empty serial key)
+            const idx = Array.isArray(this.serialKeys)
+                ? this.serialKeys.findIndex(
+                      (k) => (this.item[k] ?? "").toString().trim() !== ""
+                  )
+                : -1;
+
+            if (idx === -1) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Serial number required",
+                    text: "Please enter a serial number before saving the image.",
+                });
+                return;
+            }
+
+            const serial = (this.item[this.serialKeys[idx]] ?? "")
+                .toString()
+                .trim();
+
+            this.serialImageUploading = true;
+            this.serialImageError = "";
+
+            Swal.fire({
+                title: "Uploading…",
+                didOpen: () => Swal.showLoading(),
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showConfirmButton: false,
+            });
+
+            try {
+                const form = new FormData();
+                form.append("image", this.serialImageFile);
+                form.append("serial_number", serial); // no iteration sent
+
+                if (this.product?.id)
+                    form.append("product_id", this.product.id);
+                if (this.serialImagePath)
+                    form.append("old_path", this.serialImagePath);
+
+                const { data } = await axios.post(
+                    "/api/houseage/serial-image",
+                    form,
+                    { headers: { "Content-Type": "multipart/form-data" } }
+                );
+
+                this.serialImagePath = data.url || data.path;
+
+                if (Array.isArray(this.imageList)) {
+                    if (data.path) this.imageList.unshift(data.path);
+                    else if (data.url) this.imageList.unshift(data.url);
+                    this.activeIndex = 0;
+                }
+
+                this.serialImageFile = null;
+                this.serialImageUrl = "";
+                this.$emit("serial-image-updated", this.serialImagePath);
+
+                Swal.close();
+                await Swal.fire({
+                    icon: "success",
+                    title: "Serial image uploaded successfully",
+                    // text: `Saved as ${data.filename || "your image"}`,
+                    confirmButtonText: "OK",
+                });
+            } catch (err) {
+                this.serialImageError =
+                    err?.response?.data?.message || "Upload failed.";
+                Swal.close();
+                await Swal.fire({
+                    icon: "error",
+                    title: "Upload failed",
+                    text: this.serialImageError,
+                });
+            } finally {
+                this.serialImageUploading = false;
+            }
+        },
+
+        removeSerialImage() {
+            this.serialImageFile = null;
+            this.serialImageUrl = "";
+            this.serialImageError = "";
         },
     },
 

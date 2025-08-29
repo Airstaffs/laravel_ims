@@ -473,7 +473,8 @@ class PrinterController extends BasetablesController
         try {
             // Define label type categories - CORRECTED: vector_image is small label
             $instructionCardLabels = [
-                'instruction_cards'  // Only instruction cards go to instruction card printer
+                'instruction_cards',      // All instruction cards go to instruction card printer
+                'qr_instruction_card'     // NEW: QR instruction card goes to instruction card printer
             ];
 
             $smallLabelTypes = [
