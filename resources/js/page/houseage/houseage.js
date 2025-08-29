@@ -721,18 +721,26 @@ export default {
             );
             this.item = { ...(freshItem || item) };
 
-            this.showEditModal = true;
-            this.fetchSerialImageIfAny();
+            // Reset image state when opening
+            this.resetSerialImage({ clearServer: true });
 
+            this.showEditModal = true;
             document.body.style.overflow = "hidden";
+
+            // If you want to proactively load any existing serial image for this item:
+            await this.$nextTick();
+            await this.fetchSerialImageIfAny?.(); // safe if you added this earlier
         },
 
         closeEditModal() {
             this.showEditModal = false;
 
+            // Reset image state on close too
+            this.resetSerialImage({ clearServer: true });
+
             setTimeout(() => {
                 document.body.style.overflow = "auto";
-            }, 300); // Match with your modal close animation
+            }, 300); // match your animation
         },
 
         onImageErrorMain(event) {
@@ -1143,6 +1151,14 @@ export default {
             this.serialImageFile = null;
             this.serialImageUrl = "";
             this.serialImageError = "";
+        },
+
+        resetSerialImage({ clearServer = false } = {}) {
+            this.serialImageFile = null;
+            this.serialImageUrl = "";
+            this.serialImageError = "";
+            this.uploadProgress = 0;
+            if (clearServer) this.serialImagePath = "";
         },
     },
 
