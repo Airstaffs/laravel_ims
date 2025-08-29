@@ -1388,9 +1388,9 @@ class PrintLabelService extends BasetablesController
                 $serialCard1Path = $generatedImagesPath . $serialCard1FileName;
                 $serialCard2Path = $generatedImagesPath . $serialCard2FileName;
                 
-                if (!file_exists($serialCard1Path) || !file_exists($serialCard2Path)) {
+             //   if (!file_exists($serialCard1Path) || !file_exists($serialCard2Path)) {
                     $this->imageProcessingService->generateSerialImagesFromTemplates($Wserial, $templatePath1, $templatePath2);
-                }
+            //    }
                 
                 // Process serial cards
                 if (file_exists($serialCard1Path)) {
@@ -1406,6 +1406,8 @@ class PrintLabelService extends BasetablesController
                         $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
                     }
                 }
+
+                     $zplIC .= $this->imageProcessingService->generateQRforInstructionCard($Wserial);
             }
             
             Log::info('Final instruction card ZPL for married printer:', ['length' => strlen($zplIC)]);
