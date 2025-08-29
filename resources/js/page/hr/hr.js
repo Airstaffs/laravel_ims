@@ -13,6 +13,16 @@ import History from "./components/history.vue";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
+const DAYS = [
+    { v: 1, label: "Mon" },
+    { v: 2, label: "Tue" },
+    { v: 4, label: "Wed" },
+    { v: 8, label: "Thu" },
+    { v: 16, label: "Fri" },
+    { v: 32, label: "Sat" },
+    { v: 64, label: "Sun" },
+];
+
 const DATETIME_FIELDS = [
     "TimeIn",
     "TimeOut",
@@ -405,8 +415,10 @@ export default {
             // Scheduling
             sched_times: [],
             sched_filter: { day: "", active: "" },
+            sched_preset: "Everyday",
             sched_tForm: {
-                day_of_week: 1,
+                _days_bits: [1, 2, 4, 8, 16, 32, 64], // default = everyday
+                day_of_week: 0, // legacy, ignore
                 start_time: "",
                 end_time: "",
                 end_next_day: false,
@@ -1471,6 +1483,15 @@ export default {
             }
         },
 
+        toggleGroup(groupKey) {
+            if (groupKey === "PH") {
+                this.announcementForm.groupPH = !this.announcementForm.groupPH;
+            } else if (groupKey === "US") {
+                this.announcementForm.groupUS = !this.announcementForm.groupUS;
+            }
+            this.applyAnnouncementGroupSelection();
+        },
+
         // Scheduling
         async fetchSchedulingOnce() {
             if (this.loaded.scheduling || this.loading.scheduling) return;
@@ -1499,10 +1520,17 @@ export default {
         schedHhmm(t) {
             return (t || "").slice(0, 5);
         },
+
+        bitsToMask(arr) {
+            return (arr || []).reduce((m, b) => m | Number(b), 0);
+        },
+
         schedResetTForm() {
             this.sched_editTId = null;
+            this.sched_preset = "Everyday"; // <- match initial default
             this.sched_tForm = {
-                day_of_week: 1,
+                _days_bits: [1, 2, 4, 8, 16, 32, 64], // <- everyday bits
+                day_of_week: 0, // legacy, 0 = multi/everyday
                 start_time: "",
                 end_time: "",
                 end_next_day: false,
@@ -1511,6 +1539,7 @@ export default {
                 is_active: true,
             };
         },
+
         schedResetUForm() {
             this.sched_editUId = null;
             this.sched_uForm = {
@@ -1521,6 +1550,44 @@ export default {
                 effective_to: "",
                 is_active: true,
             };
+        },
+
+        schedDaysLabel(mask, dow = 0, compact = true) {
+            const NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            const bits = Number(mask || 0);
+
+            // new style (days_mask)
+            if (bits > 0) {
+                if (bits === 127) return "Everyday";
+                // collect chosen day indices
+                const idxs = [];
+                for (let i = 0; i < 7; i++) if (bits & (1 << i)) idxs.push(i);
+
+                if (!compact) return idxs.map((i) => NAMES[i]).join("/");
+
+                // compact consecutive runs: [0,1,2,4] -> "Mon–Wed/Fri"
+                const parts = [];
+                let start = idxs[0],
+                    prev = idxs[0];
+                for (let k = 1; k <= idxs.length; k++) {
+                    const cur = idxs[k];
+                    if (cur !== prev + 1) {
+                        parts.push(
+                            start === prev
+                                ? NAMES[start]
+                                : `${NAMES[start]}–${NAMES[prev]}`
+                        );
+                        start = cur;
+                    }
+                    prev = cur;
+                }
+                return parts.join("/");
+            }
+
+            // legacy single-day (day_of_week 0..7, where 0=Everyday)
+            if (Number(dow) === 0) return "Everyday";
+            const i = Number(dow) - 1;
+            return NAMES[i] ?? "—";
         },
 
         async schedLoadTemplates() {
@@ -1543,8 +1610,25 @@ export default {
         async schedSaveTemplate() {
             try {
                 const f = this.sched_tForm;
+                const days_mask = this.bitsToMask(f._days_bits);
+
+                if (!days_mask) {
+                    return Swal.fire(
+                        "Days required",
+                        "Pick at least one day.",
+                        "warning"
+                    );
+                }
+
+                // legacy: set single day 1..7 when only one bit is chosen, else 0
+                const single = f._days_bits.length === 1 ? f._days_bits[0] : 0;
+                const day_of_week = single
+                    ? Math.log2(single) + 1 // 1..7
+                    : 0; // 0 = “Everyday / multi”
+
                 const payload = {
-                    day_of_week: f.day_of_week,
+                    days_mask, // NEW
+                    day_of_week, // legacy/compat
                     start_time: f.start_time,
                     end_time: f.end_time,
                     end_next_day: !!f.end_next_day,
@@ -1552,6 +1636,7 @@ export default {
                     title: f.title || undefined,
                     is_active: !!f.is_active,
                 };
+
                 if (this.sched_editTId) {
                     await axios.put(
                         `${SCHED_EP.timesched}/${this.sched_editTId}`,
@@ -1570,10 +1655,45 @@ export default {
                 Swal.fire("Error", msg, "error");
             }
         },
+
         schedStartEditTemplate(row) {
             this.sched_editTId = row.timeschedId;
+
+            const mask =
+                Number(row.days_mask ?? 0) ||
+                (Number(row.day_of_week) === 0
+                    ? 127
+                    : 1 << (Number(row.day_of_week) - 1));
+
+            // expand bits
+            const bits = [];
+            for (let i = 0; i < 7; i++) if (mask & (1 << i)) bits.push(1 << i);
+
+            // detect preset {Everyday | Mon | Tue | ... | Sun | Custom}
+            const same = (a, b) =>
+                a.length === b.length && a.every((v) => b.includes(v));
+            const PRESETS = {
+                Everyday: [1, 2, 4, 8, 16, 32, 64],
+                Mon: [1],
+                Tue: [2],
+                Wed: [4],
+                Thu: [8],
+                Fri: [16],
+                Sat: [32],
+                Sun: [64],
+            };
+            let preset = "Custom";
+            for (const [k, arr] of Object.entries(PRESETS)) {
+                if (same(arr, bits)) {
+                    preset = k;
+                    break;
+                }
+            }
+
+            this.sched_preset = preset;
             this.sched_tForm = {
-                day_of_week: Number(row.day_of_week),
+                _days_bits: bits,
+                day_of_week: Number(row.day_of_week) || 0, // legacy
                 start_time: this.schedHhmm(row.start_time),
                 end_time: this.schedHhmm(row.end_time),
                 end_next_day: Number(row.end_next_day) === 1,
@@ -1582,6 +1702,7 @@ export default {
                 is_active: Number(row.is_active) === 1,
             };
         },
+
         async schedDeleteTemplate(row) {
             const ok = await Swal.fire({
                 title: `Delete template #${row.timeschedId}?`,
@@ -1715,6 +1836,35 @@ export default {
             if (!this.sched_selectedUserId)
                 return Swal.fire("Oops", "Select a user", "info");
             await this.schedLoadUserLinks(); // this uses sched_uForm.userId or selectedUserId internally
+        },
+
+        schedSetPreset(key) {
+            this.sched_preset = key;
+            if (key === "Custom") return;
+
+            const map = {
+                Everyday: [1, 2, 4, 8, 16, 32, 64],
+                Mon: [1],
+                Tue: [2],
+                Wed: [4],
+                Thu: [8],
+                Fri: [16],
+                Sat: [32],
+                Sun: [64],
+            };
+            this.sched_tForm._days_bits = map[key] || [];
+        },
+
+        schedApplyPreset(key) {
+            const map = {
+                Weekdays: [1, 2, 4, 8, 16],
+                Weekends: [32, 64],
+                Everyday: [1, 2, 4, 8, 16, 32, 64],
+                MWF: [1, 4, 16],
+                TTh: [2, 8],
+                MonWed: [1, 2, 4], // If you intended only Mon & Wed: [1,4]
+            };
+            this.sched_tForm._days_bits = map[key] || [];
         },
 
         // history manager
@@ -1929,6 +2079,12 @@ export default {
                 sched_uForm: this.sched_uForm,
                 sched_editUId: this.sched_editUId,
                 sched_selectedUserId: this.sched_selectedUserId,
+                sched_preset: this.sched_preset,
+
+                schedDaysLabel: (mask, dow, compact = true) =>
+                    this.schedDaysLabel(mask, dow, compact),
+                schedSetPreset: (k) => this.schedSetPreset(k),
+                schedApplyPreset: (k) => this.schedApplyPreset(k),
 
                 schedDayName: (d) => this.schedDayName(d),
                 schedHhmm: (t) => this.schedHhmm(t),

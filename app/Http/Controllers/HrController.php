@@ -795,21 +795,110 @@ class HrController extends Controller
         return Carbon::now('America/Los_Angeles');
     }
 
+    private function maskFromDayOfWeek(?int $dow): int
+    {
+        if (!$dow || $dow === 0)
+            return 127;                   // legacy 0 ⇒ Everyday
+        if ($dow < 1 || $dow > 7)
+            return 127;
+        return 1 << ($dow - 1);                                 // 1..7 ⇒ bit
+    }
+
+    private function inferDayOfWeekFromMask(int $mask): int
+    {
+        // if exactly one bit, return its 1..7 index; else 0 (multi/everyday)
+        if ($mask === 0)
+            return 0;
+        if (($mask & ($mask - 1)) === 0) {                      // power of two
+            $bitIndex = (int) log($mask, 2);                     // 0..6
+            return $bitIndex + 1;                               // 1..7
+        }
+        return 0;
+    }
+
+    private function parseDaysInput(Request $r, ?int $fallbackDow = 0): array
+    {
+        // Accept either days_mask OR legacy day_of_week; normalize to both.
+        $hasMask = $r->filled('days_mask');
+        $mask = $hasMask ? max(0, min(127, (int) $r->input('days_mask'))) : null;
+
+        if ($mask === null) {
+            $dow = (int) ($r->input('day_of_week', $fallbackDow));
+            $mask = $this->maskFromDayOfWeek($dow);
+        }
+
+        if ($mask === 0) {                                      // never store 0
+            $mask = 127;
+        }
+
+        $dow = $this->inferDayOfWeekFromMask($mask);
+        return [$mask, $dow];
+    }
+
+    private function makeTitleFromMask(int $mask, string $start, string $end, bool $overn): string
+    {
+        $names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        $list = [];
+        for ($i = 0; $i < 7; $i++)
+            if ($mask & (1 << $i))
+                $list[] = $names[$i];
+
+        $days =
+            count($list) === 7 ? 'Everyday' :
+            (implode('/', $list));
+
+        return sprintf('%s %s–%s%s', $days, $start, $end, $overn ? ' (+1)' : '');
+    }
+
     public function listTimesched(Request $r)
     {
         $q = DB::table('tbltimesched');
-        if ($r->filled('day_of_week'))
-            $q->where('day_of_week', (int) $r->input('day_of_week'));
-        if ($r->filled('is_active'))
+
+        if ($r->filled('day_of_week')) {
+            $dow = (int) $r->input('day_of_week');
+            if ($dow >= 1 && $dow <= 7) {
+                $bit = 1 << ($dow - 1);
+                $q->where(function ($w) use ($dow, $bit) {
+                    $w->where('day_of_week', $dow)              // legacy single-day
+                        ->orWhereRaw('(COALESCE(days_mask, 0) & ?) <> 0', [$bit]); // any template that includes that day
+                });
+            } elseif ($dow === 0) {
+                // “Everyday” filter: rows that cover all 7 OR legacy 0
+                $q->where(function ($w) {
+                    $w->where('day_of_week', 0)
+                        ->orWhere('days_mask', 127);
+                });
+            }
+        }
+
+        if ($r->filled('is_active')) {
             $q->where('is_active', (int) $r->input('is_active'));
-        $q->orderBy('day_of_week')->orderBy('start_time');
+        }
+
+        // Order: group by the first day present (for masks), then by time
+        $q->orderByRaw("
+        CASE
+          WHEN days_mask IS NULL OR days_mask = 0 THEN day_of_week
+          WHEN days_mask & 1   THEN 1
+          WHEN days_mask & 2   THEN 2
+          WHEN days_mask & 4   THEN 3
+          WHEN days_mask & 8   THEN 4
+          WHEN days_mask & 16  THEN 5
+          WHEN days_mask & 32  THEN 6
+          WHEN days_mask & 64  THEN 7
+          ELSE 0
+        END
+    ")->orderBy('start_time');
+
         return response()->json(['success' => true, 'data' => $q->get()]);
     }
+
 
     public function createTimesched(Request $r)
     {
         $d = $r->validate([
-            'day_of_week' => 'required|integer|min:0|max:7',
+            'days_mask' => 'nullable|integer|min:0|max:127',     // NEW (optional)
+            'day_of_week' => 'nullable|integer|min:0|max:7',     // keep for legacy callers
             'start_time' => 'required|date_format:H:i',
             'end_time' => 'required|date_format:H:i',
             'end_next_day' => 'nullable|boolean',
@@ -818,16 +907,21 @@ class HrController extends Controller
             'is_active' => 'nullable|boolean',
         ]);
 
+        // Normalize days
+        [$mask, $dow] = $this->parseDaysInput($r);
+
         $overn = (bool) ($d['end_next_day'] ?? false);
         $s = \Carbon\Carbon::createFromFormat('H:i', $d['start_time']);
         $e = \Carbon\Carbon::createFromFormat('H:i', $d['end_time']);
         if (!$overn && $e->lessThanOrEqualTo($s)) {
             return response()->json(['success' => false, 'error' => 'end_time must be after start_time for same-day'], 422);
         }
-        $title = $d['title'] ?? $this->makeTitle((int) $d['day_of_week'], $d['start_time'], $d['end_time'], $overn);
+
+        $title = $d['title'] ?? $this->makeTitleFromMask($mask, $d['start_time'], $d['end_time'], $overn);
 
         $id = DB::table('tbltimesched')->insertGetId([
-            'day_of_week' => (int) $d['day_of_week'],
+            'day_of_week' => $dow, // legacy mirror: 1..7 if single, else 0
+            'days_mask' => $mask,  // NEW canonical
             'start_time' => $d['start_time'],
             'end_time' => $d['end_time'],
             'end_next_day' => $overn ? 1 : 0,
@@ -850,6 +944,7 @@ class HrController extends Controller
             return response()->json(['success' => false, 'error' => 'not found'], 404);
 
         $d = $r->validate([
+            'days_mask' => 'nullable|integer|min:0|max:127',     // NEW
             'day_of_week' => 'nullable|integer|min:0|max:7',
             'start_time' => 'nullable|date_format:H:i',
             'end_time' => 'nullable|date_format:H:i',
@@ -859,7 +954,13 @@ class HrController extends Controller
             'is_active' => 'nullable|boolean',
         ]);
 
-        $dow = (int) ($d['day_of_week'] ?? $row->day_of_week);
+        // Normalize days (fall back to existing values when not provided)
+        $req = new Request([
+            'days_mask' => $d['days_mask'] ?? $row->days_mask,
+            'day_of_week' => $d['day_of_week'] ?? $row->day_of_week,
+        ]);
+        [$mask, $dow] = $this->parseDaysInput($req, (int) $row->day_of_week);
+
         $start = $d['start_time'] ?? $row->start_time;
         $end = $d['end_time'] ?? $row->end_time;
         $overn = array_key_exists('end_next_day', $d) ? (bool) $d['end_next_day'] : (bool) $row->end_next_day;
@@ -872,11 +973,12 @@ class HrController extends Controller
 
         $payload = [
             'day_of_week' => $dow,
+            'days_mask' => $mask,
             'start_time' => $start,
             'end_time' => $end,
             'end_next_day' => $overn ? 1 : 0,
             'unpaid_break_minutes' => (int) ($d['unpaid_break_minutes'] ?? $row->unpaid_break_minutes),
-            'title' => $d['title'] ?? $this->makeTitle($dow, $start, $end, $overn),
+            'title' => $d['title'] ?? $this->makeTitleFromMask($mask, $start, $end, $overn),
             'is_active' => (int) ($d['is_active'] ?? $row->is_active),
             'updated_by' => Auth::id(),
             'updated_at' => $this->dbNow(),
@@ -906,15 +1008,17 @@ class HrController extends Controller
             us.schednote,
             us.effective_from,
             us.effective_to,
-            us.is_active,               
+            us.is_active,
             ts.day_of_week,
+            ts.days_mask,             -- NEW
             ts.start_time,
             ts.end_time,
             ts.end_next_day,
             ts.title,
             ts.is_active as sched_active
         ")
-            ->orderBy('ts.day_of_week')->orderBy('ts.start_time')
+            ->orderBy('ts.day_of_week')
+            ->orderBy('ts.start_time')
             ->get();
 
         return response()->json(['success' => true, 'data' => $rows]);

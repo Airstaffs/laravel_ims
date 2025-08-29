@@ -33,7 +33,6 @@ function apply() {
     Object.assign(ctx.value.history.filters, localFilters);
     ctx.value.historyApply();
 }
-
 function clear() {
     if (!ctx.value) return;
     Object.assign(localFilters, {
@@ -46,7 +45,7 @@ function clear() {
     ctx.value.historyApply();
 }
 
-// --- helpers (unchanged, but safe to keep here) ---
+// --- helpers ---
 function parseChanges(changes) {
     if (!changes) return {};
     if (typeof changes === "object" && !Array.isArray(changes)) {
@@ -77,7 +76,7 @@ function parseChanges(changes) {
     }
     return {};
 }
-const normalizedChanges = (c) => parseChanges(c);
+
 const prettyLabel = (s) =>
     String(s || "")
         .replace(/[_\-]+/g, " ")
@@ -85,6 +84,42 @@ const prettyLabel = (s) =>
         .replace(/\s+/g, " ")
         .replace(/^./, (ch) => ch.toUpperCase());
 const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v);
+
+// normalize for template
+function getNormalized(row) {
+    return parseChanges(row?.changes);
+}
+
+// 🔎 map employees by id (from ctx.employees)
+const employeesById = computed(() => {
+    const map = new Map();
+    const list = ctx.value?.employees;
+    if (Array.isArray(list)) {
+        for (const e of list) {
+            const id = e?.id;
+            if (id != null) {
+                map.set(String(id), e.name || e.username || `User #${id}`);
+            }
+        }
+    }
+    return map; // may be empty initially—computed will update when employees arrive
+});
+// Show name for edited_by
+function editorName(row) {
+    const eb = row?.edited_by;
+
+    // already an object with name/username?
+    if (eb && typeof eb === "object") {
+        return eb.name || eb.username || eb.id || "—";
+    }
+
+    // numeric/string id
+    const id = eb?.id ?? eb;
+    if (id == null || id === "") return "—";
+
+    const fromCtx = employeesById.value.get(String(id));
+    return fromCtx || String(id); // show id until employees load
+}
 </script>
 
 <template>
@@ -149,7 +184,6 @@ const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v
 
         <!-- Mobile / Small screens: Card list -->
         <div class="d-md-none">
-            <!-- Empty state -->
             <div
                 v-if="
                     !(
@@ -162,7 +196,6 @@ const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v
                 No edit history found.
             </div>
 
-            <!-- Cards -->
             <div
                 class="hist-card shadow-sm rounded-3 mb-2 p-3"
                 v-for="(row, i) in ctx.history.rows"
@@ -182,7 +215,7 @@ const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v
                     <div class="col-6">
                         <div class="label text-secondary small">Edited By</div>
                         <div class="value text-truncate">
-                            {{ row?.edited_by?.name ?? row?.edited_by ?? "—" }}
+                            {{ editorName(row) }}
                         </div>
                     </div>
                     <div class="col-6">
@@ -202,12 +235,12 @@ const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v
                 <div class="mt-2">
                     <div class="label text-secondary small mb-1">Changes</div>
                     <ul class="changes-list mb-0 ps-3">
+                        <!-- ✅ destructure [field, chg] from Object.entries; filter out falsy values -->
                         <li
-                            v-for="(chg, field) in normalizedChanges(
-                                row?.changes
-                            )"
+                            v-for="[field, chg] in Object.entries(
+                                getNormalized(row)
+                            ).filter(([, v]) => v)"
                             :key="field"
-                            v-if="chg"
                             class="small"
                         >
                             <code class="me-1">{{ prettyLabel(field) }}</code>
@@ -249,9 +282,7 @@ const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v
                     >
                         <td class="text-secondary">{{ i + 1 }}</td>
                         <td class="fw-semibold">{{ row?.clock_id ?? "—" }}</td>
-                        <td class="text-truncate">
-                            {{ row?.edited_by?.name ?? row?.edited_by ?? "—" }}
-                        </td>
+                        <td class="text-truncate">{{ editorName(row) }}</td>
                         <td>
                             {{
                                 (ctx.formatDate
@@ -263,25 +294,25 @@ const displayVal = (v) => (v === undefined || v === null || v === "" ? "—" : v
                         </td>
                         <td>
                             <ul class="mb-0 ps-3">
-                                <li
-                                    v-for="(chg, field) in normalizedChanges(
-                                        row?.changes
-                                    )"
+                                <template
+                                    v-for="(chg, field) in getNormalized(row)"
                                     :key="field"
-                                    v-if="chg"
-                                    class="small"
                                 >
-                                    <code class="me-1">{{
-                                        prettyLabel(field)
-                                    }}</code>
-                                    <span
-                                        class="text-muted text-decoration-line-through"
-                                    >
-                                        {{ displayVal(chg?.from) }}
-                                    </span>
-                                    &nbsp;→&nbsp;
-                                    <strong>{{ displayVal(chg?.to) }}</strong>
-                                </li>
+                                    <li v-if="chg" class="small">
+                                        <code class="me-1">{{
+                                            prettyLabel(field)
+                                        }}</code>
+                                        <span
+                                            class="text-muted text-decoration-line-through"
+                                        >
+                                            {{ displayVal(chg?.from) }}
+                                        </span>
+                                        &nbsp;→&nbsp;
+                                        <strong>{{
+                                            displayVal(chg?.to)
+                                        }}</strong>
+                                    </li>
+                                </template>
                             </ul>
                         </td>
                     </tr>

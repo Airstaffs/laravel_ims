@@ -30,6 +30,32 @@
             </button>
         </div>
 
+        {{-- BREAK CONTROLS --}}
+        <div id="break-controls" class="mt-3" data-status-url="{{ route('hr.break.status') }}"
+            data-start-url="{{ route('hr.break.start') }}" data-end-url="{{ route('hr.break.end') }}">
+            <h5 class="mb-2">Break</h5>
+
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <span id="bk-status-badge" class="badge bg-secondary">Loading…</span>
+                    <div class="small text-muted mt-1">
+                        Allowance (unpaid): <span id="bk-allowed">0:00</span>
+                    </div>
+                    <div class="small">
+                        Used: <span id="bk-used">0:00</span> &middot; Remaining: <span id="bk-remaining">0:00</span>
+                    </div>
+                    <div id="bk-error" class="text-danger small mt-1" style="display:none;"></div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary" id="bk-start-btn">Start Break</button>
+                    <button type="button" class="btn btn-outline-secondary" id="bk-end-btn">End Break</button>
+                </div>
+            </div>
+
+            <small class="text-muted d-block mt-1">Server-enforced in <b>America/Los_Angeles</b>.</small>
+        </div>
+
         <!-- Hours Summary -->
         <div class="p-3 bg-light border rounded">
             <p><strong>Today's Hours:</strong> <span id="today-hours">{{ $todayHoursFormatted ?? '0:00' }}</span></p>
@@ -127,3 +153,4 @@
         @endforeach
     </div>
 </div>
+
