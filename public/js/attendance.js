@@ -257,4 +257,157 @@ document.addEventListener("DOMContentLoaded", function () {
             calculateAndDisplayHours(recordId, timeIn, timeOut);
         }
     });
+
+    const $ = (id) => document.getElementById(id);
+    const root = document.getElementById("break-controls");
+    if (!root) return;
+
+    const statusUrl = root.dataset.statusUrl;
+    const startUrl = root.dataset.startUrl;
+    const endUrl = root.dataset.endUrl;
+    const csrf =
+        document
+            .querySelector('meta[name="csrf-token"]')
+            ?.getAttribute("content") || "";
+
+    const fmtMin = (m) => {
+        const s = Math.max(0, Math.round(m * 60));
+        const h = Math.floor(s / 3600),
+            mm = Math.floor((s % 3600) / 60),
+            ss = s % 60;
+        return h > 0
+            ? `${h}:${mm.toString().padStart(2, "0")}`
+            : `${mm}:${ss.toString().padStart(2, "0")}`;
+    };
+    const badgeClass = (st) =>
+        st === "on_break"
+            ? "badge bg-warning text-dark"
+            : st === "done"
+            ? "badge bg-success"
+            : st === "idle"
+            ? "badge bg-secondary"
+            : "badge bg-dark";
+
+    let snapshot = null,
+        serverOffsetMs = 0,
+        baseUsedMin = 0,
+        baseServerMs = 0,
+        tickTimer = null;
+
+    const showErr = (msg) => {
+        const el = $("bk-error");
+        el.textContent = msg;
+        el.style.display = "block";
+        setTimeout(() => (el.style.display = "none"), 5000);
+    };
+    const stopTick = () => {
+        if (tickTimer) {
+            clearInterval(tickTimer);
+            tickTimer = null;
+        }
+    };
+
+    function applyUI(snap, usedLive = null, remainingLive = null) {
+        const st = snap.status ?? "idle";
+        $("bk-status-badge").className = badgeClass(st);
+        $("bk-status-badge").textContent = snap.hasOpenClock
+            ? st.replace("_", " ")
+            : "no open shift";
+        $("bk-allowed").textContent = fmtMin(snap.allowedMin ?? 0);
+        $("bk-used").textContent = fmtMin(usedLive ?? snap.usedMin ?? 0);
+        $("bk-remaining").textContent = fmtMin(
+            remainingLive ?? snap.remainingMin ?? 0
+        );
+
+        const onBreak = st === "on_break",
+            done = st === "done";
+        const canStart =
+            snap.hasOpenClock &&
+            !onBreak &&
+            !done &&
+            snap.allowedMin - (usedLive ?? snap.usedMin) > 0.0001;
+        const canEnd = snap.hasOpenClock && onBreak;
+        $("bk-start-btn").disabled = !canStart;
+        $("bk-end-btn").disabled = !canEnd;
+    }
+
+    async function fetchStatus() {
+        try {
+            const res = await fetch(statusUrl, {
+                credentials: "same-origin",
+                headers: {
+                    Accept: "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                },
+            });
+            const data = await res.json();
+
+            if (!data.hasOpenClock) {
+                snapshot = {
+                    hasOpenClock: false,
+                    status: "none",
+                    allowedMin: 0,
+                    usedMin: 0,
+                    remainingMin: 0,
+                };
+                stopTick();
+                applyUI(snapshot);
+                return;
+            }
+
+            const serverNow = new Date(data.serverNow).getTime();
+            serverOffsetMs = serverNow - Date.now();
+            baseServerMs = serverNow;
+            baseUsedMin = data.usedMin ?? 0;
+
+            snapshot = data;
+            applyUI(snapshot);
+            if (snapshot.status === "on_break") startTick();
+            else stopTick();
+        } catch {
+            showErr("Could not load break status.");
+        }
+    }
+
+    function startTick() {
+        stopTick();
+        tickTimer = setInterval(() => {
+            if (!snapshot || snapshot.status !== "on_break") return;
+            const nowMs = Date.now() + serverOffsetMs;
+            const delta = Math.max(0, (nowMs - baseServerMs) / 1000 / 60);
+            const used = Math.min(snapshot.allowedMin, baseUsedMin + delta);
+            const rem = Math.max(0, snapshot.allowedMin - used);
+            applyUI(snapshot, used, rem);
+            if (rem <= 0.001) fetchStatus();
+        }, 1000);
+    }
+
+    async function post(url) {
+        try {
+            const res = await fetch(url, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    Accept: "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-TOKEN": csrf,
+                },
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(
+                    data.error || res.statusText || "Request failed"
+                );
+            }
+            await fetchStatus();
+        } catch (e) {
+            showErr(e.message || "Request failed");
+        }
+    }
+
+    $("bk-start-btn").addEventListener("click", () => post(startUrl));
+    $("bk-end-btn").addEventListener("click", () => post(endUrl));
+
+    fetchStatus();
+    setInterval(fetchStatus, 30000);
 });

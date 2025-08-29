@@ -41,20 +41,65 @@
                     </h2>
 
                     <fieldset>
-                        <label>Day</label>
+                        <label>Days</label>
+
+                        <!-- Default day presets -->
                         <select
                             class="form-control"
-                            v-model.number="ctx.sched_tForm.day_of_week"
-                            required
+                            v-model="ctx.sched_preset"
+                            @change="ctx.schedSetPreset(ctx.sched_preset)"
                         >
-                            <option
-                                v-for="opt in dayOptions"
-                                :key="opt.value"
-                                :value="opt.value"
-                            >
-                                {{ opt.label }}
-                            </option>
+                            <option value="Everyday">Everyday (Mon–Sun)</option>
+                            <option value="Mon">Monday</option>
+                            <option value="Tue">Tuesday</option>
+                            <option value="Wed">Wednesday</option>
+                            <option value="Thu">Thursday</option>
+                            <option value="Fri">Friday</option>
+                            <option value="Sat">Saturday</option>
+                            <option value="Sun">Sunday</option>
+                            <option value="Custom">Custom…</option>
                         </select>
+
+                        <!-- Only show checkboxes if Custom -->
+                        <div
+                            v-if="ctx.sched_preset === 'Custom'"
+                            class="day-chips"
+                            style="margin-top: 8px"
+                        >
+                            <label v-for="d in DAYS" :key="d.v" class="chip">
+                                <input
+                                    type="checkbox"
+                                    :value="d.v"
+                                    v-model="ctx.sched_tForm._days_bits"
+                                />
+                                {{ d.label }}
+                            </label>
+                            <div class="presets">
+                                <button
+                                    type="button"
+                                    class="btn btn-ghost"
+                                    @click="
+                                        ctx.sched_tForm._days_bits = [
+                                            1, 2, 4, 8, 16, 32, 64,
+                                        ]
+                                    "
+                                >
+                                    All
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-ghost"
+                                    @click="ctx.sched_tForm._days_bits = []"
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+
+                        <p class="hint">
+                            Pick one of the defaults, or choose “Custom” to
+                            select multiple days.
+                        </p>
                     </fieldset>
 
                     <fieldset>
@@ -148,7 +193,10 @@
                 </form>
 
                 <div class="list-table-container">
-                    <form class="filters-container">
+                    <form
+                        class="filters-container"
+                        @submit.prevent="ctx.schedLoadTemplates()"
+                    >
                         <fieldset>
                             <label>Day</label>
                             <select
@@ -178,10 +226,7 @@
                             </select>
                         </fieldset>
 
-                        <button
-                            class="btn btn-ghost"
-                            @click="ctx.schedLoadTemplates()"
-                        >
+                        <button type="submit" class="btn btn-ghost">
                             Apply
                         </button>
                     </form>
@@ -204,7 +249,16 @@
                                 :key="row.timeschedId"
                             >
                                 <td>{{ row.timeschedId }}</td>
-                                <td>{{ ctx.schedDayName(row.day_of_week) }}</td>
+                                <td>
+                                    {{
+                                        ctx.schedDaysLabel(
+                                            row.days_mask,
+                                            row.day_of_week,
+                                            true
+                                        )
+                                    }}
+                                </td>
+
                                 <td>
                                     {{ ctx.schedHhmm(row.start_time) }} –
                                     {{ ctx.schedHhmm(row.end_time) }}
@@ -397,7 +451,10 @@
                 </form>
 
                 <div class="list-table-container">
-                    <form class="filters-container">
+                    <form
+                        class="filters-container"
+                        @submit.prevent="ctx.schedLoadUserLinksSelected()"
+                    >
                         <fieldset>
                             <label>User</label>
                             <select
@@ -420,14 +477,12 @@
                             </select>
                         </fieldset>
 
-                        <button
-                            class="btn btn-ghost"
-                            @click="ctx.schedLoadUserLinksSelected()"
-                        >
+                        <button type="submit" class="btn btn-ghost">
                             Load
                         </button>
 
                         <button
+                            type="button"
                             class="btn btn-ghost"
                             @click="ctx.schedLoadTemplates()"
                         >
@@ -456,7 +511,7 @@
                                 <td>{{ row.userschedId }}</td>
                                 <td>
                                     #{{ row.schedId }} —
-                                    {{ ctx.schedDayName(row.day_of_week) }}
+                                    {{ ctx.schedDaysLabel(row.days_mask, row.day_of_week, true) }}
                                 </td>
                                 <td>
                                     {{ ctx.schedHhmm(row.start_time) }} –
@@ -530,6 +585,10 @@ const props = defineProps({
     },
 });
 
+const tab = ref("templates");
+const ctx = computed(() => props.ctx || {});
+
+// used by the “Day” filter dropdown in the templates list
 const dayOptions = [
     { value: 0, label: "Everyday" },
     { value: 1, label: "Mon" },
@@ -541,8 +600,25 @@ const dayOptions = [
     { value: 7, label: "Sun" },
 ];
 
-const tab = ref("templates");
-const ctx = computed(() => props.ctx || {});
+// for Custom mode checkboxes
+const DAYS = [
+    { v: 1, label: "Mon" },
+    { v: 2, label: "Tue" },
+    { v: 4, label: "Wed" },
+    { v: 8, label: "Thu" },
+    { v: 16, label: "Fri" },
+    { v: 32, label: "Sat" },
+    { v: 64, label: "Sun" },
+];
+
+// optional helpers (unused here; fine to delete if you like)
+function maskFromArray(arr) {
+    return (arr || []).reduce((m, bit) => m | bit, 0);
+}
+function arrayFromMask(mask) {
+    const bits = Number(mask || 0);
+    return DAYS.filter((d) => (bits & d.v) > 0).map((d) => d.v);
+}
 </script>
 
 <style scoped>

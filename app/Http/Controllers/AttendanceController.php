@@ -477,5 +477,202 @@ class AttendanceController extends Controller
 
 
 
+    private const LA_TZ = 'America/Los_Angeles';
+
+    /** Open clock without lock (for reads). */
+    private function getOpenClock(int $userId)
+    {
+        return DB::table('tblemployeeclocks')
+            ->where('userid', $userId)
+            ->whereNull('TimeOut')
+            ->orderByDesc('TimeIn')
+            ->first();
+    }
+
+    /** Open clock locked for updates (inside a transaction). */
+    private function getOpenClockForUpdate(int $userId)
+    {
+        return DB::table('tblemployeeclocks')
+            ->where('userid', $userId)
+            ->whereNull('TimeOut')
+            ->orderByDesc('TimeIn')
+            ->lockForUpdate()
+            ->first();
+    }
+
+    /** Get allowed unpaid break minutes from the linked schedule for the shift date. */
+    private function resolveAllowedBreakMinutes(int $userId, Carbon $shiftDateLA): int
+    {
+        $link = DB::table('tblusersched')
+            ->where('userId', $userId)
+            ->where('is_active', 1)
+            ->where(function ($q) use ($shiftDateLA) {
+                $q->whereNull('effective_from')->orWhere('effective_from', '<=', $shiftDateLA->toDateString());
+            })
+            ->where(function ($q) use ($shiftDateLA) {
+                $q->whereNull('effective_to')->orWhere('effective_to', '>=', $shiftDateLA->toDateString());
+            })
+            ->orderByDesc('userschedId')
+            ->first();
+
+        if (!$link)
+            return 0;
+
+        $ts = DB::table('tbltimesched')->where('timeschedId', $link->schedId)->first();
+        if (!$ts)
+            return 0;
+
+        // Enforce day-of-week match: 0=Everyday, 1=Mon..7=Sun
+        $dow = (int) $shiftDateLA->dayOfWeekIso; // 1-7
+        if ((int) $ts->day_of_week !== 0 && (int) $ts->day_of_week !== $dow) {
+            return 0; // template not for this day
+        }
+
+        return (int) $ts->unpaid_break_minutes;
+    }
+
+    /** Seconds elapsed for an ongoing break (server clock). */
+    private function currentBreakElapsedSeconds($clock, Carbon $nowLA): int
+    {
+        if (!$clock || !$clock->shortbreak_start || ($clock->shortbreak_status ?? null) !== 'on_break')
+            return 0;
+        $start = Carbon::parse($clock->shortbreak_start, self::LA_TZ);
+        return max(0, $start->diffInSeconds($nowLA));
+    }
+
+    /** GET: status snapshot (also auto-clamps if user exceeded allowance). */
+    public function status(Request $request)
+    {
+        $userId = Auth::id();
+        $nowLA = Carbon::now(self::LA_TZ);
+
+        $clock = $this->getOpenClock($userId);
+        if (!$clock) {
+            return response()->json(['hasOpenClock' => false, 'message' => 'No open shift.']);
+        }
+
+        $shiftDateLA = Carbon::parse($clock->DateToday, self::LA_TZ);
+        $allowed = $this->resolveAllowedBreakMinutes($userId, $shiftDateLA);
+
+        $usedMinutes = (float) ($clock->shortbreak_totaltime ?? 0.0);
+        $elapsedSec = $this->currentBreakElapsedSeconds($clock, $nowLA);
+        $elapsedMin = $elapsedSec / 60.0;
+        $remaining = max(0.0, $allowed - $usedMinutes - $elapsedMin);
+
+        // Auto-end if over cap (fool-proof)
+        if (($clock->shortbreak_status ?? 'idle') === 'on_break' && $remaining <= 0.0) {
+            DB::transaction(function () use ($userId, $allowed) {
+                $nowLA = Carbon::now(self::LA_TZ);
+
+                $row = $this->getOpenClockForUpdate($userId);
+                if (!$row)
+                    return;
+
+                $prior = (float) ($row->shortbreak_totaltime ?? 0.0);
+                $capMin = max(0.0, $allowed - $prior);
+                $end = Carbon::parse($row->shortbreak_start, self::LA_TZ)->copy()
+                    ->addSeconds((int) round($capMin * 60));
+
+                DB::table('tblemployeeclocks')
+                    ->where('ID', $row->ID)
+                    ->update([
+                        'shortbreak_end' => $end,
+                        'shortbreak_totaltime' => $allowed,
+                        'shortbreak_status' => 'done',
+                        'systemNotes' => trim(($row->systemNotes ?? '') . ' [auto-end break at allowance]'),
+                    ]);
+            });
+
+            // Refresh snapshot
+            $clock = $this->getOpenClock($userId);
+            $usedMinutes = (float) ($clock->shortbreak_totaltime ?? 0.0);
+            $elapsedMin = 0.0;
+        }
+
+        return response()->json([
+            'hasOpenClock' => true,
+            'status' => $clock->shortbreak_status ?? 'idle', // idle | on_break | done
+            'allowedMin' => (float) $allowed,
+            'usedMin' => (float) $usedMinutes + $elapsedMin,
+            'remainingMin' => max(0.0, (float) $allowed - ((float) $usedMinutes + $elapsedMin)),
+            'onBreakSince' => $clock->shortbreak_start,
+            'lastBreakEnd' => $clock->shortbreak_end,
+            'serverNow' => $nowLA->toIso8601String(),
+        ]);
+    }
+
+    /** POST: start break */
+    public function start(Request $request)
+    {
+        $userId = Auth::id();
+        return DB::transaction(function () use ($userId) {
+            $nowLA = Carbon::now(self::LA_TZ);
+            $row = $this->getOpenClockForUpdate($userId);
+            if (!$row)
+                return response()->json(['error' => 'No open shift.'], 422);
+
+            if (($row->shortbreak_status ?? null) === 'on_break') {
+                return response()->json(['error' => 'Already on break.'], 409);
+            }
+
+            $shiftDateLA = Carbon::parse($row->DateToday, self::LA_TZ);
+            $allowed = $this->resolveAllowedBreakMinutes($userId, $shiftDateLA);
+            $used = (float) ($row->shortbreak_totaltime ?? 0.0);
+
+            if ($used >= $allowed) {
+                return response()->json(['error' => 'No break time remaining.'], 409);
+            }
+
+            DB::table('tblemployeeclocks')->where('ID', $row->ID)->update([
+                'shortbreak_start' => $nowLA,
+                'shortbreak_status' => 'on_break',
+            ]);
+
+            return response()->json(['ok' => true]);
+        });
+    }
+
+    /** POST: end break */
+    public function end(Request $request)
+    {
+        $userId = Auth::id();
+        return DB::transaction(function () use ($userId) {
+            $nowLA = Carbon::now(self::LA_TZ);
+            $row = $this->getOpenClockForUpdate($userId);
+            if (!$row)
+                return response()->json(['error' => 'No open shift.'], 422);
+
+            if (($row->shortbreak_status ?? null) !== 'on_break' || !$row->shortbreak_start) {
+                return response()->json(['error' => 'Not currently on break.'], 409);
+            }
+
+            $shiftDateLA = Carbon::parse($row->DateToday, self::LA_TZ);
+            $allowed = $this->resolveAllowedBreakMinutes($userId, $shiftDateLA);
+
+            $priorMin = (float) ($row->shortbreak_totaltime ?? 0.0);
+            $elapsedSec = max(0, Carbon::parse($row->shortbreak_start, self::LA_TZ)->diffInSeconds($nowLA));
+            $elapsedMin = $elapsedSec / 60.0;
+
+            $newTotal = $priorMin + $elapsedMin;
+            $clamped = min($newTotal, (float) $allowed);
+
+            // If clamped, compute effective end = start + (clamped - prior)
+            $effectiveEnd = $nowLA;
+            if ($clamped < $newTotal) {
+                $extraMin = max(0.0, $clamped - $priorMin);
+                $effectiveEnd = Carbon::parse($row->shortbreak_start, self::LA_TZ)
+                    ->copy()->addSeconds((int) round($extraMin * 60));
+            }
+
+            DB::table('tblemployeeclocks')->where('ID', $row->ID)->update([
+                'shortbreak_end' => $effectiveEnd,
+                'shortbreak_totaltime' => $clamped,
+                'shortbreak_status' => ($clamped >= (float) $allowed) ? 'done' : 'idle',
+            ]);
+
+            return response()->json(['ok' => true]);
+        });
+    }
+
 
 }
