@@ -186,6 +186,16 @@
                                         Stockroom
                                     </button>
 
+                                  <!-- ADD THIS COPY DETAILS BUTTON -->
+                                        <button
+                                            @click="openCopyDetailsModal(item)"
+                                            class="btn btn-copy-details"
+                                            title="Copy product details"
+                                        >
+                                            <i class="bi bi-clipboard"></i> Copy Details
+                                        </button>
+                                        
+
                                     <button
                                         @click="openEditModal(item)"
                                         class="btn btn-edit"
@@ -407,6 +417,16 @@
                             :disabled="isProcessing"
                         >
                             <i class="bi bi-box-seam"></i> Move to Stockroom
+                        </button>
+
+
+                       <!-- ADD THIS COPY DETAILS BUTTON -->
+                        <button
+                            @click="openCopyDetailsModal(item)"
+                            class="btn btn-copy-details"
+                            title="Copy product details"
+                        >
+                            <i class="bi bi-clipboard"></i> Copy Details
                         </button>
 
                         <button
@@ -1619,13 +1639,21 @@
             </div>
         </div>
 
-        <!-- Replace the old split modal HTML with this component -->
+        <!-- split modal  -->
         <splittingModal
             :show-modal="showSplitModal"
             :split-item="currentSplitItem"
             @close="closeSplitModal"
             @split-success="onSplitSuccess"
         />
+      
+      <!--OPY DETAILS MODAL-->
+            <copyDetailsModal
+                :show-modal="showCopyDetailsModal"
+                :item-data="currentCopyItem"
+                @close="closeCopyDetailsModal"
+         />
+
     </div>
 </template>
 
@@ -1634,7 +1662,7 @@ import Labeling from "./labeling.js";
 export default Labeling;
 </script>
 
-<style>
+<style scoped>
 /* Loading Animation CSS - Add this to your labeling.css file */
 
 /* Search input wrapper for positioning */
@@ -1822,6 +1850,41 @@ button:disabled {
     .loading-content p {
         font-size: 0.9em;
         margin-top: 10px;
+    }
+}
+
+.btn-copy-details {
+    background-color: #17a2b8;
+    color: white;
+    border: 1px solid #17a2b8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    margin: 2px;
+    transition: all 0.2s;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-copy-details:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(23, 162, 184, 0.3);
+}
+
+.btn-copy-details i {
+    font-size: 0.9rem;
+}
+
+/* Mobile responsive for copy details button */
+@media (max-width: 768px) {
+    .btn-copy-details {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        margin: 1px;
     }
 }
 </style>

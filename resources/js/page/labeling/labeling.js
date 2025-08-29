@@ -4,12 +4,16 @@ import "./labeling.css";
 import Swal from "sweetalert2";
 // Import the splitting modal component
 import splittingModal from "./modals/splitting/splittingModal.vue";
+
+import copyDetailsModal from "./modals/copydetails/copydetailsmodal.vue";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
     name: "ProductList",
     components: {
         splittingModal,
+        copyDetailsModal,
     },
     data() {
         return {
@@ -66,6 +70,10 @@ export default {
             // Split Modal properties - Now only need these two
             showSplitModal: false,
             currentSplitItem: null,
+
+              // ADD THESE COPY DETAILS MODAL PROPERTIES
+            showCopyDetailsModal: false,
+           currentCopyItem: null,
         };
     },
     computed: {
@@ -210,6 +218,35 @@ export default {
         },
     },
     methods: {
+
+        openCopyDetailsModal(item) {
+            if (!item) {
+                console.warn('No item provided to copy details modal');
+                return;
+            }
+
+            console.log('Opening copy details modal for item:', {
+                rtcounter: item.rtcounter,
+                ProductTitle: item.ProductTitle,
+                ASIN: item.ASIN
+            });
+
+            // Set the current item data
+            this.currentCopyItem = { ...item };
+            
+            // Show the modal
+            this.showCopyDetailsModal = true;
+        },
+
+        /**
+         * Close the Copy Details modal
+         */
+        closeCopyDetailsModal() {
+            console.log('Closing copy details modal');
+            
+            this.showCopyDetailsModal = false;
+            this.currentCopyItem = null;
+        },
         /**
          * Calculate what FNSKU will actually be assigned (with prefix if needed)
          */
