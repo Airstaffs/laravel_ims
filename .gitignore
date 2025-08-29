@@ -25,6 +25,7 @@ yarn-error.log
 /node_modules/
 /public/build/
 /public/images/asinimg
+/public/images/serimg
 /public/images/FBM_docs/invoices
 /public/images/FBM_docs/shipping_label
 /public/images/product_images
