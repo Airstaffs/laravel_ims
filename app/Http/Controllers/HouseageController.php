@@ -9,6 +9,7 @@ use App\Models\Rpn;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
@@ -209,10 +210,10 @@ class HouseageController extends BasetablesController
 
     public function store(Request $request)
     {
-        $table = (new \App\Models\tblproduct)->getTable();
+        $table = (new tblproduct)->getTable();
 
         if ($request->has('serialnumber')) {
-            $sn = \Illuminate\Support\Str::upper(trim((string) $request->input('serialnumber')));
+            $sn = Str::upper(trim((string) $request->input('serialnumber')));
             $request->merge(['serialnumber' => $sn !== '' ? $sn : null]);
         }
 
@@ -293,7 +294,7 @@ class HouseageController extends BasetablesController
         }
 
         $cols = array_filter(
-            \Illuminate\Support\Facades\Schema::getColumnListing($this->productTable),
+            Schema::getColumnListing($this->productTable),
             fn($c) => str_starts_with($c, 'serial')
         );
 
@@ -317,5 +318,88 @@ class HouseageController extends BasetablesController
 
         return response()->json(['duplicate' => false]);
     }
+
+    public function uploadSerialNumber(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'image' => 'required|image|mimes:jpeg,jpg,png,webp,avif|max:5120',
+            'product_id' => 'nullable|integer',
+            'old_path' => 'nullable|string',
+            'serial_number' => 'required|string', // keep: serial is required
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $file = $request->file('image');
+
+        $targetDir = public_path('images/serimg');
+        if (!File::exists($targetDir)) {
+            File::makeDirectory($targetDir, 0755, true);
+        }
+
+        // sanitize serial
+        $serialRaw = trim((string) $request->input('serial_number'));
+        $serialSan = preg_replace('/[^A-Za-z0-9._-]+/', '_', $serialRaw);
+        $serialSan = ltrim($serialSan, '.');
+        $serialSan = Str::limit($serialSan, 120, '');
+        if ($serialSan === '') {
+            return response()->json([
+                'message' => 'Serial number is invalid after sanitization.',
+            ], 422);
+        }
+
+        $ext = strtolower($file->getClientOriginalExtension() ?: $file->extension());
+        $filename = "{$serialSan}.{$ext}";
+        $absPath = $targetDir . DIRECTORY_SEPARATOR . $filename;
+
+        // ensure we don't collide — replace any existing file with the same name
+        if (File::exists($absPath)) {
+            @File::delete($absPath);
+        }
+
+        // move uploaded file
+        $file->move($targetDir, $filename);
+
+        $relativePath = 'images/serimg/' . $filename;
+        $url = asset($relativePath);
+
+        // optional: delete any specifically provided old file (your existing rule)
+        if ($request->filled('old_path')) {
+            $oldInput = (string) $request->old_path;
+            $oldPath = ltrim(parse_url($oldInput, PHP_URL_PATH) ?: $oldInput, '/');
+            if (str_starts_with($oldPath, 'images/serimg/')) {
+                $oldAbs = public_path($oldPath);
+                if (File::exists($oldAbs)) {
+                    @File::delete($oldAbs);
+                }
+            }
+        }
+
+        // optional: persist to product column if present
+        if ($request->filled('product_id') && class_exists(\tblproduct::class)) {
+            $product = tblproduct::find((int) $request->product_id);
+            if ($product) {
+                $table = $product->getTable();
+                if (Schema::hasColumn($table, 'serial_number_image')) {
+                    $product->serial_number_image = $relativePath;
+                    $product->save();
+                }
+            }
+        }
+
+        return response()->json([
+            'message' => 'Uploaded',
+            'path' => $relativePath,
+            'url' => $url,
+            'serial_number' => $serialSan,
+            'filename' => $filename,
+        ]);
+    }
+
 
 }

@@ -630,6 +630,102 @@
                                         </div>
                                     </div>
 
+                                    <div class="serial-upload-section">
+                                        <fieldset>
+                                            <label>Serial Number Photo</label>
+
+                                            <div class="serial-upload">
+                                                <!-- hidden file input triggered by button -->
+                                                <input
+                                                    ref="serialInput"
+                                                    type="file"
+                                                    accept="image/*"
+                                                    capture="environment"
+                                                    class="form-control hidden"
+                                                    @change="
+                                                        onSerialImageSelected
+                                                    "
+                                                />
+
+                                                <!-- Live preview -->
+                                                <div
+                                                    v-if="serialImageUrl"
+                                                    class="serial-preview"
+                                                >
+                                                    <img
+                                                        :src="serialImageUrl"
+                                                        alt="Serial number preview"
+                                                        loading="lazy"
+                                                        width="100%"
+                                                    />
+
+                                                    <!-- Simple progress bar while uploading -->
+                                                    <div
+                                                        v-if="
+                                                            serialImageUploading
+                                                        "
+                                                        class="progress"
+                                                    >
+                                                        <div
+                                                            class="bar"
+                                                            :style="{
+                                                                width:
+                                                                    uploadProgress +
+                                                                    '%',
+                                                            }"
+                                                        ></div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Action buttons are always visible -->
+                                                <div class="buttons">
+                                                    <button
+                                                        type="button"
+                                                        class="btn"
+                                                        @click="
+                                                            uploadSerialImage
+                                                        "
+                                                        :disabled="
+                                                            !serialImageFile ||
+                                                            serialImageUploading
+                                                        "
+                                                    >
+                                                        <span
+                                                            v-if="
+                                                                serialImageUploading
+                                                            "
+                                                            >Uploading
+                                                            {{
+                                                                uploadProgress
+                                                            }}%</span
+                                                        >
+                                                        <span v-else
+                                                            >Save Serial
+                                                            Image</span
+                                                        >
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        class="btn"
+                                                        v-if="
+                                                            serialImageFile ||
+                                                            serialImagePath
+                                                        "
+                                                        @click="
+                                                            removeSerialImage
+                                                        "
+                                                        :disabled="
+                                                            serialImageUploading
+                                                        "
+                                                    >
+                                                        Remove
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </fieldset>
+                                    </div>
+
                                     <div
                                         class="form-section general-info-section"
                                     >

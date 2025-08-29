@@ -491,6 +491,9 @@ Route::prefix('api/houseage')->group(function () {
     Route::get('products', [HouseageController::class, 'index']);
     Route::post('products', [HouseageController::class, 'store']);
     Route::post('check-duplicate-serial', [HouseageController::class, 'checkDuplicateSerial']);
+
+    Route::post('serial-image', [HouseageController::class, 'uploadSerialNumber'])
+        ->name('houseage.serial-image');
 });
 
 

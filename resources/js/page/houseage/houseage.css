@@ -137,6 +137,31 @@ button.btn.btn-fnsku-select:hover {
     gap: 10px;
 }
 
+.serial-upload-section {
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.serial-upload-section fieldset,
+.serial-upload {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+}
+
+.serial-upload {
+    gap: 10px;
+}
+
+.serial-upload .buttons {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+}
+
 @media (max-width: 767px) {
     .fnsku-modal-content {
         width: 100%;
