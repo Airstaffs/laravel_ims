@@ -1090,4 +1090,86 @@ class HrController extends Controller
         $ok = DB::table('tblusersched')->where('userschedId', $id)->delete();
         return response()->json(['success' => (bool) $ok]);
     }
+
+public function getUserProfileDetails(Request $req)
+{
+    $uid = $req->user()->id;
+
+    $user = DB::table('tbluser')->where('id', $uid)->first();
+    $profile = DB::table('tbluser_profile')->where('user_id', $uid)->first();
+
+    return response()->json([
+        'user' => [
+            'username'    => $user->username ?? null,
+            'office_role' => $user->office_role ?? $user->role ?? null,
+            'accounttype' => $user->accounttype ?? null,
+            'email'       => $user->email ?? null,
+        ],
+        'profile' => [
+            'full_name'        => $profile->full_name        ?? '',
+            'work_email'       => $profile->work_email       ?? ($user->email ?? ''),
+            'contact_phone'    => $profile->contact_phone    ?? '',
+            'birthdate'        => $profile->birthdate        ?? '',
+            'address'          => $profile->address          ?? '',
+            'ice_name'         => $profile->ice_name         ?? '',
+            'ice_relationship' => $profile->ice_relationship ?? '',
+            'ice_phone'        => $profile->ice_phone        ?? '',
+        ],
+    ]);
+}
+
+public function updateUserProfileDetails(Request $req)
+{
+    $uid = $req->user()->id;
+
+    $v = Validator::make($req->all(), [
+        'full_name'        => 'nullable|string|max:255',
+        'work_email'       => 'nullable|email|max:255',
+        'contact_phone'    => 'nullable|string|max:50',
+        'birthdate'        => 'nullable|date',
+        'address'          => 'nullable|string',
+        'ice_name'         => 'nullable|string|max:255',
+        'ice_relationship' => 'nullable|string|max:100',
+        'ice_phone'        => 'nullable|string|max:50',
+    ]);
+
+    if ($v->fails()) {
+        return response()->json([
+            'ok' => false,
+            'errors' => $v->errors(),
+        ], 422);
+    }
+
+    $data = [
+        'full_name'        => $req->input('full_name'),
+        'work_email'       => $req->input('work_email'),
+        'contact_phone'    => $req->input('contact_phone'),
+        'birthdate'        => $req->input('birthdate'),
+        'address'          => $req->input('address'),
+        'ice_name'         => $req->input('ice_name'),
+        'ice_relationship' => $req->input('ice_relationship'),
+        'ice_phone'        => $req->input('ice_phone'),
+        'updated_at'       => now(),
+    ];
+
+    $exists = DB::table('tbluser_profile')->where('user_id', $uid)->exists();
+
+    if ($exists) {
+        DB::table('tbluser_profile')->where('user_id', $uid)->update($data);
+    } else {
+        $data['user_id']    = $uid;
+        $data['created_at'] = now();
+        DB::table('tbluser_profile')->insert($data);
+    }
+
+    if (!empty($data['work_email'])) {
+        DB::table('tbluser')->where('id', $uid)->update([
+            'email'      => $data['work_email'],
+            'updated_at' => now(),
+        ]);
+    }
+
+    return response()->json(['ok' => true, 'message' => 'Account details updated.']);
+}
+
 }
