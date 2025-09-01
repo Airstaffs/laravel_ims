@@ -14,6 +14,10 @@
 
             <!-- Icons Always Visible on Mobile -->
             <div class="d-flex align-items-center ms-auto d-lg-none">
+                <a href="" class="nav-link p-2" onclick="openBreakModal(event)">
+                    <i class="bi bi-file-break me-2"></i>
+                    <span class="d-none d-lg-inline">Break</span>
+                </a>
                 <!-- Notification Icon -->
                 <a id="notifBell" class="nav-link p-2 position-relative" href="#" data-bs-toggle="modal"
                     data-bs-target="#notifModal">
@@ -45,6 +49,22 @@
         <!-- Navbar Collapse for Desktop -->
         <div class="collapse" id="navbarNav">
             <ul class="navbar-nav text-center">
+                <!-- Announcements -->
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center justify-content-center" href="#" data-bs-toggle="modal"
+                        data-bs-target="#annManageModal" onclick="ANN.onOpenManage()">
+                        <i class="bi bi-megaphone me-2"></i>
+                        <span class="d-none d-lg-inline"></span>
+                    </a>
+                </li>
+                <!-- Break Center -->
+                <li class="nav-item">
+                    <a class="nav-link d-flex align-items-center justify-content-center position-relative" href="#"
+                        onclick="openBreakModal(event)">
+                        <i class="bi bi-file-break me-2"></i>
+                        <span class="d-none d-lg-inline">Break</span>
+                    </a>
+                </li>
                 <!-- Notification -->
                 <li class="nav-item">
                     <a class="nav-link d-flex align-items-center justify-content-center position-relative" href="#"

@@ -55,13 +55,16 @@ export default {
             error: null,
 
             serialImageFile: null,
-            serialImageUrl: "",
+            serialImageUrl: "", // local preview via FileReader
+            serialImagePath: "", // server URL if existing or after upload
+            serialImageError: "",
             serialImageUploading: false,
             uploadProgress: 0,
-            serialImageError: "",
-            serialImagePath: "",
+            defaultSerialImage:
+                "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=", // <-- put your placeholder file here
         };
     },
+
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
@@ -208,6 +211,15 @@ export default {
                         .filter((t) => t && t.trim() !== "")
                 ),
             ].sort();
+        },
+
+        displaySerialImage() {
+            // priority: local preview -> server path -> default
+            return (
+                this.serialImageUrl ||
+                this.serialImagePath ||
+                this.defaultSerialImage
+            );
         },
     },
 
@@ -709,19 +721,26 @@ export default {
             );
             this.item = { ...(freshItem || item) };
 
-            console.log(this.item);
+            // Reset image state when opening
+            this.resetSerialImage({ clearServer: true });
 
             this.showEditModal = true;
-
             document.body.style.overflow = "hidden";
+
+            // If you want to proactively load any existing serial image for this item:
+            await this.$nextTick();
+            await this.fetchSerialImageIfAny?.(); // safe if you added this earlier
         },
 
         closeEditModal() {
             this.showEditModal = false;
 
+            // Reset image state on close too
+            this.resetSerialImage({ clearServer: true });
+
             setTimeout(() => {
                 document.body.style.overflow = "auto";
-            }, 300); // Match with your modal close animation
+            }, 300); // match your animation
         },
 
         onImageErrorMain(event) {
@@ -982,6 +1001,40 @@ export default {
             }
         },
 
+        getFirstNonEmptySerial() {
+            if (!Array.isArray(this.serialKeys)) return "";
+            const i = this.serialKeys.findIndex(
+                (k) => (this.item?.[k] ?? "").toString().trim() !== ""
+            );
+            return i === -1
+                ? ""
+                : (this.item[this.serialKeys[i]] ?? "").toString().trim();
+        },
+
+        async fetchSerialImageIfAny() {
+            const serial = this.getFirstNonEmptySerial();
+            if (!serial) {
+                this.serialImagePath = "";
+                return;
+            }
+
+            try {
+                const { data } = await axios.get("/api/houseage/serial-image", {
+                    params: { serial_number: serial },
+                });
+                this.serialImagePath =
+                    data?.exists && data?.url ? data.url : "";
+            } catch (e) {
+                this.serialImagePath = ""; // fail closed and let default render
+            }
+        },
+
+        onSerialImgError() {
+            // If the <img> fails to load for any reason, fall back to default
+            this.serialImageUrl = "";
+            this.serialImagePath = "";
+        },
+
         onSerialImageSelected(evt) {
             // Always get the file FIRST
             const input = evt?.target ?? this.$refs.serialInput;
@@ -1099,12 +1152,27 @@ export default {
             this.serialImageUrl = "";
             this.serialImageError = "";
         },
+
+        resetSerialImage({ clearServer = false } = {}) {
+            this.serialImageFile = null;
+            this.serialImageUrl = "";
+            this.serialImageError = "";
+            this.uploadProgress = 0;
+            if (clearServer) this.serialImagePath = "";
+        },
     },
 
     watch: {
         searchQuery() {
             this.currentPage = 1;
             this.fetchInventory();
+        },
+
+        item: {
+            deep: true,
+            handler() {
+                this.fetchSerialImageIfAny();
+            },
         },
     },
 
@@ -1138,6 +1206,8 @@ export default {
         });
 
         this.fetchItems();
+
+        this.fetchSerialImageIfAny();
     },
 
     beforeDestroy() {
