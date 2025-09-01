@@ -34,92 +34,229 @@
             </div>
         </div>
 
-        <table class="table table-bordered">
-            <thead>
-                <tr>
-                    <th>Title</th>
-                    <th>Window (Local)</th>
-                    <th>Status</th>
-                    <th>Recipients</th>
-                    <th>Read by me?</th>
-                    <th>Read Count</th>
-                    <th style="width: 200px">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                <template v-for="row in $parent.manageRows" :key="row.id">
-                    <tr>
-                        <td>{{ row.title || "(untitled)" }}</td>
-                        <td>
+        <div class="d-md-none">
+            <!-- Empty state -->
+            <div
+                v-if="!($parent.manageRows && $parent.manageRows.length)"
+                class="text-center text-muted py-4"
+            >
+                No announcements found.
+            </div>
+
+            <!-- Cards -->
+            <div
+                class="ann-card shadow-sm rounded-3 mb-2 p-3"
+                v-for="row in $parent.manageRows"
+                :key="row.id"
+            >
+                <!-- Header: Title + Status -->
+                <div
+                    class="d-flex justify-content-between align-items-start gap-2"
+                >
+                    <div class="flex-grow-1">
+                        <div class="fw-semibold text-truncate">
+                            {{ row.title || "(untitled)" }}
+                        </div>
+                        <div class="text-secondary small">
                             {{
                                 (row.start_at || "—") +
                                 " → " +
                                 (row.end_at || "—")
                             }}
-                        </td>
-                        <td>
-                            <span v-if="row.is_active" class="badge bg-success"
-                                >Active</span
-                            >
-                            <span v-else class="badge bg-secondary">Draft</span>
-                        </td>
-                        <td>
+                        </div>
+                    </div>
+                    <span
+                        class="badge"
+                        :class="row.is_active ? 'bg-success' : 'bg-secondary'"
+                    >
+                        {{ row.is_active ? "Active" : "Draft" }}
+                    </span>
+                </div>
+
+                <!-- Recipients -->
+                <div class="mt-2">
+                    <div class="text-secondary small mb-1">Recipients</div>
+                    <div class="d-flex flex-wrap gap-1">
+                        <span
+                            v-if="row.recipients === 'ALL'"
+                            class="badge text-bg-info text-dark"
+                        >
+                            All Users
+                        </span>
+                        <template
+                            v-else-if="
+                                Array.isArray(row.recipients) &&
+                                row.recipients.length
+                            "
+                        >
                             <span
-                                v-if="row.recipients === 'ALL'"
-                                class="badge bg-info text-dark"
+                                v-for="(r, i) in row.recipients"
+                                :key="i"
+                                class="badge text-bg-light"
                             >
-                                All Users
+                                {{ r }}
                             </span>
-                            <span
-                                v-else-if="
-                                    Array.isArray(row.recipients) &&
-                                    row.recipients.length
-                                "
-                                >{{ row.recipients.join(", ") }}</span
+                        </template>
+                        <span v-else class="text-muted">—</span>
+                    </div>
+                </div>
+
+                <!-- Read info -->
+                <div class="d-flex align-items-center gap-2 mt-2">
+                    <span class="small text-secondary">Read by me?</span>
+                    <span
+                        class="badge"
+                        :class="
+                            row.read_by_me ? 'bg-primary' : 'bg-light text-dark'
+                        "
+                    >
+                        {{ row.read_by_me ? "Yes" : "No" }}
+                    </span>
+                    <span class="vr mx-1 d-none d-sm-inline"></span>
+                    <span class="small text-secondary">Read Count:</span>
+                    <span class="fw-semibold">{{ row.readby_count ?? 0 }}</span>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-grid gap-2 mt-3">
+                    <button
+                        class="btn btn-primary btn-sm"
+                        @click="$parent.prefillAnnouncementForm(row)"
+                    >
+                        Edit
+                    </button>
+                    <button
+                        class="btn btn-sm"
+                        :class="
+                            row.is_active
+                                ? 'btn-outline-warning'
+                                : 'btn-outline-success'
+                        "
+                        @click="$parent.toggleAnnouncementActive(row)"
+                    >
+                        {{ row.is_active ? "Deactivate" : "Activate" }}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Desktop / Medium+ screens: Enhanced table -->
+        <div class="table-responsive d-none d-md-block">
+            <table class="table align-middle table-hover mb-0">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th>Title</th>
+                        <th>Window (Local)</th>
+                        <th>Status</th>
+                        <th>Recipients</th>
+                        <th>Read by me?</th>
+                        <th>Read Count</th>
+                        <th style="width: 220px">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template v-for="row in $parent.manageRows" :key="row.id">
+                        <tr>
+                            <td
+                                class="fw-semibold text-truncate"
+                                style="max-width: 360px"
                             >
-                            <span v-else class="text-muted">—</span>
-                        </td>
-                        <td>
-                            <span
-                                v-if="row.read_by_me"
-                                class="badge bg-primary"
-                            >
-                                Yes
-                            </span>
-                            <span v-else class="badge bg-light text-dark">
-                                No
-                            </span>
-                        </td>
-                        <td>{{ row.readby_count ?? 0 }}</td>
-                        <td class="d-flex flex-wrap gap-2">
-                            <button
-                                class="btn btn-sm btn-outline-primary"
-                                @click="$parent.prefillAnnouncementForm(row)"
-                            >
-                                Edit
-                            </button>
-                            <button
-                                class="btn btn-sm"
-                                :class="
-                                    row.is_active
-                                        ? 'btn-outline-warning'
-                                        : 'btn-outline-success'
-                                "
-                                @click="$parent.toggleAnnouncementActive(row)"
-                            >
-                                {{ row.is_active ? "Deactivate" : "Activate" }}
-                            </button>
+                                {{ row.title || "(untitled)" }}
+                            </td>
+                            <td class="text-secondary">
+                                {{
+                                    (row.start_at || "—") +
+                                    " → " +
+                                    (row.end_at || "—")
+                                }}
+                            </td>
+                            <td>
+                                <span
+                                    v-if="row.is_active"
+                                    class="badge bg-success"
+                                    >Active</span
+                                >
+                                <span v-else class="badge bg-secondary"
+                                    >Draft</span
+                                >
+                            </td>
+                            <td>
+                                <span
+                                    v-if="row.recipients === 'ALL'"
+                                    class="badge text-bg-info text-dark"
+                                >
+                                    All Users
+                                </span>
+                                <template
+                                    v-else-if="
+                                        Array.isArray(row.recipients) &&
+                                        row.recipients.length
+                                    "
+                                >
+                                    <span
+                                        v-for="(r, i) in row.recipients"
+                                        :key="i"
+                                        class="badge text-bg-light me-1 mb-1"
+                                    >
+                                        {{ r }}
+                                    </span>
+                                </template>
+                                <span v-else class="text-muted">—</span>
+                            </td>
+                            <td>
+                                <span
+                                    :class="
+                                        row.read_by_me
+                                            ? 'badge bg-primary'
+                                            : 'badge bg-light text-dark'
+                                    "
+                                >
+                                    {{ row.read_by_me ? "Yes" : "No" }}
+                                </span>
+                            </td>
+                            <td class="value">{{ row.readby_count ?? 0 }}</td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button
+                                        class="btn btn-sm btn-outline-primary"
+                                        @click="
+                                            $parent.prefillAnnouncementForm(row)
+                                        "
+                                    >
+                                        Edit
+                                    </button>
+                                    <button
+                                        class="btn btn-sm"
+                                        :class="
+                                            row.is_active
+                                                ? 'btn-outline-warning'
+                                                : 'btn-outline-success'
+                                        "
+                                        @click="
+                                            $parent.toggleAnnouncementActive(
+                                                row
+                                            )
+                                        "
+                                    >
+                                        {{
+                                            row.is_active
+                                                ? "Deactivate"
+                                                : "Activate"
+                                        }}
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </template>
+
+                    <tr v-if="!$parent.manageRows.length">
+                        <td colspan="7" class="text-center text-muted py-4">
+                            No announcements found.
                         </td>
                     </tr>
-                </template>
-
-                <tr v-if="!$parent.manageRows.length">
-                    <td colspan="7" class="text-center text-muted">
-                        No announcements found.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
+                </tbody>
+            </table>
+        </div>
 
         <div
             v-if="$parent.showAddAnnouncementModal"
