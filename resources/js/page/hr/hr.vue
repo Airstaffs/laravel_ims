@@ -1,7 +1,16 @@
 <template>
     <div class="hr-module">
         <div class="sidebar-nav">
-            <ul class="list-unstyled m-0">
+            <ul class="list-unstyled m-0 desktop-only">
+                <li
+                    :class="{ active: tab === currentView }"
+                    v-for="tab in tabs"
+                    @click="setView(tab)"
+                >
+                    {{ tab }}
+                </li>
+            </ul>
+            <ul class="list-unstyled m-0 mobile-only">
                 <li
                     :class="{ active: tab === currentView }"
                     v-for="tab in [currentView]"

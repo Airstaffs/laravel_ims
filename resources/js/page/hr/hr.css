@@ -459,7 +459,35 @@ table tbody tr td {
     flex: 1;
 }
 
+.mobile-only {
+    display: none !important;
+}
+
+.desktop-only li {
+    width: 100%;
+    padding: 8px 16px;
+    cursor: pointer;
+    border-left: 1px solid #fff;
+}
+
+.desktop-only li:hover {
+    background-color: #00000013;
+}
+
+.desktop-only li.active {
+    background-color: #e1e1e1;
+    border-left: 1px solid #007bff;
+}
+
 @media (max-width: 768px) {
+    .desktop-only {
+        display: none !important;
+    }
+
+    .mobile-only {
+        display: flex !important;
+    }
+
     .hr-module {
         width: 100%;
         flex-direction: column;

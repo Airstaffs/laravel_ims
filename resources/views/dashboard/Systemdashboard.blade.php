@@ -304,6 +304,7 @@
     @include('dashboard.modals.printer')
     @include('dashboard.modals.settings.settings-modal')
     @include('dashboard.modals.profiles.profiles-modal')
+    @include('dashboard.modals.break')
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -1385,6 +1386,7 @@
 
     <script src="{{ asset('js/settings-modal.js') }}"></script>
     <script src="{{ asset('js/profiles-modal.js') }}"></script>
+    <script src="{{ asset('js/break-modal.js') }}"></script>
     <script src="{{ asset('js/attendance.js') }}"></script>
     <script src="{{ asset('js/account-record.js') }}"></script>
     <script src="{{ asset('js/account-privilege.js') }}"></script>

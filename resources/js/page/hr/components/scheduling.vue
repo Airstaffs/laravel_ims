@@ -28,7 +28,7 @@
             </datalist>
         </header>
 
-        <section v-show="tab === 'templates'" class="pane">
+        <section v-show="tab === 'templates'" class="pane sched-ui">
             <div class="grid">
                 <form
                     class="section-form"
@@ -39,11 +39,8 @@
                             ctx.sched_editTId ? "Edit Template" : "New Template"
                         }}
                     </h2>
-
                     <fieldset>
                         <label>Days</label>
-
-                        <!-- Default day presets -->
                         <select
                             class="form-control"
                             v-model="ctx.sched_preset"
@@ -59,8 +56,6 @@
                             <option value="Sun">Sunday</option>
                             <option value="Custom">Custom…</option>
                         </select>
-
-                        <!-- Only show checkboxes if Custom -->
                         <div
                             v-if="ctx.sched_preset === 'Custom'"
                             class="day-chips"
@@ -95,13 +90,11 @@
                                 </button>
                             </div>
                         </div>
-
                         <p class="hint">
                             Pick one of the defaults, or choose “Custom” to
                             select multiple days.
                         </p>
                     </fieldset>
-
                     <fieldset>
                         <label>Effective</label>
                         <div class="effective-container">
@@ -126,7 +119,6 @@
                         </div>
                         <p class="hint">Time in <b>America/Los_Angeles</b>.</p>
                     </fieldset>
-
                     <fieldset>
                         <label class="chk">
                             <input
@@ -136,7 +128,6 @@
                             Crosses midnight (ends next day)
                         </label>
                     </fieldset>
-
                     <fieldset>
                         <label>Unpaid break (mins)</label>
                         <input
@@ -149,7 +140,6 @@
                             "
                         />
                     </fieldset>
-
                     <fieldset>
                         <label>Title (optional)</label>
                         <input
@@ -159,7 +149,6 @@
                             placeholder="Leave blank to auto-generate"
                         />
                     </fieldset>
-
                     <fieldset>
                         <label class="chk">
                             <input
@@ -169,7 +158,6 @@
                             Active
                         </label>
                     </fieldset>
-
                     <div class="actions-container">
                         <button type="submit">
                             {{ ctx.sched_editTId ? "Update" : "Create" }}
@@ -193,6 +181,7 @@
                 </form>
 
                 <div class="list-table-container">
+                    <!-- Filters -->
                     <form
                         class="filters-container"
                         @submit.prevent="ctx.schedLoadTemplates()"
@@ -231,94 +220,204 @@
                         </button>
                     </form>
 
-                    <table class="table table-bordered m-0">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Day</th>
-                                <th>Window</th>
-                                <th>Break</th>
-                                <th>Title</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="row in ctx.sched_times"
-                                :key="row.timeschedId"
-                            >
-                                <td>{{ row.timeschedId }}</td>
-                                <td>
-                                    {{
-                                        ctx.schedDaysLabel(
-                                            row.days_mask,
-                                            row.day_of_week,
-                                            true
-                                        )
-                                    }}
-                                </td>
+                    <div class="d-md-none">
+                        <div
+                            v-if="
+                                !ctx.sched_times || ctx.sched_times.length === 0
+                            "
+                            class="text-center text-muted py-4"
+                        >
+                            No templates yet.
+                        </div>
 
-                                <td>
-                                    {{ ctx.schedHhmm(row.start_time) }} –
-                                    {{ ctx.schedHhmm(row.end_time) }}
-                                    <span
-                                        v-if="Number(row.end_next_day) === 1"
-                                        class="tag"
-                                    >
-                                        +1
-                                    </span>
-                                </td>
-                                <td>{{ row.unpaid_break_minutes }} min</td>
-                                <td>{{ row.title }}</td>
-                                <td>
-                                    <span
-                                        :class="[
-                                            'pill',
-                                            Number(row.is_active) === 1
-                                                ? 'ok'
-                                                : 'muted',
-                                        ]"
-                                    >
-                                        {{
-                                            Number(row.is_active) === 1
-                                                ? "Active"
-                                                : "Inactive"
-                                        }}
-                                    </span>
-                                </td>
-                                <td class="actions">
-                                    <button
-                                        class="btn-small"
-                                        @click="ctx.schedStartEditTemplate(row)"
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        class="btn-small danger"
-                                        @click="ctx.schedDeleteTemplate(row)"
-                                    >
-                                        Delete
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr
-                                v-if="
-                                    !ctx.sched_times ||
-                                    ctx.sched_times.length === 0
-                                "
+                        <div
+                            class="sched-card shadow-sm rounded-3 mb-2 p-3"
+                            v-for="row in ctx.sched_times"
+                            :key="row.timeschedId"
+                        >
+                            <div
+                                class="d-flex justify-content-between align-items-start gap-2"
                             >
-                                <td colspan="7" class="empty">
-                                    No templates yet.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                <div class="flex-grow-1">
+                                    <div class="small text-secondary">Day</div>
+                                    <div class="fw-semibold">
+                                        {{
+                                            ctx.schedDaysLabel(
+                                                row.days_mask,
+                                                row.day_of_week,
+                                                true
+                                            )
+                                        }}
+                                    </div>
+                                </div>
+                                <span
+                                    :class="[
+                                        'pill',
+                                        Number(row.is_active) === 1
+                                            ? 'ok'
+                                            : 'muted',
+                                    ]"
+                                >
+                                    {{
+                                        Number(row.is_active) === 1
+                                            ? "Active"
+                                            : "Inactive"
+                                    }}
+                                </span>
+                            </div>
+
+                            <div class="row g-2 mt-2">
+                                <div class="col-8">
+                                    <div class="small text-secondary">
+                                        Window
+                                    </div>
+                                    <div class="fw-semibold">
+                                        {{ ctx.schedHhmm(row.start_time) }} –
+                                        {{ ctx.schedHhmm(row.end_time) }}
+                                        <span
+                                            v-if="
+                                                Number(row.end_next_day) === 1
+                                            "
+                                            class="tag"
+                                            >+1</span
+                                        >
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="small text-secondary">
+                                        Break
+                                    </div>
+                                    <div class="fw-semibold">
+                                        {{ row.unpaid_break_minutes }} min
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-2">
+                                <div class="small text-secondary">Title</div>
+                                <div class="text-truncate">
+                                    {{ row.title || "—" }}
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2 mt-3">
+                                <button
+                                    class="btn btn-primary btn-sm"
+                                    @click="ctx.schedStartEditTemplate(row)"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    class="btn btn-outline-danger btn-sm"
+                                    @click="ctx.schedDeleteTemplate(row)"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive d-none d-md-block">
+                        <table
+                            class="table table-bordered m-0 align-middle table-hover"
+                        >
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Day</th>
+                                    <th>Window</th>
+                                    <th>Break</th>
+                                    <th>Title</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="row in ctx.sched_times"
+                                    :key="row.timeschedId"
+                                >
+                                    <td>{{ row.timeschedId }}</td>
+                                    <td>
+                                        {{
+                                            ctx.schedDaysLabel(
+                                                row.days_mask,
+                                                row.day_of_week,
+                                                true
+                                            )
+                                        }}
+                                    </td>
+                                    <td>
+                                        {{ ctx.schedHhmm(row.start_time) }} –
+                                        {{ ctx.schedHhmm(row.end_time) }}
+                                        <span
+                                            v-if="
+                                                Number(row.end_next_day) === 1
+                                            "
+                                            class="tag"
+                                            >+1</span
+                                        >
+                                    </td>
+                                    <td>{{ row.unpaid_break_minutes }} min</td>
+                                    <td
+                                        class="text-truncate"
+                                        style="max-width: 280px"
+                                    >
+                                        {{ row.title }}
+                                    </td>
+                                    <td>
+                                        <span
+                                            :class="[
+                                                'pill',
+                                                Number(row.is_active) === 1
+                                                    ? 'ok'
+                                                    : 'muted',
+                                            ]"
+                                        >
+                                            {{
+                                                Number(row.is_active) === 1
+                                                    ? "Active"
+                                                    : "Inactive"
+                                            }}
+                                        </span>
+                                    </td>
+                                    <td class="actions">
+                                        <button
+                                            class="btn-small"
+                                            @click="
+                                                ctx.schedStartEditTemplate(row)
+                                            "
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            class="btn-small danger"
+                                            @click="
+                                                ctx.schedDeleteTemplate(row)
+                                            "
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-if="
+                                        !ctx.sched_times ||
+                                        ctx.sched_times.length === 0
+                                    "
+                                >
+                                    <td colspan="7" class="empty">
+                                        No templates yet.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <section v-show="tab === 'userlinks'" class="pane">
+        <section v-show="tab === 'userlinks'" class="pane sched-ui">
             <div class="grid">
                 <form
                     class="section-form"
@@ -331,7 +430,6 @@
                                 : "New User Link"
                         }}
                     </h2>
-
                     <fieldset>
                         <label>User</label>
                         <select
@@ -351,7 +449,6 @@
                                 {{ e.name || e.username }}
                             </option>
                         </select>
-
                         <input
                             type="hidden"
                             v-model.number="ctx.sched_uForm.userId"
@@ -362,7 +459,6 @@
                             >Select a user.</small
                         >
                     </fieldset>
-
                     <fieldset>
                         <label>Template</label>
                         <select
@@ -386,7 +482,6 @@
                             </option>
                         </select>
                     </fieldset>
-
                     <fieldset>
                         <div class="effective-container">
                             <fieldset>
@@ -407,7 +502,6 @@
                             </fieldset>
                         </div>
                     </fieldset>
-
                     <fieldset>
                         <label>Note</label>
                         <input
@@ -417,7 +511,6 @@
                             maxlength="255"
                         />
                     </fieldset>
-
                     <fieldset>
                         <label class="chk">
                             <input
@@ -427,7 +520,6 @@
                             Active
                         </label>
                     </fieldset>
-
                     <div class="actions-container">
                         <button type="submit">
                             {{ ctx.sched_editUId ? "Update" : "Link" }}
@@ -451,6 +543,7 @@
                 </form>
 
                 <div class="list-table-container">
+                    <!-- Filters -->
                     <form
                         class="filters-container"
                         @submit.prevent="ctx.schedLoadUserLinksSelected()"
@@ -480,7 +573,6 @@
                         <button type="submit" class="btn btn-ghost">
                             Load
                         </button>
-
                         <button
                             type="button"
                             class="btn btn-ghost"
@@ -490,84 +582,214 @@
                         </button>
                     </form>
 
-                    <table class="table table-bordered m-0">
-                        <thead>
-                            <tr>
-                                <th>#</th>
-                                <th>Template</th>
-                                <th>Window</th>
-                                <th>Eff. From</th>
-                                <th>Eff. To</th>
-                                <th>Note</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="row in ctx.sched_userlinks"
-                                :key="row.userschedId"
+                    <div class="d-md-none">
+                        <div
+                            v-if="
+                                !ctx.sched_userlinks ||
+                                ctx.sched_userlinks.length === 0
+                            "
+                            class="text-center text-muted py-4"
+                        >
+                            No links loaded.
+                        </div>
+
+                        <div
+                            class="userlink-card shadow-sm rounded-3 mb-2 p-3"
+                            v-for="row in ctx.sched_userlinks"
+                            :key="row.userschedId"
+                        >
+                            <div
+                                class="d-flex justify-content-between align-items-start gap-2"
                             >
-                                <td>{{ row.userschedId }}</td>
-                                <td>
-                                    #{{ row.schedId }} —
-                                    {{ ctx.schedDaysLabel(row.days_mask, row.day_of_week, true) }}
-                                </td>
-                                <td>
-                                    {{ ctx.schedHhmm(row.start_time) }} –
-                                    {{ ctx.schedHhmm(row.end_time) }}
-                                    <span
-                                        v-if="Number(row.end_next_day) === 1"
-                                        class="tag"
-                                        >+1</span
-                                    >
-                                </td>
-                                <td>{{ row.effective_from || "—" }}</td>
-                                <td>{{ row.effective_to || "—" }}</td>
-                                <td>{{ row.schednote || "—" }}</td>
-                                <td>
-                                    <span
-                                        :class="[
-                                            'pill',
-                                            Number(row.is_active) === 1
-                                                ? 'ok'
-                                                : 'muted',
-                                        ]"
-                                    >
+                                <div class="flex-grow-1">
+                                    <div class="small text-secondary">
+                                        Template
+                                    </div>
+                                    <div class="fw-semibold text-truncate">
+                                        #{{ row.schedId }} —
                                         {{
-                                            Number(row.is_active) === 1
-                                                ? "Active"
-                                                : "Inactive"
+                                            ctx.schedDaysLabel(
+                                                row.days_mask,
+                                                row.day_of_week,
+                                                true
+                                            )
                                         }}
-                                    </span>
-                                </td>
-                                <td class="actions">
-                                    <button
-                                        class="btn-small"
-                                        @click="ctx.schedStartEditUserLink(row)"
+                                    </div>
+                                </div>
+                                <span
+                                    :class="[
+                                        'pill',
+                                        Number(row.is_active) === 1
+                                            ? 'ok'
+                                            : 'muted',
+                                    ]"
+                                >
+                                    {{
+                                        Number(row.is_active) === 1
+                                            ? "Active"
+                                            : "Inactive"
+                                    }}
+                                </span>
+                            </div>
+
+                            <div class="row g-2 mt-2">
+                                <div class="col-12">
+                                    <div class="small text-secondary">
+                                        Window
+                                    </div>
+                                    <div class="fw-semibold">
+                                        {{ ctx.schedHhmm(row.start_time) }} –
+                                        {{ ctx.schedHhmm(row.end_time) }}
+                                        <span
+                                            v-if="
+                                                Number(row.end_next_day) === 1
+                                            "
+                                            class="tag"
+                                            >+1</span
+                                        >
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="small text-secondary">
+                                        Eff. From
+                                    </div>
+                                    <div class="fw-semibold">
+                                        {{ row.effective_from || "—" }}
+                                    </div>
+                                </div>
+                                <div class="col-6">
+                                    <div class="small text-secondary">
+                                        Eff. To
+                                    </div>
+                                    <div class="fw-semibold">
+                                        {{ row.effective_to || "—" }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-2">
+                                <div class="small text-secondary">Note</div>
+                                <div class="text-truncate">
+                                    {{ row.schednote || "—" }}
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2 mt-3">
+                                <button
+                                    class="btn btn-primary btn-sm"
+                                    @click="ctx.schedStartEditUserLink(row)"
+                                >
+                                    Edit
+                                </button>
+                                <button
+                                    class="btn btn-outline-danger btn-sm"
+                                    @click="ctx.schedDeleteUserLink(row)"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive d-none d-md-block">
+                        <table
+                            class="table table-bordered m-0 align-middle table-hover"
+                        >
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Template</th>
+                                    <th>Window</th>
+                                    <th>Eff. From</th>
+                                    <th>Eff. To</th>
+                                    <th>Note</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="row in ctx.sched_userlinks"
+                                    :key="row.userschedId"
+                                >
+                                    <td>{{ row.userschedId }}</td>
+                                    <td>
+                                        #{{ row.schedId }} —
+                                        {{
+                                            ctx.schedDaysLabel(
+                                                row.days_mask,
+                                                row.day_of_week,
+                                                true
+                                            )
+                                        }}
+                                    </td>
+                                    <td>
+                                        {{ ctx.schedHhmm(row.start_time) }} –
+                                        {{ ctx.schedHhmm(row.end_time) }}
+                                        <span
+                                            v-if="
+                                                Number(row.end_next_day) === 1
+                                            "
+                                            class="tag"
+                                            >+1</span
+                                        >
+                                    </td>
+                                    <td>{{ row.effective_from || "—" }}</td>
+                                    <td>{{ row.effective_to || "—" }}</td>
+                                    <td
+                                        class="text-truncate"
+                                        style="max-width: 260px"
                                     >
-                                        Edit
-                                    </button>
-                                    <button
-                                        class="btn-small danger"
-                                        @click="ctx.schedDeleteUserLink(row)"
-                                    >
-                                        Delete
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr
-                                v-if="
-                                    !ctx.sched_userlinks ||
-                                    ctx.sched_userlinks.length === 0
-                                "
-                            >
-                                <td colspan="8" class="empty">
-                                    No links loaded.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                        {{ row.schednote || "—" }}
+                                    </td>
+                                    <td>
+                                        <span
+                                            :class="[
+                                                'pill',
+                                                Number(row.is_active) === 1
+                                                    ? 'ok'
+                                                    : 'muted',
+                                            ]"
+                                        >
+                                            {{
+                                                Number(row.is_active) === 1
+                                                    ? "Active"
+                                                    : "Inactive"
+                                            }}
+                                        </span>
+                                    </td>
+                                    <td class="actions">
+                                        <button
+                                            class="btn-small"
+                                            @click="
+                                                ctx.schedStartEditUserLink(row)
+                                            "
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            class="btn-small danger"
+                                            @click="
+                                                ctx.schedDeleteUserLink(row)
+                                            "
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-if="
+                                        !ctx.sched_userlinks ||
+                                        ctx.sched_userlinks.length === 0
+                                    "
+                                >
+                                    <td colspan="8" class="empty">
+                                        No links loaded.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
