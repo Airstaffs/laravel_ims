@@ -1,6 +1,13 @@
 <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="userprofile-tab">
     <ul class="nav list-unstyled" id="accountTab" role="tablist">
         <li role="presentation">
+            <button class="btn btn-account" id="accountdetails-tab" data-bs-toggle="tab"
+            data-bs-target="#accountdetails" type="button" role="tab"
+            aria-controls="accountdetails" aria-selected="false">
+            Account Details
+            </button>
+        </li>
+        <li role="presentation">
             <button class="btn btn-account active" id="changepass-tab" data-bs-toggle="tab"
                 data-bs-target="#changepass" type="button" role="tab" aria-controls="changepass"
                 aria-selected="true">
@@ -15,6 +22,8 @@
             </button>
         </li>
     </ul>
+
+
 
     <div class="tab-content" id="accountTabContent">
         <div class="tab-pane fade show active" id="changepass" role="tabpanel"
@@ -115,12 +124,134 @@
                     aria-label="Close"></button>
             </div>
         </div>
+
+<div class="tab-pane fade" id="accountdetails" role="tabpanel" aria-labelledby="accountdetails-tab">
+  <form id="accountDetailsForm">
+    @csrf
+
+    <div class="row g-3">
+      <!-- READ-ONLY -->
+      <div class="col-md-4">
+        <label class="form-label">Username</label>
+        <input id="ad_username" type="text" class="form-control" disabled>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">User Type</label>
+        <input id="ad_usertype" type="text" class="form-control" disabled>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Account Type</label>
+        <input id="ad_accounttype" type="text" class="form-control" disabled>
+      </div>
+
+      <hr class="my-2">
+
+      <!-- Editable -->
+      <div class="col-md-6">
+        <label class="form-label">Full Name</label>
+        <input id="full_name" name="full_name" type="text" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Work Email</label>
+        <input id="work_email" name="work_email" type="email" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Contact Number</label>
+        <input id="contact_phone" name="contact_phone" type="text" class="form-control">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">Birthdate</label>
+        <input id="birthdate" name="birthdate" type="date" class="form-control">
+      </div>
+      <div class="col-12">
+        <label class="form-label">Address</label>
+        <textarea id="address" name="address" class="form-control" rows="2"></textarea>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Emergency Contact Person</label>
+        <input id="ice_name" name="ice_name" type="text" class="form-control">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Relationship</label>
+        <input id="ice_relationship" name="ice_relationship" type="text" class="form-control">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Emergency Contact Number</label>
+        <input id="ice_phone" name="ice_phone" type="text" class="form-control">
+      </div>
+    </div>
+
+    <div class="mt-3 d-flex gap-2 align-items-center">
+      <button type="submit" class="btn btn-primary btn-process text-white">Save Details</button>
+      <div id="ad_flash" class="ms-2"></div>
+    </div>
+  </form>
+</div>
     </div>
 </div>
 
 <!-- Laravel-generated variable injected to JS context -->
 <script>
     const updateTimezoneUrl = @json(route('update-timezone'));
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const tabBtn = document.getElementById('accountdetails-tab');
+  const form   = document.getElementById('accountDetailsForm');
+  const flash  = document.getElementById('ad_flash');
+
+  // Fetch details once when tab is opened
+  tabBtn.addEventListener('shown.bs.tab', () => {
+    if (form.dataset.loaded) return;
+    fetch("{{ route('account.details') }}")
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('ad_username').value    = data.user.username;
+        document.getElementById('ad_usertype').value    = data.user.office_role;
+        document.getElementById('ad_accounttype').value = data.user.accounttype;
+
+        document.getElementById('full_name').value      = data.profile.full_name;
+        document.getElementById('work_email').value     = data.profile.work_email;
+        document.getElementById('contact_phone').value  = data.profile.contact_phone;
+        document.getElementById('birthdate').value      = data.profile.birthdate;
+        document.getElementById('address').value        = data.profile.address;
+        document.getElementById('ice_name').value       = data.profile.ice_name;
+        document.getElementById('ice_relationship').value = data.profile.ice_relationship;
+        document.getElementById('ice_phone').value      = data.profile.ice_phone;
+
+        form.dataset.loaded = '1';
+      })
+      .catch(err => {
+        flash.innerHTML = "<span class='text-danger'>Failed to load details</span>";
+        console.error(err);
+      });
+  });
+
+  // Handle form submit via AJAX
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const fd = new FormData(form);
+    fetch("{{ route('account.update-details') }}", {
+      method: 'POST',
+      headers: { 'X-CSRF-TOKEN': fd.get('_token') },
+      body: fd
+    })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        flash.innerHTML = "<span class='text-success'>" + res.message + "</span>";
+      } else {
+        flash.innerHTML = "<span class='text-danger'>Validation failed</span>";
+        console.log(res.errors);
+      }
+    })
+    .catch(err => {
+      flash.innerHTML = "<span class='text-danger'>Error saving</span>";
+      console.error(err);
+    });
+  });
+});
 </script>
 
 <!-- External JS that uses that variable -->
