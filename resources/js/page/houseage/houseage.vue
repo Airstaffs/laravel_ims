@@ -648,18 +648,19 @@
                                                 />
 
                                                 <!-- Live preview -->
-                                                <div
-                                                    v-if="serialImageUrl"
-                                                    class="serial-preview"
-                                                >
+                                                <div class="serial-preview">
                                                     <img
-                                                        :src="serialImageUrl"
+                                                        :src="
+                                                            displaySerialImage
+                                                        "
                                                         alt="Serial number preview"
                                                         loading="lazy"
                                                         width="100%"
+                                                        @error="
+                                                            onSerialImgError
+                                                        "
                                                     />
 
-                                                    <!-- Simple progress bar while uploading -->
                                                     <div
                                                         v-if="
                                                             serialImageUploading

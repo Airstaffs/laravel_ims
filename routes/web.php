@@ -494,6 +494,8 @@ Route::prefix('api/houseage')->group(function () {
 
     Route::post('serial-image', [HouseageController::class, 'uploadSerialNumber'])
         ->name('houseage.serial-image');
+
+    Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
 });
 
 

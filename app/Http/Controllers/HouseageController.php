@@ -381,7 +381,7 @@ class HouseageController extends BasetablesController
         }
 
         // optional: persist to product column if present
-        if ($request->filled('product_id') && class_exists(\tblproduct::class)) {
+        if ($request->filled('product_id') && class_exists(tblproduct::class)) {
             $product = tblproduct::find((int) $request->product_id);
             if ($product) {
                 $table = $product->getTable();
@@ -401,5 +401,44 @@ class HouseageController extends BasetablesController
         ]);
     }
 
+    public function getSerialImage(Request $request)
+    {
+        $request->validate([
+            'serial_number' => 'required|string',
+        ]);
 
+        // Reuse same sanitization you used in uploadSerialNumber()
+        $serialRaw = trim((string) $request->input('serial_number'));
+        $serialSan = preg_replace('/[^A-Za-z0-9._-]+/', '_', $serialRaw);
+        $serialSan = ltrim($serialSan, '.');
+        $serialSan = \Illuminate\Support\Str::limit($serialSan, 120, '');
+
+        if ($serialSan === '') {
+            return response()->json(['exists' => false]);
+        }
+
+        $dir = public_path('images/serimg');
+        $candidates = [
+            "{$dir}/{$serialSan}.jpg",
+            "{$dir}/{$serialSan}.jpeg",
+            "{$dir}/{$serialSan}.png",
+            "{$dir}/{$serialSan}.webp",
+            "{$dir}/{$serialSan}.avif",
+        ];
+
+        foreach ($candidates as $abs) {
+            if (\Illuminate\Support\Facades\File::exists($abs)) {
+                // Build the public URL
+                $rel = 'images/serimg/' . basename($abs);
+                return response()->json([
+                    'exists' => true,
+                    'url' => asset($rel),
+                    'path' => $rel,
+                    'serial_number' => $serialSan,
+                ]);
+            }
+        }
+
+        return response()->json(['exists' => false]);
+    }
 }
