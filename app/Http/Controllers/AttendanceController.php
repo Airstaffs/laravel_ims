@@ -151,7 +151,7 @@ class AttendanceController extends Controller
             $mail->Host = 'smtp.gmail.com';
             $mail->SMTPAuth = true;
             $mail->Username = 'jundell@airstaffs.com';
-            $mail->Password = 'Jundellsheesh2023'; // Gmail app password
+            $mail->Password = 'scjjcpxcmwyjwegh'; // Gmail app password
             $mail->SMTPSecure = 'tls';
             $mail->Port = 587;
 
@@ -183,7 +183,10 @@ class AttendanceController extends Controller
         $tz = 'America/Los_Angeles';
         $now = Carbon::now($tz);
 
+        // Format the datetime string
+        $currentDatetimeStr = $now->format('Y-m-d H:i:s');
 
+        $this->sendClockinMail($uname, $currentDatetimeStr);
 
         // --- config ---
         $EARLY_GRACE_MINUTES = 5;   // allow clock-in up to 5 minutes before scheduled start
@@ -299,6 +302,8 @@ class AttendanceController extends Controller
                 }
             }
         }
+
+
 
         if (!$match) {
             return response()->json([
