@@ -45,6 +45,8 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard');
+
 // Guest routes (accessible only when not authenticated)
 Route::middleware('guest')->group(function () {
     // Login routes
@@ -733,3 +735,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/hr/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
     Route::post('/hr/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 });
+
+// routes/web.php
+Route::middleware(['auth'])->get('/account/complete', function () {
+    return view('account.complete');  // the small Blade that calls your HR endpoints
+})->name('account.complete.view');
