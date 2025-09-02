@@ -45,6 +45,8 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard');
+
 // Guest routes (accessible only when not authenticated)
 Route::middleware('guest')->group(function () {
     // Login routes
@@ -720,10 +722,21 @@ Route::prefix('hr')->group(function () {
     Route::post('/usersched', [HrController::class, 'createUserSched']);
     Route::put('/usersched/{id}', [HrController::class, 'updateUserSched']);
     Route::delete('/usersched/{id}', [HrController::class, 'deleteUserSched']);
+
+    Route::get('/account/details', [HrController::class, 'getUserProfileDetails'])
+        ->name('account.details')->middleware('auth');
+
+    Route::post('/account/update-details', [HrController::class, 'updateUserProfileDetails'])
+        ->name('account.update-details')->middleware('auth');
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/hr/break/status', [AttendanceController::class, 'status'])->name('hr.break.status');
-    Route::post('/hr/break/start',  [AttendanceController::class, 'start'])->name('hr.break.start');
-    Route::post('/hr/break/end',    [AttendanceController::class, 'end'])->name('hr.break.end');
+    Route::post('/hr/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
+    Route::post('/hr/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 });
+
+// routes/web.php
+Route::middleware(['auth'])->get('/account/complete', function () {
+    return view('account.complete');  // the small Blade that calls your HR endpoints
+})->name('account.complete.view');

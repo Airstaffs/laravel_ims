@@ -87,6 +87,13 @@ class LoginController extends Controller
                 // This will be displayed on the dashboard page after redirect
                 $request->session()->flash('login_success', 'Welcome back, ' . $user->username . '!');
 
+                $firstLogin = \DB::table('tbluser')->where('username', $user->username)->value('first_login');
+
+
+                if (is_null($firstLogin) || (int) $firstLogin === 1) {
+                    return redirect()->route('account.complete.view');
+                }
+
                 // Redirect to dashboard
                 return redirect()->route('dashboard.system');
             }
@@ -413,6 +420,11 @@ class LoginController extends Controller
 
             // FIXED: Set success message for dashboard (Google login)
             request()->session()->flash('login_success', 'Welcome back, ' . $user->username . '! (Google Login)');
+
+            $firstLogin = \DB::table('tbluser')->where('id', $user->id)->value('first_login');
+            if (is_null($firstLogin) || (int) $firstLogin === 1) {
+                return redirect()->route('account.complete.view');
+            }
 
             // Redirect to dashboard
             return redirect()->route('dashboard.system');
