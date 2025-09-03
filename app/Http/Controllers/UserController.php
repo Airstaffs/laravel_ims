@@ -51,6 +51,7 @@ class UserController extends Controller
                 'asinlist',
                 'printer',
                 'humanresource',
+                'announcement',
             )
             ->where('id', $currentUserId)
             ->first();
@@ -210,6 +211,7 @@ class UserController extends Controller
                     'houseage' => (bool) $selectedUser->houseage,
                     'asinlist' => (bool) $selectedUser->asinlist,
                     'printer' => (bool) $selectedUser->printer,
+                    'announcement' => (bool) $selectedUser->announcement,
                 ],
                 'privileges_stores' => $storePrivileges, // Pass the processed store privileges
             ];
@@ -355,6 +357,7 @@ class UserController extends Controller
                 'Houseage' => 'houseage',
                 'ASIN List' => 'asinlist',
                 'Printer' => 'printer',
+                'Announcement' => 'announcement',
             ];
 
             // Convert main module from display name to database column name
@@ -398,7 +401,8 @@ class UserController extends Controller
                 'asinoption',
                 'houseage',
                 'asinlist',
-                'printer'
+                'printer',
+                'announcement'
             ];
 
             // First reset all modules to 0

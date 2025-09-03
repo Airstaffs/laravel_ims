@@ -50,13 +50,15 @@
         <div class="collapse" id="navbarNav">
             <ul class="navbar-nav text-center">
                 <!-- Announcements -->
-                <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center" href="#" data-bs-toggle="modal"
-                        data-bs-target="#annManageModal" onclick="ANN.onOpenManage()">
+                <li class="nav-item" id="announcement-nav-item">
+                    <a class="nav-link d-flex align-items-center justify-content-center" href="#" 
+                    data-bs-toggle="modal" data-bs-target="#annManageModal" 
+                    onclick="ANN.onOpenManage()">
                         <i class="bi bi-megaphone me-2"></i>
-                        <span class="d-none d-lg-inline"></span>
+                        <span class="d-none d-lg-inline">Announcements</span>
                     </a>
                 </li>
+                
                 <!-- Break Center -->
                 <li class="nav-item">
                     <a class="nav-link d-flex align-items-center justify-content-center position-relative" href="#"
