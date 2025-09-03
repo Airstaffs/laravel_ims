@@ -1,4 +1,3 @@
-// break-modal.js
 (() => {
     const $id = (id) => document.getElementById(id);
 
@@ -44,13 +43,53 @@
     let tickTimer = null;
     let pollTimer = null;
 
+    // ---- New: closable guard & helpers ----
+    let closable = true;
+    const closeBtn = root.querySelector(".btn-close");
+    const overlay = root.querySelector(".modal-overlay");
+
+    function setClosable(v) {
+        closable = !!v;
+
+        // Toggle close button
+        if (closeBtn) {
+            closeBtn.disabled = !closable;
+            closeBtn.setAttribute("aria-disabled", String(!closable));
+            closeBtn.style.pointerEvents = closable ? "" : "none";
+            closeBtn.style.opacity = closable ? "" : "0.5";
+        }
+
+        // Block overlay clicks visually and functionally
+        if (overlay) {
+            overlay.style.pointerEvents = closable ? "" : "none";
+            overlay.style.cursor = closable ? "" : "not-allowed";
+        }
+
+        // Trap focus in modal a bit when not closable (optional nicety)
+        if (!closable) {
+            root.setAttribute("data-locked", "1");
+        } else {
+            root.removeAttribute("data-locked");
+        }
+    }
+
     // Errors
     const showErr = (msg) => {
-        const el = $id("bk-error");
-        if (!el) return;
-        el.textContent = msg;
-        el.style.display = "block";
-        setTimeout(() => (el.style.display = "none"), 5000);
+        Swal.fire({
+            icon: "error",
+            title: "Oops!",
+            text: msg || "Something went wrong",
+            confirmButtonColor: "#d33",
+        });
+    };
+
+    const showSuccess = (msg) => {
+        Swal.fire({
+            icon: "success",
+            title: "Success",
+            text: msg || "Action completed successfully",
+            confirmButtonColor: "#3085d6",
+        });
     };
 
     // Timers
@@ -100,6 +139,9 @@
 
         if ($id("bk-start-btn")) $id("bk-start-btn").disabled = !canStart;
         if ($id("bk-end-btn")) $id("bk-end-btn").disabled = !canEnd;
+
+        // ---- New: lock modal while on break, unlock otherwise ----
+        setClosable(!onBreak);
     }
 
     // Fetch status
@@ -167,8 +209,8 @@
         }, 1000);
     }
 
-    // POST helper
-    async function post(url) {
+    // POST helper (auto-close only after "end")
+    async function post(url, action) {
         try {
             const res = await fetch(url, {
                 method: "POST",
@@ -201,16 +243,36 @@
             }
 
             await fetchStatus();
+
+            if (action === "start") {
+                showSuccess("Break started!");
+            }
+
+            if (action === "end") {
+                showSuccess("Break ended!");
+                setClosable(true);
+                closeBreakModal();
+            }
         } catch (e) {
             showErr(e.message || "Request failed");
+            if (action === "start") setClosable(true);
         }
     }
 
     // Button events
     const startBtn = $id("bk-start-btn");
     const endBtn = $id("bk-end-btn");
-    if (startBtn) startBtn.addEventListener("click", () => post(startUrl));
-    if (endBtn) endBtn.addEventListener("click", () => post(endUrl));
+    if (startBtn)
+        startBtn.addEventListener("click", () => {
+            // Immediately lock the modal while starting
+            setClosable(false);
+            post(startUrl, "start");
+        });
+    if (endBtn)
+        endBtn.addEventListener("click", () => {
+            // Ending will unlock & close on success inside post()
+            post(endUrl, "end");
+        });
 
     // Modal open/close
     function openBreakModal(ev) {
@@ -218,12 +280,18 @@
         root.classList.add("active");
         root.setAttribute("aria-hidden", "false");
 
+        // Opening state: allow closing until we actually start a break
+        setClosable(true);
+
         fetchStatus();
         stopPoll();
         pollTimer = setInterval(fetchStatus, 30000);
     }
 
     function closeBreakModal() {
+        // Guard: do nothing if not closable
+        if (!closable) return;
+
         root.classList.remove("active");
         root.setAttribute("aria-hidden", "true");
 
@@ -231,13 +299,26 @@
         stopPoll();
     }
 
-    // Wire overlay
-    const overlay = root.querySelector(".modal-overlay");
+    // Wire overlay to close (once)
     if (overlay && !overlay.hasAttribute("data-wired")) {
         overlay.setAttribute("data-wired", "1");
-        overlay.addEventListener("click", closeBreakModal);
+        overlay.addEventListener("click", () => {
+            if (closable) closeBreakModal();
+        });
     }
 
+    // Allow closing with Escape key only when closable
+    document.addEventListener("keydown", (ev) => {
+        if (
+            ev.key === "Escape" &&
+            root.classList.contains("active") &&
+            closable
+        ) {
+            closeBreakModal();
+        }
+    });
+
+    // Expose controls globally
     window.openBreakModal = openBreakModal;
     window.closeBreakModal = closeBreakModal;
     window.breakModalCtrl = { open: openBreakModal, close: closeBreakModal };
