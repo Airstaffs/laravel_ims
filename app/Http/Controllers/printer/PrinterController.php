@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Log;
 use App\Services\PrintLabelService;
 use App\Services\ImageProcessingService; 
 use App\Http\Controllers\BasetablesController;
+use Illuminate\Support\Facades\Artisan;
+use DateTime;
+use DateTimeZone;
 use Exception;
 
 class PrinterController extends BasetablesController
@@ -473,8 +476,7 @@ class PrinterController extends BasetablesController
         try {
             // Define label type categories - CORRECTED: vector_image is small label
             $instructionCardLabels = [
-                'instruction_cards',      // All instruction cards go to instruction card printer
-                'qr_instruction_card'     // NEW: QR instruction card goes to instruction card printer
+                'instruction_cards'  // Only instruction cards go to instruction card printer
             ];
 
             $smallLabelTypes = [
@@ -1625,9 +1627,9 @@ class PrinterController extends BasetablesController
     {
         try {
             // Clear Laravel cache
-            \Artisan::call('cache:clear');
-            \Artisan::call('config:clear');
-            \Artisan::call('view:clear');
+            Artisan::call('cache:clear');
+            Artisan::call('config:clear');
+            Artisan::call('view:clear');
             
             return response()->json([
                 'success' => true,

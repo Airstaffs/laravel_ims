@@ -1,13 +1,15 @@
 <div class="modal modal-break" id="breakModal" aria-hidden="true" data-status-url="{{ route('hr.break.status') }}"
     data-start-url="{{ route('hr.break.start') }}" data-end-url="{{ route('hr.break.end') }}">
 
-    <div class="modal-overlay" onclick="closeBreakModal()"></div>
+    <div class="modal-overlay"></div>
 
     <div class="modal-content">
         <div class="modal-header">
             <h2 class="modal-title">Break Center</h2>
-
             <span id="bk-status-badge" class="badge bg-secondary">Loading…</span>
+
+            <!-- Close button -->
+            <button type="button" class="btn-close" aria-label="Close" onclick="closeBreakModal()"></button>
         </div>
 
         <div class="modal-body" id="break-controls">
@@ -19,12 +21,16 @@
                 <h5 id="bk-used" class="m-0">0:00</h5>
                 <span>Used</span>
             </div>
+
             <div class="alert alert-info" role="alert">
                 <p>Allowance (unpaid): <span id="bk-allowed">0:00</span></p>
                 <small class="text-muted d-block">
                     Server-enforced in <b>America/Los_Angeles</b>.
                 </small>
             </div>
+
+            <!-- Error placeholder (hidden by default) -->
+            {{-- <div id="bk-error" class="alert alert-danger" role="alert" style="display:none"></div> --}}
 
             <div class="d-flex gap-2">
                 <button type="button" class="btn btn-outline-primary" id="bk-start-btn">Start Break</button>
@@ -33,6 +39,7 @@
         </div>
     </div>
 </div>
+
 
 <style scoped>
     .modal-break {

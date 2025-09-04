@@ -983,50 +983,62 @@ class PrintLabelService extends BasetablesController
      * Generate FNSKU label with special handling for prefixes - EXACT replication from original
      */
     protected function generateFnskuLabel($product, $condition)
-    {
-        $fnsku = $product->FNSKUviewer;
-        $asin = $product->ASINviewer;
-        $title = $product->AStitle ?? '';
-        $subvariant = $product->subvariant ?? '';
-        
-        $zpl = "^XA";
-        
-        // Check if FNSKU equals ASIN
-        if ($fnsku == $asin) {
-            $zpl .= "^FO55,30^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $fnsku . "^FS";
-            $zpl .= "^FO10,140^FB400,1,0,C^ADN,24,24^FD" . $fnsku . "^FS";
-            $zpl .= "^FO30,170^FB400,10,0^AON,17,10^FD" . $condition . "- " . $title . "^FS";
-            if (!empty($subvariant)) {
-                $zpl .= "^FO30,220^FB400,10,0^AON,17,10^FD " . $subvariant . "^FS";
-            }
-        } else {
-            $prefix = substr($fnsku, 0, 2);
+        {
+            $fnsku = $product->FNSKUviewer;
+            $asin = $product->ASINviewer;
+            $title = $product->AStitle ?? '';
+            $subvariant = $product->subvariant ?? '';
+            $storeName = $product->StoreName ?? '';
             
-            // Check if prefix matches B-W[0-9] pattern
-            if (preg_match('/^[B-W][0-9]/', $prefix)) {
-                $barcodeWithoutPrefix = substr($fnsku, 2);
-                $variable1 = $barcodeWithoutPrefix;
-                $variable2 = $barcodeWithoutPrefix . ' - ' . $prefix;
-                
-                $zpl .= "^FO55,30^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $variable1 . "^FS";
-                $zpl .= "^FO10,140^FB400,1,0,C^ADN,24,24^FD" . $variable2 . "^FS";
-                $zpl .= "^FO30,170^FB400,10,0^AON,17,10^FD" . $condition . "- " . $title . "^FS";
-                if (!empty($subvariant)) {
-                    $zpl .= "^FO30,220^FB400,10,0^AON,17,10^FD " . $subvariant . "^FS";
-                }
+            $zpl = "^XA";
+            
+            // Add RT/AR counter before the barcode
+            $isRenovarTech = (stripos($storeName, 'Renovar Tech') !== false || 
+                            stripos($storeName, 'Renovartech') !== false || 
+                            empty($storeName));
+            
+            if ($isRenovarTech) {
+                $zpl .= "^FO350,15^FB100,1,0,R^AON,16,16^FD RT" . sprintf("%05d", $product->rtcounter) . "^FS";
             } else {
+                $zpl .= "^FO350,15^FB100,1,0,R^AON,16,16^FD AR" . sprintf("%05d", $product->rtcounter) . "^FS";
+            }
+            
+            // Check if FNSKU equals ASIN
+            if ($fnsku == $asin) {
                 $zpl .= "^FO55,30^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $fnsku . "^FS";
                 $zpl .= "^FO10,140^FB400,1,0,C^ADN,24,24^FD" . $fnsku . "^FS";
                 $zpl .= "^FO30,170^FB400,10,0^AON,17,10^FD" . $condition . "- " . $title . "^FS";
                 if (!empty($subvariant)) {
                     $zpl .= "^FO30,220^FB400,10,0^AON,17,10^FD " . $subvariant . "^FS";
                 }
+            } else {
+                $prefix = substr($fnsku, 0, 2);
+                
+                // Check if prefix matches B-W[0-9] pattern
+                if (preg_match('/^[B-W][0-9]/', $prefix)) {
+                    $barcodeWithoutPrefix = substr($fnsku, 2);
+                    $variable1 = $barcodeWithoutPrefix;
+                    $variable2 = $barcodeWithoutPrefix . ' - ' . $prefix;
+                    
+                    $zpl .= "^FO55,30^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $variable1 . "^FS";
+                    $zpl .= "^FO10,140^FB400,1,0,C^ADN,24,24^FD" . $variable2 . "^FS";
+                    $zpl .= "^FO30,170^FB400,10,0^AON,17,10^FD" . $condition . "- " . $title . "^FS";
+                    if (!empty($subvariant)) {
+                        $zpl .= "^FO30,220^FB400,10,0^AON,17,10^FD " . $subvariant . "^FS";
+                    }
+                } else {
+                    $zpl .= "^FO55,30^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $fnsku . "^FS";
+                    $zpl .= "^FO10,140^FB400,1,0,C^ADN,24,24^FD" . $fnsku . "^FS";
+                    $zpl .= "^FO30,170^FB400,10,0^AON,17,10^FD" . $condition . "- " . $title . "^FS";
+                    if (!empty($subvariant)) {
+                        $zpl .= "^FO30,220^FB400,10,0^AON,17,10^FD " . $subvariant . "^FS";
+                    }
+                }
             }
+            
+            $zpl .= "^XZ";
+            return $zpl;
         }
-        
-        $zpl .= "^XZ";
-        return $zpl;
-    }
 
     /**
      * Generate title label with RT/AR package number - EXACT replication from original

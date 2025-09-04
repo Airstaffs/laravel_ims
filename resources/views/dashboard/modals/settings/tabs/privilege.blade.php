@@ -118,6 +118,7 @@
                             fbmorder: 'FBM Order',
                             houseage: 'Houseage',
                             printer: 'Printer',
+                            announcement: 'Announcement',
                         }
                     };
 
@@ -252,6 +253,7 @@
                         'notfound': 'Not Found',
                         'houseage': 'Houseage',
                         'printer': 'Printer',
+                        'announcement': 'Announcement',
                     }
                 };
 
@@ -433,6 +435,10 @@
         {
             db: 'printer',
             display: 'Printer'
+        },
+        {
+            db: 'announcement',
+            display: 'Announcement'
         }
         ];
 
@@ -700,6 +706,9 @@
         console.log('🔴 updateUserNavigation: Setting nav HTML, contains printer?', navHTML.includes('printer'));
         nav.innerHTML = navHTML;
 
+        // Update the announcement icon in the navbar based on privileges
+        updateAnnouncementIcon(data.sub_modules);
+
         // Verify printer link after update
         setTimeout(() => {
             const printerLink = nav.querySelector('[data-module="printer"]');
@@ -821,4 +830,22 @@
             fetchUserPrivileges(selectedUserId);
         }
     };
+
+    // icon visibility in navbar
+        function updateAnnouncementIcon(subModules) {
+            const announcementIcon = document.querySelector('a[data-bs-target="#annManageModal"]');
+            const announcementIconParent = announcementIcon ? announcementIcon.closest('li.nav-item') : null;
+            
+            if (announcementIconParent) {
+                const hasAnnouncementPrivilege = subModules && subModules.includes('announcement');
+                
+                if (hasAnnouncementPrivilege) {
+                    announcementIconParent.style.display = 'block';
+                    console.log('Announcement icon shown in navbar');
+                } else {
+                    announcementIconParent.style.display = 'none';
+                    console.log('Announcement icon hidden in navbar');
+                }
+            }
+        }
 </script>

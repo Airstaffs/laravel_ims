@@ -19,149 +19,162 @@
 
 <!-- Manage Announcements Modal -->
 <div class="modal fade" id="annManageModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-overlay"></div>
+    <div class="ann-modal-underlay" id="annManageUnderlay" aria-hidden="true"></div>
 
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2 class="modal-title">Announcements</h2>
-            <button class="btn btn-close"></button>
-        </div>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="has-button">
+                    <h5 class="modal-title">Announcements</h5>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="ANN.openCompose()">
+                        <i class="bi bi-plus-lg"></i> New
+                    </button>
+                </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
 
-        <div class="modal-body">
-            <form class="modal-controls" onsubmit="event.preventDefault(); ANN.refreshManage();">
-                <fieldset>
-                    <label>Status</label>
-                    <select id="annFilterStatus" class="form-select form-select-sm" onchange="ANN.refreshManage()">
-                        <option value="all">All</option>
-                        <option value="active">Active</option>
-                        <option value="draft">Draft</option>
-                    </select>
-                </fieldset>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault(); ANN.refreshManage();">
+                    <fieldset>
+                        <label>Status</label>
+                        <select id="annFilterStatus" class="form-control form-select form-select-sm"
+                            onchange="ANN.refreshManage()">
+                            <option value="all">All</option>
+                            <option value="active">Active</option>
+                            <option value="draft">Draft</option>
+                        </select>
+                    </fieldset>
 
-                <fieldset>
-                    <label>Search (Title/Message)</label>
-                    <input id="annFilterQ" type="search" class="form-control form-control-sm" placeholder="Search…"
-                        oninput="ANN.debouncedRefresh()" />
-                </fieldset>
+                    <fieldset>
+                        <label>Search (title/message)</label>
+                        <input id="annFilterQ" type="search" class="form-control form-control-sm" placeholder="Search…"
+                            oninput="ANN.debouncedRefresh()" />
+                    </fieldset>
 
-                <button class="btn btn-outline-secondary btn-sm" type="button" onclick="ANN.refreshManage()">
-                    Refresh
-                </button>
-            </form>
+                    <button class="btn btn-outline-secondary btn-sm" type="button"
+                        onclick="ANN.refreshManage()">Refresh</button>
+                </form>
 
-            <table class="table align-middle table-hover mb-0">
-                <thead class="table-light sticky-top">
-                    <tr>
-                        <th style="width:70px;">#</th>
-                        <th>Title</th>
-                        <th>Status</th>
-                        <th>Window</th>
-                        <th>Recipients</th>
-                        <th style="width:180px;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="annManageTbody">
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">Loading…</td>
-                    </tr>
-                </tbody>
-            </table>
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width:70px;">#</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Window</th>
+                                <th>Recipients</th>
+                                <th style="width:180px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="annManageTbody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-light" data-bs-dismiss="modal">Close</button>
+            </div>
         </div>
     </div>
-</div>
 
-<!-- Compose/Edit Announcement Modal -->
-<div class="modal fade" id="annComposeModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <form id="annComposeForm" onsubmit="ANN.submitCompose(); return false;">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="annComposeTitle">New Announcement</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
-                        onclick="ANN.resetCompose()"></button>
-                </div>
-
-
-                <!-- 👇 modal-body will scroll if too tall -->
-                <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
-                    <input type="hidden" id="annId" value="">
-
-                    <div class="mb-2">
-                        <label class="form-label">Title<span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="annTitle" maxlength="255" required>
+    <!-- Compose/Edit Announcement Modal -->
+    <div class="modal fade" id="annComposeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <form id="annComposeForm" onsubmit="ANN.submitCompose(); return false;">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="annComposeTitle">New Announcement</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"
+                            onclick="ANN.resetCompose()"></button>
                     </div>
 
-                    <div class="mb-2">
-                        <label class="form-label">Message</label>
-                        <textarea class="form-control" id="annMessage" rows="5"></textarea>
-                    </div>
 
-                    <div class="row g-2">
-                        <div class="col">
-                            <label class="form-label">Start (local)</label>
-                            <input type="datetime-local" class="form-control" id="annStartAt">
+                    <!-- 👇 modal-body will scroll if too tall -->
+                    <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+                        <input type="hidden" id="annId" value="">
+
+                        <div class="mb-2">
+                            <label class="form-label">Title<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="annTitle" maxlength="255" required>
                         </div>
-                        <div class="col">
-                            <label class="form-label">End (local)</label>
-                            <input type="datetime-local" class="form-control" id="annEndAt">
+
+                        <div class="mb-2">
+                            <label class="form-label">Message</label>
+                            <textarea class="form-control" id="annMessage" rows="5"></textarea>
                         </div>
-                    </div>
 
-                    <div class="mt-3">
-                        <label class="form-label">Status</label>
-                        <div class="btn-group" role="group" aria-label="Status">
-                            <input type="radio" class="btn-check" name="annStatus" id="annStatusDraft"
-                                autocomplete="off" checked>
-                            <label class="btn btn-outline-secondary" for="annStatusDraft">Draft</label>
-
-                            <input type="radio" class="btn-check" name="annStatus" id="annStatusActive"
-                                autocomplete="off">
-                            <label class="btn btn-outline-success" for="annStatusActive">Active</label>
-                        </div>
-                    </div>
-
-                    <hr>
-
-                    <div class="mb-2">
-                        <label class="form-label">Recipients</label>
-
-                        <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="annGroupPH"
-                                    onchange="ANN.applyGroupSelection()">
-                                <label class="form-check-label" for="annGroupPH">PH group</label>
+                        <div class="row g-2">
+                            <div class="col">
+                                <label class="form-label">Start (local)</label>
+                                <input type="datetime-local" class="form-control" id="annStartAt">
                             </div>
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="annGroupUS"
-                                    onchange="ANN.applyGroupSelection()">
-                                <label class="form-check-label" for="annGroupUS">US group</label>
-                            </div>
-
-                            <div class="ms-auto">
-                                <button type="button" class="btn btn-sm btn-outline-secondary me-1"
-                                    onclick="ANN.checkAll(true)">Check all</button>
-                                <button type="button" class="btn btn-sm btn-outline-secondary"
-                                    onclick="ANN.checkAll(false)">Uncheck all</button>
+                            <div class="col">
+                                <label class="form-label">End (local)</label>
+                                <input type="datetime-local" class="form-control" id="annEndAt">
                             </div>
                         </div>
 
-                        <input id="annRecipientsFilter" type="search" class="form-control form-control-sm mb-2"
-                            placeholder="Filter recipients…" oninput="ANN.filterRecipients()">
+                        <div class="mt-3">
+                            <label class="form-label">Status</label>
+                            <div class="btn-group" role="group" aria-label="Status">
+                                <input type="radio" class="btn-check" name="annStatus" id="annStatusDraft"
+                                    autocomplete="off" checked>
+                                <label class="btn btn-outline-secondary" for="annStatusDraft">Draft</label>
 
-                        <div id="annRecipientsList" class="list-group" style="max-height: 250px; overflow-y: auto;">
+                                <input type="radio" class="btn-check" name="annStatus" id="annStatusActive"
+                                    autocomplete="off">
+                                <label class="btn btn-outline-success" for="annStatusActive">Active</label>
+                            </div>
                         </div>
-                        <small class="text-muted">Leave empty to send to everyone.</small>
-                    </div>
-                </div>
 
-                <div class="modal-footer">
-                    <button class="btn btn-light" type="button" data-bs-dismiss="modal"
-                        onclick="ANN.resetCompose()">Cancel</button>
-                    <button class="btn btn-primary" type="submit" id="annSaveBtn">Save</button>
-                    <button class="btn btn-success" type="button" onclick="ANN.submitCompose('active')"
-                        id="annPublishBtn">Save & Activate</button>
-                </div>
-            </form>
+                        <hr>
+
+                        <div class="mb-2">
+                            <label class="form-label">Recipients</label>
+
+                            <div class="d-flex flex-wrap gap-3 align-items-center mb-2">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="annGroupPH"
+                                        onchange="ANN.applyGroupSelection()">
+                                    <label class="form-check-label" for="annGroupPH">PH group</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="annGroupUS"
+                                        onchange="ANN.applyGroupSelection()">
+                                    <label class="form-check-label" for="annGroupUS">US group</label>
+                                </div>
+
+                                <div class="ms-auto">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary me-1"
+                                        onclick="ANN.checkAll(true)">Check all</button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                                        onclick="ANN.checkAll(false)">Uncheck all</button>
+                                </div>
+                            </div>
+
+                            <input id="annRecipientsFilter" type="search" class="form-control form-control-sm mb-2"
+                                placeholder="Filter recipients…" oninput="ANN.filterRecipients()">
+
+                            <div id="annRecipientsList" class="list-group" style="max-height: 250px; overflow-y: auto;">
+                            </div>
+                            <small class="text-muted">Leave empty to send to everyone.</small>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button class="btn btn-light" type="button" data-bs-dismiss="modal"
+                            onclick="ANN.resetCompose()">Cancel</button>
+                        <button class="btn btn-primary" type="submit" id="annSaveBtn">Save</button>
+                        <button class="btn btn-success" type="button" onclick="ANN.submitCompose('active')"
+                            id="annPublishBtn">Save & Activate</button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -494,9 +507,8 @@
         // auto-init once DOM is ready
         init();
     });
-</script>
 
-<script>
+    // 
     (() => {
         const ANN_ENDPOINT = 'hr/dash/announcements';
         const ACK_ENDPOINT = 'hr/dash/announcements/acknowledge';
@@ -613,3 +625,55 @@
         });
     })();
 </script>
+
+<style>
+    /* Ensure the dialog is above the underlay */
+    #annManageModal .modal-dialog {
+        position: relative;
+        z-index: 2;
+    }
+
+    /* The underlay sits inside the modal, below the dialog */
+    #annManageModal .ann-modal-underlay {
+        position: fixed;
+        /* follow viewport like Bootstrap backdrop */
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(2px);
+        opacity: 0;
+        /* hidden by default */
+        pointer-events: none;
+        /* never block clicks to the dialog */
+        transition: opacity .18s ease-in-out;
+        z-index: 1;
+        /* below .modal-dialog (z-index:2 above) */
+    }
+
+    /* When modal is shown, fade the underlay in */
+    #annManageModal.show .ann-modal-underlay {
+        opacity: 1;
+    }
+
+    .modal-header .has-button {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+    }
+
+    #annManageModal .modal-body {
+        padding: 20px;
+    }
+
+
+    #annManageModal .modal-body form {
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-end;
+        gap: 10px;
+    }
+
+    #annManageModal .modal-body form button {
+        height: 40px;
+    }
+</style>

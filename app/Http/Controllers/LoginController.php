@@ -225,6 +225,7 @@ class LoginController extends Controller
             'asinlist',
             'printer',
             'humanresource',
+            'announcement',
         ];
 
         $activeSubModules = array_filter($subModules, function ($module) use ($user) {
