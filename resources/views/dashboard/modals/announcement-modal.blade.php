@@ -21,63 +21,63 @@
 <div class="modal fade" id="annManageModal" tabindex="-1" aria-hidden="true">
     <div class="ann-modal-underlay" id="annManageUnderlay" aria-hidden="true"></div>
 
-    <div class="modal-dialog modal-lg modal-dialog-scrollable ann-modal">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-content">
-                <div class="modal-header">
+            <div class="modal-header">
+                <div class="has-button">
                     <h5 class="modal-title">Announcements</h5>
                     <button type="button" class="btn btn-primary btn-sm" onclick="ANN.openCompose()">
                         <i class="bi bi-plus-lg"></i> New
                     </button>
-                    <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
+                <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
 
-                <div class="modal-body">
-                    <form onsubmit="event.preventDefault(); ANN.refreshManage();">
-                        <fieldset>
-                            <label>Status</label>
-                            <select id="annFilterStatus" class="form-select form-select-sm"
-                                onchange="ANN.refreshManage()">
-                                <option value="all">All</option>
-                                <option value="active">Active</option>
-                                <option value="draft">Draft</option>
-                            </select>
-                        </fieldset>
+            <div class="modal-body">
+                <form onsubmit="event.preventDefault(); ANN.refreshManage();">
+                    <fieldset>
+                        <label>Status</label>
+                        <select id="annFilterStatus" class="form-control form-select form-select-sm"
+                            onchange="ANN.refreshManage()">
+                            <option value="all">All</option>
+                            <option value="active">Active</option>
+                            <option value="draft">Draft</option>
+                        </select>
+                    </fieldset>
 
-                        <fieldset>
-                            <label>Search (title/message)</label>
-                            <input id="annFilterQ" type="search" class="form-control form-control-sm"
-                                placeholder="Search…" oninput="ANN.debouncedRefresh()" />
-                        </fieldset>
+                    <fieldset>
+                        <label>Search (title/message)</label>
+                        <input id="annFilterQ" type="search" class="form-control form-control-sm" placeholder="Search…"
+                            oninput="ANN.debouncedRefresh()" />
+                    </fieldset>
 
-                        <button class="btn btn-outline-secondary btn-sm" type="button"
-                            onclick="ANN.refreshManage()">Refresh</button>
-                    </form>
+                    <button class="btn btn-outline-secondary btn-sm" type="button"
+                        onclick="ANN.refreshManage()">Refresh</button>
+                </form>
 
-                    <div class="table-responsive mt-3">
-                        <table class="table table-sm align-middle">
-                            <thead>
-                                <tr>
-                                    <th style="width:70px;">#</th>
-                                    <th>Title</th>
-                                    <th>Status</th>
-                                    <th>Window</th>
-                                    <th>Recipients</th>
-                                    <th style="width:180px;">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="annManageTbody">
-                                <tr>
-                                    <td colspan="6" class="text-center text-muted py-4">Loading…</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width:70px;">#</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Window</th>
+                                <th>Recipients</th>
+                                <th style="width:180px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="annManageTbody">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-4">Loading…</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
+            </div>
 
-                <div class="modal-footer">
-                    <button class="btn btn-light" data-bs-dismiss="modal">Close</button>
-                </div>
+            <div class="modal-footer">
+                <button class="btn btn-light" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -507,9 +507,8 @@
         // auto-init once DOM is ready
         init();
     });
-</script>
 
-<script>
+    // 
     (() => {
         const ANN_ENDPOINT = 'hr/dash/announcements';
         const ACK_ENDPOINT = 'hr/dash/announcements/acknowledge';
@@ -653,5 +652,28 @@
     /* When modal is shown, fade the underlay in */
     #annManageModal.show .ann-modal-underlay {
         opacity: 1;
+    }
+
+    .modal-header .has-button {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+    }
+
+    #annManageModal .modal-body {
+        padding: 20px;
+    }
+
+
+    #annManageModal .modal-body form {
+        display: flex;
+        justify-content: flex-start;
+        align-items: flex-end;
+        gap: 10px;
+    }
+
+    #annManageModal .modal-body form button {
+        height: 40px;
     }
 </style>
