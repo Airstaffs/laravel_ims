@@ -329,6 +329,23 @@ export default {
             // Employees
             employees: [],
             newEmployee: { name: "", position: "" },
+            employeeModal: {
+                show: false,
+                tab: "details", // 'details' | 'rate'
+                selectedEmployee: null,
+            },
+
+            // Read-only profile pulled from tbluser_profile
+            profile: {
+                full_name: null,
+                work_email: null,
+                contact_phone: null,
+                birthdate: null,
+                address: null,
+                ice_name: null,
+                ice_relationship: null,
+                ice_phone: null,
+            },
 
             // Rate editor modal state
             showRateModal: false,
@@ -425,6 +442,9 @@ export default {
                 unpaid_break_minutes: 60,
                 title: "",
                 is_active: true,
+                early_login_mins: 0,
+                early_clockin_mins: 15,
+                grace_clockout_mins: 10,
             },
             sched_editTId: null,
 
@@ -661,6 +681,68 @@ export default {
                 this.loading.employees = false;
                 this.loaded.employees = true;
             }
+        },
+
+        async openEmployeeModal(emp) {
+            this.employeeModal.selectedEmployee = emp || null;
+            this.employeeModal.tab = "details";
+            this.employeeModal.show = true;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/hr/profile/${emp.id}`);
+                const data = await res.json().catch(() => ({}));
+                // backend shape: { user: {...}, profile: {...} }
+                this.profile = data?.profile || {};
+                // (Optional) If you want to show role/email in the header later:
+                this.employeeModal.selectedEmployeeUser = data?.user || null;
+            } catch (e) {
+                console.error("Failed to load profile", e);
+                this.profile = {};
+            }
+
+            // Preload rate form (unchanged)
+            const today = new Date().toISOString().slice(0, 10);
+            this.rateForm = {
+                employee_id: emp.id,
+                employee_username: emp.username || emp.name || null,
+                effective_start: today,
+                effective_end: null,
+                monthly_rate: null,
+                hourly_rate: null,
+                currency: "PHP",
+            };
+        },
+
+        setEmployeeModalTab(tab) {
+            if (tab === "details" || tab === "rate")
+                this.employeeModal.tab = tab;
+        },
+
+        closeEmployeeModal() {
+            this.employeeModal.show = false;
+            this.employeeModal.selectedEmployee = null;
+
+            this.profile = {
+                full_name: null,
+                work_email: null,
+                contact_phone: null,
+                birthdate: null,
+                address: null,
+                ice_name: null,
+                ice_relationship: null,
+                ice_phone: null,
+            };
+
+            // neutral reset; no out-of-scope vars
+            this.rateForm = {
+                employee_id: null,
+                employee_username: null,
+                effective_start: "",
+                effective_end: null,
+                monthly_rate: null,
+                hourly_rate: null,
+                currency: "PHP",
+            };
         },
 
         // edit employee rate
@@ -1537,6 +1619,9 @@ export default {
                 unpaid_break_minutes: 60,
                 title: "",
                 is_active: true,
+                early_login_mins: 0,
+                early_clockin_mins: 15,
+                grace_clockout_mins: 10,
             };
         },
 
@@ -1635,6 +1720,9 @@ export default {
                     unpaid_break_minutes: f.unpaid_break_minutes,
                     title: f.title || undefined,
                     is_active: !!f.is_active,
+                    early_login_mins: Number(f.early_login_mins ?? 0),
+                    early_clockin_mins: Number(f.early_clockin_mins ?? 0),
+                    grace_clockout_mins: Number(f.grace_clockout_mins ?? 0),
                 };
 
                 if (this.sched_editTId) {
@@ -1700,6 +1788,10 @@ export default {
                 unpaid_break_minutes: Number(row.unpaid_break_minutes),
                 title: row.title || "",
                 is_active: Number(row.is_active) === 1,
+
+                early_login_mins: Number(row.early_login_mins || 0),
+                early_clockin_mins: Number(row.early_clockin_mins || 0),
+                grace_clockout_mins: Number(row.grace_clockout_mins || 0),
             };
         },
 
@@ -1979,6 +2071,12 @@ export default {
                 editForm: this.editForm,
                 editOriginal: this.editOriginal,
                 submittingEdit: this.submittingEdit,
+
+                employeeModal: this.employeeModal,
+                profile: this.profile,
+                openEmployeeModal: (emp) => this.openEmployeeModal(emp),
+                setEmployeeModalTab: (tab) => this.setEmployeeModalTab(tab),
+                closeEmployeeModal: () => this.closeEmployeeModal(),
 
                 // rate modal state
                 showRateModal: this.showRateModal,

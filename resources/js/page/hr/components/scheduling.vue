@@ -141,6 +141,52 @@
                         />
                     </fieldset>
                     <fieldset>
+                        <label>Allowed early login (mins)</label>
+                        <input
+                            class="form-control"
+                            type="number"
+                            min="0"
+                            max="180"
+                            v-model.number="ctx.sched_tForm.early_login_mins"
+                        />
+                        <p class="hint">
+                            How many minutes before shift start a user may log
+                            into the system.
+                        </p>
+                    </fieldset>
+
+                    <fieldset>
+                        <label>Allowed early clock-in (mins)</label>
+                        <input
+                            class="form-control"
+                            type="number"
+                            min="0"
+                            max="180"
+                            v-model.number="ctx.sched_tForm.early_clockin_mins"
+                        />
+                        <p class="hint">
+                            How many minutes before shift start a user can clock
+                            in.
+                        </p>
+                    </fieldset>
+
+                    <fieldset>
+                        <label
+                            >Clock-out grace before auto clock-out (mins)</label
+                        >
+                        <input
+                            class="form-control"
+                            type="number"
+                            min="0"
+                            max="180"
+                            v-model.number="ctx.sched_tForm.grace_clockout_mins"
+                        />
+                        <p class="hint">
+                            Minutes after shift end before auto clock-out
+                            triggers.
+                        </p>
+                    </fieldset>
+                    <fieldset>
                         <label>Title (optional)</label>
                         <input
                             class="form-control"
@@ -327,6 +373,9 @@
                                     <th>Day</th>
                                     <th>Window</th>
                                     <th>Break</th>
+                                    <th>Early Login</th>
+                                    <th>Early In</th>
+                                    <th>Grace Out</th>
                                     <th>Title</th>
                                     <th>Status</th>
                                     <th>Actions</th>
@@ -359,6 +408,17 @@
                                         >
                                     </td>
                                     <td>{{ row.unpaid_break_minutes }} min</td>
+                                    <td>
+                                        {{ minsOrDash(row.early_login_mins) }}
+                                    </td>
+                                    <td>
+                                        {{ minsOrDash(row.early_clockin_mins) }}
+                                    </td>
+                                    <td>
+                                        {{
+                                            minsOrDash(row.grace_clockout_mins)
+                                        }}
+                                    </td>
                                     <td
                                         class="text-truncate"
                                         style="max-width: 280px"
@@ -840,6 +900,11 @@ function maskFromArray(arr) {
 function arrayFromMask(mask) {
     const bits = Number(mask || 0);
     return DAYS.filter((d) => (bits & d.v) > 0).map((d) => d.v);
+}
+
+function minsOrDash(v) {
+    const n = Number(v ?? 0);
+    return n > 0 ? `${n} min` : "—";
 }
 </script>
 

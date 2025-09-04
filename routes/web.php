@@ -726,6 +726,7 @@ Route::prefix('hr')->group(function () {
     Route::get('/account/details', [HrController::class, 'getUserProfileDetails'])
         ->name('account.details')->middleware('auth');
 
+    Route::get('/profile/{userId}', [HrController::class, 'getUserProfileDetailsById']);
     Route::post('/account/update-details', [HrController::class, 'updateUserProfileDetails'])
         ->name('account.update-details')->middleware('auth');
 });

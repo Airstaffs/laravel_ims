@@ -80,6 +80,33 @@ a.dropdown-item {
     margin: 0;
 }
 
+.modal.modal-employeeDetails {
+  position: fixed;
+  inset: 0;
+  display: flex;                /* <-- makes it visible */
+  align-items: center;
+  justify-content: center;
+  z-index: 1;                /* above page content */
+}
+
+.modal-employeeDetails .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 0;
+}
+
+.modal-employeeDetails .modal-content {
+  position: relative;
+  z-index: 1057;
+  width: 1000px;                /* tweak as you like */
+  max-width: 95vw;
+  max-height: 85vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: .5rem;
+}
+
 /* Time Record */
 .time-record-wrapper form {
     display: flex;

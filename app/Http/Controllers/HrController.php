@@ -54,6 +54,32 @@ class HrController extends Controller
         return response()->json($employees);
     }
 
+        public function showemployeedetails($userId)
+    {
+        $profile = DB::table('tbluser_profile')
+            ->where('user_id', $userId)
+            ->first();
+
+        // Fallback: if missing, seed from tbluser (optional)
+        if (!$profile) {
+            $u = DB::table('tbluser')->where('id', $userId)->first();
+            if ($u) {
+                $profile = (object)[
+                    'full_name'       => $u->username,
+                    'work_email'      => $u->email,
+                    'contact_phone'   => null,
+                    'birthdate'       => null,
+                    'address'         => null,
+                    'ice_name'        => null,
+                    'ice_relationship'=> null,
+                    'ice_phone'       => null,
+                ];
+            }
+        }
+
+        return response()->json(['profile' => $profile]);
+    }
+
     public function getEmployeeRateHistory(Request $request)
     {
         $employeeId = $request->query('employee_id');
@@ -940,11 +966,12 @@ class HrController extends Controller
     public function updateTimesched($id, Request $r)
     {
         $row = DB::table('tbltimesched')->where('timeschedId', $id)->first();
-        if (!$row)
+        if (!$row) {
             return response()->json(['success' => false, 'error' => 'not found'], 404);
+        }
 
         $d = $r->validate([
-            'days_mask' => 'nullable|integer|min:0|max:127',     // NEW
+            'days_mask' => 'nullable|integer|min:0|max:127',
             'day_of_week' => 'nullable|integer|min:0|max:7',
             'start_time' => 'nullable|date_format:H:i',
             'end_time' => 'nullable|date_format:H:i',
@@ -952,9 +979,13 @@ class HrController extends Controller
             'unpaid_break_minutes' => 'nullable|integer|min:0|max:600',
             'title' => 'nullable|string|max:120',
             'is_active' => 'nullable|boolean',
+            // NEW
+            'early_login_mins' => ['nullable', 'integer', 'min:0', 'max:180'],
+            'early_clockin_mins' => ['nullable', 'integer', 'min:0', 'max:180'],
+            'grace_clockout_mins' => ['nullable', 'integer', 'min:0', 'max:180'],
         ]);
 
-        // Normalize days (fall back to existing values when not provided)
+        // Normalize days (fall back to existing when not provided)
         $req = new Request([
             'days_mask' => $d['days_mask'] ?? $row->days_mask,
             'day_of_week' => $d['day_of_week'] ?? $row->day_of_week,
@@ -980,6 +1011,11 @@ class HrController extends Controller
             'unpaid_break_minutes' => (int) ($d['unpaid_break_minutes'] ?? $row->unpaid_break_minutes),
             'title' => $d['title'] ?? $this->makeTitleFromMask($mask, $start, $end, $overn),
             'is_active' => (int) ($d['is_active'] ?? $row->is_active),
+            // NEW (preserve existing if not provided)
+            'early_login_mins' => array_key_exists('early_login_mins', $d) ? (int) $d['early_login_mins'] : (int) $row->early_login_mins,
+            'early_clockin_mins' => array_key_exists('early_clockin_mins', $d) ? (int) $d['early_clockin_mins'] : (int) $row->early_clockin_mins,
+            'grace_clockout_mins' => array_key_exists('grace_clockout_mins', $d) ? (int) $d['grace_clockout_mins'] : (int) $row->grace_clockout_mins,
+
             'updated_by' => Auth::id(),
             'updated_at' => $this->dbNow(),
         ];
@@ -1191,5 +1227,37 @@ class HrController extends Controller
 
         return response()->json(['ok' => true, 'message' => 'Account details updated.']);
     }
+
+    public function getUserProfileDetailsById($userId)
+{
+    // Optional: gate this (e.g., only HR/admin)
+    // abort_unless(auth()->user() && auth()->user()->office_role === 'admin', 403);
+
+    $user = DB::table('tbluser')->where('id', $userId)->first();
+    if (!$user) {
+        return response()->json(['message' => 'User not found'], 404);
+    }
+
+    $profile = DB::table('tbluser_profile')->where('user_id', $userId)->first();
+
+    return response()->json([
+        'user' => [
+            'username'     => $user->username ?? null,
+            'office_role'  => $user->office_role ?? $user->role ?? null,
+            'accounttype'  => $user->accounttype ?? null,
+            'email'        => $user->email ?? null,
+        ],
+        'profile' => [
+            'full_name'        => $profile->full_name ?? ($user->username ?? ''),
+            'work_email'       => $profile->work_email ?? ($user->email ?? ''),
+            'contact_phone'    => $profile->contact_phone ?? '',
+            'birthdate'        => $profile->birthdate ?? '',
+            'address'          => $profile->address ?? '',
+            'ice_name'         => $profile->ice_name ?? '',
+            'ice_relationship' => $profile->ice_relationship ?? '',
+            'ice_phone'        => $profile->ice_phone ?? '',
+        ],
+    ]);
+}
 
 }
