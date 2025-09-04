@@ -1,5 +1,5 @@
 <!-- Enhanced Marry Printers Modal -->
-<div class="modal fade" id="marryPrintersModal" tabindex="-1" aria-labelledby="marryPrintersModalLabel"
+<div class="modal modal-printer fade" id="marryPrintersModal" tabindex="-1" aria-labelledby="marryPrintersModalLabel"
     aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content marry-modal-content">
@@ -110,8 +110,8 @@
     </div>
 </div> <!-- Enhanced Edit Printer Modal -->
 
-<div class="modal fade" id="editPrinterModal" tabindex="-1" aria-labelledby="editPrinterModalLabel" aria-hidden="true"
-    data-bs-backdrop="static">
+<div class="modal modal-printer fade" id="editPrinterModal" tabindex="-1" aria-labelledby="editPrinterModalLabel"
+    aria-hidden="true" data-bs-backdrop="static">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content edit-printer-modal-content">
             <div class="modal-header edit-printer-modal-header">
@@ -401,8 +401,8 @@
 
 @push('modals')
     <!-- Enhanced Add Printer Modal -->
-    <div class="modal fade" id="addPrinterModal" tabindex="-1" aria-labelledby="addPrinterModalLabel" aria-hidden="true"
-        data-bs-backdrop="static">
+    <div class="modal modal-printer fade" id="addPrinterModal" tabindex="-1" aria-labelledby="addPrinterModalLabel"
+        aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content add-printer-modal-content">
                 <div class="modal-header add-printer-modal-header">
@@ -512,8 +512,8 @@
     </div>
 
     <!-- Edit Printer Modal -->
-    <div class="modal fade" id="editPrinterModal" tabindex="-1" aria-labelledby="editPrinterModalLabel" aria-hidden="true"
-        data-bs-backdrop="static">
+    <div class="modal modal-printer fade" id="editPrinterModal" tabindex="-1" aria-labelledby="editPrinterModalLabel"
+        aria-hidden="true" data-bs-backdrop="static">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content printer-modal-content-fix">
                 <div class="modal-header printer-modal-header-fix">
@@ -631,7 +631,7 @@
     </div>
 
     <!-- Delete Printer Confirmation Modal -->
-    <div class="modal fade" id="deletePrinterModal" tabindex="-1" aria-labelledby="deletePrinterModalLabel"
+    <div class="modal modal-printer fade" id="deletePrinterModal" tabindex="-1" aria-labelledby="deletePrinterModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-sm modal-dialog-centered">
             <div class="modal-content">
@@ -658,7 +658,7 @@
     </div>
 
     <!-- Enhanced Marry Printers Modal -->
-    <div class="modal fade" id="marryPrintersModal" tabindex="-1" aria-labelledby="marryPrintersModalLabel"
+    <div class="modal modal-printer fade" id="marryPrintersModal" tabindex="-1" aria-labelledby="marryPrintersModalLabel"
         aria-hidden="true">
         <div class="modal-dialog modal-lg modal-dialog-centered">
             <div class="modal-content marry-modal-content">
@@ -815,40 +815,18 @@
     /* ===== ENHANCED MODAL MANAGEMENT CSS ===== */
 
     /* Base modal z-index hierarchy */
-    .modal {
-        z-index: 1050 !important;
-    }
-
-    .modal-backdrop {
-        z-index: 1040 !important;
-    }
-
-    /* Settings modal base layer */
-    #settingsModal {
-        z-index: 1050 !important;
-    }
-
-    #settingsModal .modal-backdrop {
-        z-index: 1040 !important;
-    }
 
     /* Printer modals - higher layer */
-    #addPrinterModal,
-    #editPrinterModal,
-    #deletePrinterModal,
-    #marryPrintersModal {
+    .modal-printer {
         z-index: 1055 !important;
     }
 
-    #addPrinterModal .modal-backdrop,
-    #editPrinterModal .modal-backdrop,
-    #deletePrinterModal .modal-backdrop,
-    #marryPrintersModal .modal-backdrop {
+    .modal-printer .modal-backdrop {
         z-index: 1050 !important;
     }
 
     /* Force modal content to be fully opaque and interactive */
-    .modal-content {
+    .modal-printer .modal-content {
         background-color: #fff !important;
         opacity: 1 !important;
         filter: none !important;
@@ -857,48 +835,49 @@
         z-index: 1 !important;
     }
 
-    .modal-dialog {
+    .modal-printer .modal-dialog {
         pointer-events: auto !important;
         opacity: 1 !important;
     }
 
     /* Ensure modal backdrops don't interfere */
-    .modal-backdrop {
+    .modal-printer .modal-backdrop {
         pointer-events: none !important;
         background-color: rgba(0, 0, 0, 0.5) !important;
     }
 
-    .modal-backdrop.show {
+    .modal-printer .modal-backdrop.show {
         opacity: 0.5 !important;
     }
 
     /* Prevent multiple backdrop stacking */
-    .modal-backdrop+.modal-backdrop {
+    .modal-printer .modal-backdrop+.modal-backdrop {
         display: none !important;
     }
 
     /* Force visibility and interaction for all modal elements */
-    .modal.show {
+
+    .modal-printer .modal.show {
         display: block !important;
         opacity: 1 !important;
     }
 
-    .modal.show .modal-dialog {
+    .modal-printer .modal.show .modal-dialog {
         transform: none !important;
         opacity: 1 !important;
     }
 
-    .modal.show .modal-content {
+    .modal-printer .modal.show .modal-content {
         opacity: 1 !important;
         transform: none !important;
         pointer-events: auto !important;
         background: #fff !important;
     }
 
-    .modal.show input,
-    .modal.show select,
-    .modal.show textarea,
-    .modal.show button {
+    .modal.modal-printer .show input,
+    .modal.modal-printer .show select,
+    .modal.modal-printer .show textarea,
+    .modal.modal-printer .show button {
         pointer-events: auto !important;
         opacity: 1 !important;
     }
@@ -910,7 +889,7 @@
     }
 
     /* Toast container - highest z-index */
-    .toast-container {
+    .modal-printer .toast-container {
         z-index: 9999 !important;
         position: fixed !important;
         top: 1rem !important;
@@ -918,12 +897,12 @@
     }
 
     /* Critical fixes for backdrop issues */
-    body:not(.modal-open) .modal-backdrop {
+    .modal-printer body:not(.modal-open) .modal-backdrop {
         display: none !important;
     }
 
     /* Ensure only one backdrop exists at a time */
-    .modal-backdrop:not(:last-of-type) {
+    .modal-printer .modal-backdrop:not(:last-of-type) {
         display: none !important;
     }
 
@@ -937,12 +916,12 @@
     }
 
     /* Prevent gray overlay stacking */
-    .modal-backdrop.fade {
+    .modal-printer .modal-backdrop.fade {
         opacity: 0;
         transition: opacity 0.15s linear;
     }
 
-    .modal-backdrop.show {
+    .modal-printer .modal-backdrop.show {
         opacity: 0.5;
     }
 
