@@ -22,6 +22,8 @@ class BasetablesController extends Controller
     protected $doneShippingTable;
     protected $capturedImagesTable;   // Added for image management
     protected $rpnStickerTable;   // Added for image management
+    protected $systemSettingsTable; // System settings table
+    protected $recipientsTable;     // Recipients/email table
     
     /**
      * Constructor to set up company from the authenticated user
@@ -69,8 +71,9 @@ class BasetablesController extends Controller
             $this->addItemStockroomLogsTable = $this->getTableName('additemstockroomlogs');
             $this->doneShippingTable = $this->getTableName('doneshipping');
             $this->capturedImagesTable = $this->getTableName('capturedimages'); // Initialize captured images table
-            
             $this->rpnStickerTable = $this->getTableName('rpnsticker');
+            $this->systemSettingsTable = $this->getTableName('system_settings'); // System settings table
+            $this->recipientsTable = $this->getTableName('recipients'); // Recipients table
             
             // Log table names for debugging
             Log::debug('Table names: ', [
@@ -78,7 +81,9 @@ class BasetablesController extends Controller
                 'fnskuTable' => $this->fnskuTable,
                 'asinTable' => $this->asinTable,
                 'capturedImagesTable' => $this->capturedImagesTable,
-                'rpnStickerTable' => $this->rpnStickerTable
+                'rpnStickerTable' => $this->rpnStickerTable,
+                'systemSettingsTable' => $this->systemSettingsTable,
+                'recipientsTable' => $this->recipientsTable
             ]);
             
         } catch (\Exception $e) {

@@ -161,7 +161,15 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     Route::delete('/delete-user/{id}', [UserController::class, 'destroy'])->name('delete-user');
 
     // System Design Routes
-    Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design');
+Route::get('/get-system-design-data', [SystemDesignController::class, 'getData'])->name('get.system.design.data')->middleware('auth');
+Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design')->middleware('auth');
+
+
+
+
+
+
+
 
     // Store Routes
     Route::get('/get-stores', [StoreController::class, 'getStores']);

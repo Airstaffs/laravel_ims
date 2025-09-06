@@ -10,7 +10,7 @@ class SystemDesign extends Model
     use HasFactory;
 
     // Make sure the table name is correct if it's different from the default
-    protected $table = 'system_design';
+    protected $table = 'tblsystem_settings';
 
     // Ensure you have the fillable or guarded properties set correctly
     protected $fillable = ['site_title', 'theme_color', 'logo'];

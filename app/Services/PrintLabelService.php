@@ -998,11 +998,10 @@ class PrintLabelService extends BasetablesController
                             empty($storeName));
             
             if ($isRenovarTech) {
-                $zpl .= "^FO350,15^FB100,1,0,R^AON,16,16^FD RT" . sprintf("%05d", $product->rtcounter) . "^FS";
+                $zpl .= "^FO290,12^FB150,1,0,R^AON,16,16^FD RT" . sprintf("%05d", $product->rtcounter) . "^FS";
             } else {
-                $zpl .= "^FO350,15^FB100,1,0,R^AON,16,16^FD AR" . sprintf("%05d", $product->rtcounter) . "^FS";
+                $zpl .= "^FO290,12^FB150,1,0,R^AON,16,16^FD AR" . sprintf("%05d", $product->rtcounter) . "^FS";
             }
-            
             // Check if FNSKU equals ASIN
             if ($fnsku == $asin) {
                 $zpl .= "^FO55,30^FB400,2,0,C^AON,24,24^BCN,100,N,N,N,A^FD" . $fnsku . "^FS";
