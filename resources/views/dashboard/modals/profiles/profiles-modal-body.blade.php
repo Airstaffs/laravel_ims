@@ -8,5 +8,6 @@
         @include('dashboard.modals.profiles.tabs.account')
         @include('dashboard.modals.profiles.tabs.record')
         @include('dashboard.modals.profiles.tabs.privilege')
+        @include('dashboard.modals.profiles.tabs.schedule')
     </div>
 </div>

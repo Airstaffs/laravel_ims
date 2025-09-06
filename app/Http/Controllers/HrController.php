@@ -54,7 +54,7 @@ class HrController extends Controller
         return response()->json($employees);
     }
 
-        public function showemployeedetails($userId)
+    public function showemployeedetails($userId)
     {
         $profile = DB::table('tbluser_profile')
             ->where('user_id', $userId)
@@ -64,15 +64,15 @@ class HrController extends Controller
         if (!$profile) {
             $u = DB::table('tbluser')->where('id', $userId)->first();
             if ($u) {
-                $profile = (object)[
-                    'full_name'       => $u->username,
-                    'work_email'      => $u->email,
-                    'contact_phone'   => null,
-                    'birthdate'       => null,
-                    'address'         => null,
-                    'ice_name'        => null,
-                    'ice_relationship'=> null,
-                    'ice_phone'       => null,
+                $profile = (object) [
+                    'full_name' => $u->username,
+                    'work_email' => $u->email,
+                    'contact_phone' => null,
+                    'birthdate' => null,
+                    'address' => null,
+                    'ice_name' => null,
+                    'ice_relationship' => null,
+                    'ice_phone' => null,
                 ];
             }
         }
@@ -1229,35 +1229,209 @@ class HrController extends Controller
     }
 
     public function getUserProfileDetailsById($userId)
-{
-    // Optional: gate this (e.g., only HR/admin)
-    // abort_unless(auth()->user() && auth()->user()->office_role === 'admin', 403);
+    {
+        // Optional: gate this (e.g., only HR/admin)
+        // abort_unless(auth()->user() && auth()->user()->office_role === 'admin', 403);
 
-    $user = DB::table('tbluser')->where('id', $userId)->first();
-    if (!$user) {
-        return response()->json(['message' => 'User not found'], 404);
+        $user = DB::table('tbluser')->where('id', $userId)->first();
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        $profile = DB::table('tbluser_profile')->where('user_id', $userId)->first();
+
+        return response()->json([
+            'user' => [
+                'username' => $user->username ?? null,
+                'office_role' => $user->office_role ?? $user->role ?? null,
+                'accounttype' => $user->accounttype ?? null,
+                'email' => $user->email ?? null,
+            ],
+            'profile' => [
+                'full_name' => $profile->full_name ?? ($user->username ?? ''),
+                'work_email' => $profile->work_email ?? ($user->email ?? ''),
+                'contact_phone' => $profile->contact_phone ?? '',
+                'birthdate' => $profile->birthdate ?? '',
+                'address' => $profile->address ?? '',
+                'ice_name' => $profile->ice_name ?? '',
+                'ice_relationship' => $profile->ice_relationship ?? '',
+                'ice_phone' => $profile->ice_phone ?? '',
+            ],
+        ]);
     }
 
-    $profile = DB::table('tbluser_profile')->where('user_id', $userId)->first();
+    // Module Controller
+    private const MODULE_KEYS = [
+        'order',
+        'unreceived',
+        'receiving',
+        'labeling',
+        'testing',
+        'cleaning',
+        'packing',
+        'stockroom',
+        'fnsku',
+        'validation',
+        'productionarea',
+        'fbmorder',
+        'returnscanner',
+        'notfound',
+        'asinoption',
+        'houseage',
+        'asinlist',
+        'printer',
+        'humanresource',
+        'rts',
+    ];
 
-    return response()->json([
-        'user' => [
-            'username'     => $user->username ?? null,
-            'office_role'  => $user->office_role ?? $user->role ?? null,
-            'accounttype'  => $user->accounttype ?? null,
-            'email'        => $user->email ?? null,
-        ],
-        'profile' => [
-            'full_name'        => $profile->full_name ?? ($user->username ?? ''),
-            'work_email'       => $profile->work_email ?? ($user->email ?? ''),
-            'contact_phone'    => $profile->contact_phone ?? '',
-            'birthdate'        => $profile->birthdate ?? '',
-            'address'          => $profile->address ?? '',
-            'ice_name'         => $profile->ice_name ?? '',
-            'ice_relationship' => $profile->ice_relationship ?? '',
-            'ice_phone'        => $profile->ice_phone ?? '',
-        ],
-    ]);
-}
+    /** Small sanitizer to mirror how your store_* columns are named */
+    private function storeColFromName(string $name): string
+    {
+        // Keep letters/numbers as-is (case preserved), strip everything else.
+        $slug = preg_replace('/[^A-Za-z0-9]/', '', $name);
+        return 'store_' . $slug;
+    }
+
+    /** Discover all store_* columns currently present on tbluser (no migration needed). */
+    private function getUserStoreColumns(): array
+    {
+        $rows = DB::select("
+            SELECT COLUMN_NAME
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'tbluser'
+              AND COLUMN_NAME LIKE 'store\\_%'
+        ");
+        return array_map(fn($r) => $r->COLUMN_NAME, $rows);
+    }
+
+    /** Map { store_col => storename } by checking existing stores. */
+    private function mapStoreColsToNames(): array
+    {
+        $stores = DB::table('tblstores')->select('store_id', 'storename')->get();
+        $map = [];
+        foreach ($stores as $s) {
+            $map[$this->storeColFromName($s->storename)] = $s->storename;
+        }
+        return $map; // note: may not include legacy store_* columns that don't exist in tblstores
+    }
+
+    public function listStores()
+    {
+        $stores = DB::table('tblstores')
+            ->select('store_id as id', 'storename', 'abbreviation')
+            ->orderBy('storename')->get();
+
+        return response()->json(['stores' => $stores]);
+    }
+
+    /** GET: modules + main_module + store privileges for an employee */
+    public function getEmployeePermissions(int $id)
+    {
+        $user = DB::table('tbluser')->where('id', $id)->first();
+        if (!$user)
+            return response()->json(['message' => 'User not found'], 404);
+
+        // modules -> booleans
+        $modules = [];
+        foreach (self::MODULE_KEYS as $k) {
+            $modules[$k] = (bool) ($user->$k ?? 0);
+        }
+
+        // main_module -> only valid if in list
+        $main = in_array(($user->main_module ?? null), self::MODULE_KEYS, true)
+            ? $user->main_module
+            : null;
+
+        // stores -> from store_* columns set to 1
+        $storeCols = $this->getUserStoreColumns();
+        $colToName = $this->mapStoreColsToNames();
+
+        $grantedStoreNames = [];
+        foreach ($storeCols as $col) {
+            if ((int) ($user->$col ?? 0) === 1) {
+                // Prefer a name from tblstores mapping; if none, use the column suffix as fallback
+                $grantedStoreNames[] = $colToName[$col] ?? preg_replace('/^store_/', '', $col);
+            }
+        }
+
+        return response()->json([
+            'user_id' => $user->id,
+            'username' => $user->username,
+            'modules' => $modules,     // { order: true, ... }
+            'main_module' => $main,        // string|null
+            'stores' => $grantedStoreNames, // array of storename strings
+        ]);
+    }
+
+    /**
+     * POST: update modules, main_module, and store privileges.
+     * Accepts either:
+     *  - "modules": {key: bool}
+     *  - "main_module": string|null   (must be in MODULE_KEYS or null)
+     *  - "stores": [ "StoreName A", "StoreName B", ... ] (storename strings)
+     *
+     * No migration. We flip existing store_* columns, leaving unknown store_* columns off unless included.
+     */
+    public function updateEmployeePermissions(Request $req, int $id)
+    {
+        $user = DB::table('tbluser')->where('id', $id)->first();
+        if (!$user)
+            return response()->json(['message' => 'User not found'], 404);
+
+        $data = $req->validate([
+            'modules' => ['array'],
+            'modules.*' => ['boolean'],
+            'main_module' => ['nullable', Rule::in(self::MODULE_KEYS)],
+            'stores' => ['array'],
+            'stores.*' => ['string'], // storename
+        ]);
+
+        $updates = [];
+
+        // 1) Modules: write tinyints
+        if (isset($data['modules'])) {
+            foreach (self::MODULE_KEYS as $k) {
+                if (array_key_exists($k, $data['modules'])) {
+                    $updates[$k] = $data['modules'][$k] ? 1 : 0;
+                }
+            }
+        }
+
+        // 2) main_module: enforce single value (or null)
+        if (array_key_exists('main_module', $data)) {
+            $updates['main_module'] = $data['main_module'] ?: null;
+        }
+
+        // 3) Store privileges via existing store_* columns
+        if (isset($data['stores'])) {
+            $requestedNames = array_values(array_unique(array_map('strval', $data['stores'])));
+
+            // Compute the columns that correspond to requested names
+            $wantedCols = [];
+            foreach ($requestedNames as $name) {
+                $wantedCols[] = $this->storeColFromName($name);
+            }
+            $wantedCols = array_unique($wantedCols);
+
+            // Flip only columns that actually exist
+            $allStoreCols = $this->getUserStoreColumns();
+            foreach ($allStoreCols as $col) {
+                $updates[$col] = in_array($col, $wantedCols, true) ? 1 : 0;
+            }
+        }
+
+        // If nothing to change
+        if (empty($updates)) {
+            return response()->json(['message' => 'No changes'], 200);
+        }
+
+        // Write changes
+        DB::table('tbluser')->where('id', $id)->update($updates);
+
+        // Return updated snapshot
+        return $this->getEmployeePermissions($id);
+    }
+
 
 }

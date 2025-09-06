@@ -187,9 +187,10 @@
             </div>
         </div>
 
-                    <small class="text-muted">
-  debug: {{ $parent.hrContext.employeeModal.show ? 'open' : 'closed' }}
-</small>
+        <small class="text-muted">
+            debug:
+            {{ $parent.hrContext.employeeModal.show ? "open" : "closed" }}
+        </small>
 
         <!-- NEW: Employee Details modal with header tabs (like your Profile modal) -->
         <div
@@ -200,8 +201,6 @@
                 class="modal-overlay"
                 @click="$parent.hrContext.closeEmployeeModal()"
             ></div>
-
-
 
             <div class="modal-content modal-xl">
                 <!-- Modal Title -->
@@ -256,6 +255,23 @@
                             >
                                 <!-- optional icon: ⏱ -->
                                 Edit Employee Rate
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button
+                                class="nav-link"
+                                :class="{
+                                    active:
+                                        $parent.hrContext.employeeModal.tab ===
+                                        'perms',
+                                }"
+                                @click="
+                                    $parent.hrContext.setEmployeeModalTab(
+                                        'perms'
+                                    )
+                                "
+                            >
+                                Permissions
                             </button>
                         </li>
                     </ul>
@@ -433,6 +449,106 @@
                                 />
                             </fieldset>
                         </form>
+                    </div>
+
+                    <!-- PERMISSIONS TAB -->
+                    <div
+                        v-show="$parent.hrContext.employeeModal.tab === 'perms'"
+                    >
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div
+                                    class="d-flex align-items-center justify-content-between"
+                                >
+                                    <h6 class="m-0">Module Access</h6>
+                                    <small
+                                        class="text-secondary"
+                                        v-if="
+                                            $parent.hrContext.permissionsLoading
+                                        "
+                                        >loading…</small
+                                    >
+                                </div>
+                                <div class="mt-2 d-flex flex-wrap gap-2">
+                                    <!-- render all known module keys from backend -->
+                                    <label
+                                        v-for="key in $parent.hrContext
+                                            .permissions.module_keys || []"
+                                        :key="key"
+                                        class="form-check form-check-inline border rounded px-2 py-1"
+                                        style="min-width: 180px"
+                                    >
+                                        <input
+                                            class="form-check-input me-2"
+                                            type="checkbox"
+                                            :checked="
+                                                $parent.hrContext.permissions
+                                                    .modules[key] === true
+                                            "
+                                            @change="
+                                                $parent.hrContext.toggleModule(
+                                                    key,
+                                                    $event.target.checked
+                                                )
+                                            "
+                                        />
+                                        <span
+                                            class="form-check-label text-capitalize"
+                                            >{{ key }}</span
+                                        >
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label text-secondary mt-2"
+                                    >Main Module</label
+                                >
+                                <select
+                                    class="form-select"
+                                    v-model="
+                                        $parent.hrContext.permissions
+                                            .main_module
+                                    "
+                                >
+                                    <option :value="null">— None —</option>
+                                    <!-- only allow selecting modules that are enabled (checked) -->
+                                    <option
+                                        v-for="key in $parent.hrContext
+                                            .permissions.module_keys"
+                                        :key="key"
+                                        :value="key"
+                                        :disabled="
+                                            $parent.hrContext.permissions
+                                                .modules[key] !== true
+                                        "
+                                        class="text-capitalize"
+                                    >
+                                        {{ key }}
+                                    </option>
+                                </select>
+                                <small class="text-secondary"
+                                    >Only enabled modules can be set as
+                                    <em>main</em>.</small
+                                >
+                            </div>
+
+                            <button
+                                v-if="
+                                    $parent.hrContext.employeeModal.tab ===
+                                    'perms'
+                                "
+                                class="btn btn-success text-white"
+                                :disabled="$parent.hrContext.permissionsSaving"
+                                @click="$parent.hrContext.savePermissions()"
+                            >
+                                <span
+                                    v-if="$parent.hrContext.permissionsSaving"
+                                    class="spinner-border spinner-border-sm me-1"
+                                ></span>
+                                Save
+                            </button>
+                        </div>
                     </div>
                 </div>
 

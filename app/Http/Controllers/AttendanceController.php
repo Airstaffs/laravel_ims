@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
@@ -205,7 +206,7 @@ class AttendanceController extends Controller
         $today = $now->toDateString();
         $yesterday = $now->copy()->subDay()->toDateString();
 
-        // 3) Load active links (+ new mins fields)
+        // 3) Load active links (+ mins fields)
         $links = DB::table('tblusersched as us')
             ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
             ->select(
@@ -215,18 +216,18 @@ class AttendanceController extends Controller
                 'us.effective_from',
                 'us.effective_to',
                 'us.is_active',
-                // NEW: user-level overrides
+                // user overrides
                 'us.early_login_mins  as us_early_login_mins',
                 'us.early_clockin_mins as us_early_clockin_mins',
                 'us.grace_clockout_mins as us_grace_clockout_mins',
-                // schedule/template fields
+                // schedule/template
                 'ts.day_of_week',
                 'ts.days_mask',
                 'ts.start_time',
                 'ts.end_time',
                 'ts.end_next_day',
                 'ts.title',
-                // NEW: template defaults
+                // template defaults
                 'ts.early_login_mins  as ts_early_login_mins',
                 'ts.early_clockin_mins as ts_early_clockin_mins',
                 'ts.grace_clockout_mins as ts_grace_clockout_mins'
@@ -239,7 +240,7 @@ class AttendanceController extends Controller
             ->where(function ($q) use ($today) {
                 $q->whereNull('us.effective_to')->orWhere('us.effective_to', '>=', $today);
             })
-            ->orderBy('ts.start_time')
+            ->orderBy('ts.start_time') // earliest first
             ->get();
 
         if ($links->isEmpty()) {
@@ -249,16 +250,16 @@ class AttendanceController extends Controller
             ], 403);
         }
 
-        $maskHas = function ($mask, $dow) {
+        $maskHas = function (int $mask = null, int $dow) {
             $mask = (int) ($mask ?? 0);
             if ($mask <= 0)
                 return false;
-            $bit = 1 << ($dow - 1);
+            $bit = 1 << ($dow - 1);            // Mon=1 -> bit 0
             return (($mask & $bit) !== 0);
         };
 
-        // helper: resolve effective mins (user override > template > default)
-        $resolveMins = function ($userVal, $tmplVal, $default = 0) {
+        // user override > template default > hard default
+        $resolveMins = function ($userVal, $tmplVal, $default = 5) {
             if (is_numeric($userVal))
                 return (int) $userVal;
             if (is_numeric($tmplVal))
@@ -274,19 +275,21 @@ class AttendanceController extends Controller
             'grace_clockout_mins' => null,
         ];
 
+        // If user is TOO EARLY for a valid window, remember the first allowed time so we can message it nicely.
+        $tooEarly = null; // ['title'=>..., 'allowedAt'=>Carbon, 'start'=>Carbon, 'end'=>Carbon, 'mins'=>int]
+
         foreach ($links as $r) {
             $hasMask = (int) ($r->days_mask ?? 0) > 0;
             $isEveryLegacy = ((int) $r->day_of_week) === 0;
 
-            // Compute EFFECTIVE mins for this candidate row
             $effEarlyClockIn = $resolveMins($r->us_early_clockin_mins, $r->ts_early_clockin_mins, 5);
             $effEarlyLogin = $resolveMins($r->us_early_login_mins, $r->ts_early_login_mins, 0);
             $effGraceOut = $resolveMins($r->us_grace_clockout_mins, $r->ts_grace_clockout_mins, 0);
 
-            // --- Case A: today-anchored ---
+            // ---- Case A: today-anchored window
             $todayMatchesDay =
-                ($hasMask && $maskHas($r->days_mask, $dowToday))
-                || (!$hasMask && ((int) $r->day_of_week === $dowToday || $isEveryLegacy));
+                ($hasMask && $maskHas((int) $r->days_mask, $dowToday)) ||
+                (!$hasMask && (((int) $r->day_of_week === $dowToday) || $isEveryLegacy));
 
             if ($todayMatchesDay) {
                 $start = Carbon::parse($today . ' ' . $r->start_time, $tz);
@@ -298,23 +301,30 @@ class AttendanceController extends Controller
 
                 if ($now->between($startWithEarly, $end, true)) {
                     $match = $r;
-                    $win = (object) [
-                        'start' => $start,
-                        'startGrace' => $startWithEarly,
-                        'end' => $end
-                    ];
+                    $win = (object) ['start' => $start, 'startGrace' => $startWithEarly, 'end' => $end];
                     $effective['early_clockin_mins'] = $effEarlyClockIn;
                     $effective['early_login_mins'] = $effEarlyLogin;
                     $effective['grace_clockout_mins'] = $effGraceOut;
                     break;
+                } elseif ($now->lt($startWithEarly)) {
+                    // too early for this valid window → keep the soonest allowed
+                    if (!$tooEarly || $startWithEarly->lt($tooEarly['allowedAt'])) {
+                        $tooEarly = [
+                            'title' => $r->title,
+                            'allowedAt' => $startWithEarly,
+                            'start' => $start,
+                            'end' => $end,
+                            'mins' => $effEarlyClockIn,
+                        ];
+                    }
                 }
             }
 
-            // --- Case B: overnight anchored yesterday ---
+            // ---- Case B: overnight window anchored yesterday
             if ((int) $r->end_next_day === 1) {
                 $yesterdayMatchesDay =
-                    ($hasMask && $maskHas($r->days_mask, $dowYesterday))
-                    || (!$hasMask && ((int) $r->day_of_week === $dowYesterday || $isEveryLegacy));
+                    ($hasMask && $maskHas((int) $r->days_mask, $dowYesterday)) ||
+                    (!$hasMask && (((int) $r->day_of_week === $dowYesterday) || $isEveryLegacy));
 
                 if ($yesterdayMatchesDay) {
                     $startY = Carbon::parse($yesterday . ' ' . $r->start_time, $tz);
@@ -324,21 +334,41 @@ class AttendanceController extends Controller
 
                     if ($now->between($startYWithEarly, $endY, true)) {
                         $match = $r;
-                        $win = (object) [
-                            'start' => $startY,
-                            'startGrace' => $startYWithEarly,
-                            'end' => $endY
-                        ];
+                        $win = (object) ['start' => $startY, 'startGrace' => $startYWithEarly, 'end' => $endY];
                         $effective['early_clockin_mins'] = $effEarlyClockIn;
                         $effective['early_login_mins'] = $effEarlyLogin;
                         $effective['grace_clockout_mins'] = $effGraceOut;
                         break;
                     }
+                    // “too-early” doesn’t apply for yesterday-anchored windows (it’s in the past)
                 }
             }
         }
 
+        // No matching open window right now
         if (!$match) {
+            if ($tooEarly) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Too early to clock in. Earliest allowed: ' .
+                        $tooEarly['allowedAt']->format('h:i A') .
+                        ' (LA). Your shift: ' . $tooEarly['start']->format('h:i A') .
+                        ' – ' . $tooEarly['end']->format('h:i A') .
+                        ($tooEarly['title'] ? (' • ' . $tooEarly['title']) : ''),
+                    'meta' => [
+                        'allowedAt' => $tooEarly['allowedAt']->toDateTimeString(),
+                        'schedule' => [
+                            'start' => $tooEarly['start']->toDateTimeString(),
+                            'end' => $tooEarly['end']->toDateTimeString(),
+                            'title' => $tooEarly['title'],
+                        ],
+                        'effective' => [
+                            'early_clockin_mins' => $tooEarly['mins'],
+                        ],
+                    ],
+                ], 403);
+            }
+
             return response()->json([
                 'success' => false,
                 'message' => 'You are outside your scheduled window right now.',
@@ -349,7 +379,7 @@ class AttendanceController extends Controller
         $isEarly = $now->lt($win->start) && $now->gte($win->startGrace);
         $earlyByMinutes = $isEarly ? $now->diffInMinutes($win->start, false) : 0;
 
-        // (No late grace yet for clock-in; can add later if you add a field)
+        // NOTE: no late-grace for clock-in (by design). Add a field later if needed.
         $isLate = $now->gt($win->start);
         $lateByMinutes = $isLate ? $win->start->diffInMinutes($now, false) : 0;
 
@@ -385,8 +415,7 @@ class AttendanceController extends Controller
                     'title' => $match->title,
                     'schedId' => $match->schedId ?? null,
                 ],
-                // NEW: echo back the effective mins used
-                'effective' => $effective,
+                'effective' => $effective, // echoes mins used (from DB)
                 'early' => $isEarly,
                 'earlyByMinutes' => $earlyByMinutes,
                 'late' => $isLate,
@@ -395,248 +424,233 @@ class AttendanceController extends Controller
         ]);
     }
 
+public function clockOut(Request $request)
+{
+    $uid = Auth::id();
+    $tz  = 'America/Los_Angeles';
+    $now = \Carbon\Carbon::now($tz);
 
-    public function clockOut(Request $request)
-    {
-        $uid = Auth::id();
-        $tz = 'America/Los_Angeles';
-        $now = \Carbon\Carbon::now($tz);
+    // 1) Find the open clock-in
+    $open = DB::table('tblemployeeclocks')
+        ->where('userid', $uid)
+        ->whereNotNull('TimeIn')
+        ->whereNull('TimeOut')
+        ->orderByDesc('ID')
+        ->first();
 
-        // 1) Find the open clock-in (no TimeOut), newest first — no date restriction (handles overnights)
-        $open = DB::table('tblemployeeclocks')
-            ->where('userid', $uid)
-            ->whereNotNull('TimeIn')
-            ->whereNull('TimeOut')
-            ->orderByDesc('ID')
-            ->first();
+    if (!$open) {
+        return response()->json([
+            'success' => false,
+            'message' => 'No open clock-in record found.',
+        ], 400);
+    }
 
-        if (!$open) {
-            return response()->json([
-                'success' => false,
-                'message' => 'No open clock-in record found.',
-            ], 400);
-        }
+    $timeIn     = \Carbon\Carbon::parse($open->TimeIn, $tz);
+    $anchorDate = $timeIn->toDateString();            // day the user clocked in
+    $dowAnchor  = (int) $timeIn->isoWeekday();        // 1..7
 
-        $timeIn = \Carbon\Carbon::parse($open->TimeIn, $tz);
-        $anchorDate = $timeIn->toDateString();       // day the user actually clocked in
-        $dowAnchor = (int) $timeIn->isoWeekday();   // 1..7 (Mon..Sun)
+    $maskHas = function ($mask, $dow) {
+        $m = (int) ($mask ?? 0);
+        return $m > 0 && (($m & (1 << ($dow - 1))) !== 0);
+    };
 
-        // Helper: mask contains weekday? (1..7)
-        $maskHas = function ($mask, $dow) {
-            $m = (int) ($mask ?? 0);
-            return $m > 0 && (($m & (1 << ($dow - 1))) !== 0);
-        };
+    // user override > template > default
+    $resolveMins = function ($userVal, $tmplVal, $default = 0) {
+        if (is_numeric($userVal)) return (int)$userVal;
+        if (is_numeric($tmplVal)) return (int)$tmplVal;
+        return (int)$default;
+    };
 
-        // Helper: resolve mins (user override > template > default)
-        $resolveMins = function ($userVal, $tmplVal, $default = 0) {
-            if (is_numeric($userVal))
-                return (int) $userVal;
-            if (is_numeric($tmplVal))
-                return (int) $tmplVal;
-            return (int) $default;
-        };
+    // 2) Load links effective on the anchor date (so mid-shift changes don’t break)
+    $links = DB::table('tblusersched as us')
+        ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
+        ->select(
+            'us.userschedId','us.userId','us.schedId','us.effective_from','us.effective_to','us.is_active',
+            'us.early_login_mins  as us_early_login_mins',
+            'us.early_clockin_mins as us_early_clockin_mins',
+            'us.grace_clockout_mins as us_grace_clockout_mins',
+            'ts.timeschedId','ts.day_of_week','ts.days_mask','ts.start_time','ts.end_time','ts.end_next_day','ts.title',
+            'ts.early_login_mins  as ts_early_login_mins',
+            'ts.early_clockin_mins as ts_early_clockin_mins',
+            'ts.grace_clockout_mins as ts_grace_clockout_mins'
+        )
+        ->where('us.userId', $uid)
+        ->where('us.is_active', 1)
+        ->where(function ($q) use ($anchorDate) {
+            $q->whereNull('us.effective_from')->orWhere('us.effective_from', '<=', $anchorDate);
+        })
+        ->where(function ($q) use ($anchorDate) {
+            $q->whereNull('us.effective_to')->orWhere('us.effective_to', '>=', $anchorDate);
+        })
+        ->orderBy('ts.start_time')
+        ->get();
 
-        // 2) Load active schedule links that were effective on the anchorDate.
-        //    Include new mins fields.
-        $links = DB::table('tblusersched as us')
-            ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
-            ->select(
-                'us.userschedId',
-                'us.userId',
-                'us.schedId',
-                'us.effective_from',
-                'us.effective_to',
-                'us.is_active',
-                // user-level overrides
-                'us.early_login_mins      as us_early_login_mins',
-                'us.early_clockin_mins    as us_early_clockin_mins',
-                'us.grace_clockout_mins   as us_grace_clockout_mins',
-                // schedule/template fields
-                'ts.timeschedId',
-                'ts.day_of_week',
-                'ts.days_mask',
-                'ts.start_time',
-                'ts.end_time',
-                'ts.end_next_day',
-                'ts.title',
-                // template mins
-                'ts.early_login_mins      as ts_early_login_mins',
-                'ts.early_clockin_mins    as ts_early_clockin_mins',
-                'ts.grace_clockout_mins   as ts_grace_clockout_mins'
-            )
-            ->where('us.userId', $uid)
-            ->where('us.is_active', 1)
-            ->where(function ($q) use ($anchorDate) {
-                $q->whereNull('us.effective_from')->orWhere('us.effective_from', '<=', $anchorDate);
-            })
-            ->where(function ($q) use ($anchorDate) {
-                $q->whereNull('us.effective_to')->orWhere('us.effective_to', '>=', $anchorDate);
-            })
-            ->orderBy('ts.start_time')
-            ->get();
+    // 3) Reconstruct the scheduled window
+    $matchedSched = null;  // {start, end, title, id}
+    $effective = [
+        'early_login_mins'    => null,
+        'early_clockin_mins'  => null,
+        'grace_clockout_mins' => null,
+    ];
 
-        // 3) Prefer exact schedule via schedId stored at clock-in; else attempt to match by day/mask and TimeIn window.
-        $matchedSched = null; // {start, end, title, id}
-        $effective = [
-            'early_login_mins' => null,
-            'early_clockin_mins' => null,
-            'grace_clockout_mins' => null,
-        ];
+    // Prefer the exact schedId stored on clock-in (keeps overrides)
+    if (!empty($open->schedId)) {
+        $linkForId = $links->first(fn($r) => (int)$r->schedId === (int)$open->schedId);
+        if ($linkForId) {
+            $start = \Carbon\Carbon::parse($anchorDate.' '.$linkForId->start_time, $tz);
+            $end   = \Carbon\Carbon::parse($anchorDate.' '.$linkForId->end_time,   $tz);
+            if ((int)$linkForId->end_next_day === 1) $end->addDay();
 
-        // (A) If we stored schedId at clock-in, use that row (including overrides if present).
-        if (!empty($open->schedId)) {
-            // Try to find the specific link row that references this schedId (so we can get overrides)
-            $linkForId = $links->first(function ($r) use ($open) {
-                return (int) $r->schedId === (int) $open->schedId;
-            });
+            $matchedSched = (object)[
+                'start' => $start,
+                'end'   => $end,
+                'title' => $linkForId->title,
+                'id'    => $linkForId->schedId,
+            ];
 
-            if ($linkForId) {
-                // Build scheduled window anchored to the anchorDate
-                $start = \Carbon\Carbon::parse($anchorDate . ' ' . $linkForId->start_time, $tz);
-                $end = \Carbon\Carbon::parse($anchorDate . ' ' . $linkForId->end_time, $tz);
-                if ((int) $linkForId->end_next_day === 1)
-                    $end->addDay();
+            $effective['early_login_mins']    = $resolveMins($linkForId->us_early_login_mins,   $linkForId->ts_early_login_mins,   0);
+            $effective['early_clockin_mins']  = $resolveMins($linkForId->us_early_clockin_mins, $linkForId->ts_early_clockin_mins, 5);
+            $effective['grace_clockout_mins'] = $resolveMins($linkForId->us_grace_clockout_mins,$linkForId->ts_grace_clockout_mins,180);
+        } else {
+            // Template only (no overrides)
+            $sched = DB::table('tbltimesched')->where('timeschedId', $open->schedId)->first();
+            if ($sched) {
+                $start = \Carbon\Carbon::parse($anchorDate.' '.$sched->start_time, $tz);
+                $end   = \Carbon\Carbon::parse($anchorDate.' '.$sched->end_time,   $tz);
+                if ((int)$sched->end_next_day === 1) $end->addDay();
 
-                $matchedSched = (object) [
+                $matchedSched = (object)[
                     'start' => $start,
-                    'end' => $end,
-                    'title' => $linkForId->title,
-                    'id' => $linkForId->schedId,
+                    'end'   => $end,
+                    'title' => $sched->title,
+                    'id'    => $sched->timeschedId,
                 ];
 
-                // Resolve effective mins for this schedule
-                $effective['early_login_mins'] = $resolveMins($linkForId->us_early_login_mins, $linkForId->ts_early_login_mins, 0);
-                $effective['early_clockin_mins'] = $resolveMins($linkForId->us_early_clockin_mins, $linkForId->ts_early_clockin_mins, 5);
-                $effective['grace_clockout_mins'] = $resolveMins($linkForId->us_grace_clockout_mins, $linkForId->ts_grace_clockout_mins, 180);
-            } else {
-                // Fallback: fetch template row directly (no overrides available)
-                $sched = DB::table('tbltimesched')->where('timeschedId', $open->schedId)->first();
-                if ($sched) {
-                    $start = \Carbon\Carbon::parse($anchorDate . ' ' . $sched->start_time, $tz);
-                    $end = \Carbon\Carbon::parse($anchorDate . ' ' . $sched->end_time, $tz);
-                    if ((int) $sched->end_next_day === 1)
-                        $end->addDay();
-
-                    $matchedSched = (object) [
-                        'start' => $start,
-                        'end' => $end,
-                        'title' => $sched->title,
-                        'id' => $sched->timeschedId,
-                    ];
-
-                    // Resolve mins from template only
-                    $effective['early_login_mins'] = is_numeric($sched->early_login_mins) ? (int) $sched->early_login_mins : 0;
-                    $effective['early_clockin_mins'] = is_numeric($sched->early_clockin_mins) ? (int) $sched->early_clockin_mins : 5;
-                    $effective['grace_clockout_mins'] = is_numeric($sched->grace_clockout_mins) ? (int) $sched->grace_clockout_mins : 180;
-                }
+                $effective['early_login_mins']    = is_numeric($sched->early_login_mins)    ? (int)$sched->early_login_mins    : 0;
+                $effective['early_clockin_mins']  = is_numeric($sched->early_clockin_mins)  ? (int)$sched->early_clockin_mins  : 5;
+                $effective['grace_clockout_mins'] = is_numeric($sched->grace_clockout_mins) ? (int)$sched->grace_clockout_mins : 180;
             }
         }
-
-        // (B) Otherwise, try to infer the schedule by checking which window contains the TimeIn on the anchor date.
-        if (!$matchedSched) {
-            foreach ($links as $r) {
-                $hasMask = ((int) ($r->days_mask ?? 0) > 0);
-                $isEveryLegacy = ((int) $r->day_of_week) === 0;
-
-                $dayOk = ($hasMask && $maskHas($r->days_mask, $dowAnchor))
-                    || (!$hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowAnchor));
-
-                if (!$dayOk)
-                    continue;
-
-                $schedStart = \Carbon\Carbon::parse($anchorDate . ' ' . $r->start_time, $tz);
-                $schedEnd = \Carbon\Carbon::parse($anchorDate . ' ' . $r->end_time, $tz);
-                if ((int) $r->end_next_day === 1)
-                    $schedEnd->addDay();
-
-                if ($timeIn->between($schedStart, $schedEnd, true)) {
-                    $matchedSched = (object) [
-                        'start' => $schedStart,
-                        'end' => $schedEnd,
-                        'title' => $r->title,
-                        'id' => $r->schedId,
-                    ];
-
-                    // Resolve mins for this matched row
-                    $effective['early_login_mins'] = $resolveMins($r->us_early_login_mins, $r->ts_early_login_mins, 0);
-                    $effective['early_clockin_mins'] = $resolveMins($r->us_early_clockin_mins, $r->ts_early_clockin_mins, 5);
-                    $effective['grace_clockout_mins'] = $resolveMins($r->us_grace_clockout_mins, $r->ts_grace_clockout_mins, 180);
-                    break;
-                }
-            }
-        }
-
-        // 4) Compute scheduled duration and dynamic caps
-        //    Grace is how long we allow beyond scheduled end before considering auto-clockout.
-        $GRACE_DEFAULT = 180; // only used if we truly have no schedule info
-
-        // Effective grace minutes to use
-        $effGrace = $matchedSched
-            ? ($effective['grace_clockout_mins'] ?? $GRACE_DEFAULT)
-            : $GRACE_DEFAULT;
-
-        // Scheduled duration in minutes
-        if ($matchedSched) {
-            $scheduledDurationMinutes = $matchedSched->start->diffInMinutes($matchedSched->end, false);
-        } else {
-            // Last fallback if we truly cannot identify a schedule: assume 8h base shift.
-            $scheduledDurationMinutes = 8 * 60;
-        }
-
-        // Dynamic hard max (minutes) = scheduled duration + grace
-        $HARD_MAX_SHIFT_MINUTES = $scheduledDurationMinutes + $effGrace;
-
-        // 5) Decide if this clock-out is beyond allowed range (auto-clockout)
-        $isAuto = false;
-
-        if ($matchedSched) {
-            $scheduledEndWithGrace = $matchedSched->end->copy()->addMinutes($effGrace);
-            // If current time is beyond scheduled end + grace → mark as auto
-            $isAuto = $now->greaterThan($scheduledEndWithGrace);
-        } else {
-            // No matched schedule: enforce a sanity cap relative to TimeIn
-            $isAuto = $timeIn->diffInMinutes($now) > $HARD_MAX_SHIFT_MINUTES;
-        }
-
-        // 6) Apply update (append system note if auto)
-        $update = ['TimeOut' => $now];
-
-        if ($isAuto) {
-            $note = $matchedSched
-                ? 'IMS: Auto Clockout (exceeded scheduled window + grace)'
-                : 'IMS: Auto Clockout (no schedule; exceeded hard cap)';
-
-            $quoted = DB::getPdo()->quote($note);
-            $update['systemNotes'] = DB::raw(
-                "CASE WHEN systemNotes IS NULL OR systemNotes = '' 
-                THEN {$quoted}
-                ELSE CONCAT(systemNotes, '\n', {$quoted})
-             END"
-            );
-        }
-
-        DB::table('tblemployeeclocks')->where('ID', $open->ID)->update($update);
-
-        $this->userLogService->log('Clockout');
-
-        $uname = Auth::user()->username;
-        $currentDatetimeStr = $now->format('Y-m-d H:i:s');
-        $this->sendClockinMail($uname, $currentDatetimeStr, "Clock Out");
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Clocked out at ' . $now->format('h:i A') . ' (LA)' . ($isAuto ? ' • Auto-clockout noted' : ''),
-            'meta' => [
-                'scheduledStart' => $matchedSched ? $matchedSched->start->toDateTimeString() : null,
-                'scheduledEnd' => $matchedSched ? $matchedSched->end->toDateTimeString() : null,
-                // Echo back the effective mins used (helpful for UI/debug)
-                'effective' => $effective,
-                'graceMinutesUsed' => $effGrace,
-                'hardMaxMinutes' => $HARD_MAX_SHIFT_MINUTES,
-                'auto' => $isAuto,
-            ],
-        ]);
     }
+
+    // Fallback: infer the schedule by day/mask that contained TimeIn
+    if (!$matchedSched) {
+        foreach ($links as $r) {
+            $hasMask      = ((int)($r->days_mask ?? 0) > 0);
+            $isEveryLegacy= ((int)$r->day_of_week) === 0;
+
+            $dayOk = ($hasMask && $maskHas($r->days_mask, $dowAnchor))
+                  || (!$hasMask && ($isEveryLegacy || (int)$r->day_of_week === $dowAnchor));
+            if (!$dayOk) continue;
+
+            $schedStart = \Carbon\Carbon::parse($anchorDate.' '.$r->start_time, $tz);
+            $schedEnd   = \Carbon\Carbon::parse($anchorDate.' '.$r->end_time,   $tz);
+            if ((int)$r->end_next_day === 1) $schedEnd->addDay();
+
+            if ($timeIn->between($schedStart, $schedEnd, true)) {
+                $matchedSched = (object)[
+                    'start' => $schedStart,
+                    'end'   => $schedEnd,
+                    'title' => $r->title,
+                    'id'    => $r->schedId,
+                ];
+                $effective['early_login_mins']    = $resolveMins($r->us_early_login_mins,   $r->ts_early_login_mins,   0);
+                $effective['early_clockin_mins']  = $resolveMins($r->us_early_clockin_mins, $r->ts_early_clockin_mins, 5);
+                $effective['grace_clockout_mins'] = $resolveMins($r->us_grace_clockout_mins,$r->ts_grace_clockout_mins,180);
+                break;
+            }
+        }
+    }
+
+    // 4) Compute grace, caps, and early/OT info
+    $GRACE_DEFAULT = 180; // mins, only if no schedule
+    $effGrace = $matchedSched ? ($effective['grace_clockout_mins'] ?? $GRACE_DEFAULT) : $GRACE_DEFAULT;
+
+    // If we found a schedule, compute deltas w.r.t. scheduled end
+    $earlyOutMins = null;  // positive means minutes early
+    $overTimeMins = null;  // positive means minutes over (beyond end)
+    $autoCutoff   = null;  // end + grace
+
+    if ($matchedSched) {
+        $delta = $now->diffInMinutes($matchedSched->end, false); // >0 before end; <0 after end
+        if ($delta > 0) {
+            $earlyOutMins = $delta;               // user leaves early
+        } elseif ($delta < 0) {
+            $overTimeMins = abs($delta);          // user leaves after end
+        }
+        $autoCutoff = $matchedSched->end->copy()->addMinutes($effGrace);
+    }
+
+    // Dynamic hard cap when there is no schedule (TimeIn + 8h + grace by default)
+    $scheduledDurationMinutes = $matchedSched
+        ? $matchedSched->start->diffInMinutes($matchedSched->end, false)
+        : (8 * 60);
+    $HARD_MAX_SHIFT_MINUTES = $scheduledDurationMinutes + $effGrace;
+
+    // 5) Decide auto-clockout
+    $isAuto = false;
+    if ($matchedSched) {
+        $isAuto = $now->greaterThan($autoCutoff);
+    } else {
+        $isAuto = $timeIn->diffInMinutes($now) > $HARD_MAX_SHIFT_MINUTES;
+    }
+
+    // 6) Build notes (early/OT/auto) and update
+    $notes = [];
+
+    if ($matchedSched) {
+        if ($earlyOutMins !== null && $earlyOutMins > 0) {
+            $notes[] = "Early clock-out ({$earlyOutMins} min before scheduled end)";
+        }
+        if ($overTimeMins !== null && $overTimeMins > 0) {
+            $notes[] = "Overtime (+{$overTimeMins} min beyond scheduled end)";
+        }
+        if ($isAuto) {
+            $notes[] = "IMS: Auto Clockout (exceeded scheduled window + {$effGrace} min grace)";
+        }
+    } else {
+        if ($isAuto) {
+            $notes[] = "IMS: Auto Clockout (no schedule; exceeded hard cap {$HARD_MAX_SHIFT_MINUTES} min)";
+        }
+    }
+
+    $update = ['TimeOut' => $now];
+
+    if (!empty($notes)) {
+        $joined = implode(' • ', $notes);
+        $quoted = DB::getPdo()->quote($joined);
+        $update['systemNotes'] = DB::raw(
+            "CASE WHEN systemNotes IS NULL OR systemNotes = '' 
+                  THEN {$quoted}
+                  ELSE CONCAT(systemNotes, '\n', {$quoted})
+             END"
+        );
+    }
+
+    DB::table('tblemployeeclocks')->where('ID', $open->ID)->update($update);
+
+    $this->userLogService->log('Clockout');
+
+    $uname = Auth::user()->username;
+    $currentDatetimeStr = $now->format('Y-m-d H:i:s');
+    $this->sendClockinMail($uname, $currentDatetimeStr, "Clock Out");
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Clocked out at ' . $now->format('h:i A') . ' (LA)' . ($isAuto ? ' • Auto-clockout noted' : ''),
+        'meta' => [
+            'scheduledStart' => $matchedSched ? $matchedSched->start->toDateTimeString() : null,
+            'scheduledEnd'   => $matchedSched ? $matchedSched->end->toDateTimeString()   : null,
+            'effective' => $effective,            // echo mins that affected behavior
+            'graceMinutesUsed' => $effGrace,
+            'hardMaxMinutes'   => $HARD_MAX_SHIFT_MINUTES,
+            'earlyOutMins'     => $earlyOutMins,
+            'overTimeMins'     => $overTimeMins,
+            'auto'             => $isAuto,
+        ],
+    ]);
+}
+
 
     /**
      * Tiny helper to safely quote a string for DB::raw() usage.
@@ -646,8 +660,6 @@ class AttendanceController extends Controller
     {
         return DB::getPdo()->quote($s);
     }
-
-
 
     public function autoClockOut(Request $request)
     {
@@ -831,8 +843,6 @@ class AttendanceController extends Controller
             ]);
         }
     }
-
-
 
     private const LA_TZ = 'America/Los_Angeles';
 
@@ -1196,6 +1206,229 @@ class AttendanceController extends Controller
             return response()->json(['ok' => true]);
         });
     }
+
+    public function month(Request $req)
+    {
+        $userId = Auth::id();
+        $ym = $req->query('ym'); // YYYY-MM
+        if (!$ym || !preg_match('/^\d{4}-\d{2}$/', $ym)) {
+            return response()->json(['error' => 'Invalid ym'], 400);
+        }
+
+        [$year, $month] = array_map('intval', explode('-', $ym));
+        $start = \Carbon\Carbon::create($year, $month, 1)->startOfDay();
+        $end = (clone $start)->endOfMonth()->endOfDay();
+
+        $now = \Carbon\Carbon::now();                 // server TZ
+        $todayDate = $now->toDateString();
+        $LATE_GRACE_MINUTES = 5;                      // tweak if needed
+
+        // ---- earliest clock-in date (limit 'before') ----
+        $earliestClockDate = DB::table('tblemployeeclocks')
+            ->where('userid', $userId)
+            ->selectRaw('MIN(COALESCE(DateToday, DATE(TimeIn))) as d')
+            ->value('d'); // 'YYYY-MM-DD' or null
+
+        // ---- user schedule links overlapping this month ----
+        $links = DB::table('tblusersched as us')
+            ->where('us.userId', $userId)
+            ->where('us.is_active', 1)
+            ->where(function ($q) use ($end) {
+                $q->whereNull('us.effective_from')
+                    ->orWhere('us.effective_from', '<=', $end->toDateString());
+            })
+            ->where(function ($q) use ($start) {
+                $q->whereNull('us.effective_to')
+                    ->orWhere('us.effective_to', '>=', $start->toDateString());
+            })
+            ->orderByDesc('us.userschedId')
+            ->get(['us.userschedId', 'us.schedId', 'us.effective_from', 'us.effective_to']);
+
+        $schedIds = $links->pluck('schedId')->unique()->values();
+
+        // timesched rows
+        $bySched = [];
+        if ($schedIds->isNotEmpty()) {
+            $blocks = DB::table('tbltimesched')
+                ->whereIn('timeschedId', $schedIds)
+                ->where('is_active', 1)
+                ->get([
+                    'timeschedId as schedId',
+                    'days_mask',
+                    'start_time',
+                    'end_time',
+                    'end_next_day',
+                    'title'
+                ]);
+            foreach ($blocks as $b)
+                $bySched[$b->schedId] = $b;
+        }
+
+        // holidays
+        $rawHolidays = DB::table('tblholiday')
+            ->where(function ($q) use ($start, $end) {
+                $q->whereBetween('holidate', [$start->toDateString(), $end->toDateString()])
+                    ->orWhere('is_recurring', 1);
+            })
+            ->get(['holidate', 'status', 'title', 'is_recurring']);
+
+        $holidayAbs = [];  // YYYY-MM-DD => [...]
+        $holidayByMD = []; // MM-DD => [...]
+        foreach ($rawHolidays as $h) {
+            if ($h->is_recurring) {
+                $md = \Carbon\Carbon::parse($h->holidate)->format('m-d');
+                $holidayByMD[$md][] = [
+                    'date' => $h->holidate,
+                    'status' => $h->status,
+                    'title' => $h->title,
+                    'recurring' => true,
+                ];
+            } else {
+                $iso = \Carbon\Carbon::parse($h->holidate)->toDateString();
+                $holidayAbs[$iso][] = [
+                    'date' => $iso,
+                    'status' => $h->status,
+                    'title' => $h->title,
+                    'recurring' => false,
+                ];
+            }
+        }
+
+        // first TimeIn per day for this month
+        $firstIns = DB::table('tblemployeeclocks')
+            ->where('userid', $userId)
+            ->whereBetween(
+                DB::raw('COALESCE(DateToday, DATE(TimeIn))'),
+                [$start->toDateString(), $end->toDateString()]
+            )
+            ->selectRaw('COALESCE(DateToday, DATE(TimeIn)) as d, MIN(TimeIn) as first_in')
+            ->groupBy('d')
+            ->pluck('first_in', 'd'); // 'YYYY-MM-DD' => 'YYYY-MM-DD HH:MM:SS'
+
+        $byDate = [];
+        $bitByIsoDow = [1 => 1, 2 => 2, 3 => 4, 4 => 8, 5 => 16, 6 => 32, 7 => 64];
+
+        foreach (\Carbon\CarbonPeriod::create($start, '1 day', $end) as $d) {
+            $iso = $d->toDateString();
+            $md = $d->format('m-d');
+            $bit = $bitByIsoDow[$d->isoWeekday()];
+
+            // holidays
+            $hols = array_merge($holidayAbs[$iso] ?? [], $holidayByMD[$md] ?? []);
+            $holiday_full = $hols
+                ? ('Holiday: ' . implode(' / ', array_map(
+                    fn($h) => ($h['status'] ? ($h['status'] . ': ') : '') . $h['title'],
+                    $hols
+                )))
+                : '';
+
+            // active link for this date
+            $active = $links->first(function ($lnk) use ($d) {
+                $fromOk = !$lnk->effective_from || \Carbon\Carbon::parse($lnk->effective_from)->startOfDay() <= $d;
+                $toOk = !$lnk->effective_to || \Carbon\Carbon::parse($lnk->effective_to)->endOfDay() >= $d;
+                return $fromOk && $toOk;
+            });
+
+            $entries = [];
+            $scheduledStartDT = null;
+            $scheduledEndDT = null;
+            $isScheduledDay = false;
+
+            if ($active && isset($bySched[$active->schedId])) {
+                $row = $bySched[$active->schedId];
+                $mask = (int) ($row->days_mask ?? 0);
+
+                if (($mask & $bit) !== 0) {
+                    $isScheduledDay = true;
+
+                    // AM/PM for UI
+                    $start12 = \Carbon\Carbon::createFromFormat('H:i:s', (string) $row->start_time)->format('g:i A');
+                    $end12 = \Carbon\Carbon::createFromFormat('H:i:s', (string) $row->end_time)->format('g:i A');
+                    $end12 .= ((int) $row->end_next_day === 1) ? ' (+1)' : '';
+
+                    $entries[] = [
+                        'start' => $start12,
+                        'end' => $end12,
+                        'name' => $row->title ?: 'Shift',
+                        'notes' => '',
+                        'next_day' => (bool) $row->end_next_day,
+                    ];
+
+                    // schedule window anchored to this date
+                    $scheduledStartDT = \Carbon\Carbon::parse($iso . ' ' . $row->start_time);
+                    $scheduledEndDT = \Carbon\Carbon::parse($iso . ' ' . $row->end_time);
+                    if ((int) $row->end_next_day === 1) {
+                        $scheduledEndDT->addDay();
+                    }
+                }
+            }
+
+            // compact cell label (keep short; no long holiday titles)
+            $timeLabel = '—';
+            if ($entries) {
+                $timeLabel = count($entries) === 1
+                    ? ($entries[0]['start'] . '–' . $entries[0]['end'])
+                    : (count($entries) . ' shifts');
+            }
+            $label = $timeLabel;
+
+            // attendance status
+            $status = null;
+            $firstIn = isset($firstIns[$iso]) ? \Carbon\Carbon::parse($firstIns[$iso]) : null;
+            $isFutureDay = $d->gt($todayDate);
+            $isBeforeEarliest = $earliestClockDate ? $d->lt(\Carbon\Carbon::parse($earliestClockDate)) : false;
+            $isToday = $iso === $todayDate;
+
+            if ($isScheduledDay) {
+                if ($firstIn) {
+                    $lateThreshold = $scheduledStartDT ? $scheduledStartDT->copy()->addMinutes($LATE_GRACE_MINUTES) : null;
+                    $status = ($lateThreshold && $firstIn->greaterThan($lateThreshold)) ? 'late' : 'present';
+                } else {
+                    if ($isFutureDay) {
+                        // future: never absent/late
+                        $status = null;
+                    } elseif ($isBeforeEarliest) {
+                        // before user's first ever clock: don't mark absent
+                        $status = null;
+                    } elseif ($isToday && $scheduledStartDT && $scheduledEndDT) {
+                        if ($now->lt($scheduledStartDT)) {
+                            // before window starts -> no dot yet
+                            $status = null;
+                        } elseif ($now->between($scheduledStartDT, $scheduledEndDT)) {
+                            // inside window with no clock-in -> constant late
+                            $status = 'late';
+                        } else {
+                            // after window ends with no clock-in -> absent
+                            $status = 'absent';
+                        }
+                    } else {
+                        // past scheduled day with no clock-in -> absent
+                        $status = 'absent';
+                    }
+                }
+            } else {
+                // not scheduled
+                if ($firstIn) {
+                    $status = 'present'; // unscheduled work
+                } else {
+                    // never show absent for non-scheduled days
+                    $status = null;
+                }
+            }
+
+            $byDate[$iso] = [
+                'label' => $label,
+                'holiday_full' => $holiday_full,
+                'holidays' => $hols,
+                'entries' => $entries,
+                'status' => $status, // present | late | absent | null
+            ];
+        }
+
+        return response()->json(['ym' => $ym, 'byDate' => $byDate]);
+    }
+
+
 
 
 }

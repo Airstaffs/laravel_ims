@@ -19,6 +19,150 @@ class LoginController extends Controller
     protected $userLogService;
     const DB_TZ = 'America/Los_Angeles';
 
+    private function maskHas(?int $mask, int $isoDow): bool
+    {
+        $m = (int) ($mask ?? 0);
+        return $m > 0 && (($m & (1 << ($isoDow - 1))) !== 0);
+    }
+
+    private function checkLoginWindow(int $userId, string $tz): array
+    {
+        $now = \Carbon\Carbon::now($tz);
+        $today = $now->toDateString();
+        $yesterday = $now->copy()->subDay()->toDateString();
+        $dowToday = (int) $now->isoWeekday();            // 1..7
+        $dowYest = (int) $now->copy()->subDay()->isoWeekday();
+
+        // Load active links for *today* (effective range), join timesched
+        $links = DB::table('tblusersched as us')
+            ->join('tbltimesched as ts', 'ts.timeschedId', '=', 'us.schedId')
+            ->select(
+                'us.userschedId',
+                'us.userId',
+                'us.schedId',
+                'us.effective_from',
+                'us.effective_to',
+                'us.is_active',
+                'us.early_login_mins  as us_early_login_mins',
+                'ts.timeschedId',
+                'ts.day_of_week',
+                'ts.days_mask',
+                'ts.start_time',
+                'ts.end_time',
+                'ts.end_next_day',
+                'ts.title',
+                'ts.early_login_mins  as ts_early_login_mins'
+            )
+            ->where('us.userId', $userId)
+            ->where('us.is_active', 1)
+            ->where(function ($q) use ($today) {
+                $q->whereNull('us.effective_from')->orWhere('us.effective_from', '<=', $today);
+            })
+            ->where(function ($q) use ($today) {
+                $q->whereNull('us.effective_to')->orWhere('us.effective_to', '>=', $today);
+            })
+            ->where('ts.is_active', 1)
+            ->orderBy('ts.start_time')
+            ->get();
+
+        if ($links->isEmpty()) {
+            return ['allowed' => false, 'message' => 'You have no schedule assigned for today.'];
+        }
+
+        // helper: resolve early_login_mins (user override > template > 0)
+        $resolveLoginMins = function ($userVal, $tmplVal) {
+            if (is_numeric($userVal))
+                return (int) $userVal;
+            if (is_numeric($tmplVal))
+                return (int) $tmplVal;
+            return 0;
+        };
+
+        $tooEarlyEarliest = null; // store earliest "allowed at" to show a friendly message
+
+        foreach ($links as $r) {
+            $hasMask = ((int) ($r->days_mask ?? 0) > 0);
+            $isEveryLegacy = ((int) $r->day_of_week) === 0; // legacy "everyday"
+
+            $loginGrace = $resolveLoginMins($r->us_early_login_mins, $r->ts_early_login_mins);
+
+            // ---- A) Today-anchored window
+            $todayOk = ($hasMask && $this->maskHas($r->days_mask, $dowToday))
+                || (!$hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowToday));
+
+            if ($todayOk) {
+                $start = Carbon::parse($today . ' ' . $r->start_time, $tz);
+                $end = Carbon::parse($today . ' ' . $r->end_time, $tz);
+                if ((int) $r->end_next_day === 1)
+                    $end->addDay();
+
+                $allowedFrom = $start->copy()->subMinutes($loginGrace);
+
+                if ($now->between($allowedFrom, $end, true)) {
+                    return ['allowed' => true, 'message' => null];
+                }
+                if ($now->lt($allowedFrom)) {
+                    if (!$tooEarlyEarliest || $allowedFrom->lt($tooEarlyEarliest)) {
+                        $tooEarlyEarliest = $allowedFrom;
+                    }
+                }
+            }
+
+            // ---- B) Overnight window (yesterday-anchored)
+            if ((int) $r->end_next_day === 1) {
+                $yOk = ($hasMask && $this->maskHas($r->days_mask, $dowYest))
+                    || (!$hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowYest));
+
+                if ($yOk) {
+                    $startY = Carbon::parse($yesterday . ' ' . $r->start_time, $tz);
+                    $endY = Carbon::parse($yesterday . ' ' . $r->end_time, $tz)->addDay();
+
+                    $allowedFromY = $startY->copy()->subMinutes($loginGrace);
+
+                    if ($now->between($allowedFromY, $endY, true)) {
+                        return ['allowed' => true, 'message' => null];
+                    }
+                    // too-early for a *yesterday* window doesn’t apply (it started in the past)
+                }
+            }
+        }
+
+        // If we reached here, no window currently allows login
+        if ($tooEarlyEarliest) {
+            return [
+                'allowed' => false,
+                'message' => 'Too early to log in. Earliest allowed time: ' . $tooEarlyEarliest->format('h:i A') . '.'
+            ];
+        }
+
+        return [
+            'allowed' => false,
+            'message' => 'You are outside your scheduled login time window.'
+        ];
+    }
+
+    /** Enforce the schedule gate unless SuperAdmin. Returns RedirectResponse|null. */
+    private function enforceScheduleGateOrBypass(User $user, Request $request)
+    {
+        // Pull latest role from DB to be safe
+        $role = DB::table('tbluser')->where('id', $user->id)->value('role');
+        if (is_string($role) && strcasecmp($role, 'SuperAdmin') === 0) {
+            return null; // bypass
+        }
+
+        $tz = $this->detectTimezoneFromRequest($request); // same logic you use elsewhere
+        $gate = $this->checkLoginWindow($user->id, $tz);
+
+        if ($gate['allowed'])
+            return null;
+
+        // deny and log out
+        Auth::logout();
+        return back()->withErrors([
+            'username' => $gate['message'] ?? 'Login not allowed right now.'
+        ])->withInput($request->only('username'));
+    }
+
     public function __construct(UserLogService $userLogService)
     {
         $this->userLogService = $userLogService;
@@ -69,6 +213,10 @@ class LoginController extends Controller
 
                 // Get the authenticated user
                 $user = Auth::user();
+
+                if ($resp = $this->enforceScheduleGateOrBypass($user, $request)) {
+                    return $resp; // blocked (too early / no schedule / outside window)
+                }
 
                 // Store user data in session
                 $this->storeUserSession($user, $request);
@@ -406,6 +554,10 @@ class LoginController extends Controller
 
             // Regenerate session for security
             request()->session()->regenerate();
+
+            if ($resp = $this->enforceScheduleGateOrBypass($user, request())) {
+                return $resp;
+            }
 
             // Store session and permissions
             $this->storeUserSession($user, request());

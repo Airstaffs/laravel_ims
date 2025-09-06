@@ -729,6 +729,10 @@ Route::prefix('hr')->group(function () {
     Route::get('/profile/{userId}', [HrController::class, 'getUserProfileDetailsById']);
     Route::post('/account/update-details', [HrController::class, 'updateUserProfileDetails'])
         ->name('account.update-details')->middleware('auth');
+            // new, for the permissions UI
+    Route::get('/stores', [HrController::class, 'listStores']); // list stores for UI
+    Route::get('/employees/{id}/permissions', [HrController::class, 'getEmployeePermissions']);
+    Route::post('/employees/{id}/permissions', [HrController::class, 'updateEmployeePermissions']);
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -736,6 +740,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/hr/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
     Route::post('/hr/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 });
+
+Route::get('/schedule/month', [AttendanceController::class, 'month']);
 
 // routes/web.php
 Route::middleware(['auth'])->get('/account/complete', function () {

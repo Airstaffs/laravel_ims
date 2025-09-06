@@ -361,6 +361,15 @@ export default {
                 currency: "PHP",
             },
 
+            permissions: {
+                user_id: null,
+                modules: {}, // { order: true, labeling: false, ... }
+                main_module: null, // "order" | null
+                module_keys: [], // backend-provided list for rendering
+            },
+            permissionsLoading: false,
+            permissionsSaving: false,
+
             // Time Record
             timeRecords: [],
             filters: { employee: "", dateFrom: "", dateTo: "" },
@@ -700,6 +709,35 @@ export default {
                 this.profile = {};
             }
 
+            // ⬇️ permissions
+            this.permissionsLoading = true;
+            try {
+                const { data } = await axios.get(
+                    `${API_BASE_URL}/hr/employees/${emp.id}/permissions`
+                );
+                // expected backend shape:
+                // { user_id, modules:{...}, main_module: "order"|null, module_keys:[...] }
+                this.permissions = {
+                    user_id: Number(emp.id),
+                    modules: data?.modules || {},
+                    main_module: data?.main_module ?? null,
+                    module_keys: Array.isArray(data?.module_keys)
+                        ? data.module_keys
+                        : Object.keys(data?.modules || {}),
+                };
+            } catch (e) {
+                console.error("Failed to load permissions", e);
+                // fall back gracefully
+                this.permissions = {
+                    user_id: Number(emp.id),
+                    modules: {},
+                    main_module: null,
+                    module_keys: [],
+                };
+            } finally {
+                this.permissionsLoading = false;
+            }
+
             // Preload rate form (unchanged)
             const today = new Date().toISOString().slice(0, 10);
             this.rateForm = {
@@ -714,8 +752,60 @@ export default {
         },
 
         setEmployeeModalTab(tab) {
-            if (tab === "details" || tab === "rate")
+            if (["details", "rate", "perms"].includes(tab)) {
                 this.employeeModal.tab = tab;
+            }
+        },
+
+        toggleModule(key, checked) {
+            // flip the boolean in place
+            this.permissions.modules = {
+                ...this.permissions.modules,
+                [key]: !!checked,
+            };
+            // if we turned the current main_module off, clear it
+            if (!checked && this.permissions.main_module === key) {
+                this.permissions.main_module = null;
+            }
+        },
+
+        async savePermissions() {
+            if (!this.permissions.user_id) return;
+
+            // validate: main_module must be one of the enabled modules (or null)
+            const mm = this.permissions.main_module;
+            if (mm !== null && this.permissions.modules[mm] !== true) {
+                return Swal.fire(
+                    "Invalid main module",
+                    "Main module must be one of the enabled modules.",
+                    "warning"
+                );
+            }
+
+            try {
+                this.permissionsSaving = true;
+
+                const payload = {
+                    modules: this.permissions.modules, // { key: true/false }
+                    main_module: this.permissions.main_module, // "order" | null
+                };
+
+                await axios.post(
+                    `${API_BASE_URL}/hr/employees/${this.permissions.user_id}/permissions`,
+                    payload
+                );
+
+                Swal.fire("Saved", "Permissions updated.", "success");
+            } catch (e) {
+                console.error("savePermissions error:", e);
+                const msg =
+                    e?.response?.data?.message ||
+                    e?.message ||
+                    "Failed to save permissions.";
+                Swal.fire("Error", msg, "error");
+            } finally {
+                this.permissionsSaving = false;
+            }
         },
 
         closeEmployeeModal() {
@@ -731,6 +821,13 @@ export default {
                 ice_name: null,
                 ice_relationship: null,
                 ice_phone: null,
+            };
+
+            this.permissions = {
+                user_id: null,
+                modules: {},
+                main_module: null,
+                module_keys: [],
             };
 
             // neutral reset; no out-of-scope vars
@@ -2077,6 +2174,12 @@ export default {
                 openEmployeeModal: (emp) => this.openEmployeeModal(emp),
                 setEmployeeModalTab: (tab) => this.setEmployeeModalTab(tab),
                 closeEmployeeModal: () => this.closeEmployeeModal(),
+
+                permissions: this.permissions,
+                permissionsLoading: this.permissionsLoading,
+                permissionsSaving: this.permissionsSaving,
+                toggleModule: (k, v) => this.toggleModule(k, v),
+                savePermissions: () => this.savePermissions(),
 
                 // rate modal state
                 showRateModal: this.showRateModal,
