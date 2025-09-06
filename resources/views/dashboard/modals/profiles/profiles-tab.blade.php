@@ -22,4 +22,9 @@
         <i class="bi bi-shield-lock"></i>
         <span>My Privileges</span>
     </li>
+    <li class="nav-item" id="myschedule-tab" data-bs-toggle="tab" data-bs-target="#myschedule" type="button" role="tab"
+        aria-controls="myschedule" aria-selected="false">
+        <i class="bi bi-calendar-event"></i>
+        <span>My Schedule</span>
+    </li>
 </ul>

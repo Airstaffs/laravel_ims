@@ -49,9 +49,11 @@ while ($row_stores = mysqli_fetch_assoc($resultproduct_store)) {
         $stores[] = $storename;
     }
 }
+
+$storeCredentials = getStoreCredentials($Connect);
 $allSkus = [];
 
-foreach ($stores as $store) {
+foreach (array_keys($storeCredentials) as $store) {
     $tblname = "tblfnsku";
 
     $sid = sidfetcherino($Connect, $store);
@@ -59,10 +61,10 @@ foreach ($stores as $store) {
     $allSkus = getallnewitems($Connect, $sid);
 
     // Get credentials for this store
-    $credentials = $storeCredentials[$store];
+    $credentials = $storeCredentials[$store] ?? null;
 
-    if (!isset($credentials['client_id']) || !isset($credentials['client_secret'])) {
-        die("Invalid keys in database.");
+    if (empty($credentials['client_id']) || empty($credentials['client_secret']) || empty($credentials['refresh_token'])) {
+        die("Invalid keys for store: {$store}");
     }
 
     $accessToken = fetchAccessToken($credentials, $returnRaw = false);
@@ -316,12 +318,12 @@ foreach ($stores as $store) {
 
                 // Prepare the update statement
                 $updateStmt_rawr_101 = $Connect->prepare("UPDATE tblasin SET amazon_title = ? WHERE ASIN = ?");
-                $updateStmt_rawr_101->bind_param("ss", $PRODUCT_NAME, $asin);
+                $updateStmt_rawr_101->bind_param("ss", $PRODUCT_NAME, $ASIN);
 
                 if ($updateStmt_rawr_101->execute()) {
-                    echo "Updated ASIN $asin with title: $Amazon_title<br>";
+                    echo "Updated ASIN $ASIN with title: $Amazon_title<br>";
                 } else {
-                    echo "Failed to update ASIN $asin: " . $updateStmt_rawr_101->error . "<br>";
+                    echo "Failed to update ASIN $ASIN: " . $updateStmt_rawr_101->error . "<br>";
                 }
 
                 $number++;
@@ -789,4 +791,29 @@ function fetchGrantlessAccessToken($credentials, $scope)
 
     $tokenData = json_decode($response, true);
     return $tokenData['access_token'];
+}
+
+function getStoreCredentials($Connect)
+{
+    $stores = [];
+
+    // Adjust the field names here to match the actual schema of tblstores
+    $sql = "SELECT storename, client_id, client_secret, refresh_token 
+            FROM tblstores";
+    $result = mysqli_query($Connect, $sql);
+
+    if (!$result) {
+        die("Query error in getStoreCredentials: " . mysqli_error($Connect));
+    }
+
+    while ($row = mysqli_fetch_assoc($result)) {
+        $storename = $row['storename'];
+        $stores[$storename] = [
+            'client_id'     => $row['client_id'],
+            'client_secret' => $row['client_secret'],
+            'refresh_token' => $row['refresh_token']
+        ];
+    }
+
+    return $stores;
 }

@@ -329,6 +329,23 @@ export default {
             // Employees
             employees: [],
             newEmployee: { name: "", position: "" },
+            employeeModal: {
+                show: false,
+                tab: "details", // 'details' | 'rate'
+                selectedEmployee: null,
+            },
+
+            // Read-only profile pulled from tbluser_profile
+            profile: {
+                full_name: null,
+                work_email: null,
+                contact_phone: null,
+                birthdate: null,
+                address: null,
+                ice_name: null,
+                ice_relationship: null,
+                ice_phone: null,
+            },
 
             // Rate editor modal state
             showRateModal: false,
@@ -343,6 +360,15 @@ export default {
                 hourly_rate: null,
                 currency: "PHP",
             },
+
+            permissions: {
+                user_id: null,
+                modules: {}, // { order: true, labeling: false, ... }
+                main_module: null, // "order" | null
+                module_keys: [], // backend-provided list for rendering
+            },
+            permissionsLoading: false,
+            permissionsSaving: false,
 
             // Time Record
             timeRecords: [],
@@ -425,6 +451,9 @@ export default {
                 unpaid_break_minutes: 60,
                 title: "",
                 is_active: true,
+                early_login_mins: 0,
+                early_clockin_mins: 15,
+                grace_clockout_mins: 10,
             },
             sched_editTId: null,
 
@@ -661,6 +690,156 @@ export default {
                 this.loading.employees = false;
                 this.loaded.employees = true;
             }
+        },
+
+        async openEmployeeModal(emp) {
+            this.employeeModal.selectedEmployee = emp || null;
+            this.employeeModal.tab = "details";
+            this.employeeModal.show = true;
+
+            try {
+                const res = await fetch(`${API_BASE_URL}/hr/profile/${emp.id}`);
+                const data = await res.json().catch(() => ({}));
+                // backend shape: { user: {...}, profile: {...} }
+                this.profile = data?.profile || {};
+                // (Optional) If you want to show role/email in the header later:
+                this.employeeModal.selectedEmployeeUser = data?.user || null;
+            } catch (e) {
+                console.error("Failed to load profile", e);
+                this.profile = {};
+            }
+
+            // ⬇️ permissions
+            this.permissionsLoading = true;
+            try {
+                const { data } = await axios.get(
+                    `${API_BASE_URL}/hr/employees/${emp.id}/permissions`
+                );
+                // expected backend shape:
+                // { user_id, modules:{...}, main_module: "order"|null, module_keys:[...] }
+                this.permissions = {
+                    user_id: Number(emp.id),
+                    modules: data?.modules || {},
+                    main_module: data?.main_module ?? null,
+                    module_keys: Array.isArray(data?.module_keys)
+                        ? data.module_keys
+                        : Object.keys(data?.modules || {}),
+                };
+            } catch (e) {
+                console.error("Failed to load permissions", e);
+                // fall back gracefully
+                this.permissions = {
+                    user_id: Number(emp.id),
+                    modules: {},
+                    main_module: null,
+                    module_keys: [],
+                };
+            } finally {
+                this.permissionsLoading = false;
+            }
+
+            // Preload rate form (unchanged)
+            const today = new Date().toISOString().slice(0, 10);
+            this.rateForm = {
+                employee_id: emp.id,
+                employee_username: emp.username || emp.name || null,
+                effective_start: today,
+                effective_end: null,
+                monthly_rate: null,
+                hourly_rate: null,
+                currency: "PHP",
+            };
+        },
+
+        setEmployeeModalTab(tab) {
+            if (["details", "rate", "perms"].includes(tab)) {
+                this.employeeModal.tab = tab;
+            }
+        },
+
+        toggleModule(key, checked) {
+            // flip the boolean in place
+            this.permissions.modules = {
+                ...this.permissions.modules,
+                [key]: !!checked,
+            };
+            // if we turned the current main_module off, clear it
+            if (!checked && this.permissions.main_module === key) {
+                this.permissions.main_module = null;
+            }
+        },
+
+        async savePermissions() {
+            if (!this.permissions.user_id) return;
+
+            // validate: main_module must be one of the enabled modules (or null)
+            const mm = this.permissions.main_module;
+            if (mm !== null && this.permissions.modules[mm] !== true) {
+                return Swal.fire(
+                    "Invalid main module",
+                    "Main module must be one of the enabled modules.",
+                    "warning"
+                );
+            }
+
+            try {
+                this.permissionsSaving = true;
+
+                const payload = {
+                    modules: this.permissions.modules, // { key: true/false }
+                    main_module: this.permissions.main_module, // "order" | null
+                };
+
+                await axios.post(
+                    `${API_BASE_URL}/hr/employees/${this.permissions.user_id}/permissions`,
+                    payload
+                );
+
+                Swal.fire("Saved", "Permissions updated.", "success");
+            } catch (e) {
+                console.error("savePermissions error:", e);
+                const msg =
+                    e?.response?.data?.message ||
+                    e?.message ||
+                    "Failed to save permissions.";
+                Swal.fire("Error", msg, "error");
+            } finally {
+                this.permissionsSaving = false;
+            }
+        },
+
+        closeEmployeeModal() {
+            this.employeeModal.show = false;
+            this.employeeModal.selectedEmployee = null;
+
+            this.profile = {
+                full_name: null,
+                work_email: null,
+                contact_phone: null,
+                birthdate: null,
+                address: null,
+                ice_name: null,
+                ice_relationship: null,
+                ice_phone: null,
+            };
+
+            this.permissions = {
+                user_id: null,
+                modules: {},
+                main_module: null,
+                module_keys: [],
+            };
+
+            // neutral reset; no out-of-scope vars
+            this.rateForm = {
+                employee_id: null,
+                employee_username: null,
+                effective_start: "",
+                effective_end: null,
+                monthly_rate: null,
+                hourly_rate: null,
+                currency: "PHP",
+            };
         },
 
         // edit employee rate
@@ -1537,6 +1716,9 @@ export default {
                 unpaid_break_minutes: 60,
                 title: "",
                 is_active: true,
+                early_login_mins: 0,
+                early_clockin_mins: 15,
+                grace_clockout_mins: 10,
             };
         },
 
@@ -1635,6 +1817,9 @@ export default {
                     unpaid_break_minutes: f.unpaid_break_minutes,
                     title: f.title || undefined,
                     is_active: !!f.is_active,
+                    early_login_mins: Number(f.early_login_mins ?? 0),
+                    early_clockin_mins: Number(f.early_clockin_mins ?? 0),
+                    grace_clockout_mins: Number(f.grace_clockout_mins ?? 0),
                 };
 
                 if (this.sched_editTId) {
@@ -1700,6 +1885,10 @@ export default {
                 unpaid_break_minutes: Number(row.unpaid_break_minutes),
                 title: row.title || "",
                 is_active: Number(row.is_active) === 1,
+
+                early_login_mins: Number(row.early_login_mins || 0),
+                early_clockin_mins: Number(row.early_clockin_mins || 0),
+                grace_clockout_mins: Number(row.grace_clockout_mins || 0),
             };
         },
 
@@ -1979,6 +2168,18 @@ export default {
                 editForm: this.editForm,
                 editOriginal: this.editOriginal,
                 submittingEdit: this.submittingEdit,
+
+                employeeModal: this.employeeModal,
+                profile: this.profile,
+                openEmployeeModal: (emp) => this.openEmployeeModal(emp),
+                setEmployeeModalTab: (tab) => this.setEmployeeModalTab(tab),
+                closeEmployeeModal: () => this.closeEmployeeModal(),
+
+                permissions: this.permissions,
+                permissionsLoading: this.permissionsLoading,
+                permissionsSaving: this.permissionsSaving,
+                toggleModule: (k, v) => this.toggleModule(k, v),
+                savePermissions: () => this.savePermissions(),
 
                 // rate modal state
                 showRateModal: this.showRateModal,
