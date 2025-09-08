@@ -743,11 +743,9 @@ Route::prefix('hr')->group(function () {
     Route::post('/employees/{id}/permissions', [HrController::class, 'updateEmployeePermissions']);
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/hr/break/status', [AttendanceController::class, 'status'])->name('hr.break.status');
-    Route::post('/hr/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
-    Route::post('/hr/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
-});
+Route::get('/hr/break/status', [AttendanceController::class, 'status'])->name('hr.break.status');
+Route::post('/hr/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
+Route::post('/hr/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 
 Route::get('/schedule/month', [AttendanceController::class, 'month']);
 
