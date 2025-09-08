@@ -217,7 +217,7 @@ foreach (array_keys($storeCredentials) as $store) {
                         $hehe = "Available";
 
                         // Inserts into the Connect!
-                        $insertQuery = "INSERT INTO $tblname (FNSKU, MSKU, grading, ASIN, insert_date, `Status`, addedby) VALUES ( ?, ?, ?, ?, ?, ?, ?)";
+                        $insertQuery = "INSERT INTO $tblname (FNSKU, MSKU, grading, ASIN, insert_date, fnsku_status, addedby) VALUES ( ?, ?, ?, ?, ?, ?, ?)";
                         $stmt = $Connect->prepare($insertQuery);
                         $stmt->bind_param("sssssss", $FNSKU, $MSKU, $skucondition, $ASIN, $currentDateTime, $hehe, $user);
 

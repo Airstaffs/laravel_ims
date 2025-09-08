@@ -741,11 +741,13 @@ Route::prefix('hr')->group(function () {
     Route::get('/stores', [HrController::class, 'listStores']); // list stores for UI
     Route::get('/employees/{id}/permissions', [HrController::class, 'getEmployeePermissions']);
     Route::post('/employees/{id}/permissions', [HrController::class, 'updateEmployeePermissions']);
+
+    Route::get('/break/status', [AttendanceController::class, 'status'])->name('hr.break.status');
+Route::post('/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
+Route::post('/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 });
 
-Route::get('/hr/break/status', [AttendanceController::class, 'status'])->name('hr.break.status');
-Route::post('/hr/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
-Route::post('/hr/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
+
 
 Route::get('/schedule/month', [AttendanceController::class, 'month']);
 
