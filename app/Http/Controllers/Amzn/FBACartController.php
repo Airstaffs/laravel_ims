@@ -46,31 +46,37 @@ class FBACartController extends Controller
     }
 
     public function list(Request $request)
-    {
-        $processby = session('user_name');
-        if (!$processby) {
-            return response()->json(['error' => 'User session expired or missing.'], 401);
-        }
-
-        $items = DB::table('tblfbacart AS cart')
-            ->join('tblproduct AS p', 'cart.ProdID', '=', 'p.ProductID')
-            ->select(
-                'cart.ID',
-                'cart.ProdID',
-                'cart.DateInserted',
-                'cart.processby',
-                'p.ProductTitle',
-                'p.ASINviewer',
-                'p.MSKUviewer',
-                'p.FNSKUviewer',
-                'p.serialnumber'
-            )
-            ->where('cart.processby', $processby)
-            ->orderByDesc('cart.DateInserted')
-            ->get();
-
-        return response()->json($items);
+{
+    $processby = session('user_name');
+    if (!$processby) {
+        return response()->json(['error' => 'User session expired or missing.'], 401);
     }
+
+    $items = DB::table('tblfbacart as cart')
+        ->join('tblproduct as p', 'cart.ProdID', '=', 'p.ProductID')
+        // FNSKU join: use product.FNSKUviewer -> fnsku.FNSKU
+        ->leftJoin('tblfnsku as f', 'p.FNSKUviewer', '=', 'f.FNSKU')
+        // ASIN join: use fnsku.ASIN -> asin.ASIN
+        ->leftJoin('tblasin as a', 'f.ASIN', '=', 'a.ASIN')
+        ->select(
+            'cart.ID',
+            'cart.ProdID',
+            'cart.DateInserted',
+            'cart.processby',
+            'p.serialnumber',
+            // From tblfnsku
+            'f.FNSKU as FNSKUviewer',
+            'f.MSKU as MSKUviewer',
+            'f.ASIN as ASINviewer',
+            // From tblasin (internal = title)
+            DB::raw('a.internal as ProductTitle')
+        )
+        ->where('cart.processby', $processby)
+        ->orderByDesc('cart.DateInserted')
+        ->get();
+
+    return response()->json($items);
+}
 
     public function removeFromCart(Request $request)
     {
