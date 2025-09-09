@@ -6,7 +6,41 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 import axios from "axios";
 
+// CSRF Handler sheesh
+window.axios = axios;
+axios.defaults.withCredentials = true;
+axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
 
+const tokenMeta = document.head.querySelector('meta[name="csrf-token"]');
+if (tokenMeta) {
+  const t = tokenMeta.content;
+  axios.defaults.headers.common["X-CSRF-TOKEN"] = t;
+  localStorage.setItem("csrf_token_backup", t);
+} else {
+  console.error("CSRF meta missing");
+}
+
+let csrfRefreshPromise = null;
+
+async function refreshCsrf() {
+  // coalesce concurrent calls
+  if (!csrfRefreshPromise) {
+    csrfRefreshPromise = axios.get("/csrf-token", { params: { t: Date.now() } }) // cache-bust
+      .then(({ data }) => {
+        const newToken = data?.token;
+        if (newToken) {
+          // update header + meta + backup
+          axios.defaults.headers.common["X-CSRF-TOKEN"] = newToken;
+          const meta = document.querySelector('meta[name="csrf-token"]');
+          if (meta) meta.setAttribute("content", newToken);
+          localStorage.setItem("csrf_token_backup", newToken);
+        }
+        return newToken;
+      })
+      .finally(() => { csrfRefreshPromise = null; });
+  }
+  return csrfRefreshPromise;
+}
 
 axios.interceptors.response.use(
   r => r,
@@ -75,42 +109,6 @@ const asyncComponentMap = {
     // Remove printer from async loading since it's now imported directly
     scheduling: () => import("./page/hr/components/scheduling.vue"),
 };
-
-// CSRF Handler sheesh
-window.axios = axios;
-axios.defaults.withCredentials = true;
-axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
-
-const tokenMeta = document.head.querySelector('meta[name="csrf-token"]');
-if (tokenMeta) {
-  const t = tokenMeta.content;
-  axios.defaults.headers.common["X-CSRF-TOKEN"] = t;
-  localStorage.setItem("csrf_token_backup", t);
-} else {
-  console.error("CSRF meta missing");
-}
-
-let csrfRefreshPromise = null;
-
-async function refreshCsrf() {
-  // coalesce concurrent calls
-  if (!csrfRefreshPromise) {
-    csrfRefreshPromise = axios.get("/csrf-token", { params: { t: Date.now() } }) // cache-bust
-      .then(({ data }) => {
-        const newToken = data?.token;
-        if (newToken) {
-          // update header + meta + backup
-          axios.defaults.headers.common["X-CSRF-TOKEN"] = newToken;
-          const meta = document.querySelector('meta[name="csrf-token"]');
-          if (meta) meta.setAttribute("content", newToken);
-          localStorage.setItem("csrf_token_backup", newToken);
-        }
-        return newToken;
-      })
-      .finally(() => { csrfRefreshPromise = null; });
-  }
-  return csrfRefreshPromise;
-}
 
 // Make it globally accessible for the modal
 window.asyncComponentMap = asyncComponentMap;

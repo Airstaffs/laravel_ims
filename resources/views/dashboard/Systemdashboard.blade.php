@@ -1094,12 +1094,12 @@
         };
     </script>
 
-    <script src="{{ asset('js/settings-modal.js') }}"></script>
-    <script src="{{ asset('js/profiles-modal.js') }}"></script>
-    <script src="{{ asset('js/break-modal.js') }}"></script>
-    <script src="{{ asset('js/attendance.js') }}"></script>
-    <script src="{{ asset('js/account-record.js') }}"></script>
-    <script src="{{ asset('js/account-privilege.js') }}"></script>
+    <script src="{{ asset('js/settings-modal.js') }}" defer></script>
+    <script src="{{ asset('js/profiles-modal.js') }}" defer></script>
+    <script src="{{ asset('js/break-modal.js') }}" defer></script>
+    <script src="{{ asset('js/attendance.js') }}" defer></script>
+    <script src="{{ asset('js/account-record.js') }}" defer></script>
+    <script src="{{ asset('js/account-privilege.js') }}" defer></script>
 
 </body>
 
