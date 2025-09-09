@@ -9,6 +9,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
+      @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <!-- Title and CSRF -->
     <title>{{ session('site_title', 'IMS') }}</title>
