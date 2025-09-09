@@ -1,6 +1,10 @@
 // ==========================
 // COMPLETE PRINTER MANAGEMENT WITH ENHANCED MODAL FIX
 // ==========================
+const axios = window.axios;
+if (!axios) {
+  console.error('window.axios is not available. Ensure @vite("resources/js/app.js") loads BEFORE this script.');
+}
 
 // Global state management for modals
 window.printerModalState = {
