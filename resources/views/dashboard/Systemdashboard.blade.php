@@ -26,7 +26,8 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Removed for because of sheesh 419 CSRF sheesh -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> -->
 
     <!-- Tooltip Initialization -->
     <script>
@@ -860,6 +861,7 @@
         }
 
         // SESSION MANAGEMENT
+        /*
         function startSessionManagement() {
             console.log('Starting session management...');
 
@@ -872,6 +874,18 @@
             setInterval(checkAuthStatus, 120000); // Every 2 minutes
 
             console.log('Session management intervals started');
+        }
+        */
+
+        // new session management
+        function startSessionManagement() {
+            // Let Vue/axios own the logic if exposed by app.js
+            if (window.keepSessionAlive) {
+                setInterval(window.keepSessionAlive, 5 * 60 * 1000); // every 5 min
+            }
+            // Remove or comment out refreshCsrfToken interval — app.js already refreshes.
+            // setInterval(refreshCsrfToken, 900000);
+            setInterval(checkAuthStatus, 120000);
         }
 
         function keepSessionAlive() {
@@ -1089,7 +1103,7 @@
 </body>
 
 
-  
+
 
 
 </html>
