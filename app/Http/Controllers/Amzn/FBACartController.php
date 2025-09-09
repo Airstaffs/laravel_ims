@@ -177,4 +177,94 @@ class FBACartController extends Controller
             'date_shipped' => $dateshipped
         ]);
     }
+
+    public function commitCart(Request $request)
+{
+    $user = session('user_name');
+    if (!$user) {
+        return response()->json(['error' => 'Session expired'], 401);
+    }
+
+    $store = $request->input('store');
+    $storeShort 
+
+    // Generate unique (shipmentID, dateshipped) pair
+    $dateshipped = now();
+    $shipmentID = 'FBA' . strtoupper(Str::random(10));
+    $attempts = 0;
+
+    while (
+        DB::table('tblfbashipmenthistory')
+            ->where('shipmentID', $shipmentID)
+            ->where('dateshipped', $dateshipped)
+            ->exists()
+    ) {
+        if (++$attempts > 10) {
+            return response()->json(['error' => 'Could not generate unique shipment ID'], 500);
+        }
+        $shipmentID = 'FBA' . strtoupper(Str::random(10));
+        $dateshipped = $dateshipped->copy()->addSeconds(10);
+    }
+
+    // Pull cart with joins:
+    // p.FNSKUviewer -> f.FNSKU -> (FNSKU, MSKU, ASIN)
+    // f.ASIN -> a.ASIN -> a.internal (Title)
+    $cartItems = DB::table('tblfbacart AS cart')
+        ->join('tblproduct AS p', 'cart.ProdID', '=', 'p.ProductID')
+        ->leftJoin('tblfnsku AS f', 'p.FNSKUviewer', '=', 'f.FNSKU')
+        ->leftJoin('tblasin AS a', 'f.ASIN', '=', 'a.ASIN')
+        ->where('cart.processby', $user)
+        ->select(
+            'p.ProductTitle',
+            'p.serialnumber',
+            'p.warehouselocation',
+            'f.FNSKU',
+            'f.MSKU',
+            'f.ASIN as ASIN_from_f',
+            'a.ASIN as ASIN_from_a',
+            'a.internal as Title'
+        )
+        ->get();
+
+    if ($cartItems->isEmpty()) {
+        return response()->json(['message' => 'No items in cart.'], 400);
+    }
+
+    DB::beginTransaction();
+    try {
+        foreach ($cartItems as $item) {
+            DB::table('tblfbashipmenthistory')->insert([
+                // Prefer a.internal as the product title; fallback to legacy p.ProductTitle
+                'ProductName'  => $item->Title ?? $item->ProductTitle ?? '',
+                // Prefer ASIN from tblasin; fallback to fnsku.ASIN
+                'ASIN'         => $item->ASIN_from_a ?? $item->ASIN_from_f ?? null,
+                'FNSKU'        => $item->FNSKU,
+                'MSKU'         => $item->MSKU,
+                'dateshipped'  => $dateshipped,
+                'shipmentID'   => $shipmentID,
+                'Location'     => $item->warehouselocation,
+                'Serialnumber' => $item->serialnumber,
+                'store'        => $store,
+                'groupid'      => null,
+                'processby'    => $user,
+                'row_show'     => 1,
+                'PrepOwner'    => 'SELLER',
+            ]);
+        }
+
+        // Clear cart for this user after successful inserts
+        DB::table('tblfbacart')->where('processby', $user)->delete();
+
+        DB::commit();
+    } catch (\Throwable $e) {
+        DB::rollBack();
+        return response()->json(['error' => 'Failed to commit cart', 'detail' => $e->getMessage()], 500);
+    }
+
+    return response()->json([
+        'message' => 'Cart committed to shipment history.',
+        'shipmentID' => $shipmentID,
+        'date_shipped' => $dateshipped
+    ]);
+}
 }
