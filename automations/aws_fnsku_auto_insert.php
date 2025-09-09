@@ -321,7 +321,7 @@ foreach (array_keys($storeCredentials) as $store) {
                 $updateStmt_rawr_101->bind_param("ss", $PRODUCT_NAME, $ASIN);
 
                 if ($updateStmt_rawr_101->execute()) {
-                    echo "Updated ASIN $ASIN with title: $Amazon_title<br>";
+                    echo "Updated ASIN $ASIN with title: $PRODUCT_NAME <br>";
                 } else {
                     echo "Failed to update ASIN $ASIN: " . $updateStmt_rawr_101->error . "<br>";
                 }
