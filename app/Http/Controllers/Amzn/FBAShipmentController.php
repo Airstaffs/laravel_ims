@@ -189,7 +189,7 @@ class FBAShipmentController extends Controller
                     'dimension_length',
                     'dimension_width',
                     'dimension_height',
-                    'lbs'
+                    'weight_value'
                 )
                 ->first();
 
@@ -201,7 +201,7 @@ class FBAShipmentController extends Controller
                     'retail_length' => $asinData ? $asinData->dimension_length : null,
                     'retail_width' => $asinData ? $asinData->dimension_width : null,
                     'retail_height' => $asinData ? $asinData->dimension_height : null,
-                    'retail_lbs' => $asinData ? $asinData->lbs : null,
+                    'retail_lbs' => $asinData ? $asinData->weight_value : null,
                 ],
                 'white_box' => [
                     'white_length' => $asinData ? $asinData->white_length : null,
