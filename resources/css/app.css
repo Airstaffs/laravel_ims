@@ -902,7 +902,7 @@ hr.dashed {
 }
 
 #userprofile ul > li {
-    width: calc(100% / 3 - 10px);
+    width: calc(100% / 3 - 7.5px);
     height: 40px;
 }
 
@@ -1411,6 +1411,178 @@ form.fnskuForm .btn-process {
     margin-top: 10px;
     font-size: 0.9em;
     color: #555;
+}
+
+/* Printer */
+#printer {
+    gap: 20px;
+}
+
+#printer ul.nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+#printer ul > li button {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    background-color: #eee;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+#printer ul > li button.active {
+    background-color: #4285f4;
+    color: white;
+}
+
+#printer ul > li {
+    width: calc(100% / 4 - 7.5px);
+    height: 40px;
+}
+
+#allPrinters,
+#smallLabel,
+#instructionCard,
+#marriedPrinters {
+    padding: 0;
+}
+
+.newPrinter-container,
+.marryPrinter-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 20px;
+}
+
+.addNewPrinter,
+.marryNewPrinter {
+    width: 100%;
+    padding: 20px;
+    background: #f1f1f1;
+    border-radius: 8px;
+}
+
+form#addPrinterForm,
+form#marryPrintersForm {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+form#addPrinterForm fieldset,
+form#marryPrintersForm fieldset {
+    width: calc(100% / 2 - 10px);
+}
+
+form#addPrinterForm fieldset:last-child {
+    width: 100%;
+}
+
+.printer-info-header-compact {
+    width: 100%;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border: 1px solid #2196f3;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.printer-icon-wrapper-compact {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.form-footer {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 20px;
+}
+
+.marriage-info-card-compact {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    border: 1px solid #ffcc02;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.marriage-icon-wrapper-compact {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(135deg, #e91e63, #ad1457);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 12px rgba(233, 30, 99, 0.2);
+}
+
+.marry-modal-body {
+    padding: 2rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.marriage-info-card {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    border: 2px solid #ffcc02;
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.marriage-info-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #ffcc02, #ff9800, #ffcc02);
+    animation: shimmer 2s linear infinite;
+}
+
+.section-header {
+    width: 100%;
+    font-weight: 600;
+    color: #343a40;
+    border-bottom: 2px solid #f1f3f4;
+    font-size: 1.1rem;
+}
+
+div#editPrinterTestModal .modal-content {
+    width: 800px;
+}
+
+div#editPrinterTestModal .modal-body {
+    padding: 20px;
+}
+
+form#editPrinterForm {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 10px;
 }
 
 /* Animation */
