@@ -185,7 +185,7 @@ class FBAShipmentController extends Controller
                     'white_length',
                     'white_width',
                     'white_height',
-                    'white_lbs',
+                    'white_value',
                     'dimension_length',
                     'dimension_width',
                     'dimension_height',
