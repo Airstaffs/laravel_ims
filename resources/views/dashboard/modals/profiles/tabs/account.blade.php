@@ -155,7 +155,7 @@
       </div>
       <div class="col-md-6">
         <label class="form-label">Contact Number</label>
-        <input id="contact_phone" name="contact_phone" type="text" class="form-control">
+        <input id="contact_phone" name="contact_phone" type="number" class="form-control">
       </div>
       <div class="col-md-6">
         <label class="form-label">Birthdate</label>
@@ -175,7 +175,7 @@
       </div>
       <div class="col-md-4">
         <label class="form-label">Emergency Contact Number</label>
-        <input id="ice_phone" name="ice_phone" type="text" class="form-control">
+        <input id="ice_phone" name="ice_phone" type="number" class="form-control">
       </div>
     </div>
 

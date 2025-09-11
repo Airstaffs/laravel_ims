@@ -22,11 +22,11 @@
         </div>
         <div class="col-md-6">
           <label class="form-label">Work Email</label>
-          <input required type="email" name="work_email" class="form-control">
+          <input required type="email" name="work_email" type="email" class="form-control" readonly>
         </div>
         <div class="col-md-6">
           <label class="form-label">Contact Phone</label>
-          <input required name="contact_phone" class="form-control">
+          <input required name="contact_phone" type="number" class="form-control">
         </div>
         <div class="col-md-6">
           <label class="form-label">Birthdate</label>
@@ -38,7 +38,7 @@
         </div>
         <div class="col-md-6">
           <label class="form-label">Emergency Contact Name</label>
-          <input required name="ice_name" class="form-control">
+          <input required name="ice_name"  class="form-control">
         </div>
         <div class="col-md-6">
           <label class="form-label">Emergency Contact Relationship</label>
@@ -46,7 +46,7 @@
         </div>
         <div class="col-md-6">
           <label class="form-label">Emergency Contact Phone</label>
-          <input required name="ice_phone" class="form-control">
+          <input required name="ice_phone" type="number" class="form-control">
         </div>
 
         <div class="col-12">

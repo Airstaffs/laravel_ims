@@ -17,6 +17,9 @@ require base_path('app/Helpers/aws_helpers.php');
 
 class FBAShipmentController extends Controller
 {
+
+
+
     public function addItemToShipment(Request $request)
     {
         try {
@@ -177,7 +180,7 @@ class FBAShipmentController extends Controller
         foreach ($asins as $asin) {
             // Query tblasin for dimension data
             $asinData = DB::table('tblasin')
-                ->where('asin', $asin)
+                ->where('ASIN', $asin)
                 ->select(
                     'white_length',
                     'white_width',

@@ -1,6 +1,9 @@
+import axios from 'axios';
+
 import shipmentService from "../backend/fba_inbound_shipment_backend.js";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
-
+axios.defaults.headers.common['X-CSRF-TOKEN'] = 
+    document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 export default {
     data() {
         return {

@@ -6,6 +6,69 @@ import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
 import axios from "axios";
 
+// CSRF Handler sheesh
+window.axios = axios;
+axios.defaults.withCredentials = true;
+axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
+
+const tokenMeta = document.head.querySelector('meta[name="csrf-token"]');
+if (tokenMeta) {
+  const t = tokenMeta.content;
+  axios.defaults.headers.common["X-CSRF-TOKEN"] = t;
+  localStorage.setItem("csrf_token_backup", t);
+} else {
+  console.error("CSRF meta missing");
+}
+
+let csrfRefreshPromise = null;
+
+async function refreshCsrf() {
+  // coalesce concurrent calls
+  if (!csrfRefreshPromise) {
+    csrfRefreshPromise = axios.get("/csrf-token", { params: { t: Date.now() } }) // cache-bust
+      .then(({ data }) => {
+        const newToken = data?.token;
+        if (newToken) {
+          // update header + meta + backup
+          axios.defaults.headers.common["X-CSRF-TOKEN"] = newToken;
+          const meta = document.querySelector('meta[name="csrf-token"]');
+          if (meta) meta.setAttribute("content", newToken);
+          localStorage.setItem("csrf_token_backup", newToken);
+        }
+        return newToken;
+      })
+      .finally(() => { csrfRefreshPromise = null; });
+  }
+  return csrfRefreshPromise;
+}
+
+axios.interceptors.response.use(
+  r => r,
+  async (error) => {
+    const status = error.response?.status;
+    const cfg = error.config || {};
+    if ((status === 419 || status === 401) && !cfg.__retried) {
+      cfg.__retried = true;            // <-- prevents loops
+      await refreshCsrf();             // <-- single shared refresh
+      return axios(cfg);               // retry once
+    }
+    return Promise.reject(error);
+  }
+);
+
+axios.interceptors.request.use((cfg) => {
+  const hasHeader = cfg.headers?.["X-CSRF-TOKEN"] || cfg.headers?.common?.["X-CSRF-TOKEN"];
+  if (!hasHeader) {
+    const meta = document.querySelector('meta[name="csrf-token"]')?.content;
+    const backup = localStorage.getItem("csrf_token_backup");
+    const token = meta || backup;
+    if (token) {
+      (cfg.headers ||= {})["X-CSRF-TOKEN"] = token;
+    }
+  }
+  return cfg;
+});
+
 import "../css/app.css";
 
 // Import components
@@ -44,7 +107,7 @@ const asyncComponentMap = {
     mskucreation: () =>
         import("./page/asinoption/fnskucreation/creation_msku.vue"),
     // Remove printer from async loading since it's now imported directly
-    scheduling: () => import ("./page/hr/components/scheduling.vue"),
+    scheduling: () => import("./page/hr/components/scheduling.vue"),
 };
 
 // Make it globally accessible for the modal
@@ -61,127 +124,25 @@ function logSession(message, data) {
     }
 }
 
-// Include CSRF token in all requests
-axios.defaults.withCredentials = true;
-
-// Get CSRF token from meta tag
-const token = document.head.querySelector('meta[name="csrf-token"]');
-if (token) {
-    axios.defaults.headers.common["X-CSRF-TOKEN"] = token.content;
-    // Store in localStorage as backup
-    localStorage.setItem("csrf_token_backup", token.content);
-} else {
-    console.error(
-        "CSRF token not found: https://laravel.com/docs/csrf#csrf-x-csrf-token"
-    );
-}
-
-// Get the latest token from any available source
-function getLatestToken() {
-    // Try meta tag first
-    const metaToken = document.querySelector(
-        'meta[name="csrf-token"]'
-    )?.content;
-    // Fall back to localStorage if meta tag is missing
-    return metaToken || localStorage.getItem("csrf_token_backup");
-}
-
-// Session Management - Setup axios interceptors for automatic token refresh and session handling
-axios.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        // Check if error is due to CSRF token mismatch or session expiration
-        if (
-            error.response &&
-            (error.response.status === 419 || error.response.status === 401)
-        ) {
-            logSession("Session token issue detected:", error.response.status);
-
-            try {
-                // Try to refresh the CSRF token
-                const response = await axios.get("/csrf-token");
-                if (response.data && response.data.token) {
-                    // Update the CSRF token
-                    const newToken = response.data.token;
-                    document
-                        .querySelector('meta[name="csrf-token"]')
-                        .setAttribute("content", newToken);
-                    axios.defaults.headers.common["X-CSRF-TOKEN"] = newToken;
-
-                    // Store in localStorage as backup
-                    localStorage.setItem("csrf_token_backup", newToken);
-                    localStorage.setItem(
-                        "last_token_refresh",
-                        Date.now().toString()
-                    );
-
-                    logSession(
-                        "Token refreshed successfully, retrying request"
-                    );
-
-                    // Retry the original request with new token
-                    const originalRequest = error.config;
-                    return axios(originalRequest);
-                }
-            } catch (refreshError) {
-                logSession("Failed to refresh token:", refreshError);
-
-                // If we couldn't refresh the token, the session is likely expired
-                if (
-                    window.sessionManager &&
-                    typeof window.sessionManager.handleExpiry === "function"
-                ) {
-                    window.sessionManager.handleExpiry();
-                } else {
-                    // Check if we've tried refreshing recently to avoid reload loops
-                    const lastRefresh = localStorage.getItem(
-                        "last_refresh_attempt"
-                    );
-                    const now = Date.now();
-
-                    if (!lastRefresh || now - parseInt(lastRefresh) > 30000) {
-                        // 30 seconds
-                        localStorage.setItem(
-                            "last_refresh_attempt",
-                            now.toString()
-                        );
-
-                        // Fallback if session manager not initialized
-                        if (
-                            confirm(
-                                "Your session has expired. Click OK to reload and login again."
-                            )
-                        ) {
-                            window.location.href = "/login";
-                        }
-                    }
-                }
-            }
-        }
-
-        return Promise.reject(error);
-    }
-);
-
 // Create component mapping for navigation to component names
 const componentMapping = {
     // Define any special cases here (nav name -> component name)
     received: "receiving",
     "return scanner": "returnscanner",
-    "returnscanner": "returnscanner", // Add explicit mapping
-    "return_scanner": "returnscanner",
-    "order": "order",
-    "fbashipmentinbound": "fbashipmentinbound",
-    "fbashipment": "fbashipmentinbound", // Just in case another name variant is used
-    "fba": "fbashipmentinbound", 
-    "fbm order":"fbmorder",
-    "FBM Order":"fbmorder",
-    "ASIN List":"asinlist",
-    "printer": "printer", // 🔴 UPDATED: Add printer mapping
-    "Printer": "printer", // 🔴 UPDATED: Add capitalized version
-    "Human Resource":"humanresource",
-    "Training":"training",
-    "RTS":"rts",
+    returnscanner: "returnscanner", // Add explicit mapping
+    return_scanner: "returnscanner",
+    order: "order",
+    fbashipmentinbound: "fbashipmentinbound",
+    fbashipment: "fbashipmentinbound", // Just in case another name variant is used
+    fba: "fbashipmentinbound",
+    "fbm order": "fbmorder",
+    "FBM Order": "fbmorder",
+    "ASIN List": "asinlist",
+    printer: "printer", // 🔴 UPDATED: Add printer mapping
+    Printer: "printer", // 🔴 UPDATED: Add capitalized version
+    "Human Resource": "humanresource",
+    Training: "training",
+    RTS: "rts",
 };
 
 // Session management mixin
