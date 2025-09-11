@@ -207,7 +207,7 @@ class FBAShipmentController extends Controller
                     'white_length' => $asinData ? $asinData->white_length : null,
                     'white_width' => $asinData ? $asinData->white_width : null,
                     'white_height' => $asinData ? $asinData->white_height : null,
-                    'white_lbs' => $asinData ? $asinData->white_lbs : null
+                    'white_lbs' => $asinData ? $asinData->white_value : null
                 ],
                 'processed_at' => now(),
             ];
