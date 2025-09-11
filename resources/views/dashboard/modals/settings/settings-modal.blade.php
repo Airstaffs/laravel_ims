@@ -12,3 +12,5 @@
 @include('dashboard.modals.settings.edit-user')
 @include('dashboard.modals.settings.add-store')
 @include('dashboard.modals.settings.edit-store')
+
+@include('dashboard.modals.settings.edit-printer')

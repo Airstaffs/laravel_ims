@@ -1,3 +1,379 @@
+<div class="tab-pane fade show" id="printer" role="tabpanel" aria-labelledby="printer-tab">
+    <ul class="nav list-unstyled" id="printerTab" role="tablist">
+        <li role="presentation">
+            <button class="btn btn-printer active" id="allPrinters-tab" data-bs-toggle="tab"
+                data-bs-target="#allPrinters" type="button" role="tab" aria-controls="allPrinters"
+                aria-selected="false">
+                <i class="bi bi-list-ul me-1"></i>
+                <span>All Printers</span>
+            </button>
+        </li>
+        <li role="presentation">
+            <button class="btn btn-printer" id="smallLabel-tab" data-bs-toggle="tab" data-bs-target="#smallLabel"
+                type="button" role="tab" aria-controls="smallLabel" aria-selected="false">
+                <i class="bi bi-tag me-1"></i>
+                <span>Small Label</span>
+            </button>
+        </li>
+        <li role="presentation">
+            <button class="btn btn-printer" id="instructionCard-tab" data-bs-toggle="tab"
+                data-bs-target="#instructionCard" type="button" role="tab" aria-controls="instructionCard"
+                aria-selected="false">
+                <i class="bi bi-card-text me-1"></i>
+                <span>Instruction Card</span>
+            </button>
+        </li>
+        <li role="presentation">
+            <button class="btn btn-printer" id="marriedPrinters-tab" data-bs-toggle="tab"
+                data-bs-target="#marriedPrinters" type="button" role="tab" aria-controls="marriedPrinters"
+                aria-selected="false">
+                <i class="bi bi-arrow-through-heart me-1"></i>
+                <span>Married Printers</span>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="printerTabContent">
+        <div class="tab-pane fade show active" id="allPrinters" role="tabpanel" aria-labelledby="allPrinters-tab">
+            <div class="newPrinter-container">
+                <button type="button" class="btn btn-primary" onclick="toggleAddPrinter()">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Add Printer
+                </button>
+
+                <div class="addNewPrinter" style="display: none;">
+                    <form id="addPrinterForm">
+                        @csrf
+
+                        <div class="printer-info-header-compact">
+                            <div class="d-flex align-items-center">
+                                <div class="printer-icon-wrapper-compact add-printer-icon">
+                                    <i class="bi bi-printer-fill"></i>
+                                </div>
+                                <div class="ms-3">
+                                    <h6 class="mb-0">Configure New Printer</h6>
+                                    <small class="text-muted">Set up printer for your operations</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <fieldset>
+                            <label>
+                                <i class="bi bi-printer me-1"></i>
+                                <span>Printer Name</span>
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="compact-input-wrapper">
+                                <input type="text" class="form-control compact-input" id="addPrinterName"
+                                    name="printer_name" placeholder="Enter printer name" required>
+                                <i class="bi bi-printer compact-input-icon"></i>
+                            </div>
+                        </fieldset>
+
+                        <fieldset>
+                            <label>
+                                <i class="bi bi-tag me-1"></i>
+                                <span>Type</span>
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="compact-input-wrapper">
+                                <select class="form-select compact-input compact-select" id="addPrinterType"
+                                    name="printer_type" required>
+                                    <option value="">Select Type</option>
+                                    <option value="small_label">🏷️ Small Label</option>
+                                    <option value="instruction_card">📋 Instruction Card</option>
+                                </select>
+                                <i class="bi bi-tag compact-input-icon"></i>
+                            </div>
+                        </fieldset>
+
+                        <fieldset>
+                            <label>
+                                <i class="bi bi-globe me-1"></i>
+                                <span>IP Address</span>
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="compact-input-wrapper">
+                                <input type="text" class="form-control compact-input" id="addPrinterIP"
+                                    name="ip_address" placeholder="192.168.1.100" required>
+                                <i class="bi bi-globe compact-input-icon"></i>
+                            </div>
+                        </fieldset>
+
+                        <fieldset>
+                            <label>
+                                <i class="bi bi-plug me-1"></i>
+                                <span>Port</span>
+                            </label>
+                            <div class="compact-input-wrapper">
+                                <input type="number" class="form-control compact-input" id="addPrinterPort" name="port"
+                                    value="9100" min="1" max="65535">
+                                <i class="bi bi-plug compact-input-icon"></i>
+                            </div>
+                        </fieldset>
+
+                        <fieldset style="width: 100%;">
+                            <label>
+                                <i class="bi bi-card-text me-1"></i>
+                                <span>Description</span>
+                                <span class="text-muted">(Optional)</span>
+                            </label>
+                            <textarea class="form-control compact-input compact-textarea" id="addPrinterDescription"
+                                name="description" rows="2"
+                                placeholder="Optional notes about this printer..."></textarea>
+                        </fieldset>
+
+                        <div class="form-footer">
+                            <button type="button" class="btn btn-light compact-cancel-btn" data-bs-dismiss="modal">
+                                <i class="bi bi-x-circle me-1"></i>
+                                <span>Cancel</span>
+                            </button>
+                            <button type="submit" class="btn btn-success compact-submit-btn">
+                                <i class="bi bi-plus-circle me-1"></i>
+                                <span>Add Printer</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="printer-list-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Printer Name</th>
+                            <th>Type</th>
+                            <th>IP Address</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="allPrintersTableBody">
+                        <tr>
+                            <td colspan="5" class="text-center">Loading printers...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="smallLabel" role="tabpanel" aria-labelledby="smallLabel-tab">
+            <div class="alert alert-info text-center">
+                <strong>Click to load small label printers...</strong>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="instructionCard" role="tabpanel" aria-labelledby="instructionCard-tab">
+            <div class="alert alert-info text-center">
+                <strong>Click to load instruction card printers...</strong>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="marriedPrinters" role="tabpanel" aria-labelledby="marriedPrinters-tab">
+            <div class="marryPrinter-container">
+                <button type="button" class="btn btn-success" onclick="toggleMarryPrinter()">
+                    <i class="bi bi-plus-circle me-1"></i>
+                    Marry Printers
+                </button>
+            </div>
+
+            <div class="alert alert-info text-center">
+                <p>
+                    <strong>
+                        Married printers allow you to pair a small label printer with an instruction card printer
+                        for
+                        synchronized printing.
+                    </strong>
+                </p>
+                <p><strong>Click to load married printers...</strong></p>
+            </div>
+
+            <div class="marryNewPrinter" style="display: none;">
+                <form id="marryPrintersForm">
+                    @csrf
+
+                    <div class="marriage-info-card" style="width: 100%;">
+                        <div class="row align-items-center">
+                            <div class="col-auto">
+                                <div class="marriage-icon-wrapper">
+                                    <i class="bi bi-heart-fill"></i>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <h6 class="mb-1">Create Printer Marriage</h6>
+                                <p class="mb-0 text-muted">Join two printers to work together seamlessly for
+                                    synchronized printing operations.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <fieldset>
+                        <label>
+                            <i class="bi bi-tag-fill"></i>
+                            <span>Small Label Printer</span>
+                        </label>
+                        <select class="form-select printer-select" id="smallLabelPrinter" name="small_label_printer_id"
+                            required>
+                            <option value="">Choose your label printer...</option>
+                        </select>
+                    </fieldset>
+
+                    <fieldset>
+                        <label>
+                            <span>Instruction Card Printer</span>
+                        </label>
+                        <select class="form-select printer-select" id="instructionCardPrinter"
+                            name="instruction_card_printer_id" required>
+                            <option value="">Choose your card printer...</option>
+                        </select>
+                    </fieldset>
+
+
+                    <div class="section-header">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        Marriage Details
+                    </div>
+
+                    <fieldset style="width: 100%;">
+                        <label>
+                            <i class="bi bi-tag me-1"></i>
+                            <span>Marriage Name</span>
+                            <span class="text-danger">*</span>
+                        </label>
+                        <input type="text" class="form-control marriage-input" id="marriageName" name="marriage_name"
+                            placeholder="e.g., Production Line Alpha, Warehouse Station 1" required>
+                    </fieldset>
+
+                    <fieldset style="width: 100%;">
+                        <label>
+                            <i class="bi bi-card-text me-1"></i>
+                            <span>Description</span>
+                            <span class="text-muted">(Optional)</span>
+                        </label>
+                        <textarea class="form-control marriage-input" id="marriageDescription" name="description"
+                            rows="3"
+                            placeholder="Describe the purpose of this printer marriage, location, or any special notes...">
+                        </textarea>
+                    </fieldset>
+
+                    <div class="form-footer">
+                        <button type="button" class="btn btn-light marry-cancel-btn" data-bs-dismiss="modal">
+                            <i class="bi bi-x-circle me-1"></i>
+                            Cancel
+                        </button>
+                        <button type="submit" class="btn btn-success marry-submit-btn">
+                            <i class="bi bi-heart-fill me-1"></i>
+                            Create Marriage
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ToggleAddPrinter (option)
+    function toggleAddPrinter() {
+        const printerDiv = document.querySelector('.addNewPrinter');
+        if (printerDiv.style.display === 'none' || printerDiv.style.display === '') {
+            printerDiv.style.display = 'block';
+        } else {
+            printerDiv.style.display = 'none';
+        }
+    }
+
+    function toggleMarryPrinter() {
+        const printerDiv = document.querySelector('.marryNewPrinter');
+        if (printerDiv.style.display === 'none' || printerDiv.style.display === '') {
+            printerDiv.style.display = 'block';
+        } else {
+            printerDiv.style.display = 'none';
+        }
+    }
+
+    $(document).on("click", ".edit-printer-btn", function () {
+        const printerId = $(this).data("id");
+        $("#settingsModal").modal("hide");
+
+        fetch(`/api/printer-management/get-printer/${printerId}`)
+            .then((r) => r.json())
+            .then(({ printer }) => {
+                const modalEl = document.getElementById("editPrinterTestModal");
+                if (!modalEl) {
+                    console.error("Modal element #editPrinterTestModal not found.");
+                    return;
+                }
+
+                const modal = new bootstrap.Modal(modalEl, { backdrop: "static", keyboard: true });
+                modal.show();
+
+                // Map: input ID -> object key
+                const fields = {
+                    printerId: "printerid",       // hidden
+                    printerName: "printername",
+                    printerType: "printer_type",
+                    printerIp: "printerip",
+                    printerPort: "port",
+                    description: "description",
+                };
+
+                Object.entries(fields).forEach(([id, key]) => {
+                    const el = modalEl.querySelector(`#${id}`);
+                    if (!el) {
+                        console.warn(`Field #${id} not found inside #editPrinterTestModal`);
+                        return;
+                    }
+
+                    const value = printer?.[key] ?? "";
+
+                    if (el.tagName === "SELECT") {
+                        el.value = value;
+                        if (value && ![...el.options].some((o) => o.value === value)) {
+                            el.add(new Option(value, value, true, true));
+                        }
+                    } else {
+                        el.value = value;
+                    }
+                });
+
+                console.log("Loaded printer:", printer);
+            })
+            .catch((error) => {
+                console.error("Error fetching printer data:", error);
+            });
+
+    });
+
+    $(document).on("submit", "#editPrinterForm", function (e) {
+        e.preventDefault();
+        updatePrinter(this);
+    });
+
+    // When the edit modal is hidden (close button, ESC, or backdrop), re-show settings modal and focus the tab
+    const editModalEl = document.getElementById("editPrinterTestModal");
+    if (editModalEl) {
+        editModalEl.addEventListener("hidden.bs.modal", function () {
+            $("#settingsModal").modal("show");
+
+            const tabTriggerEl = document.querySelector("#printer-tab");
+            if (tabTriggerEl) {
+                bootstrap.Tab.getOrCreateInstance(tabTriggerEl).show();
+            }
+        });
+    }
+
+    // If you still want the close button to explicitly do the same:
+    const closeBtn = document.querySelector("#editPrinterTestModal .btn-close");
+    if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+            const modal = bootstrap.Modal.getInstance(editModalEl);
+            modal?.hide();
+        });
+    }
+
+</script>
+
 <!-- Enhanced Marry Printers Modal -->
 <div class="modal modal-printer fade" id="marryPrintersModal" tabindex="-1" aria-labelledby="marryPrintersModalLabel"
     aria-hidden="true">
@@ -1142,46 +1518,8 @@
     }
 
     /* Compact Header Info */
-    .printer-info-header-compact {
-        background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-        border: 1px solid #2196f3;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-    }
 
-    .printer-icon-wrapper-compact {
-        width: 45px;
-        height: 45px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1.2rem;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
 
-    .marriage-info-card-compact {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        border: 1px solid #ffcc02;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .marriage-icon-wrapper-compact {
-        width: 45px;
-        height: 45px;
-        background: linear-gradient(135deg, #e91e63, #ad1457);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1.2rem;
-        box-shadow: 0 4px 12px rgba(233, 30, 99, 0.2);
-    }
 
     /* Compact Form Grid */
     .compact-form-grid {
@@ -1660,31 +1998,7 @@
         }
     }
 
-    .marry-modal-body {
-        padding: 2rem;
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-    }
 
-    .marriage-info-card {
-        background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
-        border: 2px solid #ffcc02;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 2rem;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .marriage-info-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 4px;
-        background: linear-gradient(90deg, #ffcc02, #ff9800, #ffcc02);
-        animation: shimmer 2s linear infinite;
-    }
 
     @keyframes shimmer {
         0% {
@@ -1897,15 +2211,6 @@
         border-radius: 16px;
         padding: 1.5rem;
         position: relative;
-    }
-
-    .section-header {
-        font-weight: 600;
-        color: #343a40;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #f1f3f4;
-        font-size: 1.1rem;
     }
 
     .marriage-label {
@@ -2324,5 +2629,4 @@
                 }
             });
         }
-    });
-</script>
+    });</script>

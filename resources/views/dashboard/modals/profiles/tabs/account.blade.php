@@ -1,14 +1,14 @@
 <div class="tab-pane fade" id="userprofile" role="tabpanel" aria-labelledby="userprofile-tab">
     <ul class="nav list-unstyled" id="accountTab" role="tablist">
         <li role="presentation">
-            <button class="btn btn-account" id="accountdetails-tab" data-bs-toggle="tab"
+            <button class="btn btn-account active" id="accountdetails-tab" data-bs-toggle="tab"
             data-bs-target="#accountdetails" type="button" role="tab"
             aria-controls="accountdetails" aria-selected="false">
             Account Details
             </button>
         </li>
         <li role="presentation">
-            <button class="btn btn-account active" id="changepass-tab" data-bs-toggle="tab"
+            <button class="btn btn-account" id="changepass-tab" data-bs-toggle="tab"
                 data-bs-target="#changepass" type="button" role="tab" aria-controls="changepass"
                 aria-selected="true">
                 Change Password
@@ -22,8 +22,6 @@
             </button>
         </li>
     </ul>
-
-
 
     <div class="tab-content" id="accountTabContent">
         <div class="tab-pane fade show active" id="changepass" role="tabpanel"
