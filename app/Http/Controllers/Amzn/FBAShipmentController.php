@@ -17,9 +17,6 @@ require base_path('app/Helpers/aws_helpers.php');
 
 class FBAShipmentController extends Controller
 {
-
-
-
     public function addItemToShipment(Request $request)
     {
         try {
@@ -153,7 +150,6 @@ class FBAShipmentController extends Controller
 
         return response()->json($shipments);
     }
-
 
     public function package_dimension_fetcher(Request $request)
     {
@@ -2324,6 +2320,7 @@ class FBAShipmentController extends Controller
             ], 500);
         }
     }
+
     public function step6a_list_delivery_window_options(Request $request)
     {
         $request->validate([
@@ -3543,7 +3540,4 @@ class FBAShipmentController extends Controller
             ], 500);
         }
     }
-
-    // is a magical world of gumball
-
 }
