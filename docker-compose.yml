@@ -9,6 +9,7 @@ services:
       - "8000:8000"  # Laravel
     volumes:
       - .:/var/www/html
+      - /var/www/html/vendor
     depends_on:
       - db
     networks:
