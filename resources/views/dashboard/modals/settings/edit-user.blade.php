@@ -12,7 +12,7 @@
 
                     <fieldset>
                         <label>Username</label>
-                        <input type="text" class="form-control" id="edit_username" name="username" disabled>
+                        <input type="text" class="form-control" id="edit_username" name="username" readonly>
                     </fieldset>
 
                     <fieldset>

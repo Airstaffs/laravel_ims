@@ -214,7 +214,7 @@
         try {
             console.log('=== SAVING USER PRIVILEGES ===');
             console.log('Form data being sent:', formData);
-            
+
             // First save the privileges
             const response = await fetch('/save-user-privileges', {
                 method: 'POST',
@@ -230,13 +230,13 @@
 
             if (result.success) {
                 console.log('=== PRIVILEGES SAVED SUCCESSFULLY ===');
-                
+
                 const navigationData = {
                     main_module: result.main_module || formData.main_module,
                     sub_modules: result.sub_modules || [],
                     modules: {
                         'asinoption': 'ASIN Option',
-                        'humanresource':'Human Resource',
+                        'humanresource': 'Human Resource',
                         'order': 'Order',
                         'unreceived': 'Unreceived',
                         'receiving': 'Received',
@@ -247,7 +247,7 @@
                         'packing': 'Packing',
                         'stockroom': 'Stockroom',
                         'productionarea': 'Production Area',
-                        'rts':'RTS',
+                        'rts': 'RTS',
                         'returnscanner': 'Return Scanner',
                         'fbmorder': 'FBM Order',
                         'notfound': 'Not Found',
@@ -265,7 +265,7 @@
                 // 🔴 REMOVED: Don't call session refresh here as it's overriding the navigation
                 // The session refresh is called by the checkForUpdates interval function
                 // which is causing the printer module to disappear
-                
+
                 /*
                 console.log('=== REFRESHING SESSION (without navigation update) ===');
                 const refreshResponse = await fetch('/refresh-user-session', {
@@ -333,8 +333,8 @@
             'Houseage': 'houseage',
         };
 
-        const mainModules = ['Human Resource','Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
-            'Stockroom', 'Validation','Production Area','RTS','Return Scanner', 'FBM Order', 'Not Found', 'Houseage'
+        const mainModules = ['Human Resource', 'Order', 'Unreceived', 'Received', 'Labeling', 'Testing', 'Cleaning', 'Packing',
+            'Stockroom', 'Validation', 'Production Area', 'RTS', 'Return Scanner', 'FBM Order', 'Not Found', 'Houseage'
         ];
 
         const mainModuleHTML = `
@@ -450,19 +450,19 @@
             <label>Sub-Modules</label>
             <div class="main-module__container">
                 ${subModules.map(module => {
-                    // 🔴 DEBUG: Log each module processing
-                    const isChecked = data.sub_modules && data.sub_modules[module.db] === true;
-                    console.log(`Processing ${module.db}: ${isChecked ? 'CHECKED' : 'NOT CHECKED'}`);
-                    
-                    return `<div>
+            // 🔴 DEBUG: Log each module processing
+            const isChecked = data.sub_modules && data.sub_modules[module.db] === true;
+            console.log(`Processing ${module.db}: ${isChecked ? 'CHECKED' : 'NOT CHECKED'}`);
+
+            return `<div>
                         <input class="form-check-input" type="checkbox" name="sub_modules[]"
                                 value="${module.db}"
                                 ${isChecked ? 'checked' : ''}>
                         <span>${module.display}</span>
                     </div>`;
-                }).join('')}
+        }).join('')}
             </div>`;
-        
+
         document.getElementById('subModuleContainer').innerHTML = subModulesHTML;
     }
 
@@ -487,10 +487,10 @@
     // Navigation Update Functions
     function initializePrivilegeChecker() {
         console.log('🔴 initializePrivilegeChecker: Starting...');
-        
+
         // FIXED: Load current user privileges on page load
         loadCurrentUserPrivileges();
-        
+
         // Then set up the interval for periodic checks
         setInterval(checkForUpdates, 30000);
     }
@@ -504,9 +504,9 @@
 
             if (data.success) {
                 console.log('🔴 loadCurrentUserPrivileges: Data received:', data);
-                
+
                 const mainModule = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
-                
+
                 const modules = data.modules || {
                     'asinoption': 'ASIN Option',
                     'humanresource': 'Human Resource',
@@ -564,7 +564,7 @@
                 console.log('🔴 checkForUpdates: Printer in server response?', hasPrinterInResponse);
 
                 const mainModule = data.main_module ? data.main_module.toLowerCase().replace(/\s+/g, '') : '';
-                
+
                 // Use modules from response or defaults
                 const modules = data.modules || {
                     'asinoption': 'ASIN Option',
@@ -669,7 +669,7 @@
         // Process sub-modules
         if (Array.isArray(data.sub_modules)) {
             console.log('🔴 updateUserNavigation: Processing sub-modules:', data.sub_modules);
-            
+
             const filteredSubModules = data.sub_modules
                 .map(m => m.toLowerCase().replace(/\s+/g, ''))
                 .filter(moduleLower => moduleLower !== mainModuleLower);
@@ -680,7 +680,7 @@
                 if (moduleLower === 'printer') {
                     console.log('🔴 updateUserNavigation: ADDING PRINTER TO NAV');
                 }
-                
+
                 if (modules[moduleLower]) {
                     if (moduleLower === 'asinoption') {
                         navHTML += `
@@ -731,7 +731,7 @@
     // Debug monitoring code
     if (window.loadContent) {
         const originalLoadContent = window.loadContent;
-        window.loadContent = function(module) {
+        window.loadContent = function (module) {
             console.log('🔴 DEBUG: loadContent called with module:', module);
             if (module === 'printer') {
                 console.log('🔴 PRINTER MODULE BEING LOADED');
@@ -765,9 +765,9 @@
 
     // Check if there's any code that might be filtering printer specifically
     const originalFilter = Array.prototype.filter;
-    Array.prototype.filter = function(...args) {
+    Array.prototype.filter = function (...args) {
         const result = originalFilter.apply(this, args);
-        
+
         // Check if this array operation is removing printer
         if (this.includes && this.includes('printer') && !result.includes('printer')) {
             console.warn('🔴 ARRAY FILTER REMOVED PRINTER:', {
@@ -776,7 +776,7 @@
                 filterFunction: args[0].toString()
             });
         }
-        
+
         return result;
     };
 
@@ -820,8 +820,19 @@
     }
 
     function showNotification(title, message, type) {
-        alert(`${title}: ${message}`);
+        let icon = "info";
+        if (type === "success") icon = "success";
+        else if (type === "error") icon = "error";
+        else if (type === "warning") icon = "warning";
+
+        Swal.fire({
+            icon: icon,
+            title: title,
+            text: message,
+            confirmButtonText: "OK",
+        });
     }
+
 
     // Initialize form when page loads
     window.onload = function () {
@@ -832,20 +843,20 @@
     };
 
     // icon visibility in navbar
-        function updateAnnouncementIcon(subModules) {
-            const announcementIcon = document.querySelector('a[data-bs-target="#annManageModal"]');
-            const announcementIconParent = announcementIcon ? announcementIcon.closest('li.nav-item') : null;
-            
-            if (announcementIconParent) {
-                const hasAnnouncementPrivilege = subModules && subModules.includes('announcement');
-                
-                if (hasAnnouncementPrivilege) {
-                    announcementIconParent.style.display = 'block';
-                    console.log('Announcement icon shown in navbar');
-                } else {
-                    announcementIconParent.style.display = 'none';
-                    console.log('Announcement icon hidden in navbar');
-                }
+    function updateAnnouncementIcon(subModules) {
+        const announcementIcon = document.querySelector('a[data-bs-target="#annManageModal"]');
+        const announcementIconParent = announcementIcon ? announcementIcon.closest('li.nav-item') : null;
+
+        if (announcementIconParent) {
+            const hasAnnouncementPrivilege = subModules && subModules.includes('announcement');
+
+            if (hasAnnouncementPrivilege) {
+                announcementIconParent.style.display = 'block';
+                console.log('Announcement icon shown in navbar');
+            } else {
+                announcementIconParent.style.display = 'none';
+                console.log('Announcement icon hidden in navbar');
             }
         }
+    }
 </script>

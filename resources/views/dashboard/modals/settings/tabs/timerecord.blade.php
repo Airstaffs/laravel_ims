@@ -1,7 +1,7 @@
 <div class="tab-pane fade" id="usertimerecord" role="tabpanel" aria-labelledby="usertimerecord-tab">
     <h3 class="text-center">User Time Record</h3>
 
-    <form id="usertimerecord" class="userTimeRecord">
+    <form id="userTimeRecordForm" class="userTimeRecord">
         @csrf
         <fieldset>
             <select class="form-select" id="selectUserDrop" name="user_id" required>
