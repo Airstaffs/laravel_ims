@@ -71,9 +71,9 @@ export default {
             showSplitModal: false,
             currentSplitItem: null,
 
-              // ADD THESE COPY DETAILS MODAL PROPERTIES
+            // ADD THESE COPY DETAILS MODAL PROPERTIES
             showCopyDetailsModal: false,
-           currentCopyItem: null,
+            currentCopyItem: null,
         };
     },
     computed: {
@@ -163,7 +163,7 @@ export default {
         },
 
         validFnskuList() {
-            return this.filteredFnskuList.map((fnsku) => {
+            const result = this.filteredFnskuList.map((fnsku) => {
                 return {
                     ...fnsku,
                     hasBeenUsed: fnsku.Units < 11,
@@ -171,6 +171,9 @@ export default {
                     nextFnskuToUse: this.getNextFnskuToUse(fnsku),
                 };
             });
+
+            console.log("validFnskuList result:", result);
+            return result;
         },
 
         qty() {
@@ -218,22 +221,21 @@ export default {
         },
     },
     methods: {
-
         openCopyDetailsModal(item) {
             if (!item) {
-                console.warn('No item provided to copy details modal');
+                console.warn("No item provided to copy details modal");
                 return;
             }
 
-            console.log('Opening copy details modal for item:', {
+            console.log("Opening copy details modal for item:", {
                 rtcounter: item.rtcounter,
                 ProductTitle: item.ProductTitle,
-                ASIN: item.ASIN
+                ASIN: item.ASIN,
             });
 
             // Set the current item data
             this.currentCopyItem = { ...item };
-            
+
             // Show the modal
             this.showCopyDetailsModal = true;
         },
@@ -242,8 +244,8 @@ export default {
          * Close the Copy Details modal
          */
         closeCopyDetailsModal() {
-            console.log('Closing copy details modal');
-            
+            console.log("Closing copy details modal");
+
             this.showCopyDetailsModal = false;
             this.currentCopyItem = null;
         },
@@ -1258,7 +1260,7 @@ export default {
                 ASIN: item?.ASIN,
                 FNSKU: item?.FNSKU,
                 "Serial Number": item?.serialnumber,
-                "Basket Number": item?.BasketNumber,
+                "Basket Number": item?.basketnumber,
                 RPN: item?.RPN,
                 PRD: item?.PRD,
                 PCN: item?.PCN,
