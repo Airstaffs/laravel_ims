@@ -626,72 +626,59 @@ export default {
         },
 
         // UPDATED filterFnskuList method with better filtering
-        filterFnskuList() {
-            const asinPriority = this.currentItem?.ASINviewer;
-            const search = this.fnskuSearch.toLowerCase().trim();
-            const fnskuOnly = this.fnskuExact.toLowerCase().trim();
-            const selectedStore = this.selectedStore;
-            const selectedGrading = this.selectedGrading;
+        async filterFnskuList() {
+            this.isSearching = true;
 
-            console.log("Filtering with:", {
-                search,
-                fnskuOnly,
-                selectedStore,
-                selectedGrading,
-            });
-            console.log("Original list length:", this.fnskuList.length);
+            try {
+                // Build search parameters
+                const params = {
+                    limit: 500,
+                    exclude_assigned: false,
+                };
 
-            this.filteredFnskuList = this.fnskuList.filter((fnsku) => {
-                // Skip if FNSKU or ASIN is empty/null
-                if (
-                    !fnsku.FNSKU ||
-                    fnsku.FNSKU.trim() === "" ||
-                    fnsku.FNSKU === "NULL"
-                ) {
-                    return false;
+                // Add search parameters if they exist
+                if (this.fnskuSearch && this.fnskuSearch.trim()) {
+                    params.search = this.fnskuSearch.trim();
+                }
+                if (this.fnskuExact && this.fnskuExact.trim()) {
+                    params.fnsku = this.fnskuExact.trim();
+                }
+                if (this.selectedStore) {
+                    params.store = this.selectedStore;
+                }
+                if (this.selectedGrading) {
+                    params.grading = this.selectedGrading;
                 }
 
-                if (
-                    !fnsku.ASIN ||
-                    fnsku.ASIN.trim() === "" ||
-                    fnsku.ASIN === "NULL"
-                ) {
-                    return false;
+                console.log("Calling backend with params:", params);
+
+                // Make API call to your backend endpoint
+                const response = await axios.get("/api/fnsku/fnsku-list", {
+                    params,
+                });
+
+                console.log("Backend response:", response.data);
+
+                // Update the lists
+                this.fnskuList = response.data.data || [];
+                this.filteredFnskuList = [...this.fnskuList];
+
+                // Apply frontend sorting for ASIN priority
+                const asinPriority = this.currentItem?.ASINviewer;
+                if (asinPriority) {
+                    this.filteredFnskuList.sort((a, b) => {
+                        if (a.ASIN === asinPriority && b.ASIN !== asinPriority)
+                            return -1;
+                        if (a.ASIN !== asinPriority && b.ASIN === asinPriority)
+                            return 1;
+                        return 0;
+                    });
                 }
-
-                const matchesGeneral =
-                    !search ||
-                    fnsku.ASIN?.toLowerCase().includes(search) ||
-                    fnsku.astitle?.toLowerCase().includes(search);
-
-                const matchesFnskuOnly =
-                    !fnskuOnly ||
-                    fnsku.FNSKU?.toLowerCase().includes(fnskuOnly);
-
-                const matchesStore =
-                    !selectedStore || fnsku.storename === selectedStore;
-
-                const matchesGrading =
-                    !selectedGrading || fnsku.grading === selectedGrading;
-
-                return (
-                    matchesGeneral &&
-                    matchesFnskuOnly &&
-                    matchesStore &&
-                    matchesGrading
-                );
-            });
-
-            console.log("Filtered list length:", this.filteredFnskuList.length);
-
-            // Sort with ASIN priority
-            this.filteredFnskuList.sort((a, b) => {
-                if (a.ASIN === asinPriority && b.ASIN !== asinPriority)
-                    return -1;
-                if (a.ASIN !== asinPriority && b.ASIN === asinPriority)
-                    return 1;
-                return 0;
-            });
+            } catch (error) {
+                console.error("Error filtering FNSKU list:", error);
+            } finally {
+                this.isSearching = false;
+            }
         },
 
         // IMPROVED hideFnskuModal to ensure cleanup

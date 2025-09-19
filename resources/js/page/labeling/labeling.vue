@@ -141,10 +141,10 @@
                                         Details
                                     </button>
 
-                                    <span
-                                        ><strong></strong>
-                                        {{ item.actions }}</span
-                                    >
+                                    <span>
+                                        <strong></strong>
+                                        {{ item.actions }}
+                                    </span>
                                     <button
                                         @click="showFnskuModal(item)"
                                         class="btn btn-fnsku"
@@ -186,15 +186,15 @@
                                         Stockroom
                                     </button>
 
-                                  <!-- ADD THIS COPY DETAILS BUTTON -->
-                                        <button
-                                            @click="openCopyDetailsModal(item)"
-                                            class="btn btn-copy-details"
-                                            title="Copy product details"
-                                        >
-                                            <i class="bi bi-clipboard"></i> Copy Details
-                                        </button>
-                                        
+                                    <!-- ADD THIS COPY DETAILS BUTTON -->
+                                    <button
+                                        @click="openCopyDetailsModal(item)"
+                                        class="btn btn-copy-details"
+                                        title="Copy product details"
+                                    >
+                                        <i class="bi bi-clipboard"></i> Copy
+                                        Details
+                                    </button>
 
                                     <button
                                         @click="openEditModal(item)"
@@ -419,8 +419,7 @@
                             <i class="bi bi-box-seam"></i> Move to Stockroom
                         </button>
 
-
-                       <!-- ADD THIS COPY DETAILS BUTTON -->
+                        <!-- ADD THIS COPY DETAILS BUTTON -->
                         <button
                             @click="openCopyDetailsModal(item)"
                             class="btn btn-copy-details"
@@ -1359,7 +1358,9 @@
                                 </thead>
                                 <tbody>
                                     <template
-                                        v-for="(fnsku, index) in validFnskuList"
+                                        v-for="(
+                                            fnsku, index
+                                        ) in paginatedFnskuList"
                                         :key="fnsku.FNSKU"
                                     >
                                         <tr>
@@ -1387,7 +1388,6 @@
                                                     >
                                                         {{ fnsku.Units }} in
                                                         inventory
-                                                        <!-- NEW: Show usage info -->
                                                         <span
                                                             v-if="
                                                                 fnsku.Units < 11
@@ -1412,7 +1412,6 @@
                                             <td>
                                                 <div>
                                                     {{ fnsku.FNSKU }}
-                                                    <!-- NEW: Show what FNSKU will actually be assigned -->
                                                     <div
                                                         class="small text-muted"
                                                     >
@@ -1458,8 +1457,6 @@
                                                                 : "Select"
                                                         }}
                                                     </button>
-
-                                                    <!-- NEW: Info button to show more details -->
                                                     <button
                                                         @click="
                                                             showFnskuAvailabilityInfo(
@@ -1646,14 +1643,13 @@
             @close="closeSplitModal"
             @split-success="onSplitSuccess"
         />
-      
-      <!--OPY DETAILS MODAL-->
-            <copyDetailsModal
-                :show-modal="showCopyDetailsModal"
-                :item-data="currentCopyItem"
-                @close="closeCopyDetailsModal"
-         />
 
+        <!--OPY DETAILS MODAL-->
+        <copyDetailsModal
+            :show-modal="showCopyDetailsModal"
+            :item-data="currentCopyItem"
+            @close="closeCopyDetailsModal"
+        />
     </div>
 </template>
 
