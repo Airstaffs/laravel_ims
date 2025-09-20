@@ -74,6 +74,15 @@ export default {
             // ADD THESE COPY DETAILS MODAL PROPERTIES
             showCopyDetailsModal: false,
             currentCopyItem: null,
+
+            currentPage: 1,
+            pageSize: 5,
+            hasMorePages: false,
+            totalRecords: 0,
+            paginationInfo: {
+                from: 0,
+                to: 0,
+            },
         };
     },
     computed: {
@@ -579,7 +588,7 @@ export default {
 
                     // Apply initial filtering if there's a search term
                     if (this.fnskuSearch) {
-                        this.filterFnskuList();
+                        this.filterFnskuList(1);
                     }
                 } else {
                     console.error("Invalid response format:", response.data);
@@ -626,13 +635,13 @@ export default {
         },
 
         // UPDATED filterFnskuList method with better filtering
-        async filterFnskuList() {
+        async filterFnskuList(page = 1) {
             this.isSearching = true;
 
             try {
-                // Build search parameters
                 const params = {
-                    limit: 500,
+                    page: page,
+                    limit: this.pageSize,
                     exclude_assigned: false,
                 };
 
@@ -652,16 +661,22 @@ export default {
 
                 console.log("Calling backend with params:", params);
 
-                // Make API call to your backend endpoint
                 const response = await axios.get("/api/fnsku/fnsku-list", {
                     params,
                 });
 
                 console.log("Backend response:", response.data);
 
-                // Update the lists
+                // Update data from simplePaginate response
                 this.fnskuList = response.data.data || [];
                 this.filteredFnskuList = [...this.fnskuList];
+                this.currentPage = response.data.current_page;
+                this.totalRecords = response.data.total || 0;
+                this.hasMorePages = response.data.has_more_pages;
+                this.paginationInfo = {
+                    from: response.data.from || 0,
+                    to: response.data.to || 0,
+                };
 
                 // Apply frontend sorting for ASIN priority
                 const asinPriority = this.currentItem?.ASINviewer;
@@ -679,6 +694,30 @@ export default {
             } finally {
                 this.isSearching = false;
             }
+        },
+
+        goToPage(page) {
+            if (page >= 1) {
+                this.filterFnskuList(page);
+            }
+        },
+
+        nextPage() {
+            if (this.hasMorePages) {
+                this.goToPage(this.currentPage + 1);
+            }
+        },
+
+        prevPage() {
+            if (this.currentPage > 1) {
+                this.goToPage(this.currentPage - 1);
+            }
+        },
+
+        changePageSize() {
+            // Reset to page 1 when changing page size
+            this.currentPage = 1;
+            this.filterFnskuList(1);
         },
 
         // IMPROVED hideFnskuModal to ensure cleanup
@@ -1099,7 +1138,7 @@ export default {
                         this.selectedGrading ||
                         this.fnskuExact
                     ) {
-                        this.filterFnskuList();
+                        this.filterFnskuList(1);
                     }
                 } else {
                     console.error("Invalid response format:", response.data);
@@ -1877,6 +1916,8 @@ export default {
             "🔍 Component mounted. showSplitModal initial state:",
             this.showSplitModal
         );
+
+        this.filterFnskuList(1);
     },
 
     beforeDestroy() {

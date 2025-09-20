@@ -1358,9 +1358,7 @@
                                 </thead>
                                 <tbody>
                                     <template
-                                        v-for="(
-                                            fnsku, index
-                                        ) in paginatedFnskuList"
+                                        v-for="(fnsku, index) in validFnskuList"
                                         :key="fnsku.FNSKU"
                                     >
                                         <tr>
@@ -1489,6 +1487,76 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <div
+                        class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light"
+                    >
+                        <div>
+                            <span v-if="isInitialLoad || isSearching"
+                                >Loading...</span
+                            >
+                            <span
+                                v-else-if="
+                                    paginationInfo.from && paginationInfo.to
+                                "
+                            >
+                                Showing {{ paginationInfo.from }} to
+                                {{ paginationInfo.to }} entries of
+                                {{ totalRecords }}
+                            </span>
+                            <span v-else>No entries found</span>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-3">
+                            <select
+                                v-model="pageSize"
+                                @change="changePageSize"
+                                class="form-select form-select-sm"
+                                style="width: 80px"
+                            >
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li
+                                        class="page-item"
+                                        :class="{ disabled: currentPage === 1 }"
+                                    >
+                                        <button
+                                            class="page-link"
+                                            @click="prevPage"
+                                            :disabled="currentPage === 1"
+                                        >
+                                            Previous
+                                        </button>
+                                    </li>
+
+                                    <li class="page-item active">
+                                        <span class="page-link"
+                                            >Page {{ currentPage }}</span
+                                        >
+                                    </li>
+
+                                    <li
+                                        class="page-item"
+                                        :class="{ disabled: !hasMorePages }"
+                                    >
+                                        <button
+                                            class="page-link"
+                                            @click="nextPage"
+                                            :disabled="!hasMorePages"
+                                        >
+                                            Next
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
                         </div>
                     </div>
 

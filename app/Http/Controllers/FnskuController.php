@@ -189,13 +189,13 @@ class FnskuController extends BasetablesController
             Log::info('=== FNSKU LIST REQUEST START ===');
             Log::info('Request parameters:', $request->all());
 
-            // Get limit from request, default to 50, max 500 (increased from 200)
-            $limit = min($request->input('limit', 50), 500);
+            // Get pagination parameters
+            $perPage = min($request->input('limit', 50), 500);
             $search = $request->input('search', '');
             $exclude_assigned = $request->boolean('exclude_assigned', true);
 
             Log::info('Processed parameters:', [
-                'limit' => $limit,
+                'per_page' => $perPage,
                 'search' => $search,
                 'exclude_assigned' => $exclude_assigned
             ]);
@@ -237,7 +237,6 @@ class FnskuController extends BasetablesController
 
             // MODIFIED: SIMPLIFIED exclusion logic
             if ($exclude_assigned) {
-                // Simple exclusion - exclude FNSKUs that are directly assigned
                 $query->whereNotIn('fnsku.FNSKU', function ($subquery) {
                     $subquery->select('FNSKUviewer')
                         ->from($this->productTable)
@@ -270,85 +269,44 @@ class FnskuController extends BasetablesController
 
                 Log::info('Search filters applied for: ' . $search);
             } else {
-                // IMPROVED: Better default ordering - prioritize by ASIN first, then FNSKU
-                // This prevents FNSKUs starting with letters late in alphabet from being cut off
                 $query->orderBy('fnsku.ASIN')
                     ->orderBy('fnsku.FNSKU');
             }
 
             Log::info('About to execute query...');
-            Log::info('SQL Query:', ['sql' => $query->toSql()]);
 
-            // DEBUG: Additional debugging for B07K1KD6TH search
-            if ($search === 'B07K1KD6TH') {
-                // Test if records exist at all
-                $testExists = DB::table($this->fnskuTable)
-                    ->where('ASIN', 'B07K1KD6TH')
-                    ->count();
+            // Get total count for the filtered results
+            $totalCount = $query->count();
 
-                Log::info('B07K1KD6TH test - records exist in DB:', ['count' => $testExists]);
-
-                // Test the built query
-                $testQuery = clone $query;
-                $testResults = $testQuery->get();
-
-                Log::info('B07K1KD6TH - query results:', [
-                    'total_results' => $testResults->count(),
-                    'has_b07k1kd6th' => $testResults->where('ASIN', 'B07K1KD6TH')->count()
-                ]);
-            }
-
-            $fnskuList = $query->limit($limit)->get();
+            // Then do the pagination
+            $fnskuList = $query->simplePaginate($perPage);
 
             Log::info('Query executed successfully', [
-                'total_found' => $fnskuList->count(),
-                'limit' => $limit
+                'current_page_count' => $fnskuList->count(),
+                'per_page' => $perPage,
+                'current_page' => $fnskuList->currentPage()
             ]);
 
-            // Log first few results for debugging
-            if ($fnskuList->count() > 0) {
-                Log::info('First few results:', $fnskuList->take(3)->toArray());
-
-                // Check for any empty FNSKUs that might have slipped through
-                $emptyFnskus = $fnskuList->filter(function ($item) {
-                    return empty($item->FNSKU) || $item->FNSKU === 'NULL';
-                });
-
-                if ($emptyFnskus->count() > 0) {
-                    Log::warning('Found empty FNSKUs in results:', $emptyFnskus->toArray());
-                }
-            } else {
-                Log::warning('No results found');
-
-                // Debug: Check total FNSKUs in database
-                $totalCount = DB::table($this->fnskuTable)->count();
-                $availableCount = DB::table($this->fnskuTable)
-                    ->where('fnsku_status', 'available')
-                    ->where('Units', '>', 0)
-                    ->whereNotNull('FNSKU')
-                    ->where('FNSKU', '!=', '')
-                    ->where('FNSKU', '!=', 'NULL')
-                    ->count();
-
-                Log::info('Database stats:', [
-                    'total_fnskus' => $totalCount,
-                    'available_fnskus' => $availableCount
-                ]);
-            }
-
             // Filter out any remaining empty FNSKUs (extra safety)
-            $fnskuList = $fnskuList->filter(function ($item) {
+            $filteredItems = $fnskuList->getCollection()->filter(function ($item) {
                 return !empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
-            })->values(); // Re-index the collection
+            })->values();
+
+            // Replace the collection with filtered items
+            $fnskuList->setCollection($filteredItems);
 
             Log::info('After filtering empty FNSKUs:', ['count' => $fnskuList->count()]);
             Log::info('=== FNSKU LIST REQUEST END ===');
 
+            // Add total to the response
             return response()->json([
-                'data' => $fnskuList,
-                'total' => $fnskuList->count(),
-                'limit' => $limit,
-                'has_more' => $fnskuList->count() >= $limit,
+                'data' => $fnskuList->items(),
+                'current_page' => $fnskuList->currentPage(),
+                'per_page' => $fnskuList->perPage(),
+                'has_more_pages' => $fnskuList->hasMorePages(),
+                'from' => $fnskuList->firstItem(),
+                'to' => $fnskuList->lastItem(),
+                'total' => $totalCount, // Add this
                 'excluded_assigned' => $exclude_assigned,
                 'search_applied' => !empty($search)
             ]);
