@@ -1491,7 +1491,7 @@
                     </div>
 
                     <div
-                        class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light"
+                        class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light d-none d-md-block"
                     >
                         <div>
                             <span v-if="isInitialLoad || isSearching"
@@ -1658,6 +1658,56 @@
                                 class="alert alert-info text-center"
                             >
                                 No matching FNSKUs found
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mobile-pagination d-block d-md-none">
+                        <div class="info-row">
+                            <span v-if="isInitialLoad || isSearching"
+                                >Loading...</span
+                            >
+                            <span
+                                v-else-if="
+                                    paginationInfo.from && paginationInfo.to
+                                "
+                            >
+                                {{ paginationInfo.from }}-{{
+                                    paginationInfo.to
+                                }}
+                                of {{ totalRecords }}
+                            </span>
+                            <span v-else>No entries</span>
+                        </div>
+
+                        <div class="controls-row">
+                            <select
+                                v-model="pageSize"
+                                @change="changePageSize"
+                                class="page-size-select"
+                            >
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+
+                            <div class="nav-buttons">
+                                <button
+                                    @click="prevPage"
+                                    :disabled="currentPage === 1"
+                                    class="nav-btn"
+                                >
+                                    ‹
+                                </button>
+                                <span class="page-info">{{ currentPage }}</span>
+                                <button
+                                    @click="nextPage"
+                                    :disabled="!hasMorePages"
+                                    class="nav-btn"
+                                >
+                                    ›
+                                </button>
                             </div>
                         </div>
                     </div>

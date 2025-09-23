@@ -137,9 +137,10 @@
                 </div>
             </div>
 
-            <div class="printer-list-container">
-                <table class="table">
-                    <thead>
+            <!-- Desktop Table View -->
+            <div class="mt-4 table-responsive d-none d-md-block">
+                <table class="table table-bordered table-hover">
+                    <thead class="table-dark">
                         <tr>
                             <th>Printer Name</th>
                             <th>Type</th>
@@ -148,12 +149,19 @@
                             <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody id="allPrintersTableBody">
-                        <tr>
-                            <td colspan="5" class="text-center">Loading printers...</td>
+                    <tbody id="allPrintersTableBody" class="tbody-printers">
+                        <tr class="tr-printers" id="printersEmptyRow">
+                            <td colspan="5" class="td-printers text-center">No printers found</td>
                         </tr>
                     </tbody>
                 </table>
+            </div>
+
+            <!-- Mobile Card View -->
+            <div class="d-block d-md-none" id="printersMobile">
+                <div class="alert alert-info text-center" role="alert" id="printersEmptyCard">
+                    No printers found
+                </div>
             </div>
         </div>
 
@@ -1780,7 +1788,6 @@
         .compact-cancel-btn,
         .compact-submit-btn {
             width: 100%;
-            margin-bottom: 0.5rem;
             padding: 0.75rem;
         }
 

@@ -801,6 +801,9 @@ function fetchAllPrinters() {
 
 function renderAllPrintersTable(printers) {
     const tbody = document.getElementById("allPrintersTableBody");
+    const mobileContainer = document.getElementById("printersMobile");
+    const emptyRow = document.getElementById("printersEmptyRow");
+    const emptyCard = document.getElementById("printersEmptyCard");
 
     if (!tbody) {
         console.error(
@@ -809,29 +812,51 @@ function renderAllPrintersTable(printers) {
         return;
     }
 
+    // Clear existing content
+    if (emptyRow) emptyRow.remove();
+    if (emptyCard) emptyCard.remove();
+    tbody.innerHTML = "";
+    if (mobileContainer) {
+        mobileContainer.innerHTML = "";
+    }
+
     if (printers.length === 0) {
+        // Show empty state for both desktop and mobile
         tbody.innerHTML =
             '<tr><td colspan="5" class="text-center">No printers found</td></tr>';
+        if (mobileContainer) {
+            mobileContainer.innerHTML = `
+                <div class="alert alert-info text-center" role="alert">
+                    No printers found
+                </div>
+            `;
+        }
         return;
     }
 
-    tbody.innerHTML = printers
-        .map((printer) => {
-            const statusBadge = getStatusBadge(printer.status);
-            const typeBadge = getTypeBadge(printer.printer_type);
-            const marriageStatus = printer.married_to_printer_id
-                ? '<i class="bi bi-heart-fill text-success" title="Married"></i>'
-                : '<i class="bi bi-heart text-muted" title="Single"></i>';
+    // Render each printer record
+    printers.forEach((printer, index) => {
+        const statusBadge = getStatusBadge(printer.status);
+        const typeBadge = getTypeBadge(printer.printer_type);
+        const marriageStatus = printer.married_to_printer_id
+            ? '<i class="bi bi-heart-fill text-success" title="Married"></i>'
+            : '<i class="bi bi-heart text-muted" title="Single"></i>';
 
-            return `
+        const printerName = printer.printername || "Unknown";
+        const ipAddress = `${printer.printerip || "N/A"}:${
+            printer.port || "9100"
+        }`;
+        const cardBg = index % 2 === 0 ? "bg-light" : "bg-white";
+
+        // Desktop table row
+        if (tbody) {
+            tbody.insertAdjacentHTML(
+                "beforeend",
+                `
                 <tr>
-                    <td>${
-                        printer.printername || "Unknown"
-                    } ${marriageStatus}</td>
+                    <td>${printerName} ${marriageStatus}</td>
                     <td>${typeBadge}</td>
-                    <td>${printer.printerip || "N/A"}:${
-                printer.port || "9100"
-            }</td>
+                    <td>${ipAddress}</td>
                     <td>${statusBadge}</td>
                     <td>
                         <div class="btn-group" role="group">
@@ -846,18 +871,53 @@ function renderAllPrintersTable(printers) {
                                 <i class="bi bi-check-circle"></i>
                             </button>
                             <button type="button" class="btn btn-sm btn-outline-danger"
-                                onclick="confirmAndDeletePrinter(${
-                                    printer.printerid
-                                })"
+                                onclick="confirmAndDeletePrinter(${printer.printerid})"
                                 title="Delete Printer">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </div>
                     </td>
                 </tr>
-            `;
-        })
-        .join("");
+                `
+            );
+        }
+
+        // Mobile card view
+        if (mobileContainer) {
+            mobileContainer.insertAdjacentHTML(
+                "beforeend",
+                `
+                <div class="card mb-3 shadow-sm ${cardBg}">
+                    <div class="card-body">
+                        <h6 class="mb-2">
+                            <strong>${printerName}</strong> ${marriageStatus}
+                        </h6>
+                        <p class="mb-1"><strong>Type:</strong> ${typeBadge}</p>
+                        <p class="mb-1"><strong>IP Address:</strong> ${ipAddress}</p>
+                        <p class="mb-2"><strong>Status:</strong> ${statusBadge}</p>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary edit-printer-btn flex-fill"
+                                data-id="${printer.printerid}"
+                                title="Edit Printer">
+                                <i class="bi bi-pencil me-1"></i>Edit
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success"
+                                onclick="testPrinter(${printer.printerid})"
+                                title="Test Printer">
+                                <i class="bi bi-check-circle"></i>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-danger"
+                                onclick="confirmAndDeletePrinter(${printer.printerid})"
+                                title="Delete Printer">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                `
+            );
+        }
+    });
 }
 
 // Add new printer
