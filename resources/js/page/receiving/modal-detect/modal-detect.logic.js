@@ -304,7 +304,9 @@ export default defineComponent({
                 console.log('[QuickDetect] Found serial:', result.serial);
                 // optionally you can set apiResult.value = result here or call submit flow
               } else if (result.bbox) {
-                // update red box to follow text bbox
+                // update red box to follow 
+                // 
+                 bbox
                 updateTargetBox(result.bbox, 'red');
               } else {
                 // no text at all — hide or reset box style
