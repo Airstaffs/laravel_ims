@@ -10,12 +10,12 @@
 
         <h2 class="module-title">Unreceived Module</h2>
 
-        <!-- Scanner Component Here -->
+        <!-- Simplified Scanner Component -->
         <scanner-component
             scanner-title="Unreceived Scanner"
             storage-prefix="unreceived"
             :enable-camera="true"
-            :display-fields="['Trackingnumber', 'RPN', 'PRD']"
+            :display-fields="['Trackingnumber', 'RPN', 'PRD', 'Status']"
             :api-endpoint="'/api/unreceived/process-scan'"
             :hide-button="true"
             @process-scan="handleScanProcess"
@@ -26,78 +26,32 @@
             @mode-changed="handleModeChange"
             ref="scanner"
         >
-            <!-- Define custom input fields for Unreceived module -->
+            <!-- Simplified input - only tracking number needed -->
             <template #input-fields>
-                <!-- Step 1: Tracking Number Input -->
-                <div class="input-group" v-if="currentStep === 1">
+                <div class="input-group">
                     <label>Tracking Number:</label>
                     <input
                         type="text"
                         v-model="trackingNumber"
-                        placeholder="Enter Tracking Number..."
+                        placeholder="Enter Tracking Number (RPN & PRD will be auto-generated)..."
                         @input="handleTrackingInput"
-                        @keyup.enter="verifyTrackingNumber"
+                        @keyup.enter="verifyAndProcessTracking"
                         ref="trackingInput"
                     />
-                    <!-- Only show Verify Tracking button in Manual mode -->
+                    <!-- Only show manual process button in Manual mode -->
                     <button
                         v-if="showManualInput"
-                        @click="verifyTrackingNumber"
+                        @click="verifyAndProcessTracking"
                         class="verify-button"
                     >
-                        Verify Tracking
+                        Process Tracking
                     </button>
-                </div>
-
-                <!-- Step 2: RPN Field (shown after tracking verification) -->
-                <div class="input-group" v-if="currentStep === 2">
-                    <div class="tracking-verified">
-                        <div class="success-banner">
-                            Tracking found for {{ trackingNumber }}
-                        </div>
+                    <div class="scanner-info">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle"></i>
+                            RPN and PRD (today's date) will be automatically generated
+                        </small>
                     </div>
-                    <label>RPN:</label>
-                    <input
-                        type="text"
-                        v-model="rpnNumber"
-                        placeholder="RPN Number"
-                        readonly
-                        class="readonly-input"
-                    />
-                    <button @click="goToNextStep" class="next-button">
-                        Next
-                    </button>
-                </div>
-
-                <!-- Step 3: PRD Field (shown after RPN) -->
-                <div class="input-group" v-if="currentStep === 3">
-                    <label>PRD:</label>
-                    <div class="date-input-container">
-                        <input
-                            type="date"
-                            v-model="prdDate"
-                            @change="handlePrdDateChange"
-                            :min="todayDate"
-                            class="date-input"
-                        />
-                        <button class="calendar-icon">
-                            <i class="fas fa-calendar"></i>
-                        </button>
-                    </div>
-                    <button
-                        @click="handleTodayButtonClick"
-                        class="today-button"
-                    >
-                        Today
-                    </button>
-                    <!-- Only show Submit button in Manual mode -->
-                    <button
-                        v-if="showManualInput"
-                        @click="submitScan"
-                        class="submit-scan-button"
-                    >
-                        Submit
-                    </button>
                 </div>
             </template>
         </scanner-component>
@@ -199,7 +153,7 @@
                 </thead>
                 <tbody>
                     <tr v-if="loading">
-                        <td colspan="12" class="text-center">
+                        <td :colspan="showDetails ? 18 : 12" class="text-center">
                             <div class="loading-spinner">
                                 <i class="fas fa-spinner fa-spin"></i>
                                 Loading...
@@ -207,7 +161,7 @@
                         </td>
                     </tr>
                     <tr v-else-if="sortedInventory.length === 0">
-                        <td colspan="12" class="text-center">No data found</td>
+                        <td :colspan="showDetails ? 18 : 12" class="text-center">No data found</td>
                     </tr>
                     <template
                         v-else
@@ -227,7 +181,6 @@
                                         class="product-image-container"
                                         @click="openImageModal(item)"
                                     >
-                                        <!-- Use the actual file path for the main image -->
                                         <img
                                             :src="
                                                 '/images/thumbnails/' +
@@ -294,7 +247,7 @@
                                     {{ item.ASINviewer }}</span
                                 >
                             </td>
-                            <!-- Hidden -->
+                            <!-- Hidden columns -->
                             <td v-if="showDetails">
                                 <span
                                     ><strong></strong>
@@ -328,7 +281,7 @@
                                     {{ item.Unfulfillable }}</span
                                 >
                             </td>
-                            <!-- End Hidden -->
+                            <!-- End Hidden columns -->
                             <td>
                                 <span
                                     ><strong></strong>
@@ -347,7 +300,7 @@
                                 >
                             </td>
 
-                            <!-- Button for more details -->
+                            <!-- Actions -->
                             <td>
                                 <div class="action-buttons">
                                     {{ item.totalquantity }}
@@ -415,6 +368,7 @@
                                 :alt="item.ProductTitle || 'Product'"
                                 class="product-thumbnail clickable-image"
                                 @error="handleImageError($event)"
+                                @click="openImageModal(item)"
                             />
                             <div
                                 class="image-count-badge"
@@ -472,7 +426,7 @@
                                 {{ item.ASINviewer }}</span
                             >
                         </div>
-                        <!-- Insert Hidden Here -->
+                        <!-- Hidden details -->
                         <div class="mobile-detail-row" v-if="showDetails">
                             <span class="mobile-detail-label">FBM:</span>
                             <span class="mobile-detal-value">
@@ -511,7 +465,7 @@
                                 {{ item.Reserved }}</span
                             >
                         </div>
-                        <!--  -->
+                        <!-- End hidden details -->
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label"
                                 >Fullfilment:</span
@@ -559,6 +513,48 @@
                         <p><strong>Expanded Rows Here</strong></p>
                         <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Modal -->
+        <div
+            v-if="showImageModal"
+            class="image-modal-overlay"
+            @click="closeImageModal"
+        >
+            <div class="image-modal-content" @click.stop>
+                <button class="modal-close-btn" @click="closeImageModal">
+                    <i class="fas fa-times"></i>
+                </button>
+                
+                <div class="modal-image-container">
+                    <button 
+                        v-if="modalImages.length > 1" 
+                        class="modal-nav-btn prev-btn" 
+                        @click="prevImage"
+                    >
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    
+                    <img
+                        :src="modalImages[currentImageIndex]"
+                        alt="Product Image"
+                        class="modal-image"
+                        @error="handleImageError($event)"
+                    />
+                    
+                    <button 
+                        v-if="modalImages.length > 1" 
+                        class="modal-nav-btn next-btn" 
+                        @click="nextImage"
+                    >
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                
+                <div v-if="modalImages.length > 1" class="modal-image-counter">
+                    {{ currentImageIndex + 1 }} / {{ modalImages.length }}
                 </div>
             </div>
         </div>
