@@ -141,10 +141,10 @@
                                         Details
                                     </button>
 
-                                    <span
-                                        ><strong></strong>
-                                        {{ item.actions }}</span
-                                    >
+                                    <span>
+                                        <strong></strong>
+                                        {{ item.actions }}
+                                    </span>
                                     <button
                                         @click="showFnskuModal(item)"
                                         class="btn btn-fnsku"
@@ -186,15 +186,15 @@
                                         Stockroom
                                     </button>
 
-                                  <!-- ADD THIS COPY DETAILS BUTTON -->
-                                        <button
-                                            @click="openCopyDetailsModal(item)"
-                                            class="btn btn-copy-details"
-                                            title="Copy product details"
-                                        >
-                                            <i class="bi bi-clipboard"></i> Copy Details
-                                        </button>
-                                        
+                                    <!-- ADD THIS COPY DETAILS BUTTON -->
+                                    <button
+                                        @click="openCopyDetailsModal(item)"
+                                        class="btn btn-copy-details"
+                                        title="Copy product details"
+                                    >
+                                        <i class="bi bi-clipboard"></i> Copy
+                                        Details
+                                    </button>
 
                                     <button
                                         @click="openEditModal(item)"
@@ -419,8 +419,7 @@
                             <i class="bi bi-box-seam"></i> Move to Stockroom
                         </button>
 
-
-                       <!-- ADD THIS COPY DETAILS BUTTON -->
+                        <!-- ADD THIS COPY DETAILS BUTTON -->
                         <button
                             @click="openCopyDetailsModal(item)"
                             class="btn btn-copy-details"
@@ -1387,7 +1386,6 @@
                                                     >
                                                         {{ fnsku.Units }} in
                                                         inventory
-                                                        <!-- NEW: Show usage info -->
                                                         <span
                                                             v-if="
                                                                 fnsku.Units < 11
@@ -1412,7 +1410,6 @@
                                             <td>
                                                 <div>
                                                     {{ fnsku.FNSKU }}
-                                                    <!-- NEW: Show what FNSKU will actually be assigned -->
                                                     <div
                                                         class="small text-muted"
                                                     >
@@ -1458,8 +1455,6 @@
                                                                 : "Select"
                                                         }}
                                                     </button>
-
-                                                    <!-- NEW: Info button to show more details -->
                                                     <button
                                                         @click="
                                                             showFnskuAvailabilityInfo(
@@ -1492,6 +1487,76 @@
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+
+                    <div
+                        class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light d-none d-md-block"
+                    >
+                        <div>
+                            <span v-if="isInitialLoad || isSearching"
+                                >Loading...</span
+                            >
+                            <span
+                                v-else-if="
+                                    paginationInfo.from && paginationInfo.to
+                                "
+                            >
+                                Showing {{ paginationInfo.from }} to
+                                {{ paginationInfo.to }} entries of
+                                {{ totalRecords }}
+                            </span>
+                            <span v-else>No entries found</span>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-3">
+                            <select
+                                v-model="pageSize"
+                                @change="changePageSize"
+                                class="form-select form-select-sm"
+                                style="width: 80px"
+                            >
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+
+                            <nav>
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li
+                                        class="page-item"
+                                        :class="{ disabled: currentPage === 1 }"
+                                    >
+                                        <button
+                                            class="page-link"
+                                            @click="prevPage"
+                                            :disabled="currentPage === 1"
+                                        >
+                                            Previous
+                                        </button>
+                                    </li>
+
+                                    <li class="page-item active">
+                                        <span class="page-link"
+                                            >Page {{ currentPage }}</span
+                                        >
+                                    </li>
+
+                                    <li
+                                        class="page-item"
+                                        :class="{ disabled: !hasMorePages }"
+                                    >
+                                        <button
+                                            class="page-link"
+                                            @click="nextPage"
+                                            :disabled="!hasMorePages"
+                                        >
+                                            Next
+                                        </button>
+                                    </li>
+                                </ul>
+                            </nav>
                         </div>
                     </div>
 
@@ -1596,6 +1661,56 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="mobile-pagination d-block d-md-none">
+                        <div class="info-row">
+                            <span v-if="isInitialLoad || isSearching"
+                                >Loading...</span
+                            >
+                            <span
+                                v-else-if="
+                                    paginationInfo.from && paginationInfo.to
+                                "
+                            >
+                                {{ paginationInfo.from }}-{{
+                                    paginationInfo.to
+                                }}
+                                of {{ totalRecords }}
+                            </span>
+                            <span v-else>No entries</span>
+                        </div>
+
+                        <div class="controls-row">
+                            <select
+                                v-model="pageSize"
+                                @change="changePageSize"
+                                class="page-size-select"
+                            >
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+
+                            <div class="nav-buttons">
+                                <button
+                                    @click="prevPage"
+                                    :disabled="currentPage === 1"
+                                    class="nav-btn"
+                                >
+                                    ‹
+                                </button>
+                                <span class="page-info">{{ currentPage }}</span>
+                                <button
+                                    @click="nextPage"
+                                    :disabled="!hasMorePages"
+                                    class="nav-btn"
+                                >
+                                    ›
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1646,14 +1761,13 @@
             @close="closeSplitModal"
             @split-success="onSplitSuccess"
         />
-      
-      <!--OPY DETAILS MODAL-->
-            <copyDetailsModal
-                :show-modal="showCopyDetailsModal"
-                :item-data="currentCopyItem"
-                @close="closeCopyDetailsModal"
-         />
 
+        <!--OPY DETAILS MODAL-->
+        <copyDetailsModal
+            :show-modal="showCopyDetailsModal"
+            :item-data="currentCopyItem"
+            @close="closeCopyDetailsModal"
+        />
     </div>
 </template>
 

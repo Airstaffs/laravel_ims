@@ -151,7 +151,6 @@ class FBAShipmentController extends Controller
         return response()->json($shipments);
     }
 
-
     public function package_dimension_fetcher(Request $request)
     {
         $request->validate([
@@ -177,16 +176,16 @@ class FBAShipmentController extends Controller
         foreach ($asins as $asin) {
             // Query tblasin for dimension data
             $asinData = DB::table('tblasin')
-                ->where('asin', $asin)
+                ->where('ASIN', $asin)
                 ->select(
                     'white_length',
                     'white_width',
                     'white_height',
-                    'white_lbs',
+                    'white_value',
                     'dimension_length',
                     'dimension_width',
                     'dimension_height',
-                    'lbs'
+                    'weight_value'
                 )
                 ->first();
 
@@ -198,13 +197,13 @@ class FBAShipmentController extends Controller
                     'retail_length' => $asinData ? $asinData->dimension_length : null,
                     'retail_width' => $asinData ? $asinData->dimension_width : null,
                     'retail_height' => $asinData ? $asinData->dimension_height : null,
-                    'retail_lbs' => $asinData ? $asinData->lbs : null,
+                    'retail_lbs' => $asinData ? $asinData->weight_value : null,
                 ],
                 'white_box' => [
                     'white_length' => $asinData ? $asinData->white_length : null,
                     'white_width' => $asinData ? $asinData->white_width : null,
                     'white_height' => $asinData ? $asinData->white_height : null,
-                    'white_lbs' => $asinData ? $asinData->white_lbs : null
+                    'white_lbs' => $asinData ? $asinData->white_value : null
                 ],
                 'processed_at' => now(),
             ];
@@ -2321,6 +2320,7 @@ class FBAShipmentController extends Controller
             ], 500);
         }
     }
+
     public function step6a_list_delivery_window_options(Request $request)
     {
         $request->validate([
@@ -3540,7 +3540,4 @@ class FBAShipmentController extends Controller
             ], 500);
         }
     }
-
-    // is a magical world of gumball
-
 }

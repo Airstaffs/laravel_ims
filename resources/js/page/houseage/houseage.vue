@@ -677,52 +677,6 @@
                                                         ></div>
                                                     </div>
                                                 </div>
-
-                                                <!-- Action buttons are always visible -->
-                                                <div class="buttons">
-                                                    <button
-                                                        type="button"
-                                                        class="btn"
-                                                        @click="
-                                                            uploadSerialImage
-                                                        "
-                                                        :disabled="
-                                                            !serialImageFile ||
-                                                            serialImageUploading
-                                                        "
-                                                    >
-                                                        <span
-                                                            v-if="
-                                                                serialImageUploading
-                                                            "
-                                                            >Uploading
-                                                            {{
-                                                                uploadProgress
-                                                            }}%</span
-                                                        >
-                                                        <span v-else
-                                                            >Save Serial
-                                                            Image</span
-                                                        >
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        class="btn"
-                                                        v-if="
-                                                            serialImageFile ||
-                                                            serialImagePath
-                                                        "
-                                                        @click="
-                                                            removeSerialImage
-                                                        "
-                                                        :disabled="
-                                                            serialImageUploading
-                                                        "
-                                                    >
-                                                        Remove
-                                                    </button>
-                                                </div>
                                             </div>
                                         </fieldset>
                                     </div>

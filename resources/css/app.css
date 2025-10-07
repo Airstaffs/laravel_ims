@@ -902,7 +902,7 @@ hr.dashed {
 }
 
 #userprofile ul > li {
-    width: calc(100% / 2 - 5px);
+    width: calc(100% / 3 - 7.5px);
     height: 40px;
 }
 
@@ -1021,7 +1021,8 @@ i#togglePassword {
 .modal.image-modal,
 .modal.fnsku-modal,
 .modal.edit-modal,
-.modal.validation-modal {
+.modal.validation-modal,
+.modal.view-modal {
     display: flex !important;
     align-items: center;
     justify-content: center;
@@ -1046,7 +1047,8 @@ i#togglePassword {
 
 .image-modal .modal-body,
 .edit-modal .modal-body,
-.validation-modal .modal-body {
+.validation-modal .modal-body,
+.view-modal .modal-body {
     padding: 20px;
 }
 
@@ -1142,7 +1144,6 @@ i#togglePassword {
 .fnsku-modal .modal-body {
     padding: 20px;
     background-color: white;
-    max-height: 840px;
     overflow: auto;
 }
 
@@ -1413,6 +1414,373 @@ form.fnskuForm .btn-process {
     color: #555;
 }
 
+/* Printer */
+#printer {
+    gap: 20px;
+}
+
+#printer ul.nav {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+
+#printer ul > li button {
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    cursor: pointer;
+    border: none;
+    background-color: #eee;
+    font-weight: bold;
+    transition: background-color 0.2s;
+}
+
+#printer ul > li button.active {
+    background-color: #4285f4;
+    color: white;
+}
+
+#printer ul > li {
+    width: calc(100% / 4 - 7.5px);
+    height: 40px;
+}
+
+#allPrinters,
+#smallLabel,
+#instructionCard,
+#marriedPrinters {
+    padding: 0;
+}
+
+.newPrinter-container,
+.marryPrinter-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-end;
+    gap: 20px;
+}
+
+.addNewPrinter,
+.marryNewPrinter {
+    width: 100%;
+    padding: 20px;
+    background: #f1f1f1;
+    border-radius: 8px;
+}
+
+form#addPrinterForm,
+form#marryPrintersForm {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+}
+
+form#addPrinterForm fieldset,
+form#marryPrintersForm fieldset {
+    width: calc(100% / 2 - 10px);
+}
+
+form#addPrinterForm fieldset:last-child {
+    width: 100%;
+}
+
+.printer-info-header-compact {
+    width: 100%;
+    background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+    border: 1px solid #2196f3;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.printer-icon-wrapper-compact {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.form-footer {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 20px;
+}
+
+.marriage-info-card-compact {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    border: 1px solid #ffcc02;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.marriage-icon-wrapper-compact {
+    width: 45px;
+    height: 45px;
+    background: linear-gradient(135deg, #e91e63, #ad1457);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.2rem;
+    box-shadow: 0 4px 12px rgba(233, 30, 99, 0.2);
+}
+
+.marry-modal-body {
+    padding: 2rem;
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+}
+
+.marriage-info-card {
+    background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+    border: 2px solid #ffcc02;
+    border-radius: 12px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.marriage-info-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #ffcc02, #ff9800, #ffcc02);
+    animation: shimmer 2s linear infinite;
+}
+
+.section-header {
+    width: 100%;
+    font-weight: 600;
+    color: #343a40;
+    border-bottom: 2px solid #f1f3f4;
+    font-size: 1.1rem;
+}
+
+div#editPrinterTestModal .modal-content {
+    width: 800px;
+}
+
+div#editPrinterTestModal .modal-body {
+    padding: 20px;
+}
+
+form#editPrinterForm {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 10px;
+}
+
+.view-grid-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.view-modal .modal-content {
+    width: clamp(1260px, 90%, 100%);
+}
+
+.view-modal .main-image img {
+    max-width: unset;
+}
+
+.description-section {
+    background-color: #f9f9f9;
+    padding: 16px 20px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.view-modal .form-col-right {
+    background-color: #f9f9f9;
+    padding: 16px 20px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+}
+
+.view-info-container h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 6px;
+    font-weight: 600;
+}
+
+.view-modal .modal-body {
+    height: 750px;
+    overflow-y: auto;
+}
+
+/* Info Sections */
+.info-section {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.info-section:last-child {
+    border-bottom: none;
+}
+
+.info-section h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: #495057;
+}
+
+.info-list {
+    margin: 0;
+}
+
+.info-item {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 0.5rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item dt {
+    font-weight: 500;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.info-item dd {
+    margin: 0;
+    color: #212529;
+    word-break: break-word;
+}
+
+/* Description Section */
+.description-section {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 0.375rem;
+}
+
+.description-section h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: #495057;
+}
+
+.description-section p {
+    margin: 0;
+    color: #212529;
+    line-height: 1.6;
+}
+
+/* Pricing Section */
+.pricing-section {
+    background-color: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 0.5rem;
+    position: sticky;
+    top: 1rem;
+}
+
+.pricing-section h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #212529;
+}
+
+.pricing-list {
+    margin: 0;
+}
+
+.pricing-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.pricing-item:last-child {
+    border-bottom: none;
+}
+
+.pricing-item dt {
+    font-weight: 500;
+    color: #495057;
+}
+
+.pricing-item dd {
+    margin: 0;
+    font-weight: 500;
+    color: #212529;
+    text-align: right;
+}
+
+.subtotal-line {
+    border-bottom: 2px solid #dee2e6;
+    padding-top: 0.8rem;
+    margin-top: 0.4rem;
+}
+
+.total-line {
+    border-top: 2px solid #495057;
+    border-bottom: 2px solid #495057;
+    padding: 1rem 0;
+    margin-top: 0.5rem;
+}
+
+.total-line dt,
+.total-line dd {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #212529;
+}
+
+.total-amount {
+    color: #0d6efd;
+}
+
+.discount {
+    color: #dc3545;
+}
+
+.refund {
+    color: #198754;
+}
+
+.refund-line {
+    background-color: #d1e7dd;
+    padding: 0.8rem 0.5rem;
+    margin: 0.5rem -0.5rem 0;
+    border-radius: 0.25rem;
+}
+
+.view-modal .description-section {
+    height: 450px;
+    overflow-y: auto;
+}
+
 /* Animation */
 @keyframes announceFadeIn {
     from {
@@ -1680,5 +2048,9 @@ form.fnskuForm .btn-process {
         border-radius: 0;
         width: 100%;
         justify-content: center;
+    }
+
+    #printer ul > li {
+        width: calc(100% / 2 - 5px);
     }
 }

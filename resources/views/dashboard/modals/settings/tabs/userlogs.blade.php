@@ -1,7 +1,7 @@
 <div class="tab-pane fade" id="userlogs" role="tabpanel" aria-labelledby="userlogs-tab">
     <h3 class="text-center">User Logs</h3>
 
-    <form id="userlogs" class="userLogs">
+    <form id="userLogsForm" class="userLogs">
         @csrf
         <fieldset>
             <select class="form-select" id="selectUserDrop_logs" name="user_id" required>

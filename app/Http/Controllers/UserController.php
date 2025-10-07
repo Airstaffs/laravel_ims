@@ -74,34 +74,33 @@ class UserController extends Controller
             ]);
 
             $user = Auth::user();
+            $companyColumn = $user ? $user->company : null;
 
-            // Get company data - assuming user has a company relation or attribute
-            $companyColumn = $user ? $user->company : '';
-
-            User::create([
+            $newUser = User::create([
                 'username' => $validated['username'],
                 'password' => Hash::make($validated['password']),
                 'role' => $validated['role'],
                 'company' => $companyColumn,
             ]);
 
-            // Log using service
             $this->userLogService->log('add user - ' . $validated['username']);
 
             return response()->json([
                 'success' => true,
-                'message' => 'User added successfully!'
+                'message' => 'User added successfully!',
+                'data' => $newUser,
             ]);
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => $e->errors(),
+                'message' => collect($e->errors())->flatten()->first(), // take first error
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Failed to add user: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to add user. Please try again.'
+                'message' => 'Failed to add user. Please try again.',
             ], 500);
         }
     }
@@ -617,8 +616,6 @@ class UserController extends Controller
         }
     }
 
-
-
     public function createdusers()
     {
         $user = User::select('id', 'username', 'role', 'created_at')
@@ -635,39 +632,44 @@ class UserController extends Controller
 
     public function update(Request $request, $id)
     {
-        $request->validate([
-            'username' => 'required|string|max:255|unique:tbluser,username,' . $id,
-            'password' => 'nullable|min:6',
-            'role' => 'required|in:SuperAdmin,SubAdmin,User',
-        ]);
-
         try {
+            // If username is NOT editable, drop it from validation
+            $validated = $request->validate([
+                // 'username' => 'required|string|max:255|unique:tbluser,username,' . $id,
+                'password' => 'nullable|min:6',
+                'role' => 'required|in:SuperAdmin,SubAdmin,User',
+            ]);
+
             $user = User::findOrFail($id);
 
             $updateData = [
-                'username' => $request->username,
-                'role' => $request->role,
+                'role' => $validated['role'],
             ];
 
-            if ($request->filled('password')) {
-                $updateData['password'] = Hash::make($request->password);
+            if (!empty($validated['password'])) {
+                $updateData['password'] = Hash::make($validated['password']);
             }
 
             $user->update($updateData);
 
-            // Log using service
-            $this->userLogService->log('Update data of User - ' . $request->username);
+            $this->userLogService->log('Update data of User - ' . $user->username);
 
             return response()->json([
                 'success' => true,
-                'message' => 'User updated successfully!'
+                'message' => 'User updated successfully!',
             ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first(),
+                'errors' => $e->errors(),
+            ], 422);
         } catch (\Exception $e) {
             Log::error('Failed to update user: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update user. Please try again.'
-            ]);
+                'message' => 'Failed to update user. Please try again.',
+            ], 500);
         }
     }
 
@@ -725,7 +727,7 @@ class UserController extends Controller
         $settingJson = DB::table('tbluser')->where('id', $userId)->value('timezone_setting');
         $setting = json_decode($settingJson, true) ?? ['auto_sync' => true, 'usertimezone' => 'UTC'];
 
-        return view('dashboard.Systemdashboard',  [
+        return view('dashboard.Systemdashboard', [
             'timezone_setting' => $setting
         ]);
     }

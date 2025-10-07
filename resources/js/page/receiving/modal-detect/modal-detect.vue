@@ -108,12 +108,55 @@
           <!-- Error Message (always visible if set) -->
           <div v-if="apiResult" class="mt-3">
             <h4>Detected Serials:</h4>
-            <ul v-if="apiResult.serials && apiResult.serials.length">
+            <!-- <ul v-if="apiResult.serials && apiResult.serials.length">
               <li v-for="(serial, index) in apiResult.serials" :key="index">
                 {{ serial.text }}
               </li>
-            </ul>
+            </ul> -->
+            <div v-if="apiResult.serials && apiResult.serials.length" class="serial-results-wrapper-main">
+              <div v-for="(serial, index) in apiResult.serials" :key="index" class="mb-3 serial-results-wrapper">
+                <!-- Detected serial with save -->
+                <div class="flex items-center gap-2 serial-result-wrap">
+                  <div class="font-mono serial-result">{{ serial.text }}</div>
+                  <button 
+                    class="px-2 py-1 bg-green-500 text-white rounded serial-btn" 
+                    @click="saveSerial(serial.text, index)">
+                    Save
+                  </button>
+                </div>
+
+                <!-- Correction input -->
+                <!-- <div class="flex items-center gap-2 mt-2">
+                  <input 
+                    v-model="serial.corrected" 
+                    placeholder="Enter correction"
+                    class="border px-2 py-1 rounded"
+                  />
+                  <button 
+                    class="px-2 py-1 bg-blue-500 text-white rounded" 
+                    @click="saveCorrection(serial.corrected, index)">
+                    Save
+                  </button>
+                </div> -->
+              </div>
+            </div>
             <p v-else class="text-red-500">⚠️ No serials detected.</p>
+            <div class="mt-4 p-3 border rounded bg-gray-50">
+              <h4 class="mb-2">Corrections:</h4>
+              <div class="flex items-center gap-2 serial-result-wrap">
+                <input 
+                  v-model="correctionInput" 
+                  placeholder="Enter correction" 
+                  class="border px-2 py-1 rounded flex-1 serial-result"
+                />
+                <button 
+                  class="px-2 py-1 bg-blue-500 text-white rounded serial-btn" 
+                  @click="saveCorrection"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
             <!-- <h4 class="mt-3">Raw OCR:</h4>
             <pre>
               {{ Array.isArray(apiResult.raw_ocr) 
@@ -122,7 +165,6 @@
               }}
             </pre> -->
           </div>
-
           <div class="mt-3 btn-cropped-output">
             <button @click="resetImage" class="btn reset btn-red">Reset</button>
             <button

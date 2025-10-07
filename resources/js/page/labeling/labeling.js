@@ -71,9 +71,18 @@ export default {
             showSplitModal: false,
             currentSplitItem: null,
 
-              // ADD THESE COPY DETAILS MODAL PROPERTIES
+            // ADD THESE COPY DETAILS MODAL PROPERTIES
             showCopyDetailsModal: false,
-           currentCopyItem: null,
+            currentCopyItem: null,
+
+            currentPage: 1,
+            pageSize: 5,
+            hasMorePages: false,
+            totalRecords: 0,
+            paginationInfo: {
+                from: 0,
+                to: 0,
+            },
         };
     },
     computed: {
@@ -163,7 +172,7 @@ export default {
         },
 
         validFnskuList() {
-            return this.filteredFnskuList.map((fnsku) => {
+            const result = this.filteredFnskuList.map((fnsku) => {
                 return {
                     ...fnsku,
                     hasBeenUsed: fnsku.Units < 11,
@@ -171,6 +180,9 @@ export default {
                     nextFnskuToUse: this.getNextFnskuToUse(fnsku),
                 };
             });
+
+            console.log("validFnskuList result:", result);
+            return result;
         },
 
         qty() {
@@ -218,22 +230,21 @@ export default {
         },
     },
     methods: {
-
         openCopyDetailsModal(item) {
             if (!item) {
-                console.warn('No item provided to copy details modal');
+                console.warn("No item provided to copy details modal");
                 return;
             }
 
-            console.log('Opening copy details modal for item:', {
+            console.log("Opening copy details modal for item:", {
                 rtcounter: item.rtcounter,
                 ProductTitle: item.ProductTitle,
-                ASIN: item.ASIN
+                ASIN: item.ASIN,
             });
 
             // Set the current item data
             this.currentCopyItem = { ...item };
-            
+
             // Show the modal
             this.showCopyDetailsModal = true;
         },
@@ -242,8 +253,8 @@ export default {
          * Close the Copy Details modal
          */
         closeCopyDetailsModal() {
-            console.log('Closing copy details modal');
-            
+            console.log("Closing copy details modal");
+
             this.showCopyDetailsModal = false;
             this.currentCopyItem = null;
         },
@@ -577,7 +588,7 @@ export default {
 
                     // Apply initial filtering if there's a search term
                     if (this.fnskuSearch) {
-                        this.filterFnskuList();
+                        this.filterFnskuList(1);
                     }
                 } else {
                     console.error("Invalid response format:", response.data);
@@ -624,72 +635,89 @@ export default {
         },
 
         // UPDATED filterFnskuList method with better filtering
-        filterFnskuList() {
-            const asinPriority = this.currentItem?.ASINviewer;
-            const search = this.fnskuSearch.toLowerCase().trim();
-            const fnskuOnly = this.fnskuExact.toLowerCase().trim();
-            const selectedStore = this.selectedStore;
-            const selectedGrading = this.selectedGrading;
+        async filterFnskuList(page = 1) {
+            this.isSearching = true;
 
-            console.log("Filtering with:", {
-                search,
-                fnskuOnly,
-                selectedStore,
-                selectedGrading,
-            });
-            console.log("Original list length:", this.fnskuList.length);
+            try {
+                const params = {
+                    page: page,
+                    limit: this.pageSize,
+                    exclude_assigned: false,
+                };
 
-            this.filteredFnskuList = this.fnskuList.filter((fnsku) => {
-                // Skip if FNSKU or ASIN is empty/null
-                if (
-                    !fnsku.FNSKU ||
-                    fnsku.FNSKU.trim() === "" ||
-                    fnsku.FNSKU === "NULL"
-                ) {
-                    return false;
+                // Add search parameters if they exist
+                if (this.fnskuSearch && this.fnskuSearch.trim()) {
+                    params.search = this.fnskuSearch.trim();
+                }
+                if (this.fnskuExact && this.fnskuExact.trim()) {
+                    params.fnsku = this.fnskuExact.trim();
+                }
+                if (this.selectedStore) {
+                    params.store = this.selectedStore;
+                }
+                if (this.selectedGrading) {
+                    params.grading = this.selectedGrading;
                 }
 
-                if (
-                    !fnsku.ASIN ||
-                    fnsku.ASIN.trim() === "" ||
-                    fnsku.ASIN === "NULL"
-                ) {
-                    return false;
+                console.log("Calling backend with params:", params);
+
+                const response = await axios.get("/api/fnsku/fnsku-list", {
+                    params,
+                });
+
+                console.log("Backend response:", response.data);
+
+                // Update data from simplePaginate response
+                this.fnskuList = response.data.data || [];
+                this.filteredFnskuList = [...this.fnskuList];
+                this.currentPage = response.data.current_page;
+                this.totalRecords = response.data.total || 0;
+                this.hasMorePages = response.data.has_more_pages;
+                this.paginationInfo = {
+                    from: response.data.from || 0,
+                    to: response.data.to || 0,
+                };
+
+                // Apply frontend sorting for ASIN priority
+                const asinPriority = this.currentItem?.ASINviewer;
+                if (asinPriority) {
+                    this.filteredFnskuList.sort((a, b) => {
+                        if (a.ASIN === asinPriority && b.ASIN !== asinPriority)
+                            return -1;
+                        if (a.ASIN !== asinPriority && b.ASIN === asinPriority)
+                            return 1;
+                        return 0;
+                    });
                 }
+            } catch (error) {
+                console.error("Error filtering FNSKU list:", error);
+            } finally {
+                this.isSearching = false;
+            }
+        },
 
-                const matchesGeneral =
-                    !search ||
-                    fnsku.ASIN?.toLowerCase().includes(search) ||
-                    fnsku.astitle?.toLowerCase().includes(search);
+        goToPage(page) {
+            if (page >= 1) {
+                this.filterFnskuList(page);
+            }
+        },
 
-                const matchesFnskuOnly =
-                    !fnskuOnly ||
-                    fnsku.FNSKU?.toLowerCase().includes(fnskuOnly);
+        nextPage() {
+            if (this.hasMorePages) {
+                this.goToPage(this.currentPage + 1);
+            }
+        },
 
-                const matchesStore =
-                    !selectedStore || fnsku.storename === selectedStore;
+        prevPage() {
+            if (this.currentPage > 1) {
+                this.goToPage(this.currentPage - 1);
+            }
+        },
 
-                const matchesGrading =
-                    !selectedGrading || fnsku.grading === selectedGrading;
-
-                return (
-                    matchesGeneral &&
-                    matchesFnskuOnly &&
-                    matchesStore &&
-                    matchesGrading
-                );
-            });
-
-            console.log("Filtered list length:", this.filteredFnskuList.length);
-
-            // Sort with ASIN priority
-            this.filteredFnskuList.sort((a, b) => {
-                if (a.ASIN === asinPriority && b.ASIN !== asinPriority)
-                    return -1;
-                if (a.ASIN !== asinPriority && b.ASIN === asinPriority)
-                    return 1;
-                return 0;
-            });
+        changePageSize() {
+            // Reset to page 1 when changing page size
+            this.currentPage = 1;
+            this.filterFnskuList(1);
         },
 
         // IMPROVED hideFnskuModal to ensure cleanup
@@ -1110,7 +1138,7 @@ export default {
                         this.selectedGrading ||
                         this.fnskuExact
                     ) {
-                        this.filterFnskuList();
+                        this.filterFnskuList(1);
                     }
                 } else {
                     console.error("Invalid response format:", response.data);
@@ -1258,7 +1286,7 @@ export default {
                 ASIN: item?.ASIN,
                 FNSKU: item?.FNSKU,
                 "Serial Number": item?.serialnumber,
-                "Basket Number": item?.BasketNumber,
+                "Basket Number": item?.basketnumber,
                 RPN: item?.RPN,
                 PRD: item?.PRD,
                 PCN: item?.PCN,
@@ -1888,6 +1916,8 @@ export default {
             "🔍 Component mounted. showSplitModal initial state:",
             this.showSplitModal
         );
+
+        this.filterFnskuList(1);
     },
 
     beforeDestroy() {

@@ -828,6 +828,7 @@ export default {
                 return;
             }
 
+            // Normalize and duplicate-check serial number
             if (this.item.serialnumber != null) {
                 this.item.serialnumber =
                     String(this.item.serialnumber).toUpperCase().trim() || null;
@@ -853,8 +854,23 @@ export default {
             }
 
             try {
+                // 🔼 NEW: If user selected a serial image, upload it first.
+                if (this.serialImageFile && !this.serialImageUploading) {
+                    await this.uploadSerialImage();
+
+                    // If the upload function set an error, abort the save.
+                    if (this.serialImageError) {
+                        this.loading = false;
+                        return; // The uploadSerialImage already showed an alert.
+                    }
+                }
+
                 const payload = {
                     ...this.item,
+                    // Optional: include the stored path from the upload (rename to what your API expects)
+                    ...(this.serialImagePath
+                        ? { serial_image: this.serialImagePath }
+                        : {}),
                     _token: document
                         .querySelector('meta[name="csrf-token"]')
                         .getAttribute("content"),

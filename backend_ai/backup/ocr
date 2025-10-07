@@ -1,0 +1,518 @@
+import io
+import re
+from typing import List, Dict, Any, Optional
+
+import numpy as np
+from PIL import Image, ImageOps, ImageEnhance
+
+# Optional libs
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
+
+# --- JSON sanitizers (convert numpy -> plain Python) ---
+def _json_safe(x):
+    if isinstance(x, (np.integer,)):
+        return int(x)
+    if isinstance(x, (np.floating,)):
+        return float(x)
+    if isinstance(x, (np.bool_,)):
+        return bool(x)
+    if isinstance(x, np.ndarray):
+        return [_json_safe(v) for v in x.tolist()]
+    if isinstance(x, (list, tuple, set)):
+        return [_json_safe(v) for v in x]
+    if isinstance(x, dict):
+        return {str(k): _json_safe(v) for k, v in x.items()}
+    return x
+
+
+def _safe_bbox(b):
+    if b is None:
+        return None
+    return [int(v) for v in list(b)]
+
+
+# --- Preprocessing Helpers ---
+def _sharpen_image(image: Image.Image) -> Image.Image:
+    """Applies a sharpening kernel to the image."""
+    if cv2 is None:
+        return image
+    img_np = np.array(image.convert("RGB"))
+    kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+    sharpened_np = cv2.filter2D(img_np, -1, kernel)
+    return Image.fromarray(sharpened_np)
+
+
+def _binarize_image(image: Image.Image, threshold_value: int = 127) -> Image.Image:
+    """Converts the image to black and white (binarization)."""
+    if cv2 is None:
+        return image
+    gray_image = ImageOps.grayscale(image)
+    img_np = np.array(gray_image)
+    _, binarized_np = cv2.threshold(img_np, threshold_value, 255, cv2.THRESH_BINARY)
+    return Image.fromarray(binarized_np)
+
+
+# --- Barcode / QR Helpers ---
+def _points_to_bbox(points: np.ndarray) -> Optional[List[int]]:
+    if points is None:
+        return None
+    pts = np.array(points).reshape(-1, 2)
+    x_min = int(np.min(pts[:, 0]))
+    y_min = int(np.min(pts[:, 1]))
+    x_max = int(np.max(pts[:, 0]))
+    y_max = int(np.max(pts[:, 1]))
+    return _safe_bbox([x_min, y_min, x_max - x_min, y_max - y_min])
+
+
+def try_read_codes(image: Image.Image) -> List[Dict[str, Any]]:
+    """
+    Try to read QR/barcodes from a PIL Image.
+    Returns list of hits: [{"type": "...", "data": "...", "bbox": [x,y,w,h], "source": "..."}]
+    """
+    results: List[Dict[str, Any]] = []
+    np_img_rgb = np.array(image.convert("RGB"))
+
+    if cv2 is not None:
+        np_img_bgr = cv2.cvtColor(np_img_rgb, cv2.COLOR_RGB2BGR)
+    else:
+        np_img_bgr = np_img_rgb
+
+    # 1) OpenCV QR
+    if cv2 is not None:
+        try:
+            qrd = cv2.QRCodeDetector()
+            data, points, _ = qrd.detectAndDecode(np_img_bgr)
+            if data and isinstance(data, str) and data.strip():
+                bbox = _points_to_bbox(points) if points is not None else None
+                results.append({
+                    "type": "QR",
+                    "data": data.strip(),
+                    "bbox": _safe_bbox(bbox),
+                    "source": "opencv"
+                })
+        except Exception:
+            pass
+
+    # 2) pyzbar
+    try:
+        from pyzbar.pyzbar import decode, ZBarSymbol
+        symbologies = [
+            ZBarSymbol.QRCODE, ZBarSymbol.CODE128, ZBarSymbol.CODE39,
+            ZBarSymbol.EAN13, ZBarSymbol.EAN8, ZBarSymbol.UPCA, ZBarSymbol.UPCE,
+            ZBarSymbol.ITF, ZBarSymbol.DATABAR, ZBarSymbol.DATABAR_EXP,
+            ZBarSymbol.CODABAR, ZBarSymbol.PDF417, ZBarSymbol.DATA_MATRIX,
+        ]
+        decoded = decode(np_img_bgr, symbols=symbologies)
+        for d in decoded:
+            try:
+                data = d.data.decode("utf-8", errors="ignore").strip()
+            except Exception:
+                data = str(d.data)
+            if not data:
+                continue
+            if getattr(d, "polygon", None):
+                pts = [(p.x, p.y) for p in d.polygon]
+                bbox = _points_to_bbox(np.array(pts, dtype=np.float32))
+            else:
+                r = d.rect
+                bbox = _safe_bbox([int(r.left), int(r.top), int(r.width), int(r.height)])
+            results.append({
+                "type": d.type,
+                "data": data,
+                "bbox": bbox,
+                "source": "pyzbar"
+            })
+    except Exception:
+        pass
+
+    # 3) pylibdmtx
+    try:
+        from pylibdmtx.pylibdmtx import decode as dmtx_decode
+        dmtx_hits = dmtx_decode(np_img_bgr)
+        for d in dmtx_hits:
+            try:
+                data = d.data.decode("utf-8", errors="ignore").strip()
+            except Exception:
+                data = str(d.data)
+            if not data:
+                continue
+            x, y, w, h = d.rect
+            bbox = _safe_bbox([int(x), int(y), int(w), int(h)])
+            results.append({
+                "type": "DATAMATRIX",
+                "data": data,
+                "bbox": bbox,
+                "source": "pylibdmtx"
+            })
+    except Exception:
+        pass
+
+    return results
+
+
+# --- Serial Extraction & Filtering Helpers ---
+SERIAL_KEYWORDS = {
+    "SN", "S/N", "S\\N", "S-N",
+    "SERIAL", "SERIAL #", "SERIAL NO", "SERIAL NUMBER",
+    "SER NO", "SER NO.", "SER#", "SER. NO", "NO", "NUMBER", "NUM"
+}
+
+KEYWORD_LINE_RE = re.compile(
+    r"""^
+        (?P<kw>
+          SERIAL\s*NUMBER|
+          SERIAL\s*NO|
+          SERIAL\s*#|
+          SER\s*NO\.?|
+          SER\.?\s*NO|
+          SER\s*#|
+          S/N|
+          S\\N|
+          S-N|
+          SERIAL|
+          SER|
+          SN|
+          NO
+        )
+        [\s:\-#\.]* 
+        (?P<serial>\S+)  
+        $
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+def _cleanup_text(text: str) -> str:
+    """
+    Simplified OCR cleanup.
+    - Keep digits/letters as they are (2 stays 2, Z stays Z, 4 stays 4, A stays A).
+    - Apply only safe universal fixes (I→1, L→1, O→0, S→5).
+    - Fix very common tail mistakes like '47' → 'AZ'.
+    """
+    if not text:
+        return ""
+    
+    text = text.strip().upper()
+
+    # ✅ Universal safe corrections
+    always_correct = {
+        'I': '1',
+        'L': '1',
+        'O': '0',
+        'S': '5',
+    }
+    for old_char, new_char in always_correct.items():
+        text = text.replace(old_char, new_char)
+
+    # ✅ Tail correction: ...47 → ...AZ
+    if len(text) >= 2 and text.endswith("47"):
+        text = text[:-2] + "AZ"
+
+    return text
+
+
+
+def _extract_serial_from_payload(s: str) -> Optional[str]:
+    if not s:
+        return None
+    # Accept SN, S/N, SIN, SERIAL
+    m = re.match(r"^(SN|S/N|SIN|SERIAL)[\s:=]*([A-Z0-9\-]+)", s, re.IGNORECASE)
+    if m:
+        return m.group(2).strip()
+    m = KEYWORD_LINE_RE.match(s)
+    if m:
+        return m.group("serial").strip()
+    # fallback: longest alphanumeric substring
+    m2 = re.search(r"[A-Z0-9][A-Z0-9\-_/\.]{5,}", s, flags=re.I)
+    if m2:
+        return m2.group(0).strip()
+    return None
+
+
+
+def _clean_token(text: str) -> str:
+    return re.sub(r"[^A-Z0-9]", "", (text or "").upper())
+
+
+def _looks_like_id(s: str) -> bool:
+    if not s:
+        return False
+    s = _cleanup_text(s)
+    # Allow IDs as short as 5 characters
+    if len(re.sub(r"[^A-Z0-9]", "", s)) < 5:
+        return False
+    # Reject only if it's ALL letters and very long
+    if re.fullmatch(r"[A-Z]{15,}", s):
+        return False
+    # Still reject date-like patterns
+    if re.fullmatch(r"\d{4}[-/\.]\d{1,2}[-/\.]\d{1,2}", s):
+        return False
+    return re.fullmatch(r"[A-Z0-9][A-Z0-9\-_/\.]*", s) is not None
+
+
+def _merge_overlapping_candidates(candidates: List[Dict]) -> List[Dict]:
+    """
+    Merge overlapping OCR fragments into longer candidates.
+    Example: "37-8-52" + "83-52-FA-8" => "37-83-52-FA-8"
+    """
+    merged = []
+    texts = [c["text"] for c in candidates]
+
+    for i, c1 in enumerate(candidates):
+        for j, c2 in enumerate(candidates):
+            if i >= j:
+                continue
+            t1, t2 = c1["text"], c2["text"]
+            # If one string is substring of the other, keep the longer one
+            if t1 in t2:
+                merged.append({**c2, "text": t2})
+            elif t2 in t1:
+                merged.append({**c1, "text": t1})
+            # If overlap exists, try concatenating
+            elif t1[-3:] in t2 or t2[-3:] in t1:
+                combined = t1 + "-" + t2
+                merged.append({**c1, "text": combined, "confidence": (c1["confidence"]+c2["confidence"])/2})
+
+    return candidates + merged
+
+def _smart_merge_candidates(candidates: List[Dict]) -> List[Dict]:
+    """
+    Merge overlapping OCR fragments into cleaner candidates.
+    Example:
+      "B8-E9-37-8-52-FA-8"
+      + "83-52-FA-8"
+      => "B8-E9-37-83-52-FA-8"
+    """
+    merged = candidates[:]
+    texts = [c["text"] for c in candidates]
+
+    for i, c1 in enumerate(candidates):
+        for j, c2 in enumerate(candidates):
+            if i >= j:
+                continue
+
+            t1, t2 = c1["text"], c2["text"]
+
+            # Look for overlaps of at least 2–3 characters
+            for k in range(min(len(t1), len(t2)), 2, -1):
+                if t1.endswith(t2[:k]):
+                    combined = t1 + t2[k:]
+                    merged.append({**c1, "text": combined, "confidence": (c1["confidence"]+c2["confidence"])/2})
+                elif t2.endswith(t1[:k]):
+                    combined = t2 + t1[k:]
+                    merged.append({**c2, "text": combined, "confidence": (c1["confidence"]+c2["confidence"])/2})
+
+    # Deduplicate
+    unique = {}
+    for m in merged:
+        txt = m["text"]
+        if txt not in unique or m["confidence"] > unique[txt]["confidence"]:
+            unique[txt] = m
+
+    return list(unique.values())
+
+
+
+def _dedupe_serials(serials: List[Dict], top_n: int = 3) -> List[Dict]:
+    if not serials:
+        return []
+
+    scored = []
+    for item in serials:
+        text = item.get("text", "").upper()
+        conf = float(item.get("confidence", 0.0))
+        source = item.get("source", "generic")
+
+        token = _clean_token(text)
+
+        score = conf
+        if source == "ocr_keyword_same": score += 0.6
+        elif source == "ocr_keyword_next": score += 0.4
+        else: score += 0.1
+
+        # Favor longer strings (more complete serials)
+        score += len(token) * 0.05
+
+        # Favor mixed alphanumeric
+        if any(c.isalpha() for c in token) and any(c.isdigit() for c in token):
+            score += 0.25
+
+        scored.append((score, {**item, "text": text}))
+
+    # sort and keep top_n
+    top = sorted(scored, key=lambda x: x[0], reverse=True)[:top_n]
+    return [it for _, it in top]
+
+def _find_serials_with_keyword_logic(ocr_results: list) -> list:
+    candidates, processed_ocr = [], []
+    for bbox, text, conf in ocr_results:
+        try:
+            x0, y0 = bbox[0]; x2, y2 = bbox[2]
+            bb = _safe_bbox([x0, y0, x2 - x0, y2 - y0])
+        except Exception:
+            bb = None
+        processed_ocr.append({"text": text.strip(), "confidence": conf, "bbox": bb})
+    norm_keywords = {_clean_token(k) for k in SERIAL_KEYWORDS}
+    for i, ocr_item in enumerate(processed_ocr):
+        candidate_text = ocr_item["text"]
+        match = KEYWORD_LINE_RE.match(candidate_text)
+        if match:
+            possible_serial = match.group("serial")
+            if _looks_like_id(possible_serial):
+                candidates.append({"text": possible_serial, "confidence": ocr_item["confidence"], "bbox": ocr_item["bbox"], "source": "ocr_keyword_same"})
+                continue
+        if _clean_token(candidate_text) in norm_keywords:
+            look_ahead = i + 1
+            if look_ahead < len(processed_ocr):
+                next_candidate = processed_ocr[look_ahead]
+                if _looks_like_id(next_candidate["text"]):
+                    candidates.append({"text": next_candidate["text"], "confidence": next_candidate["confidence"], "bbox": next_candidate["bbox"], "source": "ocr_keyword_next"})
+    return candidates
+
+
+# --- OCR Engine & Processing ---
+def _easyocr_reader(gpu: bool = False):
+    try:
+        import easyocr
+        return easyocr.Reader(['en'], gpu=gpu)
+    except (ImportError, RuntimeError):
+        return None
+
+
+def _ocr_serial_candidates(img: Image.Image) -> Dict[str, Any]:
+    reader = _easyocr_reader()
+    if reader is None:
+        return {"serials": [], "raw_ocr": ""}
+
+    raw_lines_seen, raw_lines_out, all_candidates = set(), [], []
+    MIN_CONFIDENCE, SERIAL_CHARS = 0.5, '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-:'
+
+    images_to_process = {
+        "ocr_original": img,
+        "ocr_grey_contrast": ImageEnhance.Contrast(ImageOps.grayscale(img)).enhance(1.5),
+        "ocr_sharpened": _sharpen_image(img),
+        "ocr_binarized": _binarize_image(img),
+    }
+
+    for processed_img in images_to_process.values():
+        try:
+            res = reader.readtext(np.array(processed_img), allowlist=SERIAL_CHARS)
+            for (bbox, text, conf) in res:
+                raw_line = f"{(text or '').strip()} (conf: {conf:.2f})"
+                if _clean_token(text) not in raw_lines_seen:
+                    raw_lines_seen.add(_clean_token(text))
+                    raw_lines_out.append(raw_line)
+
+            for (bbox, text, conf) in res:
+                # 🔹 NEW: normalize text before validation
+                serial_candidate = _extract_serial_from_payload(text) or text
+                if _looks_like_id(serial_candidate):
+                    all_candidates.append({
+                        "text": serial_candidate,
+                        "confidence": float(conf),
+                        "bbox": bbox,
+                        "source": "generic"
+                    })
+
+            all_candidates.extend(_find_serials_with_keyword_logic(res))
+        except Exception:
+            pass
+
+    serials = _dedupe_serials(all_candidates)
+    return {"serials": serials, "raw_ocr": "\n".join(sorted(raw_lines_out))}
+
+# ==== NEWLY ADDED ====
+def _ocr_from_crop(crop_img: Image.Image) -> Dict[str, Any]:
+    reader = _easyocr_reader()
+    if reader is None:
+        return {"serials": [], "raw_ocr": "", "confidence": 0.0}
+
+    # 🔥 Auto-upscale small crops
+    if crop_img.width < 400 or crop_img.height < 100:
+        scale_factor = max(2, 800 // max(crop_img.width, crop_img.height))
+        crop_img = crop_img.resize(
+            (crop_img.width * scale_factor, crop_img.height * scale_factor),
+            Image.LANCZOS
+        )
+
+    raw_lines_seen, raw_lines_out, all_candidates = set(), [], []
+    SERIAL_CHARS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-:'
+
+    images_to_process = {
+        "ocr_original": crop_img,
+        "ocr_grey_contrast": ImageEnhance.Contrast(ImageOps.grayscale(crop_img)).enhance(1.5),
+        "ocr_sharpened": _sharpen_image(crop_img),
+        "ocr_binarized": _binarize_image(crop_img),
+    }
+
+    for processed_img in images_to_process.values():
+        try:
+            res = reader.readtext(np.array(processed_img), allowlist=SERIAL_CHARS)
+            for (bbox, text, conf) in res:
+                raw_line = f"{(text or '').strip()} (conf: {conf:.2f})"
+                if _clean_token(text) not in raw_lines_seen:
+                    raw_lines_seen.add(_clean_token(text))
+                    raw_lines_out.append(raw_line)
+
+            for (bbox, text, conf) in res:
+                # 🔹 NEW: normalize text before validation
+                serial_candidate = _extract_serial_from_payload(text) or text
+                if _looks_like_id(serial_candidate):
+                    all_candidates.append({
+                        "text": serial_candidate,
+                        "confidence": float(conf),
+                        "bbox": bbox,
+                        "source": "ocr_crop"
+                    })
+        except Exception:
+            pass
+
+    # Optional: merge fragments before dedupe
+    all_candidates = _smart_merge_candidates(all_candidates)
+
+    serials = _dedupe_serials(all_candidates, top_n=3)
+    avg_conf = float(np.mean([s["confidence"] for s in serials])) if serials else 0.0
+
+    return {
+        "serials": serials,
+        "raw_ocr": "\n".join(sorted(raw_lines_out)),
+        "confidence": avg_conf
+    }
+
+# --- Public API ---
+def _run_barcode_gate(pil_img: Image.Image) -> Dict[str, Any]:
+    code_hits, serials = try_read_codes(pil_img), []
+    for hit in code_hits:
+        payload = (hit.get("data") or "").strip()
+        serial = _extract_serial_from_payload(payload) or (_extract_serial_from_payload("SN=" + payload) if payload else None)
+        if serial and _looks_like_id(serial):
+            serials.append({"text": serial, "confidence": 1.0, "bbox": _safe_bbox(hit.get("bbox")), "source": hit.get("type", "code"), "from_barcode": True})
+    return {"code_hits": code_hits, "serials": serials}
+
+
+def detect_serial_number_quick(image_bytes: bytes) -> Dict[str, Any]:
+    try:
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    except Exception as e:
+        return _json_safe({"found": False, "method": "error", "serials": [], "codes": [], "raw_ocr": "", "error": str(e)})
+    base_result = _run_barcode_gate(image)
+    if base_result["serials"]:
+        return _json_safe({"found": True, "method": "barcode_or_qr", "serials": base_result["serials"], "codes": base_result["code_hits"], "raw_ocr": ""})
+    serials, raw_lines = [], []
+    reader, SERIAL_CHARS = _easyocr_reader(), '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ-:'
+    if reader:
+        try:
+            res = reader.readtext(np.array(image), allowlist=SERIAL_CHARS)
+            for (bbox, text, conf) in res:
+                t = (text or "").strip()
+                if not t: continue
+                raw_lines.append(f"{t} (conf: {conf:.2f})")
+                s = _extract_serial_from_payload(t)
+                if s and _looks_like_id(s):
+                    serials.append({"text": s, "confidence": float(conf), "bbox": _safe_bbox([bbox[0][0], bbox[0][1], bbox[2][0]-bbox[0][0], bbox[2][1]-bbox[0][1]]), "source": "ocr_quick"})
+        except Exception:
+            pass
+    return _json_safe({"found": bool(serials), "method": "ocr_quick", "serials": serials, "codes": base_result["code_hits"], "raw_ocr": "\n".join(raw_lines)})

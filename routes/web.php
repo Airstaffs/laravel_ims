@@ -45,6 +45,27 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// 🚧 TEMPORARY DEV-ONLY LOGIN BYPASS
+Route::get('/dev-login', function () {
+    // Never allow this in production
+    if (app()->environment('production')) abort(403, 'Not allowed in production.');
+
+    // Find the first SuperAdmin user
+    $user = User::where('role', 'SuperAdmin')->first();
+
+    if (!$user) {
+        return '❌ No SuperAdmin found. Please create one in phpMyAdmin first.';
+    }
+
+    // Log in the user and regenerate session
+    Auth::login($user);
+    session()->regenerate();
+
+    return redirect()->route('dashboard.system')
+        ->with('login_success', '✅ Dev bypass active — logged in as ' . $user->username);
+});
+
+
 Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard');
 
 // Guest routes (accessible only when not authenticated)
@@ -135,7 +156,8 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
 
     // CSRF token refresh endpoint
     Route::get('/csrf-token', function () {
-        return response()->json(['token' => csrf_token()]);
+        return response()->json(['token' => csrf_token()])
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     });
 
     // Keep session alive endpoint
@@ -161,8 +183,8 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     Route::delete('/delete-user/{id}', [UserController::class, 'destroy'])->name('delete-user');
 
     // System Design Routes
-Route::get('/get-system-design-data', [SystemDesignController::class, 'getData'])->name('get.system.design.data')->middleware('auth');
-Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design')->middleware('auth');
+    Route::get('/get-system-design-data', [SystemDesignController::class, 'getData'])->name('get.system.design.data')->middleware('auth');
+    Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design')->middleware('auth');
 
 
 
@@ -737,17 +759,17 @@ Route::prefix('hr')->group(function () {
     Route::get('/profile/{userId}', [HrController::class, 'getUserProfileDetailsById']);
     Route::post('/account/update-details', [HrController::class, 'updateUserProfileDetails'])
         ->name('account.update-details')->middleware('auth');
-            // new, for the permissions UI
+    // new, for the permissions UI
     Route::get('/stores', [HrController::class, 'listStores']); // list stores for UI
     Route::get('/employees/{id}/permissions', [HrController::class, 'getEmployeePermissions']);
     Route::post('/employees/{id}/permissions', [HrController::class, 'updateEmployeePermissions']);
+
+    Route::get('/break/status', [AttendanceController::class, 'status'])->name('hr.break.status');
+    Route::post('/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
+    Route::post('/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 });
 
-Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/hr/break/status', [AttendanceController::class, 'status'])->name('hr.break.status');
-    Route::post('/hr/break/start', [AttendanceController::class, 'start'])->name('hr.break.start');
-    Route::post('/hr/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
-});
+
 
 Route::get('/schedule/month', [AttendanceController::class, 'month']);
 

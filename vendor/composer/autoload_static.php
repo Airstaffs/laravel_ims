@@ -4,7 +4,7 @@
 
 namespace Composer\Autoload;
 
-class ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a
+class ComposerStaticInit1fa1321e9062f609de78afbf8bbd4c89
 {
     public static $files = array (
         '6e3fae29631ef280660b3cdad06f25a8' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
@@ -41,7 +41,6 @@ class ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a
         '7d2876738dc0328edeb8a103c76cd8e7' => __DIR__ . '/..' . '/pestphp/pest/src/Pest.php',
         'decc78cc4436b1292c6c0d151b19445c' => __DIR__ . '/..' . '/phpseclib/phpseclib/phpseclib/bootstrap.php',
         '801c31d8ed748cfa537fa45402288c95' => __DIR__ . '/..' . '/psy/psysh/src/functions.php',
-        '062a54fe8f6f91078b197f2922521dd9' => __DIR__ . '/..' . '/laravel/pint/overrides/Runner/Parallel/ProcessFactory.php',
         'c72349b1fe8d0deeedd3a52e8aa814d8' => __DIR__ . '/..' . '/mockery/mockery/library/helpers.php',
         'ce9671a430e4846b44e1c68c7611f9f5' => __DIR__ . '/..' . '/mockery/mockery/library/Mockery.php',
         'db356362850385d08a5381de2638b5fd' => __DIR__ . '/..' . '/mpdf/mpdf/src/functions.php',
@@ -690,6 +689,7 @@ class ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a
     public static $classMap = array (
         'App\\Console\\Commands\\EbayOrdersFetcher' => __DIR__ . '/../..' . '/app/Console/Commands/EbayOrdersFetcher.php',
         'App\\Console\\Commands\\TestEbayHelpers' => __DIR__ . '/../..' . '/app/Console/Commands/TestEbayHelpers.php',
+        'App\\Events\\SystemDesignUpdated' => __DIR__ . '/../..' . '/app/Events/SystemDesignUpdated.php',
         'App\\Http\\Controllers\\ASINlistController' => __DIR__ . '/../..' . '/app/Http/Controllers/ASINlistController.php',
         'App\\Http\\Controllers\\Amzn\\FBACartController' => __DIR__ . '/../..' . '/app/Http/Controllers/Amzn/FBACartController.php',
         'App\\Http\\Controllers\\Amzn\\FBAShipmentController' => __DIR__ . '/../..' . '/app/Http/Controllers/Amzn/FBAShipmentController.php',
@@ -748,6 +748,7 @@ class ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a
         'App\\Http\\Controllers\\tblproductController' => __DIR__ . '/../..' . '/app/Http/Controllers/tblproductController.php',
         'App\\Http\\Kernel' => __DIR__ . '/../..' . '/app/Http/Kernel.php',
         'App\\Http\\Middleware\\CorsMiddleware' => __DIR__ . '/../..' . '/app/Http/Middleware/CorsMiddleware.php',
+        'App\\Http\\Middleware\\EnsureProfileCompleted' => __DIR__ . '/../..' . '/app/Http/Middleware/EnsureProfileCompleted.php',
         'App\\Http\\Middleware\\EnsureUserIsAuthenticated' => __DIR__ . '/../..' . '/app/Http/Middleware/EnsureUserIsAuthenticated.php',
         'App\\Http\\Middleware\\HandleCsrfTokenMismatch' => __DIR__ . '/../..' . '/app/Http/Middleware/HandleCsrfTokenMismatch.php',
         'App\\Http\\Middleware\\PreventBackHistory' => __DIR__ . '/../..' . '/app/Http/Middleware/PreventBackHistory.php',
@@ -780,6 +781,7 @@ class ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a
         'Brick\\Math\\Exception\\NumberFormatException' => __DIR__ . '/..' . '/brick/math/src/Exception/NumberFormatException.php',
         'Brick\\Math\\Exception\\RoundingNecessaryException' => __DIR__ . '/..' . '/brick/math/src/Exception/RoundingNecessaryException.php',
         'Brick\\Math\\Internal\\Calculator' => __DIR__ . '/..' . '/brick/math/src/Internal/Calculator.php',
+        'Brick\\Math\\Internal\\CalculatorRegistry' => __DIR__ . '/..' . '/brick/math/src/Internal/CalculatorRegistry.php',
         'Brick\\Math\\Internal\\Calculator\\BcMathCalculator' => __DIR__ . '/..' . '/brick/math/src/Internal/Calculator/BcMathCalculator.php',
         'Brick\\Math\\Internal\\Calculator\\GmpCalculator' => __DIR__ . '/..' . '/brick/math/src/Internal/Calculator/GmpCalculator.php',
         'Brick\\Math\\Internal\\Calculator\\NativeCalculator' => __DIR__ . '/..' . '/brick/math/src/Internal/Calculator/NativeCalculator.php',
@@ -8494,6 +8496,7 @@ class ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a
         'ZipStream\\LocalFileHeader' => __DIR__ . '/..' . '/maennchen/zipstream-php/src/LocalFileHeader.php',
         'ZipStream\\OperationMode' => __DIR__ . '/..' . '/maennchen/zipstream-php/src/OperationMode.php',
         'ZipStream\\PackField' => __DIR__ . '/..' . '/maennchen/zipstream-php/src/PackField.php',
+        'ZipStream\\Stream\\CallbackStreamWrapper' => __DIR__ . '/..' . '/maennchen/zipstream-php/src/Stream/CallbackStreamWrapper.php',
         'ZipStream\\Time' => __DIR__ . '/..' . '/maennchen/zipstream-php/src/Time.php',
         'ZipStream\\Version' => __DIR__ . '/..' . '/maennchen/zipstream-php/src/Version.php',
         'ZipStream\\Zip64\\DataDescriptor' => __DIR__ . '/..' . '/maennchen/zipstream-php/src/Zip64/DataDescriptor.php',
@@ -9030,9 +9033,9 @@ class ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInitb1fe998e49469b3e90cb1efd8b19f59a::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInit1fa1321e9062f609de78afbf8bbd4c89::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInit1fa1321e9062f609de78afbf8bbd4c89::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInit1fa1321e9062f609de78afbf8bbd4c89::$classMap;
 
         }, null, ClassLoader::class);
     }
