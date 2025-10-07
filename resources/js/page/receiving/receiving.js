@@ -53,6 +53,11 @@ export default {
             modalImages: [],
             currentImageIndex: 0,
             showDetectSerialModal: false, // State for Detect Serial Numbers modal
+
+            apiResult: {
+                serials: []
+            },
+
         };
     },
     computed: {
@@ -1034,6 +1039,16 @@ export default {
         changePerPage() {
             this.currentPage = 1;
             this.fetchInventory();
+        },
+        saveSerial(serialText, index) {
+            // Determine which step we're on
+            if (this.currentStep === 3) {
+                this.firstSerialNumber = serialText;
+                this.$refs.scanner.showScanSuccess(`✅ Saved Serial #1: ${serialText}`);
+            } else if (this.currentStep === 4) {
+                this.secondSerialNumber = serialText;
+                this.$refs.scanner.showScanSuccess(`✅ Saved Serial #2: ${serialText}`);
+            }
         },
     },
     watch: {
