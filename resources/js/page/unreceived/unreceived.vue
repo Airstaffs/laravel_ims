@@ -350,17 +350,12 @@
                             <!-- Button for more details -->
                             <td>
                                 <div class="action-buttons">
-                                    {{ item.totalquantity }}
                                     <button
-                                        class="btn-details"
-                                        @click="toggleDetails(index)"
+                                        class="btn btn-edit"
+                                        @click="openEditModal(item)"
                                     >
-                                        <i class="fas fa-info-circle"></i> More
-                                        Details
+                                        View Details
                                     </button>
-                                    <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
                                 </div>
                             </td>
                         </tr>
@@ -601,6 +596,303 @@
                     >
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showEditModal" class="modal view-modal">
+            <div class="modal-overlay" @click="closeEditModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2 class="fw-bold">
+                            <small>RT #{{ item.ProductID }}</small>
+                            <span>
+                                {{ item.ProductTitle }}
+                            </span>
+                        </h2>
+                    </div>
+                    <button class="btn btn-modal-close" @click="closeEditModal">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="view-info-container">
+                        <div class="view-grid-wrapper">
+                            <!-- LEFT: IMAGE -->
+                            <div class="form-col-left">
+                                <div
+                                    class="image-section"
+                                    v-if="imageList.length"
+                                >
+                                    <!-- Main Image -->
+                                    <div class="main-image">
+                                        <img
+                                            :src="activeImageUrl"
+                                            alt="Main Product Image"
+                                            loading="lazy"
+                                            @error="onImageErrorMain"
+                                        />
+                                    </div>
+
+                                    <!-- Thumbnails -->
+                                    <div class="thumbnail-carousel">
+                                        <div
+                                            v-for="(img, index) in imageList"
+                                            :key="index"
+                                            :class="[
+                                                'thumbnail',
+                                                {
+                                                    active:
+                                                        index === activeIndex,
+                                                },
+                                            ]"
+                                            @click="activeIndex = index"
+                                            @mouseenter="activeIndex = index"
+                                        >
+                                            <img
+                                                :src="basePath + img"
+                                                alt="Thumbnail"
+                                                loading="lazy"
+                                                @error="
+                                                    onThumbnailError($event)
+                                                "
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="description-section">
+                                    <h3>Description</h3>
+                                    <p>{{ item.description }}</p>
+                                </div>
+                            </div>
+
+                            <!-- RIGHT: DETAILS -->
+                            <div class="form-col-right">
+                                <div class="row">
+                                    <!-- Left Column -->
+                                    <div class="col-md-6">
+                                        <!-- Product Identifiers -->
+                                        <section class="info-section">
+                                            <h3>Product Identifiers</h3>
+                                            <dl class="info-list">
+                                                <div class="info-item">
+                                                    <dt>RT:</dt>
+                                                    <dd>
+                                                        {{ item.ProductID }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>ASIN:</dt>
+                                                    <dd>{{ item.ASIN }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>RPN:</dt>
+                                                    <dd>{{ item.RPN }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>PRD:</dt>
+                                                    <dd>{{ item.PRD }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>UPC:</dt>
+                                                    <dd>{{ item.UPC }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>EAN:</dt>
+                                                    <dd>{{ item.EAN }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>SKU:</dt>
+                                                    <dd>{{ item.SKU }}</dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+
+                                        <!-- Order Information -->
+                                        <section class="info-section">
+                                            <h3>Order Information</h3>
+                                            <dl class="info-list">
+                                                <div class="info-item">
+                                                    <dt>Order Number:</dt>
+                                                    <dd>{{ item.rtid }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Item Number:</dt>
+                                                    <dd>
+                                                        {{ item.itemnumber }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Basket Number:</dt>
+                                                    <dd>
+                                                        {{ item.basketnumber }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Order Date:</dt>
+                                                    <dd>
+                                                        {{ item.orderdate }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Delivered Date:</dt>
+                                                    <dd>
+                                                        {{ item.datedelivered }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Seller:</dt>
+                                                    <dd>{{ item.seller }}</dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+
+                                        <!-- Warehouse & Tracking -->
+                                        <section class="info-section">
+                                            <h3>Warehouse & Tracking</h3>
+                                            <dl class="info-list">
+                                                <div class="info-item">
+                                                    <dt>Module:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.ProductModuleLoc
+                                                        }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Warehouse Location:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.warehouselocation
+                                                        }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Serial Number:</dt>
+                                                    <dd>
+                                                        {{ item.serialnumber }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Tracking Number:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.trackingnumber
+                                                        }}
+                                                    </dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+
+                                        <!-- Additional Info -->
+                                        <section
+                                            class="info-section"
+                                            v-if="item.grading || item.notes"
+                                        >
+                                            <h3>Additional Info</h3>
+                                            <dl class="info-list">
+                                                <div
+                                                    class="info-item"
+                                                    v-if="item.grading"
+                                                >
+                                                    <dt>Grading:</dt>
+                                                    <dd>{{ item.grading }}</dd>
+                                                </div>
+                                                <div
+                                                    class="info-item"
+                                                    v-if="item.notes"
+                                                >
+                                                    <dt>Notes:</dt>
+                                                    <dd>{{ item.notes }}</dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+                                    </div>
+
+                                    <!-- Right Column: Pricing -->
+                                    <div class="col-md-6">
+                                        <section class="pricing-section">
+                                            <h3>Pricing</h3>
+                                            <dl class="pricing-list">
+                                                <!-- Base Pricing -->
+                                                <div class="pricing-item">
+                                                    <dt>Unit Price:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.formattedUnitprice ||
+                                                            "0.00"
+                                                        }}
+                                                    </dd>
+                                                </div>
+                                                <div class="pricing-item">
+                                                    <dt>Quantity:</dt>
+                                                    <dd>
+                                                        {{ item.quantity || 0 }}
+                                                    </dd>
+                                                </div>
+                                                <div
+                                                    class="pricing-item subtotal-line"
+                                                >
+                                                    <dt>Subtotal:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.price || "0.00"
+                                                        }}
+                                                    </dd>
+                                                </div>
+
+                                                <!-- Adjustments -->
+                                                <div
+                                                    class="pricing-item"
+                                                    v-if="item.Discount"
+                                                >
+                                                    <dt>Discount:</dt>
+                                                    <dd class="discount">
+                                                        -{{ item.Discount }}
+                                                    </dd>
+                                                </div>
+                                                <div class="pricing-item">
+                                                    <dt>Tax:</dt>
+                                                    <dd>{{ item.tax }}</dd>
+                                                </div>
+                                                <div class="pricing-item">
+                                                    <dt>Shipping:</dt>
+                                                    <dd>
+                                                        {{ item.priceshipping }}
+                                                    </dd>
+                                                </div>
+
+                                                <!-- Total -->
+                                                <div
+                                                    class="pricing-item total-line"
+                                                >
+                                                    <dt>Total Price:</dt>
+                                                    <dd class="total-amount">
+                                                        {{ grandTotal }}
+                                                    </dd>
+                                                </div>
+
+                                                <!-- Refund -->
+                                                <div
+                                                    class="pricing-item refund-line"
+                                                    v-if="item.refund"
+                                                >
+                                                    <dt>Refund:</dt>
+                                                    <dd class="refund">
+                                                        {{ item.refund }}
+                                                    </dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
