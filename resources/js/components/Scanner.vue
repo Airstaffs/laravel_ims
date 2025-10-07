@@ -79,47 +79,53 @@
           <!-- Camera/Scanner View - only if camera is enabled -->
           <div v-if="enableCamera" class="scanner-view" :class="{ 'compact-view': isCompactMode, 'active-camera': scannerCameraActive }">
 
-            <div v-if="productThumbnails.length > 0" class="scanner-product-thumbnails-container">
-  <!-- First image preview (always visible) -->
-  <div 
-    v-if="productThumbnails.length > 0"
-    class="scanner-default-thumbnail"
-    @click="openProductImagePreview(0)"
-  >
-    <img :src="productThumbnails[0].src" alt="Product image" />
-    <div class="scanner-thumbnail-label">
-      <i class="fas fa-search-plus"></i> View All ({{ productThumbnails.length }})
-    </div>
-  </div>
-</div>
+            <!-- When camera is disabled -->
+            <div v-if="currentStep" class="scanner-disabled-overlay">
+              <p>Camera disabled until serial number tracking step</p>
+            </div>
 
-<!-- Product Image Preview Modal with unique class names -->
-<div v-if="showProductImageModal" class="scanner-product-image-modal" @click="closeProductImagePreview">
-  <div class="scanner-product-image-content" @click.stop>
-    <div class="scanner-product-image-header">
-      <h3>Product Image {{ currentProductImageIndex + 1 }}/{{ productThumbnails.length }}</h3>
-      <button @click="closeProductImagePreview" class="scanner-close-preview-btn">
-        <i class="fas fa-times"></i>
-      </button>
-    </div>
-    <div class="scanner-product-image-body">
-      <div class="scanner-product-image-container">
-        <img :src="currentProductImage.src" alt="Product image" class="scanner-preview-image" />
-      </div>
-      <div class="scanner-product-image-controls">
-        <button @click="prevProductImage" :disabled="currentProductImageIndex === 0" class="scanner-nav-btn scanner-prev-btn">
-          <i class="fas fa-chevron-left"></i>
-        </button>
-        <div class="scanner-image-info">
-          <span class="scanner-image-label" v-if="currentProductImage.label">{{ currentProductImage.label }}</span>
-        </div>
-        <button @click="nextProductImage" :disabled="currentProductImageIndex >= productThumbnails.length - 1" class="scanner-nav-btn scanner-next-btn">
-          <i class="fas fa-chevron-right"></i>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
+            <!-- Product Thumbnails Panel -->
+            <div v-if="productThumbnails.length >= 3" class="scanner-product-thumbnails-container">
+              <!-- First image preview (always visible) -->
+              <div 
+                v-if="productThumbnails.length > 0"
+                class="scanner-default-thumbnail"
+                @click="openProductImagePreview(0)"
+              >
+                <img :src="productThumbnails[0].src" alt="Product image" />
+                <div class="scanner-thumbnail-label">
+                  <i class="fas fa-search-plus"></i> View All ({{ productThumbnails.length }})
+                </div>
+              </div>
+            </div>
+
+            <!-- Product Image Preview Modal with unique class names -->
+            <div v-if="showProductImageModal" class="scanner-product-image-modal" @click="closeProductImagePreview">
+              <div class="scanner-product-image-content" @click.stop>
+                <div class="scanner-product-image-header">
+                  <h3>Product Image {{ currentProductImageIndex + 1 }}/{{ productThumbnails.length }}</h3>
+                  <button @click="closeProductImagePreview" class="scanner-close-preview-btn">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>
+                <div class="scanner-product-image-body">
+                  <div class="scanner-product-image-container">
+                    <img :src="currentProductImage.src" alt="Product image" class="scanner-preview-image" />
+                  </div>
+                  <div class="scanner-product-image-controls">
+                    <button @click="prevProductImage" :disabled="currentProductImageIndex === 0" class="scanner-nav-btn scanner-prev-btn">
+                      <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <div class="scanner-image-info">
+                      <span class="scanner-image-label" v-if="currentProductImage.label">{{ currentProductImage.label }}</span>
+                    </div>
+                    <button @click="nextProductImage" :disabled="currentProductImageIndex >= productThumbnails.length - 1" class="scanner-nav-btn scanner-next-btn">
+                      <i class="fas fa-chevron-right"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
 
             <!-- When camera is inactive, show the grid overlay -->
             <div v-if="!scannerCameraActive" class="scanner-overlay">
@@ -512,13 +518,131 @@ export default {
   clearProductThumbnails() {
     this.productThumbnails = [];
     this.showProductImageModal = false;
-  }
-     
+  },
+  
+  // Capture from the scanner camera
+  async captureFromScanner() {
+      const video = document.getElementById('scanner-camera-preview');
+      if (!video || !this.scannerCameraActive) return;
+
+      const currentStep = this.$parent?.currentStep ?? 0;
+
+      // ✅ Step guard
+      if (currentStep < 3) {
+        this.showScanWarning('Capture is only allowed from the Serial Number step onward.');
+        return;
+      }
+
+      // ✅ Enforce per-step limits
+      if (currentStep === 3 && this.capturedImages.some(img => img.step === 3)) {
+        this.showScanWarning('Only one image allowed for the first serial number.');
+        return;
+      }
+      if (currentStep === 4 && this.capturedImages.some(img => img.step === 4)) {
+        this.showScanWarning('Only one image allowed for the second serial number.');
+        return;
+      }
+      if (currentStep >= 5 && this.capturedImages.length >= this.maxImages) {
+        this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
+        return;
+      }
+
+      // ✅ Capture image
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      const timestamp = new Date().toLocaleTimeString();
+      const dataUrl = canvas.toDataURL('image/jpeg');
+      this.capturedImages.push({ data: dataUrl, timestamp, step: currentStep });
+      this.showScanSuccess('Image captured.');
+
+      // ✅ Step 3–4: Automatically detect serial number
+      if (currentStep === 3 || currentStep === 4) {
+        try {
+          this.showScanSuccess('Detecting serial number...');
+          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+
+          const formData = new FormData();
+          formData.append("file", blob, "capture.jpg");
+
+          const response = await fetch("http://127.0.0.1:8001/detect", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+          const result = await response.json();
+          console.log('🔍 Serial detection result:', result);
+
+          // Save result to parent so it can render
+          if (this.$parent) {
+            this.$parent.apiResult = result;
+          }
+
+          if (result.serials && result.serials.length > 0) {
+            const detectedSerial = result.serials[0]; // take the first detected
+            if (currentStep === 3) {
+              this.$parent.firstSerialNumber = detectedSerial;
+              this.showScanSuccess(`✅ Serial #1 detected: ${detectedSerial}`);
+            } else if (currentStep === 4) {
+              this.$parent.secondSerialNumber = detectedSerial;
+              this.showScanSuccess(`✅ Serial #2 detected: ${detectedSerial}`);
+            }
+          } else {
+            this.showScanWarning('⚠️ No serials detected in image.');
+          }
+        } catch (err) {
+          console.error('OCR API error:', err);
+          this.showScanError('❌ Failed to detect serial number.');
+        }
+      }
+
+      // ✅ Step 5+ → just normal product capture
+      if (currentStep >= 5) {
+        this.showScanSuccess('Product image captured.');
+      }
+
+      setTimeout(() => {
+        this.showSuccessNotification = false;
+      }, 2000);
+    }
   }
 };
 </script>
 
 <style>
+/* newly added */
+.pass-fail-buttons {
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+}
+
+.step-btn {
+    width: 49%;
+    color: #fff; 
+    padding: 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.step-btn i{
+    color: #fff; 
+}
+
+button.pass-button.step-btn {
+    background-color: #0d6efd;
+}
+
+button.fail-button.step-btn {
+    background-color: #dc3545;
+}
 /* Top Notification Styles */
 .top-notification-container {
   position: fixed;

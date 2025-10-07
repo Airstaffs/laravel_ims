@@ -28,7 +28,7 @@
         <scanner-component
             scanner-title="Received Scanner"
             storage-prefix="received"
-            :enable-camera="true"
+            :enable-camera="currentStep >= 3"
             :display-fields="[
                 'Trackingnumber',
                 'FirstSN',
@@ -77,10 +77,10 @@
                         </div>
                     </div>
                     <div class="pass-fail-buttons">
-                        <button @click="passItem" class="pass-button">
+                        <button @click="passItem" class="pass-button step-btn">
                             <i class="fas fa-check"></i> Pass
                         </button>
-                        <button @click="failItem" class="fail-button">
+                        <button @click="failItem" class="fail-button step-btn">
                             <i class="fas fa-times"></i> Fail
                         </button>
                     </div>
@@ -88,6 +88,33 @@
 
                 <!-- Step 3: First Serial Number Input -->
                 <div class="input-group" v-if="currentStep === 3">
+                    <!-- OCR Detected Serials (show for step 3 & 4 only) -->
+                    <div 
+                        v-if="apiResult.serials && apiResult.serials.length && (currentStep === 3 || currentStep === 4)"
+                        class="serial-results-wrapper-main"
+                    >
+                        <p class="text-sm text-gray-500 mb-1">Detected Serials:</p>
+                        <div 
+                            v-for="(serial, index) in apiResult.serials" 
+                            :key="index" 
+                            class="mb-3 serial-results-wrapper"
+                        >
+                            <div class="flex items-center gap-2 serial-result-wrap">
+                            <div class="font-mono serial-result">{{ serial.text }}</div>
+                            <button 
+                                class="px-2 py-1 bg-green-500 text-white rounded serial-btn" 
+                                @click="saveSerial(serial.text, index)"
+                            >
+                                Save
+                            </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p class="instruction-text">
+                        Please picture the first serial number.
+                    </p>
+
                     <label>First Serial Number:</label>
                     <input
                         type="text"
@@ -108,6 +135,27 @@
 
                 <!-- Step 4: Second Serial Number Input (with Skip option) -->
                 <div class="input-group" v-if="currentStep === 4">
+                    <div 
+                        v-if="apiResult.serials && apiResult.serials.length && (currentStep === 3 || currentStep === 4)"
+                        class="serial-results-wrapper-main"
+                    >
+                        <p class="text-sm text-gray-500 mb-1">Detected Serials:</p>
+                        <div 
+                            v-for="(serial, index) in apiResult.serials" 
+                            :key="index" 
+                            class="mb-3 serial-results-wrapper"
+                        >
+                            <div class="flex items-center gap-2 serial-result-wrap">
+                            <div class="font-mono serial-result">{{ serial.text }}</div>
+                            <button 
+                                class="px-2 py-1 bg-green-500 text-white rounded serial-btn" 
+                                @click="saveSerial(serial.text, index)"
+                            >
+                                Save
+                            </button>
+                            </div>
+                        </div>
+                    </div>
                     <label>Second Serial Number:</label>
                     <input
                         type="text"

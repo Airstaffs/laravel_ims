@@ -45,6 +45,27 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// 🚧 TEMPORARY DEV-ONLY LOGIN BYPASS
+Route::get('/dev-login', function () {
+    // Never allow this in production
+    if (app()->environment('production')) abort(403, 'Not allowed in production.');
+
+    // Find the first SuperAdmin user
+    $user = User::where('role', 'SuperAdmin')->first();
+
+    if (!$user) {
+        return '❌ No SuperAdmin found. Please create one in phpMyAdmin first.';
+    }
+
+    // Log in the user and regenerate session
+    Auth::login($user);
+    session()->regenerate();
+
+    return redirect()->route('dashboard.system')
+        ->with('login_success', '✅ Dev bypass active — logged in as ' . $user->username);
+});
+
+
 Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard');
 
 // Guest routes (accessible only when not authenticated)
