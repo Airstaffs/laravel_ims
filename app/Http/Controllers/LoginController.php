@@ -142,26 +142,26 @@ class LoginController extends Controller
     }
 
     /** Enforce the schedule gate unless SuperAdmin. Returns RedirectResponse|null. */
-private function enforceScheduleGateOrBypass(User $user, Request $request)
-{
-    $role = DB::table('tbluser')->where('id', $user->id)->value('role');
-    if (is_string($role) && in_array(strtolower($role), ['superadmin', 'admin'], true)) {
-        return null;
+    private function enforceScheduleGateOrBypass(User $user, Request $request)
+    {
+        $role = DB::table('tbluser')->where('id', $user->id)->value('role');
+        if (is_string($role) && in_array(strtolower($role), ['superadmin', 'admin'], true)) {
+            return null;
+        }
+
+        // Always evaluate schedule in LA time:
+        $gate = $this->checkLoginWindow($user->id, self::DB_TZ); // 'America/Los_Angeles'
+
+        if ($gate['allowed']) return null;
+
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->withErrors([
+            'username' => ($gate['message'] ?? 'Login not allowed right now.') . ' (based on Los Angeles time)',
+        ]);
     }
-
-    // Always evaluate schedule in LA time:
-    $gate = $this->checkLoginWindow($user->id, self::DB_TZ); // 'America/Los_Angeles'
-
-    if ($gate['allowed']) return null;
-
-    Auth::logout();
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-
-    return redirect()->route('login')->withErrors([
-        'username' => ($gate['message'] ?? 'Login not allowed right now.') . ' (based on Los Angeles time)',
-    ]);
-}
 
 
     public function __construct(UserLogService $userLogService)
