@@ -1194,36 +1194,113 @@ export default {
             if (this.currentStep === 3) {
                 // 🧠 Save first serial
                 this.firstSerialNumber = serialText;
-                this.$refs.scanner.showScanSuccess(`✅ Saved Serial #1: ${serialText}`);
+                this.$refs.scanner.showScanSuccess(
+                    `✅ Saved Serial #1: ${serialText}`
+                );
 
                 // 🧹 Clear OCR results
                 this.apiResult = { serials: [] };
 
                 // 🚀 Act as if user pressed Enter
                 this.$nextTick(() => {
-                if (typeof this.processFirstSerial === "function") {
-                    this.processFirstSerial();
-                }
+                    if (typeof this.processFirstSerial === "function") {
+                        this.processFirstSerial();
+                    }
                 });
-            } 
-            
-            else if (this.currentStep === 4) {
+            } else if (this.currentStep === 4) {
                 // 🧠 Save second serial
                 this.secondSerialNumber = serialText;
-                this.$refs.scanner.showScanSuccess(`✅ Saved Serial #2: ${serialText}`);
+                this.$refs.scanner.showScanSuccess(
+                    `✅ Saved Serial #2: ${serialText}`
+                );
 
                 // 🧹 Clear OCR results
                 this.apiResult = { serials: [] };
 
                 // 🚀 Act as if user pressed Enter
                 this.$nextTick(() => {
-                if (typeof this.processSecondSerial === "function") {
-                    this.processSecondSerial();
-                }
+                    if (typeof this.processSecondSerial === "function") {
+                        this.processSecondSerial();
+                    }
                 });
             }
         },
 
+        async openEditModal(item) {
+            if (!item) return;
+
+            console.log(item);
+
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
+            this.item = { ...(freshItem || item) };
+
+            this.showEditModal = true;
+            document.body.style.overflow = "hidden";
+
+            // If you want to proactively load any existing serial image for this item:
+            await this.$nextTick();
+            await this.fetchSerialImageIfAny?.(); // safe if you added this earlier
+        },
+
+        closeEditModal() {
+            this.showEditModal = false;
+
+            // Reset image state on close too
+            this.resetSerialImage({ clearServer: true });
+
+            setTimeout(() => {
+                document.body.style.overflow = "auto";
+            }, 300); // match your animation
+        },
+
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImage;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImage;
+        },
+
+        autoResize() {
+            [
+                "productTextarea",
+                "descriptionarea",
+                "supplierNotesarea",
+                "employeeNotesarea",
+                "stickerNotesarea",
+            ].forEach((refName) => {
+                const el = this.$refs[refName];
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+
+        getLabel(index) {
+            // Convert 0 => A, 1 => B, etc.
+            return String.fromCharCode(65 + index);
+        },
+
+        async fetchItems() {
+            this.loading = true;
+            try {
+                const response = await axios.get("/api/unreceived/products");
+                const payload = response.data;
+
+                // handle both array or wrapped array
+                this.items = Array.isArray(payload)
+                    ? payload
+                    : payload.data || [];
+            } catch (err) {
+                console.error("Fetch failed:", err);
+                this.items = []; // fallback
+                this.error = "Failed to load items.";
+            } finally {
+                this.loading = false;
+            }
+        },
     },
     watch: {
         searchQuery() {
