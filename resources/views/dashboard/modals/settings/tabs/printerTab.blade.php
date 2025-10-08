@@ -280,921 +280,6 @@
     </div>
 </div>
 
-<script>
-    // ToggleAddPrinter (option)
-    function toggleAddPrinter() {
-        const printerDiv = document.querySelector('.addNewPrinter');
-        if (printerDiv.style.display === 'none' || printerDiv.style.display === '') {
-            printerDiv.style.display = 'block';
-        } else {
-            printerDiv.style.display = 'none';
-        }
-    }
-
-    function toggleMarryPrinter() {
-        const printerDiv = document.querySelector('.marryNewPrinter');
-        if (printerDiv.style.display === 'none' || printerDiv.style.display === '') {
-            printerDiv.style.display = 'block';
-        } else {
-            printerDiv.style.display = 'none';
-        }
-    }
-
-    $(document).on("click", ".edit-printer-btn", function () {
-        const printerId = $(this).data("id");
-        $("#settingsModal").modal("hide");
-
-        fetch(`/api/printer-management/get-printer/${printerId}`)
-            .then((r) => r.json())
-            .then(({ printer }) => {
-                const modalEl = document.getElementById("editPrinterTestModal");
-                if (!modalEl) {
-                    console.error("Modal element #editPrinterTestModal not found.");
-                    return;
-                }
-
-                const modal = new bootstrap.Modal(modalEl, { backdrop: "static", keyboard: true });
-                modal.show();
-
-                // Map: input ID -> object key
-                const fields = {
-                    printerId: "printerid",       // hidden
-                    printerName: "printername",
-                    printerType: "printer_type",
-                    printerIp: "printerip",
-                    printerPort: "port",
-                    description: "description",
-                };
-
-                Object.entries(fields).forEach(([id, key]) => {
-                    const el = modalEl.querySelector(`#${id}`);
-                    if (!el) {
-                        console.warn(`Field #${id} not found inside #editPrinterTestModal`);
-                        return;
-                    }
-
-                    const value = printer?.[key] ?? "";
-
-                    if (el.tagName === "SELECT") {
-                        el.value = value;
-                        if (value && ![...el.options].some((o) => o.value === value)) {
-                            el.add(new Option(value, value, true, true));
-                        }
-                    } else {
-                        el.value = value;
-                    }
-                });
-
-                console.log("Loaded printer:", printer);
-            })
-            .catch((error) => {
-                console.error("Error fetching printer data:", error);
-            });
-
-    });
-
-    $(document).on("submit", "#editPrinterForm", function (e) {
-        e.preventDefault();
-        updatePrinter(this);
-    });
-
-    // When the edit modal is hidden (close button, ESC, or backdrop), re-show settings modal and focus the tab
-    const editModalEl = document.getElementById("editPrinterTestModal");
-    if (editModalEl) {
-        editModalEl.addEventListener("hidden.bs.modal", function () {
-            $("#settingsModal").modal("show");
-
-            const tabTriggerEl = document.querySelector("#printer-tab");
-            if (tabTriggerEl) {
-                bootstrap.Tab.getOrCreateInstance(tabTriggerEl).show();
-            }
-        });
-    }
-
-    // If you still want the close button to explicitly do the same:
-    const closeBtn = document.querySelector("#editPrinterTestModal .btn-close");
-    if (closeBtn) {
-        closeBtn.addEventListener("click", function () {
-            const modal = bootstrap.Modal.getInstance(editModalEl);
-            modal?.hide();
-        });
-    }
-
-</script>
-
-<!-- Enhanced Marry Printers Modal -->
-<div class="modal modal-printer fade" id="marryPrintersModal" tabindex="-1" aria-labelledby="marryPrintersModalLabel"
-    aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content marry-modal-content">
-            <div class="modal-header marry-modal-header">
-                <h5 class="modal-title" id="marryPrintersModalLabel">
-                    <i class="bi bi-heart-fill me-2 text-white"></i>
-                    Marry Printers
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                    aria-label="Close"></button>
-            </div>
-            <form id="marryPrintersForm">
-                <div class="modal-body marry-modal-body-compact">
-                    @csrf
-
-                    <!-- Compact Header Info -->
-                    <div class="marriage-info-card-compact">
-                        <div class="d-flex align-items-center">
-                            <div class="marriage-icon-wrapper-compact">
-                                <i class="bi bi-heart-fill"></i>
-                            </div>
-                            <div class="ms-3">
-                                <h6 class="mb-0">Create Printer Marriage</h6>
-                                <small class="text-muted">Join two printers for synchronized operations</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Compact Printer Selection -->
-                    <div class="marriage-selection-compact">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="printer-card-compact small-label-compact">
-                                    <div class="card-header-compact">
-                                        <i class="bi bi-tag-fill me-2"></i>Small Label Printer
-                                    </div>
-                                    <select class="form-select compact-printer-select" id="smallLabelPrinter"
-                                        name="small_label_printer_id" required>
-                                        <option value="">Choose label printer...</option>
-                                    </select>
-                                    <div class="invalid-feedback compact-feedback">Please select a printer</div>
-                                </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <div class="printer-card-compact instruction-card-compact">
-                                    <div class="card-header-compact">
-                                        <i class="bi bi-card-text-fill me-2"></i>Instruction Card Printer
-                                    </div>
-                                    <select class="form-select compact-printer-select" id="instructionCardPrinter"
-                                        name="instruction_card_printer_id" required>
-                                        <option value="">Choose card printer...</option>
-                                    </select>
-                                    <div class="invalid-feedback compact-feedback">Please select a printer</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Compact Connection Heart -->
-                        <div class="connection-heart-compact">
-                            <i class="bi bi-heart-fill"></i>
-                        </div>
-                    </div>
-
-                    <!-- Compact Marriage Details -->
-                    <div class="compact-form-grid">
-                        <div class="row g-3">
-                            <div class="col-md-8">
-                                <label for="marriageName" class="compact-label">
-                                    <i class="bi bi-tag me-1"></i>Marriage Name <span class="text-danger">*</span>
-                                </label>
-                                <div class="compact-input-wrapper">
-                                    <input type="text" class="form-control compact-input" id="marriageName"
-                                        name="marriage_name" placeholder="e.g., Production Line 1" required>
-                                    <i class="bi bi-tag compact-input-icon"></i>
-                                </div>
-                                <div class="invalid-feedback compact-feedback">Please provide a marriage name</div>
-                            </div>
-                            <div class="col-md-4">
-                                <!-- Spacer for better layout -->
-                            </div>
-                        </div>
-
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label for="marriageDescription" class="compact-label">
-                                    <i class="bi bi-card-text me-1"></i>Description <span
-                                        class="text-muted">(Optional)</span>
-                                </label>
-                                <textarea class="form-control compact-input compact-textarea" id="marriageDescription"
-                                    name="description" rows="2"
-                                    placeholder="Optional description for this printer marriage..."></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer marry-modal-footer-compact">
-                    <button type="button" class="btn btn-light compact-cancel-btn" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle me-1"></i>Cancel
-                    </button>
-                    <button type="submit" class="btn btn-success compact-submit-btn">
-                        <i class="bi bi-heart-fill me-1"></i>Create Marriage
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div> <!-- Enhanced Edit Printer Modal -->
-
-<div class="modal modal-printer fade" id="editPrinterModal" tabindex="-1" aria-labelledby="editPrinterModalLabel"
-    aria-hidden="true" data-bs-backdrop="static">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content edit-printer-modal-content">
-            <div class="modal-header edit-printer-modal-header">
-                <h5 class="modal-title" id="editPrinterModalLabel">
-                    <i class="bi bi-pencil-square me-2 text-white"></i>
-                    Edit Printer
-                </h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                    aria-label="Close"></button>
-            </div>
-            <form id="editPrinterForm">
-                <div class="modal-body edit-printer-modal-body">
-                    @csrf
-                    <input type="hidden" id="editPrinterId" name="printer_id">
-
-                    <!-- Compact Header Info -->
-                    <div class="printer-info-header-compact">
-                        <div class="d-flex align-items-center">
-                            <div class="printer-icon-wrapper-compact edit-printer-icon">
-                                <i class="bi bi-gear-fill"></i>
-                            </div>
-                            <div class="ms-3">
-                                <h6 class="mb-0">Update Printer Settings</h6>
-                                <small class="text-muted">Modify configuration settings</small>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Compact Form Grid -->
-                    <div class="compact-form-grid">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label for="editPrinterName" class="compact-label">
-                                    <i class="bi bi-printer me-1"></i>Printer Name <span class="text-danger">*</span>
-                                </label>
-                                <div class="compact-input-wrapper">
-                                    <input type="text" class="form-control compact-input" id="editPrinterName"
-                                        name="printer_name" required>
-                                    <i class="bi bi-printer compact-input-icon"></i>
-                                </div>
-                                <div class="invalid-feedback compact-feedback">Required field</div>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="editPrinterType" class="compact-label">
-                                    <i class="bi bi-tag me-1"></i>Type <span class="text-danger">*</span>
-                                </label>
-                                <div class="compact-input-wrapper">
-                                    <select class="form-select compact-input compact-select" id="editPrinterType"
-                                        name="printer_type" required>
-                                        <option value="">Select Type</option>
-                                        <option value="small_label">🏷️ Small Label</option>
-                                        <option value="instruction_card">📋 Instruction Card</option>
-                                    </select>
-                                    <i class="bi bi-tag compact-input-icon"></i>
-                                </div>
-                                <div class="invalid-feedback compact-feedback">Please select type</div>
-                            </div>
-                        </div>
-
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label for="editPrinterIP" class="compact-label">
-                                    <i class="bi bi-globe me-1"></i>IP Address <span class="text-danger">*</span>
-                                </label>
-                                <div class="compact-input-wrapper">
-                                    <input type="text" class="form-control compact-input" id="editPrinterIP"
-                                        name="ip_address" placeholder="192.168.1.100" required>
-                                    <i class="bi bi-globe compact-input-icon"></i>
-                                </div>
-                                <div class="invalid-feedback compact-feedback">Valid IP required</div>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="editPrinterPort" class="compact-label">
-                                    <i class="bi bi-plug me-1"></i>Port
-                                </label>
-                                <div class="compact-input-wrapper">
-                                    <input type="number" class="form-control compact-input" id="editPrinterPort"
-                                        name="port" value="9100" min="1" max="65535">
-                                    <i class="bi bi-plug compact-input-icon"></i>
-                                </div>
-                            </div>
-                            <div class="col-md-3">
-                                <label for="editPrinterStatus" class="compact-label">
-                                    <i class="bi bi-circle-fill me-1"></i>Status
-                                </label>
-                                <div class="compact-input-wrapper">
-                                    <select class="form-select compact-input compact-select" id="editPrinterStatus"
-                                        name="status">
-                                        <option value="active">🟢 Active</option>
-                                        <option value="inactive">🔴 Inactive</option>
-                                        <option value="maintenance">🟡 Maintenance</option>
-                                    </select>
-                                    <i class="bi bi-circle-fill compact-input-icon"></i>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row g-3">
-                            <div class="col-12">
-                                <label for="editPrinterDescription" class="compact-label">
-                                    <i class="bi bi-card-text me-1"></i>Description <span
-                                        class="text-muted">(Optional)</span>
-                                </label>
-                                <textarea class="form-control compact-input compact-textarea"
-                                    id="editPrinterDescription" name="description" rows="2"
-                                    placeholder="Update printer description or notes..."></textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer edit-printer-modal-footer">
-                    <button type="button" class="btn btn-light compact-cancel-btn" data-bs-dismiss="modal">
-                        <i class="bi bi-x-circle me-1"></i>Cancel
-                    </button>
-                    <button type="submit" class="btn btn-primary compact-submit-btn">
-                        <i class="bi bi-check-circle me-1"></i>Update Printer
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>{{-- resources/views/dashboard/modals/settings/tabs/printerTab.blade.php --}}
-{{-- NOTE: Ensure your main layout includes @stack('modals') before </body> --}}
-
-<div class="tab-pane fade" id="printer" role="tabpanel" aria-labelledby="printer-tab">
-    <div class="container-fluid p-4">
-        <div class="row">
-            <div class="col-12">
-                <h4 class="mb-4">
-                    <i class="bi bi-printer me-2"></i>
-                    Printer Management
-                </h4>
-
-                <div class="card">
-                    <div class="card-header p-0">
-                        <ul class="nav nav-tabs card-header-tabs" id="printerSubTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="printer-list-tab" data-bs-toggle="tab"
-                                    data-bs-target="#printer-list" type="button" role="tab" aria-controls="printer-list"
-                                    aria-selected="true">
-                                    <i class="bi bi-list-ul me-1"></i>
-                                    All Printers
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="small-label-tab" data-bs-toggle="tab"
-                                    data-bs-target="#small-label" type="button" role="tab" aria-controls="small-label"
-                                    aria-selected="false">
-                                    <i class="bi bi-tag me-1"></i>
-                                    Small Label
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="instruction-card-tab" data-bs-toggle="tab"
-                                    data-bs-target="#instruction-card" type="button" role="tab"
-                                    aria-controls="instruction-card" aria-selected="false">
-                                    <i class="bi bi-card-text me-1"></i>
-                                    Instruction Card
-                                </button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="married-printer-tab" data-bs-toggle="tab"
-                                    data-bs-target="#married-printer" type="button" role="tab"
-                                    aria-controls="married-printer" aria-selected="false">
-                                    <i class="bi bi-arrow-through-heart me-1"></i>
-                                    Married Printers
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div class="card-body p-0">
-                        <div class="tab-content" id="printerSubTabContent">
-
-                            <!-- All Printers -->
-                            <div class="tab-pane fade show active" id="printer-list" role="tabpanel"
-                                aria-labelledby="printer-list-tab">
-                                <div class="p-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h5 class="mb-0">
-                                            <i class="bi bi-printer me-2"></i>
-                                            All Printers
-                                        </h5>
-                                        <button type="button" class="btn btn-primary" onclick="showAddPrinterModal()">
-                                            <i class="bi bi-plus-circle me-1"></i>
-                                            Add Printer
-                                        </button>
-                                    </div>
-
-                                    <div class="table-responsive">
-                                        <table class="table table-striped table-hover">
-                                            <thead class="table-dark">
-                                                <tr>
-                                                    <th>Printer Name</th>
-                                                    <th>Type</th>
-                                                    <th>IP Address</th>
-                                                    <th>Status</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="allPrintersTableBody">
-                                                <tr>
-                                                    <td colspan="5" class="text-center">Loading printers...</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Small Label -->
-                            <div class="tab-pane fade" id="small-label" role="tabpanel"
-                                aria-labelledby="small-label-tab">
-                                <div class="p-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h5 class="mb-0">
-                                            <i class="bi bi-tag me-2"></i>
-                                            Small Label Printers
-                                        </h5>
-                                    </div>
-
-                                    <div class="row" id="smallLabelPrintersGrid">
-                                        <div class="col-12">
-                                            <div class="alert alert-info text-center">Click to load small label
-                                                printers...</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Instruction Card -->
-                            <div class="tab-pane fade" id="instruction-card" role="tabpanel"
-                                aria-labelledby="instruction-card-tab">
-                                <div class="p-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h5 class="mb-0">
-                                            <i class="bi bi-card-text me-2"></i>
-                                            Instruction Card Printers
-                                        </h5>
-                                    </div>
-
-                                    <div class="row" id="instructionCardPrintersGrid">
-                                        <div class="col-12">
-                                            <div class="alert alert-info text-center">Click to load instruction card
-                                                printers...</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Married Printers -->
-                            <div class="tab-pane fade" id="married-printer" role="tabpanel"
-                                aria-labelledby="married-printer-tab">
-                                <div class="p-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
-                                        <h5 class="mb-0">
-                                            <i class="bi bi-arrow-through-heart me-2"></i>
-                                            Married Printers
-                                        </h5>
-                                        <button type="button" class="btn btn-success" data-bs-toggle="modal"
-                                            data-bs-target="#marryPrintersModal">
-                                            <i class="bi bi-plus-circle me-1"></i>
-                                            Marry Printers
-                                        </button>
-                                    </div>
-
-                                    <div class="alert alert-info">
-                                        <i class="bi bi-info-circle me-2"></i>
-                                        Married printers allow you to pair a small label printer with an instruction
-                                        card printer for synchronized printing.
-                                    </div>
-
-                                    <div id="marriedPrintersContainer">
-                                        <div class="alert alert-info text-center">Click to load married printers...
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                        </div><!-- /tab-content -->
-                    </div>
-                </div><!-- /card -->
-            </div>
-        </div>
-    </div>
-</div>
-
-@push('modals')
-    <!-- Enhanced Add Printer Modal -->
-    <div class="modal modal-printer fade" id="addPrinterModal" tabindex="-1" aria-labelledby="addPrinterModalLabel"
-        aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content add-printer-modal-content">
-                <div class="modal-header add-printer-modal-header">
-                    <h5 class="modal-title" id="addPrinterModalLabel">
-                        <i class="bi bi-plus-circle me-2 text-white"></i>
-                        Add New Printer
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
-                </div>
-                <form id="addPrinterForm">
-                    <div class="modal-body add-printer-modal-body">
-                        @csrf
-
-                        <!-- Compact Header Info -->
-                        <div class="printer-info-header-compact">
-                            <div class="d-flex align-items-center">
-                                <div class="printer-icon-wrapper-compact add-printer-icon">
-                                    <i class="bi bi-printer-fill"></i>
-                                </div>
-                                <div class="ms-3">
-                                    <h6 class="mb-0">Configure New Printer</h6>
-                                    <small class="text-muted">Set up printer for your operations</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Compact Form Grid -->
-                        <div class="compact-form-grid">
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="addPrinterName" class="compact-label">
-                                        <i class="bi bi-printer me-1"></i>Printer Name <span class="text-danger">*</span>
-                                    </label>
-                                    <div class="compact-input-wrapper">
-                                        <input type="text" class="form-control compact-input" id="addPrinterName"
-                                            name="printer_name" placeholder="Enter printer name" required>
-                                        <i class="bi bi-printer compact-input-icon"></i>
-                                    </div>
-                                    <div class="invalid-feedback compact-feedback">Required field</div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="addPrinterType" class="compact-label">
-                                        <i class="bi bi-tag me-1"></i>Type <span class="text-danger">*</span>
-                                    </label>
-                                    <div class="compact-input-wrapper">
-                                        <select class="form-select compact-input compact-select" id="addPrinterType"
-                                            name="printer_type" required>
-                                            <option value="">Select Type</option>
-                                            <option value="small_label">🏷️ Small Label</option>
-                                            <option value="instruction_card">📋 Instruction Card</option>
-                                        </select>
-                                        <i class="bi bi-tag compact-input-icon"></i>
-                                    </div>
-                                    <div class="invalid-feedback compact-feedback">Please select type</div>
-                                </div>
-                            </div>
-
-                            <div class="row g-3">
-                                <div class="col-md-8">
-                                    <label for="addPrinterIP" class="compact-label">
-                                        <i class="bi bi-globe me-1"></i>IP Address <span class="text-danger">*</span>
-                                    </label>
-                                    <div class="compact-input-wrapper">
-                                        <input type="text" class="form-control compact-input" id="addPrinterIP"
-                                            name="ip_address" placeholder="192.168.1.100" required>
-                                        <i class="bi bi-globe compact-input-icon"></i>
-                                    </div>
-                                    <div class="invalid-feedback compact-feedback">Valid IP required</div>
-                                </div>
-                                <div class="col-md-4">
-                                    <label for="addPrinterPort" class="compact-label">
-                                        <i class="bi bi-plug me-1"></i>Port
-                                    </label>
-                                    <div class="compact-input-wrapper">
-                                        <input type="number" class="form-control compact-input" id="addPrinterPort"
-                                            name="port" value="9100" min="1" max="65535">
-                                        <i class="bi bi-plug compact-input-icon"></i>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row g-3">
-                                <div class="col-12">
-                                    <label for="addPrinterDescription" class="compact-label">
-                                        <i class="bi bi-card-text me-1"></i>Description <span
-                                            class="text-muted">(Optional)</span>
-                                    </label>
-                                    <textarea class="form-control compact-input compact-textarea" id="addPrinterDescription"
-                                        name="description" rows="2"
-                                        placeholder="Optional notes about this printer..."></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal-footer add-printer-modal-footer">
-                        <button type="button" class="btn btn-light compact-cancel-btn" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle me-1"></i>Cancel
-                        </button>
-                        <button type="submit" class="btn btn-success compact-submit-btn">
-                            <i class="bi bi-plus-circle me-1"></i>Add Printer
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Printer Modal -->
-    <div class="modal modal-printer fade" id="editPrinterModal" tabindex="-1" aria-labelledby="editPrinterModalLabel"
-        aria-hidden="true" data-bs-backdrop="static">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content printer-modal-content-fix">
-                <div class="modal-header printer-modal-header-fix">
-                    <h5 class="modal-title" id="editPrinterModalLabel">
-                        <i class="bi bi-pencil me-2"></i>
-                        Edit Printer
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
-                </div>
-                <form id="editPrinterForm">
-                    <div class="modal-body printer-modal-body-fix">
-                        @csrf
-                        <input type="hidden" id="editPrinterId" name="printer_id">
-
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <div class="mb-2">
-                                    <label for="editPrinterName" class="form-label printer-label-fix">
-                                        <i class="bi bi-printer me-1 text-primary"></i>
-                                        Printer Name <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control printer-input-fix" id="editPrinterName"
-                                        name="printer_name" required>
-                                    <div class="invalid-feedback">
-                                        Please provide a valid printer name.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="mb-2">
-                                    <label for="editPrinterType" class="form-label printer-label-fix">
-                                        <i class="bi bi-tag me-1 text-primary"></i>
-                                        Printer Type <span class="text-danger">*</span>
-                                    </label>
-                                    <select class="form-select printer-input-fix" id="editPrinterType" name="printer_type"
-                                        required>
-                                        <option value="">Select Printer Type</option>
-                                        <option value="small_label">🏷️ Small Label</option>
-                                        <option value="instruction_card">📋 Instruction Card</option>
-                                    </select>
-                                    <div class="invalid-feedback">
-                                        Please select a printer type.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row g-2">
-                            <div class="col-md-8">
-                                <div class="mb-2">
-                                    <label for="editPrinterIP" class="form-label printer-label-fix">
-                                        <i class="bi bi-globe me-1 text-primary"></i>
-                                        IP Address <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control printer-input-fix" id="editPrinterIP"
-                                        name="ip_address" placeholder="192.168.1.100" required>
-                                    <div class="invalid-feedback">
-                                        Please provide a valid IP address.
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="mb-2">
-                                    <label for="editPrinterPort" class="form-label printer-label-fix">
-                                        <i class="bi bi-plug me-1 text-primary"></i>
-                                        Port
-                                    </label>
-                                    <input type="number" class="form-control printer-input-fix" id="editPrinterPort"
-                                        name="port" value="9100" min="1" max="65535">
-                                    <div class="invalid-feedback">
-                                        Please provide a valid port number (1-65535).
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <div class="mb-2">
-                                    <label for="editPrinterStatus" class="form-label printer-label-fix">
-                                        <i class="bi bi-circle-fill me-1 text-primary"></i>
-                                        Status
-                                    </label>
-                                    <select class="form-select printer-input-fix" id="editPrinterStatus" name="status">
-                                        <option value="active">🟢 Active</option>
-                                        <option value="inactive">🔴 Inactive</option>
-                                        <option value="maintenance">🟡 Maintenance</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="col-md-6"></div>
-                        </div>
-
-                        <div class="mb-2">
-                            <label for="editPrinterDescription" class="form-label printer-label-fix">
-                                <i class="bi bi-card-text me-1 text-primary"></i>
-                                Description
-                            </label>
-                            <textarea class="form-control printer-input-fix" id="editPrinterDescription" name="description"
-                                rows="2" placeholder="Optional description for this printer"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer printer-modal-footer-fix">
-                        <button type="button" class="btn btn-secondary printer-btn-fix" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle me-1"></i>Cancel
-                        </button>
-                        <button type="submit" class="btn btn-primary printer-btn-fix">
-                            <i class="bi bi-check-circle me-1"></i>Update Printer
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Delete Printer Confirmation Modal -->
-    <div class="modal modal-printer fade" id="deletePrinterModal" tabindex="-1" aria-labelledby="deletePrinterModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-sm modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deletePrinterModalLabel">
-                        <i class="bi bi-trash me-2"></i>
-                        Delete Printer
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Are you sure you want to delete this printer?</p>
-                    <div class="alert alert-warning">
-                        <i class="bi bi-exclamation-triangle me-2"></i>
-                        This action cannot be undone. If this printer is married, the marriage will also be dissolved.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeletePrinter">Delete Printer</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Enhanced Marry Printers Modal -->
-    <div class="modal modal-printer fade" id="marryPrintersModal" tabindex="-1" aria-labelledby="marryPrintersModalLabel"
-        aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content marry-modal-content">
-                <div class="modal-header marry-modal-header">
-                    <h5 class="modal-title" id="marryPrintersModalLabel">
-                        <i class="bi bi-heart-fill me-2 text-white"></i>
-                        Unite Printers in Marriage
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
-                        aria-label="Close"></button>
-                </div>
-                <form id="marryPrintersForm">
-                    <div class="modal-body marry-modal-body">
-                        @csrf
-
-                        <!-- Header Info Card -->
-                        <div class="marriage-info-card">
-                            <div class="row align-items-center">
-                                <div class="col-auto">
-                                    <div class="marriage-icon-wrapper">
-                                        <i class="bi bi-heart-fill"></i>
-                                    </div>
-                                </div>
-                                <div class="col">
-                                    <h6 class="mb-1">Create Printer Marriage</h6>
-                                    <p class="mb-0 text-muted">Join two printers to work together seamlessly for
-                                        synchronized printing operations.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Printer Selection Section -->
-                        <div class="marriage-selection-section">
-                            <div class="row g-4">
-                                <!-- Small Label Printer -->
-                                <div class="col-md-6">
-                                    <div class="printer-selection-card small-label-card">
-                                        <div class="card-icon">
-                                            <i class="bi bi-tag-fill"></i>
-                                        </div>
-                                        <div class="card-content">
-                                            <h6 class="card-title">Small Label Printer</h6>
-                                            <p class="card-subtitle">For product labels and tags</p>
-                                            <select class="form-select printer-select" id="smallLabelPrinter"
-                                                name="small_label_printer_id" required>
-                                                <option value="">Choose your label printer...</option>
-                                            </select>
-                                            <div class="invalid-feedback">
-                                                Please select a small label printer.
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Connection Heart -->
-                                <div class="col-md-12 d-md-none">
-                                    <div class="connection-heart-mobile">
-                                        <i class="bi bi-heart-fill"></i>
-                                    </div>
-                                </div>
-
-                                <!-- Instruction Card Printer -->
-                                <div class="col-md-6">
-                                    <div class="printer-selection-card instruction-card-card">
-                                        <div class="card-icon">
-                                            <i class="bi bi-card-text-fill"></i>
-                                        </div>
-                                        <div class="card-content">
-                                            <h6 class="card-title">Instruction Card Printer</h6>
-                                            <p class="card-subtitle">For detailed instructions and cards</p>
-                                            <select class="form-select printer-select" id="instructionCardPrinter"
-                                                name="instruction_card_printer_id" required>
-                                                <option value="">Choose your card printer...</option>
-                                            </select>
-                                            <div class="invalid-feedback">
-                                                Please select an instruction card printer.
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Desktop Connection Heart -->
-                            <div class="connection-heart-desktop d-none d-md-block">
-                                <div class="heart-connector">
-                                    <div class="connector-line"></div>
-                                    <div class="heart-icon">
-                                        <i class="bi bi-heart-fill"></i>
-                                    </div>
-                                    <div class="connector-line"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Marriage Details Section -->
-                        <div class="marriage-details-section">
-                            <div class="section-header">
-                                <i class="bi bi-info-circle-fill me-2"></i>
-                                Marriage Details
-                            </div>
-
-                            <div class="row g-3">
-                                <div class="col-12">
-                                    <label for="marriageName" class="form-label marriage-label">
-                                        <i class="bi bi-tag me-1"></i>
-                                        Marriage Name <span class="text-danger">*</span>
-                                    </label>
-                                    <input type="text" class="form-control marriage-input" id="marriageName"
-                                        name="marriage_name" placeholder="e.g., Production Line Alpha, Warehouse Station 1"
-                                        required>
-                                    <div class="invalid-feedback">
-                                        Please provide a meaningful name for this marriage.
-                                    </div>
-                                    <div class="form-text">
-                                        <i class="bi bi-lightbulb me-1"></i>
-                                        Choose a name that identifies where these printers will be used together.
-                                    </div>
-                                </div>
-
-                                <div class="col-12">
-                                    <label for="marriageDescription" class="form-label marriage-label">
-                                        <i class="bi bi-card-text me-1"></i>
-                                        Description <span class="text-muted">(Optional)</span>
-                                    </label>
-                                    <textarea class="form-control marriage-input" id="marriageDescription"
-                                        name="description" rows="3"
-                                        placeholder="Describe the purpose of this printer marriage, location, or any special notes..."></textarea>
-                                    <div class="form-text">
-                                        <i class="bi bi-info-circle me-1"></i>
-                                        Add details about where these printers are located or how they'll be used together.
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="modal-footer marry-modal-footer">
-                        <button type="button" class="btn btn-light marry-cancel-btn" data-bs-dismiss="modal">
-                            <i class="bi bi-x-circle me-1"></i>
-                            Cancel
-                        </button>
-                        <button type="submit" class="btn btn-success marry-submit-btn">
-                            <i class="bi bi-heart-fill me-1"></i>
-                            Create Marriage
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-@endpush
-
 <style scoped>
     /* ===== ENHANCED MODAL MANAGEMENT CSS ===== */
 
@@ -2527,25 +1612,154 @@
 </style>
 
 <script>
-    /**
-     * Helper: open Add Printer modal (called by the button)
-     */
-    function showAddPrinterModal() {
-        console.log('showAddPrinterModal function called from HTML');
-
-        // Call the global function
-        if (typeof window.showAddPrinterModal === 'function') {
-            window.showAddPrinterModal();
+    // ToggleAddPrinter (option)
+    function toggleAddPrinter() {
+        const printerDiv = document.querySelector('.addNewPrinter');
+        if (printerDiv.style.display === 'none' || printerDiv.style.display === '') {
+            printerDiv.style.display = 'block';
         } else {
-            console.error('Global showAddPrinterModal function not found');
-
-            // Fallback approach
-            const modal = document.getElementById('addPrinterModal');
-            if (modal) {
-                const modalInstance = new bootstrap.Modal(modal, { backdrop: 'static' });
-                modalInstance.show();
-            }
+            printerDiv.style.display = 'none';
         }
+    }
+
+    function toggleMarryPrinter() {
+        const printerDiv = document.querySelector('.marryNewPrinter');
+        if (printerDiv.style.display === 'none' || printerDiv.style.display === '') {
+            printerDiv.style.display = 'block';
+        } else {
+            printerDiv.style.display = 'none';
+        }
+    }
+
+    // Function to load printers filtered by type
+    function loadPrintersByType(type, containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error(`Container #${containerId} not found`);
+            return;
+        }
+
+        // Show loading state
+        container.innerHTML = `
+            <div class="alert alert-info text-center">
+                <div class="spinner-border spinner-border-sm me-2" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                Loading ${type === 'small_label' ? 'small label' : 'instruction card'} printers...
+            </div>
+        `;
+
+        // Fetch printers from API
+        fetch('/api/printer-management/get-printers')
+            .then(response => response.json())
+            .then(data => {
+                const printers = data.printers || [];
+                const filteredPrinters = printers.filter(p => p.printer_type === type);
+
+                if (filteredPrinters.length === 0) {
+                    container.innerHTML = `
+                        <div class="alert alert-warning text-center">
+                            <i class="bi bi-exclamation-triangle me-2"></i>
+                            No ${type === 'small_label' ? 'small label' : 'instruction card'} printers found
+                        </div>
+                    `;
+                    return;
+                }
+
+                // Create table for desktop view
+                const desktopTable = `
+                    <div class="table-responsive d-none d-md-block">
+                        <table class="table table-bordered table-hover">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Printer Name</th>
+                                    <th>IP Address</th>
+                                    <th>Port</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${filteredPrinters.map(printer => `
+                                    <tr>
+                                        <td>${escapeHtml(printer.printername)}</td>
+                                        <td>${escapeHtml(printer.printerip)}</td>
+                                        <td>${printer.port || '9100'}</td>
+                                        <td>
+                                            <span class="badge ${printer.status === 'active' ? 'bg-success' : 'bg-secondary'}">
+                                                ${printer.status || 'Unknown'}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
+                                                <i class="bi bi-pencil"></i> Edit
+                                            </button>
+                                            <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
+                                                <i class="bi bi-trash"></i> Delete
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+
+                // Create cards for mobile view
+                const mobileCards = `
+                    <div class="d-block d-md-none">
+                        ${filteredPrinters.map(printer => `
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h5 class="card-title">
+                                        <i class="bi bi-printer-fill me-2"></i>
+                                        ${escapeHtml(printer.printername)}
+                                    </h5>
+                                    <p class="card-text">
+                                        <strong>IP:</strong> ${escapeHtml(printer.printerip)}<br>
+                                        <strong>Port:</strong> ${printer.port || '9100'}<br>
+                                        <strong>Status:</strong> 
+                                        <span class="badge ${printer.status === 'active' ? 'bg-success' : 'bg-secondary'}">
+                                            ${printer.status || 'Unknown'}
+                                        </span>
+                                    </p>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
+                                            <i class="bi bi-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+
+                container.innerHTML = desktopTable + mobileCards;
+            })
+            .catch(error => {
+                console.error('Error loading printers:', error);
+                container.innerHTML = `
+                    <div class="alert alert-danger text-center">
+                        <i class="bi bi-exclamation-circle me-2"></i>
+                        Error loading printers. Please try again.
+                    </div>
+                `;
+            });
+    }
+
+    // Helper function to escape HTML
+    function escapeHtml(text) {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return String(text || '').replace(/[&<>"']/g, m => map[m]);
     }
 
     /**
@@ -2569,6 +1783,32 @@
                         fetchAllPrinters();
                     }
                 }, 100);
+            });
+        }
+
+        // Small Label tab
+        const smallLabelTab = document.getElementById('smallLabel-tab');
+        if (smallLabelTab) {
+            smallLabelTab.addEventListener('shown.bs.tab', function () {
+                loadPrintersByType('small_label', 'smallLabel');
+            });
+        }
+
+        // Instruction Card tab
+        const instructionCardTab = document.getElementById('instructionCard-tab');
+        if (instructionCardTab) {
+            instructionCardTab.addEventListener('shown.bs.tab', function () {
+                loadPrintersByType('instruction_card', 'instructionCard');
+            });
+        }
+
+        // Married Printers tab - load data when shown
+        const marriedPrintersTab = document.getElementById('marriedPrinters-tab');
+        if (marriedPrintersTab) {
+            marriedPrintersTab.addEventListener('shown.bs.tab', function () {
+                if (typeof window.loadMarriedPrinters === 'function') {
+                    window.loadMarriedPrinters();
+                }
             });
         }
 
@@ -2636,4 +1876,84 @@
                 }
             });
         }
-    });</script>
+    });
+
+    $(document).on("click", ".edit-printer-btn", function () {
+        const printerId = $(this).data("id");
+        $("#settingsModal").modal("hide");
+
+        fetch(`/api/printer-management/get-printer/${printerId}`)
+            .then((r) => r.json())
+            .then(({ printer }) => {
+                const modalEl = document.getElementById("editPrinterTestModal");
+                if (!modalEl) {
+                    console.error("Modal element #editPrinterTestModal not found.");
+                    return;
+                }
+
+                const modal = new bootstrap.Modal(modalEl, { backdrop: "static", keyboard: true });
+                modal.show();
+
+                // Map: input ID -> object key
+                const fields = {
+                    printerId: "printerid",       // hidden
+                    printerName: "printername",
+                    printerType: "printer_type",
+                    printerIp: "printerip",
+                    printerPort: "port",
+                    description: "description",
+                };
+
+                Object.entries(fields).forEach(([id, key]) => {
+                    const el = modalEl.querySelector(`#${id}`);
+                    if (!el) {
+                        console.warn(`Field #${id} not found inside #editPrinterTestModal`);
+                        return;
+                    }
+
+                    const value = printer?.[key] ?? "";
+
+                    if (el.tagName === "SELECT") {
+                        el.value = value;
+                        if (value && ![...el.options].some((o) => o.value === value)) {
+                            el.add(new Option(value, value, true, true));
+                        }
+                    } else {
+                        el.value = value;
+                    }
+                });
+
+                console.log("Loaded printer:", printer);
+            })
+            .catch((error) => {
+                console.error("Error fetching printer data:", error);
+            });
+    });
+
+    $(document).on("submit", "#editPrinterForm", function (e) {
+        e.preventDefault();
+        updatePrinter(this);
+    });
+
+    // When the edit modal is hidden (close button, ESC, or backdrop), re-show settings modal and focus the tab
+    const editModalEl = document.getElementById("editPrinterTestModal");
+    if (editModalEl) {
+        editModalEl.addEventListener("hidden.bs.modal", function () {
+            $("#settingsModal").modal("show");
+
+            const tabTriggerEl = document.querySelector("#printer-tab");
+            if (tabTriggerEl) {
+                bootstrap.Tab.getOrCreateInstance(tabTriggerEl).show();
+            }
+        });
+    }
+
+    // If you still want the close button to explicitly do the same:
+    const closeBtn = document.querySelector("#editPrinterTestModal .btn-close");
+    if (closeBtn) {
+        closeBtn.addEventListener("click", function () {
+            const modal = bootstrap.Modal.getInstance(editModalEl);
+            modal?.hide();
+        });
+    }
+</script>
