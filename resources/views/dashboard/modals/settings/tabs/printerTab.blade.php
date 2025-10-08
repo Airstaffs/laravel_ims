@@ -1631,7 +1631,7 @@
         }
     }
 
-    // Function to load printers filtered by type
+    // Function to load printers filtered by type with consistent UI
     function loadPrintersByType(type, containerId) {
         const container = document.getElementById(containerId);
         if (!container) {
@@ -1641,13 +1641,13 @@
 
         // Show loading state
         container.innerHTML = `
-            <div class="alert alert-info text-center">
-                <div class="spinner-border spinner-border-sm me-2" role="status">
-                    <span class="visually-hidden">Loading...</span>
-                </div>
-                Loading ${type === 'small_label' ? 'small label' : 'instruction card'} printers...
+        <div class="alert alert-info text-center">
+            <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
             </div>
-        `;
+            Loading ${type === 'small_label' ? 'small label' : 'instruction card'} printers...
+        </div>
+    `;
 
         // Fetch printers from API
         fetch('/api/printer-management/get-printers')
@@ -1657,18 +1657,10 @@
                 const filteredPrinters = printers.filter(p => p.printer_type === type);
 
                 if (filteredPrinters.length === 0) {
+                    // Empty state - matching All Printers tab structure
                     container.innerHTML = `
-                        <div class="alert alert-warning text-center">
-                            <i class="bi bi-exclamation-triangle me-2"></i>
-                            No ${type === 'small_label' ? 'small label' : 'instruction card'} printers found
-                        </div>
-                    `;
-                    return;
-                }
-
-                // Create table for desktop view
-                const desktopTable = `
-                    <div class="table-responsive d-none d-md-block">
+                    <!-- Desktop Table View -->
+                    <div class="mt-4 table-responsive d-none d-md-block">
                         <table class="table table-bordered table-hover">
                             <thead class="table-dark">
                                 <tr>
@@ -1679,74 +1671,108 @@
                                     <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                ${filteredPrinters.map(printer => `
-                                    <tr>
-                                        <td>${escapeHtml(printer.printername)}</td>
-                                        <td>${escapeHtml(printer.printerip)}</td>
-                                        <td>${printer.port || '9100'}</td>
-                                        <td>
-                                            <span class="badge ${printer.status === 'active' ? 'bg-success' : 'bg-secondary'}">
-                                                ${printer.status || 'Unknown'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
-                                                <i class="bi bi-pencil"></i> Edit
-                                            </button>
-                                            <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
-                                                <i class="bi bi-trash"></i> Delete
-                                            </button>
-                                        </td>
-                                    </tr>
-                                `).join('')}
+                            <tbody class="tbody-printers">
+                                <tr class="tr-printers">
+                                    <td colspan="5" class="td-printers text-center">
+                                        No ${type === 'small_label' ? 'small label' : 'instruction card'} printers found
+                                    </td>
+                                </tr>
                             </tbody>
                         </table>
                     </div>
-                `;
 
-                // Create cards for mobile view
-                const mobileCards = `
+                    <!-- Mobile Card View -->
                     <div class="d-block d-md-none">
-                        ${filteredPrinters.map(printer => `
-                            <div class="card mb-3">
-                                <div class="card-body">
-                                    <h5 class="card-title">
-                                        <i class="bi bi-printer-fill me-2"></i>
-                                        ${escapeHtml(printer.printername)}
-                                    </h5>
-                                    <p class="card-text">
-                                        <strong>IP:</strong> ${escapeHtml(printer.printerip)}<br>
-                                        <strong>Port:</strong> ${printer.port || '9100'}<br>
-                                        <strong>Status:</strong> 
+                        <div class="alert alert-info text-center" role="alert">
+                            No ${type === 'small_label' ? 'small label' : 'instruction card'} printers found
+                        </div>
+                    </div>
+                `;
+                    return;
+                }
+
+                // Desktop table view
+                const desktopTable = `
+                <div class="mt-4 table-responsive d-none d-md-block">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Printer Name</th>
+                                <th>IP Address</th>
+                                <th>Port</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="tbody-printers">
+                            ${filteredPrinters.map(printer => `
+                                <tr class="tr-printers">
+                                    <td class="td-printers">${escapeHtml(printer.printername)}</td>
+                                    <td class="td-printers">${escapeHtml(printer.printerip)}</td>
+                                    <td class="td-printers">${printer.port || '9100'}</td>
+                                    <td class="td-printers">
                                         <span class="badge ${printer.status === 'active' ? 'bg-success' : 'bg-secondary'}">
                                             ${printer.status || 'Unknown'}
                                         </span>
-                                    </p>
-                                    <div class="d-flex gap-2">
+                                    </td>
+                                    <td class="td-printers">
                                         <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
                                             <i class="bi bi-pencil"></i> Edit
                                         </button>
                                         <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
                                             <i class="bi bi-trash"></i> Delete
                                         </button>
-                                    </div>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+                // Mobile card view - matching All Printers tab structure
+                const mobileCards = `
+                <div class="d-block d-md-none">
+                    ${filteredPrinters.map(printer => `
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <h5 class="card-title">
+                                    <i class="bi bi-printer-fill me-2"></i>
+                                    ${escapeHtml(printer.printername)}
+                                </h5>
+                                <p class="card-text">
+                                    <strong>Type:</strong> ${type === 'small_label' ? '🏷️ Small Label' : '📋 Instruction Card'}<br>
+                                    <strong>IP:</strong> ${escapeHtml(printer.printerip)}<br>
+                                    <strong>Port:</strong> ${printer.port || '9100'}<br>
+                                    <strong>Status:</strong> 
+                                    <span class="badge ${printer.status === 'active' ? 'bg-success' : 'bg-secondary'}">
+                                        ${printer.status || 'Unknown'}
+                                    </span>
+                                </p>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
+                                        <i class="bi bi-pencil"></i> Edit
+                                    </button>
+                                    <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
                                 </div>
                             </div>
-                        `).join('')}
-                    </div>
-                `;
+                        </div>
+                    `).join('')}
+                </div>
+            `;
 
                 container.innerHTML = desktopTable + mobileCards;
             })
             .catch(error => {
                 console.error('Error loading printers:', error);
                 container.innerHTML = `
-                    <div class="alert alert-danger text-center">
-                        <i class="bi bi-exclamation-circle me-2"></i>
-                        Error loading printers. Please try again.
-                    </div>
-                `;
+                <div class="alert alert-danger text-center">
+                    <i class="bi bi-exclamation-circle me-2"></i>
+                    Error loading printers. Please try again.
+                </div>
+            `;
             });
     }
 
