@@ -184,7 +184,7 @@
                 Forgot your password? <a href="#">Reset here</a>
             </div>
 
-            <a href="{{ url('auth/google') }}" class="google-login-btn">
+            <a href="{{ url('auth/google') }}" class="google-login-btn" style="display:block;">
                 <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google logo">
                 Continue with Google
             </a>
