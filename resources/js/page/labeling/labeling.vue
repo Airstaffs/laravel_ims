@@ -221,6 +221,30 @@
                                         <strong>Product Name:</strong>
                                         {{ item.AStitle }}
                                     </p>
+                                    <p>
+                                        <strong>RT/AR:</strong>
+                                        {{ item.rtcounter }}
+                                    </p>
+                                    <p>
+                                        <strong>PCN #:</strong> {{ item.PCN }}
+                                    </p>
+                                    <p>
+                                        <strong>BKT #:</strong>
+                                        {{ item.basketnumber }}
+                                    </p>
+                                    <p>
+                                        <strong>ASIN #:</strong> {{ item.ASIN }}
+                                    </p>
+                                    <p>
+                                        <strong>FNSKU:</strong> {{ item.FNSKU }}
+                                    </p>
+
+                                    <button
+                                        @click="copyToClipboard(item)"
+                                        class="btn btn-primary mt-2"
+                                    >
+                                        Copy Details
+                                    </button>
                                 </div>
                             </td>
                         </tr>
@@ -449,6 +473,11 @@
                             {{ item.ProductTitle }}
                         </p>
                         <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
+                        <p><strong>RT/AR:</strong> {{ item.rtcounter }}</p>
+                        <p><strong>PCN #:</strong> {{ item.PCN }}</p>
+                        <p><strong>BKT #:</strong> {{ item.basketnumber }}</p>
+                        <p><strong>ASIN #:</strong> {{ item.ASIN }}</p>
+                        <p><strong>FNSKU:</strong> {{ item.FNSKU }}</p>
                     </div>
                 </div>
             </div>
