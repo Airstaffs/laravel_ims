@@ -147,21 +147,28 @@ class LoginController extends Controller
         // Pull latest role from DB to be safe
         $role = DB::table('tbluser')->where('id', $user->id)->value('role');
         if (is_string($role) && strcasecmp($role, 'SuperAdmin') === 0) {
-            return null; // bypass
+            return null; // bypass for SuperAdmin
         }
 
         $tz = $this->detectTimezoneFromRequest($request); // same logic you use elsewhere
         $gate = $this->checkLoginWindow($user->id, $tz);
 
-        if ($gate['allowed'])
-            return null;
+        if ($gate['allowed']) {
+            return null; // proceed normally
+        }
 
-        // deny and log out
+        // If not allowed — log out and redirect to login page with message
         Auth::logout();
-        return back()->withErrors([
-            'username' => $gate['message'] ?? 'Login not allowed right now.'
-        ])->withInput($request->only('username'));
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()
+            ->route('login')
+            ->withErrors([
+                'username' => $gate['message'] ?? 'Login not allowed right now.',
+            ]);
     }
+
 
     public function __construct(UserLogService $userLogService)
     {
@@ -250,7 +257,6 @@ class LoginController extends Controller
             return back()->withErrors([
                 'username' => 'The provided credentials do not match our records.',
             ])->withInput($request->only('username'));
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
@@ -503,7 +509,6 @@ class LoginController extends Controller
                 'employeeClocksThisweek',
                 'employeeClocks'
             ));
-
         } catch (\Exception $e) {
             Log::error('Dashboard error: ' . $e->getMessage());
             return redirect()->route('login')
@@ -581,7 +586,6 @@ class LoginController extends Controller
 
             // Redirect to dashboard
             return redirect()->route('dashboard.system');
-
         } catch (\Exception $e) {
             Log::error('Google login error: ' . $e->getMessage());
             return redirect()->route('login')->with('error', 'Failed to log in with Google. Please try again.');
