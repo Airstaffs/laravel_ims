@@ -144,24 +144,25 @@ class LoginController extends Controller
     /** Enforce the schedule gate unless SuperAdmin. Returns RedirectResponse|null. */
     private function enforceScheduleGateOrBypass(User $user, Request $request)
     {
-        // Pull latest role from DB to be safe
         $role = DB::table('tbluser')->where('id', $user->id)->value('role');
-        if (is_string($role) && strcasecmp($role, 'SuperAdmin') === 0) {
-            return null; // bypass
+        if (is_string($role) && in_array(strtolower($role), ['superadmin', 'admin'], true)) {
+            return null;
         }
 
-        $tz = $this->detectTimezoneFromRequest($request); // same logic you use elsewhere
-        $gate = $this->checkLoginWindow($user->id, $tz);
+        // Always evaluate schedule in LA time:
+        $gate = $this->checkLoginWindow($user->id, self::DB_TZ); // 'America/Los_Angeles'
 
-        if ($gate['allowed'])
-            return null;
+        if ($gate['allowed']) return null;
 
-        // deny and log out
         Auth::logout();
-        return back()->withErrors([
-            'username' => $gate['message'] ?? 'Login not allowed right now.'
-        ])->withInput($request->only('username'));
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->withErrors([
+            'username' => ($gate['message'] ?? 'Login not allowed right now.') . ' (based on Los Angeles time)',
+        ]);
     }
+
 
     public function __construct(UserLogService $userLogService)
     {
@@ -250,7 +251,6 @@ class LoginController extends Controller
             return back()->withErrors([
                 'username' => 'The provided credentials do not match our records.',
             ])->withInput($request->only('username'));
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
@@ -503,7 +503,6 @@ class LoginController extends Controller
                 'employeeClocksThisweek',
                 'employeeClocks'
             ));
-
         } catch (\Exception $e) {
             Log::error('Dashboard error: ' . $e->getMessage());
             return redirect()->route('login')
@@ -581,7 +580,6 @@ class LoginController extends Controller
 
             // Redirect to dashboard
             return redirect()->route('dashboard.system');
-
         } catch (\Exception $e) {
             Log::error('Google login error: ' . $e->getMessage());
             return redirect()->route('login')->with('error', 'Failed to log in with Google. Please try again.');
