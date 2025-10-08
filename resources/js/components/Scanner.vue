@@ -209,8 +209,10 @@
                 <li v-for="(scan, index) in recentScans" :key="index" :class="{ 'success': scan.success, 'error': !scan.success }">
                   <div class="scan-details">
                     <div v-for="(value, key) in getScanDisplayFields(scan)" :key="key" class="scan-field">
-                      {{ key }}: {{ value }}
-                    </div>
+                    {{ key }}: 
+                    <span v-if="key === 'Status' && scan.StatusClass" :class="scan.StatusClass">{{ value }}</span>
+                    <span v-else>{{ value }}</span>
+                  </div>
                     <div class="scan-time-small">{{ scan.time }}</div>
                   </div>
                   <span class="scan-time">{{ scan.time }}</span>

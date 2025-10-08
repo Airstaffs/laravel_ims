@@ -56,6 +56,7 @@ class UnreceivedController extends BasetablesController
                 'productId' => $receivedProduct->ProductID,
                 'rtcounter' => $receivedProduct->rtcounter,
                 'trackingnumber' => $receivedProduct->trackingnumber,
+                'itemStatus' => $receivedProduct->itemstatus ?? 'Unknown', // Include item status
                 'alreadyScanned' => true
             ]);
         }
@@ -73,6 +74,7 @@ class UnreceivedController extends BasetablesController
                 'productId' => $ordersProduct->ProductID,
                 'rtcounter' => $ordersProduct->rtcounter,
                 'trackingnumber' => $ordersProduct->trackingnumber,
+                'itemStatus' => $ordersProduct->itemstatus ?? 'Unknown', // Include item status
                 'alreadyScanned' => false
             ]);
         }
@@ -118,22 +120,51 @@ class UnreceivedController extends BasetablesController
         Log::info('Received data:', $request->all());
         
         try {
-            // Validate the request
+            // Modified validation - RPN and PRD are now optional (will be auto-generated)
             $request->validate([
                 'trackingNumber' => 'required',
-                'rpnNumber' => 'required',
                 'prdDate' => 'required|date',
                 'productId' => 'required',
-                'rtcounter' => 'required' // Added rtcounter validation
+                'rtcounter' => 'required'
             ]);
             
             DB::beginTransaction();
+            
+            // Auto-generate RPN if not provided
+            $rpnNumber = null;
+            $rpnValue = null;
+            
+            if ($request->has('autoGenerate') && $request->autoGenerate) {
+                // Get the current RPN from RPN sticker table
+                $currentRpn = DB::table($this->rpnStickerTable)
+                    ->where('RPNid', 1)
+                    ->first();
+                    
+                if (!$currentRpn) {
+                    throw new \Exception('RPN record not found for auto-generation');
+                }
+                
+                // Calculate the next RPN value
+                $rpnValue = $currentRpn->RPNstart + 1;
+                $rpnNumber = 'RPN' . str_pad($rpnValue, 5, '0', STR_PAD_LEFT);
+                
+                Log::info('Auto-generated RPN:', ['rpn' => $rpnNumber, 'value' => $rpnValue]);
+            } else {
+                // Use provided RPN (backward compatibility)
+                $rpnNumber = $request->rpnNumber;
+                if (strpos($rpnNumber, 'RPN') === 0) {
+                    $rpnValue = intval(substr($rpnNumber, 3));
+                } else {
+                    $rpnValue = intval($rpnNumber);
+                }
+            }
             
             // Format the date for PRD
             $prdDate = new DateTime($request->prdDate);
             $formattedPRD = 'PRD' . $prdDate->format('mdy');
             
             Log::info('Formatted PRD value:', ['PRD' => $formattedPRD]);
+            Log::info('Using RPN:', ['RPN' => $rpnNumber, 'value' => $rpnValue]);
             
             // Get the last 12 digits of the tracking number
             $last12Digits = substr($request->trackingNumber, -12);
@@ -145,14 +176,6 @@ class UnreceivedController extends BasetablesController
             $californiaTimezone = new DateTimeZone('America/Los_Angeles');
             $currentDatetime = new DateTime('now', $californiaTimezone);
             $formattedDatetime = $currentDatetime->format('Y-m-d H:i:s');
-            
-            // Parse the RPN number to get the numeric value
-            $rpnValue = $request->rpnNumber;
-            if (strpos($rpnValue, 'RPN') === 0) {
-                $rpnValue = intval(substr($rpnValue, 3)); // Extract numeric part
-            } else {
-                $rpnValue = intval($rpnValue);
-            }
             
             // Check if the product exists before updating
             $productExists = DB::table($this->productTable)
@@ -173,8 +196,8 @@ class UnreceivedController extends BasetablesController
                 ->where('ProductID', $request->productId)
                 ->where('ProductModuleLoc', 'Orders')
                 ->update([
-                    'RPN' => $request->rpnNumber,
-                    'PRD' => $formattedPRD, // Use the correctly formatted PRD value
+                    'RPN' => $rpnNumber,
+                    'PRD' => $formattedPRD,
                     'ProductModuleLoc' => 'Received'
                 ]);
                 
@@ -185,29 +208,30 @@ class UnreceivedController extends BasetablesController
                     'productId' => $request->productId,
                     'ProductModuleLoc' => 'Orders'
                 ]);
-                // Don't throw an exception here, it might be that the product exists 
-                // but another condition failed
             }
             
-            // Get the next RPN value
-            $nextRpnValue = $rpnValue + 1;
-            
-            // Update the RPN in rpnsticker table with ID 1
-            DB::table($this->rpnStickerTable)
-                ->where('RPNid', 1)
-                ->update([
-                    'RPNstart' => $nextRpnValue,
-                    'RPNend' => $nextRpnValue,
-                    'RPNsticker' => $nextRpnValue
-                ]);
+            // Update the RPN in rpnsticker table with ID 1 only if we auto-generated it
+            if ($request->has('autoGenerate') && $request->autoGenerate && $rpnValue) {
+                $nextRpnValue = $rpnValue + 1;
+                
+                DB::table($this->rpnStickerTable)
+                    ->where('RPNid', 1)
+                    ->update([
+                        'RPNstart' => $nextRpnValue,
+                        'RPNend' => $nextRpnValue,
+                        'RPNsticker' => $nextRpnValue
+                    ]);
+                    
+                Log::info('Updated RPN sticker table with next value:', ['nextValue' => $nextRpnValue]);
+            }
             
             // Record history with rtcounter
             DB::table($this->itemProcessHistoryTable)->insert([
                 'employeeName' => $User,
                 'editDate' => $formattedDatetime,
                 'Module' => 'Unreceived Module',
-                'Action' => 'Scan and Received',
-                'rtcounter' => $request->rtcounter // Added rtcounter to history
+                'Action' => 'Scan and Received (Auto)',
+                'rtcounter' => $request->rtcounter
             ]);
             
             // Save images if provided
@@ -222,6 +246,8 @@ class UnreceivedController extends BasetablesController
             return response()->json([
                 'success' => true,
                 'item' => $request->trackingNumber . ' processed successfully',
+                'rpnGenerated' => $rpnNumber, // Return the generated RPN
+                'prdGenerated' => $formattedPRD, // Return the formatted PRD
                 'last12Digits' => $last12Digits,
                 'playsound' => 1
             ]);
