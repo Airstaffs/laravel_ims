@@ -142,32 +142,26 @@ class LoginController extends Controller
     }
 
     /** Enforce the schedule gate unless SuperAdmin. Returns RedirectResponse|null. */
-    private function enforceScheduleGateOrBypass(User $user, Request $request)
-    {
-        // Pull latest role from DB to be safe
-        $role = DB::table('tbluser')->where('id', $user->id)->value('role');
-        if (is_string($role) && strcasecmp($role, 'SuperAdmin') === 0) {
-            return null; // bypass for SuperAdmin
-        }
-
-        $tz = $this->detectTimezoneFromRequest($request); // same logic you use elsewhere
-        $gate = $this->checkLoginWindow($user->id, $tz);
-
-        if ($gate['allowed']) {
-            return null; // proceed normally
-        }
-
-        // If not allowed — log out and redirect to login page with message
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return redirect()
-            ->route('login')
-            ->withErrors([
-                'username' => $gate['message'] ?? 'Login not allowed right now.',
-            ]);
+private function enforceScheduleGateOrBypass(User $user, Request $request)
+{
+    $role = DB::table('tbluser')->where('id', $user->id)->value('role');
+    if (is_string($role) && in_array(strtolower($role), ['superadmin', 'admin'], true)) {
+        return null;
     }
+
+    // Always evaluate schedule in LA time:
+    $gate = $this->checkLoginWindow($user->id, self::DB_TZ); // 'America/Los_Angeles'
+
+    if ($gate['allowed']) return null;
+
+    Auth::logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+
+    return redirect()->route('login')->withErrors([
+        'username' => ($gate['message'] ?? 'Login not allowed right now.') . ' (based on Los Angeles time)',
+    ]);
+}
 
 
     public function __construct(UserLogService $userLogService)
