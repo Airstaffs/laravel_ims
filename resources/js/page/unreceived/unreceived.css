@@ -2,3 +2,13 @@
 .unreceived-module td:nth-child(2) {
     min-width: 360px;
 }
+
+.status-working {
+    color: green !important;
+    font-weight: bold !important;
+}
+
+.status-error {
+    color: red !important;
+    font-weight: bold !important;
+}

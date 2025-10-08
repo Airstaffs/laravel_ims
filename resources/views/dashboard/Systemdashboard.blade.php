@@ -194,27 +194,68 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Function to highlight the current active page based on URL
+            const burgerMenu = document.getElementById('burger-menu');
+            const sidebar = document.getElementById('sidebar');
+            const content = document.getElementById('main-content');
+            const navbarBrand = document.querySelector('.navbar-brand');
+
+            console.log('Elements found:', {
+                burgerMenu: !!burgerMenu,
+                sidebar: !!sidebar,
+                content: !!content,
+                navbarBrand: !!navbarBrand
+            });
+
+            if (burgerMenu) {
+                burgerMenu.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    console.log('Burger menu clicked');
+                    console.log('Sidebar current classes:', sidebar?.className);
+
+                    if (sidebar) {
+                        if (sidebar.classList.contains('visible')) {
+                            // Close sidebar
+                            console.log('Closing sidebar');
+                            sidebar.classList.remove('visible');
+                            if (content) content.classList.remove('sidebar-visible');
+                            burgerMenu.classList.remove('hidden');
+                            if (navbarBrand) navbarBrand.classList.remove('shifted');
+                        } else {
+                            // Open sidebar
+                            console.log('Opening sidebar');
+                            sidebar.classList.add('visible');
+                            if (content) content.classList.add('sidebar-visible');
+                            burgerMenu.classList.add('hidden');
+                            if (navbarBrand) navbarBrand.classList.add('shifted');
+                        }
+
+                        console.log('Sidebar classes after toggle:', sidebar.className);
+                    } else {
+                        console.error('Sidebar element not found!');
+                    }
+                });
+            } else {
+                console.error('Burger menu button not found!');
+            }
+
+            // Rest of your existing DOMContentLoaded code...
             function setActiveNavLink() {
                 const currentPath = window.location.pathname;
                 const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
 
                 navLinks.forEach(link => {
-                    // Remove active class from all links
                     link.classList.remove('active');
                 });
 
-                // If we have a main module, make sure it's always active first
                 const mainModule = window.mainModule;
                 if (mainModule) {
                     const mainModuleLink = document.querySelector(`[data-module="${mainModule}"]`);
                     if (mainModuleLink) {
                         mainModuleLink.classList.add('active');
-                        return; // Exit early, main module should always be active
+                        return;
                     }
                 }
 
-                // Fallback: check if link href matches current path
                 navLinks.forEach(link => {
                     if (link.getAttribute('href') === currentPath) {
                         link.classList.add('active');
@@ -222,23 +263,18 @@
                 });
             }
 
-            // Initialize active link on page load
             setActiveNavLink();
 
-            // Set up close button functionality
             const closeBtn = document.getElementById('close-btn');
             if (closeBtn) {
                 closeBtn.addEventListener('click', closeSidebar);
             }
 
-            // Ensure navigation order is correct on page load
             setTimeout(() => {
                 const nav = document.querySelector('nav.nav.flex-column');
                 if (nav && window.mainModule) {
-                    // Force reorder navigation if needed
                     const mainModuleLink = nav.querySelector(`[data-module="${window.mainModule}"]`);
                     if (mainModuleLink && mainModuleLink !== nav.firstElementChild) {
-                        // Move main module to top
                         nav.insertBefore(mainModuleLink, nav.firstElementChild);
                         mainModuleLink.classList.add('active');
                     }
@@ -246,33 +282,22 @@
             }, 100);
         });
 
-        // Function to highlight clicked nav link
+        // Keep your existing functions
         function highlightNavLink(element) {
-            // Remove active class from all nav links
             const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
             navLinks.forEach(link => link.classList.remove('active'));
-
-            // Add active class to clicked link
             element.classList.add('active');
         }
 
-        // Function to close the sidebar
         function closeSidebar() {
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('main-content');
             const burgerMenu = document.getElementById('burger-menu');
             const navbarBrand = document.querySelector('.navbar-brand');
 
-            // Remove visible class from sidebar
             if (sidebar) sidebar.classList.remove('visible');
-
-            // Remove sidebar-visible class from content
             if (content) content.classList.remove('sidebar-visible');
-
-            // Show burger menu again
             if (burgerMenu) burgerMenu.classList.remove('hidden');
-
-            // Reset navbar brand position
             if (navbarBrand) navbarBrand.classList.remove('shifted');
         }
     </script>

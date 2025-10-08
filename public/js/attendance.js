@@ -121,6 +121,12 @@ document.addEventListener("DOMContentLoaded", function () {
     function showAutoClockoutToast(message) {
         const toastEl = document.getElementById("autoClockoutToast");
         const toastMsg = document.getElementById("autoClockoutToastMessage");
+
+        if (!toastEl || !toastMsg) {
+            console.error("Toast elements not found:", message);
+            return;
+        }
+
         toastMsg.textContent = message;
         const toast = new bootstrap.Toast(toastEl);
         toast.show();
@@ -296,6 +302,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const showErr = (msg) => {
         const el = $("bk-error");
+        if (!el) {
+            console.error("Error element not found:", msg);
+            return;
+        }
         el.textContent = msg;
         el.style.display = "block";
         setTimeout(() => (el.style.display = "none"), 5000);
