@@ -1041,15 +1041,39 @@ export default {
             this.fetchInventory();
         },
         saveSerial(serialText, index) {
-            // Determine which step we're on
             if (this.currentStep === 3) {
+                // 🧠 Save first serial
                 this.firstSerialNumber = serialText;
                 this.$refs.scanner.showScanSuccess(`✅ Saved Serial #1: ${serialText}`);
-            } else if (this.currentStep === 4) {
+
+                // 🧹 Clear OCR results
+                this.apiResult = { serials: [] };
+
+                // 🚀 Act as if user pressed Enter
+                this.$nextTick(() => {
+                if (typeof this.processFirstSerial === "function") {
+                    this.processFirstSerial();
+                }
+                });
+            } 
+            
+            else if (this.currentStep === 4) {
+                // 🧠 Save second serial
                 this.secondSerialNumber = serialText;
                 this.$refs.scanner.showScanSuccess(`✅ Saved Serial #2: ${serialText}`);
+
+                // 🧹 Clear OCR results
+                this.apiResult = { serials: [] };
+
+                // 🚀 Act as if user pressed Enter
+                this.$nextTick(() => {
+                if (typeof this.processSecondSerial === "function") {
+                    this.processSecondSerial();
+                }
+                });
             }
         },
+
     },
     watch: {
         searchQuery() {
