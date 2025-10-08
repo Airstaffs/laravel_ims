@@ -1,7 +1,7 @@
 import { eventBus } from "../../components/eventBus";
 import ScannerComponent from "../../components/Scanner.vue";
 import { SoundService } from "../../components/Sound_service";
-import DetectSerialModal from './modal-detect/modal-detect.vue';
+import DetectSerialModal from "./modal-detect/modal-detect.vue";
 import "../../../css/modules.css";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -55,9 +55,25 @@ export default {
             showDetectSerialModal: false, // State for Detect Serial Numbers modal
 
             apiResult: {
-                serials: []
+                serials: [],
             },
 
+            showImageModal: false,
+            modalImages: [],
+            currentImageIndex: 0,
+            showEditModal: false,
+            item: {
+                materialtype: "",
+                carrier: "",
+                storename: "",
+                priorityrank: "",
+                validation_status: "",
+            },
+            items: [],
+            activeIndex: 0,
+            basePath: "/images/thumbnails/",
+            loading: false,
+            error: null,
         };
     },
     computed: {
@@ -81,9 +97,143 @@ export default {
                     : String(valueB).localeCompare(String(valueA));
             });
         },
+
+        imageList() {
+            return Object.keys(this.item)
+                .filter((key) => key.startsWith("img") && this.item[key])
+                .map((key) => this.item[key]);
+        },
+        activeImageUrl() {
+            return this.basePath + this.imageList[this.activeIndex];
+        },
+
+        serialKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^serialnumber[a-z]?$/.test(k)
+            );
+        },
+        trackingKeys() {
+            return Object.keys(this.item).filter((k) =>
+                /^trackingnumber\d*$/.test(k)
+            );
+        },
+
+        // Safe numeric getters
+        qty() {
+            return Number(this.item.quantity) || 0;
+        },
+        price() {
+            return Number(this.item.price) || 0;
+        },
+        discountValue() {
+            return Number(this.item.Discount) || 0;
+        }, // fixed amount
+        taxValue() {
+            return Number(this.item.tax) || 0;
+        }, // fixed amount
+        shipping() {
+            return Number(this.item.priceshipping) || 0;
+        },
+        refund() {
+            return Number(this.item.refund) || 0;
+        },
+
+        subtotal() {
+            return this.qty * this.price;
+        },
+        unitprice() {
+            return this.price / this.qty;
+        },
+        afterDiscount() {
+            return this.price - this.discountValue;
+        },
+        grandTotalRaw() {
+            return (
+                this.afterDiscount + this.taxValue + this.shipping - this.refund
+            );
+        },
+
+        formattedSubtotal() {
+            return this.subtotal.toFixed(2);
+        },
+        formattedUnitprice() {
+            return this.unitprice.toFixed(2);
+        },
+        grandTotal() {
+            return this.grandTotalRaw.toFixed(2);
+        },
+
+        materialTypes() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.materialtype)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        sourceTypes() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.sourceType)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        carrierOptions() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.carrier)
+                        .filter((c) => c && c.trim() !== "")
+                ),
+            ].sort();
+        },
+        storeNames() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.storename)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        priorityRanks() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.priorityrank)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+        validationStatuses() {
+            if (!Array.isArray(this.items)) return [];
+            return [
+                ...new Set(
+                    this.items
+                        .map((i) => i.validation_status)
+                        .filter((t) => t && t.trim() !== "")
+                ),
+            ].sort();
+        },
+
+        displaySerialImage() {
+            // priority: local preview -> server path -> default
+            return (
+                this.serialImageUrl ||
+                this.serialImagePath ||
+                this.defaultSerialImage
+            );
+        },
     },
     methods: {
-
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;
@@ -1044,10 +1194,93 @@ export default {
             // Determine which step we're on
             if (this.currentStep === 3) {
                 this.firstSerialNumber = serialText;
-                this.$refs.scanner.showScanSuccess(`✅ Saved Serial #1: ${serialText}`);
+                this.$refs.scanner.showScanSuccess(
+                    `✅ Saved Serial #1: ${serialText}`
+                );
             } else if (this.currentStep === 4) {
                 this.secondSerialNumber = serialText;
-                this.$refs.scanner.showScanSuccess(`✅ Saved Serial #2: ${serialText}`);
+                this.$refs.scanner.showScanSuccess(
+                    `✅ Saved Serial #2: ${serialText}`
+                );
+            }
+        },
+
+        async openEditModal(item) {
+            if (!item) return;
+
+            console.log(item);
+
+            const freshItem = this.items.find(
+                (i) => i.itemnumber === item.itemnumber
+            );
+            this.item = { ...(freshItem || item) };
+
+            // Reset image state when opening
+            this.resetSerialImage({ clearServer: true });
+
+            this.showEditModal = true;
+            document.body.style.overflow = "hidden";
+
+            // If you want to proactively load any existing serial image for this item:
+            await this.$nextTick();
+            await this.fetchSerialImageIfAny?.(); // safe if you added this earlier
+        },
+
+        closeEditModal() {
+            this.showEditModal = false;
+
+            // Reset image state on close too
+            this.resetSerialImage({ clearServer: true });
+
+            setTimeout(() => {
+                document.body.style.overflow = "auto";
+            }, 300); // match your animation
+        },
+
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImage;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImage;
+        },
+
+        autoResize() {
+            [
+                "productTextarea",
+                "descriptionarea",
+                "supplierNotesarea",
+                "employeeNotesarea",
+                "stickerNotesarea",
+            ].forEach((refName) => {
+                const el = this.$refs[refName];
+                if (el) {
+                    el.style.height = "auto";
+                    el.style.height = el.scrollHeight + "px";
+                }
+            });
+        },
+
+        getLabel(index) {
+            // Convert 0 => A, 1 => B, etc.
+            return String.fromCharCode(65 + index);
+        },
+
+        async fetchItems() {
+            this.loading = true;
+            try {
+                const response = await axios.get("/api/received/products");
+                const payload = response.data;
+
+                // handle both array or wrapped array
+                this.items = Array.isArray(payload)
+                    ? payload
+                    : payload.data || [];
+            } catch (err) {
+                console.error("Fetch failed:", err);
+                this.items = []; // fallback
+                this.error = "Failed to load items.";
+            } finally {
+                this.loading = false;
             }
         },
     },

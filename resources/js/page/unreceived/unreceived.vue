@@ -359,19 +359,6 @@
                                 </div>
                             </td>
                         </tr>
-                        <tr v-if="expandedRows[index]">
-                            <td :colspan="showDetails ? 18 : 12">
-                                <div
-                                    class="expanded-content p-3 border rounded"
-                                >
-                                    <p><strong>Expanded Rows Here</strong></p>
-                                    <p>
-                                        <strong>Product Name:</strong>
-                                        {{ item.AStitle }}
-                                    </p>
-                                </div>
-                            </td>
-                        </tr>
                     </template>
                 </tbody>
             </table>
