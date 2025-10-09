@@ -86,7 +86,7 @@
   :disabled="printingShipmentId === shipment.shipmentID"
 >
   <span v-if="printingShipmentId === shipment.shipmentID">⏳ Printing…</span>
-  <span v-else>🖨️ Print Label</span>
+  <span v-else>Download Label</span>
 </button>
                         <button
                             class="btn btn-toggle"

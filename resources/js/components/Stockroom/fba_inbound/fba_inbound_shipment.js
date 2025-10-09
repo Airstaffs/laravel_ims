@@ -1007,36 +1007,43 @@ export default {
             }
         },
         async printShipmentLabel(shipmentID) {
-            try {
-                this.printingShipmentId = shipmentID;
+            this.printingShipmentId = shipmentID;   // show spinner/disable button
 
-                // Hit your GET route & pass shipmentID as query param
+            try {
                 const resp = await axios.get('/amzn/fba-shipment/step10/print_label', {
-                    params: { shipmentID },
+                    params: {
+                        shipmentID,
+                        // pass optional comment if you support it server-side:
+                        // printComment: this.printComment || ''
+                    },
                 });
 
-                // Optional: handle successful direct DownloadURL or saved file response
-                const data = resp?.data || {};
+                const { success, label_url, message } = resp.data || {};
 
-                // If backend returned a direct URL to open
-                if (data.download_url) {
-                    window.open(data.download_url, '_blank');
+                if (!success || !label_url) {
+                    throw new Error(message || 'Failed to generate label.');
                 }
 
-                // If backend saved the file and returned a public URL
-                if (data.saved?.url) {
-                    window.open(data.saved.url, '_blank');
-                }
+                // Option A: open in a new tab (simple)
+                window.open(label_url, '_blank', 'noopener');
 
-                // You can also surface a toast/snackbar here:
-                // this.$toast?.success('Label generated.');
+                // Option B (optional): force a download automatically
+                // const a = document.createElement('a');
+                // a.href = label_url;
+                // a.download = '';              // let browser pick filename, or set one
+                // document.body.appendChild(a);
+                // a.click();
+                // a.remove();
+
             } catch (err) {
-                console.error('Print label failed:', err);
-                alert('Failed to print label. Please try again.');
+                const msg = err?.response?.data?.message || err.message || 'Unexpected error.';
+                // show however you do notifications:
+                // this.$toast?.error(msg);
+                console.error('printShipmentLabel error:', msg);
             } finally {
                 this.printingShipmentId = null;
             }
-        },
+        }
     },
     computed: {
         canGoBack() {
