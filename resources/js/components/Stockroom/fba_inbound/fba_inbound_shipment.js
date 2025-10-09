@@ -64,6 +64,10 @@ export default {
             inboundPlansMessage: "",
             showInboundPlansModal: false,
             printingShipmentId: null,
+            selectedProducts: [],          // array of selected product objects
+            selectedProductIds: new Set(), // for O(1) contains/removal by ProductID
+            showSelectedPanel: true,       // toggle the "View Selected" panel
+            isBulkAdding: false,           // disables buttons during submit
         };
     },
     created() {
@@ -83,11 +87,13 @@ export default {
             this.showAddItemModal = true;
             this.productSearch = "";
             this.productPage = 1;
+            this.clearSelection();
 
             this.fetchProducts();
         },
         closeAddItemModal() {
             this.showAddItemModal = false;
+            this.clearSelection();
         },
         async fetchProducts() {
             try {
@@ -1043,7 +1049,90 @@ export default {
             } finally {
                 this.printingShipmentId = null;
             }
-        }
+        },
+
+        isSelected(productId) {
+            return this.selectedProductIds.has(productId);
+        },
+        toggleProductSelection(product) {
+            const id = product.ProductID;
+            if (this.selectedProductIds.has(id)) {
+                // deselect
+                this.selectedProductIds.delete(id);
+                this.selectedProducts = this.selectedProducts.filter(p => p.ProductID !== id);
+            } else {
+                // select
+                this.selectedProductIds.add(id);
+                this.selectedProducts.push(product);
+            }
+        },
+        removeFromSelection(productId) {
+            if (!this.selectedProductIds.has(productId)) return;
+            this.selectedProductIds.delete(productId);
+            this.selectedProducts = this.selectedProducts.filter(p => p.ProductID !== productId);
+        },
+        clearSelection() {
+            this.selectedProductIds.clear();
+            this.selectedProducts = [];
+        },
+        async addSelectedNow() {
+            if (!this.selectedProducts.length) return;
+
+            this.isBulkAdding = true;
+
+            try {
+                if (this.showCartMode) {
+                    // bulk add to cart
+                    const reqs = this.selectedProducts.map(p =>
+                        axios.post(`${API_BASE_URL}/amzn/fba-cart/add`, {
+                            ProdID: p.ProductID,
+                            processby: this.currentUser, // or static for now
+                        })
+                            .catch(err => ({ __error: err })) // capture per-item error without failing all
+                    );
+                    const results = await Promise.all(reqs);
+
+                    const errors = results.filter(r => r && r.__error);
+                    if (errors.length) {
+                        alert(`Added with some errors: ${this.selectedProducts.length - errors.length} OK, ${errors.length} failed.`);
+                    } else {
+                        alert(`✅ Added ${this.selectedProducts.length} item(s) to cart.`);
+                    }
+
+                    await this.fetchCartItems();
+                } else {
+                    // bulk add to shipment
+                    if (!this.selectedShipmentID) {
+                        alert('No shipment selected.');
+                        return;
+                    }
+
+                    const reqs = this.selectedProducts.map(p =>
+                        shipmentService.addItemToShipment(this.selectedShipmentID, p)
+                            .catch(err => ({ __error: err }))
+                    );
+                    const results = await Promise.all(reqs);
+
+                    const errors = results.filter(r => r && r.__error);
+                    if (errors.length) {
+                        alert(`Added with some errors: ${this.selectedProducts.length - errors.length} OK, ${errors.length} failed.`);
+                    } else {
+                        alert(`✅ Added ${this.selectedProducts.length} item(s) to shipment.`);
+                    }
+
+                    await this.fetchShipments();
+                }
+
+                // keep modal open (per your request to add multiple in one open)
+                // but clear the selection to allow new picks
+                this.clearSelection();
+            } catch (e) {
+                console.error('Bulk add error:', e);
+                alert('❌ Failed to add selected items.');
+            } finally {
+                this.isBulkAdding = false;
+            }
+        },
     },
     computed: {
         canGoBack() {
