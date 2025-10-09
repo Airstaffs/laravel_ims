@@ -49,7 +49,8 @@
                     <div class="scanner-info">
                         <small class="text-muted">
                             <i class="fas fa-info-circle"></i>
-                            RPN and PRD (today's date) will be automatically generated
+                            RPN and PRD (today's date) will be automatically
+                            generated
                         </small>
                     </div>
                 </div>
@@ -153,7 +154,10 @@
                 </thead>
                 <tbody>
                     <tr v-if="loading">
-                        <td :colspan="showDetails ? 18 : 12" class="text-center">
+                        <td
+                            :colspan="showDetails ? 18 : 12"
+                            class="text-center"
+                        >
                             <div class="loading-spinner">
                                 <i class="fas fa-spinner fa-spin"></i>
                                 Loading...
@@ -161,7 +165,12 @@
                         </td>
                     </tr>
                     <tr v-else-if="sortedInventory.length === 0">
-                        <td :colspan="showDetails ? 18 : 12" class="text-center">No data found</td>
+                        <td
+                            :colspan="showDetails ? 18 : 12"
+                            class="text-center"
+                        >
+                            No data found
+                        </td>
                     </tr>
                     <template
                         v-else
@@ -509,32 +518,32 @@
                 <button class="modal-close-btn" @click="closeImageModal">
                     <i class="fas fa-times"></i>
                 </button>
-                
+
                 <div class="modal-image-container">
-                    <button 
-                        v-if="modalImages.length > 1" 
-                        class="modal-nav-btn prev-btn" 
+                    <button
+                        v-if="modalImages.length > 1"
+                        class="modal-nav-btn prev-btn"
                         @click="prevImage"
                     >
                         <i class="fas fa-chevron-left"></i>
                     </button>
-                    
+
                     <img
                         :src="modalImages[currentImageIndex]"
                         alt="Product Image"
                         class="modal-image"
                         @error="handleImageError($event)"
                     />
-                    
-                    <button 
-                        v-if="modalImages.length > 1" 
-                        class="modal-nav-btn next-btn" 
+
+                    <button
+                        v-if="modalImages.length > 1"
+                        class="modal-nav-btn next-btn"
                         @click="nextImage"
                     >
                         <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
-                
+
                 <div v-if="modalImages.length > 1" class="modal-image-counter">
                     {{ currentImageIndex + 1 }} / {{ modalImages.length }}
                 </div>
@@ -687,6 +696,10 @@
                                                 <div class="info-item">
                                                     <dt>EAN:</dt>
                                                     <dd>{{ item.EAN }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>FNSKU:</dt>
+                                                    <dd>{{ item.FNSKU }}</dd>
                                                 </div>
                                                 <div class="info-item">
                                                     <dt>SKU:</dt>

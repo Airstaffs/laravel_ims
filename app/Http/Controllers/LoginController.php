@@ -13,6 +13,7 @@ use App\Services\UserLogService;
 use Carbon\Carbon;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class LoginController extends Controller
 {
@@ -152,7 +153,8 @@ class LoginController extends Controller
         // Always evaluate schedule in LA time:
         $gate = $this->checkLoginWindow($user->id, self::DB_TZ); // 'America/Los_Angeles'
 
-        if ($gate['allowed']) return null;
+        if ($gate['allowed'])
+            return null;
 
         Auth::logout();
         $request->session()->invalidate();
@@ -523,35 +525,53 @@ class LoginController extends Controller
 
             // Restrict to @airstaffs.com domain
             if (!Str::endsWith($email, '@airstaffs.com')) {
-                return redirect()->route('login')->with('error', 'Only Airstaffs employees are allowed.');
+                return redirect()->route('login')
+                    ->with('error', 'Only Airstaffs employees are allowed.');
             }
 
             // Extract username
             $username = Str::ucfirst(Str::before($email, '@'));
 
-            // Check if user with this username already exists
-            $user = User::where('username', $username)->first();
+            // Try to find user by email first
+            $user = User::where('email', $email)->first();
 
-            if ($user) {
-                // Update existing user info
-                $user->update([
-                    'email' => $email,
-                    'profile_picture' => $googleUser->getAvatar(),
-                ]);
+            if (!$user) {
+                // Email not found, check if username exists (might have null email)
+                $user = User::where('username', $username)->first();
+
+                if ($user) {
+                    // User exists with this username - update their email
+                    Log::info('Found existing user by username, updating email', [
+                        'username' => $username,
+                        'old_email' => $user->email,
+                        'new_email' => $email
+                    ]);
+
+                    $user->update([
+                        'email' => $email,
+                        'profile_picture' => $googleUser->getAvatar(),
+                    ]);
+                } else {
+                    // No user found by email or username - create new user
+                    $user = User::create([
+                        'username' => $username,
+                        'email' => $email,
+                        'profile_picture' => $googleUser->getAvatar(),
+                        'password' => bcrypt(Str::random(32)),
+                        'role' => 'User'
+                    ]);
+                    Log::info('Created new user', ['username' => $username, 'email' => $email]);
+                }
             } else {
-                // Create new user
-                $user = User::create([
-                    'username' => $username,
-                    'email' => $email,
+                // User found by email - just update profile picture
+                $user->update([
                     'profile_picture' => $googleUser->getAvatar(),
-                    'password' => bcrypt($username . '1234'),
                 ]);
+                Log::info('Updated existing user by email', ['username' => $user->username]);
             }
 
             // Authenticate the user
             Auth::login($user);
-
-            // Regenerate session for security
             request()->session()->regenerate();
 
             if ($resp = $this->enforceScheduleGateOrBypass($user, request())) {
@@ -570,19 +590,25 @@ class LoginController extends Controller
                 Log::warning('Failed to log Google login: ' . $e->getMessage());
             }
 
-            // FIXED: Set success message for dashboard (Google login)
-            request()->session()->flash('login_success', 'Welcome back, ' . $user->username . '! (Google Login)');
-
-            $firstLogin = \DB::table('tbluser')->where('id', $user->id)->value('first_login');
-            if (is_null($firstLogin) || (int) $firstLogin === 1) {
-                return redirect()->route('account.complete.view');
+            // Replace the first_login check with this:
+            if (Schema::hasColumn('tbluser', 'first_login')) {
+                $firstLogin = $user->first_login;
+                if (is_null($firstLogin) || (int) $firstLogin === 1) {
+                    return redirect()->route('account.complete.view');
+                }
             }
 
-            // Redirect to dashboard
-            return redirect()->route('dashboard.system');
+            return redirect()->route('dashboard.system')
+                ->with('login_success', "Welcome back, {$user->username}! (Google Login)");
+
         } catch (\Exception $e) {
-            Log::error('Google login error: ' . $e->getMessage());
-            return redirect()->route('login')->with('error', 'Failed to log in with Google. Please try again.');
+            Log::error('Google login error: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return redirect()->route('login')
+                ->with('error', 'Failed to log in with Google. Please try again.');
         }
     }
 

@@ -1867,6 +1867,39 @@ export default {
 
             return total;
         },
+
+        copyToClipboard(item) {
+            const textToCopy = `Product Name: ${item.AStitle}
+                                RT/AR: ${item.rtcounter}
+                                PCN #: ${item.PCN}
+                                BKT #: ${item.basketnumber}
+                                ASIN #: ${item.ASIN}
+                                FNSKU: ${item.FNSKU}`;
+
+            console.log("Text to copy:", textToCopy);
+
+            navigator.clipboard
+                .writeText(textToCopy)
+                .then(() => {
+                    Swal.fire({
+                        icon: "success",
+                        title: "Copied!",
+                        text: "Details copied to clipboard",
+                        timer: 2000,
+                        showConfirmButton: false,
+                        position: "top-end",
+                    });
+                })
+                .catch((err) => {
+                    console.error("Failed to copy: ", err);
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: "Failed to copy to clipboard",
+                        confirmButtonText: "OK",
+                    });
+                });
+        },
     },
 
     watch: {
