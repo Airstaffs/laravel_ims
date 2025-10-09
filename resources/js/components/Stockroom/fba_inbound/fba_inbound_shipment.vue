@@ -80,6 +80,14 @@
                     </p>
 
                     <div class="header-button-container">
+<button
+  class="btn btn-toggle"
+  @click="printShipmentLabel(shipment.shipmentID)"
+  :disabled="printingShipmentId === shipment.shipmentID"
+>
+  <span v-if="printingShipmentId === shipment.shipmentID">⏳ Printing…</span>
+  <span v-else>🖨️ Print Label</span>
+</button>
                         <button
                             class="btn btn-toggle"
                             @click="toggleVisibility(shipment.shipmentID)"

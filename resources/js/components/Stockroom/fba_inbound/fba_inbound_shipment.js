@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import shipmentService from "../backend/fba_inbound_shipment_backend.js";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
-axios.defaults.headers.common['X-CSRF-TOKEN'] = 
+axios.defaults.headers.common['X-CSRF-TOKEN'] =
     document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 export default {
     data() {
@@ -63,6 +63,7 @@ export default {
             inboundPlansResponse: [],
             inboundPlansMessage: "",
             showInboundPlansModal: false,
+            printingShipmentId: null,
         };
     },
     created() {
@@ -380,7 +381,7 @@ export default {
                 const packingOption = res.data.packingOptions[0] || {};
                 const packingGroupId =
                     Array.isArray(packingOption.packingGroups) &&
-                    packingOption.packingGroups.length > 0
+                        packingOption.packingGroups.length > 0
                         ? packingOption.packingGroups[0]
                         : "";
 
@@ -606,9 +607,8 @@ export default {
 
             if (!length || !width || !height) return "N/A dimensions";
 
-            return `${length} x ${width} x ${height} inches — ${
-                weight ?? "N/A"
-            } lbs`;
+            return `${length} x ${width} x ${height} inches — ${weight ?? "N/A"
+                } lbs`;
         },
         async step4PlacementOption() {
             try {
@@ -678,13 +678,10 @@ export default {
 
                     const shipmentData = shipmentRes.data.data;
                     const address = shipmentData.destination?.address || {};
-                    const fullAddress = `${address.name || "-"}, ${
-                        address.addressLine1 || "-"
-                    }, ${address.city || "-"}, ${
-                        address.stateOrProvinceCode || "-"
-                    } ${address.postalCode || "-"}, ${
-                        address.countryCode || "-"
-                    }`;
+                    const fullAddress = `${address.name || "-"}, ${address.addressLine1 || "-"
+                        }, ${address.city || "-"}, ${address.stateOrProvinceCode || "-"
+                        } ${address.postalCode || "-"}, ${address.countryCode || "-"
+                        }`;
 
                     enriched.push({
                         placementOptionId: option.placementOptionId,
@@ -839,7 +836,7 @@ export default {
                 this.deliveryOptionsPages.pop();
                 this.generateDeliveryOptionsResponse =
                     this.deliveryOptionsPages[
-                        this.deliveryOptionsPages.length - 1
+                    this.deliveryOptionsPages.length - 1
                     ];
             }
         },
@@ -1007,6 +1004,37 @@ export default {
             } catch (error) {
                 console.error("Error cancelling inbound plan:", error);
                 alert("An error occurred while cancelling the plan.");
+            }
+        },
+        async printShipmentLabel(shipmentID) {
+            try {
+                this.printingShipmentId = shipmentID;
+
+                // Hit your GET route & pass shipmentID as query param
+                const resp = await axios.get('/amzn/fba-shipment/step10/print_label', {
+                    params: { shipmentID },
+                });
+
+                // Optional: handle successful direct DownloadURL or saved file response
+                const data = resp?.data || {};
+
+                // If backend returned a direct URL to open
+                if (data.download_url) {
+                    window.open(data.download_url, '_blank');
+                }
+
+                // If backend saved the file and returned a public URL
+                if (data.saved?.url) {
+                    window.open(data.saved.url, '_blank');
+                }
+
+                // You can also surface a toast/snackbar here:
+                // this.$toast?.success('Label generated.');
+            } catch (err) {
+                console.error('Print label failed:', err);
+                alert('Failed to print label. Please try again.');
+            } finally {
+                this.printingShipmentId = null;
             }
         },
     },
