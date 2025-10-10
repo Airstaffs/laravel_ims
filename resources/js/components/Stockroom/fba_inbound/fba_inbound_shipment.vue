@@ -12,17 +12,21 @@
         <!-- Show Cart View -->
         <div class="cart-container" v-if="showCartMode">
             <h2>🛒 Draft Cart</h2>
+
+            <!-- Button to open the Add Item modal -->
             <button class="btn btn-addItem" @click="openAddItemModal()">
                 ➕ Add an Item to Cart
             </button>
+
+            <!-- Cart Table -->
             <table class="cart-table">
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>ProductID</th>
                         <th>Title</th>
-                        <th>ASIN</th>
                         <th>FNSKU</th>
                         <th>MSKU</th>
+                        <th>ASIN</th>
                         <th>Serial #</th>
                         <th>Action</th>
                     </tr>
@@ -31,9 +35,9 @@
                     <tr v-for="item in cartItems" :key="item.ProdID">
                         <td>{{ item.ProdID }}</td>
                         <td>{{ item.ProductTitle }}</td>
-                        <td>{{ item.ASINviewer }}</td>
                         <td>{{ item.FNSKUviewer }}</td>
                         <td>{{ item.MSKUviewer }}</td>
+                        <td>{{ item.ASINviewer }}</td>
                         <td>{{ item.serialnumber }}</td>
                         <td>
                             <button
@@ -46,6 +50,8 @@
                     </tr>
                 </tbody>
             </table>
+
+            <!-- Cart action buttons -->
             <div class="cart-button-container">
                 <button class="btn btn-itemCheck">🔍 Item Check</button>
                 <button
@@ -80,6 +86,21 @@
                     </p>
 
                     <div class="header-button-container">
+                        <button
+                            class="btn btn-toggle"
+                            @click="printShipmentLabel(shipment.shipmentID)"
+                            :disabled="
+                                printingShipmentId === shipment.shipmentID
+                            "
+                        >
+                            <span
+                                v-if="
+                                    printingShipmentId === shipment.shipmentID
+                                "
+                                >⏳ Printing…</span
+                            >
+                            <span v-else>Download Label</span>
+                        </button>
                         <button
                             class="btn btn-toggle"
                             @click="toggleVisibility(shipment.shipmentID)"
@@ -673,14 +694,13 @@
     <!-- Modals -->
 
     <!-- Add Item Modal -->
+    <!-- Add Item Modal -->
     <div v-if="showAddItemModal" class="modal modal-addItem">
         <div class="modal-overlay" @click="closeAddItemModal"></div>
 
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">
-                    Add Item to Shipment {{ selectedShipmentID }}
-                </h2>
+                <h2 class="modal-title">Add Items to Cart</h2>
                 <button class="btn modal-close" @click="closeAddItemModal">
                     &times;
                 </button>
@@ -696,10 +716,7 @@
                     />
 
                     <fieldset>
-                        <label>
-                            <span>Per Page</span>
-                        </label>
-
+                        <label><span>Per Page</span></label>
                         <select
                             class="form-control"
                             v-model="productPerPage"
@@ -712,9 +729,11 @@
                     </fieldset>
                 </div>
 
+                <!-- Product list -->
                 <table class="product-table">
                     <thead>
                         <tr>
+                            <th style="width: 64px">Select</th>
                             <th>ProductID</th>
                             <th>Title</th>
                             <th>FNSKU</th>
@@ -729,6 +748,13 @@
                             v-for="product in productList"
                             :key="product.ProductID"
                         >
+                            <td>
+                                <input
+                                    type="checkbox"
+                                    :checked="isSelected(product.ProductID)"
+                                    @change="toggleProductSelection(product)"
+                                />
+                            </td>
                             <td>{{ product.ProductID }}</td>
                             <td>{{ product.ProductTitle }}</td>
                             <td>{{ product.FNSKUviewer }}</td>
@@ -738,36 +764,144 @@
                             <td>
                                 <button
                                     class="btn btn-add"
-                                    @click="handleAddItem(product)"
+                                    @click="toggleProductSelection(product)"
                                 >
-                                    ➕ Add
+                                    {{
+                                        isSelected(product.ProductID)
+                                            ? "✅ Selected"
+                                            : "➕ Select"
+                                    }}
                                 </button>
                             </td>
                         </tr>
                     </tbody>
                 </table>
+
+                <!-- View Selected -->
+                <div class="selected-panel" style="margin-top: 16px">
+                    <div style="display: flex; align-items: center; gap: 8px">
+                        <h3 style="margin: 0">
+                            Selected Items ({{ selectedProducts.length }})
+                        </h3>
+                        <button
+                            class="btn btn-secondary"
+                            @click="showSelectedPanel = !showSelectedPanel"
+                            style="padding: 4px 8px"
+                        >
+                            {{ showSelectedPanel ? "Hide" : "View" }}
+                        </button>
+                        <button
+                            class="btn btn-remove"
+                            @click="clearSelection"
+                            :disabled="!selectedProducts.length"
+                            style="padding: 4px 8px; margin-left: auto"
+                        >
+                            ✖ Clear All
+                        </button>
+                    </div>
+
+                    <div v-if="showSelectedPanel" style="margin-top: 8px">
+                        <table class="product-table">
+                            <thead>
+                                <tr>
+                                    <th>ProductID</th>
+                                    <th>Title</th>
+                                    <th>FNSKU</th>
+                                    <th>MSKU</th>
+                                    <th>ASIN</th>
+                                    <th>Serial #</th>
+                                    <th>Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-if="!selectedProducts.length">
+                                    <td
+                                        colspan="7"
+                                        style="text-align: center; opacity: 0.7"
+                                    >
+                                        No items selected yet.
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-for="sp in selectedProducts"
+                                    :key="'sel-' + sp.ProductID"
+                                >
+                                    <td>{{ sp.ProductID }}</td>
+                                    <td>{{ sp.ProductTitle }}</td>
+                                    <td>{{ sp.FNSKUviewer }}</td>
+                                    <td>{{ sp.MSKUviewer }}</td>
+                                    <td>{{ sp.ASINviewer }}</td>
+                                    <td>{{ sp.serialnumber }}</td>
+                                    <td>
+                                        <button
+                                            class="btn btn-delete"
+                                            @click="
+                                                removeFromSelection(
+                                                    sp.ProductID
+                                                )
+                                            "
+                                        >
+                                            🗑 Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
-            <div class="modal-footer">
-                <button
-                    class="btn btn-prev"
-                    :disabled="productPage <= 1"
-                    @click="
-                        productPage--;
-                        fetchProducts();
+            <!-- Footer -->
+            <div
+                class="modal-footer"
+                style="gap: 8px; display: flex; flex-wrap: wrap"
+            >
+                <div
+                    style="
+                        margin-right: auto;
+                        display: flex;
+                        gap: 8px;
+                        align-items: center;
                     "
                 >
-                    ⬅ Prev
+                    <button
+                        class="btn btn-prev"
+                        :disabled="productPage <= 1"
+                        @click="
+                            productPage--;
+                            fetchProducts();
+                        "
+                    >
+                        ⬅ Prev
+                    </button>
+                    <button
+                        class="btn btn-next"
+                        :disabled="productPage >= productPagination.last_page"
+                        @click="
+                            productPage++;
+                            fetchProducts();
+                        "
+                    >
+                        Next ➡
+                    </button>
+                </div>
+
+                <button
+                    class="btn btn-commit"
+                    :disabled="!selectedProducts.length || isBulkAdding"
+                    @click="addSelectedNow"
+                >
+                    {{
+                        isBulkAdding
+                            ? "⏳ Adding…"
+                            : showCartMode
+                            ? "Add Selected to Cart"
+                            : "Add Selected to Shipment"
+                    }}
                 </button>
-                <button
-                    class="btn btn-next"
-                    :disabled="productPage >= productPagination.last_page"
-                    @click="
-                        productPage++;
-                        fetchProducts();
-                    "
-                >
-                    Next ➡
+
+                <button class="btn btn-cancel" @click="closeAddItemModal">
+                    Close
                 </button>
             </div>
         </div>

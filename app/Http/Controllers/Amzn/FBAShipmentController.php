@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\File;
+use setasign\Fpdi\Fpdi;
 
 require base_path('app/Helpers/aws_helpers.php');
 
@@ -3136,9 +3138,22 @@ class FBAShipmentController extends Controller
         $placementOptionId = $request->input('placementOptionId', null);
         $shipmentconfirmationid = $request->input('shipmentconfirmationid', null);
         $transportationOptionId = $request->input('transportationOptionId', null);
-        $transportationOptionId = $request->input('shipmentconfirmationid', null);
+        $printComment = (string) $request->input('printComment', ''); // <-- add this
 
+        if (empty($shipmentidfromapi) && !empty($shipmentID)) {
+            $shipmentidfromapi = DB::table('tblfbainboundplans')
+                ->where('shipmentID', $shipmentID)
+                ->value('shipmentidfromapi');
 
+            // optional: guard if still null
+            if (empty($shipmentidfromapi)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'shipmentidfromapi not found for the given shipmentID.',
+                    'shipmentID' => $shipmentID
+                ], 422);
+            }
+        }
 
         $endpoint = 'https://sellingpartnerapi-na.amazon.com';
         $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
@@ -3221,8 +3236,14 @@ class FBAShipmentController extends Controller
             if ($response->successful()) {
                 $data = $response->json(); // Parse JSON response
 
+                $url = $data['payload']['DownloadURL'];
+
+
                 // Extract operationId
                 $operationId = $data['operationId'] ?? null;
+
+                // Build + modify the PDF using your Laravel helper
+                $labelResult = $this->buildFbaLabel($data, $printComment);
 
                 // If operationId exists, call getOperationStatus()
                 if ($operationId) {
@@ -3230,24 +3251,30 @@ class FBAShipmentController extends Controller
 
                     // Call the operation status function
                     $operationStatusResponse = $this->getOperationStatus($store, $destinationmarketplace, $operationId);
+                    $operationStatus = $operationStatusResponse->getData(true);
 
                     // Return the operation response
                     return response()->json([
-                        'success' => true,
-                        'operationId' => $operationId,
-                        'data' => $data,
-                        'operationStatus' => $operationStatusResponse->getData(true), // Get operation tracking response
-                        'logs' => $curlInfo,
-                    ]);
+                        'success'          => $labelResult['success'],
+                        'message'          => $labelResult['message'] ?? null,
+                        'label_url'        => $labelResult['url'] ?? null,
+                        'label_path'       => $labelResult['path'] ?? null,
+                        'operationId'      => $operationId,
+                        'operationStatus'  => $operationStatus,
+                        'data'             => $data,
+                        'logs'             => $response->handlerStats(),
+                    ], $labelResult['success'] ? 200 : 500);
                 }
 
-                // If no operationId, return success response but indicate missing operation tracking
                 return response()->json([
-                    'success' => true,
-                    'message' => 'Operation Step 5c Success.',
-                    'data' => $data,
-                    'logs' => $curlInfo,
-                ]);
+                    'success'          => $labelResult['success'],
+                    'message'          => $labelResult['message'] ?? null,
+                    'label_url'        => $labelResult['url'] ?? null,
+                    'label_path'       => $labelResult['path'] ?? null,
+                    'operationId'      => $operationId,
+                    'data'             => $data,
+                    'logs'             => $response->handlerStats(),
+                ], $labelResult['success'] ? 200 : 500);
             }
 
             // If request failed
@@ -3266,6 +3293,65 @@ class FBAShipmentController extends Controller
                 'error' => $e->getMessage(),
                 'logs' => $curlInfo ?? null, // If logs exist, return them
             ], 500);
+        }
+    }
+
+    public function buildFbaLabel(array $data, string $printComment): array
+    {
+        $url = $data['payload']['DownloadURL'];
+        $operationId = $data['operationId'] ?? uniqid('op_');
+
+        $tempDir   = public_path('temps/fba_label');
+        $finalDir  = public_path('fbapdfs');
+        File::ensureDirectoryExists($tempDir);
+        File::ensureDirectoryExists($finalDir);
+
+        $tempFile  = $tempDir . DIRECTORY_SEPARATOR . "temp_{$operationId}.pdf";
+        $finalFile = $finalDir . DIRECTORY_SEPARATOR . "label_{$operationId}.pdf";
+
+        try {
+            Http::timeout(60)->withOptions(['sink' => $tempFile])->get($url)->throw();
+
+            if (!File::exists($tempFile)) {
+                throw new \RuntimeException("Failed to download label.");
+            }
+            if (function_exists('mime_content_type') && mime_content_type($tempFile) !== 'application/pdf') {
+                throw new \RuntimeException("Downloaded file is not a PDF.");
+            }
+
+            $pdf = new Fpdi();
+            $pageCount = $pdf->setSourceFile($tempFile);
+
+            for ($pageNo = 1; $pageNo <= $pageCount; $pageNo++) {
+                $tplId = $pdf->importPage($pageNo);
+                $size  = $pdf->getTemplateSize($tplId);
+
+                $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                $pdf->useTemplate($tplId);
+
+                if ($pageNo === 2) {
+                    $pdf->SetFont('Helvetica', '', 9);
+                    $pdf->SetXY(71, 10);
+                    $pdf->MultiCell(0, 5, (string)$printComment, 0, 'L');
+                }
+            }
+
+            $pdf->Output($finalFile, 'F');
+            File::delete($tempFile);
+
+            return [
+                'success' => true,
+                'message' => 'File retrieved and modified!',
+                'path'    => $finalFile,
+                'url'     => asset('fbapdfs/' . basename($finalFile)),
+                'operationId' => $operationId,
+            ];
+        } catch (\Throwable $e) {
+            File::delete($tempFile);
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
         }
     }
 

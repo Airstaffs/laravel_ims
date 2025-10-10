@@ -2,7 +2,7 @@ import axios from 'axios';
 
 import shipmentService from "../backend/fba_inbound_shipment_backend.js";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
-axios.defaults.headers.common['X-CSRF-TOKEN'] = 
+axios.defaults.headers.common['X-CSRF-TOKEN'] =
     document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 export default {
     data() {
@@ -63,6 +63,11 @@ export default {
             inboundPlansResponse: [],
             inboundPlansMessage: "",
             showInboundPlansModal: false,
+            printingShipmentId: null,
+            selectedProducts: [],          // array of selected product objects
+            selectedProductIds: new Set(), // for O(1) contains/removal by ProductID
+            showSelectedPanel: true,       // toggle the "View Selected" panel
+            isBulkAdding: false,           // disables buttons during submit
         };
     },
     created() {
@@ -82,11 +87,13 @@ export default {
             this.showAddItemModal = true;
             this.productSearch = "";
             this.productPage = 1;
+            this.clearSelection();
 
             this.fetchProducts();
         },
         closeAddItemModal() {
             this.showAddItemModal = false;
+            this.clearSelection();
         },
         async fetchProducts() {
             try {
@@ -380,7 +387,7 @@ export default {
                 const packingOption = res.data.packingOptions[0] || {};
                 const packingGroupId =
                     Array.isArray(packingOption.packingGroups) &&
-                    packingOption.packingGroups.length > 0
+                        packingOption.packingGroups.length > 0
                         ? packingOption.packingGroups[0]
                         : "";
 
@@ -606,9 +613,8 @@ export default {
 
             if (!length || !width || !height) return "N/A dimensions";
 
-            return `${length} x ${width} x ${height} inches — ${
-                weight ?? "N/A"
-            } lbs`;
+            return `${length} x ${width} x ${height} inches — ${weight ?? "N/A"
+                } lbs`;
         },
         async step4PlacementOption() {
             try {
@@ -678,13 +684,10 @@ export default {
 
                     const shipmentData = shipmentRes.data.data;
                     const address = shipmentData.destination?.address || {};
-                    const fullAddress = `${address.name || "-"}, ${
-                        address.addressLine1 || "-"
-                    }, ${address.city || "-"}, ${
-                        address.stateOrProvinceCode || "-"
-                    } ${address.postalCode || "-"}, ${
-                        address.countryCode || "-"
-                    }`;
+                    const fullAddress = `${address.name || "-"}, ${address.addressLine1 || "-"
+                        }, ${address.city || "-"}, ${address.stateOrProvinceCode || "-"
+                        } ${address.postalCode || "-"}, ${address.countryCode || "-"
+                        }`;
 
                     enriched.push({
                         placementOptionId: option.placementOptionId,
@@ -839,7 +842,7 @@ export default {
                 this.deliveryOptionsPages.pop();
                 this.generateDeliveryOptionsResponse =
                     this.deliveryOptionsPages[
-                        this.deliveryOptionsPages.length - 1
+                    this.deliveryOptionsPages.length - 1
                     ];
             }
         },
@@ -1007,6 +1010,127 @@ export default {
             } catch (error) {
                 console.error("Error cancelling inbound plan:", error);
                 alert("An error occurred while cancelling the plan.");
+            }
+        },
+        async printShipmentLabel(shipmentID) {
+            this.printingShipmentId = shipmentID;   // show spinner/disable button
+
+            try {
+                const resp = await axios.get('/amzn/fba-shipment/step10/print_label', {
+                    params: {
+                        shipmentID,
+                        // pass optional comment if you support it server-side:
+                        // printComment: this.printComment || ''
+                    },
+                });
+
+                const { success, label_url, message } = resp.data || {};
+
+                if (!success || !label_url) {
+                    throw new Error(message || 'Failed to generate label.');
+                }
+
+                // Option A: open in a new tab (simple)
+                window.open(label_url, '_blank', 'noopener');
+
+                // Option B (optional): force a download automatically
+                // const a = document.createElement('a');
+                // a.href = label_url;
+                // a.download = '';              // let browser pick filename, or set one
+                // document.body.appendChild(a);
+                // a.click();
+                // a.remove();
+
+            } catch (err) {
+                const msg = err?.response?.data?.message || err.message || 'Unexpected error.';
+                // show however you do notifications:
+                // this.$toast?.error(msg);
+                console.error('printShipmentLabel error:', msg);
+            } finally {
+                this.printingShipmentId = null;
+            }
+        },
+
+        isSelected(productId) {
+            return this.selectedProductIds.has(productId);
+        },
+        toggleProductSelection(product) {
+            const id = product.ProductID;
+            if (this.selectedProductIds.has(id)) {
+                // deselect
+                this.selectedProductIds.delete(id);
+                this.selectedProducts = this.selectedProducts.filter(p => p.ProductID !== id);
+            } else {
+                // select
+                this.selectedProductIds.add(id);
+                this.selectedProducts.push(product);
+            }
+        },
+        removeFromSelection(productId) {
+            if (!this.selectedProductIds.has(productId)) return;
+            this.selectedProductIds.delete(productId);
+            this.selectedProducts = this.selectedProducts.filter(p => p.ProductID !== productId);
+        },
+        clearSelection() {
+            this.selectedProductIds.clear();
+            this.selectedProducts = [];
+        },
+        async addSelectedNow() {
+            if (!this.selectedProducts.length) return;
+
+            this.isBulkAdding = true;
+
+            try {
+                if (this.showCartMode) {
+                    // bulk add to cart
+                    const reqs = this.selectedProducts.map(p =>
+                        axios.post(`${API_BASE_URL}/amzn/fba-cart/add`, {
+                            ProdID: p.ProductID,
+                            processby: this.currentUser, // or static for now
+                        })
+                            .catch(err => ({ __error: err })) // capture per-item error without failing all
+                    );
+                    const results = await Promise.all(reqs);
+
+                    const errors = results.filter(r => r && r.__error);
+                    if (errors.length) {
+                        alert(`Added with some errors: ${this.selectedProducts.length - errors.length} OK, ${errors.length} failed.`);
+                    } else {
+                        alert(`✅ Added ${this.selectedProducts.length} item(s) to cart.`);
+                    }
+
+                    await this.fetchCartItems();
+                } else {
+                    // bulk add to shipment
+                    if (!this.selectedShipmentID) {
+                        alert('No shipment selected.');
+                        return;
+                    }
+
+                    const reqs = this.selectedProducts.map(p =>
+                        shipmentService.addItemToShipment(this.selectedShipmentID, p)
+                            .catch(err => ({ __error: err }))
+                    );
+                    const results = await Promise.all(reqs);
+
+                    const errors = results.filter(r => r && r.__error);
+                    if (errors.length) {
+                        alert(`Added with some errors: ${this.selectedProducts.length - errors.length} OK, ${errors.length} failed.`);
+                    } else {
+                        alert(`✅ Added ${this.selectedProducts.length} item(s) to shipment.`);
+                    }
+
+                    await this.fetchShipments();
+                }
+
+                // keep modal open (per your request to add multiple in one open)
+                // but clear the selection to allow new picks
+                this.clearSelection();
+            } catch (e) {
+                console.error('Bulk add error:', e);
+                alert('❌ Failed to add selected items.');
+            } finally {
+                this.isBulkAdding = false;
             }
         },
     },
