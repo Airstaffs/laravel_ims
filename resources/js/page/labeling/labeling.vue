@@ -133,14 +133,6 @@
                             <!-- Button for more details -->
                             <td>
                                 <div class="action-buttons">
-                                    <button
-                                        class="btn-details"
-                                        @click="toggleDetails(index)"
-                                    >
-                                        <i class="fas fa-info-circle"></i> More
-                                        Details
-                                    </button>
-
                                     <span>
                                         <strong></strong>
                                         {{ item.actions }}
@@ -201,49 +193,6 @@
                                         class="btn btn-edit"
                                     >
                                         <i class="bi bi-pencil"></i>Edit
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="expandedRows[index]">
-                            <td :colspan="showDetails ? 18 : 12">
-                                <div
-                                    class="expanded-content p-3 border rounded"
-                                >
-                                    <p>
-                                        <strong
-                                            >External Title provided by
-                                            Supplier:</strong
-                                        >
-                                        {{ item.ProductTitle }}
-                                    </p>
-                                    <p>
-                                        <strong>Product Name:</strong>
-                                        {{ item.AStitle }}
-                                    </p>
-                                    <p>
-                                        <strong>RT/AR:</strong>
-                                        {{ item.rtcounter }}
-                                    </p>
-                                    <p>
-                                        <strong>PCN #:</strong> {{ item.PCN }}
-                                    </p>
-                                    <p>
-                                        <strong>BKT #:</strong>
-                                        {{ item.basketnumber }}
-                                    </p>
-                                    <p>
-                                        <strong>ASIN #:</strong> {{ item.ASIN }}
-                                    </p>
-                                    <p>
-                                        <strong>FNSKU:</strong> {{ item.FNSKU }}
-                                    </p>
-
-                                    <button
-                                        @click="copyToClipboard(item)"
-                                        class="btn btn-primary mt-2"
-                                    >
-                                        Copy Details
                                     </button>
                                 </div>
                             </td>
@@ -411,13 +360,6 @@
                     <hr />
 
                     <div class="mobile-card-actions">
-                        <button
-                            class="btn btn-details"
-                            @click="toggleDetails(index)"
-                        >
-                            <i class="fas fa-info-circle"></i> Details
-                        </button>
-
                         <!-- <span><strong></strong> {{ item.actions }}</span> -->
                         <button
                             @click="showFnskuModal(item)"
@@ -458,26 +400,6 @@
                         >
                             <i class="bi bi-pencil"></i>Edit
                         </button>
-                    </div>
-
-                    <hr v-if="expandedRows[index]" />
-
-                    <div
-                        v-if="expandedRows[index]"
-                        class="mobile-expanded-content"
-                    >
-                        <p>
-                            <strong
-                                >External Title provided by Supplier:</strong
-                            >
-                            {{ item.ProductTitle }}
-                        </p>
-                        <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
-                        <p><strong>RT/AR:</strong> {{ item.rtcounter }}</p>
-                        <p><strong>PCN #:</strong> {{ item.PCN }}</p>
-                        <p><strong>BKT #:</strong> {{ item.basketnumber }}</p>
-                        <p><strong>ASIN #:</strong> {{ item.ASIN }}</p>
-                        <p><strong>FNSKU:</strong> {{ item.FNSKU }}</p>
                     </div>
                 </div>
             </div>
