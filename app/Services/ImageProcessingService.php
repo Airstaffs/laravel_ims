@@ -1164,6 +1164,159 @@ class ImageProcessingService
             return false;
         }
     }
+
+   /**
+     * Generate QR code for small label card (2" x 1" label)
+     * This creates a compact label with serial number and QR code
+     */
+   public function generateQRforSmallLabelCard($serialNumber)
+    {
+        try {
+            if (empty($serialNumber)) {
+                Log::error("Serial number is required for small label card");
+                return "";
+            }
+            
+            // Template path for small label
+            $templatePath = public_path('images/warranty/templates/SmallLabelCardSerialQR.png');
+            
+            if (!file_exists($templatePath)) {
+                Log::error("Small label template file does not exist: " . $templatePath);
+                return "";
+            }
+            
+            // Create the QR code URL
+            $manual = url('storage/serial_qr/' . $serialNumber . '.png');
+            
+            // Generate QR code in temp directory
+            $qrCodePath = $this->imagesPath . '/temp/qr_small_' . $serialNumber . '.png';
+            if (!file_exists(dirname($qrCodePath))) {
+                mkdir(dirname($qrCodePath), 0777, true);
+            }
+            
+            if (class_exists('QRcode')) {
+                \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 3); // Smaller QR code (level 3)
+            } else {
+                Log::error('QRcode class not available for small label card');
+                return "";
+            }
+            
+            // Load the template
+            $imageData = base64_encode(file_get_contents($templatePath));
+            $decodedImage = base64_decode($imageData);
+            
+            if (!$decodedImage) {
+                Log::error("Failed to decode small label template image");
+                return "";
+            }
+            
+            // Set dimensions for the smaller label - 2" x 1" at 203dpi
+            $outputImageWidth = 400;
+            $outputImageHeight = 200;
+            
+            // Create a blank image with the specified dimensions
+            $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            
+            // Fill the background with white color
+            $white = \imagecolorallocate($image, 255, 255, 255);
+            $black = \imagecolorallocate($image, 0, 0, 0);
+            \imagefill($image, 0, 0, $white);
+            
+            // Load and scale the template
+            if ($templateImage = @\imagecreatefromstring($decodedImage)) {
+                $scaledImage = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+                \imagefill($scaledImage, 0, 0, $white);
+                \imagecopyresampled($scaledImage, $templateImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight, \imagesx($templateImage), \imagesy($templateImage));
+                \imagecopy($image, $scaledImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight);
+                \imagedestroy($scaledImage);
+                \imagedestroy($templateImage);
+                
+                // Add serial number in the lower left area
+                $serialTextX = 20; // Left margin
+                $serialTextY = 110; // Lower portion of label
+                $fontSize = 20; // Smaller font for small label
+                
+                if (file_exists($this->fontsPath)) {
+                    // Create bold effect by drawing the text multiple times with slight offsets
+                    \imagettftext($image, $fontSize, 0, $serialTextX, $serialTextY, $black, $this->fontsPath, $serialNumber);
+                    \imagettftext($image, $fontSize, 0, $serialTextX + 1, $serialTextY, $black, $this->fontsPath, $serialNumber);
+                    \imagettftext($image, $fontSize, 0, $serialTextX, $serialTextY + 1, $black, $this->fontsPath, $serialNumber);
+                    \imagettftext($image, $fontSize, 0, $serialTextX + 1, $serialTextY + 1, $black, $this->fontsPath, $serialNumber);
+                } else {
+                    Log::error('TTF font not available for small label card');
+                    \imagedestroy($image);
+                    return "";
+                }
+                
+                // Add QR code next to the serial number (on the right side)
+                if (file_exists($qrCodePath)) {
+                    $qrCodeImage = \imagecreatefrompng($qrCodePath);
+                    if ($qrCodeImage) {
+                        // Position QR code on the right side of the label
+                        $qrSize = 63; // Small QR code size for 2"x1" label
+                        $qrX = 310; // Position on right side (400 - 80 - 10 margin)
+                        $qrY = 75; // Center vertically in lower portion
+                        
+                        // Resize and place QR code
+                        \imagecopyresampled($image, $qrCodeImage, $qrX, $qrY, 0, 0, $qrSize, $qrSize, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
+                        \imagedestroy($qrCodeImage);
+                    }
+                    
+                    // Clean up temporary QR code file
+                    if (file_exists($qrCodePath)) {
+                        unlink($qrCodePath);
+                    }
+                }
+                
+            } else {
+                Log::error("Failed to create image from small label template data");
+                \imagedestroy($image);
+                return "";
+            }
+            
+            // Convert image to binary string for ZPL
+            $binaryString = "";
+            
+            // Convert image pixels to binary string
+            for ($y = 0; $y < $outputImageHeight; $y++) {
+                for ($x = 0; $x < $outputImageWidth; $x++) {
+                    $color = \imagecolorat($image, $x, $y);
+                    $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
+                }
+            }
+            
+            // Free up memory
+            \imagedestroy($image);
+            
+            // Convert binary string to hexadecimal string
+            $hexString = '';
+            for ($i = 0; $i < strlen($binaryString); $i += 8) {
+                $byteString = substr($binaryString, $i, 8);
+                $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
+            }
+            
+            // Calculate bytes per row
+            $bytesPerRow = ceil($outputImageWidth / 8);
+            
+            // Construct ZPL command for smaller label
+            $zplCommand = "^XA\n";
+            $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
+            $zplCommand .= "^XZ";
+            
+            Log::info('Generated small label card ZPL successfully for serial: ' . $serialNumber);
+            
+            return $zplCommand;
+            
+        } catch (Exception $e) {
+            Log::error('Error generating small label card:', [
+                'error' => $e->getMessage(),
+                'serial_number' => $serialNumber,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return "";
+        }
+    }
     
     /**
      * Get port IP from database
