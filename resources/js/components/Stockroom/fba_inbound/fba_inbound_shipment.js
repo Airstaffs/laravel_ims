@@ -1,9 +1,11 @@
-import axios from 'axios';
+import axios from "axios";
+import Swal from "sweetalert2";
 
 import shipmentService from "../backend/fba_inbound_shipment_backend.js";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
-axios.defaults.headers.common['X-CSRF-TOKEN'] = 
-    document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+axios.defaults.headers.common["X-CSRF-TOKEN"] = document
+    .querySelector('meta[name="csrf-token"]')
+    .getAttribute("content");
 export default {
     data() {
         return {
@@ -63,6 +65,11 @@ export default {
             inboundPlansResponse: [],
             inboundPlansMessage: "",
             showInboundPlansModal: false,
+            printingShipmentId: null,
+            selectedProducts: [], // array of selected product objects
+            selectedProductIds: new Set(), // for O(1) contains/removal by ProductID
+            showSelectedPanel: true, // toggle the "View Selected" panel
+            isBulkAdding: false, // disables buttons during submit
         };
     },
     created() {
@@ -82,11 +89,13 @@ export default {
             this.showAddItemModal = true;
             this.productSearch = "";
             this.productPage = 1;
+            this.clearSelection();
 
             this.fetchProducts();
         },
         closeAddItemModal() {
             this.showAddItemModal = false;
+            this.clearSelection();
         },
         async fetchProducts() {
             try {
@@ -221,15 +230,38 @@ export default {
             }
         },
         async removeCartItem(prodID) {
+            const result = await Swal.fire({
+                icon: "warning",
+                title: "Remove Item?",
+                text: "Are you sure you want to remove this item from cart?",
+                showCancelButton: true,
+                confirmButtonText: "OK",
+                cancelButtonText: "Cancel",
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#3085d6",
+            });
+
+            if (!result.isConfirmed) return;
+
             try {
                 await axios.delete(`${API_BASE_URL}/amzn/fba-cart/remove`, {
                     data: { ProdID: prodID },
                 });
-                alert("🗑️ Item removed from cart");
+                await Swal.fire({
+                    icon: "success",
+                    title: "Removed",
+                    text: "Item removed from cart",
+                    confirmButtonText: "OK",
+                });
                 this.fetchCartItems(); // refresh cart
             } catch (error) {
                 console.error("Error removing cart item:", error);
-                alert("❌ Failed to remove item");
+                await Swal.fire({
+                    icon: "error",
+                    title: "Failed",
+                    text: "Failed to remove item",
+                    confirmButtonText: "OK",
+                });
             }
         },
         openStoreSelectModal() {
@@ -251,10 +283,14 @@ export default {
         },
         async commitCart() {
             if (!this.selectedStore) {
-                alert("Please select a store.");
+                await Swal.fire({
+                    icon: "warning",
+                    title: "Store Required",
+                    text: "Please select a store.",
+                    confirmButtonText: "OK",
+                });
                 return;
             }
-
             try {
                 const res = await axios.post(
                     `${API_BASE_URL}/amzn/fba-cart/commit`,
@@ -262,19 +298,31 @@ export default {
                         store: this.selectedStore,
                     }
                 );
-                alert(`✅ Cart committed as Shipment: ${res.data.shipmentID}`);
+                await Swal.fire({
+                    icon: "success",
+                    title: "Cart Committed",
+                    text: `Cart committed as Shipment: ${res.data.shipmentID}`,
+                    confirmButtonText: "OK",
+                });
                 this.showStoreModal = false;
                 this.fetchCartItems(); // Refresh cart after commit
                 this.fetchShipments(); // Optional: refresh shipments view too
             } catch (error) {
                 console.error("Error committing cart:", error);
-                alert("❌ Failed to commit cart.");
+                await Swal.fire({
+                    icon: "error",
+                    title: "Failed",
+                    text: "Failed to commit cart.",
+                    confirmButtonText: "OK",
+                });
             }
         },
         async fetchShipments() {
             try {
                 const res = await shipmentService.getShipments();
                 this.shipments = res;
+
+                console.log(this.shipments);
 
                 this.visibleShipments = {};
                 res.forEach((shipment) => {
@@ -1007,6 +1055,171 @@ export default {
             } catch (error) {
                 console.error("Error cancelling inbound plan:", error);
                 alert("An error occurred while cancelling the plan.");
+            }
+        },
+        async printShipmentLabel(shipmentID) {
+            this.printingShipmentId = shipmentID; // show spinner/disable button
+
+            try {
+                const resp = await axios.get(
+                    "/amzn/fba-shipment/step10/print_label",
+                    {
+                        params: {
+                            shipmentID,
+                            // pass optional comment if you support it server-side:
+                            // printComment: this.printComment || ''
+                        },
+                    }
+                );
+
+                const { success, label_url, message } = resp.data || {};
+
+                if (!success || !label_url) {
+                    throw new Error(message || "Failed to generate label.");
+                }
+
+                // Option A: open in a new tab (simple)
+                window.open(label_url, "_blank", "noopener");
+
+                // Option B (optional): force a download automatically
+                // const a = document.createElement('a');
+                // a.href = label_url;
+                // a.download = '';              // let browser pick filename, or set one
+                // document.body.appendChild(a);
+                // a.click();
+                // a.remove();
+            } catch (err) {
+                const msg =
+                    err?.response?.data?.message ||
+                    err.message ||
+                    "Unexpected error.";
+                // show however you do notifications:
+                // this.$toast?.error(msg);
+                console.error("printShipmentLabel error:", msg);
+            } finally {
+                this.printingShipmentId = null;
+            }
+        },
+
+        isSelected(productId) {
+            return this.selectedProductIds.has(productId);
+        },
+        toggleProductSelection(product) {
+            const id = product.ProductID;
+            if (this.selectedProductIds.has(id)) {
+                // deselect
+                this.selectedProductIds.delete(id);
+                this.selectedProducts = this.selectedProducts.filter(
+                    (p) => p.ProductID !== id
+                );
+            } else {
+                // select
+                this.selectedProductIds.add(id);
+                this.selectedProducts.push(product);
+            }
+        },
+        removeFromSelection(productId) {
+            if (!this.selectedProductIds.has(productId)) return;
+            this.selectedProductIds.delete(productId);
+            this.selectedProducts = this.selectedProducts.filter(
+                (p) => p.ProductID !== productId
+            );
+        },
+        clearSelection() {
+            this.selectedProductIds.clear();
+            this.selectedProducts = [];
+        },
+        async addSelectedNow() {
+            if (!this.selectedProducts.length) return;
+
+            this.isBulkAdding = true;
+
+            try {
+                if (this.showCartMode) {
+                    // bulk add to cart
+                    const reqs = this.selectedProducts.map((p) =>
+                        axios
+                            .post(`${API_BASE_URL}/amzn/fba-cart/add`, {
+                                ProdID: p.ProductID,
+                                processby: this.currentUser,
+                            })
+                            .catch((err) => ({ __error: err }))
+                    );
+                    const results = await Promise.all(reqs);
+
+                    const errors = results.filter((r) => r && r.__error);
+                    if (errors.length) {
+                        await Swal.fire({
+                            icon: "warning",
+                            title: "Partially Added",
+                            text: `Added with some errors: ${
+                                this.selectedProducts.length - errors.length
+                            } OK, ${errors.length} failed.`,
+                            confirmButtonText: "OK",
+                        });
+                    } else {
+                        await Swal.fire({
+                            icon: "success",
+                            title: "Success",
+                            text: `Added ${this.selectedProducts.length} item(s) to cart.`,
+                            confirmButtonText: "OK",
+                        });
+                    }
+
+                    await this.fetchCartItems();
+                    this.closeAddItemModal();
+                } else {
+                    // bulk add to shipment
+                    if (!this.selectedShipmentID) {
+                        await Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: "No shipment selected.",
+                            confirmButtonText: "OK",
+                        });
+                        return;
+                    }
+
+                    const reqs = this.selectedProducts.map((p) =>
+                        shipmentService
+                            .addItemToShipment(this.selectedShipmentID, p)
+                            .catch((err) => ({ __error: err }))
+                    );
+                    const results = await Promise.all(reqs);
+
+                    const errors = results.filter((r) => r && r.__error);
+                    if (errors.length) {
+                        await Swal.fire({
+                            icon: "warning",
+                            title: "Partially Added",
+                            text: `Added with some errors: ${
+                                this.selectedProducts.length - errors.length
+                            } OK, ${errors.length} failed.`,
+                            confirmButtonText: "OK",
+                        });
+                    } else {
+                        await Swal.fire({
+                            icon: "success",
+                            title: "Success",
+                            text: `Added ${this.selectedProducts.length} item(s) to shipment.`,
+                            confirmButtonText: "OK",
+                        });
+                    }
+
+                    await this.fetchShipments();
+                }
+
+                this.clearSelection();
+            } catch (e) {
+                console.error("Bulk add error:", e);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Failed",
+                    text: "Failed to add selected items.",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.isBulkAdding = false;
             }
         },
     },

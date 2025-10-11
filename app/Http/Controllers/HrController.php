@@ -1127,6 +1127,7 @@ class HrController extends Controller
         return response()->json(['success' => (bool) $ok]);
     }
 
+    // Get User Profile Details
     public function getUserProfileDetails(Request $req)
     {
         $uid = $req->user()->id;
@@ -1154,12 +1155,14 @@ class HrController extends Controller
         ]);
     }
 
+    // Update User Profile Details
     public function updateUserProfileDetails(Request $req)
     {
         $uid = $req->user()->id;
 
-        // Is this the first login?
-        $firstLogin = (int) DB::table('tbluser')->where('id', $uid)->value('first_login') === 1;
+        // Check if this is the first login (null means not completed yet)
+        $firstLoginValue = DB::table('tbluser')->where('id', $uid)->value('first_login');
+        $firstLogin = is_null($firstLoginValue);
 
         // If first login, all required; otherwise keep your current nullable rules
         $rules = $firstLogin ? [
@@ -1219,9 +1222,12 @@ class HrController extends Controller
                 ]);
             }
 
-            // If this was the first-login completion, flip the flag off
+            // If this was the first-login completion, set the timestamp
             if ($firstLogin) {
-                DB::table('tbluser')->where('id', $uid)->update(['first_login' => 0]);
+                DB::table('tbluser')->where('id', $uid)->update([
+                    'first_login' => now()
+                ]);
+                Log::info('First login completed, setting first_login timestamp', ['user_id' => $uid]);
             }
         });
 

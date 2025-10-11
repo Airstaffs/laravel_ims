@@ -1191,17 +1191,38 @@ export default {
             this.fetchInventory();
         },
         saveSerial(serialText, index) {
-            // Determine which step we're on
             if (this.currentStep === 3) {
+                // 🧠 Save first serial
                 this.firstSerialNumber = serialText;
                 this.$refs.scanner.showScanSuccess(
                     `✅ Saved Serial #1: ${serialText}`
                 );
+
+                // 🧹 Clear OCR results
+                this.apiResult = { serials: [] };
+
+                // 🚀 Act as if user pressed Enter
+                this.$nextTick(() => {
+                    if (typeof this.processFirstSerial === "function") {
+                        this.processFirstSerial();
+                    }
+                });
             } else if (this.currentStep === 4) {
+                // 🧠 Save second serial
                 this.secondSerialNumber = serialText;
                 this.$refs.scanner.showScanSuccess(
                     `✅ Saved Serial #2: ${serialText}`
                 );
+
+                // 🧹 Clear OCR results
+                this.apiResult = { serials: [] };
+
+                // 🚀 Act as if user pressed Enter
+                this.$nextTick(() => {
+                    if (typeof this.processSecondSerial === "function") {
+                        this.processSecondSerial();
+                    }
+                });
             }
         },
 
@@ -1214,9 +1235,6 @@ export default {
                 (i) => i.itemnumber === item.itemnumber
             );
             this.item = { ...(freshItem || item) };
-
-            // Reset image state when opening
-            this.resetSerialImage({ clearServer: true });
 
             this.showEditModal = true;
             document.body.style.overflow = "hidden";
@@ -1268,7 +1286,7 @@ export default {
         async fetchItems() {
             this.loading = true;
             try {
-                const response = await axios.get("/api/received/products");
+                const response = await axios.get("/api/unreceived/products");
                 const payload = response.data;
 
                 // handle both array or wrapped array

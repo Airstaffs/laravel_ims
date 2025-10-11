@@ -12,40 +12,96 @@
         <!-- Show Cart View -->
         <div class="cart-container" v-if="showCartMode">
             <h2>🛒 Draft Cart</h2>
+
+            <!-- Button to open the Add Item modal -->
             <button class="btn btn-addItem" @click="openAddItemModal()">
                 ➕ Add an Item to Cart
             </button>
-            <table class="cart-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Title</th>
-                        <th>ASIN</th>
-                        <th>FNSKU</th>
-                        <th>MSKU</th>
-                        <th>Serial #</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="item in cartItems" :key="item.ProdID">
-                        <td>{{ item.ProdID }}</td>
-                        <td>{{ item.ProductTitle }}</td>
-                        <td>{{ item.ASINviewer }}</td>
-                        <td>{{ item.FNSKUviewer }}</td>
-                        <td>{{ item.MSKUviewer }}</td>
-                        <td>{{ item.serialnumber }}</td>
-                        <td>
+
+            <!-- Cart Table -->
+            <div class="cart-table d-none d-md-block">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ProductID</th>
+                            <th>Title</th>
+                            <th>FNSKU</th>
+                            <th>MSKU</th>
+                            <th>ASIN</th>
+                            <th>Serial #</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="item in cartItems" :key="item.ProdID">
+                            <td>{{ item.ProdID }}</td>
+                            <td>{{ item.ProductTitle }}</td>
+                            <td>{{ item.FNSKUviewer }}</td>
+                            <td>{{ item.MSKUviewer }}</td>
+                            <td>{{ item.ASINviewer }}</td>
+                            <td>{{ item.serialnumber }}</td>
+                            <td>
+                                <button
+                                    class="btn btn-remove"
+                                    @click="removeCartItem(item.ProdID)"
+                                >
+                                    🗑️ Remove
+                                </button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="cart-table-mobile d-block d-md-none w-100">
+                <div
+                    class="card mb-3"
+                    v-for="item in cartItems"
+                    :key="item.ProdID"
+                >
+                    <div class="card-body">
+                        <div class="mb-2">
+                            <p>
+                                <strong>ProductID:</strong>
+                                {{ item.ProdID }}
+                            </p>
+                            <p>
+                                <strong>Title:</strong>
+                                {{ item.ProductTitle }}
+                            </p>
+                            <p>
+                                <strong>FNSKU:</strong>
+                                {{ item.FNSKUviewer }}
+                            </p>
+                            <p>
+                                <strong>MSKU:</strong>
+                                {{ item.MSKUviewer }}
+                            </p>
+                            <p>
+                                <strong>ASIN:</strong>
+                                {{ item.ASINviewer }}
+                            </p>
+                            <p>
+                                <strong>Serial #:</strong>
+                                {{ item.serialnumber }}
+                            </p>
+                        </div>
+
+                        <hr />
+
+                        <div class="card-table-actions">
                             <button
                                 class="btn btn-remove"
                                 @click="removeCartItem(item.ProdID)"
                             >
                                 🗑️ Remove
                             </button>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cart action buttons -->
             <div class="cart-button-container">
                 <button class="btn btn-itemCheck">🔍 Item Check</button>
                 <button
@@ -59,7 +115,7 @@
 
         <!-- View 1: List of Existing Shipments -->
         <div
-            class="exist-shipments-container"
+            class="exist-shipments-container d-none d-md-block"
             v-if="!selectedShipment && !showCartMode"
         >
             <h2>Select a Shipment</h2>
@@ -80,6 +136,21 @@
                     </p>
 
                     <div class="header-button-container">
+                        <button
+                            class="btn btn-toggle"
+                            @click="printShipmentLabel(shipment.shipmentID)"
+                            :disabled="
+                                printingShipmentId === shipment.shipmentID
+                            "
+                        >
+                            <span
+                                v-if="
+                                    printingShipmentId === shipment.shipmentID
+                                "
+                                >⏳ Printing…</span
+                            >
+                            <span v-else>Download Label</span>
+                        </button>
                         <button
                             class="btn btn-toggle"
                             @click="toggleVisibility(shipment.shipmentID)"
@@ -172,6 +243,130 @@
             </div>
         </div>
 
+        <div
+            class="exist-shipments-container-mobile d-block d-md-none"
+            v-if="!selectedShipment && !showCartMode"
+        >
+            <h4>Select a Shipment</h4>
+
+            <div class="card mb-3">
+                <div
+                    v-for="shipment in shipments"
+                    :key="shipment.shipmentID"
+                    class="card-body"
+                >
+                    <p class="mb-1">
+                        <strong>{{ shipment.shipmentID }}</strong> -
+                        <span>
+                            {{ shipment.store }}
+                            ( {{ shipment.item_count }} items )
+                        </span>
+                    </p>
+
+                    <hr />
+
+                    <div class="shipment-actions d-flex gap-2 overflow-auto">
+                        <button
+                            class="btn"
+                            @click="printShipmentLabel(shipment.shipmentID)"
+                            :disabled="
+                                printingShipmentId === shipment.shipmentID
+                            "
+                        >
+                            <span
+                                v-if="
+                                    printingShipmentId === shipment.shipmentID
+                                "
+                                >⏳ Printing…</span
+                            >
+                            <span v-else>Download Label</span>
+                        </button>
+                        <button
+                            class="btn"
+                            @click="toggleVisibility(shipment.shipmentID)"
+                        >
+                            {{
+                                visibleShipments[shipment.shipmentID]
+                                    ? "Hide Items"
+                                    : "Show Items"
+                            }}
+                        </button>
+                        <button
+                            class="btn btn-showToAmazon"
+                            @click="selectShipment(shipment)"
+                        >
+                            ➡️ Ship to Amazon
+                        </button>
+                    </div>
+
+                    <hr v-show="visibleShipments[shipment.shipmentID]" />
+
+                    <div
+                        class="mb-2"
+                        v-show="visibleShipments[shipment.shipmentID]"
+                    >
+                        <ul
+                            class="list-unstyled p-4 border rounded-sm"
+                            v-for="item in shipment.items"
+                            :key="item.FNSKU"
+                        >
+                            <li>
+                                <img
+                                    :src="'https://via.placeholder.com/50'"
+                                    width="50"
+                                />
+                            </li>
+                            <li>
+                                <ul class="list-unstyled mb-0">
+                                    <li>
+                                        <strong>Title:</strong>
+                                        <span>{{ item.ProductName }}</span>
+                                    </li>
+                                    <li>
+                                        <strong>ASIN:</strong>
+                                        <span>{{ item.ASIN }}</span>
+                                    </li>
+                                    <li>
+                                        <strong>MSKU:</strong>
+                                        <span>{{ item.MSKU }}</span>
+                                    </li>
+                                    <li>
+                                        <strong>FNSKU:</strong>
+                                        <span>{{ item.FNSKU }}</span>
+                                    </li>
+                                    <li>
+                                        <strong>Serial #:</strong>
+                                        <span>{{ item.serialnumber }}</span>
+                                    </li>
+                                    <li>
+                                        <hr />
+                                        <div class="list-actions d-flex gap-2">
+                                            <button
+                                                class="btn btn-delete"
+                                                @click="deleteItem(item.ID)"
+                                            >
+                                                🗑️ Delete
+                                            </button>
+                                            <button
+                                                class="btn btn-addItem"
+                                                @click="
+                                                    openAddItemModal(
+                                                        shipment.shipmentID
+                                                    )
+                                                "
+                                            >
+                                                ➕ Add Item
+                                            </button>
+                                        </div>
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- View 2: Create Inbound Plan (Step 1) -->
         <div
             class="create-inbound-container"
@@ -226,7 +421,7 @@
                 <strong>Created Inboundplanid successfully.</strong>
             </div>
 
-            <button class="btn btn-viewInbound" @click="viewInboundPlans">
+            <button class="btn btn-viewInbound w-100" @click="viewInboundPlans">
                 📦 View Inbound Plans
             </button>
 
@@ -670,17 +865,13 @@
         </div>
     </div>
 
-    <!-- Modals -->
-
     <!-- Add Item Modal -->
     <div v-if="showAddItemModal" class="modal modal-addItem">
         <div class="modal-overlay" @click="closeAddItemModal"></div>
 
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title">
-                    Add Item to Shipment {{ selectedShipmentID }}
-                </h2>
+                <h2 class="modal-title">Add Items to Cart</h2>
                 <button class="btn modal-close" @click="closeAddItemModal">
                     &times;
                 </button>
@@ -696,10 +887,7 @@
                     />
 
                     <fieldset>
-                        <label>
-                            <span>Per Page</span>
-                        </label>
-
+                        <label><span>Per Page</span></label>
                         <select
                             class="form-control"
                             v-model="productPerPage"
@@ -712,62 +900,246 @@
                     </fieldset>
                 </div>
 
-                <table class="product-table">
-                    <thead>
-                        <tr>
-                            <th>ProductID</th>
-                            <th>Title</th>
-                            <th>FNSKU</th>
-                            <th>MSKU</th>
-                            <th>ASIN</th>
-                            <th>Serial #</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="product in productList"
-                            :key="product.ProductID"
+                <!-- Product list -->
+                <div class="product-table d-none d-md-block">
+                    <table class="product-table w-100">
+                        <thead>
+                            <tr>
+                                <th>ProductID</th>
+                                <th>Title</th>
+                                <th>FNSKU</th>
+                                <th>MSKU</th>
+                                <th>ASIN</th>
+                                <th>Serial #</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="product in productList"
+                                :key="product.ProductID"
+                            >
+                                <td>{{ product.ProductID }}</td>
+                                <td>{{ product.ProductTitle }}</td>
+                                <td>{{ product.FNSKUviewer }}</td>
+                                <td>{{ product.MSKUviewer }}</td>
+                                <td>{{ product.ASINviewer }}</td>
+                                <td>{{ product.serialnumber }}</td>
+                                <td>
+                                    <button
+                                        class="btn btn-add"
+                                        @click="toggleProductSelection(product)"
+                                    >
+                                        {{
+                                            isSelected(product.ProductID)
+                                                ? "✅ Selected"
+                                                : "➕ Select"
+                                        }}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="product-table-mobile d-block d-md-none">
+                    <div
+                        class="card mb-3"
+                        v-for="product in productList"
+                        :key="product.ProductID"
+                    >
+                        <div class="card-body">
+                            <input
+                                type="checkbox"
+                                :checked="isSelected(product.ProductID)"
+                                @change="toggleProductSelection(product)"
+                            />
+                            <p class="mb-1">
+                                <strong>ProductID:</strong>
+                                {{ product.ProductID }}
+                            </p>
+                            <p class="mb-1">
+                                <strong>Title:</strong>
+                                {{ product.ProductTitle }}
+                            </p>
+                            <p class="mb-1">
+                                <strong>FNSKU:</strong>
+                                {{ product.FNSKUviewer }}
+                            </p>
+                            <p class="mb-1">
+                                <strong>MSKU:</strong>
+                                {{ product.MSKUviewer }}
+                            </p>
+                            <p class="mb-1">
+                                <strong>ASIN:</strong>
+                                {{ product.ASINviewer }}
+                            </p>
+                            <p class="mb-1">
+                                <strong>Serial #:</strong>
+                                {{ product.serialnumber }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- View Selected -->
+                <div class="selected-panel">
+                    <div class="d-flex items-center gap-2 mb-4">
+                        <h3 style="margin: 0">
+                            Selected Items ({{ selectedProducts.length }})
+                        </h3>
+                        <button
+                            class="btn btn-secondary"
+                            @click="showSelectedPanel = !showSelectedPanel"
+                            style="padding: 4px 8px"
                         >
-                            <td>{{ product.ProductID }}</td>
-                            <td>{{ product.ProductTitle }}</td>
-                            <td>{{ product.FNSKUviewer }}</td>
-                            <td>{{ product.MSKUviewer }}</td>
-                            <td>{{ product.ASINviewer }}</td>
-                            <td>{{ product.serialnumber }}</td>
-                            <td>
-                                <button
-                                    class="btn btn-add"
-                                    @click="handleAddItem(product)"
+                            {{ showSelectedPanel ? "Hide" : "View" }}
+                        </button>
+                        <button
+                            class="btn btn-remove"
+                            @click="clearSelection"
+                            :disabled="!selectedProducts.length"
+                            style="padding: 4px 8px; margin-left: auto"
+                        >
+                            ✖ Clear All
+                        </button>
+                    </div>
+
+                    <div
+                        class="product-table d-none d-md-block"
+                        v-if="showSelectedPanel"
+                    >
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ProductID</th>
+                                    <th>Title</th>
+                                    <th>FNSKU</th>
+                                    <th>MSKU</th>
+                                    <th>ASIN</th>
+                                    <th>Serial #</th>
+                                    <th>Remove</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-if="!selectedProducts.length">
+                                    <td
+                                        colspan="7"
+                                        style="text-align: center; opacity: 0.7"
+                                    >
+                                        No items selected yet.
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-for="sp in selectedProducts"
+                                    :key="'sel-' + sp.ProductID"
                                 >
-                                    ➕ Add
-                                </button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                    <td>{{ sp.ProductID }}</td>
+                                    <td>{{ sp.ProductTitle }}</td>
+                                    <td>{{ sp.FNSKUviewer }}</td>
+                                    <td>{{ sp.MSKUviewer }}</td>
+                                    <td>{{ sp.ASINviewer }}</td>
+                                    <td>{{ sp.serialnumber }}</td>
+                                    <td>
+                                        <button
+                                            class="btn btn-delete"
+                                            @click="
+                                                removeFromSelection(
+                                                    sp.ProductID
+                                                )
+                                            "
+                                        >
+                                            🗑 Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div
+                        class="product-table-mobile d-block d-md-none"
+                        v-if="showSelectedPanel"
+                    >
+                        <div
+                            class="card mb-3"
+                            v-for="sp in selectedProducts"
+                            :key="'sel-' + sp.ProductID"
+                        >
+                            <div class="card-body">
+                                <p class="mb-1" v-if="!selectedProducts.length">
+                                    No items selected yet.
+                                </p>
+
+                                <p class="mb-1">
+                                    <strong>ProductID:</strong>
+                                    {{ sp.ProductID }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Title:</strong>
+                                    {{ sp.ProductTitle }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>FNSKU:</strong>
+                                    {{ sp.FNSKUviewer }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>MSKU:</strong>
+                                    {{ sp.MSKUviewer }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>ASIN:</strong>
+                                    {{ sp.ASINviewer }}
+                                </p>
+                                <p class="mb-1">
+                                    <strong>Serial #:</strong>
+                                    {{ sp.serialnumber }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="product-table-pagination mt-4">
+                        <button
+                            class="btn btn-prev"
+                            :disabled="productPage <= 1"
+                            @click="
+                                productPage--;
+                                fetchProducts();
+                            "
+                        >
+                            ⬅ Prev
+                        </button>
+                        <button
+                            class="btn btn-next"
+                            :disabled="
+                                productPage >= productPagination.last_page
+                            "
+                            @click="
+                                productPage++;
+                                fetchProducts();
+                            "
+                        >
+                            Next ➡
+                        </button>
+                    </div>
+                </div>
             </div>
 
+            <!-- Footer -->
             <div class="modal-footer">
                 <button
-                    class="btn btn-prev"
-                    :disabled="productPage <= 1"
-                    @click="
-                        productPage--;
-                        fetchProducts();
-                    "
+                    class="btn btn-commit"
+                    :disabled="!selectedProducts.length || isBulkAdding"
+                    @click="addSelectedNow"
                 >
-                    ⬅ Prev
-                </button>
-                <button
-                    class="btn btn-next"
-                    :disabled="productPage >= productPagination.last_page"
-                    @click="
-                        productPage++;
-                        fetchProducts();
-                    "
-                >
-                    Next ➡
+                    {{
+                        isBulkAdding
+                            ? "⏳ Adding…"
+                            : showCartMode
+                            ? "Add Selected to Cart"
+                            : "Add Selected to Shipment"
+                    }}
                 </button>
             </div>
         </div>
@@ -782,9 +1154,6 @@
                 <h5 class="modal-title">
                     Select Store before creating Shipment
                 </h5>
-                <button class="btn modal-close" @click="closeStoreSelectModal">
-                    &times;
-                </button>
             </div>
 
             <div class="modal-body">
