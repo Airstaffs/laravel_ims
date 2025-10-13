@@ -10,27 +10,17 @@
                     <i class="fas fa-truck"></i> FBA Inbound Shipment
                 </button>
 
-                <div class="header-buttons">
-                    <button
-                        class="btn btn-success btn-new-scanned"
-                        @click="showNewScannedModal = true"
-                        style="position: relative; overflow: visible"
+                <button class="btn" @click="showNewScannedModal = true">
+                    <i class="fas fa-barcode"></i> New Scanned
+                    <span
+                        v-if="shouldShowBadge"
+                        class="notification-badge"
+                        :class="badgeClasses"
+                        :title="`${newScannedCount} new items scanned today (US time)`"
                     >
-                        <i class="fas fa-barcode"></i>
-                        New Scanned
-
-                        <!-- FIXED: Improved notification badge with better visibility logic -->
-                        <span
-                            v-if="shouldShowBadge"
-                            class="notification-badge"
-                            :class="badgeClasses"
-                            :title="`${newScannedCount} new items scanned today (US time)`"
-                        >
-                            {{ displayCount }}
-                        </span>
-                    </button>
-                </div>
-
+                        {{ displayCount }}
+                    </span>
+                </button>
             </div>
 
             <div class="store-filter">
@@ -1786,11 +1776,6 @@ export default Stockroom;
 }
 
 /* Ensure parent containers don't clip the badge */
-.header-buttons {
-    position: relative;
-    overflow: visible !important;
-}
-
 .top-header {
     overflow: visible !important;
 }
@@ -1860,6 +1845,4 @@ export default Stockroom;
     font-size: 9px;
     border-radius: 11px;
 }
-
-
 </style>

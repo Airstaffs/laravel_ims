@@ -13,6 +13,7 @@ use App\Services\UserLogService;
 use Carbon\Carbon;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 
 class LoginController extends Controller
 {
@@ -144,24 +145,26 @@ class LoginController extends Controller
     /** Enforce the schedule gate unless SuperAdmin. Returns RedirectResponse|null. */
     private function enforceScheduleGateOrBypass(User $user, Request $request)
     {
-        // Pull latest role from DB to be safe
         $role = DB::table('tbluser')->where('id', $user->id)->value('role');
-        if (is_string($role) && strcasecmp($role, 'SuperAdmin') === 0) {
-            return null; // bypass
+        if (is_string($role) && in_array(strtolower($role), ['superadmin', 'admin'], true)) {
+            return null;
         }
 
-        $tz = $this->detectTimezoneFromRequest($request); // same logic you use elsewhere
-        $gate = $this->checkLoginWindow($user->id, $tz);
+        // Always evaluate schedule in LA time:
+        $gate = $this->checkLoginWindow($user->id, self::DB_TZ); // 'America/Los_Angeles'
 
         if ($gate['allowed'])
             return null;
 
-        // deny and log out
         Auth::logout();
-        return back()->withErrors([
-            'username' => $gate['message'] ?? 'Login not allowed right now.'
-        ])->withInput($request->only('username'));
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->withErrors([
+            'username' => ($gate['message'] ?? 'Login not allowed right now.') . ' (based on Los Angeles time)',
+        ]);
     }
+
 
     public function __construct(UserLogService $userLogService)
     {
@@ -250,7 +253,6 @@ class LoginController extends Controller
             return back()->withErrors([
                 'username' => 'The provided credentials do not match our records.',
             ])->withInput($request->only('username'));
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
@@ -503,7 +505,6 @@ class LoginController extends Controller
                 'employeeClocksThisweek',
                 'employeeClocks'
             ));
-
         } catch (\Exception $e) {
             Log::error('Dashboard error: ' . $e->getMessage());
             return redirect()->route('login')
@@ -516,6 +517,8 @@ class LoginController extends Controller
         return Socialite::driver('google')->redirect();
     }
 
+    // Google Callback Handler
+    // Google Callback Handler
     public function handleGoogleCallback()
     {
         try {
@@ -524,35 +527,53 @@ class LoginController extends Controller
 
             // Restrict to @airstaffs.com domain
             if (!Str::endsWith($email, '@airstaffs.com')) {
-                return redirect()->route('login')->with('error', 'Only Airstaffs employees are allowed.');
+                return redirect()->route('login')
+                    ->with('error', 'Only Airstaffs employees are allowed.');
             }
 
             // Extract username
             $username = Str::ucfirst(Str::before($email, '@'));
 
-            // Check if user with this username already exists
-            $user = User::where('username', $username)->first();
+            // Try to find user by email first
+            $user = User::where('email', $email)->first();
 
-            if ($user) {
-                // Update existing user info
-                $user->update([
-                    'email' => $email,
-                    'profile_picture' => $googleUser->getAvatar(),
-                ]);
+            if (!$user) {
+                // Email not found, check if username exists (might have null email)
+                $user = User::where('username', $username)->first();
+
+                if ($user) {
+                    // User exists with this username - update their email
+                    Log::info('Found existing user by username, updating email', [
+                        'username' => $username,
+                        'old_email' => $user->email,
+                        'new_email' => $email
+                    ]);
+
+                    $user->update([
+                        'email' => $email,
+                        'profile_picture' => $googleUser->getAvatar(),
+                    ]);
+                } else {
+                    // No user found by email or username - create new user
+                    $user = User::create([
+                        'username' => $username,
+                        'email' => $email,
+                        'profile_picture' => $googleUser->getAvatar(),
+                        'password' => bcrypt(Str::random(32)),
+                        'role' => 'User'
+                    ]);
+                    Log::info('Created new user', ['username' => $username, 'email' => $email]);
+                }
             } else {
-                // Create new user
-                $user = User::create([
-                    'username' => $username,
-                    'email' => $email,
+                // User found by email - just update profile picture
+                $user->update([
                     'profile_picture' => $googleUser->getAvatar(),
-                    'password' => bcrypt($username . '1234'),
                 ]);
+                Log::info('Updated existing user by email', ['username' => $user->username]);
             }
 
             // Authenticate the user
             Auth::login($user);
-
-            // Regenerate session for security
             request()->session()->regenerate();
 
             if ($resp = $this->enforceScheduleGateOrBypass($user, request())) {
@@ -571,21 +592,139 @@ class LoginController extends Controller
                 Log::warning('Failed to log Google login: ' . $e->getMessage());
             }
 
-            // FIXED: Set success message for dashboard (Google login)
-            request()->session()->flash('login_success', 'Welcome back, ' . $user->username . '! (Google Login)');
+            // Check if user needs to complete their profile
+            if (Schema::hasColumn('tbluser', 'first_login')) {
+                $firstLogin = $user->first_login;
 
-            $firstLogin = \DB::table('tbluser')->where('id', $user->id)->value('first_login');
-            if (is_null($firstLogin) || (int) $firstLogin === 1) {
-                return redirect()->route('account.complete.view');
+                // Redirect to account complete if first_login is null (not yet completed)
+                if (is_null($firstLogin)) {
+                    Log::info('Redirecting to account complete view', [
+                        'user_id' => $user->id,
+                        'first_login' => $firstLogin
+                    ]);
+                    return redirect()->route('account.complete.view');
+                }
             }
 
-            // Redirect to dashboard
-            return redirect()->route('dashboard.system');
+            return redirect()->route('dashboard.system')
+                ->with('login_success', "Welcome back, {$user->username}! (Google Login)");
 
         } catch (\Exception $e) {
-            Log::error('Google login error: ' . $e->getMessage());
-            return redirect()->route('login')->with('error', 'Failed to log in with Google. Please try again.');
+            Log::error('Google login error: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ]);
+            return redirect()->route('login')
+                ->with('error', 'Failed to log in with Google. Please try again.');
         }
+    }
+
+    // Get User Profile Details
+    public function getUserProfileDetails(Request $req)
+    {
+        $uid = $req->user()->id;
+
+        $user = DB::table('tbluser')->where('id', $uid)->first();
+        $profile = DB::table('tbluser_profile')->where('user_id', $uid)->first();
+
+        return response()->json([
+            'user' => [
+                'username' => $user->username ?? null,
+                'office_role' => $user->office_role ?? $user->role ?? null,
+                'accounttype' => $user->accounttype ?? null,
+                'email' => $user->email ?? null,
+            ],
+            'profile' => [
+                'full_name' => $profile->full_name ?? '',
+                'work_email' => $profile->work_email ?? ($user->email ?? ''),
+                'contact_phone' => $profile->contact_phone ?? '',
+                'birthdate' => $profile->birthdate ?? '',
+                'address' => $profile->address ?? '',
+                'ice_name' => $profile->ice_name ?? '',
+                'ice_relationship' => $profile->ice_relationship ?? '',
+                'ice_phone' => $profile->ice_phone ?? '',
+            ],
+        ]);
+    }
+
+    // Update User Profile Details
+    public function updateUserProfileDetails(Request $req)
+    {
+        $uid = $req->user()->id;
+
+        // Check if this is the first login (null means not completed yet)
+        $firstLoginValue = DB::table('tbluser')->where('id', $uid)->value('first_login');
+        $firstLogin = is_null($firstLoginValue);
+
+        // If first login, all required; otherwise keep your current nullable rules
+        $rules = $firstLogin ? [
+            'full_name' => 'required|string|max:255',
+            'work_email' => 'required|email|max:255',
+            'contact_phone' => 'required|string|max:50',
+            'birthdate' => 'required|date',
+            'address' => 'required|string',
+            'ice_name' => 'required|string|max:255',
+            'ice_relationship' => 'required|string|max:100',
+            'ice_phone' => 'required|string|max:50',
+        ] : [
+            'full_name' => 'nullable|string|max:255',
+            'work_email' => 'nullable|email|max:255',
+            'contact_phone' => 'nullable|string|max:50',
+            'birthdate' => 'nullable|date',
+            'address' => 'nullable|string',
+            'ice_name' => 'nullable|string|max:255',
+            'ice_relationship' => 'nullable|string|max:100',
+            'ice_phone' => 'nullable|string|max:50',
+        ];
+
+        $v = Validator::make($req->all(), $rules);
+        if ($v->fails()) {
+            return response()->json(['ok' => false, 'errors' => $v->errors()], 422);
+        }
+
+        $data = [
+            'full_name' => $req->input('full_name'),
+            'work_email' => $req->input('work_email'),
+            'contact_phone' => $req->input('contact_phone'),
+            'birthdate' => $req->input('birthdate'),
+            'address' => $req->input('address'),
+            'ice_name' => $req->input('ice_name'),
+            'ice_relationship' => $req->input('ice_relationship'),
+            'ice_phone' => $req->input('ice_phone'),
+            'updated_at' => now(),
+        ];
+
+        DB::transaction(function () use ($uid, $data, $firstLogin) {
+            $exists = DB::table('tbluser_profile')->where('user_id', $uid)->exists();
+
+            if ($exists) {
+                DB::table('tbluser_profile')->where('user_id', $uid)->update($data);
+            } else {
+                DB::table('tbluser_profile')->insert($data + [
+                    'user_id' => $uid,
+                    'created_at' => now(),
+                ]);
+            }
+
+            // Keep tbluser.email in sync with work_email if provided
+            if (!empty($data['work_email'])) {
+                DB::table('tbluser')->where('id', $uid)->update([
+                    'email' => $data['work_email'],
+                    'updated_at' => now(),
+                ]);
+            }
+
+            // If this was the first-login completion, set the timestamp
+            if ($firstLogin) {
+                DB::table('tbluser')->where('id', $uid)->update([
+                    'first_login' => now()
+                ]);
+                Log::info('First login completed, setting first_login timestamp', ['user_id' => $uid]);
+            }
+        });
+
+        return response()->json(['ok' => true, 'message' => 'Account details updated.']);
     }
 
     public function logout(Request $request)

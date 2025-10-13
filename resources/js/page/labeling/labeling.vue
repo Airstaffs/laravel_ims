@@ -133,14 +133,6 @@
                             <!-- Button for more details -->
                             <td>
                                 <div class="action-buttons">
-                                    <button
-                                        class="btn-details"
-                                        @click="toggleDetails(index)"
-                                    >
-                                        <i class="fas fa-info-circle"></i> More
-                                        Details
-                                    </button>
-
                                     <span>
                                         <strong></strong>
                                         {{ item.actions }}
@@ -202,25 +194,6 @@
                                     >
                                         <i class="bi bi-pencil"></i>Edit
                                     </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="expandedRows[index]">
-                            <td :colspan="showDetails ? 18 : 12">
-                                <div
-                                    class="expanded-content p-3 border rounded"
-                                >
-                                    <p>
-                                        <strong
-                                            >External Title provided by
-                                            Supplier:</strong
-                                        >
-                                        {{ item.ProductTitle }}
-                                    </p>
-                                    <p>
-                                        <strong>Product Name:</strong>
-                                        {{ item.AStitle }}
-                                    </p>
                                 </div>
                             </td>
                         </tr>
@@ -387,13 +360,6 @@
                     <hr />
 
                     <div class="mobile-card-actions">
-                        <button
-                            class="btn btn-details"
-                            @click="toggleDetails(index)"
-                        >
-                            <i class="fas fa-info-circle"></i> Details
-                        </button>
-
                         <!-- <span><strong></strong> {{ item.actions }}</span> -->
                         <button
                             @click="showFnskuModal(item)"
@@ -434,21 +400,6 @@
                         >
                             <i class="bi bi-pencil"></i>Edit
                         </button>
-                    </div>
-
-                    <hr v-if="expandedRows[index]" />
-
-                    <div
-                        v-if="expandedRows[index]"
-                        class="mobile-expanded-content"
-                    >
-                        <p>
-                            <strong
-                                >External Title provided by Supplier:</strong
-                            >
-                            {{ item.ProductTitle }}
-                        </p>
-                        <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
                     </div>
                 </div>
             </div>

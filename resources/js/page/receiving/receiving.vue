@@ -846,6 +846,10 @@
                                                     <dd>{{ item.EAN }}</dd>
                                                 </div>
                                                 <div class="info-item">
+                                                    <dt>FNSKU:</dt>
+                                                    <dd>{{ item.FNSKU }}</dd>
+                                                </div>
+                                                <div class="info-item">
                                                     <dt>SKU:</dt>
                                                     <dd>{{ item.SKU }}</dd>
                                                 </div>

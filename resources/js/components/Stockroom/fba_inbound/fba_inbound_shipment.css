@@ -135,6 +135,7 @@ hr {
 .modal-addItem .modal-body,
 .modal-showStore .modal-body,
 .modal-inbound .modal-body {
+    background: #fff;
     padding: 20px;
     display: flex;
     flex-direction: column;
@@ -169,4 +170,44 @@ hr {
 
 .filter-container label span {
     white-space: pre;
+}
+
+.modal-footer {
+    background: #fff;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+@media (max-width: 767px) {
+    form.shipment-form {
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+    }
+
+    .filter-container {
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: stretch;
+    }
+
+    .filter-container fieldset {
+        width: 100%;
+    }
+
+    .modal-addItem .modal-body {
+        overflow-y: auto;
+    }
+
+    .product-table-pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .modal-footer button {
+        margin: 0;
+    }
 }

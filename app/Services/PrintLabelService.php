@@ -705,6 +705,26 @@ class PrintLabelService extends BasetablesController
                 case 'print_count':
                     return (isset($product->printCount) && $product->printCount > 0) ? 
                         $this->generatePrintCountLabel($product->printCount + 1) : '';
+
+                case 'small_label_card':
+                    if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
+                        $Wserial = trim($product->serialnumber);
+                        $smallCardCopies = 1;
+                        $zpl = '';
+                        
+                        Log::info('Reprinting small label cards:', [
+                            'serial' => $Wserial,
+                            'copies' => $smallCardCopies
+                        ]);
+                        
+                        // Generate 3 copies
+                        for ($i = 0; $i < $smallCardCopies; $i++) {
+                            $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial);
+                        }
+                        
+                        return $zpl;
+                    }
+                    return '';        
                     
                 default:
                     Log::warning('Unknown label type for reprint:', ['labelType' => $labelType]);
@@ -863,6 +883,21 @@ class PrintLabelService extends BasetablesController
             if (isset($product->validation_status) && in_array($product->validation_status, ['invalid', 'unvalidated'])) {
                 $zpl .= $this->generateValidationStatusLabel($product->validation_status);
             }
+
+            if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
+                    $Wserial = trim($product->serialnumber);
+                    $smallCardCopies = 3;
+                    
+                    Log::info('Generating small label cards:', [
+                        'serial' => $Wserial,
+                        'copies' => $smallCardCopies
+                    ]);
+                    
+                    // Print small label card multiple times
+                    for ($i = 0; $i < $smallCardCopies; $i++) {
+                        $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial);
+                    }
+                }
 
             // Instruction card processing - Generate separately for different printer
             if (!empty($product->ASINviewer)) {
