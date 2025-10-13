@@ -55,7 +55,8 @@ export default {
             showDetectSerialModal: false, // State for Detect Serial Numbers modal
 
             apiResult: {
-                serials: [],
+                step3: null,
+                step4: null,
             },
 
             showImageModal: false,
@@ -74,6 +75,9 @@ export default {
             basePath: "/images/thumbnails/",
             loading: false,
             error: null,
+
+            productImages: [], // 👈 Array to hold product thumbnails for Step 2
+
         };
     },
     computed: {
@@ -474,12 +478,31 @@ export default {
                     // Store the product ID and rtcounter received from the backend
                     this.productId = response.data.productId;
                     this.rtcounter = response.data.rtcounter; // Store rtcounter
-                    this.$refs.scanner.loadProductThumbnails(
-                        response.data.productDetails
-                    );
+                    // ✅ Load images for scanner (kept for internal scanner use)
+                    this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
+
+                    // ✅ Build thumbnails for Step 2 preview
+                    const basePath = "/images/thumbnails/";
+                    const thumbnails = [];
+                    const product = response.data.productDetails;
+
+                    for (let i = 1; i <= 15; i++) {
+                        const key = `img${i}`;
+                        if (product[key] && product[key] !== "NULL" && product[key].trim() !== "") {
+                        thumbnails.push({
+                            src: basePath + product[key],
+                            label: `Image ${i}`,
+                        });
+                        }
+                    }
+
+                    // Save thumbnails for Step 2 display
+                    this.productImages = thumbnails;
+
                     // Move to Pass/Fail step
                     this.currentStep = 2;
-                    SoundService.success(); // Play success sound for finding tracking
+                    SoundService.success();
+                    
                 } else {
                     // Tracking not found
                     this.$refs.scanner.showScanError(
@@ -919,39 +942,51 @@ export default {
                         const hasPcn = this.pcnNumber !== "N/A";
 
                         // Upload each image separately
+                        // Upload each image separately
                         for (let i = 0; i < images.length; i++) {
                             try {
-                                // Change this line in your submitScanData method:
+                                // Determine step and serial flags
+                                let isSerial = false;
+                                let serialIndex = 0;
+
+                                // 👇 Step 3 and 4 are serial images (you can track these via currentStep stored in img.step)
+                                const imgStep = this.$refs.scanner.capturedImages[i]?.step || 0;
+
+                                if (imgStep === 3) {
+                                    isSerial = true;
+                                    serialIndex = 1;
+                                } else if (imgStep === 4) {
+                                    isSerial = true;
+                                    serialIndex = 2;
+                                }
+
+                                // Upload image with serial info
                                 const imageResponse = await axios.post(
-                                    `${API_BASE_URL}/api/images/upload`,
-                                    {
-                                        _token: csrfToken,
-                                        productId: this.productId,
-                                        imageIndex: i,
-                                        imageData: images[i],
-                                        hasSerialTwo: hasSerialTwo,
-                                        hasPcn: hasPcn,
+                                `${API_BASE_URL}/api/images/upload`,
+                                {
+                                    _token: csrfToken,
+                                    productId: this.productId,
+                                    imageIndex: i,
+                                    imageData: images[i],
+                                    isSerial: isSerial,
+                                    serialIndex: serialIndex,
+                                },
+                                {
+                                    withCredentials: true,
+                                    headers: {
+                                    "Content-Type": "application/json",
+                                    Accept: "application/json",
+                                    "X-CSRF-TOKEN": csrfToken,
                                     },
-                                    {
-                                        withCredentials: true,
-                                        headers: {
-                                            "Content-Type": "application/json",
-                                            Accept: "application/json",
-                                            "X-CSRF-TOKEN": csrfToken,
-                                        },
-                                    }
+                                }
                                 );
-                                console.log(
-                                    `Image ${i} uploaded:`,
-                                    imageResponse.data
-                                );
+
+                                console.log(`Image ${i} uploaded:`, imageResponse.data);
                             } catch (imageError) {
-                                console.error(
-                                    `Error uploading image ${i}:`,
-                                    imageError
-                                );
+                                console.error(`Error uploading image ${i}:`, imageError);
                             }
                         }
+
                     }
                     //clear fetch delivered item image
                     this.$refs.scanner.clearProductThumbnails();
@@ -1223,6 +1258,15 @@ export default {
                 });
             }
         },
+        openImageModalFromPreview(index) {
+            // Populate modalImages with productImages src values
+            this.modalImages = this.productImages.map((img) => img.src);
+            this.currentImageIndex = index;
+            this.showImageModal = true;
+
+            document.body.style.overflow = "hidden"; // Prevent scroll
+        },
+
 
     },
     watch: {
