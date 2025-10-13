@@ -458,7 +458,7 @@ export default {
         { key: 'transparency_qr', name: 'Transparency QR Status', description: 'Amazon transparency status', category: 'small' },
         { key: 'print_count', name: 'Print Count Label', description: 'Current print count information', category: 'small' },
         { key: 'vector_image', name: 'Vector Image', description: 'Product vector image (SMALL LABEL PRINTER)', category: 'small' },
-        
+        { key: 'small_label_card', name: 'Small Label Card (Page6)', description: 'Compact label with serial QR code (2"x1" - 3 copies)', category: 'small' },
         // Instruction Card Types - ONLY INSTRUCTION CARDS
         { key: 'instruction_cards', name: 'Instruction Cards', description: 'All instruction cards (INSTRUCTION CARD PRINTER ONLY)', category: 'instruction' }
       ]

@@ -32,4 +32,22 @@
 .instruction-text{
     text-align: center;
 }
+.product-thumbnails-grid {
+  @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-3;
+}
+.product-thumbnail {
+  @apply border rounded-lg shadow-sm overflow-hidden cursor-pointer transition-transform;
+}
+.product-thumbnail:hover {
+  @apply scale-105;
+}
+.product-thumbnail img {
+  @apply w-full h-32 object-cover;
+}
+.thumbnail-label {
+  @apply text-center text-sm bg-gray-100 py-1;
+}
+.no-images {
+  @apply text-center text-gray-500 mt-4;
+}
 

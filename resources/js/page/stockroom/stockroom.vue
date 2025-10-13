@@ -34,6 +34,18 @@
                         Open DS7 & OOS
                     </button>
                 </div>
+                <button class="btn" @click="showNewScannedModal = true">
+                    <i class="fas fa-barcode"></i> New Scanned
+                    <span
+                        v-if="shouldShowBadge"
+                        class="notification-badge"
+                        :class="badgeClasses"
+                        :title="`${newScannedCount} new items scanned today (US time)`"
+                    >
+                        {{ displayCount }}
+                    </span>
+                </button>
+                <button class="btn" @click="openDs7Oos">Open DS7 & OOS</button>
             </div>
 
             <div class="store-filter">
@@ -1796,11 +1808,6 @@ export default Stockroom;
 }
 
 /* Ensure parent containers don't clip the badge */
-.header-buttons {
-    position: relative;
-    overflow: visible !important;
-}
-
 .top-header {
     overflow: visible !important;
 }
