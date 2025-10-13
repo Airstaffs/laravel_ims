@@ -29,8 +29,11 @@
                             {{ displayCount }}
                         </span>
                     </button>
-                </div>
 
+                    <button class="btn" @click="openDs7Oos">
+                        Open DS7 & OOS
+                    </button>
+                </div>
             </div>
 
             <div class="store-filter">
@@ -1180,6 +1183,13 @@
             @close="closeNewScannedModal"
             @update-count="handleCountUpdate"
         />
+
+        <!-- DS7oos Modal -->
+        <Ds7OosModal
+            :show="ui.ds7oos.show"
+            @close="ui.ds7oos.show = false"
+            @save="handleDs7OosSave"
+        />
     </div>
 </template>
 
@@ -1860,6 +1870,4 @@ export default Stockroom;
     font-size: 9px;
     border-radius: 11px;
 }
-
-
 </style>
