@@ -91,10 +91,7 @@
         border-radius: 4px;
     }
 
-    .btn-details {
-        min-width: 150px;
-    }
-
+    .btn-print,
     .btn-example {
         border: 1px solid;
     }

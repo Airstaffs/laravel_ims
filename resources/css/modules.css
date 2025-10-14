@@ -541,7 +541,6 @@ textarea.form-control {
 .btn-edit-address,
 .btn-edit-note,
 .btn-edit {
-    width: 150px;
     height: 40px;
     padding: 5px;
     border: 1px solid #ddd;

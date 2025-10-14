@@ -4,14 +4,17 @@
         <div class="top-header">
             <div class="header-buttons">
                 <button class="btn" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
+                    <i class="fas fa-barcode"></i> 
+                    <span class="d-none d-md-inline">Scan Items</span>
                 </button>
                 <button class="btn" @click="loadFBAInboundShipment">
-                    <i class="fas fa-truck"></i> FBA Inbound Shipment
+                    <i class="fas fa-truck"></i> 
+                    <span class="d-none d-md-inline">FBA Inbound Shipment</span>
                 </button>
 
                 <button class="btn" @click="showNewScannedModal = true">
-                    <i class="fas fa-barcode"></i> New Scanned
+                    <i class="fas fa-barcode"></i> 
+                    <span class="d-none d-md-inline">New Scanned</span>
                     <span
                         v-if="shouldShowBadge"
                         class="notification-badge"
@@ -559,27 +562,30 @@
                     <hr />
 
                     <div class="mobile-card-actions">
-                        <button class="btn" @click="printLabel(item.ProductID)">
-                            <i class="fas fa-print"></i> Print
+                        <button class="btn btn-print" @click="printLabel(item.ProductID)">
+                            <i class="fas fa-print"></i> 
+                            <span class="d-none d-md-block">Print</span>
                         </button>
                         <button
                             class="btn btn-expand"
                             @click="toggleDetails(index)"
                         >
                             <i class="fas fa-list"></i>
-                            {{ expandedRows[index] ? "Hide" : "Details" }}
+                            <span class="d-none d-md-block">{{ expandedRows[index] ? "Hide" : "Details" }}</span>
                         </button>
                         <button
                             class="btn btn-details"
                             @click="viewProductDetails(item)"
                         >
-                            <i class="fas fa-info-circle"></i> More
+                            <i class="fas fa-info-circle"></i> 
+                            <span class="d-none d-md-block">More</span>
                         </button>
                         <button
                             class="btn btn-process"
                             @click="openProcessModal(item)"
                         >
-                            <i class="fas fa-cogs"></i> Process
+                            <i class="fas fa-cogs"></i> 
+                            <span class="d-none d-md-block">Process</span>
                         </button>
                     </div>
 

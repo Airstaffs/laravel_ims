@@ -69,8 +69,6 @@ axios.interceptors.request.use((cfg) => {
   return cfg;
 });
 
-import "../css/app.css";
-
 // Import components
 import Stockroom from "./page/stockroom/stockroom.vue";
 import Cleaning from "./page/cleaning/cleaning.vue";

@@ -3,7 +3,8 @@
         <div class="top-header">
             <div class="header-buttons">
                 <button class="btn btn-scan" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
+                    <i class="fas fa-barcode"></i>
+                    <span class="d-none d-md-inline">Scan Items</span>
                 </button>
             </div>
         </div>
@@ -316,7 +317,8 @@
                                         class="btn btn-edit"
                                         @click="openEditModal(item)"
                                     >
-                                        View Details
+                                        <i class="fas fa-info-circle"></i>
+                                        <span class="d-none d-md-block">View Details</span>
                                     </button>
                                 </div>
                             </td>
@@ -488,11 +490,8 @@
                             class="btn btn-details"
                             @click="toggleDetails(index)"
                         >
-                            <i class="fas fa-info-circle"></i> Details
+                            <i class="fas fa-info-circle"></i>
                         </button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
                     </div>
 
                     <hr v-if="expandedRows[index]" />

@@ -527,6 +527,7 @@ a:active {
 .header-buttons .btn {
     height: 40px;
     color: white;
+    display: flex;
 }
 
 .header-buttons .btn:hover {

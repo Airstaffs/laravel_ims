@@ -342,13 +342,15 @@
                             class="btn btn-details"
                             @click="toggleDetails(index)"
                         >
-                            <i class="fas fa-info-circle"></i> Details
+                            <i class="fas fa-info-circle"></i> 
+                            <span class="d-none d-md-block">Details</span>
                         </button>
                         <button
                             class="btn btn-edit"
                             @click="openEditModal(item)"
                         >
-                            Edit
+                            <i class="bi bi-pencil"></i>
+                            <span class="d-none d-md-block">Edit</span>
                         </button>
                     </div>
 
