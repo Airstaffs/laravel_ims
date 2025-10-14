@@ -1,0 +1,2 @@
+# stop Laravel rewrites here
+RewriteEngine Off
