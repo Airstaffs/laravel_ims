@@ -3,7 +3,8 @@
         <div class="top-header">
             <div class="header-buttons">
                 <button class="btn btn-scan" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
+                    <i class="fas fa-barcode"></i>
+                    <span class="d-none d-md-inline">Scan Items</span>
                 </button>
                 <!-- <button class="btn btn-manual" @click="openDetectSerialModal">
                     <i class="fas fa-keyboard"></i> Detect Serial Numbers
@@ -507,6 +508,7 @@
                                         class="btn btn-edit"
                                         @click="openEditModal(item)"
                                     >
+                                        <i class="fas fa-info-circle"></i>
                                         View Details
                                     </button>
                                 </div>
@@ -678,11 +680,8 @@
                             class="btn btn-details"
                             @click="toggleDetails(index)"
                         >
-                            <i class="fas fa-info-circle"></i> Details
+                            <i class="fas fa-info-circle"></i>
                         </button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
                     </div>
 
                     <hr v-if="expandedRows[index]" />

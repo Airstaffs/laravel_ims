@@ -56,14 +56,6 @@
 
                     notifBadges.forEach(badge => {
                         if (!badge) return;
-
-                        if (count > 0) {
-                            badge.textContent = count;
-                            badge.style.display = 'inline-block';
-                        } else {
-                            badge.style.display = 'none';
-                            badge.textContent = '';
-                        }
                     });
                 });
         }

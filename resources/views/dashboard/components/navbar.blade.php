@@ -4,7 +4,7 @@
             <button id="burger-menu" class="navbar-toggler" type="button">
                 <span class="navbar-toggler-icon"></span>
             </button>
-            <a class="navbar-brand" href="#">
+            <a class="navbar-brand d-md-none" href="#">
                 @if (session('logo'))
                     <img src="{{ asset('storage/' . session('logo')) }}" alt="Logo"
                         style="max-width: 50px; max-height: 50px;">
@@ -13,9 +13,9 @@
             </a>
 
             <!-- Icons Always Visible on Mobile -->
-            <div class="d-flex align-items-center ms-auto d-lg-none">
+            <div class="d-flex align-items-center ms-auto d-lg-none d-md-none">
                 <a href="" class="nav-link p-2" onclick="openBreakModal(event)">
-                    <i class="bi bi-file-break me-2"></i>
+                    <i class="bi bi-file-break"></i>
                     <span class="d-none d-lg-inline">Break</span>
                 </a>
                 <!-- Notification Icon -->
@@ -23,7 +23,7 @@
                     data-bs-target="#notifModal">
                     <i class="bi bi-bell"></i>
                     <span id="notifBadgeMobile"
-                        class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        class="position-absolute top-2 start-100 translate-middle badge rounded-pill bg-danger">
                         0
                     </span>
                 </a>
@@ -47,12 +47,12 @@
         </div>
 
         <!-- Navbar Collapse for Desktop -->
-        <div class="collapse" id="navbarNav">
+        <div class="collapse d-none d-md-block" id="navbarNav">
             <ul class="navbar-nav text-center">
                 <!-- Announcements -->
                 <li class="nav-item" id="announcement-nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center" href="#" data-bs-toggle="modal"
-                        data-bs-target="#annManageModal" onclick="ANN.onOpenManage()">
+                    <a class="nav-link d-flex align-items-center justify-content-center" href="#"
+                        data-bs-toggle="modal" data-bs-target="#annManageModal" onclick="ANN.onOpenManage()">
                         <i class="bi bi-megaphone me-2"></i>
                         <span class="d-none d-lg-inline">Announcements</span>
                     </a>
@@ -60,16 +60,16 @@
 
                 <!-- Break Center -->
                 <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center position-relative" href="#"
-                        onclick="openBreakModal(event)">
+                    <a class="nav-link d-flex align-items-center justify-content-center position-relative"
+                        href="#" onclick="openBreakModal(event)">
                         <i class="bi bi-file-break me-2"></i>
                         <span class="d-none d-lg-inline">Break</span>
                     </a>
                 </li>
                 <!-- Notification -->
                 <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center position-relative" href="#"
-                        data-bs-toggle="modal" data-bs-target="#notifModal">
+                    <a class="nav-link d-flex align-items-center justify-content-center position-relative"
+                        href="#" data-bs-toggle="modal" data-bs-target="#notifModal">
                         <i class="bi bi-bell me-2"></i>
                         <span class="d-none d-lg-inline">Notifications</span>
                         <span id="notifBadgeDesktop"
@@ -81,8 +81,8 @@
                 </li>
                 <!-- Profile -->
                 <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center" href="#" data-bs-toggle="modal"
-                        data-bs-target="#profileModal">
+                    <a class="nav-link d-flex align-items-center justify-content-center" href="#"
+                        data-bs-toggle="modal" data-bs-target="#profileModal">
                         <i class="bi bi-person me-2"></i>
                         <span class="d-none d-lg-inline">Profile</span>
                     </a>
@@ -90,8 +90,8 @@
 
                 <!-- Settings -->
                 <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center" href="#" data-bs-toggle="modal"
-                        data-bs-target="#settingsModal">
+                    <a class="nav-link d-flex align-items-center justify-content-center" href="#"
+                        data-bs-toggle="modal" data-bs-target="#settingsModal">
                         <i class="bi bi-gear me-2"></i>
                         <span class="d-none d-lg-inline">Settings</span>
                     </a>

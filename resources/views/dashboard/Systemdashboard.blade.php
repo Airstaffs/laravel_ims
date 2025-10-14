@@ -9,7 +9,6 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    @vite(['resources/css/app.css', 'resources/js/app.js'])
 
     <!-- Title and CSRF -->
     <title>{{ session('site_title', 'IMS') }}</title>
@@ -23,6 +22,8 @@
     <!-- App-specific CSS via Vite -->
     @vite('resources/css/app.css')
 
+    <!-- App-specific JS via Vite -->
+    @vite(['resources/js/app.js'])
     <!-- JS Dependencies -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
