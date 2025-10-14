@@ -64,16 +64,33 @@ class ImageProcessingService
     /**
      * Convert image QR for serial number - Updated to match new layout
      */
-    public function convertImageQRserial($serial)
+      public function convertImageQRserial($serial)
     {
         try {
+            if (empty($serial)) {
+                Log::error("Serial number is required");
+                return "";
+            }
+            
+            // Template path for serial QR label
+            $templatePath = public_path('images/warranty/templates/SerialQRTemplate.png');
+            
+            if (!file_exists($templatePath)) {
+                Log::error("Serial QR template file does not exist: " . $templatePath);
+                return "";
+            }
+            
+            // Create the QR code URL
             $serialfind = $serial;
             $seriallink = storage_path('app/public/images/serial_qr/' . $serialfind . '.png');
             $manual = url('storage/serial_qr/' . $serialfind . '.png');
             
-            $qrCodePath = $this->imagesPath . '/qrcodeSerial/' . $serialfind . '.png';
-            
             // Generate QR code
+            $qrCodePath = $this->imagesPath . '/qrcodeSerial/' . $serialfind . '.png';
+            if (!file_exists(dirname($qrCodePath))) {
+                mkdir(dirname($qrCodePath), 0777, true);
+            }
+            
             if (class_exists('QRcode')) {
                 \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 5);
             } else {
@@ -86,112 +103,62 @@ class ImageProcessingService
                 return $this->generateSimpleQRZpl($serial);
             }
             
-            $qrCodeImage = \imagecreatefrompng($qrCodePath);
-            if (!$qrCodeImage) {
-                Log::warning('Failed to load QR code image');
-                return $this->generateSimpleQRZpl($serial);
+            // Load the template
+            $imageData = base64_encode(file_get_contents($templatePath));
+            $decodedImage = base64_decode($imageData);
+            
+            if (!$decodedImage) {
+                Log::error("Failed to decode serial QR template image");
+                return "";
             }
             
-            // Set dimensions for the output image (matching the new layout)
-            $outputImageWidth = 400; // Width in pixels
-            $outputImageHeight = 200; // Height in pixels (changed from 250 to match manual)
-
+            // Set dimensions for the label - 2" x 1.18" at 203dpi
+            $outputImageWidth = 400;
+            $outputImageHeight = 240;
+            
             // Create a blank image with the specified dimensions
             $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
-
+            
             // Fill the background with white color
             $white = \imagecolorallocate($image, 255, 255, 255);
+            $black = \imagecolorallocate($image, 0, 0, 0);
             \imagefill($image, 0, 0, $white);
-
-            // Add text "Scan QR Code" at the top (matching manual positioning)
-            $scanMeText = "Scan QR Code";
-            $scanMeFontSize = 20; // Font size for "Scan QR Code"
-            $textColor = \imagecolorallocate($image, 0, 0, 0); // Black
-
-            if (file_exists($this->fontsPath)) {
-                // Calculate text bounding box for "Scan QR Code"
-                $bbox = \imagettfbbox($scanMeFontSize, 0, $this->fontsPath, $scanMeText);
-                $scanMeTextWidth = $bbox[2] - $bbox[0];
-                $scanMeTextX = ($outputImageWidth - $scanMeTextWidth) / 2; // Center text horizontally
-
-                // Adjust this value to move the text closer to the top (same as manual)
-                $scanMeTextY = 50; // Move text higher
-
-                \imagettftext($image, $scanMeFontSize, 0, $scanMeTextX, $scanMeTextY, $textColor, $this->fontsPath, $scanMeText);
-            } else {
-                // Use built-in font
-                $scanMeTextWidth = strlen($scanMeText) * 10;
-                $scanMeTextX = ($outputImageWidth - $scanMeTextWidth) / 2;
-                $scanMeTextY = 30;
-                \imagestring($image, 3, $scanMeTextX, $scanMeTextY, $scanMeText, $textColor);
-            }
-
-            // Calculate QR code size and position (same calculation as manual)
-            $availableWidthForQRCode = $outputImageWidth - 40; // Subtract margins
-            $availableHeightForQRCode = $outputImageHeight - (file_exists($this->fontsPath) ? 50 : 30) - 20 - 20; // Subtract text height and extra padding
-
-            $qrScaleFactor = min($availableWidthForQRCode / \imagesx($qrCodeImage), $availableHeightForQRCode / \imagesy($qrCodeImage));
-            $scaledQrCodeWidth = (int)(\imagesx($qrCodeImage) * $qrScaleFactor);
-            $scaledQrCodeHeight = (int)(\imagesy($qrCodeImage) * $qrScaleFactor);
-
-            // Scale the QR code
-            $scaledQrCodeImage = \imagecreatetruecolor($scaledQrCodeWidth, $scaledQrCodeHeight);
-            \imagecopyresampled($scaledQrCodeImage, $qrCodeImage, 0, 0, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
-            \imagedestroy($qrCodeImage);
-
-            // Merge QR code with the blank image (same positioning as manual)
-            $dstX = 20; // Margin from the left
-            $dstY = (file_exists($this->fontsPath) ? 50 : 30) + 20 + 10; // Position QR code just below the text
-            \imagecopy($image, $scaledQrCodeImage, $dstX, $dstY, 0, 0, $scaledQrCodeWidth, $scaledQrCodeHeight);
-            \imagedestroy($scaledQrCodeImage);
-
-            // Add title text beside the QR code (same positioning as manual)
-            $title = "To view this item's photos in the cloud"; // New text content
-            $titleFontSize = 20; // Font size for title
-            $titleColor = \imagecolorallocate($image, 0, 0, 0); // Black
-
-            if (file_exists($this->fontsPath)) {
-                // Wrap the title text to fit within the image width
-                $maxWidth = $outputImageWidth - $dstX - $scaledQrCodeWidth - 30; // Max width for the title text
-                $lines = [];
-                $words = explode(' ', $title);
-                $currentLine = '';
-
-                foreach ($words as $word) {
-                    $testLine = $currentLine . ($currentLine ? ' ' : '') . $word;
-                    $bbox = \imagettfbbox($titleFontSize, 0, $this->fontsPath, $testLine);
-
-                    if (($bbox[2] - $bbox[0]) > $maxWidth) {
-                        $lines[] = $currentLine;
-                        $currentLine = $word;
-                    } else {
-                        $currentLine = $testLine;
+            
+            // Load and scale the template
+            if ($templateImage = @\imagecreatefromstring($decodedImage)) {
+                $scaledImage = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+                \imagefill($scaledImage, 0, 0, $white);
+                \imagecopyresampled($scaledImage, $templateImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight, \imagesx($templateImage), \imagesy($templateImage));
+                \imagecopy($image, $scaledImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight);
+                \imagedestroy($scaledImage);
+                \imagedestroy($templateImage);
+                
+                // Add QR code (centered or positioned as needed)
+                if (file_exists($qrCodePath)) {
+                    $qrCodeImage = \imagecreatefrompng($qrCodePath);
+                    if ($qrCodeImage) {
+                        // Position QR code - adjust these values based on your template
+                        $qrSize = 120; // QR code size
+                        $qrX = 150; // Center horizontally
+                        $qrY = 70;  // Center vertically
+                        
+                        // Resize and place QR code
+                        \imagecopyresampled($image, $qrCodeImage, $qrX, $qrY, 0, 0, $qrSize, $qrSize, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
+                        \imagedestroy($qrCodeImage);
                     }
+                    
+                    // QR code file is kept for potential reuse
                 }
-                $lines[] = $currentLine; // Add the last line
-
-                // Calculate title position (same as manual)
-                $lineHeight = $titleFontSize + 5; // Space between lines
-                $titleY = $dstY + ($scaledQrCodeHeight - (count($lines) * $lineHeight)) / 2; // Center vertically
-
-                foreach ($lines as $index => $line) {
-                    $bbox = \imagettfbbox($titleFontSize, 0, $this->fontsPath, $line);
-                    $titleWidth = $bbox[2] - $bbox[0];
-                    $titleX = $dstX + $scaledQrCodeWidth + 25; // Padding from the QR code
-                    $lineY = $titleY + ($index * $lineHeight) + $titleFontSize; // Vertical position of each line
-
-                    \imagettftext($image, $titleFontSize, 0, $titleX, $lineY, $titleColor, $this->fontsPath, $line);
-                }
+                
             } else {
-                // Use built-in font for title
-                $titleX = $dstX + $scaledQrCodeWidth + 25;
-                $titleY = $dstY + 20;
-                \imagestring($image, 2, $titleX, $titleY, substr($title, 0, 20), $titleColor);
-                \imagestring($image, 2, $titleX, $titleY + 15, substr($title, 20, 20), $titleColor);
+                Log::error("Failed to create image from serial QR template data");
+                \imagedestroy($image);
+                return "";
             }
-
+            
+            // Convert image to binary string for ZPL
             $binaryString = "";
-
+            
             // Convert image pixels to binary string
             for ($y = 0; $y < $outputImageHeight; $y++) {
                 for ($x = 0; $x < $outputImageWidth; $x++) {
@@ -199,31 +166,34 @@ class ImageProcessingService
                     $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
                 }
             }
-
+            
             // Free up memory
             \imagedestroy($image);
-
+            
             // Convert binary string to hexadecimal string
             $hexString = '';
             for ($i = 0; $i < strlen($binaryString); $i += 8) {
                 $byteString = substr($binaryString, $i, 8);
                 $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
             }
-
+            
             // Calculate bytes per row
             $bytesPerRow = (int)ceil($outputImageWidth / 8);
-
+            
             // Construct ZPL command
             $zplCommand = "^XA\n";
             $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
             $zplCommand .= "^XZ";
+            
+            Log::info('Generated serial QR label ZPL successfully for serial: ' . $serial);
 
             return $zplCommand;
             
         } catch (Exception $e) {
             Log::error('Error in convertImageQRserial:', [
                 'error' => $e->getMessage(),
-                'serial' => $serial
+                'serial' => $serial,
+                'trace' => $e->getTraceAsString()
             ]);
             
             return $this->generateSimpleQRZpl($serial);
@@ -1186,8 +1156,9 @@ class ImageProcessingService
             }
             
             // Create the QR code URL
-            $manual = url('storage/serial_qr/' . $serialNumber . '.png');
-            
+          //   $manual = url('storage/serial_qr/' . $serialNumber . '.png');
+            $manual = "https://www.google.com/search?q=" . urlencode($serialNumber);
+
             // Generate QR code in temp directory
             $qrCodePath = $this->imagesPath . '/temp/qr_small_' . $serialNumber . '.png';
             if (!file_exists(dirname($qrCodePath))) {
@@ -1195,7 +1166,7 @@ class ImageProcessingService
             }
             
             if (class_exists('QRcode')) {
-                \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 3); // Smaller QR code (level 3)
+                \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 5); // Smaller QR code (level 3)
             } else {
                 Log::error('QRcode class not available for small label card');
                 return "";
@@ -1212,7 +1183,7 @@ class ImageProcessingService
             
             // Set dimensions for the smaller label - 2" x 1" at 203dpi
             $outputImageWidth = 400;
-            $outputImageHeight = 200;
+            $outputImageHeight = 220;
             
             // Create a blank image with the specified dimensions
             $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
@@ -1233,7 +1204,7 @@ class ImageProcessingService
                 
                 // Add serial number in the lower left area
                 $serialTextX = 20; // Left margin
-                $serialTextY = 110; // Lower portion of label
+                $serialTextY = 120; // Lower portion of label
                 $fontSize = 20; // Smaller font for small label
                 
                 if (file_exists($this->fontsPath)) {
@@ -1253,9 +1224,9 @@ class ImageProcessingService
                     $qrCodeImage = \imagecreatefrompng($qrCodePath);
                     if ($qrCodeImage) {
                         // Position QR code on the right side of the label
-                        $qrSize = 63; // Small QR code size for 2"x1" label
+                        $qrSize = 90; // Small QR code size for 2"x1" label
                         $qrX = 310; // Position on right side (400 - 80 - 10 margin)
-                        $qrY = 75; // Center vertically in lower portion
+                        $qrY = 70; // Center vertically in lower portion
                         
                         // Resize and place QR code
                         \imagecopyresampled($image, $qrCodeImage, $qrX, $qrY, 0, 0, $qrSize, $qrSize, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
