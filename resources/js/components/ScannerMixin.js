@@ -119,19 +119,48 @@ export default {
     },
     
     closeScannerModal() {
-      // Check if any camera is active and stop it
+      // 🛑 1. Stop any active camera safely
       if (this.scannerCameraActive) {
         this.stopScanner();
       }
-      
+
+      // 🧹 2. Clear captured data & statuses
+      this.capturedImages = [];
+      this.showSuccessNotification = false;
+      this.showWarningNotification = false;
+      this.showErrorNotification = false;
+
+      // 🔄 3. Reset serials and OCR results on parent (if exist)
+      if (this.$parent) {
+        // 🧹 Reset serial OCR results per step
+        this.$parent.apiResult = {
+          step3: null,
+          step4: null,
+        };
+
+        // 🧼 Reset serial numbers
+        this.$parent.firstSerialNumber = '';
+        this.$parent.secondSerialNumber = '';
+      }
+
+
+      // 🧩 4. Optional: reset the flow to beginning
+      // (Uncomment if you always want to restart from Step 1)
+      // if (this.$parent) {
+      //   this.$parent.currentStep = 1;
+      // }
+
+      // 💾 5. Save scans to local storage (if needed)
+      this.saveScans();
+
+      // 🚪 6. Close modals
       this.showScannerModal = false;
       this.showCameraModal = false;
-      
-      // Save scans to storage
-      this.saveScans();
-      
-      // Emit event
+
+      // 📣 7. Emit closure event
       this.$emit('scanner-closed');
+
+      console.log('🔄 Scanner modal closed and all data cleared.');
     },
     
     // Toggle between auto and manual modes

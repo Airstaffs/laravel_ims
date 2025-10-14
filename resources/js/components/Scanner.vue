@@ -85,7 +85,7 @@
             </div>
 
             <!-- Product Thumbnails Panel -->
-            <div v-if="productThumbnails.length >= 3" class="scanner-product-thumbnails-container">
+            <div v-if="productThumbnails.length >= 2" class="scanner-product-thumbnails-container">
               <!-- First image preview (always visible) -->
               <div 
                 v-if="productThumbnails.length > 0"
@@ -524,94 +524,118 @@ export default {
   
   // Capture from the scanner camera
   async captureFromScanner() {
-      const video = document.getElementById('scanner-camera-preview');
-      if (!video || !this.scannerCameraActive) return;
+    const video = document.getElementById('scanner-camera-preview');
+    if (!video || !this.scannerCameraActive) return;
 
-      const currentStep = this.$parent?.currentStep ?? 0;
+    const currentStep = this.$parent?.currentStep ?? 0;
 
-      // ✅ Step guard
-      if (currentStep < 3) {
-        this.showScanWarning('Capture is only allowed from the Serial Number step onward.');
-        return;
-      }
-
-      // ✅ Enforce per-step limits
-      if (currentStep === 3 && this.capturedImages.some(img => img.step === 3)) {
-        this.showScanWarning('Only one image allowed for the first serial number.');
-        return;
-      }
-      if (currentStep === 4 && this.capturedImages.some(img => img.step === 4)) {
-        this.showScanWarning('Only one image allowed for the second serial number.');
-        return;
-      }
-      if (currentStep >= 5 && this.capturedImages.length >= this.maxImages) {
-        this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
-        return;
-      }
-
-      // ✅ Capture image
-      const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      const timestamp = new Date().toLocaleTimeString();
-      const dataUrl = canvas.toDataURL('image/jpeg');
-      this.capturedImages.push({ data: dataUrl, timestamp, step: currentStep });
-      this.showScanSuccess('Image captured.');
-
-      // ✅ Step 3–4: Automatically detect serial number
-      if (currentStep === 3 || currentStep === 4) {
-        try {
-          this.showScanSuccess('Detecting serial number...');
-          const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
-
-          const formData = new FormData();
-          formData.append("file", blob, "capture.jpg");
-
-          const response = await fetch("http://127.0.0.1:8001/detect", {
-            method: "POST",
-            body: formData,
-          });
-
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-          const result = await response.json();
-          console.log('🔍 Serial detection result:', result);
-
-          // Save result to parent so it can render
-          if (this.$parent) {
-            this.$parent.apiResult = result;
-          }
-
-          if (result.serials && result.serials.length > 0) {
-            const detectedSerial = result.serials[0]; // take the first detected
-            if (currentStep === 3) {
-              this.$parent.firstSerialNumber = detectedSerial;
-              this.showScanSuccess(`✅ Serial #1 detected: ${detectedSerial}`);
-            } else if (currentStep === 4) {
-              this.$parent.secondSerialNumber = detectedSerial;
-              this.showScanSuccess(`✅ Serial #2 detected: ${detectedSerial}`);
-            }
-          } else {
-            this.showScanWarning('⚠️ No serials detected in image.');
-          }
-        } catch (err) {
-          console.error('OCR API error:', err);
-          this.showScanError('❌ Failed to detect serial number.');
-        }
-      }
-
-      // ✅ Step 5+ → just normal product capture
-      if (currentStep >= 5) {
-        this.showScanSuccess('Product image captured.');
-      }
-
-      setTimeout(() => {
-        this.showSuccessNotification = false;
-      }, 2000);
+    // 🚫 Step 1: Not allowed
+    if (currentStep < 2) {
+      this.showScanWarning('Capture is only allowed from the product review step onward.');
+      return;
     }
+
+    // 🚫 Step 5+: Not allowed anymore
+    if (currentStep >= 5) {
+      this.showScanWarning('Capture is not allowed beyond Serial number detection.');
+      return;
+    }
+
+    // ✅ Step 2: Product image captures (no limit yet unless you set one)
+    if (currentStep === 2 && this.capturedImages.length >= this.maxImages) {
+      this.showScanError(`Maximum of ${this.maxImages} product images allowed.`);
+      return;
+    }
+
+    // ✅ Step 3: Only one image for first serial number
+    if (currentStep === 3 && this.capturedImages.some(img => img.step === 3)) {
+      this.showScanWarning('Only one image allowed for the first serial number.');
+      return;
+    }
+
+    // ✅ Step 4: Only one image for second serial number
+    if (currentStep === 4 && this.capturedImages.some(img => img.step === 4)) {
+      this.showScanWarning('Only one image allowed for the second serial number.');
+      return;
+    }
+
+    // ✅ Capture image
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const timestamp = new Date().toLocaleTimeString();
+    const dataUrl = canvas.toDataURL('image/jpeg');
+    this.capturedImages.push({ data: dataUrl, timestamp, step: currentStep });
+    this.showScanSuccess('Image captured.');
+
+    // ✅ Serial detection for Step 3–4
+    if (currentStep === 3 || currentStep === 4) {
+      try {
+        this.showScanSuccess('Detecting serial number...');
+        const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+
+        const formData = new FormData();
+        formData.append("file", blob, "capture.jpg");
+
+        const baseURL =
+          window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1"
+            ? "http://127.0.0.1:8001"
+            : "/fastapi";
+
+        const response = await fetch(`${baseURL}/detect`, {
+          method: "POST",
+          body: formData,
+        });
+
+
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+        const result = await response.json();
+        console.log('🔍 Serial detection result:', result);
+
+        // 🧠 Ensure parent has apiResults container
+        if (this.$parent) {
+          if (!this.$parent.apiResult) {
+            this.$parent.apiResult = { step3: null, step4: null };
+          }
+
+          // Save per-step result persistently
+          if (currentStep === 3) {
+            this.$parent.apiResult.step3 = result;
+          } else if (currentStep === 4) {
+            this.$parent.apiResult.step4 = result;
+          }
+        }
+
+        // ✅ Extract and assign detected serial number
+        if (result.serials && result.serials.length > 0) {
+          const detectedSerial = result.serials[0];
+          if (currentStep === 3) {
+            this.$parent.firstSerialNumber = detectedSerial;
+            this.showScanSuccess(`✅ Serial #1 detected: ${detectedSerial}`);
+          } else if (currentStep === 4) {
+            this.$parent.secondSerialNumber = detectedSerial;
+            this.showScanSuccess(`✅ Serial #2 detected: ${detectedSerial}`);
+          }
+        } else {
+          this.showScanWarning('⚠️ No serials detected in image.');
+        }
+      } catch (err) {
+        console.error('OCR API error:', err);
+        this.showScanError('❌ Failed to detect serial number.');
+      }
+    }
+
+    // 🔕 Hide success notification after short delay
+    setTimeout(() => {
+      this.showSuccessNotification = false;
+    }, 2000);
+  }
+
   }
 };
 </script>
@@ -645,6 +669,132 @@ button.pass-button.step-btn {
 button.fail-button.step-btn {
     background-color: #dc3545;
 }
+.serial-result-wrap {
+    display: flex;
+    align-content: center;
+    align-items: center;
+}
+.serial-btn {
+    background-color: #0d6efd;
+    border: 0 #fff !important;
+}
+/* Thumbnails grid */
+.product-thumbnails-grid {
+  @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-3;
+}
+.product-thumbnail {
+  @apply border rounded-lg shadow-sm overflow-hidden cursor-pointer transition-transform;
+}
+.product-thumbnail:hover {
+  @apply scale-105;
+}
+.product-thumbnail img {
+  @apply w-full h-32 object-cover;
+}
+.thumbnail-label {
+  @apply text-center text-sm bg-gray-100 py-1;
+}
+.no-images {
+  @apply text-center text-gray-500 mt-4;
+}
+
+/* Modal styling */
+.image-preview-modal {
+  @apply fixed inset-0 bg-black/80 flex items-center justify-center z-50;
+}
+.image-preview-content {
+  @apply relative bg-white rounded-xl p-2 max-w-3xl w-full flex flex-col items-center;
+}
+.modal-image {
+  @apply max-h-[80vh] object-contain;
+}
+.close-btn {
+  @apply absolute top-2 right-2 text-gray-700 hover:text-black;
+}
+.modal-controls {
+  @apply flex justify-between w-full mt-2;
+}
+.nav-btn {
+  @apply bg-gray-200 hover:bg-gray-300 rounded-full p-2;
+}
+.scanner-product-image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.9);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2500;
+}
+
+.scanner-product-image-content {
+  width: 95%;
+  max-width: 800px;
+  background-color: #222;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.scanner-product-image-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  background-color: #333;
+  border-bottom: 1px solid #444;
+  color: white;
+}
+
+.scanner-product-image-container {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 15px;
+  min-height: 300px;
+}
+
+.scanner-preview-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+}
+
+.scanner-nav-btn {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.scanner-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.scanner-close-preview-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+
+
 /* Top Notification Styles */
 .top-notification-container {
   position: fixed;
