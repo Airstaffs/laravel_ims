@@ -11,8 +11,8 @@ echo "Current directory: " . __DIR__ . "<br>";
 echo "Working directory: " . getcwd() . "<br>";
 
 // === CONFIGURATION CONSTANTS FROM V1 ===
-define('BATCH_SIZE', 100);
-define('MAX_ORDERS_PER_RUN', 300);
+define('BATCH_SIZE', 50);
+define('MAX_ORDERS_PER_RUN', 100);
 define('API_CALL_DELAY', 1);
 define('BATCH_PROCESSING_DELAY', 2);
 define('MAX_PAGES_PER_RUN', 5);
@@ -23,6 +23,34 @@ $mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2
 
 if ($mysqli->connect_error) {
     die("DB connection failed: " . $mysqli->connect_error . "<br>");
+}
+
+// Set connection options to prevent "MySQL server has gone away"
+$mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);
+$mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
+
+// Function to check and reconnect if connection is lost
+function checkDatabaseConnection() {
+    global $mysqli;
+    
+    if (!$mysqli->ping()) {
+        echo "Database connection lost. Reconnecting...<br>";
+        $mysqli->close();
+        
+        $mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
+        
+        if ($mysqli->connect_error) {
+            die("DB reconnection failed: " . $mysqli->connect_error . "<br>");
+        }
+        
+        $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);
+        $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
+        
+        echo "✓ Database reconnected successfully.<br>";
+        return true;
+    }
+    
+    return false;
 }
 
 // Progress file paths
@@ -145,12 +173,24 @@ function env($key, $default = null)
 function db_query($query, $bind = [])
 {
     global $mysqli;
+    
+    // Check connection before query
+    checkDatabaseConnection();
+    
     $stmt = $mysqli->prepare($query);
+    if (!$stmt) {
+        throw new Exception("Failed to prepare statement: " . $mysqli->error);
+    }
+    
     if ($bind) {
         $types = str_repeat("s", count($bind));
         $stmt->bind_param($types, ...$bind);
     }
-    $stmt->execute();
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to execute statement: " . $stmt->error);
+    }
+    
     return $stmt;
 }
 
@@ -310,6 +350,9 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             echo "Skipping order with missing item ID<br>";
             continue;
         }
+        
+        // Check database connection before processing each order
+        checkDatabaseConnection();
         
         echo "Processing page $currentPage index $i: Order ID: {$orderID}, Item ID: {$itemID}<br>";
         
@@ -540,6 +583,12 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             $errorCount++;
             echo "ERROR processing Order ID {$orderID}, Item ID {$itemID}: " . $e->getMessage() . "<br>";
             echo "Continuing with next order...<br>";
+            
+            // If it's a MySQL error, try to reconnect
+            if (strpos($e->getMessage(), 'MySQL') !== false || strpos($e->getMessage(), 'gone away') !== false) {
+                echo "Detected MySQL connection issue. Forcing reconnection...<br>";
+                checkDatabaseConnection();
+            }
             
             $currentProcessed++;
             $totalProcessed++;
