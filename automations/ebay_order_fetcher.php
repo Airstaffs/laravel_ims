@@ -998,7 +998,7 @@ function processOrders($response, $accessToken)
         ];
 
         echo "<br>📦 Processed Order:<br><pre>";
-        print_r($processedOrder);
+        // print_r($processedOrder);
         echo "</pre>";
 
         $processedOrders[] = $processedOrder;
