@@ -26,7 +26,7 @@ if ($mysqli->connect_error) {
 }
 
 // Progress file paths
-$progressFile = '/home/imsv2/public_html/laravel_ims/progress.json';
+$progressFile = '/home/imsv2/public_html/laravel_ims/automations/progress.json';
 
 // =====================================
 // MAIN ENTRY POINT 
