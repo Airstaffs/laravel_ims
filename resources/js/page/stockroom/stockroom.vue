@@ -10,6 +10,30 @@
                     <i class="fas fa-truck"></i> FBA Inbound Shipment
                 </button>
 
+                <div class="header-buttons">
+                    <button
+                        class="btn btn-success btn-new-scanned"
+                        @click="showNewScannedModal = true"
+                        style="position: relative; overflow: visible"
+                    >
+                        <i class="fas fa-barcode"></i>
+                        New Scanned
+
+                        <!-- FIXED: Improved notification badge with better visibility logic -->
+                        <span
+                            v-if="shouldShowBadge"
+                            class="notification-badge"
+                            :class="badgeClasses"
+                            :title="`${newScannedCount} new items scanned today (US time)`"
+                        >
+                            {{ displayCount }}
+                        </span>
+                    </button>
+
+                    <button class="btn" @click="openDs7Oos">
+                        Open DS7 & OOS
+                    </button>
+                </div>
                 <button class="btn" @click="showNewScannedModal = true">
                     <i class="fas fa-barcode"></i> New Scanned
                     <span
@@ -21,6 +45,7 @@
                         {{ displayCount }}
                     </span>
                 </button>
+                <button class="btn" @click="openDs7Oos">Open DS7 & OOS</button>
             </div>
 
             <div class="store-filter">
@@ -1169,6 +1194,13 @@
             :show="showNewScannedModal"
             @close="closeNewScannedModal"
             @update-count="handleCountUpdate"
+        />
+
+        <!-- DS7oos Modal -->
+        <Ds7OosModal
+            :show="ui.ds7oos.show"
+            @close="ui.ds7oos.show = false"
+            @save="handleDs7OosSave"
         />
     </div>
 </template>

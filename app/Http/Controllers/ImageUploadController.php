@@ -59,9 +59,24 @@ class ImageUploadController extends BasetablesController
                 // Simplified filename calculation
                 $imageNumber = $imageIndex + 1;
                 $filename = $productId . '_img' . $imageNumber . '.jpg';
-                
-                // Column name for the capturedimages table
-                $capturedImgColumn = 'capturedimg' . min($imageNumber, 12); // Limit to 12 columns
+
+                // 🧠 Detect if this upload is for serial images
+                // We'll use a special index or request flag from the front end.
+                // Example: send `isSerial: true` + `serialIndex: 1` or `2` when uploading serial images.
+                $isSerial = $request->input('isSerial', false);
+                $serialIndex = (int) $request->input('serialIndex', 0);
+
+                if ($isSerial && $serialIndex === 1) {
+                    $capturedImgColumn = 'serialimg1';
+                    $filename = $productId . '_serial1.jpg';
+                } elseif ($isSerial && $serialIndex === 2) {
+                    $capturedImgColumn = 'serialimg2';
+                    $filename = $productId . '_serial2.jpg';
+                } else {
+                    // Normal product images (max 12)
+                    $capturedImgColumn = 'capturedimg' . min($imageNumber, 12);
+                    $filename = $productId . '_img' . $imageNumber . '.jpg';
+                }
                 
                 $path = $directory . '/' . $filename;
                 

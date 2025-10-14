@@ -5,7 +5,7 @@
                 <button class="btn btn-scan" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
                 </button>
-                <button class="btn btn-manual" @click="openDetectSerialModal">
+                <!-- <button class="btn btn-manual" @click="openDetectSerialModal">
                     <i class="fas fa-keyboard"></i> Detect Serial Numbers
                 </button>
                 <a
@@ -14,7 +14,7 @@
                     class="btn btn-training"
                 >
                     <i class="fas fa-robot"></i> Detection Training
-                </a>
+                </a> -->
             </div>
         </div>
 
@@ -31,7 +31,7 @@
         <scanner-component
             scanner-title="Received Scanner"
             storage-prefix="received"
-            :enable-camera="currentStep >= 3"
+            :enable-camera="currentStep >= 1"
             :display-fields="[
                 'Trackingnumber',
                 'FirstSN',
@@ -74,29 +74,33 @@
 
                 <!-- Step 2: Pass/Fail Buttons (shown after tracking verification) -->
                 <div class="input-group" v-if="currentStep === 2">
-                    <div class="tracking-verified">
+                    <div class="tracking-verified mt-4">
                         <div class="success-banner">
-                            Tracking found for {{ trackingNumber }}
+                        Tracking found for {{ trackingNumber }}
                         </div>
                     </div>
-                    <div class="pass-fail-buttons">
+
+                    <div class="pass-fail-buttons mt-4">
                         <button @click="passItem" class="pass-button step-btn">
-                            <i class="fas fa-check"></i> Pass
+                        <i class="fas fa-check"></i> Pass
                         </button>
                         <button @click="failItem" class="fail-button step-btn">
-                            <i class="fas fa-times"></i> Fail
+                        <i class="fas fa-times"></i> Fail
                         </button>
                     </div>
+
+                    <!-- ✅ Modal viewer for thumbnails -->
+                    
+
                 </div>
+
 
                 <!-- Step 3: First Serial Number Input -->
                 <div class="input-group" v-if="currentStep === 3">
                     <!-- OCR Detected Serials (show for step 3 & 4 only) -->
                     <div
                         v-if="
-                            apiResult.serials &&
-                            apiResult.serials.length &&
-                            (currentStep === 3 || currentStep === 4)
+                            apiResult.step3 && apiResult.step3.serials && apiResult.step3.serials.length
                         "
                         class="serial-results-wrapper-main"
                     >
@@ -104,7 +108,7 @@
                             Detected Serials:
                         </p>
                         <div
-                            v-for="(serial, index) in apiResult.serials"
+                            v-for="(serial, index) in apiResult.step3.serials"
                             :key="index"
                             class="mb-3 serial-results-wrapper"
                         >
@@ -144,15 +148,14 @@
                     >
                         Scan
                     </button>
+                    
                 </div>
 
                 <!-- Step 4: Second Serial Number Input (with Skip option) -->
                 <div class="input-group" v-if="currentStep === 4">
                     <div
                         v-if="
-                            apiResult.serials &&
-                            apiResult.serials.length &&
-                            (currentStep === 3 || currentStep === 4)
+                            apiResult.step4 && apiResult.step4.serials && apiResult.step4.serials.length
                         "
                         class="serial-results-wrapper-main"
                     >
@@ -160,7 +163,7 @@
                             Detected Serials:
                         </p>
                         <div
-                            v-for="(serial, index) in apiResult.serials"
+                            v-for="(serial, index) in apiResult.step4.serials"
                             :key="index"
                             class="mb-3 serial-results-wrapper"
                         >

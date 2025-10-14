@@ -3,6 +3,8 @@ import ScannerComponent from "../../components/Scanner.vue";
 import NewScannedItemModal from "./modals/newScanneditem.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
+import Ds7OosModal from './modals/ds7oos.vue';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -10,6 +12,7 @@ export default {
     components: {
         ScannerComponent,
         NewScannedItemModal,
+        Ds7OosModal,
     },
     data() {
         return {
@@ -58,7 +61,7 @@ export default {
             selectAllItems: false,
             isProcessing: false,
 
-           //scanned newly items - Updated for modal integration
+            //scanned newly items - Updated for modal integration
             newScannedCount: 0,
             showNewScannedModal: false,
             countRefreshInterval: null,
@@ -86,6 +89,11 @@ export default {
                 fulfillmentChannel: "DEFAULT",
                 currency: "USD",
                 price: 19.99,
+            },
+
+            // DS7oos
+            ui: {
+                ds7oos: { show: false },
             },
         };
     },
@@ -132,13 +140,13 @@ export default {
             );
         },
         shouldShowBadge() {
-        // FIXED: More robust badge visibility logic
-        return this.newScannedCount > 0 && 
-               this.newScannedCount !== null && 
-               this.newScannedCount !== undefined &&
-               !isNaN(this.newScannedCount);
-    },
-    
+            // FIXED: More robust badge visibility logic
+            return this.newScannedCount > 0 &&
+                this.newScannedCount !== null &&
+                this.newScannedCount !== undefined &&
+                !isNaN(this.newScannedCount);
+        },
+
         badgeClasses() {
             const count = this.newScannedCount || 0;
             return {
@@ -146,7 +154,7 @@ export default {
                 'extra-large': count >= 100
             };
         },
-        
+
         displayCount() {
             const count = this.newScannedCount || 0;
             return count > 999 ? "999+" : count.toString();
@@ -155,51 +163,51 @@ export default {
     methods: {
 
         setupDailyReset() {
-    const scheduleNextReset = () => {
-        const now = new Date();
-        const usNow = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-        
-        // Calculate next midnight in US timezone new scan count
-        const nextMidnight = new Date(usNow);
-        nextMidnight.setHours(24, 0, 0, 0); // Set to next midnight
-        
-        const msUntilMidnight = nextMidnight - usNow;
-        
-        console.log(`Next count reset scheduled in ${Math.round(msUntilMidnight / 1000 / 60)} minutes (at US midnight)`);
-        
-        setTimeout(() => {
-            console.log('Daily reset triggered - fetching new count for new day');
-            this.fetchNewScannedCount();
-            // Schedule the next reset
-            scheduleNextReset();
-        }, msUntilMidnight + 1000); // Add 1 second buffer
-    };
-    
-    // Start the daily reset cycle
-    scheduleNextReset();
-},
+            const scheduleNextReset = () => {
+                const now = new Date();
+                const usNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
 
-// Add this method for better error recovery new scan count
-async fetchCountWithRetry(maxRetries = 3) {
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-            await this.fetchNewScannedCount();
-            return; // Success, exit retry loop
-        } catch (error) {
-            console.log(`Count fetch attempt ${attempt} failed:`, error.message);
-            
-            if (attempt === maxRetries) {
-                console.error('All retry attempts failed for count fetch');
-                // Don't reset count to 0 - keep existing value
-                return;
+                // Calculate next midnight in US timezone new scan count
+                const nextMidnight = new Date(usNow);
+                nextMidnight.setHours(24, 0, 0, 0); // Set to next midnight
+
+                const msUntilMidnight = nextMidnight - usNow;
+
+                console.log(`Next count reset scheduled in ${Math.round(msUntilMidnight / 1000 / 60)} minutes (at US midnight)`);
+
+                setTimeout(() => {
+                    console.log('Daily reset triggered - fetching new count for new day');
+                    this.fetchNewScannedCount();
+                    // Schedule the next reset
+                    scheduleNextReset();
+                }, msUntilMidnight + 1000); // Add 1 second buffer
+            };
+
+            // Start the daily reset cycle
+            scheduleNextReset();
+        },
+
+        // Add this method for better error recovery new scan count
+        async fetchCountWithRetry(maxRetries = 3) {
+            for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                try {
+                    await this.fetchNewScannedCount();
+                    return; // Success, exit retry loop
+                } catch (error) {
+                    console.log(`Count fetch attempt ${attempt} failed:`, error.message);
+
+                    if (attempt === maxRetries) {
+                        console.error('All retry attempts failed for count fetch');
+                        // Don't reset count to 0 - keep existing value
+                        return;
+                    }
+
+                    // Wait before retrying (exponential backoff)
+                    const delay = Math.pow(2, attempt) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
             }
-            
-            // Wait before retrying (exponential backoff)
-            const delay = Math.pow(2, attempt) * 1000;
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
-    }
-},
+        },
         // Function to get the image path based on ASIN
         getImagePath(asin) {
             // Direct path return without checks to prevent blinking
@@ -808,8 +816,7 @@ async fetchCountWithRetry(maxRetries = 3) {
                 } else {
                     // Show error message
                     alert(
-                        `Error: ${
-                            response.data.message || "Failed to process items"
+                        `Error: ${response.data.message || "Failed to process items"
                         }`
                     );
                 }
@@ -889,8 +896,7 @@ async fetchCountWithRetry(maxRetries = 3) {
                     this.fetchInventory();
                 } else {
                     alert(
-                        `Error: ${
-                            response.data.message || "Failed to update location"
+                        `Error: ${response.data.message || "Failed to update location"
                         }`
                     );
                 }
@@ -899,8 +905,7 @@ async fetchCountWithRetry(maxRetries = 3) {
                 if (error.response && error.response.data) {
                     console.error("Server response:", error.response.data);
                     alert(
-                        `Failed to update location: ${
-                            error.response.data.message || "Unknown error"
+                        `Failed to update location: ${error.response.data.message || "Unknown error"
                         }`
                     );
                 } else {
@@ -997,7 +1002,7 @@ async fetchCountWithRetry(maxRetries = 3) {
                     if (
                         response.data.normalized_fnsku &&
                         response.data.normalized_fnsku !==
-                            response.data.original_fnsku
+                        response.data.original_fnsku
                     ) {
                         console.log(
                             "Server returned different normalized FNSKU:",
@@ -1023,7 +1028,7 @@ async fetchCountWithRetry(maxRetries = 3) {
                     if (
                         response.data.normalized_fnsku &&
                         response.data.normalized_fnsku !==
-                            response.data.original_fnsku
+                        response.data.original_fnsku
                     ) {
                         this.fnsku = response.data.normalized_fnsku;
                     }
@@ -1535,8 +1540,7 @@ async fetchCountWithRetry(maxRetries = 3) {
 
                         // Show success alert with details
                         alert(
-                            `Items successfully merged into new item ${formattedRt}: ${mergedTitle}${
-                                mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
+                            `Items successfully merged into new item ${formattedRt}: ${mergedTitle}${mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
                             }`
                         );
 
@@ -1554,8 +1558,7 @@ async fetchCountWithRetry(maxRetries = 3) {
                         this.fetchInventory();
                     } else {
                         alert(
-                            `Error: ${
-                                response.data.message || "Failed to merge items"
+                            `Error: ${response.data.message || "Failed to merge items"
                             }`
                         );
                     }
@@ -1768,74 +1771,74 @@ async fetchCountWithRetry(maxRetries = 3) {
 
         // NEW SCANNED ITEMS METHODS - Updated for modal integration
         async fetchNewScannedCount() {
-    try {
-        // FIXED: Use US timezone for date calculation
-        const now = new Date();
-        const usDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-        const today = usDate.toISOString().split('T')[0];
-        
-        console.log('Fetching new scanned count for US date:', today);
-        
-        const response = await axios.get(
-            `${API_BASE_URL}/api/stockroom/new-scanned-count`,
-            {
-                params: { date: today },
-                withCredentials: true,
-                timeout: 10000 // Add timeout to prevent hanging requests
+            try {
+                // FIXED: Use US timezone for date calculation
+                const now = new Date();
+                const usDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+                const today = usDate.toISOString().split('T')[0];
+
+                console.log('Fetching new scanned count for US date:', today);
+
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+                    {
+                        params: { date: today },
+                        withCredentials: true,
+                        timeout: 10000 // Add timeout to prevent hanging requests
+                    }
+                );
+
+                // FIXED: Ensure count is always a number, never undefined/null
+                const newCount = parseInt(response.data.count) || 0;
+
+                console.log('New scanned count received:', newCount, 'Previous count:', this.newScannedCount);
+
+                // Only update if the value actually changed to prevent unnecessary re-renders
+                if (this.newScannedCount !== newCount) {
+                    this.newScannedCount = newCount;
+                    console.log('Updated new scanned count to:', this.newScannedCount);
+                }
+
+            } catch (error) {
+                console.error("Error fetching new scanned count:", error);
+                // FIXED: Don't reset count to 0 on error - keep existing count
+                // This prevents the badge from disappearing due to network issues
+                if (this.newScannedCount === undefined || this.newScannedCount === null) {
+                    this.newScannedCount = 0;
+                }
             }
-        );
-        
-        // FIXED: Ensure count is always a number, never undefined/null
-        const newCount = parseInt(response.data.count) || 0;
-        
-        console.log('New scanned count received:', newCount, 'Previous count:', this.newScannedCount);
-        
-        // Only update if the value actually changed to prevent unnecessary re-renders
-        if (this.newScannedCount !== newCount) {
-            this.newScannedCount = newCount;
-            console.log('Updated new scanned count to:', this.newScannedCount);
-        }
-        
-    } catch (error) {
-        console.error("Error fetching new scanned count:", error);
-        // FIXED: Don't reset count to 0 on error - keep existing count
-        // This prevents the badge from disappearing due to network issues
-        if (this.newScannedCount === undefined || this.newScannedCount === null) {
-            this.newScannedCount = 0;
-        }
-    }
-},
+        },
 
         // Add this method to refresh the notification count after scanning
-       async refreshNewScannedCount() {
-    try {
-        // FIXED: Use US timezone for date calculation
-        const now = new Date();
-        const usDate = new Date(now.toLocaleString("en-US", {timeZone: "America/Los_Angeles"}));
-        const today = usDate.toISOString().split('T')[0];
-        
-        console.log('Refreshing new scanned count for US date:', today);
-        
-        const response = await axios.get(
-            `${API_BASE_URL}/api/stockroom/new-scanned-count`,
-            {
-                params: { date: today },
-                withCredentials: true,
-                timeout: 10000
+        async refreshNewScannedCount() {
+            try {
+                // FIXED: Use US timezone for date calculation
+                const now = new Date();
+                const usDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+                const today = usDate.toISOString().split('T')[0];
+
+                console.log('Refreshing new scanned count for US date:', today);
+
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+                    {
+                        params: { date: today },
+                        withCredentials: true,
+                        timeout: 10000
+                    }
+                );
+
+                // FIXED: Ensure count is always a number
+                const newCount = parseInt(response.data.count) || 0;
+                this.newScannedCount = newCount;
+
+                console.log('Refreshed new scanned count to:', this.newScannedCount);
+
+            } catch (error) {
+                console.error("Error refreshing new scanned count:", error);
+                // Don't change the count on error - prevents badge from disappearing
             }
-        );
-        
-        // FIXED: Ensure count is always a number
-        const newCount = parseInt(response.data.count) || 0;
-        this.newScannedCount = newCount;
-        
-        console.log('Refreshed new scanned count to:', this.newScannedCount);
-        
-    } catch (error) {
-        console.error("Error refreshing new scanned count:", error);
-        // Don't change the count on error - prevents badge from disappearing
-    }
-},
+        },
 
         // Simplified modal methods for new modal integration
         openNewScannedModal() {
@@ -1849,6 +1852,16 @@ async fetchCountWithRetry(maxRetries = 3) {
         // Handler for when modal updates the count
         handleCountUpdate() {
             this.refreshNewScannedCount();
+        },
+
+        // ds700s
+        openDs7Oos() {
+            this.ui.ds7oos.show = true;
+        },
+        handleDs7OosSave(payload) {
+            // persist settings / call API, then close
+            console.log('Saving DS7 & OOS settings:', payload);
+            this.ui.ds7oos.show = false;
         },
     },
     watch: {
@@ -1910,19 +1923,19 @@ async fetchCountWithRetry(maxRetries = 3) {
         // NEW SCANNED ITEMS - Fetch initial count and set up refresh
         this.fetchCountWithRetry();
 
-         // FIXED: Set up interval with error handling and US timezone awareness
-            this.countRefreshInterval = setInterval(async () => {
-                try {
-                    await this.refreshNewScannedCount();
-                } catch (error) {
-                    console.error('Scheduled count refresh failed:', error);
-                    // Try with retry mechanism as fallback
-                    this.fetchCountWithRetry(2);
-                }
-            }, 30000); // Every 30 seconds
+        // FIXED: Set up interval with error handling and US timezone awareness
+        this.countRefreshInterval = setInterval(async () => {
+            try {
+                await this.refreshNewScannedCount();
+            } catch (error) {
+                console.error('Scheduled count refresh failed:', error);
+                // Try with retry mechanism as fallback
+                this.fetchCountWithRetry(2);
+            }
+        }, 30000); // Every 30 seconds
 
-            // NEW: Set up daily reset at midnight US time
-            this.setupDailyReset();
+        // NEW: Set up daily reset at midnight US time
+        this.setupDailyReset();
 
         // Listen for window resize to update isMobile
         window.addEventListener("resize", this.handleResize);
