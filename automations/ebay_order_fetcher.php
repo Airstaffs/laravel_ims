@@ -892,7 +892,7 @@ function processOrders($response, $accessToken)
 
     $orders = $response['OrderArray']['Order'];
     echo "<br>📝 Order Primary<br><pre>";
-    print_r($response['OrderArray']);
+    // print_r($response['OrderArray']);
     echo "</pre>";
 
     $processedOrders = [];
@@ -956,11 +956,11 @@ function processOrders($response, $accessToken)
                 $locationDetails = getItemLocation($itemId, $accessToken);
 
                 echo "<br>🛍️ Item Info of " . $order['OrderID'] . "<br><pre>";
-                print_r($itemDetails);
+                // print_r($itemDetails);
                 echo "</pre>";
 
                 echo "<br>📍 Location Details<br><pre>";
-                print_r($locationDetails);
+                // print_r($locationDetails);
                 echo "</pre>";
 
                 $items[] = [
@@ -1005,7 +1005,7 @@ function processOrders($response, $accessToken)
     }
 
     echo "<br>📊 All Processed Orders:<br><pre>";
-    print_r($processedOrders);
+    // print_r($processedOrders);
     echo "</pre>";
 
     return $processedOrders;
