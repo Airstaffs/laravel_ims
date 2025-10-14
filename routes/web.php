@@ -777,3 +777,7 @@ Route::get('/schedule/month', [AttendanceController::class, 'month']);
 Route::middleware(['auth'])->get('/account/complete', function () {
     return view('account.complete');  // the small Blade that calls your HR endpoints
 })->name('account.complete.view');
+
+use App\Http\Controllers\Ds7OosController;
+
+Route::get('/ds7oos', [Ds7OosController::class, 'index']);
