@@ -11,8 +11,8 @@ echo "Current directory: " . __DIR__ . "<br>";
 echo "Working directory: " . getcwd() . "<br>";
 
 // === CONFIGURATION CONSTANTS FROM V1 ===
-define('BATCH_SIZE', 50);
-define('MAX_ORDERS_PER_RUN', 100);
+define('BATCH_SIZE', 100);
+define('MAX_ORDERS_PER_RUN', 300);
 define('API_CALL_DELAY', 1);
 define('BATCH_PROCESSING_DELAY', 2);
 define('MAX_PAGES_PER_RUN', 5);
@@ -809,7 +809,130 @@ function sendEbayRequest($accessToken, $pageNumber)
     // ADDED: ModTime filter to catch recently modified orders (last 7 days) for tracking updates
     $modTimeFrom = (new DateTime('-7 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
 
-    $requestBody = '<?xml version="1.0" encoding="utf-8"?>
+    $requestBody = '<?xml version="1.0" encoding="utf-8"function fetchExchangeRates($apiKey)
+{
+    $url = "https://v6.exchangerate-api.com/v6/$apiKey/latest/USD";
+    
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 15,
+        ]
+    ]);
+    
+    $response = @file_get_contents($url, false, $context);
+    
+    if ($response === false) {
+        return [
+            'USD' => 1.0,
+            'EUR' => 1.0,
+            'GBP' => 1.0,
+            'CAD' => 1.0
+        ];
+    }
+    
+    $data = json_decode($response, true);
+
+    if ($data && isset($data['conversion_rates'])) {
+        return $data['conversion_rates'];
+    } else {
+        return [
+            'USD' => 1.0,
+            'EUR' => 1.0,
+            'GBP' => 1.0,
+            'CAD' => 1.0
+        ];
+    }
+}
+
+function convertToUSD($amount, $currency, $exchangeRates)
+{
+    if ($currency === 'USD') {
+        return number_format($amount, 2, '.', '');
+    }
+
+    if (isset($exchangeRates[$currency])) {
+        return number_format($amount / $exchangeRates[$currency], 2, '.', '');
+    }
+
+    return $amount;
+}
+
+function cleanTitle($text)
+{
+    $pattern = '/[\x{1F600}-\x{1F64F}|\x{1F300}-\x{1F5FF}|\x{1F680}-\x{1F6FF}|\x{1F700}-\x{1F77F}|\x{1F780}-\x{1F7FF}|\x{1F800}-\x{1F8FF}|\x{1F900}-\x{1F9FF}|\x{1FA00}-\x{1FA6F}|\x{1FA70}-\x{1FAFF}|\x{2600}-\x{26FF}|\x{2700}-\x{27BF}]/u';
+    $cleanText = preg_replace($pattern, '', $text);
+    $cleanText = preg_replace('/[⭐🔥!]/u', '', $cleanText);
+    $cleanText = preg_replace('/\s+/', ' ', $cleanText);
+    return trim($cleanText);
+}
+
+function fetchRtCounter()
+{
+    $row = db_fetch_assoc("SELECT MAX(rtcounter) as maxval FROM tblproduct");
+    return $row && $row['maxval'] ? $row['maxval'] + 1 : 1;
+}
+
+function EbayCredentials()
+{
+    global $mysqli;
+
+    $id = 3;
+    $stmt = $mysqli->prepare("SELECT client_id, client_secret, access_token, refresh_token, expires_in FROM tblapis WHERE id = ?");
+    $stmt->bind_param("i", $id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if (!$result || $result->num_rows === 0) {
+        return [];
+    }
+
+    $credentials = $result->fetch_assoc();
+    $stmt->close();
+    return $credentials;
+}
+
+function downloadImageWithRetry($url, $maxRetries = 2, $timeout = 20) {
+    $retryCount = 0;
+    
+    while ($retryCount < $maxRetries) {
+        try {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+            
+            $imageContent = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($imageContent === false) {
+                throw new Exception("cURL error");
+            }
+            
+            if ($httpCode !== 200) {
+                throw new Exception("HTTP error: $httpCode");
+            }
+            
+            return $imageContent;
+            
+        } catch (Exception $e) {
+            $retryCount++;
+            
+            if ($retryCount < $maxRetries) {
+                sleep(1);
+            }
+        }
+    }
+    
+    return false;
+}
+
+?>
     <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
         <RequesterCredentials>
             <eBayAuthToken>' . $accessToken . '</eBayAuthToken>
@@ -917,15 +1040,11 @@ function sendRequest($requestBody, $apiCallName)
     curl_close($curl);
 
     if ($error) {
-        echo 'cURL Error: ' . $error . '<br>';
         return null;
     }
 
-    echo "📦 Raw XML Response for API Call: $apiCallName<br>";
-
     $xml = simplexml_load_string($response);
     if (!$xml) {
-        echo '❌ Invalid XML Response from eBay<br>';
         return null;
     }
 
@@ -935,15 +1054,10 @@ function sendRequest($requestBody, $apiCallName)
 function processOrders($response, $accessToken)
 {
     if (empty($response['OrderArray']['Order'])) {
-        echo "ℹ️ No orders found in response.<br>";
         return [];
     }
 
     $orders = $response['OrderArray']['Order'];
-    echo "<br>📝 Order Primary<br><pre>";
-    // print_r($response['OrderArray']);
-    echo "</pre>";
-
     $processedOrders = [];
     $exchangeRates = fetchExchangeRates('f5d29ab775a644eca3f13e4c');
 
@@ -991,26 +1105,16 @@ function processOrders($response, $accessToken)
 
             foreach ($transactions as $transaction) {
                 if (!is_array($transaction) || !isset($transaction['Item'])) {
-                    echo "⚠️ Invalid transaction structure.<br>";
                     continue;
                 }
 
                 $itemId = $transaction['Item']['ItemID'] ?? null;
                 if (!$itemId) {
-                    echo "⚠️ Missing ItemID in Transaction.<br>";
                     continue;
                 }
 
                 $itemDetails = fetchItemDetails($itemId, $accessToken);
                 $locationDetails = getItemLocation($itemId, $accessToken);
-
-                echo "<br>🛍️ Item Info of " . $order['OrderID'] . "<br><pre>";
-                // print_r($itemDetails);
-                echo "</pre>";
-
-                echo "<br>📍 Location Details<br><pre>";
-                // print_r($locationDetails);
-                echo "</pre>";
 
                 $items[] = [
                     'transaction_id' => $transaction['TransactionID'] ?? null,
@@ -1046,16 +1150,8 @@ function processOrders($response, $accessToken)
             'estimatedDeliveryTime' => $deliveredDate,
         ];
 
-        echo "<br>📦 Processed Order:<br><pre>";
-        // print_r($processedOrder);
-        echo "</pre>";
-
         $processedOrders[] = $processedOrder;
     }
-
-    echo "<br>📊 All Processed Orders:<br><pre>";
-    // print_r($processedOrders);
-    echo "</pre>";
 
     return $processedOrders;
 }
@@ -1272,7 +1368,6 @@ function saveEbayImages($productID, $imageUrls)
 function fetchItemDetails($itemId, $accessToken)
 {
     if (!$itemId) {
-        echo "❌ fetchItemDetails: Item ID is missing.<br>";
         return null;
     }
 
@@ -1288,12 +1383,10 @@ function fetchItemDetails($itemId, $accessToken)
         $dailyCallCount = 0;
         $lastResetDate = $currentDate;
         $consecutiveFailures = 0;
-        echo "Daily API call counter reset for date: $currentDate<br>";
     }
     
     // Daily limit check
     if ($dailyCallCount >= 2000) {
-        echo "Daily API limit reached ($dailyCallCount calls). Stopping for today.<br>";
         return false;
     }
     
@@ -1304,13 +1397,11 @@ function fetchItemDetails($itemId, $accessToken)
     
     if ($timeSinceLastCall < $requiredDelay && $lastCallTime > 0) {
         $sleepTime = $requiredDelay - $timeSinceLastCall;
-        echo "Rate limiting: waiting {$sleepTime} seconds before API call for Item ID: $itemId<br>";
         sleep($sleepTime);
     }
     
     $callCount++;
     $dailyCallCount++;
-    echo "API Call #{$callCount} (Daily: {$dailyCallCount}) for Item ID: $itemId<br>";
 
     $requestBody = '<?xml version="1.0" encoding="utf-8"?>
     <GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
@@ -1357,26 +1448,20 @@ function fetchItemDetails($itemId, $accessToken)
 
         if ($response === false || !empty($curlError)) {
             $retryCount++;
-            echo "cURL Error (attempt $retryCount/$maxRetries) for Item ID $itemId: Error #$curlErrno - $curlError<br>";
             
             if ($retryCount < $maxRetries) {
                 $retryDelay = $retryCount * 3;
-                echo "Retrying in $retryDelay seconds...<br>";
                 sleep($retryDelay);
                 continue;
             } else {
                 $consecutiveFailures++;
-                echo "Max retries reached for Item ID $itemId due to cURL errors.<br>";
                 return false;
             }
         }
 
         if ($httpCode !== 200) {
-            echo "HTTP Error $httpCode for Item ID $itemId<br>";
-            
             switch ($httpCode) {
                 case 429:
-                    echo "Rate limit exceeded. Waiting 60 seconds before continuing...<br>";
                     sleep(60);
                     $retryCount++;
                     if ($retryCount < $maxRetries) {
@@ -1391,7 +1476,6 @@ function fetchItemDetails($itemId, $accessToken)
                     $retryCount++;
                     if ($retryCount < $maxRetries) {
                         $retryDelay = $retryCount * 5;
-                        echo "Server error. Retrying in $retryDelay seconds...<br>";
                         sleep($retryDelay);
                         continue;
                     }
@@ -1412,7 +1496,6 @@ function fetchItemDetails($itemId, $accessToken)
     }
 
     if (empty($response)) {
-        echo "Empty response received for Item ID $itemId<br>";
         $consecutiveFailures++;
         return false;
     }
@@ -1422,10 +1505,6 @@ function fetchItemDetails($itemId, $accessToken)
     $xmlErrors = libxml_get_errors();
     
     if ($xml === false) {
-        echo "XML Parse Error for Item ID $itemId:<br>";
-        foreach ($xmlErrors as $error) {
-            echo "- " . trim($error->message) . "<br>";
-        }
         libxml_clear_errors();
         $consecutiveFailures++;
         return false;
@@ -1435,48 +1514,35 @@ function fetchItemDetails($itemId, $accessToken)
     
     if (isset($xml->Errors)) {
         $errorCode = (string)$xml->Errors->ErrorCode;
-        $errorMessage = (string)$xml->Errors->ShortMessage;
-        $longMessage = isset($xml->Errors->LongMessage) ? (string)$xml->Errors->LongMessage : '';
-        
-        echo "eBay API Error for Item ID $itemId: Code $errorCode - $errorMessage<br>";
-        if (!empty($longMessage)) {
-            echo "Details: $longMessage<br>";
-        }
         
         switch ($errorCode) {
             case '17':
             case '1047':
-                echo "Rate limiting detected. Waiting 60 seconds...<br>";
                 sleep(60);
                 $consecutiveFailures++;
                 return false;
                 
             case '291':
             case '1':
-                echo "Item $itemId not found or ended - this is normal for older items.<br>";
                 $consecutiveFailures = max(0, $consecutiveFailures - 1);
                 return false;
                 
             case '21916653':
-                echo "Application request limit exceeded. Stopping API calls for today.<br>";
                 $dailyCallCount = 2000;
                 return false;
                 
             default:
-                echo "Unhandled eBay API error code: $errorCode<br>";
                 $consecutiveFailures++;
                 return false;
         }
     }
     
     if (!isset($xml->Item)) {
-        echo "No Item element found in response for Item ID $itemId<br>";
         $consecutiveFailures++;
         return false;
     }
     
     $consecutiveFailures = 0;
-    echo "Successfully fetched details for Item ID: $itemId<br>";
     
     // Convert XML to array format like V2 expects
     return json_decode(json_encode($xml), true);
