@@ -9,8 +9,8 @@ echo "Current directory: " . __DIR__ . "<br>";
 echo "Working directory: " . getcwd() . "<br>";
 
 // === CONFIGURATION CONSTANTS FROM V1 ===
-define('BATCH_SIZE', 100);
-define('MAX_ORDERS_PER_RUN', 300);
+define('BATCH_SIZE', 50);
+define('MAX_ORDERS_PER_RUN', 100);
 define('API_CALL_DELAY', 1);
 define('BATCH_PROCESSING_DELAY', 2);
 define('MAX_PAGES_PER_RUN', 5);
