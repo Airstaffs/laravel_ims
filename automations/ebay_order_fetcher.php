@@ -19,7 +19,7 @@ define('MAX_PAGES_PER_RUN', 5);
 define('MAX_EMPTY_PAGES', 2);
 
 // === DB CONFIG ===
-$mysqli = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
+$mysqli = new mysqli("localhost", "imsv2_dbims_user", "imsv2_dbims_user", "imsv2_dbims");
 
 if ($mysqli->connect_error) {
     die("DB connection failed: " . $mysqli->connect_error . "<br>");
