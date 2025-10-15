@@ -497,7 +497,7 @@
                         <button
                             class="nav-button prev"
                             @click="prevImage"
-                            v-if="modalImages.length > 1"
+                            v-if="imageList.length > 1"
                         >
                             <i class="bi bi-arrow-left-short"></i>
                         </button>
@@ -512,14 +512,14 @@
                         <button
                             class="nav-button next"
                             @click="nextImage"
-                            v-if="modalImages.length > 1"
+                            v-if="imageList.length > 1"
                         >
                             <i class="bi bi-arrow-right-short"></i>
                         </button>
                     </div>
 
                     <div class="image-counter">
-                        {{ currentImageIndex + 1 }} / {{ modalImages.length }}
+                        {{ activeIndex + 1 }} / {{ imageList.length }}
                     </div>
 
                     <div
