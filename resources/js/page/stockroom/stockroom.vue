@@ -171,6 +171,17 @@
                                         "
                                     ></i>
                                 </span>
+
+                                <button
+                                    class="btn-showDetails"
+                                    @click="toggleDetailsVisibility"
+                                >
+                                    {{
+                                        showDetails
+                                            ? "Hide extra columns"
+                                            : "Show extra columns"
+                                    }}
+                                </button>
                             </div>
                         </th>
                         <th>
@@ -185,6 +196,117 @@
                                     "
                                 ></i>
                             </div>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('FBMAvailable')"
+                            >
+                                FBM
+                                <i
+                                    v-if="sortColumn === 'FBMAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('FbaAvailable')"
+                            >
+                                FBA
+                                <i
+                                    v-if="sortColumn === 'FbaAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span class="sortable" @click="sortBy('Outbound')">
+                                Outbound
+                                <i
+                                    v-if="sortColumn === 'Outbound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span class="sortable" @click="sortBy('Inboound')">
+                                Inbound
+                                <i
+                                    v-if="sortColumn === 'Inboound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('Unfulfillable')"
+                            >
+                                Unfulfillable
+                                <i
+                                    v-if="sortColumn === 'Unfulfillable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span class="sortable" @click="sortBy('Reserved')">
+                                Reserved
+                                <i
+                                    v-if="sortColumn === 'Reserved'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th>
                             <div class="sortable" @click="sortBy('storename')">
@@ -306,6 +428,41 @@
                                 </div>
                             </td>
                             <td>{{ item.ASIN }}</td>
+                            <!-- Hidden columns -->
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong>
+                                    {{ item.FBMAvailable }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong>
+                                    {{ item.FbaAvailable }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong> {{ item.Outbound }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong> {{ item.Inbound }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong>
+                                    {{ item.Unfulfillable }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong> {{ item.Reserved }}</span
+                                >
+                            </td>
+                            <!-- End Hidden columns -->
                             <td>{{ item.storename }}</td>
                             <td>
                                 <div
@@ -466,6 +623,10 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
+            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
+                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
+            </button>
+
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -521,6 +682,46 @@
                                 item.ASIN
                             }}</span>
                         </div>
+                        <!-- Hidden details -->
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">FBM:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FBMAvailable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">FBA:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FbaAvailable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Outbound:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Outbound }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Inbound:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Inbound }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label"
+                                >Unfulfillable:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.Unfulfillable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Reserved:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Reserved }}</span
+                            >
+                        </div>
+                        <!-- End hidden details -->
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Store:</span>
                             <span class="mobile-detail-value">{{
