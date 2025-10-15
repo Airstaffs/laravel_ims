@@ -27,24 +27,38 @@ if ($mysqli->connect_error) {
 $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);
 $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
 
+// CRITICAL: Set session timeout variables to prevent connection loss
+$mysqli->query("SET SESSION wait_timeout = 600");
+$mysqli->query("SET SESSION interactive_timeout = 600");
+$mysqli->query("SET SESSION max_allowed_packet = 67108864"); // 64MB
+
+echo "✓ Database connection established with extended timeouts<br>";
+
 // Function to check and reconnect if connection is lost
 function checkDatabaseConnection() {
     global $mysqli;
     
-    if (!$mysqli->ping()) {
-        echo "Database connection lost. Reconnecting...<br>";
-        $mysqli->close();
+    // Use @ to suppress ping errors and handle them manually
+    if (!@$mysqli->ping()) {
+        echo "⚠️ Database connection lost. Reconnecting...<br>";
+        @$mysqli->close();
         
         $mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
         
         if ($mysqli->connect_error) {
-            die("DB reconnection failed: " . $mysqli->connect_error . "<br>");
+            die("❌ DB reconnection failed: " . $mysqli->connect_error . "<br>");
         }
         
+        // Set connection options
         $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);
         $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
         
-        echo "✓ Database reconnected successfully.<br>";
+        // CRITICAL: Reset session timeout variables after reconnection
+        $mysqli->query("SET SESSION wait_timeout = 600");
+        $mysqli->query("SET SESSION interactive_timeout = 600");
+        $mysqli->query("SET SESSION max_allowed_packet = 67108864");
+        
+        echo "✓ Database reconnected successfully with extended timeouts<br>";
         return true;
     }
     
@@ -172,12 +186,19 @@ function db_query($query, $bind = [])
 {
     global $mysqli;
     
-    // Check connection before query
+    // CRITICAL: Check connection before every query
     checkDatabaseConnection();
     
     $stmt = $mysqli->prepare($query);
     if (!$stmt) {
-        throw new Exception("Failed to prepare statement: " . $mysqli->error);
+        // If prepare fails, try reconnecting once
+        echo "⚠️ Prepare failed, attempting reconnection...<br>";
+        checkDatabaseConnection();
+        $stmt = $mysqli->prepare($query);
+        
+        if (!$stmt) {
+            throw new Exception("Failed to prepare statement: " . $mysqli->error);
+        }
     }
     
     if ($bind) {
@@ -233,6 +254,9 @@ function fetchOrdersCron()
         // Process multiple pages like V1
         while ($pagesProcessed < MAX_PAGES_PER_RUN) {
             echo "<br>=== FETCHING PAGE {$pageNumber} ===<br>";
+            
+            // Check connection before API call
+            checkDatabaseConnection();
             
             $response = sendEbayRequest($accessToken, $pageNumber);
 
@@ -300,6 +324,7 @@ function fetchOrdersCron()
 
     } catch (Exception $e) {
         echo "❌ Exception in fetchOrders: " . $e->getMessage() . "<br>";
+        echo "Stack trace: " . $e->getTraceAsString() . "<br>";
     }
 }
 
@@ -340,6 +365,9 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     
     // Process orders starting from the correct index within the page
     for ($i = $pageOrderIndex; $i < count($pageOrders); $i++) {
+        // CRITICAL: Check database connection at the start of each loop iteration
+        checkDatabaseConnection();
+        
         $order = $pageOrders[$i];
         $orderID = $order['order_id'];
         $itemID = isset($order['items'][0]['item_id']) ? $order['items'][0]['item_id'] : null;
@@ -348,9 +376,6 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             echo "Skipping order with missing item ID<br>";
             continue;
         }
-        
-        // Check database connection before processing each order
-        checkDatabaseConnection();
         
         echo "Processing page $currentPage index $i: Order ID: {$orderID}, Item ID: {$itemID}<br>";
         
@@ -511,6 +536,9 @@ function processOrdersWithResume($pageOrders, $currentPage) {
                         
                         // Execute smart update for Orders module only if we have fields to update
                         if (!empty($updateFields)) {
+                            // Check connection before update
+                            checkDatabaseConnection();
+                            
                             $updateSQL = "UPDATE tblproduct SET " . implode(", ", $updateFields) . " WHERE rtid = ? AND itemnumber = ?";
                             $updateValues[] = $orderID;
                             $updateValues[] = $itemID;
@@ -582,8 +610,10 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             echo "ERROR processing Order ID {$orderID}, Item ID {$itemID}: " . $e->getMessage() . "<br>";
             echo "Continuing with next order...<br>";
             
-            // If it's a MySQL error, try to reconnect
-            if (strpos($e->getMessage(), 'MySQL') !== false || strpos($e->getMessage(), 'gone away') !== false) {
+            // If it's a MySQL error, force reconnection
+            if (strpos($e->getMessage(), 'MySQL') !== false || 
+                strpos($e->getMessage(), 'gone away') !== false ||
+                strpos($e->getMessage(), 'Lost connection') !== false) {
                 echo "Detected MySQL connection issue. Forcing reconnection...<br>";
                 checkDatabaseConnection();
             }
@@ -616,6 +646,9 @@ function processOrdersWithResume($pageOrders, $currentPage) {
 // === ENHANCED IMAGE PROCESSING FROM V1 ===
 function shouldFetchImagesForUpdate($productID) {
     global $mysqli;
+    
+    // Check connection before query
+    checkDatabaseConnection();
     
     $checkStmt = $mysqli->prepare("
         SELECT img1, img2, img3, img4, img5 
@@ -666,6 +699,9 @@ function smartImageUpdateForExistingRecord($existingProductID, $itemID) {
 
 function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     global $mysqli;
+    
+    // Check connection before insert
+    checkDatabaseConnection();
     
     $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
     $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
@@ -1153,6 +1189,9 @@ function saveEbayImages($productID, $imageUrls)
 {
     global $mysqli;
 
+    // Check connection before image processing
+    checkDatabaseConnection();
+
     if (!is_array($imageUrls)) {
         $imageUrls = [$imageUrls];
     }
@@ -1214,6 +1253,9 @@ function saveEbayImages($productID, $imageUrls)
                 continue;
             }
 
+            // Check connection before image update
+            checkDatabaseConnection();
+
             $imgField = "img" . ($index + 1);
             $stmt = $mysqli->prepare("UPDATE tblproduct SET $imgField = ? WHERE ProductID = ?");
             
@@ -1250,6 +1292,9 @@ function fetchItemDetails($itemId, $accessToken)
         echo "❌ fetchItemDetails: Item ID is missing.<br>";
         return null;
     }
+
+    // CRITICAL: Check connection before API call
+    checkDatabaseConnection();
 
     static $callCount = 0;
     static $lastCallTime = 0;
@@ -1464,6 +1509,9 @@ function getItemLocation($itemId, $accessToken)
         return "N/A";
     }
 
+    // Check connection before API call
+    checkDatabaseConnection();
+
     $requestBody = '<?xml version="1.0" encoding="utf-8"?>
     <GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
         <RequesterCredentials>
@@ -1560,6 +1608,9 @@ function EbayCredentials()
 {
     global $mysqli;
 
+    // Check connection before query
+    checkDatabaseConnection();
+
     $id = 3;
     $stmt = $mysqli->prepare("SELECT client_id, client_secret, access_token, refresh_token, expires_in FROM tblapis WHERE id = ?");
     $stmt->bind_param("i", $id);
@@ -1627,6 +1678,9 @@ function saveTokens(array $tokens)
 {
     global $mysqli;
 
+    // Check connection before save
+    checkDatabaseConnection();
+
     $stmt = $mysqli->prepare("UPDATE tblapis SET access_token=?, refresh_token=?, expires_in=?, updated_at=? WHERE id=3");
     $now = date('Y-m-d H:i:s');
     $stmt->bind_param("ssis", $tokens['access_token'], $tokens['refresh_token'], $tokens['expires_in'], $now);
@@ -1643,6 +1697,9 @@ function saveTokens(array $tokens)
 function refreshEbayAccessToken($credentials)
 {
     global $mysqli;
+
+    // Check connection before query
+    checkDatabaseConnection();
 
     $stmt = $mysqli->prepare("SELECT refresh_token FROM tblapis WHERE api_name = 'EBAY'");
     $stmt->execute();
@@ -1691,6 +1748,9 @@ function refreshEbayAccessToken($credentials)
     if (isset($results['access_token'])) {
         $newAccessToken = $results['access_token'];
         $expiresIn = $results['expires_in'] ?? 3600;
+
+        // Check connection before update
+        checkDatabaseConnection();
 
         $stmt = $mysqli->prepare("UPDATE tblapis SET access_token = ?, updated_at = ? WHERE api_name = 'EBAY'");
         $now = date('Y-m-d H:i:s');
