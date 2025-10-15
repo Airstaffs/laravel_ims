@@ -806,14 +806,39 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
         throw new Exception("Failed to prepare insert statement: " . $mysqli->error);
     }
     
-    $stmt->bind_param("ssssdiddddsssssssssississssssss", 
-        $orderID, $itemID, $title, $createdTime, $total, $quantityPurchased, 
-        $transactionPrice, $DiscountedPrice, $shippingPrice, $tax, 
-        $trackingNumber1, $trackingNumber2, $trackingNumber3, $trackingNumber4, 
-        $shippingCarrierUsed, $conditionDisplay, $sellerName, $shippedTime, 
-        $paymentDate, $rtcounter, $itemDescription, $sellerNotes, $PaymentMethod, 
-        $DeliverDate, $itemStatus, $appliedCondition, $fetchStatus, $moduleLoc, 
-        $materialType, $locationdetails
+    // Type string: 30 parameters (validation is hardcoded as '')
+    // Count: s s s s d i d d d d s s s s s s s s s i s s s s s s s s s s = 30 chars
+    $stmt->bind_param("ssssdiddddsssssssssissssssssss", 
+        $orderID,              // 1  - s - rtid
+        $itemID,               // 2  - s - itemnumber
+        $title,                // 3  - s - ProductTitle
+        $createdTime,          // 4  - s - orderdate
+        $total,                // 5  - d - total
+        $quantityPurchased,    // 6  - i - quantity
+        $transactionPrice,     // 7  - d - price
+        $DiscountedPrice,      // 8  - d - Discount
+        $shippingPrice,        // 9  - d - priceshipping
+        $tax,                  // 10 - d - tax
+        $trackingNumber1,      // 11 - s - trackingnumber
+        $trackingNumber2,      // 12 - s - trackingnumber2
+        $trackingNumber3,      // 13 - s - trackingnumber3
+        $trackingNumber4,      // 14 - s - trackingnumber4
+        $shippingCarrierUsed,  // 15 - s - carrier
+        $conditionDisplay,     // 16 - s - listedcondition
+        $sellerName,           // 17 - s - seller
+        $shippedTime,          // 18 - s - shipdate
+        $paymentDate,          // 19 - s - paymentdate
+        $rtcounter,            // 20 - i - rtcounter
+        $itemDescription,      // 21 - s - description
+        $sellerNotes,          // 22 - s - notes
+        $PaymentMethod,        // 23 - s - paymentmethod
+        $DeliverDate,          // 24 - s - datedelivered
+        $itemStatus,           // 25 - s - itemstatus
+        $appliedCondition,     // 26 - s - conditionStatusApplied
+        $fetchStatus,          // 27 - s - fetchStatus
+        $moduleLoc,            // 28 - s - ProductModuleLoc
+        $materialType,         // 29 - s - materialtype
+        $locationdetails       // 30 - s - Ebay_seller_location
     );
 
     if ($stmt->execute()) {
