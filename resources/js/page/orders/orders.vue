@@ -257,13 +257,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button
-                class="btn btn-showDetailsM"
-                @click="toggleDetailsVisibility"
-            >
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button>
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -509,10 +502,12 @@
                             <i class="bi bi-arrow-left-short"></i>
                         </button>
                         <img
-                            :src="modalImages[currentImageIndex]"
-                            alt="Product Image"
+                            :src="activeImageUrl"
+                            alt="Main Product Image"
                             class="modal-main-image"
+                            loading="lazy"
                             width="100%"
+                            @error="onImageErrorMain"
                         />
                         <button
                             class="nav-button next"
@@ -528,17 +523,28 @@
                     </div>
 
                     <div
-                        class="thumbnails-container"
-                        v-if="modalImages.length > 1"
+                        class="thumbnail-container"
+                        v-if="imageList.length > 1"
                     >
                         <div
-                            v-for="(image, index) in modalImages"
+                            v-for="(img, index) in imageList"
                             :key="index"
                             class="modal-thumbnail"
-                            :class="{ active: index === currentImageIndex }"
-                            @click="currentImageIndex = index"
+                            :class="[
+                                'thumbnail',
+                                {
+                                    active: index === activeIndex,
+                                },
+                            ]"
+                            @click="activeIndex = index"
+                            @mouseenter="activeIndex = index"
                         >
-                            <img :src="image" :alt="`Thumbnail ${index + 1}`" />
+                            <img
+                                :src="basePath + img"
+                                alt="Thumbnail"
+                                loading="lazy"
+                                @error="onThumbnailError($event)"
+                            />
                         </div>
                     </div>
                 </div>

@@ -2019,7 +2019,8 @@ form#editPrinterForm {
         box-shadow: 0 0 4px rgba(240, 102, 102, 0.5);
     }
 
-    .form-grid-wrapper {
+    .form-grid-wrapper,
+    .view-grid-wrapper {
         grid-template-columns: 1fr;
     }
 
@@ -2053,5 +2054,27 @@ form#editPrinterForm {
 
     #printer ul > li {
         width: calc(100% / 2 - 5px);
+    }
+
+    .image-modal .thumbnail-container {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        gap: 10px;
+        overflow-x: auto;
+        width: 100%;
+    }
+
+    .view-modal .modal-header .productTitle {
+        display: flex;
+        justify-content: flex-start;
+        align-items: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .view-modal .description-section {
+        height: auto;
     }
 }

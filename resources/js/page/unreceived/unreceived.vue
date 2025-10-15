@@ -4,7 +4,7 @@
             <div class="header-buttons">
                 <button class="btn btn-scan" @click="openScannerModal">
                     <i class="fas fa-barcode"></i>
-                    <span class="d-none d-md-inline">Scan Items</span>
+                    <span>Scan Items</span>
                 </button>
             </div>
         </div>
@@ -86,17 +86,6 @@
                                         "
                                     ></i>
                                 </span>
-
-                                <button
-                                    class="btn-showDetails"
-                                    @click="toggleDetailsVisibility"
-                                >
-                                    {{
-                                        showDetails
-                                            ? "Hide extra columns"
-                                            : "Show extra columns"
-                                    }}
-                                </button>
                             </div>
                         </th>
                         <th>
@@ -518,9 +507,7 @@
                                         @click="openEditModal(item)"
                                     >
                                         <i class="fas fa-info-circle"></i>
-                                        <span class="d-none d-md-block"
-                                            >View Details</span
-                                        >
+                                        <span>View Details</span>
                                     </button>
                                 </div>
                             </td>
@@ -532,10 +519,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button>
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -690,9 +673,10 @@
                     <div class="mobile-card-actions">
                         <button
                             class="btn btn-details"
-                            @click="toggleDetails(index)"
+                            @click="openEditModal(item)"
                         >
                             <i class="fas fa-info-circle"></i>
+                            <span>View Details</span>
                         </button>
                     </div>
 
