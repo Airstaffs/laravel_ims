@@ -22,11 +22,11 @@
                             <div class="product-name">
                                 <span
                                     class="sortable"
-                                    @click="sortBy('AStitle')"
+                                    @click="sortBy('ProductTitle')"
                                 >
                                     Product Name
                                     <i
-                                        v-if="sortColumn === 'AStitle'"
+                                        v-if="sortColumn === 'ProductTitle'"
                                         :class="
                                             sortOrder === 'asc'
                                                 ? 'fas fa-sort-up'
@@ -36,12 +36,99 @@
                                 </span>
                             </div>
                         </th>
-                        <th class="">Seller Location</th>
-                        <th class="">Tracking Number</th>
-                        <th class="">Ordered Condition</th>
-                        <th class="">Condition Status</th>
-                        <th class="">Ordered Date</th>
-                        <th class="">Delivered Date</th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('Ebay_seller_location')"
+                            >
+                                Seller Location
+                                <i
+                                    v-if="sortColumn === 'Ebay_seller_location'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('trackingnumber')"
+                            >
+                                Tracking Number
+                                <i
+                                    v-if="sortColumn === 'trackingnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('listedcondition')"
+                            >
+                                Ordered Condition
+                                <i
+                                    v-if="sortColumn === 'listedcondition'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('itemstatus')"
+                            >
+                                Condition Status
+                                <i
+                                    v-if="sortColumn === 'itemstatus'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('orderdate')">
+                                Ordered Date
+                                <i
+                                    v-if="sortColumn === 'orderdate'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('datedelivered')"
+                            >
+                                Delivered Date
+                                <i
+                                    v-if="sortColumn === 'datedelivered'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
                         <th class="">Actions</th>
                     </tr>
                 </thead>
@@ -342,7 +429,7 @@
                             class="btn btn-details"
                             @click="toggleDetails(index)"
                         >
-                            <i class="fas fa-info-circle"></i> 
+                            <i class="fas fa-info-circle"></i>
                             <span class="d-none d-md-block">Details</span>
                         </button>
                         <button

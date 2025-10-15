@@ -417,9 +417,7 @@ textarea.form-control {
 /* Sortable columns */
 .sortable {
     cursor: pointer;
-    display: inline-flex;
     align-items: center;
-    gap: 5px;
 }
 
 .sortable:hover {
