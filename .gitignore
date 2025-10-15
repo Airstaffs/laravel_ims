@@ -33,3 +33,4 @@ yarn-error.log
 docker-compose.yml
 /backend_ai/venv
 backend_ai/debug_images
+/package.json

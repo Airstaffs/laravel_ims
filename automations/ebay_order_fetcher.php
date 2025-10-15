@@ -2,8 +2,6 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-set_time_limit(600);
-ini_set('max_execution_time', 600);
 session_start();
 date_default_timezone_set('America/Los_Angeles');
 
@@ -11,22 +9,50 @@ echo "Current directory: " . __DIR__ . "<br>";
 echo "Working directory: " . getcwd() . "<br>";
 
 // === CONFIGURATION CONSTANTS FROM V1 ===
-define('BATCH_SIZE', 100);
-define('MAX_ORDERS_PER_RUN', 300);
+define('BATCH_SIZE', 50);
+define('MAX_ORDERS_PER_RUN', 100);
 define('API_CALL_DELAY', 1);
 define('BATCH_PROCESSING_DELAY', 2);
 define('MAX_PAGES_PER_RUN', 5);
 define('MAX_EMPTY_PAGES', 2);
 
 // === DB CONFIG ===
-$mysqli = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
+$mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
 
 if ($mysqli->connect_error) {
     die("DB connection failed: " . $mysqli->connect_error . "<br>");
 }
 
+// Set connection options to prevent "MySQL server has gone away"
+$mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);
+$mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
+
+// Function to check and reconnect if connection is lost
+function checkDatabaseConnection() {
+    global $mysqli;
+    
+    if (!$mysqli->ping()) {
+        echo "Database connection lost. Reconnecting...<br>";
+        $mysqli->close();
+        
+        $mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
+        
+        if ($mysqli->connect_error) {
+            die("DB reconnection failed: " . $mysqli->connect_error . "<br>");
+        }
+        
+        $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);
+        $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
+        
+        echo "✓ Database reconnected successfully.<br>";
+        return true;
+    }
+    
+    return false;
+}
+
 // Progress file paths
-$progressFile = '/home/u298641722/domains/tecniquality.com/public_html/laravel_ims/progress.json';
+$progressFile = '/home/imsv2/public_html/laravel_ims/automations/progress.json';
 
 // =====================================
 // MAIN ENTRY POINT 
@@ -145,12 +171,24 @@ function env($key, $default = null)
 function db_query($query, $bind = [])
 {
     global $mysqli;
+    
+    // Check connection before query
+    checkDatabaseConnection();
+    
     $stmt = $mysqli->prepare($query);
+    if (!$stmt) {
+        throw new Exception("Failed to prepare statement: " . $mysqli->error);
+    }
+    
     if ($bind) {
         $types = str_repeat("s", count($bind));
         $stmt->bind_param($types, ...$bind);
     }
-    $stmt->execute();
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to execute statement: " . $stmt->error);
+    }
+    
     return $stmt;
 }
 
@@ -310,6 +348,9 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             echo "Skipping order with missing item ID<br>";
             continue;
         }
+        
+        // Check database connection before processing each order
+        checkDatabaseConnection();
         
         echo "Processing page $currentPage index $i: Order ID: {$orderID}, Item ID: {$itemID}<br>";
         
@@ -540,6 +581,12 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             $errorCount++;
             echo "ERROR processing Order ID {$orderID}, Item ID {$itemID}: " . $e->getMessage() . "<br>";
             echo "Continuing with next order...<br>";
+            
+            // If it's a MySQL error, try to reconnect
+            if (strpos($e->getMessage(), 'MySQL') !== false || strpos($e->getMessage(), 'gone away') !== false) {
+                echo "Detected MySQL connection issue. Forcing reconnection...<br>";
+                checkDatabaseConnection();
+            }
             
             $currentProcessed++;
             $totalProcessed++;
@@ -886,15 +933,10 @@ function sendRequest($requestBody, $apiCallName)
 function processOrders($response, $accessToken)
 {
     if (empty($response['OrderArray']['Order'])) {
-        echo "ℹ️ No orders found in response.<br>";
         return [];
     }
 
     $orders = $response['OrderArray']['Order'];
-    echo "<br>📝 Order Primary<br><pre>";
-    print_r($response['OrderArray']);
-    echo "</pre>";
-
     $processedOrders = [];
     $exchangeRates = fetchExchangeRates('f5d29ab775a644eca3f13e4c');
 
@@ -942,26 +984,16 @@ function processOrders($response, $accessToken)
 
             foreach ($transactions as $transaction) {
                 if (!is_array($transaction) || !isset($transaction['Item'])) {
-                    echo "⚠️ Invalid transaction structure.<br>";
                     continue;
                 }
 
                 $itemId = $transaction['Item']['ItemID'] ?? null;
                 if (!$itemId) {
-                    echo "⚠️ Missing ItemID in Transaction.<br>";
                     continue;
                 }
 
                 $itemDetails = fetchItemDetails($itemId, $accessToken);
                 $locationDetails = getItemLocation($itemId, $accessToken);
-
-                echo "<br>🛍️ Item Info of " . $order['OrderID'] . "<br><pre>";
-                print_r($itemDetails);
-                echo "</pre>";
-
-                echo "<br>📍 Location Details<br><pre>";
-                print_r($locationDetails);
-                echo "</pre>";
 
                 $items[] = [
                     'transaction_id' => $transaction['TransactionID'] ?? null,
@@ -997,16 +1029,8 @@ function processOrders($response, $accessToken)
             'estimatedDeliveryTime' => $deliveredDate,
         ];
 
-        echo "<br>📦 Processed Order:<br><pre>";
-        print_r($processedOrder);
-        echo "</pre>";
-
         $processedOrders[] = $processedOrder;
     }
-
-    echo "<br>📊 All Processed Orders:<br><pre>";
-    print_r($processedOrders);
-    echo "</pre>";
 
     return $processedOrders;
 }
@@ -1135,7 +1159,7 @@ function saveEbayImages($productID, $imageUrls)
 
     $imageUrls = array_slice($imageUrls, 0, 5); // Limit to 5
 
-    $imageDir = '/home/u298641722/domains/tecniquality.com/public_html/laravel_ims/public/images/thumbnails';
+    $imageDir = '/home/imsv2/public_html/laravel_ims/public/images/thumbnails';
     if (!file_exists($imageDir)) {
         mkdir($imageDir, 0755, true);
     }
