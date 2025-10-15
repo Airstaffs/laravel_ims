@@ -1159,7 +1159,7 @@ function saveEbayImages($productID, $imageUrls)
 
     $imageUrls = array_slice($imageUrls, 0, 5); // Limit to 5
 
-    $imageDir = '/home/u298641722/domains/tecniquality.com/public_html/laravel_ims/public/images/thumbnails';
+    $imageDir = '/home/imsv2/public_html/laravel_ims/public/images/thumbnails';
     if (!file_exists($imageDir)) {
         mkdir($imageDir, 0755, true);
     }
