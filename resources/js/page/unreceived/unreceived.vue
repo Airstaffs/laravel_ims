@@ -777,6 +777,82 @@
             </div>
         </div>
 
+        <!-- Image Modal -->
+        <div v-if="showImageModal" class="modal image-modal">
+            <div class="modal-overlay" @click="closeImageModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2>{{ ProductTitle }}</h2>
+                    </div>
+                    <button
+                        class="btn btn-modal-close"
+                        @click="closeImageModal"
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="main-image-container">
+                        <button
+                            class="nav-button prev"
+                            @click="prevImage"
+                            v-if="imageList.length > 1"
+                        >
+                            <i class="bi bi-arrow-left-short"></i>
+                        </button>
+                        <img
+                            :src="activeImageUrl"
+                            alt="Main Product Image"
+                            class="modal-main-image"
+                            loading="lazy"
+                            width="100%"
+                            @error="onImageErrorMain"
+                        />
+                        <button
+                            class="nav-button next"
+                            @click="nextImage"
+                            v-if="imageList.length > 1"
+                        >
+                            <i class="bi bi-arrow-right-short"></i>
+                        </button>
+                    </div>
+
+                    <div class="image-counter">
+                        {{ activeIndex + 1 }} / {{ imageList.length }}
+                    </div>
+
+                    <div
+                        class="thumbnail-container"
+                        v-if="imageList.length > 1"
+                    >
+                        <div
+                            v-for="(img, index) in imageList"
+                            :key="index"
+                            class="modal-thumbnail"
+                            :class="[
+                                'thumbnail',
+                                {
+                                    active: index === activeIndex,
+                                },
+                            ]"
+                            @click="activeIndex = index"
+                            @mouseenter="activeIndex = index"
+                        >
+                            <img
+                                :src="basePath + img"
+                                alt="Thumbnail"
+                                loading="lazy"
+                                @error="onThumbnailError($event)"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div v-if="showEditModal" class="modal view-modal">
             <div class="modal-overlay" @click="closeEditModal"></div>
 
