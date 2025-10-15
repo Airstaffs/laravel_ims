@@ -4,17 +4,17 @@
         <div class="top-header">
             <div class="header-buttons">
                 <button class="btn" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> 
-                    <span class="d-none d-md-inline">Scan Items</span>
+                    <i class="fas fa-barcode"></i>
+                    <span>Scan Items</span>
                 </button>
                 <button class="btn" @click="loadFBAInboundShipment">
-                    <i class="fas fa-truck"></i> 
-                    <span class="d-none d-md-inline">FBA Inbound Shipment</span>
+                    <i class="fas fa-truck"></i>
+                    <span>FBA Inbound Shipment</span>
                 </button>
 
                 <button class="btn" @click="showNewScannedModal = true">
-                    <i class="fas fa-barcode"></i> 
-                    <span class="d-none d-md-inline">New Scanned</span>
+                    <i class="fas fa-barcode"></i>
+                    <span>New Scanned</span>
                     <span
                         v-if="shouldShowBadge"
                         class="notification-badge"
@@ -563,30 +563,35 @@
                     <hr />
 
                     <div class="mobile-card-actions">
-                        <button class="btn btn-print" @click="printLabel(item.ProductID)">
-                            <i class="fas fa-print"></i> 
-                            <span class="d-none d-md-block">Print</span>
+                        <button
+                            class="btn btn-print"
+                            @click="printLabel(item.ProductID)"
+                        >
+                            <i class="fas fa-print"></i>
+                            <span>Print</span>
                         </button>
                         <button
                             class="btn btn-expand"
                             @click="toggleDetails(index)"
                         >
                             <i class="fas fa-list"></i>
-                            <span class="d-none d-md-block">{{ expandedRows[index] ? "Hide" : "Details" }}</span>
+                            <span>{{
+                                expandedRows[index] ? "Hide" : "Details"
+                            }}</span>
                         </button>
                         <button
                             class="btn btn-details"
                             @click="viewProductDetails(item)"
                         >
-                            <i class="fas fa-info-circle"></i> 
-                            <span class="d-none d-md-block">More</span>
+                            <i class="fas fa-info-circle"></i>
+                            <span>More</span>
                         </button>
                         <button
                             class="btn btn-process"
                             @click="openProcessModal(item)"
                         >
-                            <i class="fas fa-cogs"></i> 
-                            <span class="d-none d-md-block">Process</span>
+                            <i class="fas fa-cogs"></i>
+                            <span>Process</span>
                         </button>
                     </div>
 
