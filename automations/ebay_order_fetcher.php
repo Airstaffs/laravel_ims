@@ -30,7 +30,6 @@ $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
 // CRITICAL: Set session timeout variables to prevent connection loss
 $mysqli->query("SET SESSION wait_timeout = 600");
 $mysqli->query("SET SESSION interactive_timeout = 600");
-$mysqli->query("SET SESSION max_allowed_packet = 67108864"); // 64MB
 
 echo "✓ Database connection established with extended timeouts<br>";
 
@@ -56,7 +55,6 @@ function checkDatabaseConnection() {
         // CRITICAL: Reset session timeout variables after reconnection
         $mysqli->query("SET SESSION wait_timeout = 600");
         $mysqli->query("SET SESSION interactive_timeout = 600");
-        $mysqli->query("SET SESSION max_allowed_packet = 67108864");
         
         echo "✓ Database reconnected successfully with extended timeouts<br>";
         return true;
