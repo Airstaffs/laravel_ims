@@ -229,13 +229,6 @@
                             <td>
                                 <div class="action-buttons">
                                     <button
-                                        class="btn-details"
-                                        @click="toggleDetails(index)"
-                                    >
-                                        <i class="fas fa-info-circle"></i> More
-                                        Details
-                                    </button>
-                                    <button
                                         class="btn btn-edit"
                                         @click="openEditModal(item)"
                                     >
@@ -426,18 +419,11 @@
 
                     <div class="mobile-card-actions">
                         <button
-                            class="btn btn-details"
-                            @click="toggleDetails(index)"
-                        >
-                            <i class="fas fa-info-circle"></i>
-                            <span class="d-none d-md-block">Details</span>
-                        </button>
-                        <button
                             class="btn btn-edit"
                             @click="openEditModal(item)"
                         >
                             <i class="bi bi-pencil"></i>
-                            <span class="d-none d-md-block">Edit</span>
+                            <span>Edit</span>
                         </button>
                     </div>
 
