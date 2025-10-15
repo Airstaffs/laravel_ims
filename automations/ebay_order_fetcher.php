@@ -706,11 +706,23 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
     $DeliverDate = null;
 
+    // Debug delivery date extraction
+    echo "DEBUG: estimatedDeliveryTime value: '" . ($order['estimatedDeliveryTime'] ?? 'NOT SET') . "'<br>";
+    
     if (!empty($order['estimatedDeliveryTime'])) {
-        $timestamp = strtotime($order['estimatedDeliveryTime']);
-        if ($timestamp !== false) {
+        $deliveryValue = $order['estimatedDeliveryTime'];
+        echo "DEBUG: Attempting to parse delivery date: '$deliveryValue'<br>";
+        
+        // Try parsing the date
+        $timestamp = strtotime($deliveryValue);
+        if ($timestamp !== false && $timestamp > 0) {
             $DeliverDate = date('Y-m-d H:i:s', $timestamp);
+            echo "DEBUG: Delivery date parsed successfully: $DeliverDate<br>";
+        } else {
+            echo "DEBUG: Failed to parse delivery date from: '$deliveryValue'<br>";
         }
+    } else {
+        echo "DEBUG: estimatedDeliveryTime is empty or not set<br>";
     }
     
     $total = $order['total'] ?? 0.00;
@@ -1006,7 +1018,13 @@ function processOrders($response, $accessToken)
         $amountPaidInUSD = convertToUSD($amountPaid, $currency, $exchangeRates);
 
         $preshippingServiceCost = $order['ShippingServiceSelected']['ShippingServiceCost'] ?? 0;
-        $deliveredDate = $order['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'] ?? 0;
+        $deliveredDate = $order['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'] ?? null;
+        
+        // Debug: Show what we're getting from eBay
+        if (!empty($deliveredDate)) {
+            echo "DEBUG processOrders: Found EstimatedDeliveryTimeMax = '$deliveredDate' for Order: {$order['OrderID']}<br>";
+        }
+        
         $shipping_currency = $currency;
         $shippingServiceCost = convertToUSD($preshippingServiceCost, $shipping_currency, $exchangeRates);
 
