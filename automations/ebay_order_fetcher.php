@@ -2,15 +2,19 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
-set_time_limit(600);
-ini_set('max_execution_time', 600);
 session_start();
 date_default_timezone_set('America/Los_Angeles');
 
 echo "Current directory: " . __DIR__ . "<br>";
-
 echo "Working directory: " . getcwd() . "<br>";
 
+// === CONFIGURATION CONSTANTS FROM V1 ===
+define('BATCH_SIZE', 50);
+define('MAX_ORDERS_PER_RUN', 100);
+define('API_CALL_DELAY', 1);
+define('BATCH_PROCESSING_DELAY', 2);
+define('MAX_PAGES_PER_RUN', 5);
+define('MAX_EMPTY_PAGES', 2);
 
 // === DB CONFIG ===
 $mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
@@ -19,15 +23,141 @@ if ($mysqli->connect_error) {
     die("DB connection failed: " . $mysqli->connect_error . "<br>");
 }
 
+// Set connection options to prevent "MySQL server has gone away"
+$mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);
+$mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
+
+// Function to check and reconnect if connection is lost
+function checkDatabaseConnection() {
+    global $mysqli;
+    
+    if (!$mysqli->ping()) {
+        echo "Database connection lost. Reconnecting...<br>";
+        $mysqli->close();
+        
+        $mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
+        
+        if ($mysqli->connect_error) {
+            die("DB reconnection failed: " . $mysqli->connect_error . "<br>");
+        }
+        
+        $mysqli->options(MYSQLI_OPT_CONNECT_TIMEOUT, 30);
+        $mysqli->options(MYSQLI_OPT_READ_TIMEOUT, 60);
+        
+        echo "✓ Database reconnected successfully.<br>";
+        return true;
+    }
+    
+    return false;
+}
+
+// Progress file paths
+$progressFile = '/home/imsv2/public_html/laravel_ims/automations/progress.json';
 
 // =====================================
-// MAIN ENTRY POINT (Call the Cron Flow)
+// MAIN ENTRY POINT 
 // =====================================
 fetchOrdersCron();
 
+// === PROGRESS TRACKING FUNCTIONS FROM V1 ===
+function saveProgress($lastProcessedOrderId, $lastProcessedItemId, $currentPage, $totalProcessed, $pageOrderIndex = 0, $pageCompleted = false) {
+    global $progressFile;
+    
+    $progressData = [
+        'last_processed_order_id' => $lastProcessedOrderId,
+        'last_processed_item_id' => $lastProcessedItemId,
+        'current_page' => $currentPage,
+        'page_order_index' => $pageOrderIndex,
+        'total_processed' => $totalProcessed,
+        'last_run_timestamp' => time(),
+        'last_run_date' => date('Y-m-d H:i:s'),
+        'optimized_mode' => true,
+        'page_completed' => $pageCompleted
+    ];
+    
+    static $saveCounter = 0;
+    $saveCounter++;
+    
+    if ($saveCounter % 3 == 0 || $saveCounter == 1) {
+        if (!file_put_contents($progressFile, json_encode($progressData, JSON_PRETTY_PRINT))) {
+            echo "Warning: Unable to save progress to file.<br>";
+        } else {
+            echo "Progress saved: Page $currentPage, Index $pageOrderIndex, Total processed: $totalProcessed<br>";
+        }
+    }
+}
 
+function loadProgress() {
+    global $progressFile;
+    
+    if (!file_exists($progressFile)) {
+        return [
+            'last_processed_order_id' => null,
+            'last_processed_item_id' => null,
+            'current_page' => 1,
+            'page_order_index' => 0,
+            'total_processed' => 0,
+            'last_run_timestamp' => null,
+            'page_completed' => false
+        ];
+    }
+    
+    $progressData = json_decode(file_get_contents($progressFile), true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        echo "Warning: Invalid JSON in progress file, starting from beginning.<br>";
+        return [
+            'last_processed_order_id' => null,
+            'last_processed_item_id' => null,
+            'current_page' => 1,
+            'page_order_index' => 0,
+            'total_processed' => 0,
+            'last_run_timestamp' => null,
+            'page_completed' => false
+        ];
+    }
+    
+    if (!isset($progressData['page_order_index'])) {
+        $progressData['page_order_index'] = 0;
+    }
+    if (!isset($progressData['page_completed'])) {
+        $progressData['page_completed'] = false;
+    }
+    
+    return $progressData;
+}
 
-// === UTILITY REPLACEMENTS ===
+function performSmartReset($reason, $totalProcessedOverall) {
+    global $progressFile;
+    
+    echo "SMART RESET TRIGGERED: $reason<br>";
+    
+    $resetProgress = [
+        'last_processed_order_id' => null,
+        'last_processed_item_id' => null,
+        'current_page' => 1,
+        'page_order_index' => 0,
+        'total_processed' => $totalProcessedOverall,
+        'last_run_timestamp' => time(),
+        'last_run_date' => date('Y-m-d H:i:s'),
+        'optimized_mode' => true,
+        'reset_reason' => $reason,
+        'reset_timestamp' => time(),
+        'resume_cleared' => true,
+        'page_completed' => false
+    ];
+    
+    if (file_put_contents($progressFile, json_encode($resetProgress, JSON_PRETTY_PRINT))) {
+        echo "✓ Reset completed - will start fresh from page 1 next run<br>";
+        echo "✓ Resume tracking CLEARED - will process all orders from page 1<br>";
+        echo "✓ Total processed count preserved: $totalProcessedOverall<br>";
+        return true;
+    } else {
+        echo "✗ Warning: Failed to save reset progress<br>";
+        return false;
+    }
+}
+
+// === UTILITY FUNCTIONS ===
 function now()
 {
     return date('Y-m-d H:i:s');
@@ -41,12 +171,24 @@ function env($key, $default = null)
 function db_query($query, $bind = [])
 {
     global $mysqli;
+    
+    // Check connection before query
+    checkDatabaseConnection();
+    
     $stmt = $mysqli->prepare($query);
+    if (!$stmt) {
+        throw new Exception("Failed to prepare statement: " . $mysqli->error);
+    }
+    
     if ($bind) {
         $types = str_repeat("s", count($bind));
         $stmt->bind_param($types, ...$bind);
     }
-    $stmt->execute();
+    
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to execute statement: " . $stmt->error);
+    }
+    
     return $stmt;
 }
 
@@ -64,11 +206,16 @@ function db_fetch_all($query, $bind = [])
     return $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 }
 
-// === MAIN AFUNCTION ===
+// === ENHANCED MAIN FUNCTION WITH V1 LOGIC ===
 function fetchOrdersCron()
 {
     $serverconfig = env('EBAY_SERVER_CONFIG', 'LIVE');
-    $pageNumber = 1;
+    
+    // Load progress for multi-page processing
+    $progress = loadProgress();
+    $pageNumber = $progress['current_page'];
+    
+    echo "Starting from saved page: {$pageNumber}<br>";
 
     $credentials = EbayCredentials();
     if (!$credentials || empty($credentials['access_token'])) {
@@ -77,39 +224,588 @@ function fetchOrdersCron()
     }
 
     $accessToken = $credentials['access_token'];
+    
+    $pagesProcessed = 0;
+    $totalOrdersFound = 0;
+    $consecutiveEmptyPages = 0;
 
     try {
-        $response = sendEbayRequest($accessToken, $pageNumber);
+        // Process multiple pages like V1
+        while ($pagesProcessed < MAX_PAGES_PER_RUN) {
+            echo "<br>=== FETCHING PAGE {$pageNumber} ===<br>";
+            
+            $response = sendEbayRequest($accessToken, $pageNumber);
 
-        if (!$response) {
-            echo "⚠️ Raw eBay API Response: Successful Ebay Request!<br>";
-            // print_r($response);
-            echo "<br>❌ Failed to retrieve orders.<br>";
-            return;
+            if (!$response) {
+                echo "❌ Failed to retrieve orders for page {$pageNumber}.<br>";
+                $pageNumber++;
+                $pagesProcessed++;
+                continue;
+            }
+
+            if (!empty($response['Errors'])) {
+                handleEbayErrors($response['Errors'], $serverconfig, $credentials);
+                return;
+            }
+
+            $pageOrders = processOrders($response, $accessToken);
+            
+            if (!empty($pageOrders)) {
+                $totalOrdersFound += count($pageOrders);
+                $consecutiveEmptyPages = 0;
+                echo "✓ Page {$pageNumber}: " . count($pageOrders) . " orders found<br>";
+                
+                // Process orders with resume capability
+                $processedCount = processOrdersWithResume($pageOrders, $pageNumber);
+                echo "Processed {$processedCount} orders on page {$pageNumber}<br>";
+                
+            } else {
+                $consecutiveEmptyPages++;
+                echo "○ Page {$pageNumber}: No orders found (consecutive empty: {$consecutiveEmptyPages}/" . MAX_EMPTY_PAGES . ")<br>";
+                
+                // Still advance the page in progress even if empty
+                saveProgress(null, null, $pageNumber + 1, $progress['total_processed'], 0, true);
+            }
+
+            $pageNumber++;
+            $pagesProcessed++;
+            
+            // Reset condition after consecutive empty pages
+            if ($consecutiveEmptyPages >= MAX_EMPTY_PAGES) {
+                echo "RESET CONDITION MET: {$consecutiveEmptyPages} consecutive empty pages<br>";
+                performSmartReset("Consecutive empty pages reached", $progress['total_processed']);
+                break;
+            }
+            
+            // Reset if very high page number with no recent results
+            if ($pageNumber > 20 && $consecutiveEmptyPages >= 3) {
+                echo "RESET CONDITION MET: High page number ({$pageNumber}) with recent empty pages<br>";
+                performSmartReset("High page number with no recent results", $progress['total_processed']);
+                break;
+            }
+            
+            sleep(1); // Small delay between page fetches
         }
 
-        if (!empty($response['Errors'])) {
-            handleEbayErrors($response['Errors'], $serverconfig, $credentials);
-            return;
-        }
+        echo "<br>=== FINAL SUMMARY ===<br>";
+        echo "Pages processed this run: {$pagesProcessed}<br>";
+        echo "Total orders found this run: {$totalOrdersFound}<br>";
+        echo "Consecutive empty pages: {$consecutiveEmptyPages}<br>";
 
-        $processedOrders = processOrders($response, $accessToken);
-        insertOrUpdate($processedOrders);
+        // Load final progress to show next start point
+        $finalProgress = loadProgress();
+        echo "Next run starts from page: " . $finalProgress['current_page'] . "<br>";
 
         echo "✅ Orders fetched and processed successfully.<br>";
-        echo "<pre>";
-        print_r($processedOrders);
-        echo "</pre>";
 
     } catch (Exception $e) {
         echo "❌ Exception in fetchOrders: " . $e->getMessage() . "<br>";
     }
 }
 
+// === ENHANCED ORDER PROCESSING WITH RESUME FROM V1 ===
+function processOrdersWithResume($pageOrders, $currentPage) {
+    global $mysqli;
+    
+    if (empty($pageOrders)) {
+        echo "No orders to process for page $currentPage<br>";
+        return 0;
+    }
+    
+    $progress = loadProgress();
+    $totalProcessed = $progress['total_processed'];
+    $pageOrderIndex = 0;
+    
+    // Resume logic
+    if ($currentPage == $progress['current_page'] && !$progress['page_completed']) {
+        $pageOrderIndex = $progress['page_order_index'];
+        echo "Resuming page $currentPage from order index $pageOrderIndex<br>";
+    } else {
+        echo "Starting fresh processing for page $currentPage<br>";
+    }
+    
+    echo "=== PROCESSING PAGE $currentPage ===<br>";
+    echo "Total orders on this page: " . count($pageOrders) . "<br>";
+    echo "Starting from index: $pageOrderIndex<br>";
+    echo "MODE: SMART PROCESSING - Honor resume for new records, Smart update tracking for existing<br>";
+    echo "====================================<br><br>";
+    
+    $currentProcessed = 0;
+    $skippedCount = 0;
+    $errorCount = 0;
+    $trackingUpdatedCount = 0;
+    $newRecordsCount = 0;
+    $existingRecordsUpdated = 0;
+    $smartUpdatedCount = 0;
+    
+    // Process orders starting from the correct index within the page
+    for ($i = $pageOrderIndex; $i < count($pageOrders); $i++) {
+        $order = $pageOrders[$i];
+        $orderID = $order['order_id'];
+        $itemID = isset($order['items'][0]['item_id']) ? $order['items'][0]['item_id'] : null;
+        
+        if (!$itemID) {
+            echo "Skipping order with missing item ID<br>";
+            continue;
+        }
+        
+        // Check database connection before processing each order
+        checkDatabaseConnection();
+        
+        echo "Processing page $currentPage index $i: Order ID: {$orderID}, Item ID: {$itemID}<br>";
+        
+        try {
+            // Process each item in the order
+            foreach ($order['items'] as $item) {
+                $itemID = $item['item_id'];
+                $originalTitle = $item['title'];
+                $title = cleanTitle($originalTitle);
+                
+                echo "Order Status: {$order['order_status']}<br>";
+
+                // Check for existing records in ALL modules
+                $checkStmt = $mysqli->prepare("
+                    SELECT ProductID, ProductModuleLoc, trackingnumber, trackingnumber2, 
+                           trackingnumber3, trackingnumber4, trackingnumber5, carrier, shipdate 
+                    FROM tblproduct 
+                    WHERE rtid = ? AND itemnumber = ?
+                    LIMIT 1
+                ");
+                if (!$checkStmt) {
+                    throw new Exception("Failed to prepare check statement: " . $mysqli->error);
+                }
+                
+                $checkStmt->bind_param("ss", $orderID, $itemID);
+                $checkStmt->execute();
+                $result = $checkStmt->get_result();
+                $existingRecord = $result->fetch_assoc();
+                $checkStmt->close();
+
+                // Extract tracking data from current order
+                $newTrackingNumber1 = !empty($order['tracking_number1']) ? trim($order['tracking_number1']) : '';
+                $newTrackingNumber2 = !empty($order['tracking_number2']) ? trim($order['tracking_number2']) : '';
+                $newTrackingNumber3 = !empty($order['tracking_number3']) ? trim($order['tracking_number3']) : '';
+                $newTrackingNumber4 = !empty($order['tracking_number4']) ? trim($order['tracking_number4']) : '';
+                $newTrackingNumber5 = !empty($order['tracking_number5']) ? trim($order['tracking_number5']) : '';
+                $newCarrier = !empty($order['shipping_carrier']) ? trim($order['shipping_carrier']) : '';
+                $newShipDate = isset($order['shipped_time']) ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
+                
+                // Get seller location
+                $sellerLocation = isset($order['locationdetails']) && $order['locationdetails'] !== 'N/A' ? $order['locationdetails'] : 'N/A';
+                echo "DEBUG: Seller location from eBay order data: '{$sellerLocation}'<br>";
+
+                if ($existingRecord) {
+                    echo "Found existing record in module: '{$existingRecord['ProductModuleLoc']}'<br>";
+                    
+                    // SMART UPDATE: Only update tracking for Orders module when eBay has data
+                    if ($existingRecord['ProductModuleLoc'] === 'Orders') {
+                        echo "ORDERS MODULE - SMART UPDATE (only when eBay has data)<br>";
+                        
+                        $updateFields = [];
+                        $updateValues = [];
+                        $updateTypes = "";
+                        
+                        // SMART UPDATE: Only update tracking fields when eBay actually has data
+                        if (!empty($newTrackingNumber1)) {
+                            $updateFields[] = "trackingnumber = ?";
+                            $updateValues[] = $newTrackingNumber1;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Tracking 1: -> '{$newTrackingNumber1}'<br>";
+                        }
+                        
+                        if (!empty($newTrackingNumber2)) {
+                            $updateFields[] = "trackingnumber2 = ?";
+                            $updateValues[] = $newTrackingNumber2;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Tracking 2: -> '{$newTrackingNumber2}'<br>";
+                        }
+                        
+                        if (!empty($newTrackingNumber3)) {
+                            $updateFields[] = "trackingnumber3 = ?";
+                            $updateValues[] = $newTrackingNumber3;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Tracking 3: -> '{$newTrackingNumber3}'<br>";
+                        }
+                        
+                        if (!empty($newTrackingNumber4)) {
+                            $updateFields[] = "trackingnumber4 = ?";
+                            $updateValues[] = $newTrackingNumber4;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Tracking 4: -> '{$newTrackingNumber4}'<br>";
+                        }
+                        
+                        if (!empty($newTrackingNumber5)) {
+                            $updateFields[] = "trackingnumber5 = ?";
+                            $updateValues[] = $newTrackingNumber5;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Tracking 5: -> '{$newTrackingNumber5}'<br>";
+                        }
+                        
+                        if (!empty($newCarrier)) {
+                            $updateFields[] = "carrier = ?";
+                            $updateValues[] = $newCarrier;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Carrier: -> '{$newCarrier}'<br>";
+                        }
+                        
+                        if ($newShipDate) {
+                            $updateFields[] = "shipdate = ?";
+                            $updateValues[] = $newShipDate;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Ship Date: -> '{$newShipDate}'<br>";
+                        }
+                        
+                        // Also update other order fields for Orders module
+                        $paymentDate = isset($order['paid_time']) ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
+                        $deliveredDate = null;
+                        if (!empty($order['estimatedDeliveryTime'])) {
+                            $timestamp = strtotime($order['estimatedDeliveryTime']);
+                            if ($timestamp !== false) {
+                                $deliveredDate = date('Y-m-d H:i:s', $timestamp);
+                            }
+                        }
+                        $paymentMethod = 'eBay';
+                        $sellerName = $order['seller_user_id'] ?? 'N/A';
+                        $createdTime = isset($order['created_time']) ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
+                        
+                        if ($paymentDate) {
+                            $updateFields[] = "paymentdate = ?";
+                            $updateValues[] = $paymentDate;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Payment Date: -> '{$paymentDate}'<br>";
+                        }
+                        
+                        if ($deliveredDate) {
+                            $updateFields[] = "datedelivered = ?";
+                            $updateValues[] = $deliveredDate;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Delivered Date: -> '{$deliveredDate}'<br>";
+                        }
+                        
+                        if ($paymentMethod !== 'N/A') {
+                            $updateFields[] = "paymentmethod = ?";
+                            $updateValues[] = $paymentMethod;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Payment Method: -> '{$paymentMethod}'<br>";
+                        }
+                        
+                        if ($sellerName !== 'N/A') {
+                            $updateFields[] = "seller = ?";
+                            $updateValues[] = $sellerName;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Seller: -> '{$sellerName}'<br>";
+                        }
+                        
+                        // Always try to update seller location
+                        $updateFields[] = "Ebay_seller_location = ?";
+                        $updateValues[] = $sellerLocation;
+                        $updateTypes .= "s";
+                        echo "SMART UPDATE Seller Location: -> '{$sellerLocation}'<br>";
+                        
+                        if ($createdTime) {
+                            $updateFields[] = "orderdate = ?";
+                            $updateValues[] = $createdTime;
+                            $updateTypes .= "s";
+                            echo "SMART UPDATE Order Date: -> '{$createdTime}'<br>";
+                        }
+                        
+                        // Execute smart update for Orders module only if we have fields to update
+                        if (!empty($updateFields)) {
+                            $updateSQL = "UPDATE tblproduct SET " . implode(", ", $updateFields) . " WHERE rtid = ? AND itemnumber = ?";
+                            $updateValues[] = $orderID;
+                            $updateValues[] = $itemID;
+                            $updateTypes .= "ss";
+                            
+                            echo "DEBUG: About to execute UPDATE query<br>";
+                            echo "DEBUG: SQL: " . $updateSQL . "<br>";
+                            
+                            $updateStmt = $mysqli->prepare($updateSQL);
+                            if (!$updateStmt) {
+                                throw new Exception("Failed to prepare smart update statement: " . $mysqli->error);
+                            }
+                            
+                            $updateStmt->bind_param($updateTypes, ...$updateValues);
+                            
+                            if ($updateStmt->execute()) {
+                                $affectedRows = $updateStmt->affected_rows;
+                                echo "✓ ORDERS MODULE SMART UPDATED Order ID: {$orderID}, Item ID: {$itemID}<br>";
+                                echo "DEBUG: Affected rows: {$affectedRows}<br>";
+                                
+                                $existingProductID = $existingRecord['ProductID'];
+                                smartImageUpdateForExistingRecord($existingProductID, $itemID);
+                                
+                                $trackingUpdatedCount++;
+                                $smartUpdatedCount++;
+                            } else {
+                                echo "DEBUG: UPDATE failed with error: " . $updateStmt->error . "<br>";
+                                throw new Exception("Failed to smart update Orders module: " . $updateStmt->error);
+                            }
+                            $updateStmt->close();
+                        }
+                        
+                        $existingRecordsUpdated++;
+                        
+                    } else {
+                        // NON-ORDERS MODULE - SKIP COMPLETELY
+                        echo "NON-ORDERS MODULE ('{$existingRecord['ProductModuleLoc']}') - SKIPPING (no updates)<br>";
+                        $skippedCount++;
+                    }
+                    
+                } else {
+                    // For new records, only process completed orders
+                    if ($order['order_status'] !== 'Completed') {
+                        echo "Skipping new Order ID {$orderID} - Status: {$order['order_status']} (not completed)<br>";
+                    } else {
+                        echo "New record - will insert with full processing<br>";
+                        
+                        // Insert new record using existing V2 logic
+                        insertNewRecord($order, $item, $orderID, $itemID, $title);
+                        $newRecordsCount++;
+                    }
+                }
+            }
+            
+            $currentProcessed++;
+            $totalProcessed++;
+            
+            // Save progress with page index every few items
+            if ($currentProcessed % 5 == 0) {
+                saveProgress($orderID, $itemID, $currentPage, $totalProcessed, $i + 1, false);
+                echo "CHECKPOINT: Saved progress at page $currentPage, index " . ($i + 1) . "<br>";
+            }
+            
+            // Small delay between items
+            usleep(100000); // 0.1 second delay
+            
+        } catch (Exception $e) {
+            $errorCount++;
+            echo "ERROR processing Order ID {$orderID}, Item ID {$itemID}: " . $e->getMessage() . "<br>";
+            echo "Continuing with next order...<br>";
+            
+            // If it's a MySQL error, try to reconnect
+            if (strpos($e->getMessage(), 'MySQL') !== false || strpos($e->getMessage(), 'gone away') !== false) {
+                echo "Detected MySQL connection issue. Forcing reconnection...<br>";
+                checkDatabaseConnection();
+            }
+            
+            $currentProcessed++;
+            $totalProcessed++;
+            
+            // Still save progress even on error
+            saveProgress($orderID, $itemID, $currentPage, $totalProcessed, $i + 1, false);
+            
+            continue;
+        }
+    }
+    
+    // Mark this page as completed and move to next page
+    echo "Page $currentPage processing completed. Marking as done and advancing to next page.<br>";
+    saveProgress(null, null, $currentPage + 1, $totalProcessed, 0, true);
+    
+    echo "<br>=== PAGE $currentPage SUMMARY ===<br>";
+    echo "Orders processed on this page: {$currentProcessed}<br>";
+    echo "Smart updates applied: {$smartUpdatedCount}<br>";
+    echo "New records created: {$newRecordsCount}<br>";
+    echo "Skipped: {$skippedCount}<br>";
+    echo "Errors: {$errorCount}<br>";
+    echo "==================================<br>";
+    
+    return $currentProcessed;
+}
+
+// === ENHANCED IMAGE PROCESSING FROM V1 ===
+function shouldFetchImagesForUpdate($productID) {
+    global $mysqli;
+    
+    $checkStmt = $mysqli->prepare("
+        SELECT img1, img2, img3, img4, img5 
+        FROM tblproduct 
+        WHERE ProductID = ? 
+        LIMIT 1
+    ");
+    
+    $checkStmt->bind_param("i", $productID);
+    $checkStmt->execute();
+    $result = $checkStmt->get_result();
+    $row = $result->fetch_assoc();
+    $checkStmt->close();
+    
+    // If no images exist, we should fetch
+    if (!$row || (empty($row['img1']) && empty($row['img2']) && empty($row['img3']) && empty($row['img4']) && empty($row['img5']))) {
+        return true;
+    }
+    
+    return false; // Already has images, skip fetching
+}
+
+function smartImageUpdateForExistingRecord($existingProductID, $itemID) {
+    global $mysqli;
+    
+    // Only fetch images if record doesn't have any
+    if (shouldFetchImagesForUpdate($existingProductID)) {
+        echo "No images found for existing ProductID: {$existingProductID}, fetching...<br>";
+        
+        try {
+            $credentials = EbayCredentials();
+            $accessToken = $credentials['access_token'];
+            $itemDetails = fetchItemDetails($itemID, $accessToken);
+            
+            if ($itemDetails !== false && isset($itemDetails['Item']['PictureDetails']['PictureURL'])) {
+                echo "Processing images for existing ProductID: {$existingProductID}<br>";
+                saveEbayImages($existingProductID, $itemDetails['Item']['PictureDetails']['PictureURL']);
+            } else {
+                echo "Could not fetch item details for image update - Item ID: {$itemID}<br>";
+            }
+        } catch (Exception $e) {
+            echo "Exception while fetching item details for update: " . $e->getMessage() . "<br>";
+        }
+    } else {
+        echo "Existing ProductID: {$existingProductID} already has images, skipping fetch<br>";
+    }
+}
+
+function insertNewRecord($order, $item, $orderID, $itemID, $title) {
+    global $mysqli;
+    
+    $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
+    $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
+    $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
+    $DeliverDate = null;
+
+    if (!empty($order['estimatedDeliveryTime'])) {
+        $timestamp = strtotime($order['estimatedDeliveryTime']);
+        if ($timestamp !== false) {
+            $DeliverDate = date('Y-m-d H:i:s', $timestamp);
+        }
+    }
+    
+    $total = $order['total'] ?? 0.00;
+    $sellerName = $order['seller_user_id'];
+    $moduleLoc = 'Orders';
+    $fetchStatus = 'eBAYAPI';
+    $quantityPurchased = $item['quantity_purchased'];
+    $transactionPrice = $item['item_details']['Item']['SellingStatus']['CurrentPrice'] ?? 0.00;
+    $materialType = 'Inventory';
+    $trackingNumber1 = $order['tracking_number1'] ?? null;
+    $trackingNumber2 = $order['tracking_number2'] ?? null;
+    $trackingNumber3 = $order['tracking_number3'] ?? null;
+    $trackingNumber4 = $order['tracking_number4'] ?? null;
+    $shippingCarrierUsed = $order['shipping_carrier'] ?? null;
+    $PaymentMethod = 'eBay';
+    $tax = 0.00;
+    $DiscountedPrice = 0.00;
+    $shippingPrice = $order['shipping_cost'] ?? 0.00;
+    $sellerNotes = '';
+    $locationdetails = $order['locationdetails'];
+
+    // Enhanced condition detection from V1
+    $conditionDisplay = 'N/A';
+    if (isset($item['item_details']['Item']['ConditionDisplayName'])) {
+        $conditionDisplay = $item['item_details']['Item']['ConditionDisplayName'];
+    } else {
+        $conditionDisplay = getConditionDisplay($item['item_details']);
+    }
+
+    $itemDescription = '';
+    if (!empty($item['item_details']['Item']['Description'])) {
+        $htmlDescription = $item['item_details']['Item']['Description'];
+        $itemDescription = strip_tags($htmlDescription);
+        $itemDescription = str_replace(["'", '"', "\n", "\r"], "", $itemDescription);
+        $itemDescription = trim($itemDescription);
+    }
+
+    if (isset($item['item_details']['Item']['ConditionDescription'])) {
+        $sellerNotes = str_replace(["'", '"'], "", $item['item_details']['Item']['ConditionDescription']);
+    }
+
+    // Enhanced item status logic from V1
+    $keywords = db_fetch_all("SELECT descriptionStatus FROM tblItemstatus");
+    $itemStatus = 'Working';
+    $appliedCondition = '';
+    
+    // Check condition first
+    if ($conditionDisplay === 'For parts or not working') {
+        $itemStatus = 'Not Working';
+        $appliedCondition = 'Condition based';
+    } else {
+        // Check title keywords
+        foreach ($keywords as $row) {
+            $keyword = strtolower($row['descriptionStatus']);
+            if (stripos($title, $keyword) !== false) {
+                $itemStatus = 'Not Working';
+                $appliedCondition = 'Title keyword match';
+                break;
+            }
+        }
+        
+        // Check description keywords if still working
+        if ($itemStatus === 'Working' && !empty($itemDescription) && $itemDescription !== 'N/A') {
+            $descriptionLength = strlen($itemDescription);
+            $minDescriptionLength = 150;
+            
+            if ($descriptionLength >= $minDescriptionLength) {
+                $cutOffPoint = (int) ($descriptionLength * 0.8);
+                $topMiddleDescription = substr($itemDescription, 0, $cutOffPoint);
+                $appliedCondition = '80% applied';
+            } else {
+                $topMiddleDescription = $itemDescription;
+                $appliedCondition = '80% not applied';
+            }
+            
+            foreach ($keywords as $row) {
+                $keyword = strtolower($row['descriptionStatus']);
+                if (stripos($topMiddleDescription, $keyword) !== false) {
+                    $itemStatus = 'Not Working';
+                    $appliedCondition .= ' - Description keyword match';
+                    break;
+                }
+            }
+        }
+    }
+
+    $rtcounter = fetchRtCounter();
+    
+    $stmt = $mysqli->prepare("INSERT INTO tblproduct (rtid, itemnumber, ProductTitle, orderdate, total, quantity, price, Discount, priceshipping, tax, trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4, carrier, listedcondition, seller, shipdate, paymentdate, rtcounter, description, notes, paymentmethod, datedelivered, itemstatus, conditionStatusApplied, fetchStatus, ProductModuleLoc, materialtype, validation, Ebay_seller_location)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)");
+    
+    if (!$stmt) {
+        throw new Exception("Failed to prepare insert statement: " . $mysqli->error);
+    }
+    
+    $stmt->bind_param("ssssdiddddsssssssssississssssss", 
+        $orderID, $itemID, $title, $createdTime, $total, $quantityPurchased, 
+        $transactionPrice, $DiscountedPrice, $shippingPrice, $tax, 
+        $trackingNumber1, $trackingNumber2, $trackingNumber3, $trackingNumber4, 
+        $shippingCarrierUsed, $conditionDisplay, $sellerName, $shippedTime, 
+        $paymentDate, $rtcounter, $itemDescription, $sellerNotes, $PaymentMethod, 
+        $DeliverDate, $itemStatus, $appliedCondition, $fetchStatus, $moduleLoc, 
+        $materialType, $locationdetails
+    );
+
+    if ($stmt->execute()) {
+        $productID = $mysqli->insert_id;
+        echo "✅ Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID<br>";
+        echo "✅ Item Status: $itemStatus ($appliedCondition)<br>";
+        
+        // Process images for new records
+        if (isset($item['item_details']['Item']['PictureDetails']['PictureURL'])) {
+            saveEbayImages($productID, $item['item_details']['Item']['PictureDetails']['PictureURL']);
+        }
+    } else {
+        throw new Exception("Failed to insert record: " . $stmt->error);
+    }
+    
+    $stmt->close();
+}
+
 function sendEbayRequest($accessToken, $pageNumber)
 {
-    $createTimeFrom = (new DateTime('-10 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
+    // Enhanced to include ModTime filter for tracking updates like V1
+    $createTimeFrom = (new DateTime('-30 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
     $createTimeTo = (new DateTime('now', new DateTimeZone('UTC')))->format(DATE_ATOM);
+    
+    // ADDED: ModTime filter to catch recently modified orders (last 7 days) for tracking updates
+    $modTimeFrom = (new DateTime('-7 days', new DateTimeZone('UTC')))->format(DATE_ATOM);
 
     $requestBody = '<?xml version="1.0" encoding="utf-8"?>
     <GetOrdersRequest xmlns="urn:ebay:apis:eBLBaseComponents">
@@ -118,6 +814,8 @@ function sendEbayRequest($accessToken, $pageNumber)
         </RequesterCredentials>
         <CreateTimeFrom>' . $createTimeFrom . '</CreateTimeFrom>
         <CreateTimeTo>' . $createTimeTo . '</CreateTimeTo>
+        <ModTimeFrom>' . $modTimeFrom . '</ModTimeFrom>
+        <ModTimeTo>' . $createTimeTo . '</ModTimeTo>
         <OrderRole>Buyer</OrderRole>
         <DetailLevel>ReturnAll</DetailLevel>
         <Pagination>
@@ -209,6 +907,8 @@ function sendRequest($requestBody, $apiCallName)
     curl_setopt($curl, CURLOPT_POSTFIELDS, $requestBody);
     curl_setopt($curl, CURLOPT_HTTPHEADER, $apiHeaders);
     curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($curl, CURLOPT_TIMEOUT, 60);
+    curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 30);
 
     $response = curl_exec($curl);
     $error = curl_error($curl);
@@ -233,17 +933,12 @@ function sendRequest($requestBody, $apiCallName)
 function processOrders($response, $accessToken)
 {
     if (empty($response['OrderArray']['Order'])) {
-        echo "ℹ️ No orders found in response.<br>";
         return [];
     }
 
     $orders = $response['OrderArray']['Order'];
-    echo "<br>📝 Order Primary<br><pre>";
-    print_r($response['OrderArray']);
-    echo "</pre>";
-
     $processedOrders = [];
-    $exchangeRates = fetchExchangeRates('f5d29ab775a644eca3f13e4c'); // define this constant globally
+    $exchangeRates = fetchExchangeRates('f5d29ab775a644eca3f13e4c');
 
     foreach ($orders as $order) {
         $currency = $order['AmountPaid']['@currencyID'] ?? 'USD';
@@ -289,26 +984,16 @@ function processOrders($response, $accessToken)
 
             foreach ($transactions as $transaction) {
                 if (!is_array($transaction) || !isset($transaction['Item'])) {
-                    echo "⚠️ Invalid transaction structure.<br>";
                     continue;
                 }
 
                 $itemId = $transaction['Item']['ItemID'] ?? null;
                 if (!$itemId) {
-                    echo "⚠️ Missing ItemID in Transaction.<br>";
                     continue;
                 }
 
                 $itemDetails = fetchItemDetails($itemId, $accessToken);
                 $locationDetails = getItemLocation($itemId, $accessToken);
-
-                echo "<br>🛍️ Item Info of " . $order['OrderID'] . "<br><pre>";
-                print_r($itemDetails);
-                echo "</pre>";
-
-                echo "<br>📍 Location Details<br><pre>";
-                print_r($locationDetails);
-                echo "</pre>";
 
                 $items[] = [
                     'transaction_id' => $transaction['TransactionID'] ?? null,
@@ -344,117 +1029,123 @@ function processOrders($response, $accessToken)
             'estimatedDeliveryTime' => $deliveredDate,
         ];
 
-        echo "<br>📦 Processed Order:<br><pre>";
-        print_r($processedOrder);
-        echo "</pre>";
-
         $processedOrders[] = $processedOrder;
     }
-
-    echo "<br>📊 All Processed Orders:<br><pre>";
-    print_r($processedOrders);
-    echo "</pre>";
 
     return $processedOrders;
 }
 
-function insertOrUpdate($processedOrders)
+// === ADDITIONAL HELPER FUNCTIONS FROM V1 ===
+
+function getConditionDisplay($itemDetails) {
+    if (!$itemDetails || !isset($itemDetails['Item'])) {
+        echo "No item details available for condition check<br>";
+        return 'N/A';
+    }
+    
+    $conditionDisplay = 'N/A';
+    
+    try {
+        if (isset($itemDetails['Item']['ConditionDisplayName'])) {
+            $conditionDisplay = trim($itemDetails['Item']['ConditionDisplayName']);
+        }
+        
+        if (empty($conditionDisplay) || $conditionDisplay === 'N/A') {
+            if (isset($itemDetails['Item']['ConditionID'])) {
+                $conditionId = (int) $itemDetails['Item']['ConditionID'];
+                $conditionDisplay = mapConditionIdToDisplayName($conditionId);
+            }
+        }
+        
+    } catch (Exception $e) {
+        echo "Exception while getting condition display: " . $e->getMessage() . "<br>";
+        return 'N/A';
+    }
+    
+    return !empty($conditionDisplay) ? $conditionDisplay : 'N/A';
+}
+
+function mapConditionIdToDisplayName($conditionId) {
+    $conditionMap = [
+        1000 => 'New',
+        1500 => 'New other (see details)',
+        1750 => 'New with defects',
+        2000 => 'Manufacturer refurbished',
+        2500 => 'Seller refurbished',
+        3000 => 'Used',
+        4000 => 'Very Good',
+        5000 => 'Good',
+        6000 => 'Acceptable',
+        7000 => 'For parts or not working'
+    ];
+    
+    return isset($conditionMap[$conditionId]) ? $conditionMap[$conditionId] : 'N/A';
+}
+
+function formatDate($dateString)
 {
-    global $mysqli;
+    if (empty($dateString)) {
+        return null;
+    }
+    
+    $datePart = substr($dateString, 0, 10);
+    $date = DateTime::createFromFormat('Y-m-d', $datePart);
+    if ($date !== false) {
+        return $date->format('Y-m-d');
+    } else {
+        return null;
+    }
+}
 
-    foreach ($processedOrders as $order) {
-        if ($order['order_status'] !== 'Completed')
-            continue;
-
-        $orderID = $order['order_id'];
-        $createdTime = $order['created_time'] ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
-        $shippedTime = $order['shipped_time'] ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
-        $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
-        $DeliverDate = null;
-
-        if (!empty($order['estimatedDeliveryTime'])) {
-            $timestamp = strtotime($order['estimatedDeliveryTime']);
-            if ($timestamp !== false) {
-                $DeliverDate = date('Y-m-d H:i:s', $timestamp);
+function downloadImageWithRetry($url, $maxRetries = 2, $timeout = 20) {
+    $retryCount = 0;
+    
+    while ($retryCount < $maxRetries) {
+        try {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+            
+            $imageContent = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            
+            if ($imageContent === false) {
+                throw new Exception("cURL error: $curlError");
+            }
+            
+            if ($httpCode !== 200) {
+                throw new Exception("HTTP error: $httpCode");
+            }
+            
+            return $imageContent;
+            
+        } catch (Exception $e) {
+            $retryCount++;
+            echo "Attempt $retryCount failed for $url: " . $e->getMessage() . "<br>";
+            
+            if ($retryCount < $maxRetries) {
+                echo "Retrying in 1 second...<br>";
+                sleep(1);
             }
         }
-        $total = $order['total'] ?? 0.00;
-        $sellerName = $order['seller_user_id'];
-        $moduleLoc = 'Orders';
-        $fetchStatus = 'Pending';
+    }
+    
+    return false;
+}
 
-        foreach ($order['items'] as $item) {
-            $itemID = $item['item_id'];
-            $originalTitle = $item['title'];
-            $title = cleanTitle($originalTitle);
-
-            $quantityPurchased = $item['quantity_purchased'];
-            $transactionPrice = $item['item_details']['Item']['SellingStatus']['CurrentPrice'] ?? 0.00;
-            $conditionDisplay = $item['item_details']['Item']['ConditionDisplayName'] ?? 'Unknown';
-            $materialType = 'Default';
-            $trackingNumber1 = $order['tracking_number1'] ?? null;
-            $trackingNumber2 = $order['tracking_number2'] ?? null;
-            $trackingNumber3 = $order['tracking_number3'] ?? null;
-            $trackingNumber4 = $order['tracking_number4'] ?? null;
-            $shippingCarrierUsed = $order['shipping_carrier'] ?? null;
-            $PaymentMethod = $order['payment_method'] ?? 'eBay';
-            $itemStatus = $order['item_status'] ?? null;
-            $appliedCondition = $order['condition_status_applied'] ?? 'Applied';
-            $tax = 0.00;
-            $DiscountedPrice = 0.00;
-            $shippingPrice = $order['shipping_cost'] ?? 0.00;
-            $sellerNotes = '';
-            $locationdetails = $order['locationdetails'];
-
-            $itemDescription = '';
-            if (!empty($item['item_details']['Item']['Description'])) {
-                $itemDescription = strip_tags($item['item_details']['Item']['Description']);
-                $itemDescription = str_replace(["'", '"', "\n", "\r"], "", $itemDescription);
-                $itemDescription = trim($itemDescription);
-            }
-
-            if (isset($item['item_details']['Item']['ConditionDescription'])) {
-                $sellerNotes = str_replace(["'", '"'], "", $item['item_details']['Item']['ConditionDescription']);
-            }
-
-            // Check keywords
-            $keywords = db_fetch_all("SELECT descriptionStatus FROM tblItemstatus");
-            $descWords = strtolower($title . ' ' . substr($itemDescription, 0, (int) (strlen($itemDescription) * 0.8)));
-            foreach ($keywords as $row) {
-                $keyword = strtolower($row['descriptionStatus']);
-                if (strpos($descWords, $keyword) !== false) {
-                    $itemStatus = 'Not Working';
-                    $appliedCondition = (strlen($itemDescription) >= 150) ? '80% applied' : '80% not applied';
-                    break;
-                }
-            }
-
-            // Check existing
-            $check = db_fetch_assoc("SELECT ProductID FROM tblproduct WHERE rtid=? AND itemnumber=? AND ProductModuleLoc=?", [$orderID, $itemID, $moduleLoc]);
-
-            if ($check) {
-                $productID = $check['ProductID'];
-                db_query(
-                    "UPDATE tblproduct SET ProductTitle=?, orderdate=?, trackingnumber=?, trackingnumber2=?, trackingnumber3=?, trackingnumber4=?, carrier=?, listedcondition=?, seller=?, shipdate=?, paymentdate=?, paymentmethod=?, itemstatus=?, conditionStatusApplied=?, datedelivered=?, total=?, quantity=?, price=?, Discount=?, priceshipping=?, tax=?, Ebay_seller_location=? WHERE ProductID=?",
-                    [$title, $createdTime, $trackingNumber1, $trackingNumber2, $trackingNumber3, $trackingNumber4, $shippingCarrierUsed, $conditionDisplay, $sellerName, $shippedTime, $paymentDate, $PaymentMethod, $itemStatus, $appliedCondition, $DeliverDate, $total, $quantityPurchased, $transactionPrice, $DiscountedPrice, $shippingPrice, $tax, $locationdetails, $productID]
-                );
-
-                echo "🔁 Updated Order ID: $orderID (Item ID: $itemID) - ProductID: $productID<br>";
-            } else {
-                $rtcounter = fetchRtCounter();
-                db_query("INSERT INTO tblproduct (rtid, itemnumber, ProductTitle, orderdate, total, quantity, price, Discount, priceshipping, tax, trackingnumber, trackingnumber2, trackingnumber3, trackingnumber4, carrier, listedcondition, seller, shipdate, paymentdate, rtcounter, description, notes, paymentmethod, datedelivered, itemstatus, conditionStatusApplied, fetchStatus, ProductModuleLoc, materialtype, validation, Ebay_seller_location)
-                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', ?)",
-                    [$orderID, $itemID, $title, $createdTime, $total, $quantityPurchased, $transactionPrice, $DiscountedPrice, $shippingPrice, $tax, $trackingNumber1, $trackingNumber2, $trackingNumber3, $trackingNumber4, $shippingCarrierUsed, $conditionDisplay, $sellerName, $shippedTime, $paymentDate, $rtcounter, $itemDescription, $sellerNotes, $PaymentMethod, $DeliverDate, $itemStatus, $appliedCondition, $fetchStatus, $moduleLoc, $materialType, $locationdetails]
-                );
-
-                $productID = $mysqli->insert_id;
-                echo "✅ Inserted Order ID: $orderID (Item ID: $itemID) - ProductID: $productID<br>";
-            }
-
-            if (isset($item['item_details']['Item']['PictureDetails']['PictureURL'])) {
-                saveEbayImages($productID, $item['item_details']['Item']['PictureDetails']['PictureURL']);
-            }
-        }
+function clearProgress() {
+    global $progressFile;
+    if (file_exists($progressFile)) {
+        unlink($progressFile);
+        echo "Progress file cleared. Next run will start from the beginning.<br>";
     }
 }
 
@@ -468,30 +1159,89 @@ function saveEbayImages($productID, $imageUrls)
 
     $imageUrls = array_slice($imageUrls, 0, 5); // Limit to 5
 
-    $imageDir = '/home/u298641722/domains/tecniquality.com/public_html/laravel_ims/public/images/thumbnails';
+    $imageDir = '/home/imsv2/public_html/laravel_ims/public/images/thumbnails';
     if (!file_exists($imageDir)) {
         mkdir($imageDir, 0755, true);
     }
 
+    if (!is_writable($imageDir)) {
+        echo "Error: Image directory is not writable: $imageDir<br>";
+        return false;
+    }
+
+    $successCount = 0;
+    $totalCount = count($imageUrls);
+
     foreach ($imageUrls as $index => $imageUrl) {
-        $imageName = $productID . ($index > 0 ? "_$index" : "") . ".jpg";
-        $imagePath = $imageDir . '/' . $imageName;
+        try {
+            if (empty($imageUrl) || !filter_var($imageUrl, FILTER_VALIDATE_URL)) {
+                echo "Invalid image URL at index $index: $imageUrl<br>";
+                continue;
+            }
+            
+            $imageName = $productID . ($index > 0 ? "_$index" : "") . ".jpg";
+            $imagePath = $imageDir . '/' . $imageName;
 
-        $context = stream_context_create(['http' => ['timeout' => 10]]);
-        $imageData = @file_get_contents($imageUrl, false, $context);
+            $imageContent = downloadImageWithRetry($imageUrl, 2);
+            
+            if ($imageContent === false) {
+                echo "Failed to download image from: $imageUrl<br>";
+                continue;
+            }
+            
+            if (strlen($imageContent) < 100) {
+                echo "Downloaded image too small (likely error page): $imageUrl<br>";
+                continue;
+            }
 
-        if ($imageData && file_put_contents($imagePath, $imageData)) {
+            if (file_put_contents($imagePath, $imageContent) === false) {
+                echo "Error writing image file at: $imagePath<br>";
+                continue;
+            }
+            
+            if (!file_exists($imagePath) || filesize($imagePath) == 0) {
+                echo "Image file not properly saved: $imagePath<br>";
+                if (file_exists($imagePath)) {
+                    unlink($imagePath);
+                }
+                continue;
+            }
+            
+            $imageInfo = getimagesize($imagePath);
+            if ($imageInfo === false) {
+                echo "Downloaded file is not a valid image: $imagePath<br>";
+                unlink($imagePath);
+                continue;
+            }
+
             $imgField = "img" . ($index + 1);
             $stmt = $mysqli->prepare("UPDATE tblproduct SET $imgField = ? WHERE ProductID = ?");
+            
+            if ($stmt === false) {
+                echo "Error preparing image update statement: " . $mysqli->error . "<br>";
+                continue;
+            }
+            
             $stmt->bind_param("si", $imageName, $productID);
-            $stmt->execute();
+            
+            if (!$stmt->execute()) {
+                echo "Error updating image field {$imgField}: " . $stmt->error . "<br>";
+                $stmt->close();
+                continue;
+            }
+            
             $stmt->close();
-
+            $successCount++;
             echo "📷 Saved image $imageName for ProductID: $productID<br>";
-        } else {
-            echo "⚠️ Failed to save image from: $imageUrl<br>";
+
+        } catch (Exception $e) {
+            echo "Exception while processing image $index for ProductID $productID: " . $e->getMessage() . "<br>";
+            continue;
         }
     }
+    
+    echo "Image processing complete for ProductID $productID: $successCount/$totalCount images saved successfully<br>";
+    return $successCount > 0;
 }
 
 function fetchItemDetails($itemId, $accessToken)
@@ -501,23 +1251,210 @@ function fetchItemDetails($itemId, $accessToken)
         return null;
     }
 
+    static $callCount = 0;
+    static $lastCallTime = 0;
+    static $dailyCallCount = 0;
+    static $lastResetDate = null;
+    static $consecutiveFailures = 0;
+    
+    // Reset daily counter if it's a new day
+    $currentDate = date('Y-m-d');
+    if ($lastResetDate !== $currentDate) {
+        $dailyCallCount = 0;
+        $lastResetDate = $currentDate;
+        $consecutiveFailures = 0;
+        echo "Daily API call counter reset for date: $currentDate<br>";
+    }
+    
+    // Daily limit check
+    if ($dailyCallCount >= 2000) {
+        echo "Daily API limit reached ($dailyCallCount calls). Stopping for today.<br>";
+        return false;
+    }
+    
+    // Rate limiting
+    $currentTime = time();
+    $timeSinceLastCall = $currentTime - $lastCallTime;
+    $requiredDelay = API_CALL_DELAY;
+    
+    if ($timeSinceLastCall < $requiredDelay && $lastCallTime > 0) {
+        $sleepTime = $requiredDelay - $timeSinceLastCall;
+        echo "Rate limiting: waiting {$sleepTime} seconds before API call for Item ID: $itemId<br>";
+        sleep($sleepTime);
+    }
+    
+    $callCount++;
+    $dailyCallCount++;
+    echo "API Call #{$callCount} (Daily: {$dailyCallCount}) for Item ID: $itemId<br>";
+
     $requestBody = '<?xml version="1.0" encoding="utf-8"?>
     <GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
         <RequesterCredentials>
             <eBayAuthToken>' . $accessToken . '</eBayAuthToken>
         </RequesterCredentials>
-        <ItemID>' . $itemId . '</ItemID>
+        <ItemID>' . htmlspecialchars($itemId) . '</ItemID>
         <DetailLevel>ReturnAll</DetailLevel>
+        <IncludeItemSpecifics>true</IncludeItemSpecifics>
+        <IncludeWatchCount>true</IncludeWatchCount>
+        <IncludeCrossPromotion>false</IncludeCrossPromotion>
+        <IncludeItemCompatibilityList>false</IncludeItemCompatibilityList>
     </GetItemRequest>';
 
-    $response = sendRequest($requestBody, 'GetItem');
+    $maxRetries = 2;
+    $retryCount = 0;
+    
+    while ($retryCount < $maxRetries) {
+        $curl = curl_init();
+        curl_setopt($curl, CURLOPT_URL, 'https://api.ebay.com/ws/api.dll');
+        curl_setopt($curl, CURLOPT_POST, true);
+        curl_setopt($curl, CURLOPT_POSTFIELDS, $requestBody);
+        curl_setopt($curl, CURLOPT_HTTPHEADER, [
+            'X-EBAY-API-SITEID: 0',
+            'X-EBAY-API-COMPATIBILITY-LEVEL: 967',
+            'X-EBAY-API-CALL-NAME: GetItem',
+        ]);
+        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($curl, CURLOPT_TIMEOUT, 30);
+        curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, 10);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, false);
+        curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($curl, CURLOPT_MAXREDIRS, 3);
+        curl_setopt($curl, CURLOPT_USERAGENT, 'eBayAPI-PHP-Client/1.0');
+        
+        $response = curl_exec($curl);
+        $httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($curl);
+        $curlErrno = curl_errno($curl);
+        curl_close($curl);
 
-    if (!$response) {
-        echo "❌ No response from eBay for Item ID: $itemId<br>";
-        return null;
+        $lastCallTime = time();
+
+        if ($response === false || !empty($curlError)) {
+            $retryCount++;
+            echo "cURL Error (attempt $retryCount/$maxRetries) for Item ID $itemId: Error #$curlErrno - $curlError<br>";
+            
+            if ($retryCount < $maxRetries) {
+                $retryDelay = $retryCount * 3;
+                echo "Retrying in $retryDelay seconds...<br>";
+                sleep($retryDelay);
+                continue;
+            } else {
+                $consecutiveFailures++;
+                echo "Max retries reached for Item ID $itemId due to cURL errors.<br>";
+                return false;
+            }
+        }
+
+        if ($httpCode !== 200) {
+            echo "HTTP Error $httpCode for Item ID $itemId<br>";
+            
+            switch ($httpCode) {
+                case 429:
+                    echo "Rate limit exceeded. Waiting 60 seconds before continuing...<br>";
+                    sleep(60);
+                    $retryCount++;
+                    if ($retryCount < $maxRetries) {
+                        continue;
+                    }
+                    break;
+                    
+                case 500:
+                case 502:
+                case 503:
+                case 504:
+                    $retryCount++;
+                    if ($retryCount < $maxRetries) {
+                        $retryDelay = $retryCount * 5;
+                        echo "Server error. Retrying in $retryDelay seconds...<br>";
+                        sleep($retryDelay);
+                        continue;
+                    }
+                    break;
+                    
+                default:
+                    $consecutiveFailures++;
+                    return false;
+            }
+            
+            if ($retryCount >= $maxRetries) {
+                $consecutiveFailures++;
+                return false;
+            }
+        }
+        
+        break;
     }
 
-    return $response;
+    if (empty($response)) {
+        echo "Empty response received for Item ID $itemId<br>";
+        $consecutiveFailures++;
+        return false;
+    }
+
+    libxml_use_internal_errors(true);
+    $xml = simplexml_load_string($response);
+    $xmlErrors = libxml_get_errors();
+    
+    if ($xml === false) {
+        echo "XML Parse Error for Item ID $itemId:<br>";
+        foreach ($xmlErrors as $error) {
+            echo "- " . trim($error->message) . "<br>";
+        }
+        libxml_clear_errors();
+        $consecutiveFailures++;
+        return false;
+    }
+    
+    libxml_clear_errors();
+    
+    if (isset($xml->Errors)) {
+        $errorCode = (string)$xml->Errors->ErrorCode;
+        $errorMessage = (string)$xml->Errors->ShortMessage;
+        $longMessage = isset($xml->Errors->LongMessage) ? (string)$xml->Errors->LongMessage : '';
+        
+        echo "eBay API Error for Item ID $itemId: Code $errorCode - $errorMessage<br>";
+        if (!empty($longMessage)) {
+            echo "Details: $longMessage<br>";
+        }
+        
+        switch ($errorCode) {
+            case '17':
+            case '1047':
+                echo "Rate limiting detected. Waiting 60 seconds...<br>";
+                sleep(60);
+                $consecutiveFailures++;
+                return false;
+                
+            case '291':
+            case '1':
+                echo "Item $itemId not found or ended - this is normal for older items.<br>";
+                $consecutiveFailures = max(0, $consecutiveFailures - 1);
+                return false;
+                
+            case '21916653':
+                echo "Application request limit exceeded. Stopping API calls for today.<br>";
+                $dailyCallCount = 2000;
+                return false;
+                
+            default:
+                echo "Unhandled eBay API error code: $errorCode<br>";
+                $consecutiveFailures++;
+                return false;
+        }
+    }
+    
+    if (!isset($xml->Item)) {
+        echo "No Item element found in response for Item ID $itemId<br>";
+        $consecutiveFailures++;
+        return false;
+    }
+    
+    $consecutiveFailures = 0;
+    echo "Successfully fetched details for Item ID: $itemId<br>";
+    
+    // Convert XML to array format like V2 expects
+    return json_decode(json_encode($xml), true);
 }
 
 function getItemLocation($itemId, $accessToken)
@@ -554,14 +1491,37 @@ function getItemLocation($itemId, $accessToken)
 function fetchExchangeRates($apiKey)
 {
     $url = "https://v6.exchangerate-api.com/v6/$apiKey/latest/USD";
-    $response = file_get_contents($url);
+    
+    $context = stream_context_create([
+        'http' => [
+            'timeout' => 15,
+        ]
+    ]);
+    
+    $response = @file_get_contents($url, false, $context);
+    
+    if ($response === false) {
+        echo "WARNING: Exchange rate API timeout. Using USD-only mode.<br>";
+        return [
+            'USD' => 1.0,
+            'EUR' => 1.0,
+            'GBP' => 1.0,
+            'CAD' => 1.0
+        ];
+    }
+    
     $data = json_decode($response, true);
 
     if ($data && isset($data['conversion_rates'])) {
         return $data['conversion_rates'];
     } else {
-        echo "❌ Error fetching exchange rates.<br>";
-        return [];
+        echo "WARNING: Invalid exchange rate response. Using USD-only mode.<br>";
+        return [
+            'USD' => 1.0,
+            'EUR' => 1.0,
+            'GBP' => 1.0,
+            'CAD' => 1.0
+        ];
     }
 }
 
@@ -593,9 +1553,6 @@ function fetchRtCounter()
     $row = db_fetch_assoc("SELECT MAX(rtcounter) as maxval FROM tblproduct");
     return $row && $row['maxval'] ? $row['maxval'] + 1 : 1;
 }
-
-
-
 
 //// === Supporting Functions ===
 
@@ -734,29 +1691,12 @@ function refreshEbayAccessToken($credentials)
     if (isset($results['access_token'])) {
         $newAccessToken = $results['access_token'];
         $expiresIn = $results['expires_in'] ?? 3600;
-        $refreshTokenExpiresIn = $results['refresh_token_expires_in'] ?? '';
 
         $stmt = $mysqli->prepare("UPDATE tblapis SET access_token = ?, updated_at = ? WHERE api_name = 'EBAY'");
         $now = date('Y-m-d H:i:s');
         $stmt->bind_param("ss", $newAccessToken, $now);
         $stmt->execute();
         $stmt->close();
-
-        $filePath = "/home/imsv2/public_html/laravel_ims/automations/tokens.json";
-        $jsonData = json_encode([
-            'access_token' => $newAccessToken,
-            'expires_in' => $expiresIn,
-            'refresh_token' => $apiRecord['refresh_token'],
-            'refresh_token_expires_in' => $refreshTokenExpiresIn,
-            'token_type' => 'User Access Token',
-            'expiration_time' => time() + $expiresIn,
-        ], JSON_PRETTY_PRINT);
-
-        if (file_put_contents($filePath, $jsonData) !== false) {
-            echo "✅ Tokens saved to file.<br>";
-        } else {
-            echo "❌ Failed to write tokens.json<br>";
-        }
 
         return $newAccessToken;
     } else {
@@ -766,3 +1706,5 @@ function refreshEbayAccessToken($credentials)
         return null;
     }
 }
+
+?>
