@@ -510,7 +510,7 @@ export default {
         async fetchItems() {
             this.loading = true;
             try {
-                const response = await axios.get("/api/testing/products");
+                const response = await axios.get("/api/packaging/products");
                 const payload = response.data;
 
                 // handle both array or wrapped array
