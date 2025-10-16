@@ -1139,9 +1139,9 @@ class ImageProcessingService
      * Generate QR code for small label card (2" x 1" label)
      * This creates a compact label with serial number and QR code
      */
-  public function generateQRforSmallLabelCard($serialNumber)
+  public function generateQRforSmallLabelCard($serialNumber, $returnCount = 0)
 {
-    try {
+     try {
         if (empty($serialNumber)) {
             Log::error("Serial number is required for small label card");
             return "";
@@ -1165,7 +1165,7 @@ class ImageProcessingService
         }
         
         if (class_exists('QRcode')) {
-            \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 5); // Changed from 3 to 5 for better scanning
+            \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 5);
         } else {
             Log::error('QRcode class not available for small label card');
             return "";
@@ -1182,7 +1182,7 @@ class ImageProcessingService
         
         // Set dimensions for the smaller label - 2" x 1" at 203dpi
         $outputImageWidth = 400;
-        $outputImageHeight = 220; // Changed from 200 to 220 for more space
+        $outputImageHeight = 220;
         
         // Create a blank image with the specified dimensions
         $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
@@ -1202,9 +1202,9 @@ class ImageProcessingService
             \imagedestroy($templateImage);
             
             // Add serial number with stretched/taller effect
-            $serialTextX = 5; // Changed from 20 to 5 - closer to left edge
-            $serialTextY = 120; // Lower portion of label
-            $fontSize = 20; // Font size for small label
+            $serialTextX = 5;
+            $serialTextY = 110;
+            $fontSize = 20;
             
             if (file_exists($this->fontsPath)) {
                 // Calculate text dimensions
@@ -1235,18 +1235,38 @@ class ImageProcessingService
                 // Copy with vertical stretch onto main image
                 \imagecopyresampled(
                     $image, $tempImg,
-                    $serialTextX, $serialTextY - ($textHeight * $heightMultiplier), // destination position
-                    0, 0, // source position
-                    $tempImgWidth, $stretchedHeight, // destination dimensions (width stays same, height stretched)
-                    $tempImgWidth, $textHeight + 20 // source dimensions
+                    $serialTextX, $serialTextY - ($textHeight * $heightMultiplier),
+                    0, 0,
+                    $tempImgWidth, $stretchedHeight,
+                    $tempImgWidth, $textHeight + 20
                 );
                 
                 // Clean up temporary image
                 \imagedestroy($tempImg);
+                
+                // Add return count BELOW the serial number - ALWAYS show it
+                $returnText = "R: " . $returnCount;
+                $returnFontSize = 16; // Slightly smaller font for return count
+                
+                // Position return count BELOW the serial number
+                $returnTextX = $serialTextX + 140;
+                $returnTextY = $serialTextY + 45; // 15px below serial number
+                
+                // Draw return count with bold effect (directly on main image)
+                \imagettftext($image, $returnFontSize, 0, $returnTextX, $returnTextY, $black, $this->fontsPath, $returnText);
+                \imagettftext($image, $returnFontSize, 0, $returnTextX + 1, $returnTextY, $black, $this->fontsPath, $returnText);
+                \imagettftext($image, $returnFontSize, 0, $returnTextX, $returnTextY + 1, $black, $this->fontsPath, $returnText);
+                \imagettftext($image, $returnFontSize, 0, $returnTextX + 1, $returnTextY + 1, $black, $this->fontsPath, $returnText);
+                
             } else {
+                // Fallback if TTF font not available
+                \imagestring($image, 3, $serialTextX, $serialTextY - 10, $serialNumber, $black);
+                
+                // Add return count in fallback mode BELOW serial - ALWAYS show it
+                $returnText = "R:" . $returnCount;
+                \imagestring($image, 2, $serialTextX, $serialTextY + 10, $returnText, $black);
+                
                 Log::error('TTF font not available for small label card');
-                \imagedestroy($image);
-                return "";
             }
             
             // Add QR code next to the serial number (on the right side)
@@ -1254,9 +1274,9 @@ class ImageProcessingService
                 $qrCodeImage = \imagecreatefrompng($qrCodePath);
                 if ($qrCodeImage) {
                     // Position QR code on the right side of the label
-                    $qrSize = 90; // Slightly larger for better scanning
-                    $qrX = 310; // Position on right side
-                    $qrY = 70; // Center vertically in lower portion
+                    $qrSize = 90;
+                    $qrX = 310;
+                    $qrY = 70;
                     
                     // Resize and place QR code
                     \imagecopyresampled($image, $qrCodeImage, $qrX, $qrY, 0, 0, $qrSize, $qrSize, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
@@ -1304,7 +1324,10 @@ class ImageProcessingService
         $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
         $zplCommand .= "^XZ";
         
-        Log::info('Generated small label card ZPL successfully for serial: ' . $serialNumber);
+        Log::info('Generated small label card ZPL successfully', [
+            'serial' => $serialNumber,
+            'return_count' => $returnCount
+        ]);
         
         return $zplCommand;
         
@@ -1312,6 +1335,7 @@ class ImageProcessingService
         Log::error('Error generating small label card:', [
             'error' => $e->getMessage(),
             'serial_number' => $serialNumber,
+            'return_count' => $returnCount,
             'trace' => $e->getTraceAsString()
         ]);
         

@@ -13,7 +13,7 @@ echo "Working directory: " . getcwd() . "<br>";
 
 
 // === DB CONFIG ===
-$mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
+$mysqli = new mysqli("localhost", "u298641722_dbims_user", "?cIk=|zRk3T", "u298641722_dbims");
 
 if ($mysqli->connect_error) {
     die("DB connection failed: " . $mysqli->connect_error . "<br>");
@@ -742,7 +742,7 @@ function refreshEbayAccessToken($credentials)
         $stmt->execute();
         $stmt->close();
 
-        $filePath = "/home/imsv2/public_html/laravel_ims/automations/tokens.json";
+        $filePath = "/home/u298641722/public_html/ims/Admin/modules/orders/tokens.json";
         $jsonData = json_encode([
             'access_token' => $newAccessToken,
             'expires_in' => $expiresIn,
