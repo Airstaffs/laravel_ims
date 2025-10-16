@@ -22,11 +22,11 @@
                             <div class="product-name">
                                 <span
                                     class="sortable"
-                                    @click="sortBy('AStitle')"
+                                    @click="sortBy('ProductTitle')"
                                 >
                                     Product Name
                                     <i
-                                        v-if="sortColumn === 'AStitle'"
+                                        v-if="sortColumn === 'ProductTitle'"
                                         :class="
                                             sortOrder === 'asc'
                                                 ? 'fas fa-sort-up'
@@ -36,13 +36,97 @@
                                 </span>
                             </div>
                         </th>
-                        <th class="">Serial Number</th>
-                        <th class="">ASIN</th>
-                        <th class="">FNSKU</th>
-                        <th class="">Tracking Number</th>
-                        <th class="">Quantity</th>
-                        <th class="">Date Delivered</th>
-                        <th class="">Actions</th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('serialnumber')"
+                            >
+                                Serial Number
+                                <i
+                                    v-if="sortColumn === 'serialnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('ASIN')">
+                                ASIN
+                                <i
+                                    v-if="sortColumn === 'ASIN'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('FNSKUviewer')"
+                            >
+                                FNSKU
+                                <i
+                                    v-if="sortColumn === 'FNSKUviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('trackingnumber')"
+                            >
+                                Tracking Number
+                                <i
+                                    v-if="sortColumn === 'trackingnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('quantity')">
+                                Quantity
+                                <i
+                                    v-if="sortColumn === 'quantity'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('datedelivered')"
+                            >
+                                Date Delivered
+                                <i
+                                    v-if="sortColumn === 'datedelivered'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -204,10 +288,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button>
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -360,12 +440,25 @@
                     <hr />
 
                     <div class="mobile-card-actions">
-                        <!-- <span><strong></strong> {{ item.actions }}</span> -->
                         <button
                             @click="showFnskuModal(item)"
                             class="btn btn-fnsku"
                         >
-                            <i class="bi bi-clipboard-check"></i> SET FNSKU
+                            <i class="bi bi-clipboard-check"></i>
+                            <span>Set FNSKU</span>
+                        </button>
+
+                        <button
+                            class="btn btn-split"
+                            :disabled="isProcessing || !canSplit(item)"
+                            :title="
+                                !canSplit(item)
+                                    ? 'Cannot split - quantity must be greater than 1'
+                                    : 'Split into individual items'
+                            "
+                        >
+                            <i class="bi bi-scissors"></i>
+                            <span>Split</span>
                         </button>
 
                         <button
@@ -373,8 +466,8 @@
                             class="btn btn-validation"
                             :disabled="isProcessing"
                         >
-                            <i class="bi bi-check-circle"></i> Move to
-                            Validation
+                            <i class="bi bi-check-circle"></i>
+                            <span>Move to Validation</span>
                         </button>
 
                         <button
@@ -382,7 +475,8 @@
                             class="btn btn-stockroom"
                             :disabled="isProcessing"
                         >
-                            <i class="bi bi-box-seam"></i> Move to Stockroom
+                            <i class="bi bi-box-seam"></i>
+                            <span>Move to Stockroom</span>
                         </button>
 
                         <!-- ADD THIS COPY DETAILS BUTTON -->
@@ -391,14 +485,16 @@
                             class="btn btn-copy-details"
                             title="Copy product details"
                         >
-                            <i class="bi bi-clipboard"></i> Copy Details
+                            <i class="bi bi-clipboard"></i>
+                            <span>Copy Details</span>
                         </button>
 
                         <button
                             @click="openEditModal(item)"
                             class="btn btn-edit"
                         >
-                            <i class="bi bi-pencil"></i>Edit
+                            <i class="bi bi-pencil"></i>
+                            <span>Edit</span>
                         </button>
                     </div>
                 </div>

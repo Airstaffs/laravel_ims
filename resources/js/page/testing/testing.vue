@@ -22,11 +22,11 @@
                             <div class="product-name">
                                 <span
                                     class="sortable"
-                                    @click="sortBy('AStitle')"
+                                    @click="sortBy('ProductTitle')"
                                 >
                                     Product Name
                                     <i
-                                        v-if="sortColumn === 'AStitle'"
+                                        v-if="sortColumn === 'ProductTitle'"
                                         :class="
                                             sortOrder === 'asc'
                                                 ? 'fas fa-sort-up'
@@ -47,58 +47,259 @@
                                 </button>
                             </div>
                         </th>
-                        <th class="">Location</th>
-                        <th class="">Added date</th>
-                        <th class="">Updated date</th>
-                        <th class="">Fnsku</th>
-                        <th class="">Msku</th>
-                        <th class="">Asin</th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBM
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('warehouselocation')"
+                            >
+                                Location
+                                <i
+                                    v-if="sortColumn === 'warehouselocation'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('datedelivered')"
+                            >
+                                Added date
+                                <i
+                                    v-if="sortColumn === 'datedelivered'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('lastDateUpdate')"
+                            >
+                                Updated date
+                                <i
+                                    v-if="sortColumn === 'lastDateUpdate'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('FNSKUviewer')"
+                            >
+                                Fnsku
+                                <i
+                                    v-if="sortColumn === 'FNSKUviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('MSKUviewer')"
+                            >
+                                Msku
+                                <i
+                                    v-if="sortColumn === 'MSKUviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('ASINviewer')"
+                            >
+                                Asin
+                                <i
+                                    v-if="sortColumn === 'ASINviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            FBA
+                            <span
+                                class="sortable"
+                                @click="sortBy('FBMAvailable')"
+                            >
+                                FBM
+                                <i
+                                    v-if="sortColumn === 'FBMAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Outbound
+                            <span
+                                class="sortable"
+                                @click="sortBy('FbaAvailable')"
+                            >
+                                FBA
+                                <i
+                                    v-if="sortColumn === 'FbaAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Inbound
+                            <span class="sortable" @click="sortBy('Outbound')">
+                                Outbound
+                                <i
+                                    v-if="sortColumn === 'Outbound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Unfulfillable
+                            <span class="sortable" @click="sortBy('Inbound')">
+                                Inbound
+                                <i
+                                    v-if="sortColumn === 'Inbound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Reserved
+                            <span class="sortable" @click="sortBy('Reserved')">
+                                Reserved
+                                <i
+                                    v-if="sortColumn === 'Reserved'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
-                        <th class="">Fulfillment</th>
-                        <th class="">Status</th>
-                        <th class="">Serialnumber</th>
-                        <th class="">Actions</th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('Unfulfillable')"
+                            >
+                                Unfulfillable
+                                <i
+                                    v-if="sortColumn === 'Unfulfillable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('Fulfilledby')"
+                            >
+                                Fulfillment
+                                <i
+                                    v-if="sortColumn === 'Fulfilledby'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('Status')">
+                                Status
+                                <i
+                                    v-if="sortColumn === 'Status'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('serialnumber')"
+                            >
+                                Serialnumber
+                                <i
+                                    v-if="sortColumn === 'serialnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -262,9 +463,6 @@
                                         <i class="fas fa-info-circle"></i> More
                                         Details
                                     </button>
-                                    <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
                                 </div>
                             </td>
                         </tr>
@@ -440,16 +638,15 @@
                         </div>
                     </div>
 
+                    <hr />
+
                     <div class="mobile-card-actions">
                         <button
                             class="btn btn-details"
                             @click="toggleDetails(index)"
                         >
-                            <i class="fas fa-info-circle"></i> Details
+                            <i class="fas fa-info-circle"></i>
                         </button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
                     </div>
 
                     <hr v-if="expandedRows[index]" />

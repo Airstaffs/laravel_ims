@@ -22,11 +22,11 @@
                             <div class="product-name">
                                 <span
                                     class="sortable"
-                                    @click="sortBy('AStitle')"
+                                    @click="sortBy('ProductTitle')"
                                 >
                                     Product Name
                                     <i
-                                        v-if="sortColumn === 'AStitle'"
+                                        v-if="sortColumn === 'ProductTitle'"
                                         :class="
                                             sortOrder === 'asc'
                                                 ? 'fas fa-sort-up'
@@ -36,12 +36,99 @@
                                 </span>
                             </div>
                         </th>
-                        <th class="">Seller Location</th>
-                        <th class="">Tracking Number</th>
-                        <th class="">Ordered Condition</th>
-                        <th class="">Condition Status</th>
-                        <th class="">Ordered Date</th>
-                        <th class="">Delivered Date</th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('Ebay_seller_location')"
+                            >
+                                Seller Location
+                                <i
+                                    v-if="sortColumn === 'Ebay_seller_location'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('trackingnumber')"
+                            >
+                                Tracking Number
+                                <i
+                                    v-if="sortColumn === 'trackingnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('listedcondition')"
+                            >
+                                Ordered Condition
+                                <i
+                                    v-if="sortColumn === 'listedcondition'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('itemstatus')"
+                            >
+                                Condition Status
+                                <i
+                                    v-if="sortColumn === 'itemstatus'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('orderdate')">
+                                Ordered Date
+                                <i
+                                    v-if="sortColumn === 'orderdate'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('datedelivered')"
+                            >
+                                Delivered Date
+                                <i
+                                    v-if="sortColumn === 'datedelivered'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
                         <th class="">Actions</th>
                     </tr>
                 </thead>
@@ -142,13 +229,6 @@
                             <td>
                                 <div class="action-buttons">
                                     <button
-                                        class="btn-details"
-                                        @click="toggleDetails(index)"
-                                    >
-                                        <i class="fas fa-info-circle"></i> More
-                                        Details
-                                    </button>
-                                    <button
                                         class="btn btn-edit"
                                         @click="openEditModal(item)"
                                     >
@@ -177,13 +257,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button
-                class="btn btn-showDetailsM"
-                @click="toggleDetailsVisibility"
-            >
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button>
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -339,18 +412,11 @@
 
                     <div class="mobile-card-actions">
                         <button
-                            class="btn btn-details"
-                            @click="toggleDetails(index)"
-                        >
-                            <i class="fas fa-info-circle"></i> 
-                            <span class="d-none d-md-block">Details</span>
-                        </button>
-                        <button
                             class="btn btn-edit"
                             @click="openEditModal(item)"
                         >
                             <i class="bi bi-pencil"></i>
-                            <span class="d-none d-md-block">Edit</span>
+                            <span>Edit</span>
                         </button>
                     </div>
 
@@ -431,41 +497,54 @@
                         <button
                             class="nav-button prev"
                             @click="prevImage"
-                            v-if="modalImages.length > 1"
+                            v-if="imageList.length > 1"
                         >
                             <i class="bi bi-arrow-left-short"></i>
                         </button>
                         <img
-                            :src="modalImages[currentImageIndex]"
-                            alt="Product Image"
+                            :src="activeImageUrl"
+                            alt="Main Product Image"
                             class="modal-main-image"
+                            loading="lazy"
                             width="100%"
+                            @error="onImageErrorMain"
                         />
                         <button
                             class="nav-button next"
                             @click="nextImage"
-                            v-if="modalImages.length > 1"
+                            v-if="imageList.length > 1"
                         >
                             <i class="bi bi-arrow-right-short"></i>
                         </button>
                     </div>
 
                     <div class="image-counter">
-                        {{ currentImageIndex + 1 }} / {{ modalImages.length }}
+                        {{ activeIndex + 1 }} / {{ imageList.length }}
                     </div>
 
                     <div
-                        class="thumbnails-container"
-                        v-if="modalImages.length > 1"
+                        class="thumbnail-container"
+                        v-if="imageList.length > 1"
                     >
                         <div
-                            v-for="(image, index) in modalImages"
+                            v-for="(img, index) in imageList"
                             :key="index"
                             class="modal-thumbnail"
-                            :class="{ active: index === currentImageIndex }"
-                            @click="currentImageIndex = index"
+                            :class="[
+                                'thumbnail',
+                                {
+                                    active: index === activeIndex,
+                                },
+                            ]"
+                            @click="activeIndex = index"
+                            @mouseenter="activeIndex = index"
                         >
-                            <img :src="image" :alt="`Thumbnail ${index + 1}`" />
+                            <img
+                                :src="basePath + img"
+                                alt="Thumbnail"
+                                loading="lazy"
+                                @error="onThumbnailError($event)"
+                            />
                         </div>
                     </div>
                 </div>

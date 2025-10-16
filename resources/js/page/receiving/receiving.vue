@@ -4,7 +4,7 @@
             <div class="header-buttons">
                 <button class="btn btn-scan" @click="openScannerModal">
                     <i class="fas fa-barcode"></i>
-                    <span class="d-none d-md-inline">Scan Items</span>
+                    <span>Scan Items</span>
                 </button>
                 <!-- <button class="btn btn-manual" @click="openDetectSerialModal">
                     <i class="fas fa-keyboard"></i> Detect Serial Numbers
@@ -77,31 +77,30 @@
                 <div class="input-group" v-if="currentStep === 2">
                     <div class="tracking-verified mt-4">
                         <div class="success-banner">
-                        Tracking found for {{ trackingNumber }}
+                            Tracking found for {{ trackingNumber }}
                         </div>
                     </div>
 
                     <div class="pass-fail-buttons mt-4">
                         <button @click="passItem" class="pass-button step-btn">
-                        <i class="fas fa-check"></i> Pass
+                            <i class="fas fa-check"></i> Pass
                         </button>
                         <button @click="failItem" class="fail-button step-btn">
-                        <i class="fas fa-times"></i> Fail
+                            <i class="fas fa-times"></i> Fail
                         </button>
                     </div>
 
                     <!-- ✅ Modal viewer for thumbnails -->
-                    
-
                 </div>
-
 
                 <!-- Step 3: First Serial Number Input -->
                 <div class="input-group" v-if="currentStep === 3">
                     <!-- OCR Detected Serials (show for step 3 & 4 only) -->
                     <div
                         v-if="
-                            apiResult.step3 && apiResult.step3.serials && apiResult.step3.serials.length
+                            apiResult.step3 &&
+                            apiResult.step3.serials &&
+                            apiResult.step3.serials.length
                         "
                         class="serial-results-wrapper-main"
                     >
@@ -149,14 +148,15 @@
                     >
                         Scan
                     </button>
-                    
                 </div>
 
                 <!-- Step 4: Second Serial Number Input (with Skip option) -->
                 <div class="input-group" v-if="currentStep === 4">
                     <div
                         v-if="
-                            apiResult.step4 && apiResult.step4.serials && apiResult.step4.serials.length
+                            apiResult.step4 &&
+                            apiResult.step4.serials &&
+                            apiResult.step4.serials.length
                         "
                         class="serial-results-wrapper-main"
                     >
@@ -272,11 +272,11 @@
                             <div class="product-name">
                                 <span
                                     class="sortable"
-                                    @click="sortBy('AStitle')"
+                                    @click="sortBy('ProductTitle')"
                                 >
                                     Product Name
                                     <i
-                                        v-if="sortColumn === 'AStitle'"
+                                        v-if="sortColumn === 'ProductTitle'"
                                         :class="
                                             sortOrder === 'asc'
                                                 ? 'fas fa-sort-up'
@@ -284,70 +284,260 @@
                                         "
                                     ></i>
                                 </span>
-
-                                <button
-                                    class="btn-showDetails"
-                                    @click="toggleDetailsVisibility"
-                                >
-                                    {{
-                                        showDetails
-                                            ? "Hide extra columns"
-                                            : "Show extra columns"
-                                    }}
-                                </button>
                             </div>
                         </th>
-                        <th class="">Location</th>
-                        <th class="">Added date</th>
-                        <th class="">Updated date</th>
-                        <th class="">Fnsku</th>
-                        <th class="">Msku</th>
-                        <th class="">Asin</th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBM
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('warehouselocation')"
+                            >
+                                Location
+                                <i
+                                    v-if="sortColumn === 'warehouselocation'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('datedelivered')"
+                            >
+                                Added date
+                                <i
+                                    v-if="sortColumn === 'datedelivered'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('lastDateUpdate')"
+                            >
+                                Updated date
+                                <i
+                                    v-if="sortColumn === 'lastDateUpdate'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('FNSKUviewer')"
+                            >
+                                Fnsku
+                                <i
+                                    v-if="sortColumn === 'FNSKUviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('MSKUviewer')"
+                            >
+                                Msku
+                                <i
+                                    v-if="sortColumn === 'MSKUviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('ASINviewer')"
+                            >
+                                Asin
+                                <i
+                                    v-if="sortColumn === 'ASINviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            FBA
+                            <span
+                                class="sortable"
+                                @click="sortBy('FBMAvailable')"
+                            >
+                                FBM
+                                <i
+                                    v-if="sortColumn === 'FBMAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Outbound
+                            <span
+                                class="sortable"
+                                @click="sortBy('FbaAvailable')"
+                            >
+                                FBA
+                                <i
+                                    v-if="sortColumn === 'FbaAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Inbound
+                            <span class="sortable" @click="sortBy('Outbound')">
+                                Outbound
+                                <i
+                                    v-if="sortColumn === 'Outbound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Unfulfillable
+                            <span class="sortable" @click="sortBy('Inbound')">
+                                Inbound
+                                <i
+                                    v-if="sortColumn === 'Inbound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Reserved
+                            <span class="sortable" @click="sortBy('Reserved')">
+                                Reserved
+                                <i
+                                    v-if="sortColumn === 'Reserved'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
-                        <th class="">Fulfillment</th>
-                        <th class="">Status</th>
-                        <th class="">Serialnumber</th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('Unfulfillable')"
+                            >
+                                Unfulfillable
+                                <i
+                                    v-if="sortColumn === 'Unfulfillable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('Fulfilledby')"
+                            >
+                                Fulfillment
+                                <i
+                                    v-if="sortColumn === 'Fulfilledby'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('Status')">
+                                Status
+                                <i
+                                    v-if="sortColumn === 'Status'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('serialnumber')"
+                            >
+                                Serialnumber
+                                <i
+                                    v-if="sortColumn === 'serialnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
                         <th class="">Actions</th>
                     </tr>
                 </thead>
@@ -521,10 +711,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button>
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -552,6 +738,7 @@
                                 :alt="item.ProductTitle || 'Product'"
                                 class="product-thumbnail clickable-image"
                                 @error="handleImageError($event)"
+                                @click="openImageModal(item)"
                             />
                             <div
                                 class="image-count-badge"
@@ -678,9 +865,10 @@
                     <div class="mobile-card-actions">
                         <button
                             class="btn btn-details"
-                            @click="toggleDetails(index)"
+                            @click="openEditModal(item)"
                         >
                             <i class="fas fa-info-circle"></i>
+                            <span>View Details</span>
                         </button>
                     </div>
 
@@ -735,6 +923,82 @@
                     >
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Image Modal -->
+        <div v-if="showImageModal" class="modal image-modal">
+            <div class="modal-overlay" @click="closeImageModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2>{{ ProductTitle }}</h2>
+                    </div>
+                    <button
+                        class="btn btn-modal-close"
+                        @click="closeImageModal"
+                    >
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="main-image-container">
+                        <button
+                            class="nav-button prev"
+                            @click="prevImage"
+                            v-if="imageList.length > 1"
+                        >
+                            <i class="bi bi-arrow-left-short"></i>
+                        </button>
+                        <img
+                            :src="activeImageUrl"
+                            alt="Main Product Image"
+                            class="modal-main-image"
+                            loading="lazy"
+                            width="100%"
+                            @error="onImageErrorMain"
+                        />
+                        <button
+                            class="nav-button next"
+                            @click="nextImage"
+                            v-if="imageList.length > 1"
+                        >
+                            <i class="bi bi-arrow-right-short"></i>
+                        </button>
+                    </div>
+
+                    <div class="image-counter">
+                        {{ activeIndex + 1 }} / {{ imageList.length }}
+                    </div>
+
+                    <div
+                        class="thumbnail-container"
+                        v-if="imageList.length > 1"
+                    >
+                        <div
+                            v-for="(img, index) in imageList"
+                            :key="index"
+                            class="modal-thumbnail"
+                            :class="[
+                                'thumbnail',
+                                {
+                                    active: index === activeIndex,
+                                },
+                            ]"
+                            @click="activeIndex = index"
+                            @mouseenter="activeIndex = index"
+                        >
+                            <img
+                                :src="basePath + img"
+                                alt="Thumbnail"
+                                loading="lazy"
+                                @error="onThumbnailError($event)"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
