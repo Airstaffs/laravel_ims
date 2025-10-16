@@ -16,6 +16,7 @@ define('BATCH_PROCESSING_DELAY', 2);
 define('MAX_PAGES_PER_RUN', 5);
 define('MAX_EMPTY_PAGES', 2);
 
+
 // === DB CONFIG ===
 $mysqli = new mysqli("localhost", "imsv2_dbims_user", "Imsv2_dbims_user", "imsv2_dbims");
 
@@ -229,6 +230,7 @@ function db_fetch_all($query, $bind = [])
 function fetchOrdersCron()
 {
     $serverconfig = env('EBAY_SERVER_CONFIG', 'LIVE');
+    
     
     // Load progress for multi-page processing
     $progress = loadProgress();
