@@ -288,10 +288,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button>
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -449,6 +445,7 @@
                             class="btn btn-fnsku"
                         >
                             <i class="bi bi-clipboard-check"></i>
+                            <span>Set FNSKU</span>
                         </button>
 
                         <button
@@ -461,6 +458,7 @@
                             "
                         >
                             <i class="bi bi-scissors"></i>
+                            <span>Split</span>
                         </button>
 
                         <button
@@ -469,6 +467,7 @@
                             :disabled="isProcessing"
                         >
                             <i class="bi bi-check-circle"></i>
+                            <span>Move to Validation</span>
                         </button>
 
                         <button
@@ -477,6 +476,7 @@
                             :disabled="isProcessing"
                         >
                             <i class="bi bi-box-seam"></i>
+                            <span>Move to Stockroom</span>
                         </button>
 
                         <!-- ADD THIS COPY DETAILS BUTTON -->
@@ -486,6 +486,7 @@
                             title="Copy product details"
                         >
                             <i class="bi bi-clipboard"></i>
+                            <span>Copy Details</span>
                         </button>
 
                         <button
@@ -493,6 +494,7 @@
                             class="btn btn-edit"
                         >
                             <i class="bi bi-pencil"></i>
+                            <span>Edit</span>
                         </button>
                     </div>
                 </div>
