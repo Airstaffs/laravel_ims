@@ -502,6 +502,7 @@
                                 :alt="item.ProductTitle || 'Product'"
                                 class="product-thumbnail clickable-image"
                                 @error="handleImageError($event)"
+                                @click="openImageModal(item)"
                             />
                             <div
                                 class="image-count-badge"
