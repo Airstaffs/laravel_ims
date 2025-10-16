@@ -7,7 +7,7 @@ error_reporting(E_ALL);
 // Database credentials
 $servertype = "vps-automation";
 
-
+echo "rawr";
 
 function connectDatabase($servertype)
 {
