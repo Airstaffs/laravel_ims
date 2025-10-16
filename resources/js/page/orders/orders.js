@@ -198,54 +198,13 @@ export default {
                 );
                 const itemToUse = freshItem || item;
 
-                // Reset modal state
-                this.imageList = []; // Changed from modalImages
-                this.activeIndex = 0; // Changed from currentImageIndex
+                // IMPORTANT: Clear modal state completely
+                this.imageList = [];
+                this.activeIndex = 0;
                 this.ProductTitle = itemToUse.ProductTitle;
 
-                // Add img1 first (the main thumbnail)
-                if (
-                    itemToUse.img1 &&
-                    itemToUse.img1 !== "NULL" &&
-                    itemToUse.img1.trim() !== ""
-                ) {
-                    this.imageList.push(itemToUse.img1);
-                }
-
-                // Image field names for additional images (img2 through img15)
-                const imageFields = [
-                    "img2",
-                    "img3",
-                    "img4",
-                    "img5",
-                    "img6",
-                    "img7",
-                    "img8",
-                    "img9",
-                    "img10",
-                    "img11",
-                    "img12",
-                    "img13",
-                    "img14",
-                    "img15",
-                ];
-
-                // Loop through all possible image fields and add non-empty ones
-                imageFields.forEach((field) => {
-                    if (
-                        itemToUse[field] &&
-                        itemToUse[field] !== "NULL" &&
-                        itemToUse[field].trim() !== ""
-                    ) {
-                        this.imageList.push(itemToUse[field]);
-                    }
-                });
-
-                // If no images were found, add a default image
-                if (this.imageList.length === 0) {
-                    const defaultFilename = `${itemToUse.ProductID}.jpg`;
-                    this.imageList.push(defaultFilename);
-                }
+                // Build the image list
+                this.imageList = this.buildImageList(itemToUse);
 
                 // Show the modal
                 this.showImageModal = true;
@@ -267,14 +226,28 @@ export default {
         openImageModalFallback(item) {
             if (!item) return;
 
-            // Reset modal state
+            // Clear modal state completely
             this.imageList = [];
             this.activeIndex = 0;
             this.ProductTitle = item.ProductTitle;
 
+            // Build the image list
+            this.imageList = this.buildImageList(item);
+
+            // Show the modal
+            this.showImageModal = true;
+
+            // Prevent scrolling when modal is open
+            document.body.style.overflow = "hidden";
+        },
+
+        // Extract the image building logic into a separate method
+        buildImageList(item) {
+            const images = [];
+
             // Add img1 first (the main thumbnail)
             if (item.img1 && item.img1 !== "NULL" && item.img1.trim() !== "") {
-                this.imageList.push(item.img1);
+                images.push(item.img1);
             }
 
             // Image field names for additional images (img2 through img15)
@@ -302,21 +275,17 @@ export default {
                     item[field] !== "NULL" &&
                     item[field].trim() !== ""
                 ) {
-                    this.imageList.push(item[field]);
+                    images.push(item[field]);
                 }
             });
 
             // If no images were found, add a default image
-            if (this.imageList.length === 0) {
+            if (images.length === 0) {
                 const defaultFilename = `${item.ProductID}.jpg`;
-                this.imageList.push(defaultFilename);
+                images.push(defaultFilename);
             }
 
-            // Show the modal
-            this.showImageModal = true;
-
-            // Prevent scrolling when modal is open
-            document.body.style.overflow = "hidden";
+            return images;
         },
 
         // Close modal method
