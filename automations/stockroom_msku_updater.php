@@ -7,15 +7,15 @@ error_reporting(E_ALL);
 // Database credentials
 $servertype = "vps-automation";
 
-
+echo "rawr";
 
 function connectDatabase($servertype)
 {
     // IMS is the Official Web Server
     if ($servertype === "ims") {
         $hostname = 'localhost';
-        $username = 'root';
-        $password = '';
+        $username = 'user';
+        $password = 'root';
         $database = 'ims';
     } else if ($servertype === "hostinger") {
         $hostname = 'localhost';
@@ -39,7 +39,7 @@ function connectDatabase($servertype)
         $password = 'Imsv2_dbims_user';
         $database = 'imsv2_dbims';
         $dsn = "mysql:host=$hostname;dbname=$database";
-    }  else {
+    } else {
         $messageError = "Input Server type! In server file line 46.";
         exit($messageError);
     }
@@ -260,7 +260,7 @@ function fetchDataFromAPI($credentials, $accessToken, $nextToken = null)
                     }
 
                     curl_close($ch);
-                    
+
                 } else {
                     // If the response code is not 429, break out of the loop.
                     break;
@@ -279,15 +279,15 @@ function fetchDataFromAPI($credentials, $accessToken, $nextToken = null)
             foreach ($data['payload']['inventorySummaries'] as $item) {
                 $fnSku = $item['fnSku'];
                 $MSKU = $item['sellerSku'];
-            
+
                 // Fetch matching FNSKUs from tblproduct
-                $fnSkuQuery = "SELECT FNSKUviewer FROM tblproduct WHERE MSKUviewer = ? AND fulfilledby = 'FBA' AND ProductModuleLoc = 'Stockroom'";
+                $fnSkuQuery = "SELECT FNSKUviewer FROM tblfnsku WHERE MSKUviewer = ? AND fulfilledby = 'FBA' AND ProductModuleLoc = 'Stockroom'";
                 $fnSkuStmt = $Connect->prepare($fnSkuQuery);
                 $fnSkuStmt->bind_param('s', $MSKU);
                 $fnSkuStmt->execute();
                 $matchingFnSkus = $fnSkuStmt->get_result()->fetch_all(MYSQLI_ASSOC);
                 $matchingFnSkus = array_column($matchingFnSkus, 'FNSKUviewer'); // Extract FNSKU values into an array
-            
+
                 // Initialize remaining quantities for this specific item
                 $remainingfulfillable = intval($item['inventoryDetails']['fulfillableQuantity']);
                 $remainingInboundWorking = intval($item['inventoryDetails']['inboundWorkingQuantity']);
@@ -297,7 +297,7 @@ function fetchDataFromAPI($credentials, $accessToken, $nextToken = null)
                 $remainingPendingCus = intval($item['inventoryDetails']['reservedQuantity']['pendingCustomerOrderQuantity']);
                 $remainingPendingTrans = intval($item['inventoryDetails']['reservedQuantity']['pendingTransshipmentQuantity']);
                 $remainingUnfulfillable = intval($item['inventoryDetails']['unfulfillableQuantity']['totalUnfulfillableQuantity']);
-            
+
                 foreach ($matchingFnSkus as $matchingFnSku) {
                     if (!isset($aggregatedData[$matchingFnSku])) {
                         // Initialize status and quantities
@@ -311,9 +311,9 @@ function fetchDataFromAPI($credentials, $accessToken, $nextToken = null)
                         $pendingCusQty = 0;
                         $pendingTransQty = 0;
                         $unfulfillableQty = 0;
-            
+
                         // Determine inbound status
-                         if ($remainingInboundWorking > 0) {
+                        if ($remainingInboundWorking > 0) {
                             $status = 'Working';
                             $inboundWorkingQty = 1;
                             $remainingInboundWorking--;
@@ -326,7 +326,7 @@ function fetchDataFromAPI($credentials, $accessToken, $nextToken = null)
                             $inboundReceivingQty = 1;
                             $remainingInboundReceiving--;
                         }
-            
+
                         // If no inbound status was assigned, determine reserved status
                         if ($status === 'None') {
                             if ($remainingFcprocess > 0) {
@@ -349,7 +349,7 @@ function fetchDataFromAPI($credentials, $accessToken, $nextToken = null)
                                 $remainingfulfillable--;
                             }
                         }
-            
+
                         // Store the status and quantities for this FNSKU
                         $aggregatedData[$matchingFnSku] = [
                             'fulfillableQuantity' => $AvailableQty,
@@ -374,43 +374,82 @@ function fetchDataFromAPI($credentials, $accessToken, $nextToken = null)
                 if ($data['inboundWorking'] == 1 || $data['inboundShipped'] == 1 || $data['inboundReceiving'] == 1) {
                     $inboundquantity = 1;
                 }
+                $Connect->begin_transaction();
 
+                try {
+                    // 1) Update FNSKU-level fields now stored in tblfnsku
+                    $sqlFnsku = "
+                        UPDATE tblfnsku
+                        SET 
+                            Unfulfillable = ?, 
+                            Inbound = ?, 
+                            InboundStatus = ?, 
+                            reservedstatus = ?, 
+                            -- If there's any inbound, clear Outbound; else keep current
+                            Outbound = IF(? >= 1, 0, Outbound)
+                            -- Optional: if you also track numeric reserved units in tblfnsku
+                            -- , Reserved = ?
+                     WHERE FNSKU = ?
+                    ";
 
-                $updateQuery = "UPDATE tblproduct 
-                                SET FbaAvailable = ?, Unfulfillable = ?, Inbound = ?, InboundStatus = ?, reservedstatus = ?, Outbound = IF(? >= 1, 0, Outbound) 
-                                WHERE FNSKUviewer = ? AND ProductModuleLoc = 'Stockroom' AND Fulfilledby = 'FBA'";
+                    $stmtFnsku = $Connect->prepare($sqlFnsku);
+                    $stmtFnsku->bind_param(
+                        'iissi s',   // ints: Unfulfillable, Inbound, (inbound used twice); strings: InboundStatus, reservedstatus, FNSKU
+                        $data['unfulfillableQuantity'],
+                        $inboundquantity,
+                        $data['InboundStatus'],
+                        $data['ReservedStatus'],
+                        $inboundquantity,
+                        $fnSku
+                    );
+                    // If you also want to set Reserved (int), use this instead:
+                    // $stmtFnsku->bind_param('iissiis', $data['unfulfillableQuantity'], $inboundquantity, $data['InboundStatus'], $data['ReservedStatus'], $inboundquantity, $data['reservedQuantity'], $fnSku);
 
-                $updateStmt = $Connect->prepare($updateQuery);
-                $updateStmt->bind_param(
-                    'iiissss',
-                    $data['fulfillableQuantity'],
-                    $data['unfulfillableQuantity'],
-                    $inboundquantity,
-                    $data['InboundStatus'],
-                    $data['ReservedStatus'],
-                    $inboundquantity,
-                    $fnSku
-                );
+                    if (!$stmtFnsku->execute()) {
+                        throw new Exception("tblfnsku update failed for $fnSku: " . $Connect->error);
+                    }
 
-                if (!$updateStmt->execute()) {
-                    echo "Error updating FNSKU: $fnSku<br>";
-                    echo "Error: " . $Connect->error . "<br>";
-                } else {
-                    echo "<br>Update for FNSKU: $fnSku <br>Status: " . $data['InboundStatus'] . " <br>Reserved Status: " . $data['ReservedStatus'] . "<br>";
+                    // 2) (Optional) Update product-level FbaAvailable only (the rest moved to tblfnsku)
+                    $sqlProduct = "
+                        UPDATE tblproduct
+                        SET FbaAvailable = ?
+                        WHERE FNSKUviewer = ?
+                        AND ProductModuleLoc = 'Stockroom'
+                        AND Fulfilledby = 'FBA'
+                    ";
+
+                    $stmtProduct = $Connect->prepare($sqlProduct);
+                    $stmtProduct->bind_param(
+                        'is',
+                        $data['fulfillableQuantity'],
+                        $fnSku
+                    );
+
+                    if (!$stmtProduct->execute()) {
+                        throw new Exception("tblproduct update failed for $fnSku: " . $Connect->error);
+                    }
+
+                    $Connect->commit();
+
+                    echo "<br>Updated FNSKU: $fnSku";
+                    echo "<br>InboundStatus: " . $data['InboundStatus'];
+                    echo "<br>Reserved Status: " . $data['ReservedStatus'] . "<br>";
                     echo "<pre>";
                     print_r($data);
                     echo "</pre>";
+
+                } catch (Exception $e) {
+                    $Connect->rollback();
+                    echo "Error updating FNSKU: $fnSku<br>";
+                    echo $e->getMessage() . "<br>";
                 }
             }
-
-
-
 
             if (isset($data['payload']['inventorySummaries'])) {
                 $allData = array_merge($allData, $data['payload']['inventorySummaries']);
             }
             curl_close($ch);
-            
+
         } while ($nextToken);
 
     }
@@ -508,11 +547,11 @@ $data = fetchDataFromAPI($credentials, $accessToken);
 
 
 
-/*
+
 echo "<pre>";
 print_r($data);
 echo "</pre>";
-*/
+
 
 // Functions
 
