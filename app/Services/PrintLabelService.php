@@ -711,6 +711,8 @@ class PrintLabelService extends BasetablesController
                         $Wserial = trim($product->serialnumber);
                         $smallCardCopies = 1;
                         $zpl = '';
+                         // Get return count for serial A from the passed parameter
+                        $returnCountA = $returnCounts['a'] ?? 0;
                         
                         Log::info('Reprinting small label cards:', [
                             'serial' => $Wserial,
@@ -719,7 +721,7 @@ class PrintLabelService extends BasetablesController
                         
                         // Generate 3 copies
                         for ($i = 0; $i < $smallCardCopies; $i++) {
-                            $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial);
+                            $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
                         }
                         
                         return $zpl;
@@ -887,6 +889,7 @@ class PrintLabelService extends BasetablesController
             if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
                     $Wserial = trim($product->serialnumber);
                     $smallCardCopies = 3;
+                    $returnCountA = $returnCounts['a'] ?? 0;
                     
                     Log::info('Generating small label cards:', [
                         'serial' => $Wserial,
@@ -895,7 +898,7 @@ class PrintLabelService extends BasetablesController
                     
                     // Print small label card multiple times
                     for ($i = 0; $i < $smallCardCopies; $i++) {
-                        $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial);
+                        $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
                     }
                 }
 
