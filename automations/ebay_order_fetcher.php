@@ -356,7 +356,7 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     echo "=== PROCESSING PAGE $currentPage ===<br>";
     echo "Total orders on this page: " . count($pageOrders) . "<br>";
     echo "Starting from index: $pageOrderIndex<br>";
-    echo "MODE: SMART PROCESSING - Honor resume for new records, Smart update tracking for existing<br>";
+    echo "MODE: SMART PROCESSING - Prevent duplicates, Smart update for Orders module<br>";
     echo "====================================<br><br>";
     
     $currentProcessed = 0;
@@ -366,6 +366,7 @@ function processOrdersWithResume($pageOrders, $currentPage) {
     $newRecordsCount = 0;
     $existingRecordsUpdated = 0;
     $smartUpdatedCount = 0;
+    $preventedDuplicates = 0;
     
     // Process orders starting from the correct index within the page
     for ($i = $pageOrderIndex; $i < count($pageOrders); $i++) {
@@ -374,368 +375,306 @@ function processOrdersWithResume($pageOrders, $currentPage) {
         
         $order = $pageOrders[$i];
         $orderID = $order['order_id'];
-        $itemID = isset($order['items'][0]['item_id']) ? $order['items'][0]['item_id'] : null;
         
-        if (!$itemID) {
-            echo "Skipping order with missing item ID<br>";
+        echo "<hr style='border: 2px solid #007bff;'>";
+        echo "<strong style='font-size: 1.2em;'>📦 ORDER: {$orderID}</strong><br>";
+        
+        if (empty($order['items'])) {
+            echo "⚠️ No items in order<br>";
             continue;
         }
         
-        echo "Processing page $currentPage index $i: Order ID: {$orderID}, Item ID: {$itemID}<br>";
-        
         try {
             // Process each item in the order
-            foreach ($order['items'] as $item) {
+            foreach ($order['items'] as $itemIndex => $item) {
                 $itemID = $item['item_id'];
+                
+                if (!$itemID) {
+                    echo "⚠️ Skipping item with missing ID<br>";
+                    continue;
+                }
+                
                 $originalTitle = $item['title'];
                 $title = cleanTitle($originalTitle);
+                $orderStatus = $order['order_status'];
                 
-                echo "Order Status: {$order['order_status']}<br>";
+                echo "<div style='background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #28a745;'>";
+                echo "<strong>🔍 ITEM #{$itemIndex}: {$itemID}</strong><br>";
+                echo "📝 Title: " . substr($title, 0, 60) . "...<br>";
+                echo "📊 Status: {$orderStatus}<br>";
+                echo "<br>";
 
-                // Check for existing records in ALL modules
+                // ============================================
+                // CRITICAL: Check for existing record FIRST
+                // ============================================
+                echo "<strong style='color: #0056b3;'>🔎 CHECKING DATABASE FOR EXISTING RECORD...</strong><br>";
+                
+                checkDatabaseConnection();
                 $checkStmt = $mysqli->prepare("
-                    SELECT ProductID, ProductModuleLoc, trackingnumber, trackingnumber2, 
-                           trackingnumber3, trackingnumber4, trackingnumber5, carrier, shipdate 
+                    SELECT ProductID, ProductModuleLoc, rtid, itemnumber,
+                           trackingnumber, trackingnumber2, trackingnumber3, 
+                           trackingnumber4, trackingnumber5, carrier, shipdate,
+                           listedcondition, itemstatus
                     FROM tblproduct 
                     WHERE rtid = ? AND itemnumber = ?
                     LIMIT 1
                 ");
+                
                 if (!$checkStmt) {
                     throw new Exception("Failed to prepare check statement: " . $mysqli->error);
                 }
                 
                 $checkStmt->bind_param("ss", $orderID, $itemID);
-                $checkStmt->execute();
+                echo "   Searching: rtid='{$orderID}' AND itemnumber='{$itemID}'<br>";
+                
+                if (!$checkStmt->execute()) {
+                    throw new Exception("Failed to execute check: " . $checkStmt->error);
+                }
+                
                 $result = $checkStmt->get_result();
                 $existingRecord = $result->fetch_assoc();
                 $checkStmt->close();
 
-                // Extract tracking data from current order
-                $newTrackingNumber1 = !empty($order['tracking_number1']) ? trim($order['tracking_number1']) : '';
-                $newTrackingNumber2 = !empty($order['tracking_number2']) ? trim($order['tracking_number2']) : '';
-                $newTrackingNumber3 = !empty($order['tracking_number3']) ? trim($order['tracking_number3']) : '';
-                $newTrackingNumber4 = !empty($order['tracking_number4']) ? trim($order['tracking_number4']) : '';
-                $newTrackingNumber5 = !empty($order['tracking_number5']) ? trim($order['tracking_number5']) : '';
-                $newCarrier = !empty($order['shipping_carrier']) ? trim($order['shipping_carrier']) : '';
-                $newShipDate = isset($order['shipped_time']) ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
-                
-                // Get seller location
-                $sellerLocation = isset($order['locationdetails']) && $order['locationdetails'] !== 'N/A' ? $order['locationdetails'] : 'N/A';
-                echo "DEBUG: Seller location from eBay order data: '{$sellerLocation}'<br>";
-
+                // ============================================
+                // DECISION POINT: Existing vs New Record
+                // ============================================
                 if ($existingRecord) {
-    echo "Found existing record in module: '{$existingRecord['ProductModuleLoc']}'<br>";
-    
-           // SMART UPDATE: Only update tracking for Orders module when eBay has data
-            if ($existingRecord['ProductModuleLoc'] === 'Orders') {
-                echo "ORDERS MODULE - SMART UPDATE (only when eBay has data)<br>";
-                
-                $updateFields = [];
-                $updateValues = [];
-                $updateTypes = "";
-                
-                // SMART UPDATE: Only update tracking fields when eBay actually has data
-                if (!empty($newTrackingNumber1)) {
-                    $updateFields[] = "trackingnumber = ?";
-                    $updateValues[] = $newTrackingNumber1;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Tracking 1: -> '{$newTrackingNumber1}'<br>";
-                }
-                
-                if (!empty($newTrackingNumber2)) {
-                    $updateFields[] = "trackingnumber2 = ?";
-                    $updateValues[] = $newTrackingNumber2;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Tracking 2: -> '{$newTrackingNumber2}'<br>";
-                }
-                
-                if (!empty($newTrackingNumber3)) {
-                    $updateFields[] = "trackingnumber3 = ?";
-                    $updateValues[] = $newTrackingNumber3;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Tracking 3: -> '{$newTrackingNumber3}'<br>";
-                }
-                
-                if (!empty($newTrackingNumber4)) {
-                    $updateFields[] = "trackingnumber4 = ?";
-                    $updateValues[] = $newTrackingNumber4;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Tracking 4: -> '{$newTrackingNumber4}'<br>";
-                }
-                
-                if (!empty($newTrackingNumber5)) {
-                    $updateFields[] = "trackingnumber5 = ?";
-                    $updateValues[] = $newTrackingNumber5;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Tracking 5: -> '{$newTrackingNumber5}'<br>";
-                }
-                
-                if (!empty($newCarrier)) {
-                    $updateFields[] = "carrier = ?";
-                    $updateValues[] = $newCarrier;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Carrier: -> '{$newCarrier}'<br>";
-                }
-                
-                if ($newShipDate) {
-                    $updateFields[] = "shipdate = ?";
-                    $updateValues[] = $newShipDate;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Ship Date: -> '{$newShipDate}'<br>";
-                }
-                
-                // Also update other order fields for Orders module
-                $paymentDate = isset($order['paid_time']) ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
-                $deliveredDate = null;
-                if (!empty($order['estimatedDeliveryTime'])) {
-                    $timestamp = strtotime($order['estimatedDeliveryTime']);
-                    if ($timestamp !== false) {
-                        $deliveredDate = date('Y-m-d H:i:s', $timestamp);
-                    }
-                }
-                $paymentMethod = 'eBay';
-                $sellerName = $order['seller_user_id'] ?? 'N/A';
-                $createdTime = isset($order['created_time']) ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
-                
-                if ($paymentDate) {
-                    $updateFields[] = "paymentdate = ?";
-                    $updateValues[] = $paymentDate;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Payment Date: -> '{$paymentDate}'<br>";
-                }
-                
-                if ($deliveredDate) {
-                    $updateFields[] = "datedelivered = ?";
-                    $updateValues[] = $deliveredDate;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Delivered Date: -> '{$deliveredDate}'<br>";
-                }
-                
-                if ($paymentMethod !== 'N/A') {
-                    $updateFields[] = "paymentmethod = ?";
-                    $updateValues[] = $paymentMethod;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Payment Method: -> '{$paymentMethod}'<br>";
-                }
-                
-                if ($sellerName !== 'N/A') {
-                    $updateFields[] = "seller = ?";
-                    $updateValues[] = $sellerName;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Seller: -> '{$sellerName}'<br>";
-                }
-                
-                // Always try to update seller location
-                $updateFields[] = "Ebay_seller_location = ?";
-                $updateValues[] = $sellerLocation;
-                $updateTypes .= "s";
-                echo "SMART UPDATE Seller Location: -> '{$sellerLocation}'<br>";
-                
-                if ($createdTime) {
-                    $updateFields[] = "orderdate = ?";
-                    $updateValues[] = $createdTime;
-                    $updateTypes .= "s";
-                    echo "SMART UPDATE Order Date: -> '{$createdTime}'<br>";
-                }
-                
-                // NEW: Check if itemstatus needs updating (if it's N/A or empty)
-                // First, we need to fetch the current itemstatus from the database
-                checkDatabaseConnection();
-                $itemStatusCheckStmt = $mysqli->prepare("SELECT itemstatus FROM tblproduct WHERE rtid = ? AND itemnumber = ? LIMIT 1");
-                $itemStatusCheckStmt->bind_param("ss", $orderID, $itemID);
-                $itemStatusCheckStmt->execute();
-                $itemStatusResult = $itemStatusCheckStmt->get_result();
-                $itemStatusRow = $itemStatusResult->fetch_assoc();
-                $itemStatusCheckStmt->close();
-                
-                $currentItemStatus = isset($itemStatusRow['itemstatus']) ? trim($itemStatusRow['itemstatus']) : '';
-                
-                if (empty($currentItemStatus) || $currentItemStatus === 'N/A') {
-                    echo "DEBUG: Current itemstatus is empty or N/A ('{$currentItemStatus}'), fetching item details to determine status...<br>";
+                    // EXISTING RECORD FOUND
+                    echo "<div style='background: #fff3cd; padding: 8px; border-left: 4px solid #ffc107;'>";
+                    echo "<strong>✅ EXISTING RECORD FOUND</strong><br>";
+                    echo "   ProductID: {$existingRecord['ProductID']}<br>";
+                    echo "   Module: <strong>{$existingRecord['ProductModuleLoc']}</strong><br>";
+                    echo "   <strong style='color: #dc3545;'>🚫 WILL NOT INSERT (Duplicate Prevention)</strong><br>";
+                    echo "</div>";
                     
-                    // Fetch item details to determine itemstatus
-                    try {
-                        $credentials = EbayCredentials();
-                        $accessToken = $credentials['access_token'];
-                        $itemDetails = fetchItemDetails($itemID, $accessToken);
+                    $preventedDuplicates++;
+                    
+                    // Only update if in Orders module
+                    if ($existingRecord['ProductModuleLoc'] === 'Orders') {
+                        echo "<div style='background: #d1ecf1; padding: 8px; margin-top: 5px;'>";
+                        echo "<strong>📝 Orders Module - Applying Smart Updates</strong><br>";
                         
-                        if ($itemDetails !== false && isset($itemDetails['Item'])) {
-                            $itemDescription = '';
-                            if (isset($itemDetails['Item']['Description'])) {
-                                $htmlDescription = $itemDetails['Item']['Description'];
-                                $itemDescription = strip_tags($htmlDescription);
-                                $itemDescription = str_replace(["'", '"', "\n", "\r"], "", $itemDescription);
-                                $itemDescription = trim($itemDescription);
-                            }
-                            
-                            $conditionDisplay = getConditionDisplay($itemDetails);
-                            
-                            // Get item status logic (same as new record insertion)
-                            $keywords = db_fetch_all("SELECT descriptionStatus FROM tblItemstatus");
-                            
-                            $itemStatus = 'Working';
-                            $appliedCondition = '';
-                            
-                            if ($conditionDisplay === 'For parts or not working') {
-                                $itemStatus = 'Not Working';
-                                $appliedCondition = 'Condition based';
-                            } else {
-                                // Check title keywords
-                                foreach ($keywords as $row) {
-                                    $keyword = strtolower($row['descriptionStatus']);
-                                    if (stripos($title, $keyword) !== false) {
-                                        $itemStatus = 'Not Working';
-                                        $appliedCondition = 'Title keyword match';
-                                        break;
-                                    }
-                                }
-                                
-                                // Description keyword check
-                                if ($itemStatus === 'Working' && !empty($itemDescription) && $itemDescription !== 'N/A') {
-                                    $descriptionLength = strlen($itemDescription);
-                                    $minDescriptionLength = 150;
-                                    
-                                    if ($descriptionLength >= $minDescriptionLength) {
-                                        $cutOffPoint = (int) ($descriptionLength * 0.8);
-                                        $topMiddleDescription = substr($itemDescription, 0, $cutOffPoint);
-                                        $appliedCondition = '80% applied';
-                                    } else {
-                                        $topMiddleDescription = $itemDescription;
-                                        $appliedCondition = '80% not applied';
-                                    }
-                                    
-                                    foreach ($keywords as $row) {
-                                        $keyword = strtolower($row['descriptionStatus']);
-                                        if (stripos($topMiddleDescription, $keyword) !== false) {
-                                            $itemStatus = 'Not Working';
-                                            $appliedCondition .= ' - Description keyword match';
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            
-                            // Add to update fields
-                            $updateFields[] = "itemstatus = ?";
-                            $updateValues[] = $itemStatus;
+                        // Extract tracking data from current order
+                        $newTrackingNumber1 = !empty($order['tracking_number1']) ? trim($order['tracking_number1']) : '';
+                        $newTrackingNumber2 = !empty($order['tracking_number2']) ? trim($order['tracking_number2']) : '';
+                        $newTrackingNumber3 = !empty($order['tracking_number3']) ? trim($order['tracking_number3']) : '';
+                        $newTrackingNumber4 = !empty($order['tracking_number4']) ? trim($order['tracking_number4']) : '';
+                        $newTrackingNumber5 = !empty($order['tracking_number5']) ? trim($order['tracking_number5']) : '';
+                        $newCarrier = !empty($order['shipping_carrier']) ? trim($order['shipping_carrier']) : '';
+                        $newShipDate = isset($order['shipped_time']) ? date('Y-m-d H:i:s', strtotime($order['shipped_time'])) : null;
+                        $sellerLocation = isset($order['locationdetails']) && $order['locationdetails'] !== 'N/A' ? $order['locationdetails'] : 'N/A';
+                        
+                        $updateFields = [];
+                        $updateValues = [];
+                        $updateTypes = "";
+                        
+                        // Build update fields
+                        if (!empty($newTrackingNumber1)) {
+                            $updateFields[] = "trackingnumber = ?";
+                            $updateValues[] = $newTrackingNumber1;
                             $updateTypes .= "s";
-                            echo "SMART UPDATE ItemStatus: -> '{$itemStatus}' (Reason: {$appliedCondition})<br>";
-                            
-                            if (!empty($appliedCondition)) {
-                                $updateFields[] = "conditionStatusApplied = ?";
-                                $updateValues[] = $appliedCondition;
-                                $updateTypes .= "s";
-                                echo "SMART UPDATE ConditionStatusApplied: -> '{$appliedCondition}'<br>";
-                            }
-                            
-                            // Also update condition display if available
-                            if ($conditionDisplay !== 'N/A') {
-                                $updateFields[] = "listedcondition = ?";
-                                $updateValues[] = $conditionDisplay;
-                                $updateTypes .= "s";
-                                echo "SMART UPDATE ListedCondition: -> '{$conditionDisplay}'<br>";
-                            }
-                            
-                            // Also update description if not already set
-                            if (!empty($itemDescription) && $itemDescription !== 'N/A') {
-                                $updateFields[] = "description = ?";
-                                $updateValues[] = $itemDescription;
-                                $updateTypes .= "s";
-                                echo "SMART UPDATE Description: (length: " . strlen($itemDescription) . " chars)<br>";
-                            }
-                            
-                            // Update notes if available
-                            if (isset($itemDetails['Item']['ConditionDescription'])) {
-                                $sellerNotes = str_replace(["'", '"'], "", $itemDetails['Item']['ConditionDescription']);
-                                if (!empty($sellerNotes)) {
-                                    $updateFields[] = "notes = ?";
-                                    $updateValues[] = $sellerNotes;
-                                    $updateTypes .= "s";
-                                    echo "SMART UPDATE Notes: (length: " . strlen($sellerNotes) . " chars)<br>";
-                                }
-                            }
-                            
-                        } else {
-                            echo "Could not fetch item details for itemstatus update - Item ID: {$itemID}<br>";
+                            echo "   → Tracking1: '{$newTrackingNumber1}'<br>";
                         }
-                    } catch (Exception $e) {
-                        echo "Exception while fetching item details for itemstatus: " . $e->getMessage() . "<br>";
-                    }
-                } else {
-                    echo "DEBUG: Current itemstatus is '{$currentItemStatus}', skipping update<br>";
-                }
-                
-                // Execute smart update for Orders module only if we have fields to update
-                if (!empty($updateFields)) {
-                    // Check connection before update
-                    checkDatabaseConnection();
-                    
-                    $updateSQL = "UPDATE tblproduct SET " . implode(", ", $updateFields) . " WHERE rtid = ? AND itemnumber = ?";
-                    $updateValues[] = $orderID;
-                    $updateValues[] = $itemID;
-                    $updateTypes .= "ss";
-                    
-                    echo "DEBUG: About to execute UPDATE query<br>";
-                    echo "DEBUG: SQL: " . $updateSQL . "<br>";
-                    echo "DEBUG: Number of fields to update: " . count($updateFields) . "<br>";
-                    
-                    $updateStmt = $mysqli->prepare($updateSQL);
-                    if (!$updateStmt) {
-                        throw new Exception("Failed to prepare smart update statement: " . $mysqli->error);
-                    }
-                    
-                    $updateStmt->bind_param($updateTypes, ...$updateValues);
-                    
-                    if ($updateStmt->execute()) {
-                        $affectedRows = $updateStmt->affected_rows;
-                        echo "✓ ORDERS MODULE SMART UPDATED Order ID: {$orderID}, Item ID: {$itemID}<br>";
-                        echo "DEBUG: Affected rows: {$affectedRows}<br>";
                         
-                        // Verify the update
-                        $verifyStmt = $mysqli->prepare("SELECT Ebay_seller_location, itemstatus, conditionStatusApplied FROM tblproduct WHERE rtid = ? AND itemnumber = ? LIMIT 1");
-                        $verifyStmt->bind_param("ss", $orderID, $itemID);
-                        $verifyStmt->execute();
-                        $verifyResult = $verifyStmt->get_result();
-                        $verifyRow = $verifyResult->fetch_assoc();
-                        $verifyStmt->close();
-                        echo "DEBUG: Verified in DB after update:<br>";
-                        echo "  - Seller location: '" . ($verifyRow['Ebay_seller_location'] ?? 'NULL') . "'<br>";
-                        echo "  - ItemStatus: '" . ($verifyRow['itemstatus'] ?? 'NULL') . "'<br>";
-                        echo "  - ConditionStatusApplied: '" . ($verifyRow['conditionStatusApplied'] ?? 'NULL') . "'<br>";
+                        if (!empty($newTrackingNumber2)) {
+                            $updateFields[] = "trackingnumber2 = ?";
+                            $updateValues[] = $newTrackingNumber2;
+                            $updateTypes .= "s";
+                            echo "   → Tracking2: '{$newTrackingNumber2}'<br>";
+                        }
                         
-                        $existingProductID = $existingRecord['ProductID'];
-                        smartImageUpdateForExistingRecord($existingProductID, $itemID);
+                        if (!empty($newTrackingNumber3)) {
+                            $updateFields[] = "trackingnumber3 = ?";
+                            $updateValues[] = $newTrackingNumber3;
+                            $updateTypes .= "s";
+                            echo "   → Tracking3: '{$newTrackingNumber3}'<br>";
+                        }
                         
-                        $trackingUpdatedCount++;
-                        $smartUpdatedCount++;
+                        if (!empty($newTrackingNumber4)) {
+                            $updateFields[] = "trackingnumber4 = ?";
+                            $updateValues[] = $newTrackingNumber4;
+                            $updateTypes .= "s";
+                            echo "   → Tracking4: '{$newTrackingNumber4}'<br>";
+                        }
+                        
+                        if (!empty($newTrackingNumber5)) {
+                            $updateFields[] = "trackingnumber5 = ?";
+                            $updateValues[] = $newTrackingNumber5;
+                            $updateTypes .= "s";
+                            echo "   → Tracking5: '{$newTrackingNumber5}'<br>";
+                        }
+                        
+                        if (!empty($newCarrier)) {
+                            $updateFields[] = "carrier = ?";
+                            $updateValues[] = $newCarrier;
+                            $updateTypes .= "s";
+                            echo "   → Carrier: '{$newCarrier}'<br>";
+                        }
+                        
+                        if ($newShipDate) {
+                            $updateFields[] = "shipdate = ?";
+                            $updateValues[] = $newShipDate;
+                            $updateTypes .= "s";
+                            echo "   → ShipDate: '{$newShipDate}'<br>";
+                        }
+                        
+                        // Other order fields
+                        $paymentDate = isset($order['paid_time']) ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
+                        $deliveredDate = null;
+                        if (!empty($order['estimatedDeliveryTime'])) {
+                            $timestamp = strtotime($order['estimatedDeliveryTime']);
+                            if ($timestamp !== false) {
+                                $deliveredDate = date('Y-m-d H:i:s', $timestamp);
+                            }
+                        }
+                        $paymentMethod = 'eBay';
+                        $sellerName = $order['seller_user_id'] ?? 'N/A';
+                        $createdTime = isset($order['created_time']) ? date('Y-m-d H:i:s', strtotime($order['created_time'])) : null;
+                        
+                        if ($paymentDate) {
+                            $updateFields[] = "paymentdate = ?";
+                            $updateValues[] = $paymentDate;
+                            $updateTypes .= "s";
+                        }
+                        
+                        if ($deliveredDate) {
+                            $updateFields[] = "datedelivered = ?";
+                            $updateValues[] = $deliveredDate;
+                            $updateTypes .= "s";
+                        }
+                        
+                        if ($paymentMethod !== 'N/A') {
+                            $updateFields[] = "paymentmethod = ?";
+                            $updateValues[] = $paymentMethod;
+                            $updateTypes .= "s";
+                        }
+                        
+                        if ($sellerName !== 'N/A') {
+                            $updateFields[] = "seller = ?";
+                            $updateValues[] = $sellerName;
+                            $updateTypes .= "s";
+                        }
+                        
+                        $updateFields[] = "Ebay_seller_location = ?";
+                        $updateValues[] = $sellerLocation;
+                        $updateTypes .= "s";
+                        
+                        if ($createdTime) {
+                            $updateFields[] = "orderdate = ?";
+                            $updateValues[] = $createdTime;
+                            $updateTypes .= "s";
+                        }
+                        
+                        // Check condition update
+                        $currentCondition = isset($existingRecord['listedcondition']) ? trim($existingRecord['listedcondition']) : '';
+                        
+                        if (empty($currentCondition) || $currentCondition === 'N/A') {
+                            try {
+                                $credentials = EbayCredentials();
+                                $accessToken = $credentials['access_token'];
+                                $itemDetails = fetchItemDetails($itemID, $accessToken);
+                                
+                                if ($itemDetails !== false && isset($itemDetails['Item'])) {
+                                    $conditionDisplay = getConditionDisplay($itemDetails);
+                                    
+                                    if ($conditionDisplay !== 'N/A' && !empty($conditionDisplay)) {
+                                        $updateFields[] = "listedcondition = ?";
+                                        $updateValues[] = $conditionDisplay;
+                                        $updateTypes .= "s";
+                                        
+                                        $newItemStatus = 'Working';
+                                        $appliedCondition = 'Condition based';
+                                        
+                                        if ($conditionDisplay === 'For parts or not working') {
+                                            $newItemStatus = 'Not Working';
+                                        }
+                                        
+                                        $updateFields[] = "itemstatus = ?";
+                                        $updateValues[] = $newItemStatus;
+                                        $updateTypes .= "s";
+                                        
+                                        $updateFields[] = "conditionStatusApplied = ?";
+                                        $updateValues[] = $appliedCondition;
+                                        $updateTypes .= "s";
+                                        
+                                        echo "   → Condition: '{$conditionDisplay}', Status: '{$newItemStatus}'<br>";
+                                    }
+                                }
+                            } catch (Exception $e) {
+                                echo "   ⚠️ Condition fetch error: " . $e->getMessage() . "<br>";
+                            }
+                        }
+                        
+                        // Execute update
+                        if (!empty($updateFields)) {
+                            checkDatabaseConnection();
+                            
+                            $updateSQL = "UPDATE tblproduct SET " . implode(", ", $updateFields) . " WHERE rtid = ? AND itemnumber = ?";
+                            $updateValues[] = $orderID;
+                            $updateValues[] = $itemID;
+                            $updateTypes .= "ss";
+                            
+                            $updateStmt = $mysqli->prepare($updateSQL);
+                            if (!$updateStmt) {
+                                throw new Exception("Failed to prepare update: " . $mysqli->error);
+                            }
+                            
+                            $updateStmt->bind_param($updateTypes, ...$updateValues);
+                            
+                            if ($updateStmt->execute()) {
+                                $affectedRows = $updateStmt->affected_rows;
+                                echo "<strong style='color: #28a745;'>✅ UPDATE SUCCESSFUL</strong> (Rows: {$affectedRows})<br>";
+                                
+                                $existingProductID = $existingRecord['ProductID'];
+                                smartImageUpdateForExistingRecord($existingProductID, $itemID);
+                                
+                                $trackingUpdatedCount++;
+                                $smartUpdatedCount++;
+                            } else {
+                                throw new Exception("Update failed: " . $updateStmt->error);
+                            }
+                            $updateStmt->close();
+                        } else {
+                            echo "   ℹ️ No fields to update<br>";
+                        }
+                        
+                        echo "</div>"; // End Orders module update div
+                        
+                        $existingRecordsUpdated++;
+                        
                     } else {
-                        echo "DEBUG: UPDATE failed with error: " . $updateStmt->error . "<br>";
-                        throw new Exception("Failed to smart update Orders module: " . $updateStmt->error);
+                        // NON-ORDERS MODULE
+                        echo "<div style='background: #f8d7da; padding: 8px; margin-top: 5px;'>";
+                        echo "<strong>⏭️ Non-Orders Module ('{$existingRecord['ProductModuleLoc']}') - NO UPDATES</strong><br>";
+                        echo "   Record exists in different module, skipping all operations<br>";
+                        echo "</div>";
+                        $skippedCount++;
                     }
-                    $updateStmt->close();
+                    
                 } else {
-                    echo "DEBUG: No fields to update for this record<br>";
-                }
-        
-            $existingRecordsUpdated++;
-        
-                } else {
-                    // NON-ORDERS MODULE - SKIP COMPLETELY
-                    echo "NON-ORDERS MODULE ('{$existingRecord['ProductModuleLoc']}') - SKIPPING (no updates)<br>";
-                    $skippedCount++;
-                }
-         } else {
-                    // For new records, only process completed orders
-                    if ($order['order_status'] !== 'Completed') {
-                        echo "Skipping new Order ID {$orderID} - Status: {$order['order_status']} (not completed)<br>";
+                    // NO EXISTING RECORD - Safe to insert
+                    echo "<div style='background: #d4edda; padding: 8px; border-left: 4px solid #28a745;'>";
+                    echo "<strong>🆕 NO EXISTING RECORD FOUND</strong><br>";
+                    
+                    if ($orderStatus !== 'Completed') {
+                        echo "   <strong>⏭️ SKIPPING INSERT</strong><br>";
+                        echo "   Reason: Order status is '{$orderStatus}' (not Completed)<br>";
+                        echo "</div>";
+                        $skippedCount++;
                     } else {
-                        echo "New record - will insert with full processing<br>";
+                        echo "   <strong style='color: #28a745;'>✅ ORDER IS COMPLETED</strong><br>";
+                        echo "   🆕 Proceeding with INSERT...<br>";
+                        echo "</div>";
                         
-                        // Insert new record using existing V2 logic
+                        // Insert new record
                         insertNewRecord($order, $item, $orderID, $itemID, $title);
+                        echo "<strong style='color: #28a745;'>✅ INSERT COMPLETED</strong><br>";
                         $newRecordsCount++;
                     }
                 }
+                
+                echo "</div>"; // End item div
+                echo "<br>";
             }
             
             $currentProcessed++;
@@ -743,8 +682,8 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             
             // Save progress with page index every few items
             if ($currentProcessed % 5 == 0) {
-                saveProgress($orderID, $itemID, $currentPage, $totalProcessed, $i + 1, false);
-                echo "CHECKPOINT: Saved progress at page $currentPage, index " . ($i + 1) . "<br>";
+                saveProgress($orderID, isset($itemID) ? $itemID : null, $currentPage, $totalProcessed, $i + 1, false);
+                echo "💾 <strong>CHECKPOINT SAVED</strong><br><br>";
             }
             
             // Small delay between items
@@ -752,14 +691,15 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             
         } catch (Exception $e) {
             $errorCount++;
-            echo "ERROR processing Order ID {$orderID}, Item ID {$itemID}: " . $e->getMessage() . "<br>";
-            echo "Continuing with next order...<br>";
+            echo "<div style='background: #f8d7da; padding: 10px; border: 2px solid #dc3545;'>";
+            echo "<strong>❌ ERROR:</strong> " . $e->getMessage() . "<br>";
+            echo "</div>";
             
             // If it's a MySQL error, force reconnection
             if (strpos($e->getMessage(), 'MySQL') !== false || 
                 strpos($e->getMessage(), 'gone away') !== false ||
                 strpos($e->getMessage(), 'Lost connection') !== false) {
-                echo "Detected MySQL connection issue. Forcing reconnection...<br>";
+                echo "🔄 MySQL connection issue detected - Reconnecting...<br>";
                 checkDatabaseConnection();
             }
             
@@ -767,23 +707,26 @@ function processOrdersWithResume($pageOrders, $currentPage) {
             $totalProcessed++;
             
             // Still save progress even on error
-            saveProgress($orderID, $itemID, $currentPage, $totalProcessed, $i + 1, false);
+            saveProgress($orderID, isset($itemID) ? $itemID : null, $currentPage, $totalProcessed, $i + 1, false);
             
             continue;
         }
     }
     
     // Mark this page as completed and move to next page
-    echo "Page $currentPage processing completed. Marking as done and advancing to next page.<br>";
+    echo "<hr>";
+    echo "✅ Page $currentPage processing completed<br>";
     saveProgress(null, null, $currentPage + 1, $totalProcessed, 0, true);
     
-    echo "<br>=== PAGE $currentPage SUMMARY ===<br>";
-    echo "Orders processed on this page: {$currentProcessed}<br>";
-    echo "Smart updates applied: {$smartUpdatedCount}<br>";
-    echo "New records created: {$newRecordsCount}<br>";
-    echo "Skipped: {$skippedCount}<br>";
-    echo "Errors: {$errorCount}<br>";
-    echo "==================================<br>";
+    echo "<br><div style='background: #e7f3ff; padding: 15px; border: 2px solid #007bff;'>";
+    echo "<strong>=== PAGE $currentPage SUMMARY ===</strong><br>";
+    echo "📊 Orders processed: <strong>{$currentProcessed}</strong><br>";
+    echo "✅ Smart updates: <strong>{$smartUpdatedCount}</strong><br>";
+    echo "🆕 New records: <strong>{$newRecordsCount}</strong><br>";
+    echo "🚫 Prevented duplicates: <strong style='color: #dc3545;'>{$preventedDuplicates}</strong><br>";
+    echo "⏭️ Skipped: <strong>{$skippedCount}</strong><br>";
+    echo "❌ Errors: <strong>{$errorCount}</strong><br>";
+    echo "</div>";
     
     return $currentProcessed;
 }
