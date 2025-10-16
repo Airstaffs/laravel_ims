@@ -309,6 +309,12 @@ function fetchOrdersCron()
             sleep(1); // Small delay between page fetches
         }
 
+        // IMPORTANT: Reset to page 1 after reaching MAX_PAGES_PER_RUN
+        if ($pagesProcessed >= MAX_PAGES_PER_RUN) {
+            echo "<br>📍 MAX_PAGES_PER_RUN ({$pagesProcessed}) reached. Resetting to page 1 for next run.<br>";
+            performSmartReset("Max pages per run reached - cycling back to page 1", $progress['total_processed']);
+        }
+
         echo "<br>=== FINAL SUMMARY ===<br>";
         echo "Pages processed this run: {$pagesProcessed}<br>";
         echo "Total orders found this run: {$totalOrdersFound}<br>";
@@ -706,12 +712,34 @@ function insertNewRecord($order, $item, $orderID, $itemID, $title) {
     $paymentDate = $order['paid_time'] ? date('Y-m-d H:i:s', strtotime($order['paid_time'])) : null;
     $DeliverDate = null;
 
+    // FIXED: Format delivery date properly - check both possible locations
+    echo "DEBUG: estimatedDeliveryTime value: '" . ($order['estimatedDeliveryTime'] ?? 'NOT SET') . "'<br>";
+    
     if (!empty($order['estimatedDeliveryTime'])) {
-        $timestamp = strtotime($order['estimatedDeliveryTime']);
-        if ($timestamp !== false) {
+        $deliveryValue = $order['estimatedDeliveryTime'];
+        echo "DEBUG: Attempting to parse delivery date: '$deliveryValue'<br>";
+        
+        // Try different date formats
+        $timestamp = strtotime($deliveryValue);
+        if ($timestamp !== false && $timestamp > 0) {
             $DeliverDate = date('Y-m-d H:i:s', $timestamp);
+            echo "DEBUG: ✓ Delivery date parsed successfully: $DeliverDate<br>";
+        } else {
+            // Try alternative format (just date)
+            $datePart = substr($deliveryValue, 0, 10);
+            $timestamp = strtotime($datePart);
+            if ($timestamp !== false && $timestamp > 0) {
+                $DeliverDate = date('Y-m-d H:i:s', $timestamp);
+                echo "DEBUG: ✓ Delivery date parsed from date part: $DeliverDate<br>";
+            } else {
+                echo "DEBUG: ✗ Failed to parse delivery date from: '$deliveryValue'<br>";
+            }
         }
+    } else {
+        echo "DEBUG: estimatedDeliveryTime is empty or not set<br>";
     }
+    
+    echo "DEBUG: Final DeliverDate value: '" . ($DeliverDate ?? 'NULL') . "'<br>";
     
     $total = $order['total'] ?? 0.00;
     $sellerName = $order['seller_user_id'];
@@ -1006,7 +1034,16 @@ function processOrders($response, $accessToken)
         $amountPaidInUSD = convertToUSD($amountPaid, $currency, $exchangeRates);
 
         $preshippingServiceCost = $order['ShippingServiceSelected']['ShippingServiceCost'] ?? 0;
-        $deliveredDate = $order['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'] ?? 0;
+        
+        // FIXED: Get delivery date from the correct path in Transaction array
+        $deliveredDate = null;
+        if (isset($order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'])) {
+            $deliveredDate = $order['TransactionArray']['Transaction']['ShippingServiceSelected']['ShippingPackageInfo']['EstimatedDeliveryTimeMax'];
+            echo "DEBUG processOrders: Found EstimatedDeliveryTimeMax = '$deliveredDate' for Order: {$order['OrderID']}<br>";
+        } else {
+            echo "DEBUG processOrders: No EstimatedDeliveryTimeMax found for Order: {$order['OrderID']}<br>";
+        }
+        
         $shipping_currency = $currency;
         $shippingServiceCost = convertToUSD($preshippingServiceCost, $shipping_currency, $exchangeRates);
 
@@ -1085,7 +1122,7 @@ function processOrders($response, $accessToken)
             'shipping_carrier' => $shippingCarrier,
             'items' => $items,
             'locationdetails' => $locationDetails,
-            'estimatedDeliveryTime' => $deliveredDate,
+            'estimatedDeliveryTime' => $deliveredDate, // Pass the raw value to be formatted later
         ];
 
         $processedOrders[] = $processedOrder;
