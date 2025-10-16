@@ -547,11 +547,11 @@ $data = fetchDataFromAPI($credentials, $accessToken);
 
 
 
-/*
+
 echo "<pre>";
 print_r($data);
 echo "</pre>";
-*/
+
 
 // Functions
 
