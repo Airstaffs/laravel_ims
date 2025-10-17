@@ -342,6 +342,7 @@ Route::get('/test', [TestTableController::class, 'index']);
 use App\Http\Controllers\tblproductController;
 
 Route::get('/products', [tblproductController::class, 'index']);
+Route::get('/stockroom/products/by-fnsku', [tblproductController::class, 'fetchPerFnsku']);
 
 // Session management routes
 Route::get('/keep-alive', [App\Http\Controllers\UserSessionController::class, 'keepAlive'])
@@ -361,6 +362,7 @@ Route::prefix('api/stockroom')->group(function () {
     Route::post('process-scan', [StockroomController::class, 'processScan']);
     Route::post('print-label', [StockroomController::class, 'printLabel']);
     Route::get('stores', [StockroomController::class, 'getStores']);
+
 
     // New routes for Process functionality
     Route::post('/process-items', [StockroomController::class, 'processItems']);

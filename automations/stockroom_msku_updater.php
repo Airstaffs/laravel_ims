@@ -543,17 +543,11 @@ function getSignatureKey($key, $dateStamp, $regionName, $serviceName)
 // Fetch data
 $data = fetchDataFromAPI($credentials, $accessToken);
 
-
-
-
-
-
 echo "<pre>";
 print_r($data);
 echo "</pre>";
 
-
 // Functions
-
+$Connect->close();
 
 ?>

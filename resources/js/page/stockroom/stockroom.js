@@ -95,6 +95,9 @@ export default {
             ui: {
                 ds7oos: { show: false },
             },
+
+            // FNSKU Table
+             fnskuSummaries: {},
         };
     },
     computed: {
@@ -689,12 +692,20 @@ export default {
             this.inventory.forEach((item) => (item.checked = this.selectAll));
         },
 
-        toggleDetails(index) {
-            // Create a new object for reactivity
-            const updatedExpandedRows = { ...this.expandedRows };
-            updatedExpandedRows[index] = !updatedExpandedRows[index];
-            this.expandedRows = updatedExpandedRows;
-        },
+  toggleDetails(index, item) {
+    const updated = { ...this.expandedRows };
+    const opening = !updated[index];
+    updated[index] = opening;
+    this.expandedRows = updated;
+
+    // if opening, prefetch summaries for all FNSKUs under this product
+    if (opening && item?.fnskus?.length) {
+      item.fnskus.forEach(f => {
+        const raw = f.FNSKU || f; // your data sometimes stores string or object
+        if (raw) this.loadFnskuSummary(raw, this.selectedStore);
+      });
+    }
+  },
 
         toggleDetailsVisibility() {
             this.showDetails = !this.showDetails;
@@ -1863,6 +1874,25 @@ export default {
             console.log('Saving DS7 & OOS settings:', payload);
             this.ui.ds7oos.show = false;
         },
+  fnskuSummaryFor(f) {
+    const key = this.normalizeFnsku(f.FNSKU || f);
+    return this.fnskuSummaries[key] || {};
+  },
+    async loadFnskuSummary(fnsku, location) {
+    const key = this.normalizeFnsku(fnsku);
+    if (this.fnskuSummaries[key]) return; // cache-hit
+
+    const resp = await axios.get(
+      `${API_BASE_URL}/api/stockroom/products/by-fnsku`,
+      {
+        params: { per_page: 1, search: key, location: location || this.selectedStore || 'Stockroom' },
+        withCredentials: true,
+      }
+    );
+
+    const row = (resp.data?.data || [])[0];
+    if (row) this.$set(this.fnskuSummaries, key, row);
+  },
     },
     watch: {
         searchQuery() {

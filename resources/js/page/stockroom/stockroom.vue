@@ -507,16 +507,9 @@
                                     >
                                         <i class="fas fa-print"></i> Print
                                     </button>
-                                    <button
-                                        class="btn-expand"
-                                        @click="toggleDetails(index)"
-                                    >
-                                        {{
-                                            expandedRows[index]
-                                                ? "Hide Details"
-                                                : "Show Details"
-                                        }}
-                                    </button>
+<button class="btn-expand" @click="toggleDetails(index, item)">
+  {{ expandedRows[index] ? "Hide Details" : "Show Details" }}
+</button>
                                     <button
                                         class="btn-details"
                                         @click="viewProductDetails(item)"
@@ -534,88 +527,44 @@
                             </td>
                         </tr>
                         <!-- Expanded Details Row -->
-                        <tr v-if="expandedRows[index]" class="expanded-row">
-                            <td colspan="9">
-                                <div class="expanded-content">
-                                    <div class="expanded-serials">
-                                        <strong
-                                            >Serial Numbers & Locations:</strong
-                                        >
-                                        <div class="serial-table-container">
-                                            <table class="serial-detail-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>RT#</th>
-                                                        <th>Serial Number</th>
-                                                        <th>Location</th>
-                                                        <th>FNSKU</th>
-                                                        <th>MSKU</th>
-                                                        <th>Grading</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr
-                                                        v-for="serial in item.serials"
-                                                        :key="serial.ProductID"
-                                                    >
-                                                        <td>
-                                                            {{
-                                                                formatRTNumber(
-                                                                    serial.rtcounter,
-                                                                    item.storename
-                                                                )
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                serial.serialnumber
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                serial.warehouselocation
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                serial.FNSKUviewer
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{ serial.MSKU }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                serial.display_grading ||
-                                                                getDisplayGrading(
-                                                                    serial,
-                                                                    item.storename
-                                                                )
-                                                            }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr
-                                                        v-if="
-                                                            !item.serials ||
-                                                            item.serials
-                                                                .length === 0
-                                                        "
-                                                    >
-                                                        <td
-                                                            colspan="6"
-                                                            class="text-center"
-                                                        >
-                                                            No serial numbers
-                                                            found
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
+<tr v-if="expandedRows[index]" class="expanded-row">
+  <!-- 14 cols when showDetails is true, 9 when false -->
+  <td :colspan="showDetails ? 14 : 9">
+    <div class="expanded-content">
+      <table class="details mini-table">
+        <thead>
+          <tr>
+            <th>FNSKU</th>
+            <th>MSKU</th>
+            <th>GRADING</th>
+            <th>LOCATION</th>
+            <th>Reserved Status</th>
+            <th>Unfulfillable</th>
+            <th>Inbound</th>
+            <th>Inbound Status</th>
+            <th>Outbound</th>
+            <th>Reserved</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="f in item.fnskus" :key="`${item.ProductID}-${(f.FNSKU || f)}`">
+            <td>{{ (f.FNSKU || f) }}</td>
+            <td>{{ (f.MSKU || fnskuSummaryFor(f).MSKU) || '—' }}</td>
+            <td>{{ (f.display_grading || f.grading || fnskuSummaryFor(f).grading) || '—' }}</td>
+            <td>{{ fnskuSummaryFor(f).location || '—' }}</td>
+
+            <td>{{ fnskuSummaryFor(f).reserved_status ?? '—' }}</td>
+            <td>{{ fnskuSummaryFor(f).unfulfillable ?? 0 }}</td>
+            <td>{{ fnskuSummaryFor(f).inbound ?? 0 }}</td>
+            <td>{{ fnskuSummaryFor(f).inbound_status ?? '—' }}</td>
+            <td>{{ fnskuSummaryFor(f).outbound ?? 0 }}</td>
+            <td>{{ fnskuSummaryFor(f).reserved ?? 0 }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </td>
+</tr>
                     </template>
                 </tbody>
             </table>

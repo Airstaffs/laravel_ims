@@ -771,10 +771,10 @@ function dbDatabase()
             break;
 
         case "laravel_ims":
-            $hostname = 'localhost';
-            $username = 'u298641722_dbims_user';
-            $password = '?cIk=|zRk3T';
-            $database = 'u298641722_dbims';
+        $hostname = 'localhost';
+        $username = 'imsv2_dbims_user';
+        $password = 'Imsv2_dbims_user';
+        $database = 'imsv2_dbims';
             break;
  
         default:
