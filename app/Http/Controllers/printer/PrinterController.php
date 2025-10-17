@@ -71,28 +71,6 @@ class PrinterController extends BasetablesController
             }
 
 
-        // Check validation status FIRST before other conditions
-        if (!isset($product->validation_status) || 
-            strcasecmp($product->validation_status, 'validated') !== 0) {
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Item is not validated yet',
-                'meets_print_conditions' => false,
-                'requires_confirmation' => true, // NEW: Flag for frontend
-                'validation_status' => $product->validation_status ?? 'unknown',
-                'product_data' => [
-                    'ProductID' => $product->ProductID,
-                    'rtcounter' => $product->rtcounter,
-                    'FNSKUviewer' => $product->FNSKUviewer,
-                    'ASINviewer' => $product->ASINviewer,
-                    'AStitle' => $product->AStitle,
-                    'serialnumber' => $product->serialnumber,
-                    'validation_status' => $product->validation_status ?? 'unknown'
-                ]
-            ]);
-         }
-
             // Check if product meets print conditions
             $conditions = $this->checkPrintConditions($product);
             
