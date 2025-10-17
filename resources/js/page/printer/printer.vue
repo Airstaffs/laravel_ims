@@ -103,7 +103,7 @@
             </button>
           </div>
 
-          <!-- Reprint Single Label Tab - STRICT ENFORCEMENT -->
+          <!-- Reprint Single Label Tab -->
           <div v-if="activeTab === 'reprint'" class="tab-content">
             <!-- Enhanced Printer Selection for Reprint -->
             <div class="input-group">
@@ -127,8 +127,6 @@
                   {{ printer.displayName }}
                 </option>
               </select>
-              
-              <!-- No marriage info display needed for individual printer selection -->
             </div>
 
             <!-- Search Input -->
@@ -178,7 +176,7 @@
                 </optgroup>
               </select>
               
-              <!-- NEW: STRICT Compatibility Warning Display -->
+              <!-- Compatibility Warning Display -->
               <div v-if="compatibilityWarning" class="compatibility-warning" :class="compatibilityWarning.type">
                 <div class="warning-header">
                   <i class="fas fa-exclamation-triangle text-danger"></i>
@@ -190,7 +188,7 @@
                 </div>
               </div>
 
-              <!-- NEW: Printer Suggestions -->
+              <!-- Printer Suggestions -->
               <div v-if="showPrinterSuggestions && suggestedPrinters.length > 0" class="printer-suggestions">
                 <h4><i class="fas fa-lightbulb"></i> Compatible Printers Available</h4>
                 <div class="suggested-printer-list">
@@ -206,7 +204,7 @@
                 </div>
               </div>
 
-              <!-- NEW: Smart Routing Info -->
+              <!-- Smart Routing Info -->
               <div v-if="smartRoutingInfo && !compatibilityWarning" class="smart-routing-display">
                 <div class="routing-indicator">
                   <i class="fas fa-arrow-right text-success"></i>
@@ -331,7 +329,7 @@ export default {
       return filtered;
     },
 
-    // NEW: All individual printers for reprint dropdown - shows ALL printers individually
+    // All individual printers for reprint dropdown - shows ALL printers individually
     allIndividualPrinters() {
       if (!this.printers || this.printers.length === 0) {
         return [];
@@ -432,7 +430,7 @@ export default {
       reprintProductInfo: null,
       selectedLabelType: null,
       
-      // NEW: Strict compatibility enforcement
+      // Strict compatibility enforcement
       compatibilityWarning: null,
       suggestedPrinters: [],
       showPrinterSuggestions: false,
@@ -442,7 +440,7 @@ export default {
       autoProcessTimer: null,
       autoSearchTimer: null,
       
-      // CORRECTED: Label types with vector_image in small labels
+      // Label types with vector_image in small labels
       availableLabelTypes: [
         // Small Label Types - INCLUDING VECTOR IMAGE
         { key: 'serial_labels', name: 'Serial Number Labels', description: 'All serial number labels (A, B, C, D)', category: 'small' },
@@ -605,7 +603,7 @@ export default {
     },
 
     /**
-     * ENHANCED: Handle label type selection with STRICT printer compatibility check
+     * Handle label type selection with STRICT printer compatibility check
      */
     onLabelTypeChanged() {
       if (!this.selectedLabelType || !this.reprintSelectedPrinter) {
@@ -618,13 +616,13 @@ export default {
     },
 
     /**
-     * NEW: Check label type and printer compatibility with STRICT ENFORCEMENT
+     * Check label type and printer compatibility with STRICT ENFORCEMENT
      */
     async checkLabelTypePrinterCompatibility() {
       if (!this.selectedLabelType || !this.reprintSelectedPrinter) return;
 
       try {
-        // Define label categories - CORRECTED: vector_image is small label
+        // Define label categories
         const instructionCardLabels = ['instruction_cards'];
         const isInstructionCardLabel = instructionCardLabels.includes(this.selectedLabelType);
         
@@ -680,7 +678,7 @@ export default {
     },
 
     /**
-     * NEW: Show incompatibility warning and fetch suggested printers - STRICT ENFORCEMENT
+     * Show incompatibility warning and fetch suggested printers
      */
     async showIncompatibilityWarning(requiredPrinterType, message) {
       this.compatibilityWarning = {
@@ -714,7 +712,7 @@ export default {
     },
 
     /**
-     * NEW: Show direct printer usage info for married printers when no routing needed
+     * Show direct printer usage info for married printers when no routing needed
      */
     showDirectPrinterInfo(isInstructionCardLabel, printerInfo) {
       let message = '';
@@ -738,7 +736,7 @@ export default {
     },
 
     /**
-     * NEW: Show smart routing information for married printers
+     * Show smart routing information for married printers
      */
     showSmartRoutingInfo(isInstructionCardLabel, printerInfo) {
       if (!printerInfo.is_married) return;
@@ -774,7 +772,7 @@ export default {
     },
 
     /**
-     * NEW: Clear compatibility warnings and suggestions
+     * Clear compatibility warnings and suggestions
      */
     clearCompatibilityWarning() {
       this.compatibilityWarning = null;
@@ -784,7 +782,7 @@ export default {
     },
 
     /**
-     * NEW: Switch to a suggested printer
+     * Switch to a suggested printer
      */
     selectSuggestedPrinter(printer) {
       this.reprintSelectedPrinter = printer.printerid;
@@ -929,7 +927,7 @@ export default {
     },
 
     /**
-     * ENHANCED: Process reprint with STRICT compatibility enforcement
+     * Process reprint with STRICT compatibility enforcement
      */
     async processReprint() {
       if (!this.selectedLabelType) {
@@ -997,7 +995,7 @@ export default {
     },
 
     /**
-     * NEW: Handle enhanced reprint success with routing information
+     * Handle enhanced reprint success with routing information
      */
     handleEnhancedReprintSuccess(result) {
       const labelTypeName = this.selectedLabelTypeName;
@@ -1030,7 +1028,7 @@ export default {
     },
 
     /**
-     * NEW: Handle compatibility error with printer suggestions
+     * Handle compatibility error with printer suggestions
      */
     handleCompatibilityError(result) {
       this.compatibilityWarning = {
@@ -1067,7 +1065,7 @@ export default {
     },
 
     /**
-     * ENHANCED: Clear reprint form with compatibility warnings
+     * Clear reprint form with compatibility warnings
      */
     clearReprintForm() {
       this.reprintSearchTerm = '';
@@ -1086,7 +1084,7 @@ export default {
       return serials.length > 0 ? serials.join(', ') : 'N/A';
     },
     
-    // Enhanced print processing with married printer support
+    // Enhanced print processing with married printer support AND VALIDATION CHECK
     async processPrintScan() {
       if (!this.serialNumber.trim()) {
         this.showError('Please enter a serial number');
@@ -1127,8 +1125,14 @@ export default {
           console.log('Print completed successfully:', printResult);
           this.handlePrintSuccess(result.data);
         } else {
-          console.log('Print conditions failed:', result.message);
-          this.handlePrintError(result.message);
+          // NEW: Check if it's a validation issue
+          if (result.requires_confirmation) {
+            console.log('Item not validated:', result.message);
+            this.handleValidationError(result.message, result.product_data);
+          } else {
+            console.log('Print conditions failed:', result.message);
+            this.handlePrintError(result.message);
+          }
         }
         
       } catch (error) {
@@ -1186,7 +1190,7 @@ export default {
         
         const data = await response.json();
         
-        // The API returns meets_print_conditions boolean
+        // The API returns meets_print_conditions boolean AND requires_confirmation flag
         if (data.success && data.meets_print_conditions) {
           return {
             success: true,
@@ -1195,7 +1199,9 @@ export default {
         } else {
           return {
             success: false,
-            message: data.message || 'Item not ready for printing'
+            message: data.message || 'Item not ready for printing',
+            requires_confirmation: data.requires_confirmation || false,
+            product_data: data.product_data || null
           };
         }
         
@@ -1352,6 +1358,26 @@ export default {
       console.log('Label printed successfully for:', this.serialNumber);
     },
     
+    // NEW: Handle validation errors separately with clear messaging
+    handleValidationError(message, productData) {
+      // Add to scanner error with validation-specific styling
+      this.$refs.scannerComponent.addErrorScan({
+        serial_number: this.serialNumber,
+        status: 'Not Validated'
+      }, message);
+      
+      // Show clear validation error notification at the top
+      this.$refs.scannerComponent.showScanError('❌ Item Not Validated - ' + message);
+      
+      // Play error sound
+      SoundService.error(true);
+      
+      console.warn('Validation check failed:', {
+        message,
+        product_data: productData
+      });
+    },
+
     handlePrintError(message) {
       // Add to scanner error
       this.$refs.scannerComponent.addErrorScan({
@@ -1536,7 +1562,7 @@ export default {
   color: #0056b3;
 }
 
-/* NEW: Enhanced compatibility and routing styles - STRICT ENFORCEMENT */
+/* Enhanced compatibility and routing styles */
 .has-warning {
   border-color: #dc3545 !important;
   box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.2) !important;
