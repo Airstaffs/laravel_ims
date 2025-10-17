@@ -255,74 +255,31 @@ export default {
         async openImageModal(item) {
             if (!item) return;
 
-            // Fetch fresh data first
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
+
             this.isLoadingImages = true;
 
             try {
                 await this.fetchItems();
 
-                // Find the fresh version of the item
                 const freshItem = this.items.find(
                     (i) => i.itemnumber === item.itemnumber
                 );
                 const itemToUse = freshItem || item;
 
-                // Reset modal state
-                this.imageList = []; // Changed from modalImages
-                this.activeIndex = 0; // Changed from currentImageIndex
+                console.log("Item to use:", itemToUse);
+                console.log("Images found:", this.imageList.length);
+
+                this.item = { ...itemToUse };
                 this.ProductTitle = itemToUse.ProductTitle;
 
-                // Add img1 first (the main thumbnail)
-                if (
-                    itemToUse.img1 &&
-                    itemToUse.img1 !== "NULL" &&
-                    itemToUse.img1.trim() !== ""
-                ) {
-                    this.imageList.push(itemToUse.img1);
-                }
+                console.log("Final imageList:", this.imageList);
 
-                // Image field names for additional images (img2 through img15)
-                const imageFields = [
-                    "img2",
-                    "img3",
-                    "img4",
-                    "img5",
-                    "img6",
-                    "img7",
-                    "img8",
-                    "img9",
-                    "img10",
-                    "img11",
-                    "img12",
-                    "img13",
-                    "img14",
-                    "img15",
-                ];
-
-                // Loop through all possible image fields and add non-empty ones
-                imageFields.forEach((field) => {
-                    if (
-                        itemToUse[field] &&
-                        itemToUse[field] !== "NULL" &&
-                        itemToUse[field].trim() !== ""
-                    ) {
-                        this.imageList.push(itemToUse[field]);
-                    }
-                });
-
-                // If no images were found, add a default image
-                if (this.imageList.length === 0) {
-                    const defaultFilename = `${itemToUse.ProductID}.jpg`;
-                    this.imageList.push(defaultFilename);
-                }
-
-                // Show the modal
                 this.showImageModal = true;
 
-                // Wait for DOM update
                 await this.$nextTick();
-
-                // Prevent scrolling when modal is open
                 document.body.style.overflow = "hidden";
             } catch (error) {
                 console.error("Failed to fetch fresh item data:", error);
@@ -332,69 +289,27 @@ export default {
             }
         },
 
-        // Fallback method if fetch fails
         openImageModalFallback(item) {
             if (!item) return;
 
-            // Reset modal state
-            this.imageList = [];
+            this.item = { ...item };
             this.activeIndex = 0;
             this.ProductTitle = item.ProductTitle;
 
-            // Add img1 first (the main thumbnail)
-            if (item.img1 && item.img1 !== "NULL" && item.img1.trim() !== "") {
-                this.imageList.push(item.img1);
-            }
+            console.log("Fallback imageList:", this.imageList);
 
-            // Image field names for additional images (img2 through img15)
-            const imageFields = [
-                "img2",
-                "img3",
-                "img4",
-                "img5",
-                "img6",
-                "img7",
-                "img8",
-                "img9",
-                "img10",
-                "img11",
-                "img12",
-                "img13",
-                "img14",
-                "img15",
-            ];
-
-            // Loop through all possible image fields and add non-empty ones
-            imageFields.forEach((field) => {
-                if (
-                    item[field] &&
-                    item[field] !== "NULL" &&
-                    item[field].trim() !== ""
-                ) {
-                    this.imageList.push(item[field]);
-                }
-            });
-
-            // If no images were found, add a default image
-            if (this.imageList.length === 0) {
-                const defaultFilename = `${item.ProductID}.jpg`;
-                this.imageList.push(defaultFilename);
-            }
-
-            // Show the modal
             this.showImageModal = true;
-
-            // Prevent scrolling when modal is open
             document.body.style.overflow = "hidden";
         },
 
-        // Close modal method
         closeImageModal() {
             this.showImageModal = false;
-            this.imageList = [];
+
+            this.item = {};
             this.activeIndex = 0;
             this.ProductTitle = "";
-            document.body.style.overflow = ""; // Restore scroll
+
+            document.body.style.overflow = "";
         },
 
         prevImage() {
