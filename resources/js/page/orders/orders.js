@@ -186,33 +186,31 @@ export default {
         async openImageModal(item) {
             if (!item) return;
 
-            // Fetch fresh data first
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
+
             this.isLoadingImages = true;
 
             try {
                 await this.fetchItems();
 
-                // Find the fresh version of the item
                 const freshItem = this.items.find(
                     (i) => i.itemnumber === item.itemnumber
                 );
                 const itemToUse = freshItem || item;
 
-                // IMPORTANT: Clear modal state completely
-                this.imageList = [];
-                this.activeIndex = 0;
+                console.log("Item to use:", itemToUse);
+                console.log("Images found:", this.imageList.length);
+
+                this.item = { ...itemToUse };
                 this.ProductTitle = itemToUse.ProductTitle;
 
-                // Build the image list
-                this.imageList = this.buildImageList(itemToUse);
+                console.log("Final imageList:", this.imageList);
 
-                // Show the modal
                 this.showImageModal = true;
 
-                // Wait for DOM update
                 await this.$nextTick();
-
-                // Prevent scrolling when modal is open
                 document.body.style.overflow = "hidden";
             } catch (error) {
                 console.error("Failed to fetch fresh item data:", error);
@@ -222,79 +220,27 @@ export default {
             }
         },
 
-        // Fallback method if fetch fails
         openImageModalFallback(item) {
             if (!item) return;
 
-            // Clear modal state completely
-            this.imageList = [];
+            this.item = { ...item };
             this.activeIndex = 0;
             this.ProductTitle = item.ProductTitle;
 
-            // Build the image list
-            this.imageList = this.buildImageList(item);
+            console.log("Fallback imageList:", this.imageList);
 
-            // Show the modal
             this.showImageModal = true;
-
-            // Prevent scrolling when modal is open
             document.body.style.overflow = "hidden";
         },
 
-        // Extract the image building logic into a separate method
-        buildImageList(item) {
-            const images = [];
-
-            // Add img1 first (the main thumbnail)
-            if (item.img1 && item.img1 !== "NULL" && item.img1.trim() !== "") {
-                images.push(item.img1);
-            }
-
-            // Image field names for additional images (img2 through img15)
-            const imageFields = [
-                "img2",
-                "img3",
-                "img4",
-                "img5",
-                "img6",
-                "img7",
-                "img8",
-                "img9",
-                "img10",
-                "img11",
-                "img12",
-                "img13",
-                "img14",
-                "img15",
-            ];
-
-            // Loop through all possible image fields and add non-empty ones
-            imageFields.forEach((field) => {
-                if (
-                    item[field] &&
-                    item[field] !== "NULL" &&
-                    item[field].trim() !== ""
-                ) {
-                    images.push(item[field]);
-                }
-            });
-
-            // If no images were found, add a default image
-            if (images.length === 0) {
-                const defaultFilename = `${item.ProductID}.jpg`;
-                images.push(defaultFilename);
-            }
-
-            return images;
-        },
-
-        // Close modal method
         closeImageModal() {
             this.showImageModal = false;
-            this.imageList = [];
+
+            this.item = {};
             this.activeIndex = 0;
             this.ProductTitle = "";
-            document.body.style.overflow = ""; // Restore scroll
+
+            document.body.style.overflow = "";
         },
 
         async openEditModal(item) {
