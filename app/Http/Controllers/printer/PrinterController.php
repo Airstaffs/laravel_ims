@@ -70,7 +70,6 @@ class PrinterController extends BasetablesController
                 ]);
             }
 
-
             // Check if product meets print conditions
             $conditions = $this->checkPrintConditions($product);
             
