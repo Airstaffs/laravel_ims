@@ -1782,6 +1782,10 @@ form#editPrinterForm {
     overflow-y: auto;
 }
 
+.modal-dialog {
+    max-width: unset !important;
+}
+
 /* Animation */
 @keyframes announceFadeIn {
     from {
