@@ -6,6 +6,39 @@
 
         <h2 class="module-title">Houseage Module</h2>
 
+        <div class="filter-controls mb-3">
+            <div class="row">
+                <div class="col-md-4">
+                    <label for="moduleFilter" class="form-label"
+                        >Filter by Module:</label
+                    >
+                    <select
+                        id="moduleFilter"
+                        v-model="moduleFilter"
+                        class="form-select"
+                    >
+                        <option value="">All Modules</option>
+                        <option
+                            v-for="module in uniqueModules"
+                            :key="module"
+                            :value="module"
+                        >
+                            {{ module }}
+                        </option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button
+                        @click="moduleFilter = ''"
+                        class="btn btn-secondary"
+                        :disabled="!moduleFilter"
+                    >
+                        Clear Filter
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">
             <table>
@@ -1676,7 +1709,6 @@ button:disabled {
     height: 48px;
     border-width: 4px;
 }
-
 
 .btn-copy-details {
     background-color: #17a2b8;

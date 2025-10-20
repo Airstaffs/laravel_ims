@@ -82,3 +82,34 @@ form.serialVerificationForm {
 .validation-module .btn-danger {
     color: #ffffff;
 }
+
+.filter-controls {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.filter-controls .form-label {
+    font-weight: 600;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.filter-controls .form-select {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.filter-controls .btn-secondary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.filter-info {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding-left: 15px;
+}

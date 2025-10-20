@@ -162,6 +162,18 @@ button.btn.btn-fnsku-select:hover {
     gap: 5px;
 }
 
+.filter-controls {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.filter-controls .form-label {
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
 @media (max-width: 767px) {
     .fnsku-modal-content {
         width: 100%;
