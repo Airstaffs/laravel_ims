@@ -1847,7 +1847,8 @@ form#editPrinterForm {
 
     .store-select,
     .status-select,
-    .module-select {
+    .module-select,
+    .valid-select {
         width: 100%;
         height: 40px;
     }

@@ -10,7 +10,7 @@
                         v-model="validationStatusFilter"
                         class="valid-select"
                     >
-                        <option value="">All Statuses</option>
+                        <option value="">All Status</option>
                         <option
                             v-for="status in uniqueValidationStatuses"
                             :key="status"
