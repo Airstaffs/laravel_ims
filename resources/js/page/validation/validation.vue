@@ -1,21 +1,14 @@
 <template>
     <div class="vue-container validation-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
+        <div class="top-header">
+            <div class="header-buttons"></div>
 
-        <h2 class="module-title">Validation Module</h2>
-
-        <div class="filter-controls mb-3">
-            <div class="row align-items-end">
-                <div class="col-md-4">
-                    <label for="validationStatusFilter" class="form-label"
-                        >Filter by Validation Status:</label
-                    >
-                    <select
+            <div class="validation-filter">
+                <label for="validationStatusFilter">Status:</label>
+                <select
                         id="validationStatusFilter"
                         v-model="validationStatusFilter"
-                        class="form-select"
+                        class="valid-select"
                     >
                         <option value="">All Statuses</option>
                         <option
@@ -26,18 +19,10 @@
                             {{ status }}
                         </option>
                     </select>
-                </div>
-                <div class="col-md-2">
-                    <button
-                        @click="validationStatusFilter = ''"
-                        class="btn btn-secondary w-100"
-                        :disabled="!validationStatusFilter"
-                    >
-                        Clear Filter
-                    </button>
-                </div>
             </div>
         </div>
+
+        <h2 class="module-title">Validation Module</h2>
 
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">

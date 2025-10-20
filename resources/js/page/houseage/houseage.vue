@@ -1,43 +1,27 @@
 <template>
     <div class="vue-container houseage-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
-
-        <h2 class="module-title">Houseage Module</h2>
-
-        <div class="filter-controls mb-3">
-            <div class="row">
-                <div class="col-md-4">
-                    <label for="moduleFilter" class="form-label"
-                        >Filter by Module:</label
+        <div class="top-header">
+            <div class="header-buttons"></div>
+            <div class="module-filter">
+                <label for="moduleFilter">Module:</label>
+                <select
+                    id="moduleFilter"
+                    v-model="moduleFilter"
+                    class="module-select"
+                >
+                    <option value="">All Modules</option>
+                    <option
+                        v-for="module in uniqueModules"
+                        :key="module"
+                        :value="module"
                     >
-                    <select
-                        id="moduleFilter"
-                        v-model="moduleFilter"
-                        class="form-select"
-                    >
-                        <option value="">All Modules</option>
-                        <option
-                            v-for="module in uniqueModules"
-                            :key="module"
-                            :value="module"
-                        >
-                            {{ module }}
-                        </option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <button
-                        @click="moduleFilter = ''"
-                        class="btn btn-secondary"
-                        :disabled="!moduleFilter"
-                    >
-                        Clear Filter
-                    </button>
-                </div>
+                        {{ module }}
+                    </option>
+                </select>
             </div>
         </div>
+
+        <h2 class="module-title">Houseage Module</h2>
 
         <!-- Desktop Table Container -->
         <div class="table-container desktop-view">
