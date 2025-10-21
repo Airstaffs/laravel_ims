@@ -1413,10 +1413,12 @@
         />
 
         <!-- DS7oos Modal -->
-        <Ds7OosModal
-            :show="ui.ds7oos.show"
-            @close="ui.ds7oos.show = false"
-            @save="handleDs7OosSave"
+        <ds7-oos-modal
+            :show="showDs7Oos"
+            :store-options="distinctStores"
+            :initial="dsFilters"
+            @close="showDs7Oos = false"
+            @save="applyDsFilters"
         />
     </div>
 </template>

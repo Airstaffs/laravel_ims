@@ -4,6 +4,7 @@ import NewScannedItemModal from "./modals/newScanneditem.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 import Ds7OosModal from "./modals/ds7oos.vue";
+import Ds7OosModal from "./modals/ds7oos.vue";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -94,8 +95,17 @@ export default {
             },
 
             // DS7oos
-            ui: {
-                ds7oos: { show: false },
+            showDs7Oos: false,
+            dsFilters: {
+                datalimit: 14,
+                window: 7,
+                store: "",
+                min_sold: 0,
+                sort: "ds_asc",
+                per_page: 25,
+                include_oos: 1,
+                use_orders: 0,
+                page: 1,              // <-- good to keep for future pagination
             },
 
             // FNSKU Table
@@ -194,6 +204,11 @@ export default {
         displayCount() {
             const count = this.newScannedCount || 0;
             return count > 999 ? "999+" : count.toString();
+        },
+
+        distinctStores() {
+            const uniq = Array.from(new Set(this.stores || []));
+            return uniq.sort((a, b) => String(a).localeCompare(String(b)));
         },
     },
     methods: {
@@ -1939,7 +1954,7 @@ export default {
 
         // ds700s
         openDs7Oos() {
-            this.ui.ds7oos.show = true;
+            this.showDs7Oos = true;
         },
         handleDs7OosSave(payload) {
             // persist settings / call API, then close
