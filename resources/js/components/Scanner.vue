@@ -669,6 +669,15 @@ button.pass-button.step-btn {
 button.fail-button.step-btn {
     background-color: #dc3545;
 }
+.serial-result-wrap {
+    display: flex;
+    align-content: center;
+    align-items: center;
+}
+.serial-btn {
+    background-color: #0d6efd;
+    border: 0 #fff !important;
+}
 /* Thumbnails grid */
 .product-thumbnails-grid {
   @apply grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mt-3;

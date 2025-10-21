@@ -12,10 +12,15 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000", "http://127.0.0.1:8000"],  # adjust for frontend
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=[
+        "https://test.tecniquality.com",  # ✅ your HTTPS live site
+        "http://test.tecniquality.com",   # ✅ in case your live uses HTTP (redirect or staging)
+        "http://localhost:8000",          # ✅ for local Laravel frontend
+        "http://127.0.0.1:8000",          # ✅ for local fallback (different origin technically)
+    ],
+    allow_credentials=True,  # ✅ required since Laravel/Axios use withCredentials
+    allow_methods=["*"],     # ✅ allow GET, POST, PUT, etc.
+    allow_headers=["*"],     # ✅ allow custom headers like X-CSRF-TOKEN, Content-Type
 )
 
 # 🎯 Upload detection (full pipeline: Barcode → YOLO → EasyOCR → fallback)

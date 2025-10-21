@@ -55,8 +55,8 @@ export default {
             showDetectSerialModal: false, // State for Detect Serial Numbers modal
 
             apiResult: {
-                step3: null,
-                step4: null,
+                step3: { serials: [] },
+                step4: { serials: [] },
             },
 
             showImageModal: false,
@@ -78,6 +78,10 @@ export default {
 
             productImages: [], // 👈 Array to hold product thumbnails for Step 2
 
+            // Serial upload image
+            imageUrl: null,
+            croppedImage: null,
+            isDragging: false,
         };
     },
     computed: {
@@ -238,6 +242,7 @@ export default {
         },
     },
     methods: {
+
         handleImageError(event) {
             // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;
@@ -1086,6 +1091,9 @@ export default {
             this.rtcounter = ""; // Reset rtcounter
             this.status = "";
 
+            // 🧼 Also reset uploader
+            this.resetUploader();
+
             // Clear the product thumbnails
             if (
                 this.$refs.scanner &&
@@ -1174,12 +1182,15 @@ export default {
         handleScannerClosed() {
             console.log("Scanner closed");
             this.fetchInventory();
+            this.resetUploader(); // 🧼 clear uploader
         },
 
         // Scanner reset event
         handleScannerReset() {
             console.log("Scanner reset");
             this.resetScannerState();
+            this.resetUploader(); // 🧼 clear uploader
+
         },
 
         // Pagination methods
@@ -1225,6 +1236,16 @@ export default {
             this.currentPage = 1;
             this.fetchInventory();
         },
+        // 🧼 Reset uploader state (for Steps 3 & 4)
+
+        resetUploader() {
+            this.imageUrl = null;
+            this.croppedImage = null;
+            this.isDragging = false;
+            this.apiResult.step3.serials = [];
+            this.apiResult.step4.serials = [];
+        },
+
         saveSerial(serialText, index) {
             if (this.currentStep === 3) {
                 // 🧠 Save first serial
@@ -1234,7 +1255,16 @@ export default {
                 );
 
                 // 🧹 Clear OCR results
-                this.apiResult = { serials: [] };
+                // this.apiResult = { serials: [] };
+                // this.apiResult.step3.serials = [];
+                this.apiResult.step3.serials.splice(0);
+
+                // 🧼 Reset uploader state for next upload
+                // 🧼 Reset uploader
+                this.resetUploader();
+
+                // 🧹 Reset API result for step 3
+                // this.apiResult.step3 = { serials: [] };
 
                 // 🚀 Act as if user pressed Enter
                 this.$nextTick(() => {
@@ -1250,7 +1280,14 @@ export default {
                 );
 
                 // 🧹 Clear OCR results
-                this.apiResult = { serials: [] };
+                // this.apiResult = { serials: [] };
+                // this.apiResult.step4 = { serials: [] };
+                // this.apiResult.step4.serials = [];
+                this.apiResult.step4.serials.splice(0);
+
+                // 🧼 Reset uploader state for next upload
+                // 🧼 Reset uploader
+                this.resetUploader();
 
                 // 🚀 Act as if user pressed Enter
                 this.$nextTick(() => {
@@ -1345,6 +1382,92 @@ export default {
                 this.loading = false;
             }
         },
+        // ---------------------
+        // 📸 Image Upload Section (for Step 3 and Step 4)
+        // ---------------------
+        triggerFileInput() {
+        this.$refs.fileInput.click();
+        },
+
+        onFileChange(event) {
+        const file = event.target.files[0];
+        if (file) {
+            this.handleImageUpload(file);
+        }
+        },
+
+        handleDrop(event) {
+        this.isDragging = false;
+        const file = event.dataTransfer.files[0];
+        if (file) {
+            this.handleImageUpload(file);
+        }
+        },
+
+        async handleImageUpload(file) {
+        if (!file.type.startsWith("image/")) {
+            alert("Please upload a valid image file.");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            this.imageUrl = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        const formData = new FormData();
+        // ✅ Match scanner logic
+        formData.append("file", file, file.name || "upload.jpg");
+
+        const baseURL =
+            window.location.hostname === "localhost" ||
+            window.location.hostname === "127.0.0.1"
+            ? "http://127.0.0.1:8001"
+            : "/fastapi";
+
+        this.loading = true;
+        try {
+            const response = await fetch(`${baseURL}/detect`, {
+            method: "POST",
+            body: formData,
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const result = await response.json();
+            console.log("🔍 Serial detection result:", result);
+
+            // ✅ Save to correct step result
+            if (this.currentStep === 3) {
+            this.apiResult.step3 = result;
+            } else if (this.currentStep === 4) {
+            this.apiResult.step4 = result;
+            }
+
+            // ✅ Auto-fill detected serial if found
+            if (result.serials && result.serials.length > 0) {
+            const detectedSerial = result.serials[0];
+            if (this.currentStep === 3) {
+                this.firstSerialNumber = detectedSerial;
+                this.$refs.scanner?.showScanSuccess?.(`✅ Serial #1 detected: ${detectedSerial}`);
+            } else if (this.currentStep === 4) {
+                this.secondSerialNumber = detectedSerial;
+                this.$refs.scanner?.showScanSuccess?.(`✅ Serial #2 detected: ${detectedSerial}`);
+            }
+            } else {
+            this.$refs.scanner?.showScanWarning?.("⚠️ No serials detected in image.");
+            }
+
+        } catch (error) {
+            console.error("Upload error:", error);
+            this.$refs.scanner?.showScanError?.("❌ Failed to detect serial number.");
+        } finally {
+            this.loading = false;
+        }
+        },
+
+
     },
     watch: {
         searchQuery() {

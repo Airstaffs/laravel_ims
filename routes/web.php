@@ -777,3 +777,8 @@ Route::get('/schedule/month', [AttendanceController::class, 'month']);
 Route::middleware(['auth'])->get('/account/complete', function () {
     return view('account.complete');  // the small Blade that calls your HR endpoints
 })->name('account.complete.view');
+
+// Add this BEFORE the fallback route
+Route::get('/aiTraining', function () {
+    return view('aiTraining'); // Blade file wrapper for Vue
+})->middleware(['auth']); // if you want it only for logged users
