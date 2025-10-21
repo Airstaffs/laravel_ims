@@ -22,11 +22,11 @@
                             <div class="product-name">
                                 <span
                                     class="sortable"
-                                    @click="sortBy('AStitle')"
+                                    @click="sortBy('ProductTitle')"
                                 >
                                     Product Name
                                     <i
-                                        v-if="sortColumn === 'AStitle'"
+                                        v-if="sortColumn === 'ProductTitle'"
                                         :class="
                                             sortOrder === 'asc'
                                                 ? 'fas fa-sort-up'
@@ -36,14 +36,122 @@
                                 </span>
                             </div>
                         </th>
-                        <th>ASIN</th>
-                        <th>FNSKU</th>
-                        <th>Grading</th>
-                        <th>Serial Number</th>
-                        <th>Quantity</th>
-                        <th>Fullfilment Status</th>
-                        <th>Module</th>
-                        <th>Return Status</th>
+                        <th>
+                            <span class="sortable" @click="sortBy('ASIN')">
+                                ASIN
+                                <i
+                                    v-if="sortColumn === 'ASIN'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('FNSKU')">
+                                FNSKU
+                                <i
+                                    v-if="sortColumn === 'FNSKU'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('grading')">
+                                Grading
+                                <i
+                                    v-if="sortColumn === 'grading'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('serialnumber')"
+                            >
+                                Serial Number
+                                <i
+                                    v-if="sortColumn === 'serialnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('quantity')">
+                                Quantity
+                                <i
+                                    v-if="sortColumn === 'quantity'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('fulfillment_status')"
+                            >
+                                Fullfilment Status
+                                <i
+                                    v-if="sortColumn === 'fulfillment_status'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('ProductModuleLoc')"
+                            >
+                                Module
+                                <i
+                                    v-if="sortColumn === 'ProductModuleLoc'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('returnstatus')"
+                            >
+                                Return Status
+                                <i
+                                    v-if="sortColumn === 'returnstatus'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
                         <th>Actions</th>
                     </tr>
                 </thead>

@@ -1,7 +1,25 @@
 <template>
     <div class="vue-container validation-module">
         <div class="top-header">
-            <span>Top Header</span>
+            <div class="header-buttons"></div>
+
+            <div class="validation-filter">
+                <label for="validationStatusFilter">Status:</label>
+                <select
+                        id="validationStatusFilter"
+                        v-model="validationStatusFilter"
+                        class="valid-select"
+                    >
+                        <option value="">All Status</option>
+                        <option
+                            v-for="status in uniqueValidationStatuses"
+                            :key="status"
+                            :value="status"
+                        >
+                            {{ status }}
+                        </option>
+                    </select>
+            </div>
         </div>
 
         <h2 class="module-title">Validation Module</h2>

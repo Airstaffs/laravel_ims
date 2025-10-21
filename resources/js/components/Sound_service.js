@@ -9,7 +9,8 @@ export const SoundService = {
         'successscan': window.location.origin + '/sounds/successscan.mp3',
         'scanrejected': window.location.origin + '/sounds/scanrejected.mp3',
         'alreadyScanned': window.location.origin + '/sounds/itemalreadyscanned.mp3',
-         'PCNalreadyUsed': window.location.origin + '/sounds/pcnalreadyused.mp3'
+        'PCNalreadyUsed': window.location.origin + '/sounds/pcnalreadyused.mp3',
+        'ItemNotValidated': window.location.origin + '/sounds/item_not_validated.mp3'
       };
   
       const sound = new Audio(soundMap[soundName]);
@@ -50,6 +51,10 @@ export const SoundService = {
 
     PCNalreadyUsed(vibrate = true) {
       this.playSound('PCNalreadyUsed', vibrate);
+    },
+     ItemNotValidated(vibrate = true) {
+      this.playSound('PCNalreadyUsed', vibrate);
     }
+
 
   };

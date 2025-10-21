@@ -434,7 +434,9 @@ select {
     color: white;
 }
 
-.store-filter {
+.store-filter,
+.module-filter,
+.validation-filter {
     position: relative;
     display: flex;
     align-items: center;
@@ -443,7 +445,9 @@ select {
     padding-left: 10px;
 }
 
-.store-filter::after {
+.store-filter::after,
+.module-filter::after,
+.valid-filter::after {
     content: "";
     position: absolute;
     transform: translateY(-50%);
@@ -454,12 +458,16 @@ select {
     background-color: white;
 }
 
-.store-filter label {
+.store-filter label,
+.module-filter label,
+.valid-filter label {
     font-weight: bold;
 }
 
 .store-select,
-.status-select {
+.status-select,
+.module-select,
+.valid-select {
     width: 120px;
     padding: 4px 8px;
     border-radius: 4px;
@@ -1782,6 +1790,10 @@ form#editPrinterForm {
     overflow-y: auto;
 }
 
+.modal-dialog {
+    max-width: unset !important;
+}
+
 /* Animation */
 @keyframes announceFadeIn {
     from {
@@ -1820,17 +1832,23 @@ form#editPrinterForm {
         border: 1px solid white;
     }
 
-    .store-filter {
+    .store-filter,
+    .module-filter,
+    .validation-filter {
         width: 100%;
         padding: 0;
     }
 
-    .store-filter label {
+    .store-filter label,
+    .module-filter label,
+    .validation-filter label {
         display: none;
     }
 
     .store-select,
-    .status-select {
+    .status-select,
+    .module-select,
+    .valid-select {
         width: 100%;
         height: 40px;
     }
