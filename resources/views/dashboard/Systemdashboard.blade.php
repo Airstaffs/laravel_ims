@@ -575,6 +575,12 @@
         </div>
     </div>
 
+    @env('production')
+        <script>
+            document.addEventListener('contextmenu', (e) => e.preventDefault());
+        </script>
+    @endenv
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             console.log('Dashboard loaded - initializing security measures...');
@@ -1008,12 +1014,6 @@
             }
         }
 
-        // DISABLE RIGHT-CLICK CONTEXT MENU (OPTIONAL)
-        document.addEventListener('contextmenu', function (e) {
-            e.preventDefault();
-            return false;
-        });
-
         // GLOBAL ERROR HANDLER
         window.addEventListener('error', function (e) {
             if (e.message && e.message.includes('419')) {
@@ -1136,4 +1136,5 @@
     <script src="{{ asset('js/setting-printer.js') }}" defer></script>
 
 </body>
+
 </html>
