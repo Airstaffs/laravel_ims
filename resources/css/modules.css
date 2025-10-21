@@ -417,9 +417,7 @@ textarea.form-control {
 /* Sortable columns */
 .sortable {
     cursor: pointer;
-    display: inline-flex;
     align-items: center;
-    gap: 5px;
 }
 
 .sortable:hover {
@@ -541,7 +539,6 @@ textarea.form-control {
 .btn-edit-address,
 .btn-edit-note,
 .btn-edit {
-    width: 150px;
     height: 40px;
     padding: 5px;
     border: 1px solid #ddd;
@@ -1323,6 +1320,14 @@ footer {
 
 p {
     margin: 0;
+}
+
+.thumbnail-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 /* ----- */

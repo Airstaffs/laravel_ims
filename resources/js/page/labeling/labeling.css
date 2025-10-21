@@ -449,7 +449,6 @@ table thead.sticky-header th {
 /* Split button in table/card */
 .btn-split {
     height: 40px;
-    width: 150px;
     background-color: #ff9800;
     color: white;
     border-color: #ff9800;

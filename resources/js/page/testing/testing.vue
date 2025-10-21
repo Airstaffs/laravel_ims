@@ -22,11 +22,11 @@
                             <div class="product-name">
                                 <span
                                     class="sortable"
-                                    @click="sortBy('AStitle')"
+                                    @click="sortBy('ProductTitle')"
                                 >
                                     Product Name
                                     <i
-                                        v-if="sortColumn === 'AStitle'"
+                                        v-if="sortColumn === 'ProductTitle'"
                                         :class="
                                             sortOrder === 'asc'
                                                 ? 'fas fa-sort-up'
@@ -34,71 +34,261 @@
                                         "
                                     ></i>
                                 </span>
-
-                                <button
-                                    class="btn-showDetails"
-                                    @click="toggleDetailsVisibility"
-                                >
-                                    {{
-                                        showDetails
-                                            ? "Hide extra columns"
-                                            : "Show extra columns"
-                                    }}
-                                </button>
                             </div>
                         </th>
-                        <th class="">Location</th>
-                        <th class="">Added date</th>
-                        <th class="">Updated date</th>
-                        <th class="">Fnsku</th>
-                        <th class="">Msku</th>
-                        <th class="">Asin</th>
-                        <th
-                            class="bg-warning-subtle"
-                            style="background-color: antiquewhite"
-                            v-if="showDetails"
-                        >
-                            FBM
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('warehouselocation')"
+                            >
+                                Location
+                                <i
+                                    v-if="sortColumn === 'warehouselocation'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('datedelivered')"
+                            >
+                                Added date
+                                <i
+                                    v-if="sortColumn === 'datedelivered'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('lastDateUpdate')"
+                            >
+                                Updated date
+                                <i
+                                    v-if="sortColumn === 'lastDateUpdate'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('FNSKUviewer')"
+                            >
+                                Fnsku
+                                <i
+                                    v-if="sortColumn === 'FNSKUviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('MSKUviewer')"
+                            >
+                                Msku
+                                <i
+                                    v-if="sortColumn === 'MSKUviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('ASINviewer')"
+                            >
+                                Asin
+                                <i
+                                    v-if="sortColumn === 'ASINviewer'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            FBA
+                            <span
+                                class="sortable"
+                                @click="sortBy('FBMAvailable')"
+                            >
+                                FBM
+                                <i
+                                    v-if="sortColumn === 'FBMAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Outbound
+                            <span
+                                class="sortable"
+                                @click="sortBy('FbaAvailable')"
+                            >
+                                FBA
+                                <i
+                                    v-if="sortColumn === 'FbaAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Inbound
+                            <span class="sortable" @click="sortBy('Outbound')">
+                                Outbound
+                                <i
+                                    v-if="sortColumn === 'Outbound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Unfulfillable
+                            <span class="sortable" @click="sortBy('Inbound')">
+                                Inbound
+                                <i
+                                    v-if="sortColumn === 'Inbound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th
                             class="bg-warning-subtle"
                             style="background-color: antiquewhite"
                             v-if="showDetails"
                         >
-                            Reserved
+                            <span class="sortable" @click="sortBy('Reserved')">
+                                Reserved
+                                <i
+                                    v-if="sortColumn === 'Reserved'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
-                        <th class="">Fulfillment</th>
-                        <th class="">Status</th>
-                        <th class="">Serialnumber</th>
-                        <th class="">Actions</th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('Unfulfillable')"
+                            >
+                                Unfulfillable
+                                <i
+                                    v-if="sortColumn === 'Unfulfillable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('Fulfilledby')"
+                            >
+                                Fulfillment
+                                <i
+                                    v-if="sortColumn === 'Fulfilledby'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('Status')">
+                                Status
+                                <i
+                                    v-if="sortColumn === 'Status'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('serialnumber')"
+                            >
+                                Serialnumber
+                                <i
+                                    v-if="sortColumn === 'serialnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -257,14 +447,11 @@
                                     {{ item.totalquantity }}
                                     <button
                                         class="btn-details"
-                                        @click="toggleDetails(index)"
+                                        @click="openEditModal(item)"
                                     >
                                         <i class="fas fa-info-circle"></i> More
                                         Details
                                     </button>
-                                    <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
-                                    <button class="btn-expand">example</button>
                                 </div>
                             </td>
                         </tr>
@@ -288,10 +475,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button>
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -319,6 +502,7 @@
                                 :alt="item.ProductTitle || 'Product'"
                                 class="product-thumbnail clickable-image"
                                 @error="handleImageError($event)"
+                                @click="openImageModal(item)"
                             />
                             <div
                                 class="image-count-badge"
@@ -440,16 +624,16 @@
                         </div>
                     </div>
 
+                    <hr />
+
                     <div class="mobile-card-actions">
                         <button
                             class="btn btn-details"
-                            @click="toggleDetails(index)"
+                            @click="openEditModal(item)"
                         >
-                            <i class="fas fa-info-circle"></i> Details
+                            <i class="fas fa-info-circle"></i>
+                            <span>View Details</span>
                         </button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
-                        <button class="btn btn-example">Example</button>
                     </div>
 
                     <hr v-if="expandedRows[index]" />
@@ -508,48 +692,377 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="image-modal">
+        <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
+
             <div class="modal-content">
-                <button class="close-button" @click="closeImageModal">
-                    &times;
-                </button>
-
-                <div class="main-image-container">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2>{{ ProductTitle }}</h2>
+                    </div>
                     <button
-                        class="nav-button prev"
-                        @click="prevImage"
-                        v-if="modalImages.length > 1"
+                        class="btn btn-modal-close"
+                        @click="closeImageModal"
                     >
-                        &lt;
-                    </button>
-                    <img
-                        :src="modalImages[currentImageIndex]"
-                        alt="Product Image"
-                        class="modal-main-image"
-                    />
-                    <button
-                        class="nav-button next"
-                        @click="nextImage"
-                        v-if="modalImages.length > 1"
-                    >
-                        &gt;
+                        &times;
                     </button>
                 </div>
 
-                <div class="image-counter">
-                    {{ currentImageIndex + 1 }} / {{ modalImages.length }}
-                </div>
+                <div class="modal-body">
+                    <div class="main-image-container">
+                        <button
+                            class="nav-button prev"
+                            @click="prevImage"
+                            v-if="imageList.length > 1"
+                        >
+                            <i class="bi bi-arrow-left-short"></i>
+                        </button>
+                        <img
+                            :src="activeImageUrl"
+                            alt="Main Product Image"
+                            class="modal-main-image"
+                            loading="lazy"
+                            width="100%"
+                            @error="onImageErrorMain"
+                        />
+                        <button
+                            class="nav-button next"
+                            @click="nextImage"
+                            v-if="imageList.length > 1"
+                        >
+                            <i class="bi bi-arrow-right-short"></i>
+                        </button>
+                    </div>
 
-                <div class="thumbnails-container" v-if="modalImages.length > 1">
+                    <div class="image-counter">
+                        {{ activeIndex + 1 }} / {{ imageList.length }}
+                    </div>
+
                     <div
-                        v-for="(image, index) in modalImages"
-                        :key="index"
-                        class="modal-thumbnail"
-                        :class="{ active: index === currentImageIndex }"
-                        @click="currentImageIndex = index"
+                        class="thumbnail-container"
+                        v-if="imageList.length > 1"
                     >
-                        <img :src="image" :alt="`Thumbnail ${index + 1}`" />
+                        <div
+                            v-for="(img, index) in imageList"
+                            :key="index"
+                            class="modal-thumbnail"
+                            :class="[
+                                'thumbnail',
+                                {
+                                    active: index === activeIndex,
+                                },
+                            ]"
+                            @click="activeIndex = index"
+                            @mouseenter="activeIndex = index"
+                        >
+                            <img
+                                :src="basePath + img"
+                                alt="Thumbnail"
+                                loading="lazy"
+                                @error="onThumbnailError($event)"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showEditModal" class="modal view-modal">
+            <div class="modal-overlay" @click="closeEditModal"></div>
+
+            <div class="modal-content">
+                <div class="modal-header">
+                    <div class="productTitle">
+                        <h2 class="fw-bold">
+                            <small>RT #{{ item.ProductID }}</small>
+                            <span>
+                                {{ item.ProductTitle }}
+                            </span>
+                        </h2>
+                    </div>
+                    <button class="btn btn-modal-close" @click="closeEditModal">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="view-info-container">
+                        <div class="view-grid-wrapper">
+                            <!-- LEFT: IMAGE -->
+                            <div class="form-col-left">
+                                <div
+                                    class="image-section"
+                                    v-if="imageList.length"
+                                >
+                                    <!-- Main Image -->
+                                    <div class="main-image">
+                                        <img
+                                            :src="activeImageUrl"
+                                            alt="Main Product Image"
+                                            loading="lazy"
+                                            @error="onImageErrorMain"
+                                        />
+                                    </div>
+
+                                    <!-- Thumbnails -->
+                                    <div class="thumbnail-carousel">
+                                        <div
+                                            v-for="(img, index) in imageList"
+                                            :key="index"
+                                            :class="[
+                                                'thumbnail',
+                                                {
+                                                    active:
+                                                        index === activeIndex,
+                                                },
+                                            ]"
+                                            @click="activeIndex = index"
+                                            @mouseenter="activeIndex = index"
+                                        >
+                                            <img
+                                                :src="basePath + img"
+                                                alt="Thumbnail"
+                                                loading="lazy"
+                                                @error="
+                                                    onThumbnailError($event)
+                                                "
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="description-section">
+                                    <h3>Description</h3>
+                                    <p>{{ item.description }}</p>
+                                </div>
+                            </div>
+
+                            <!-- RIGHT: DETAILS -->
+                            <div class="form-col-right">
+                                <div class="row">
+                                    <!-- Left Column -->
+                                    <div class="col-md-6">
+                                        <!-- Product Identifiers -->
+                                        <section class="info-section">
+                                            <h3>Product Identifiers</h3>
+                                            <dl class="info-list">
+                                                <div class="info-item">
+                                                    <dt>RT:</dt>
+                                                    <dd>
+                                                        {{ item.ProductID }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>ASIN:</dt>
+                                                    <dd>{{ item.ASIN }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>RPN:</dt>
+                                                    <dd>{{ item.RPN }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>PRD:</dt>
+                                                    <dd>{{ item.PRD }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>UPC:</dt>
+                                                    <dd>{{ item.UPC }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>EAN:</dt>
+                                                    <dd>{{ item.EAN }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>FNSKU:</dt>
+                                                    <dd>{{ item.FNSKU }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>SKU:</dt>
+                                                    <dd>{{ item.SKU }}</dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+
+                                        <!-- Order Information -->
+                                        <section class="info-section">
+                                            <h3>Order Information</h3>
+                                            <dl class="info-list">
+                                                <div class="info-item">
+                                                    <dt>Order Number:</dt>
+                                                    <dd>{{ item.rtid }}</dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Item Number:</dt>
+                                                    <dd>
+                                                        {{ item.itemnumber }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Basket Number:</dt>
+                                                    <dd>
+                                                        {{ item.basketnumber }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Order Date:</dt>
+                                                    <dd>
+                                                        {{ item.orderdate }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Delivered Date:</dt>
+                                                    <dd>
+                                                        {{ item.datedelivered }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Seller:</dt>
+                                                    <dd>{{ item.seller }}</dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+
+                                        <!-- Warehouse & Tracking -->
+                                        <section class="info-section">
+                                            <h3>Warehouse & Tracking</h3>
+                                            <dl class="info-list">
+                                                <div class="info-item">
+                                                    <dt>Module:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.ProductModuleLoc
+                                                        }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Warehouse Location:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.warehouselocation
+                                                        }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Serial Number:</dt>
+                                                    <dd>
+                                                        {{ item.serialnumber }}
+                                                    </dd>
+                                                </div>
+                                                <div class="info-item">
+                                                    <dt>Tracking Number:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.trackingnumber
+                                                        }}
+                                                    </dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+
+                                        <!-- Additional Info -->
+                                        <section
+                                            class="info-section"
+                                            v-if="item.grading || item.notes"
+                                        >
+                                            <h3>Additional Info</h3>
+                                            <dl class="info-list">
+                                                <div
+                                                    class="info-item"
+                                                    v-if="item.grading"
+                                                >
+                                                    <dt>Grading:</dt>
+                                                    <dd>{{ item.grading }}</dd>
+                                                </div>
+                                                <div
+                                                    class="info-item"
+                                                    v-if="item.notes"
+                                                >
+                                                    <dt>Notes:</dt>
+                                                    <dd>{{ item.notes }}</dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+                                    </div>
+
+                                    <!-- Right Column: Pricing -->
+                                    <div class="col-md-6">
+                                        <section class="pricing-section">
+                                            <h3>Pricing</h3>
+                                            <dl class="pricing-list">
+                                                <!-- Base Pricing -->
+                                                <div class="pricing-item">
+                                                    <dt>Unit Price:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.formattedUnitprice ||
+                                                            "0.00"
+                                                        }}
+                                                    </dd>
+                                                </div>
+                                                <div class="pricing-item">
+                                                    <dt>Quantity:</dt>
+                                                    <dd>
+                                                        {{ item.quantity || 0 }}
+                                                    </dd>
+                                                </div>
+                                                <div
+                                                    class="pricing-item subtotal-line"
+                                                >
+                                                    <dt>Subtotal:</dt>
+                                                    <dd>
+                                                        {{
+                                                            item.price || "0.00"
+                                                        }}
+                                                    </dd>
+                                                </div>
+
+                                                <!-- Adjustments -->
+                                                <div
+                                                    class="pricing-item"
+                                                    v-if="item.Discount"
+                                                >
+                                                    <dt>Discount:</dt>
+                                                    <dd class="discount">
+                                                        -{{ item.Discount }}
+                                                    </dd>
+                                                </div>
+                                                <div class="pricing-item">
+                                                    <dt>Tax:</dt>
+                                                    <dd>{{ item.tax }}</dd>
+                                                </div>
+                                                <div class="pricing-item">
+                                                    <dt>Shipping:</dt>
+                                                    <dd>
+                                                        {{ item.priceshipping }}
+                                                    </dd>
+                                                </div>
+
+                                                <!-- Total -->
+                                                <div
+                                                    class="pricing-item total-line"
+                                                >
+                                                    <dt>Total Price:</dt>
+                                                    <dd class="total-amount">
+                                                        {{ grandTotal }}
+                                                    </dd>
+                                                </div>
+
+                                                <!-- Refund -->
+                                                <div
+                                                    class="pricing-item refund-line"
+                                                    v-if="item.refund"
+                                                >
+                                                    <dt>Refund:</dt>
+                                                    <dd class="refund">
+                                                        {{ item.refund }}
+                                                    </dd>
+                                                </div>
+                                            </dl>
+                                        </section>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

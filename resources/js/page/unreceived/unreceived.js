@@ -40,7 +40,7 @@ export default {
 
             defaultImage:
                 "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=",
-            
+
             // Modal state
             showImageModal: false,
             modalImages: [],
@@ -252,31 +252,51 @@ export default {
             return count;
         },
 
-        openImageModal(item) {
+        async openImageModal(item) {
             if (!item) return;
-            this.modalImages = [];
-            this.currentImageIndex = 0;
 
-            const imageFields = [
-                "img2", "img3", "img4", "img5", "img6", "img7", "img8", 
-                "img9", "img10", "img11", "img12", "img13", "img14", "img15"
-            ];
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
 
-            imageFields.forEach((field) => {
-                if (
-                    item[field] &&
-                    item[field] !== "NULL" &&
-                    item[field].trim() !== ""
-                ) {
-                    const imagePath = `/images/thumbnails/${item[field]}`;
-                    this.modalImages.push(imagePath);
-                }
-            });
+            this.isLoadingImages = true;
 
-            if (this.modalImages.length === 0) {
-                const defaultPath = `/images/thumbnails/${item.ProductID}.jpg`;
-                this.modalImages.push(defaultPath);
+            try {
+                await this.fetchItems();
+
+                const freshItem = this.items.find(
+                    (i) => i.itemnumber === item.itemnumber
+                );
+                const itemToUse = freshItem || item;
+
+                console.log("Item to use:", itemToUse);
+                console.log("Images found:", this.imageList.length);
+
+                this.item = { ...itemToUse };
+                this.ProductTitle = itemToUse.ProductTitle;
+
+                console.log("Final imageList:", this.imageList);
+
+                this.showImageModal = true;
+
+                await this.$nextTick();
+                document.body.style.overflow = "hidden";
+            } catch (error) {
+                console.error("Failed to fetch fresh item data:", error);
+                this.openImageModalFallback(item);
+            } finally {
+                this.isLoadingImages = false;
             }
+        },
+
+        openImageModalFallback(item) {
+            if (!item) return;
+
+            this.item = { ...item };
+            this.activeIndex = 0;
+            this.ProductTitle = item.ProductTitle;
+
+            console.log("Fallback imageList:", this.imageList);
 
             this.showImageModal = true;
             document.body.style.overflow = "hidden";
@@ -284,23 +304,27 @@ export default {
 
         closeImageModal() {
             this.showImageModal = false;
-            this.modalImages = [];
-            document.body.style.overflow = "auto";
-        },
 
-        nextImage() {
-            if (this.currentImageIndex < this.modalImages.length - 1) {
-                this.currentImageIndex++;
-            } else {
-                this.currentImageIndex = 0;
-            }
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
+
+            document.body.style.overflow = "";
         },
 
         prevImage() {
-            if (this.currentImageIndex > 0) {
-                this.currentImageIndex--;
+            if (this.activeIndex > 0) {
+                this.activeIndex--;
             } else {
-                this.currentImageIndex = this.modalImages.length - 1;
+                this.activeIndex = this.imageList.length - 1; // Loop to end
+            }
+        },
+
+        nextImage() {
+            if (this.activeIndex < this.imageList.length - 1) {
+                this.activeIndex++;
+            } else {
+                this.activeIndex = 0; // Loop to start
             }
         },
 
@@ -478,7 +502,9 @@ export default {
 
                 if (data.success) {
                     // Show success notification with item status
-                    const successMessage = `${data.item} - Status: ${this.itemStatus || 'Unknown'}`;
+                    const successMessage = `${data.item} - Status: ${
+                        this.itemStatus || "Unknown"
+                    }`;
                     this.$refs.scanner.showScanSuccess(successMessage);
                     SoundService.successScan(true);
 
@@ -486,15 +512,18 @@ export default {
                     const prdFormatted = data.prdGenerated || "PRD";
 
                     // Add to scan history with item status and CSS class
-                    const statusDisplay = this.itemStatus || 'Unknown';
-                    const statusClass = statusDisplay.toLowerCase() === 'working' ? 'status-working' : 'status-error';
-                    
+                    const statusDisplay = this.itemStatus || "Unknown";
+                    const statusClass =
+                        statusDisplay.toLowerCase() === "working"
+                            ? "status-working"
+                            : "status-error";
+
                     this.$refs.scanner.addSuccessScan({
                         Trackingnumber: this.trackingNumber,
-                        RPN: data.rpnGenerated || 'Auto-generated',
+                        RPN: data.rpnGenerated || "Auto-generated",
                         PRD: prdFormatted,
                         Status: statusDisplay,
-                        StatusClass: statusClass // Add CSS class for styling
+                        StatusClass: statusClass, // Add CSS class for styling
                     });
 
                     // Reset and refresh
@@ -507,16 +536,19 @@ export default {
                     SoundService.scanRejected(true);
 
                     // Add to error scan history with CSS class
-                    const statusDisplay = this.itemStatus || 'Unknown';
-                    const statusClass = statusDisplay.toLowerCase() === 'working' ? 'status-working' : 'status-error';
-                    
+                    const statusDisplay = this.itemStatus || "Unknown";
+                    const statusClass =
+                        statusDisplay.toLowerCase() === "working"
+                            ? "status-working"
+                            : "status-error";
+
                     this.$refs.scanner.addErrorScan(
                         {
                             Trackingnumber: this.trackingNumber,
-                            RPN: 'Failed',
-                            PRD: 'Failed',
+                            RPN: "Failed",
+                            PRD: "Failed",
                             Status: statusDisplay,
-                            StatusClass: statusClass // Add CSS class for styling
+                            StatusClass: statusClass, // Add CSS class for styling
                         },
                         data.reason || "error"
                     );

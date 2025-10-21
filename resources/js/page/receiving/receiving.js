@@ -78,10 +78,6 @@ export default {
 
             productImages: [], // 👈 Array to hold product thumbnails for Step 2
 
-            // Serial upload image
-            imageUrl: null,
-            croppedImage: null,
-            isDragging: false,
         };
     },
     computed: {
@@ -282,79 +278,79 @@ export default {
             return count;
         },
 
-        // Open image modal with all available images from img1-img15 fields
-        openImageModal(item) {
+        async openImageModal(item) {
             if (!item) return;
 
-            // Reset modal state
-            this.modalImages = [];
-            this.currentImageIndex = 0;
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
 
-            // Image field names in your data (img1 through img15)
-            const imageFields = [
-                "img2",
-                "img3",
-                "img4",
-                "img5",
-                "img6",
-                "img7",
-                "img8",
-                "img9",
-                "img10",
-                "img11",
-                "img12",
-                "img13",
-                "img14",
-                "img15",
-            ];
+            this.isLoadingImages = true;
 
-            // Loop through all possible image fields and add non-empty ones
-            imageFields.forEach((field) => {
-                if (
-                    item[field] &&
-                    item[field] !== "NULL" &&
-                    item[field].trim() !== ""
-                ) {
-                    // Use the direct image field value as the path
-                    const imagePath = `/images/thumbnails/${item[field]}`;
-                    this.modalImages.push(imagePath);
-                }
-            });
+            try {
+                await this.fetchItems();
 
-            // If no images were found, add a default image
-            if (this.modalImages.length === 0) {
-                const defaultPath = `/images/thumbnails/${item.ProductID}.jpg`;
-                this.modalImages.push(defaultPath);
+                const freshItem = this.items.find(
+                    (i) => i.itemnumber === item.itemnumber
+                );
+                const itemToUse = freshItem || item;
+
+                console.log("Item to use:", itemToUse);
+                console.log("Images found:", this.imageList.length);
+
+                this.item = { ...itemToUse };
+                this.ProductTitle = itemToUse.ProductTitle;
+
+                console.log("Final imageList:", this.imageList);
+
+                this.showImageModal = true;
+
+                await this.$nextTick();
+                document.body.style.overflow = "hidden";
+            } catch (error) {
+                console.error("Failed to fetch fresh item data:", error);
+                this.openImageModalFallback(item);
+            } finally {
+                this.isLoadingImages = false;
             }
+        },
 
-            // Show the modal
+        openImageModalFallback(item) {
+            if (!item) return;
+
+            this.item = { ...item };
+            this.activeIndex = 0;
+            this.ProductTitle = item.ProductTitle;
+
+            console.log("Fallback imageList:", this.imageList);
+
             this.showImageModal = true;
-
-            // Prevent scrolling when modal is open
             document.body.style.overflow = "hidden";
         },
 
         closeImageModal() {
             this.showImageModal = false;
-            this.modalImages = [];
 
-            // Re-enable scrolling
-            document.body.style.overflow = "auto";
-        },
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
 
-        nextImage() {
-            if (this.currentImageIndex < this.modalImages.length - 1) {
-                this.currentImageIndex++;
-            } else {
-                this.currentImageIndex = 0; // Loop back to the first image
-            }
+            document.body.style.overflow = "";
         },
 
         prevImage() {
-            if (this.currentImageIndex > 0) {
-                this.currentImageIndex--;
+            if (this.activeIndex > 0) {
+                this.activeIndex--;
             } else {
-                this.currentImageIndex = this.modalImages.length - 1; // Loop to the last image
+                this.activeIndex = this.imageList.length - 1; // Loop to end
+            }
+        },
+
+        nextImage() {
+            if (this.activeIndex < this.imageList.length - 1) {
+                this.activeIndex++;
+            } else {
+                this.activeIndex = 0; // Loop to start
             }
         },
 
@@ -484,7 +480,9 @@ export default {
                     this.productId = response.data.productId;
                     this.rtcounter = response.data.rtcounter; // Store rtcounter
                     // ✅ Load images for scanner (kept for internal scanner use)
-                    this.$refs.scanner.loadProductThumbnails(response.data.productDetails);
+                    this.$refs.scanner.loadProductThumbnails(
+                        response.data.productDetails
+                    );
 
                     // ✅ Build thumbnails for Step 2 preview
                     const basePath = "/images/thumbnails/";
@@ -493,11 +491,15 @@ export default {
 
                     for (let i = 1; i <= 15; i++) {
                         const key = `img${i}`;
-                        if (product[key] && product[key] !== "NULL" && product[key].trim() !== "") {
-                        thumbnails.push({
-                            src: basePath + product[key],
-                            label: `Image ${i}`,
-                        });
+                        if (
+                            product[key] &&
+                            product[key] !== "NULL" &&
+                            product[key].trim() !== ""
+                        ) {
+                            thumbnails.push({
+                                src: basePath + product[key],
+                                label: `Image ${i}`,
+                            });
                         }
                     }
 
@@ -507,7 +509,6 @@ export default {
                     // Move to Pass/Fail step
                     this.currentStep = 2;
                     SoundService.success();
-                    
                 } else {
                     // Tracking not found
                     this.$refs.scanner.showScanError(
@@ -955,7 +956,9 @@ export default {
                                 let serialIndex = 0;
 
                                 // 👇 Step 3 and 4 are serial images (you can track these via currentStep stored in img.step)
-                                const imgStep = this.$refs.scanner.capturedImages[i]?.step || 0;
+                                const imgStep =
+                                    this.$refs.scanner.capturedImages[i]
+                                        ?.step || 0;
 
                                 if (imgStep === 3) {
                                     isSerial = true;
@@ -967,31 +970,36 @@ export default {
 
                                 // Upload image with serial info
                                 const imageResponse = await axios.post(
-                                `${API_BASE_URL}/api/images/upload`,
-                                {
-                                    _token: csrfToken,
-                                    productId: this.productId,
-                                    imageIndex: i,
-                                    imageData: images[i],
-                                    isSerial: isSerial,
-                                    serialIndex: serialIndex,
-                                },
-                                {
-                                    withCredentials: true,
-                                    headers: {
-                                    "Content-Type": "application/json",
-                                    Accept: "application/json",
-                                    "X-CSRF-TOKEN": csrfToken,
+                                    `${API_BASE_URL}/api/images/upload`,
+                                    {
+                                        _token: csrfToken,
+                                        productId: this.productId,
+                                        imageIndex: i,
+                                        imageData: images[i],
+                                        isSerial: isSerial,
+                                        serialIndex: serialIndex,
                                     },
-                                }
+                                    {
+                                        withCredentials: true,
+                                        headers: {
+                                            "Content-Type": "application/json",
+                                            Accept: "application/json",
+                                            "X-CSRF-TOKEN": csrfToken,
+                                        },
+                                    }
                                 );
 
-                                console.log(`Image ${i} uploaded:`, imageResponse.data);
+                                console.log(
+                                    `Image ${i} uploaded:`,
+                                    imageResponse.data
+                                );
                             } catch (imageError) {
-                                console.error(`Error uploading image ${i}:`, imageError);
+                                console.error(
+                                    `Error uploading image ${i}:`,
+                                    imageError
+                                );
                             }
                         }
-
                     }
                     //clear fetch delivered item image
                     this.$refs.scanner.clearProductThumbnails();
@@ -1305,7 +1313,6 @@ export default {
 
             document.body.style.overflow = "hidden"; // Prevent scroll
         },
-
 
         async openEditModal(item) {
             if (!item) return;

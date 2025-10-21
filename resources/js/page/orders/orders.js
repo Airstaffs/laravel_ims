@@ -183,65 +183,64 @@ export default {
             return count;
         },
 
-        // Open image modal with all available images from img1-img15 fields
-        openImageModal(item) {
+        async openImageModal(item) {
             if (!item) return;
 
-            // Reset modal state
-            this.modalImages = [];
-            this.currentImageIndex = 0;
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
+
+            this.isLoadingImages = true;
+
+            try {
+                await this.fetchItems();
+
+                const freshItem = this.items.find(
+                    (i) => i.itemnumber === item.itemnumber
+                );
+                const itemToUse = freshItem || item;
+
+                console.log("Item to use:", itemToUse);
+                console.log("Images found:", this.imageList.length);
+
+                this.item = { ...itemToUse };
+                this.ProductTitle = itemToUse.ProductTitle;
+
+                console.log("Final imageList:", this.imageList);
+
+                this.showImageModal = true;
+
+                await this.$nextTick();
+                document.body.style.overflow = "hidden";
+            } catch (error) {
+                console.error("Failed to fetch fresh item data:", error);
+                this.openImageModalFallback(item);
+            } finally {
+                this.isLoadingImages = false;
+            }
+        },
+
+        openImageModalFallback(item) {
+            if (!item) return;
+
+            this.item = { ...item };
+            this.activeIndex = 0;
             this.ProductTitle = item.ProductTitle;
 
-            // Image field names in your data (img1 through img15)
-            const imageFields = [
-                "img2",
-                "img3",
-                "img4",
-                "img5",
-                "img6",
-                "img7",
-                "img8",
-                "img9",
-                "img10",
-                "img11",
-                "img12",
-                "img13",
-                "img14",
-                "img15",
-            ];
+            console.log("Fallback imageList:", this.imageList);
 
-            // Loop through all possible image fields and add non-empty ones
-            imageFields.forEach((field) => {
-                if (
-                    item[field] &&
-                    item[field] !== "NULL" &&
-                    item[field].trim() !== ""
-                ) {
-                    // Use the direct image field value as the path
-                    const imagePath = this.defaultImage;
-                    this.modalImages.push(imagePath);
-                }
-            });
-
-            // If no images were found, add a default image
-            if (this.modalImages.length === 0) {
-                const defaultPath = `/images/thumbnails/${item.ProductID}.jpg`;
-                this.modalImages.push(defaultPath);
-            }
-
-            // Show the modal
             this.showImageModal = true;
-
-            // Prevent scrolling when modal is open
             document.body.style.overflow = "hidden";
         },
 
         closeImageModal() {
             this.showImageModal = false;
-            this.modalImages = [];
 
-            // Re-enable scrolling
-            document.body.style.overflow = "auto";
+            this.item = {};
+            this.activeIndex = 0;
+            this.ProductTitle = "";
+
+            document.body.style.overflow = "";
         },
 
         async openEditModal(item) {
@@ -362,19 +361,19 @@ export default {
             }
         },
 
-        nextImage() {
-            if (this.currentImageIndex < this.modalImages.length - 1) {
-                this.currentImageIndex++;
+        prevImage() {
+            if (this.activeIndex > 0) {
+                this.activeIndex--;
             } else {
-                this.currentImageIndex = 0; // Loop back to the first image
+                this.activeIndex = this.imageList.length - 1; // Loop to end
             }
         },
 
-        prevImage() {
-            if (this.currentImageIndex > 0) {
-                this.currentImageIndex--;
+        nextImage() {
+            if (this.activeIndex < this.imageList.length - 1) {
+                this.activeIndex++;
             } else {
-                this.currentImageIndex = this.modalImages.length - 1; // Loop to the last image
+                this.activeIndex = 0; // Loop to start
             }
         },
 

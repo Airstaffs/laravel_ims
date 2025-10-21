@@ -1,8 +1,25 @@
 <template>
     <div class="vue-container houseage-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
+        <div class="top-header">
+            <div class="header-buttons"></div>
+            <div class="module-filter">
+                <label for="moduleFilter">Module:</label>
+                <select
+                    id="moduleFilter"
+                    v-model="moduleFilter"
+                    class="module-select"
+                >
+                    <option value="">All Modules</option>
+                    <option
+                        v-for="module in uniqueModules"
+                        :key="module"
+                        :value="module"
+                    >
+                        {{ module }}
+                    </option>
+                </select>
+            </div>
+        </div>
 
         <h2 class="module-title">Houseage Module</h2>
 
@@ -22,11 +39,11 @@
                             <div class="product-name">
                                 <span
                                     class="sortable"
-                                    @click="sortBy('AStitle')"
+                                    @click="sortBy('ProductTitle')"
                                 >
                                     Product Name
                                     <i
-                                        v-if="sortColumn === 'AStitle'"
+                                        v-if="sortColumn === 'ProductTitle'"
                                         :class="
                                             sortOrder === 'asc'
                                                 ? 'fas fa-sort-up'
@@ -36,17 +53,122 @@
                                 </span>
                             </div>
                         </th>
-                        <th>ASIN</th>
-                        <th>FNSKU</th>
-                        <th>Grading</th>
-                        <th>Serial Number</th>
-                        <!-- <th>Tracking Number</th> -->
-                        <th>Quantity</th>
-                        <th>Fullfilment Status</th>
-                        <!-- <th>Warehouse Location</th> -->
-                        <th>Module</th>
-                        <!-- <th>Date Delivered</th> -->
-                        <th>Return Status</th>
+                        <th>
+                            <span class="sortable" @click="sortBy('ASIN')">
+                                ASIN
+                                <i
+                                    v-if="sortColumn === 'ASIN'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('FNSKU')">
+                                FNSKU
+                                <i
+                                    v-if="sortColumn === 'FNSKU'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('grading')">
+                                Grading
+                                <i
+                                    v-if="sortColumn === 'grading'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('serialnumber')"
+                            >
+                                Serial Number
+                                <i
+                                    v-if="sortColumn === 'serialnumber'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span class="sortable" @click="sortBy('quantity')">
+                                Quantity
+                                <i
+                                    v-if="sortColumn === 'quantity'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('fulfillment_status')"
+                            >
+                                Fullfilment Status
+                                <i
+                                    v-if="sortColumn === 'fulfillment_status'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('ProductModuleLoc')"
+                            >
+                                Module
+                                <i
+                                    v-if="sortColumn === 'ProductModuleLoc'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th>
+                            <span
+                                class="sortable"
+                                @click="sortBy('returnstatus')"
+                            >
+                                Return Status
+                                <i
+                                    v-if="sortColumn === 'returnstatus'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -178,13 +300,13 @@
                             </td>
                             <td>
                                 <div class="action-buttons">
-                                    {{ item.totalquantity }}
                                     <button
-                                        class="btn-details"
-                                        @click="toggleDetails(index)"
+                                        @click="openCopyDetailsModal(item)"
+                                        class="btn btn-copy-details"
+                                        title="Copy product details"
                                     >
-                                        <i class="fas fa-info-circle"></i> More
-                                        Details
+                                        <i class="bi bi-clipboard"></i>
+                                        <span>Copy Details</span>
                                     </button>
 
                                     <button
@@ -222,10 +344,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button>
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -1395,6 +1513,12 @@
                 </div>
             </div>
         </div>
+
+        <copyDetailsModal
+            :show-modal="showCopyDetailsModal"
+            :item-data="currentCopyItem"
+            @close="closeCopyDetailsModal"
+        />
     </div>
 </template>
 
@@ -1570,6 +1694,32 @@ button:disabled {
     border-width: 4px;
 }
 
+.btn-copy-details {
+    background-color: #17a2b8;
+    color: white;
+    border: 1px solid #17a2b8;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    margin: 2px;
+    transition: all 0.2s;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-copy-details:hover {
+    background-color: #138496;
+    border-color: #117a8b;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(23, 162, 184, 0.3);
+}
+
+.btn-copy-details i {
+    font-size: 0.9rem;
+}
+
 /* Responsive loading overlay */
 @media (max-width: 768px) {
     .fnsku-loading-overlay {
@@ -1589,6 +1739,12 @@ button:disabled {
     .loading-content p {
         font-size: 0.9em;
         margin-top: 10px;
+    }
+
+    .btn-copy-details {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        margin: 1px;
     }
 }
 </style>

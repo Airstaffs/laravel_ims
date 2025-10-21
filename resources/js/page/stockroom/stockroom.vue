@@ -4,38 +4,17 @@
         <div class="top-header">
             <div class="header-buttons">
                 <button class="btn" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i> Scan Items
+                    <i class="fas fa-barcode"></i>
+                    <span>Scan Items</span>
                 </button>
                 <button class="btn" @click="loadFBAInboundShipment">
-                    <i class="fas fa-truck"></i> FBA Inbound Shipment
+                    <i class="fas fa-truck"></i>
+                    <span>FBA Inbound Shipment</span>
                 </button>
 
-                <div class="header-buttons">
-                    <button
-                        class="btn btn-success btn-new-scanned"
-                        @click="showNewScannedModal = true"
-                        style="position: relative; overflow: visible"
-                    >
-                        <i class="fas fa-barcode"></i>
-                        New Scanned
-
-                        <!-- FIXED: Improved notification badge with better visibility logic -->
-                        <span
-                            v-if="shouldShowBadge"
-                            class="notification-badge"
-                            :class="badgeClasses"
-                            :title="`${newScannedCount} new items scanned today (US time)`"
-                        >
-                            {{ displayCount }}
-                        </span>
-                    </button>
-
-                    <button class="btn" @click="openDs7Oos">
-                        Open DS7 & OOS
-                    </button>
-                </div>
                 <button class="btn" @click="showNewScannedModal = true">
-                    <i class="fas fa-barcode"></i> New Scanned
+                    <i class="fas fa-barcode"></i>
+                    <span>New Scanned</span>
                     <span
                         v-if="shouldShowBadge"
                         class="notification-badge"
@@ -61,6 +40,21 @@
                         {{ store }}
                     </option>
                 </select>
+            </div>
+
+            <div class="availability-filter">
+                <label for="availability-select">Fullfilment:</label>
+                <select
+                        id="availabilityFilter"
+                        v-model="availabilityFilter"
+                        class="avail-select"
+                    >
+                        <option value="all">All Items</option>
+                        <option value="fbm">FBM Only</option>
+                        <option value="fba">FBA Only</option>
+                        <option value="both">Both FBM & FBA</option>
+                        <option value="none">No Availability</option>
+                    </select>
             </div>
         </div>
 
@@ -192,6 +186,17 @@
                                         "
                                     ></i>
                                 </span>
+
+                                <button
+                                    class="btn-showDetails"
+                                    @click="toggleDetailsVisibility"
+                                >
+                                    {{
+                                        showDetails
+                                            ? "Hide extra columns"
+                                            : "Show extra columns"
+                                    }}
+                                </button>
                             </div>
                         </th>
                         <th>
@@ -206,6 +211,117 @@
                                     "
                                 ></i>
                             </div>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('FBMAvailable')"
+                            >
+                                FBM
+                                <i
+                                    v-if="sortColumn === 'FBMAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('FbaAvailable')"
+                            >
+                                FBA
+                                <i
+                                    v-if="sortColumn === 'FbaAvailable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span class="sortable" @click="sortBy('Outbound')">
+                                Outbound
+                                <i
+                                    v-if="sortColumn === 'Outbound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span class="sortable" @click="sortBy('Inboound')">
+                                Inbound
+                                <i
+                                    v-if="sortColumn === 'Inboound'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span
+                                class="sortable"
+                                @click="sortBy('Unfulfillable')"
+                            >
+                                Unfulfillable
+                                <i
+                                    v-if="sortColumn === 'Unfulfillable'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
+                        </th>
+                        <th
+                            class="bg-warning-subtle"
+                            style="background-color: antiquewhite"
+                            v-if="showDetails"
+                        >
+                            <span class="sortable" @click="sortBy('Reserved')">
+                                Reserved
+                                <i
+                                    v-if="sortColumn === 'Reserved'"
+                                    :class="
+                                        sortOrder === 'asc'
+                                            ? 'fas fa-sort-up'
+                                            : 'fas fa-sort-down'
+                                    "
+                                ></i>
+                            </span>
                         </th>
                         <th>
                             <div class="sortable" @click="sortBy('storename')">
@@ -327,6 +443,41 @@
                                 </div>
                             </td>
                             <td>{{ item.ASIN }}</td>
+                            <!-- Hidden columns -->
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong>
+                                    {{ item.FBMAvailable }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong>
+                                    {{ item.FbaAvailable }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong> {{ item.Outbound }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong> {{ item.Inbound }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong>
+                                    {{ item.Unfulfillable }}</span
+                                >
+                            </td>
+                            <td v-if="showDetails">
+                                <span
+                                    ><strong></strong> {{ item.Reserved }}</span
+                                >
+                            </td>
+                            <!-- End Hidden columns -->
                             <td>{{ item.storename }}</td>
                             <td>
                                 <div
@@ -373,7 +524,7 @@
                                     </button>
                                     <button
                                         class="btn-expand"
-                                        @click="toggleDetails(index)"
+                                        @click="toggleDetails(index, item)"
                                     >
                                         {{
                                             expandedRows[index]
@@ -399,84 +550,97 @@
                         </tr>
                         <!-- Expanded Details Row -->
                         <tr v-if="expandedRows[index]" class="expanded-row">
-                            <td colspan="9">
+                            <!-- 14 cols when showDetails is true, 9 when false -->
+                            <td :colspan="showDetails ? 14 : 9">
                                 <div class="expanded-content">
-                                    <div class="expanded-serials">
-                                        <strong
-                                            >Serial Numbers & Locations:</strong
-                                        >
-                                        <div class="serial-table-container">
-                                            <table class="serial-detail-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>RT#</th>
-                                                        <th>Serial Number</th>
-                                                        <th>Location</th>
-                                                        <th>FNSKU</th>
-                                                        <th>MSKU</th>
-                                                        <th>Grading</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr
-                                                        v-for="serial in item.serials"
-                                                        :key="serial.ProductID"
-                                                    >
-                                                        <td>
-                                                            {{
-                                                                formatRTNumber(
-                                                                    serial.rtcounter,
-                                                                    item.storename
-                                                                )
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                serial.serialnumber
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                serial.warehouselocation
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                serial.FNSKUviewer
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{ serial.MSKU }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                serial.display_grading ||
-                                                                getDisplayGrading(
-                                                                    serial,
-                                                                    item.storename
-                                                                )
-                                                            }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr
-                                                        v-if="
-                                                            !item.serials ||
-                                                            item.serials
-                                                                .length === 0
-                                                        "
-                                                    >
-                                                        <td
-                                                            colspan="6"
-                                                            class="text-center"
-                                                        >
-                                                            No serial numbers
-                                                            found
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                    <table class="details mini-table">
+                                        <thead>
+                                            <tr>
+                                                <th>FNSKU</th>
+                                                <th>MSKU</th>
+                                                <th>GRADING</th>
+                                                <th>LOCATION</th>
+                                                <th>Reserved Status</th>
+                                                <th>Unfulfillable</th>
+                                                <th>Inbound</th>
+                                                <th>Inbound Status</th>
+                                                <th>Outbound</th>
+                                                <th>Reserved</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr
+                                                v-for="f in item.fnskus"
+                                                :key="`${item.ProductID}-${
+                                                    f.FNSKU || f
+                                                }`"
+                                            >
+                                                <td>{{ f.FNSKU || f }}</td>
+                                                <td>
+                                                    {{
+                                                        f.MSKU ||
+                                                        fnskuSummaryFor(f)
+                                                            .MSKU ||
+                                                        "—"
+                                                    }}
+                                                </td>
+                                                <td>
+                                                    {{
+                                                        f.display_grading ||
+                                                        f.grading ||
+                                                        fnskuSummaryFor(f)
+                                                            .grading ||
+                                                        "—"
+                                                    }}
+                                                </td>
+                                                <td>
+                                                    {{
+                                                        fnskuSummaryFor(f)
+                                                            .location || "—"
+                                                    }}
+                                                </td>
+
+                                                <td>
+                                                    {{
+                                                        fnskuSummaryFor(f)
+                                                            .reserved_status ??
+                                                        "—"
+                                                    }}
+                                                </td>
+                                                <td>
+                                                    {{
+                                                        fnskuSummaryFor(f)
+                                                            .unfulfillable ?? 0
+                                                    }}
+                                                </td>
+                                                <td>
+                                                    {{
+                                                        fnskuSummaryFor(f)
+                                                            .inbound ?? 0
+                                                    }}
+                                                </td>
+                                                <td>
+                                                    {{
+                                                        fnskuSummaryFor(f)
+                                                            .inbound_status ??
+                                                        "—"
+                                                    }}
+                                                </td>
+                                                <td>
+                                                    {{
+                                                        fnskuSummaryFor(f)
+                                                            .outbound ?? 0
+                                                    }}
+                                                </td>
+                                                <td>
+                                                    {{
+                                                        fnskuSummaryFor(f)
+                                                            .reserved ?? 0
+                                                    }}
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </td>
                         </tr>
@@ -487,6 +651,10 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
+            <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
+                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
+            </button>
+
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -542,6 +710,46 @@
                                 item.ASIN
                             }}</span>
                         </div>
+                        <!-- Hidden details -->
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">FBM:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FBMAvailable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">FBA:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.FbaAvailable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Outbound:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Outbound }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Inbound:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Inbound }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label"
+                                >Unfulfillable:</span
+                            >
+                            <span class="mobile-detal-value">
+                                {{ item.Unfulfillable }}</span
+                            >
+                        </div>
+                        <div class="mobile-detail-row" v-if="showDetails">
+                            <span class="mobile-detail-label">Reserved:</span>
+                            <span class="mobile-detal-value">
+                                {{ item.Reserved }}</span
+                            >
+                        </div>
+                        <!-- End hidden details -->
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Store:</span>
                             <span class="mobile-detail-value">{{
@@ -584,27 +792,35 @@
                     <hr />
 
                     <div class="mobile-card-actions">
-                        <button class="btn" @click="printLabel(item.ProductID)">
-                            <i class="fas fa-print"></i> Print
+                        <button
+                            class="btn btn-print"
+                            @click="printLabel(item.ProductID)"
+                        >
+                            <i class="fas fa-print"></i>
+                            <span>Print</span>
                         </button>
                         <button
                             class="btn btn-expand"
                             @click="toggleDetails(index)"
                         >
                             <i class="fas fa-list"></i>
-                            {{ expandedRows[index] ? "Hide" : "Details" }}
+                            <span>{{
+                                expandedRows[index] ? "Hide" : "Details"
+                            }}</span>
                         </button>
                         <button
                             class="btn btn-details"
                             @click="viewProductDetails(item)"
                         >
-                            <i class="fas fa-info-circle"></i> More
+                            <i class="fas fa-info-circle"></i>
+                            <span>More</span>
                         </button>
                         <button
                             class="btn btn-process"
                             @click="openProcessModal(item)"
                         >
-                            <i class="fas fa-cogs"></i> Process
+                            <i class="fas fa-cogs"></i>
+                            <span>Process</span>
                         </button>
                     </div>
 
@@ -1197,10 +1413,12 @@
         />
 
         <!-- DS7oos Modal -->
-        <Ds7OosModal
-            :show="ui.ds7oos.show"
-            @close="ui.ds7oos.show = false"
-            @save="handleDs7OosSave"
+        <ds7-oos-modal
+            :show="showDs7Oos"
+            :store-options="distinctStores"
+            :initial="dsFilters"
+            @close="showDs7Oos = false"
+            @save="applyDsFilters"
         />
     </div>
 </template>
