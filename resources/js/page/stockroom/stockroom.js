@@ -4,7 +4,6 @@ import NewScannedItemModal from "./modals/newScanneditem.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 import Ds7OosModal from "./modals/ds7oos.vue";
-import Ds7OosModal from "./modals/ds7oos.vue";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -105,7 +104,7 @@ export default {
                 per_page: 25,
                 include_oos: 1,
                 use_orders: 0,
-                page: 1,              // <-- good to keep for future pagination
+                page: 1, // <-- good to keep for future pagination
             },
 
             // FNSKU Table
