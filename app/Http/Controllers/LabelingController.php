@@ -139,6 +139,7 @@ class LabelingController extends BasetablesController
                         ->orWhere('prod.RPN', 'like', "%{$search}%")
                         ->orWhere('prod.PRD', 'like', "%{$search}%")
                         ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                        ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
                         ->orWhere('prod.rtcounter', 'like', "%{$search}%")
                         // Add FNSKU table search
                         ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
