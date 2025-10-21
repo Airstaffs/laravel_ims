@@ -3,7 +3,7 @@ import ScannerComponent from "../../components/Scanner.vue";
 import NewScannedItemModal from "./modals/newScanneditem.vue";
 import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
-import Ds7OosModal from './modals/ds7oos.vue';
+import Ds7OosModal from "./modals/ds7oos.vue";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -31,6 +31,8 @@ export default {
             // Store filter
             stores: [],
             selectedStore: "",
+
+            availabilityFilter: "all",
 
             // Scanner data
             serialNumber: "",
@@ -97,16 +99,45 @@ export default {
             },
 
             // FNSKU Table
-             fnskuSummaries: {},
+            fnskuSummaries: {},
         };
     },
     computed: {
         searchQuery() {
             return eventBus.searchQuery;
         },
+        // Filter inventory based on FBM/FBA availability
+        filteredInventory() {
+            if (this.availabilityFilter === "all") {
+                return this.inventory;
+            }
+
+            return this.inventory.filter((item) => {
+                const hasFBM = item.FBMAvailable > 0;
+                const hasFBA = item.FbaAvailable > 0;
+
+                switch (this.availabilityFilter) {
+                    case "fbm":
+                        return hasFBM && !hasFBA; // Only FBM
+                    case "fba":
+                        return hasFBA && !hasFBM; // Only FBA
+                    case "both":
+                        return hasFBM && hasFBA; // Both FBM and FBA
+                    case "none":
+                        return !hasFBM && !hasFBA; // Neither FBM nor FBA
+                    default:
+                        return true;
+                }
+            });
+        },
+
+        // Sort the filtered inventory
         sortedInventory() {
-            if (!this.sortColumn) return this.inventory;
-            return [...this.inventory].sort((a, b) => {
+            const itemsToSort = this.filteredInventory; // Use filtered inventory
+
+            if (!this.sortColumn) return itemsToSort;
+
+            return [...itemsToSort].sort((a, b) => {
                 const valueA = a[this.sortColumn];
                 const valueB = b[this.sortColumn];
 
@@ -144,17 +175,19 @@ export default {
         },
         shouldShowBadge() {
             // FIXED: More robust badge visibility logic
-            return this.newScannedCount > 0 &&
+            return (
+                this.newScannedCount > 0 &&
                 this.newScannedCount !== null &&
                 this.newScannedCount !== undefined &&
-                !isNaN(this.newScannedCount);
+                !isNaN(this.newScannedCount)
+            );
         },
 
         badgeClasses() {
             const count = this.newScannedCount || 0;
             return {
-                'large-number': count >= 10 && count < 100,
-                'extra-large': count >= 100
+                "large-number": count >= 10 && count < 100,
+                "extra-large": count >= 100,
             };
         },
 
@@ -164,11 +197,14 @@ export default {
         },
     },
     methods: {
-
         setupDailyReset() {
             const scheduleNextReset = () => {
                 const now = new Date();
-                const usNow = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
+                const usNow = new Date(
+                    now.toLocaleString("en-US", {
+                        timeZone: "America/Los_Angeles",
+                    })
+                );
 
                 // Calculate next midnight in US timezone new scan count
                 const nextMidnight = new Date(usNow);
@@ -176,10 +212,16 @@ export default {
 
                 const msUntilMidnight = nextMidnight - usNow;
 
-                console.log(`Next count reset scheduled in ${Math.round(msUntilMidnight / 1000 / 60)} minutes (at US midnight)`);
+                console.log(
+                    `Next count reset scheduled in ${Math.round(
+                        msUntilMidnight / 1000 / 60
+                    )} minutes (at US midnight)`
+                );
 
                 setTimeout(() => {
-                    console.log('Daily reset triggered - fetching new count for new day');
+                    console.log(
+                        "Daily reset triggered - fetching new count for new day"
+                    );
                     this.fetchNewScannedCount();
                     // Schedule the next reset
                     scheduleNextReset();
@@ -197,17 +239,22 @@ export default {
                     await this.fetchNewScannedCount();
                     return; // Success, exit retry loop
                 } catch (error) {
-                    console.log(`Count fetch attempt ${attempt} failed:`, error.message);
+                    console.log(
+                        `Count fetch attempt ${attempt} failed:`,
+                        error.message
+                    );
 
                     if (attempt === maxRetries) {
-                        console.error('All retry attempts failed for count fetch');
+                        console.error(
+                            "All retry attempts failed for count fetch"
+                        );
                         // Don't reset count to 0 - keep existing value
                         return;
                     }
 
                     // Wait before retrying (exponential backoff)
                     const delay = Math.pow(2, attempt) * 1000;
-                    await new Promise(resolve => setTimeout(resolve, delay));
+                    await new Promise((resolve) => setTimeout(resolve, delay));
                 }
             }
         },
@@ -692,20 +739,20 @@ export default {
             this.inventory.forEach((item) => (item.checked = this.selectAll));
         },
 
-  toggleDetails(index, item) {
-    const updated = { ...this.expandedRows };
-    const opening = !updated[index];
-    updated[index] = opening;
-    this.expandedRows = updated;
+        toggleDetails(index, item) {
+            const updated = { ...this.expandedRows };
+            const opening = !updated[index];
+            updated[index] = opening;
+            this.expandedRows = updated;
 
-    // if opening, prefetch summaries for all FNSKUs under this product
-    if (opening && item?.fnskus?.length) {
-      item.fnskus.forEach(f => {
-        const raw = f.FNSKU || f; // your data sometimes stores string or object
-        if (raw) this.loadFnskuSummary(raw, this.selectedStore);
-      });
-    }
-  },
+            // if opening, prefetch summaries for all FNSKUs under this product
+            if (opening && item?.fnskus?.length) {
+                item.fnskus.forEach((f) => {
+                    const raw = f.FNSKU || f; // your data sometimes stores string or object
+                    if (raw) this.loadFnskuSummary(raw, this.selectedStore);
+                });
+            }
+        },
 
         toggleDetailsVisibility() {
             this.showDetails = !this.showDetails;
@@ -827,7 +874,8 @@ export default {
                 } else {
                     // Show error message
                     alert(
-                        `Error: ${response.data.message || "Failed to process items"
+                        `Error: ${
+                            response.data.message || "Failed to process items"
                         }`
                     );
                 }
@@ -907,7 +955,8 @@ export default {
                     this.fetchInventory();
                 } else {
                     alert(
-                        `Error: ${response.data.message || "Failed to update location"
+                        `Error: ${
+                            response.data.message || "Failed to update location"
                         }`
                     );
                 }
@@ -916,7 +965,8 @@ export default {
                 if (error.response && error.response.data) {
                     console.error("Server response:", error.response.data);
                     alert(
-                        `Failed to update location: ${error.response.data.message || "Unknown error"
+                        `Failed to update location: ${
+                            error.response.data.message || "Unknown error"
                         }`
                     );
                 } else {
@@ -1013,7 +1063,7 @@ export default {
                     if (
                         response.data.normalized_fnsku &&
                         response.data.normalized_fnsku !==
-                        response.data.original_fnsku
+                            response.data.original_fnsku
                     ) {
                         console.log(
                             "Server returned different normalized FNSKU:",
@@ -1039,7 +1089,7 @@ export default {
                     if (
                         response.data.normalized_fnsku &&
                         response.data.normalized_fnsku !==
-                        response.data.original_fnsku
+                            response.data.original_fnsku
                     ) {
                         this.fnsku = response.data.normalized_fnsku;
                     }
@@ -1551,7 +1601,8 @@ export default {
 
                         // Show success alert with details
                         alert(
-                            `Items successfully merged into new item ${formattedRt}: ${mergedTitle}${mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
+                            `Items successfully merged into new item ${formattedRt}: ${mergedTitle}${
+                                mergedFnsku ? ` (FNSKU: ${mergedFnsku})` : ""
                             }`
                         );
 
@@ -1569,7 +1620,8 @@ export default {
                         this.fetchInventory();
                     } else {
                         alert(
-                            `Error: ${response.data.message || "Failed to merge items"
+                            `Error: ${
+                                response.data.message || "Failed to merge items"
                             }`
                         );
                     }
@@ -1785,36 +1837,50 @@ export default {
             try {
                 // FIXED: Use US timezone for date calculation
                 const now = new Date();
-                const usDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
-                const today = usDate.toISOString().split('T')[0];
+                const usDate = new Date(
+                    now.toLocaleString("en-US", {
+                        timeZone: "America/Los_Angeles",
+                    })
+                );
+                const today = usDate.toISOString().split("T")[0];
 
-                console.log('Fetching new scanned count for US date:', today);
+                console.log("Fetching new scanned count for US date:", today);
 
                 const response = await axios.get(
                     `${API_BASE_URL}/api/stockroom/new-scanned-count`,
                     {
                         params: { date: today },
                         withCredentials: true,
-                        timeout: 10000 // Add timeout to prevent hanging requests
+                        timeout: 10000, // Add timeout to prevent hanging requests
                     }
                 );
 
                 // FIXED: Ensure count is always a number, never undefined/null
                 const newCount = parseInt(response.data.count) || 0;
 
-                console.log('New scanned count received:', newCount, 'Previous count:', this.newScannedCount);
+                console.log(
+                    "New scanned count received:",
+                    newCount,
+                    "Previous count:",
+                    this.newScannedCount
+                );
 
                 // Only update if the value actually changed to prevent unnecessary re-renders
                 if (this.newScannedCount !== newCount) {
                     this.newScannedCount = newCount;
-                    console.log('Updated new scanned count to:', this.newScannedCount);
+                    console.log(
+                        "Updated new scanned count to:",
+                        this.newScannedCount
+                    );
                 }
-
             } catch (error) {
                 console.error("Error fetching new scanned count:", error);
                 // FIXED: Don't reset count to 0 on error - keep existing count
                 // This prevents the badge from disappearing due to network issues
-                if (this.newScannedCount === undefined || this.newScannedCount === null) {
+                if (
+                    this.newScannedCount === undefined ||
+                    this.newScannedCount === null
+                ) {
                     this.newScannedCount = 0;
                 }
             }
@@ -1825,17 +1891,21 @@ export default {
             try {
                 // FIXED: Use US timezone for date calculation
                 const now = new Date();
-                const usDate = new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" }));
-                const today = usDate.toISOString().split('T')[0];
+                const usDate = new Date(
+                    now.toLocaleString("en-US", {
+                        timeZone: "America/Los_Angeles",
+                    })
+                );
+                const today = usDate.toISOString().split("T")[0];
 
-                console.log('Refreshing new scanned count for US date:', today);
+                console.log("Refreshing new scanned count for US date:", today);
 
                 const response = await axios.get(
                     `${API_BASE_URL}/api/stockroom/new-scanned-count`,
                     {
                         params: { date: today },
                         withCredentials: true,
-                        timeout: 10000
+                        timeout: 10000,
                     }
                 );
 
@@ -1843,8 +1913,10 @@ export default {
                 const newCount = parseInt(response.data.count) || 0;
                 this.newScannedCount = newCount;
 
-                console.log('Refreshed new scanned count to:', this.newScannedCount);
-
+                console.log(
+                    "Refreshed new scanned count to:",
+                    this.newScannedCount
+                );
             } catch (error) {
                 console.error("Error refreshing new scanned count:", error);
                 // Don't change the count on error - prevents badge from disappearing
@@ -1871,28 +1943,32 @@ export default {
         },
         handleDs7OosSave(payload) {
             // persist settings / call API, then close
-            console.log('Saving DS7 & OOS settings:', payload);
+            console.log("Saving DS7 & OOS settings:", payload);
             this.ui.ds7oos.show = false;
         },
-  fnskuSummaryFor(f) {
-    const key = this.normalizeFnsku(f.FNSKU || f);
-    return this.fnskuSummaries[key] || {};
-  },
-    async loadFnskuSummary(fnsku, location) {
-    const key = this.normalizeFnsku(fnsku);
-    if (this.fnskuSummaries[key]) return; // cache-hit
+        fnskuSummaryFor(f) {
+            const key = this.normalizeFnsku(f.FNSKU || f);
+            return this.fnskuSummaries[key] || {};
+        },
+        async loadFnskuSummary(fnsku, location) {
+            const key = this.normalizeFnsku(fnsku);
+            if (this.fnskuSummaries[key]) return; // cache-hit
 
-    const resp = await axios.get(
-      `${API_BASE_URL}/api/stockroom/products/by-fnsku`,
-      {
-        params: { per_page: 1, search: key, location: location || this.selectedStore || 'Stockroom' },
-        withCredentials: true,
-      }
-    );
+            const resp = await axios.get(
+                `${API_BASE_URL}/api/stockroom/products/by-fnsku`,
+                {
+                    params: {
+                        per_page: 1,
+                        search: key,
+                        location: location || this.selectedStore || "Stockroom",
+                    },
+                    withCredentials: true,
+                }
+            );
 
-    const row = (resp.data?.data || [])[0];
-    if (row) this.$set(this.fnskuSummaries, key, row);
-  },
+            const row = (resp.data?.data || [])[0];
+            if (row) this.$set(this.fnskuSummaries, key, row);
+        },
     },
     watch: {
         searchQuery() {
@@ -1958,7 +2034,7 @@ export default {
             try {
                 await this.refreshNewScannedCount();
             } catch (error) {
-                console.error('Scheduled count refresh failed:', error);
+                console.error("Scheduled count refresh failed:", error);
                 // Try with retry mechanism as fallback
                 this.fetchCountWithRetry(2);
             }
