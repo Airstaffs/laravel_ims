@@ -8,8 +8,8 @@
                 </button>
                 <!-- <button class="btn btn-manual" @click="openDetectSerialModal">
                     <i class="fas fa-keyboard"></i> Detect Serial Numbers
-                </button>
-                <a
+                </button> -->
+                <!-- <a
                     href="{{ url('/aiTraining') }}"
                     target="_blank"
                     class="btn btn-training"
@@ -95,6 +95,35 @@
 
                 <!-- Step 3: First Serial Number Input -->
                 <div class="input-group" v-if="currentStep === 3">
+                    <div
+                    class="border-dashed uploader-area"
+                    v-show="true"   
+                    @dragover.prevent
+                    @dragenter.prevent="isDragging = true"
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop"
+                    @click="triggerFileInput"
+                    :class="{ 'is-dragging': isDragging }"
+                    >
+                        <p>
+                            Drag & drop an image here, or <span class="text-highlight">click to select</span>
+                        </p>
+                        <input
+                            ref="fileInput"
+                            type="file"
+                            accept="image/*"
+                            class="hidden"
+                            @change="onFileChange"
+                            :disabled="loading"
+                        />
+                    </div>
+
+                    <!-- 👇 Optional small preview (after upload) -->
+                    <div v-if="imageUrl" class="uploaded-preview">
+                    <img :src="imageUrl" alt="Uploaded preview" />
+                    <button class="clear-upload" @click="imageUrl = null">×</button>
+                    </div>
+
                     <!-- OCR Detected Serials (show for step 3 & 4 only) -->
                     <div
                         v-if="
@@ -152,6 +181,35 @@
 
                 <!-- Step 4: Second Serial Number Input (with Skip option) -->
                 <div class="input-group" v-if="currentStep === 4">
+                    <div
+                    class="border-dashed uploader-area"
+                    v-show="true"   
+                    @dragover.prevent
+                    @dragenter.prevent="isDragging = true"
+                    @dragleave.prevent="isDragging = false"
+                    @drop.prevent="handleDrop"
+                    @click="triggerFileInput"
+                    :class="{ 'is-dragging': isDragging }"
+                    >
+                        <p>
+                            Drag & drop an image here, or <span class="text-highlight">click to select</span>
+                        </p>
+                        <input
+                            ref="fileInput"
+                            type="file"
+                            accept="image/*"
+                            class="hidden"
+                            @change="onFileChange"
+                            :disabled="loading"
+                        />
+                    </div>
+
+                    <!-- 👇 Optional small preview (after upload) -->
+                    <div v-if="imageUrl" class="uploaded-preview">
+                    <img :src="imageUrl" alt="Uploaded preview" />
+                    <button class="clear-upload" @click="imageUrl = null">×</button>
+                    </div>
+
                     <div
                         v-if="
                             apiResult.step4 &&
@@ -1305,6 +1363,79 @@
         </div>
     </div>
 </template>
+<style scoped>
+    .uploader-area {
+        border: 2px dashed #ccc;
+        border-radius: 12px;
+        padding: 20px 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        background-color: #fafafa;
+        color: #666;
+    }
+
+    .uploader-area:hover {
+        border-color: #4caf50;
+        background-color: #f0fff0;
+    }
+
+    .uploader-area.is-dragging {
+        border-color: #2196f3;
+        background-color: #e3f2fd;
+        color: #000;
+    }
+
+    .uploader-area p {
+        margin: 0;
+        font-size: 1rem;
+    }
+
+    .text-highlight {
+        color: #007bff;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .hidden {
+        display: none;
+    }
+    .uploaded-preview {
+        margin-top: 10px;
+        position: relative;
+        display: inline-block;
+    }
+
+    .uploaded-preview img {
+        max-width: 160px;
+        border-radius: 10px;
+        border: 1px solid #ddd;
+    }
+
+    .clear-upload {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        background: #f44336;
+        border: none;
+        color: white;
+        font-size: 14px;
+        border-radius: 50%;
+        width: 22px;
+        height: 22px;
+        line-height: 20px;
+        text-align: center;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .uploaded-preview {
+        display: flex !important;
+        justify-content: center;
+    }
+
+</style>
+
 <script>
 import Received from "./receiving.js";
 export default Received;

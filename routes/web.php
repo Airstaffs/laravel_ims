@@ -1,45 +1,54 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\LoginController;
-use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\SystemDesignController;
-use App\Http\Controllers\UserController;
-use App\Http\Controllers\AwsInventoryController;
-use App\Http\Controllers\StoreController;
-use App\Http\Models\Store;
-use App\Http\Controllers\AttendanceController;
-use App\Http\Controllers\UserPrivilegesController;
-use Illuminate\Support\Facades\Session;
-use App\Models\User;
-use Illuminate\Support\Facades\Schema;
-use App\Http\Controllers\USPSController;
-use App\Http\Controllers\UPSController;
-use App\Http\Controllers\UserSessionController;
-use App\Http\Controllers\EmployeeClockController;
-use App\Http\Controllers\UserLogsController;
-use App\Http\Controllers\StockroomController;
-use App\Http\Controllers\UnreceivedController;
-use App\Http\Controllers\ReceivedController;
-use App\Http\Controllers\LabelingController;
-use App\Http\Controllers\ValidationController;
-use App\Http\Controllers\Ebay\EbayAuthController;
-use App\Http\Controllers\OrdersController;
-use App\Http\Controllers\ProductionAreaController;
-use App\Http\Controllers\PackagingController;
-use App\Http\Controllers\ReturnScannerController;
-use App\Http\Controllers\FbmOrderController;
-use App\Http\Controllers\notfoundController;
-use App\Http\Controllers\Fbmorders\WorkhistoryController;
-use App\Http\Controllers\HouseageController;
+use App\Http\Controllers\Amzn\FBACartController;
+use App\Http\Controllers\Amzn\FBAShipmentController;
+use App\Http\Controllers\Amzn\Listing\CatalogController;
+use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
 use App\Http\Controllers\ASINlistController;
-use App\Http\Middleware\PreventBackHistory;
+use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\AwsInventoryController;
+use App\Http\Controllers\DaysSupplyController;
+use App\Http\Controllers\Ebay\EbayController;
+use App\Http\Controllers\EmployeeClockController;
+use App\Http\Controllers\FbmOrderController;
+use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
+use App\Http\Controllers\Fbmorders\PrintInvoiceController;
+use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
+use App\Http\Controllers\Fbmorders\WorkhistoryController;
+use App\Http\Controllers\FnskuController;
+use App\Http\Controllers\HouseageController;
+use App\Http\Controllers\HrController;
+use App\Http\Controllers\LabelingController;
+use App\Http\Controllers\LoginController;
+use App\Http\Controllers\notfoundController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\OrdersController;
+use App\Http\Controllers\PackagingController;
 use App\Http\Controllers\printer\PrinterController;
 use App\Http\Controllers\PrinterManagementController;
-use App\Http\Controllers\FnskuController;
+use App\Http\Controllers\ProductionAreaController;
+use App\Http\Controllers\ReceivedController;
+use App\Http\Controllers\ReturnScannerController;
 use App\Http\Controllers\RTSController;
-use Illuminate\Support\Facades\Http;
+use App\Http\Controllers\StockroomController;
+use App\Http\Controllers\StoreController;
+use App\Http\Controllers\SystemDesignController;
+use App\Http\Controllers\tblproductController;
+use App\Http\Controllers\TestTableController;
+use App\Http\Controllers\UnreceivedController;
+use App\Http\Controllers\UPSController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\UserLogsController;
+use App\Http\Controllers\UserSessionController;
+use App\Http\Controllers\USPSController;
+use App\Http\Controllers\ValidationController;
+use App\Http\Middleware\PreventBackHistory;
+use App\Http\Models\Store;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Session;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -48,12 +57,14 @@ Route::get('/', function () {
 // 🚧 TEMPORARY DEV-ONLY LOGIN BYPASS
 Route::get('/dev-login', function () {
     // Never allow this in production
-    if (app()->environment('production')) abort(403, 'Not allowed in production.');
+    if (app()->environment('production')) {
+        abort(403, 'Not allowed in production.');
+    }
 
     // Find the first SuperAdmin user
     $user = User::where('role', 'SuperAdmin')->first();
 
-    if (!$user) {
+    if (! $user) {
         return '❌ No SuperAdmin found. Please create one in phpMyAdmin first.';
     }
 
@@ -62,9 +73,8 @@ Route::get('/dev-login', function () {
     session()->regenerate();
 
     return redirect()->route('dashboard.system')
-        ->with('login_success', '✅ Dev bypass active — logged in as ' . $user->username);
+        ->with('login_success', '✅ Dev bypass active — logged in as '.$user->username);
 });
-
 
 Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard');
 
@@ -85,12 +95,12 @@ Route::post('/logout', function (Request $request) {
         \Log::info('Logout attempt', [
             'user_id' => auth()->id(),
             'ip' => $request->ip(),
-            'user_agent' => $request->userAgent()
+            'user_agent' => $request->userAgent(),
         ]);
 
         // Force logout regardless of token issues
         if (Auth::check()) {
-            \Log::info('User logout: ' . Auth::user()->username);
+            \Log::info('User logout: '.Auth::user()->username);
         }
 
         Auth::logout();
@@ -102,14 +112,14 @@ Route::post('/logout', function (Request $request) {
             return response()->json([
                 'success' => true,
                 'message' => 'Logged out successfully',
-                'redirect' => route('login')
+                'redirect' => route('login'),
             ]);
         }
 
         // FIXED: Use 'logout_success' instead of 'success' to avoid audio confusion
         return redirect('/login')->with('logout_success', 'You have been logged out successfully.');
     } catch (\Exception $e) {
-        \Log::error('Logout error: ' . $e->getMessage());
+        \Log::error('Logout error: '.$e->getMessage());
 
         // Even if there's an error, try to clear session
         try {
@@ -117,14 +127,14 @@ Route::post('/logout', function (Request $request) {
             $request->session()->invalidate();
             $request->session()->regenerateToken();
         } catch (\Exception $sessionError) {
-            \Log::error('Session clearing error: ' . $sessionError->getMessage());
+            \Log::error('Session clearing error: '.$sessionError->getMessage());
         }
 
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
                 'success' => true,
                 'message' => 'Logged out',
-                'redirect' => route('login')
+                'redirect' => route('login'),
             ]);
         }
 
@@ -146,23 +156,74 @@ Route::get('/check-auth', function () {
     if (auth()->check()) {
         return response()->json(['authenticated' => true]);
     }
+
     return response()->json(['authenticated' => false], 401);
 });
 
 // Apply PreventBackHistory middleware to all authenticated routes
 Route::middleware(['auth', PreventBackHistory::class])->group(function () {
-    // Dashboard - PRESERVED YOUR ORIGINAL ROUTES
+    // Dashboard
     Route::get('/dashboard', [LoginController::class, 'showSystemDashboard'])->name('dashboard.system');
 
-    // CSRF token refresh endpoint
+    // CSRF token refresh endpoint (Enhanced with better headers)
     Route::get('/csrf-token', function () {
-        return response()->json(['token' => csrf_token()])
-            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
-    });
+        return response()->json([
+            'token' => csrf_token(),
+            'timestamp' => now()->toIso8601String(),
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
+    })->name('csrf.token');
 
-    // Keep session alive endpoint
-    Route::get('/keep-alive', function () {
-        return response()->json(['status' => 'alive']);
+    Route::post('/keep-alive', function () {
+        try {
+            // Check authentication first
+            if (! auth()->check()) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Not authenticated',
+                ], 401);
+            }
+
+            // Touch the session to keep it alive
+            session()->put('last_activity', now()->timestamp);
+
+            // ❌ REMOVE OR COMMENT OUT session migration during keep-alive
+            // This can cause CSRF token issues during rapid retries
+            // if (random_int(1, 100) <= 5) {
+            //     session()->migrate();
+            // }
+
+            return response()->json([
+                'status' => 'alive',
+                'timestamp' => now()->toIso8601String(),
+                'user' => auth()->user()->name ?? auth()->user()->email,
+                'session_id' => session()->getId(),
+            ]);
+
+        } catch (\Exception $e) {
+            \Log::error('Keep-alive failed', [
+                'error' => $e->getMessage(),
+                'user_id' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'status' => 'error',
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    })->name('session.keepalive');
+
+     Route::get('/check-session', function () {
+        return response()->json([
+            'session_driver' => config('session.driver'),
+            'session_lifetime' => config('session.lifetime'),
+            'session_secure' => config('session.secure'),
+            'session_cookie' => config('session.cookie'),
+            'app_url' => config('app.url'),
+            'session_count' => DB::table('sessions')->count(),
+            'authenticated' => auth()->check(),
+        ]);
     });
 
     // All other authenticated routes
@@ -185,13 +246,6 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     // System Design Routes
     Route::get('/get-system-design-data', [SystemDesignController::class, 'getData'])->name('get.system.design.data')->middleware('auth');
     Route::post('/update-system-design', [SystemDesignController::class, 'update'])->name('update.system.design')->middleware('auth');
-
-
-
-
-
-
-
 
     // Store Routes
     Route::get('/get-stores', [StoreController::class, 'getStores']);
@@ -223,6 +277,7 @@ Route::fallback(function () {
     if (auth()->check()) {
         return redirect()->route('dashboard.system');
     }
+
     return redirect()->route('login');
 });
 
@@ -260,7 +315,7 @@ Route::post('/apis/upstracking', [UPSController::class, 'UPSfetchTrackDetails'])
 // eBay Routes
 Route::get('/apis/ebay-callback', action: function () {
     require app_path('Helpers/ebay_helpers.php');
-    echo "Hello";
+    echo 'Hello';
     if (isset($_GET['code'])) {
         $authorizationCode = $_GET['code'];
         $accessToken = getAccessToken($authorizationCode);
@@ -280,12 +335,10 @@ Route::get('/apis/ebay-login', action: function () {
     $redirectUrl = 'https://test.tecniquality.com/apis/ebay-callback';
     $scopes = 'https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.marketing.readonly https://api.ebay.com/oauth/api_scope/sell.inventory.readonly https://api.ebay.com/oauth/api_scope/sell.account.readonly https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly';
 
-    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=" . urlencode($scopes);
+    $authUrl = "https://auth.ebay.com/oauth2/authorize?client_id={$clientId}&redirect_uri={$redirectUrl}&response_type=code&scope=".urlencode($scopes);
 
     echo "<a href='{$authUrl}'>Authorize with eBay</a>";
 });
-
-use App\Http\Controllers\Ebay\EbayController;
 
 Route::get('/ebay/orders', [EbayController::class, 'fetchOrders']);
 
@@ -297,15 +350,11 @@ Route::get('/ebay/orders/cron-automation/{token}', function ($token) {
     return app(EbayController::class)->fetchOrders(request());
 });
 
-use App\Http\Controllers\Amzn\FBACartController;
-
 Route::post('/amzn/fba-cart/add', [FBACartController::class, 'addToCart']);
 Route::get('/amzn/fba-cart/list', [FBACartController::class, 'list']);
 Route::get('/amzn/fba-cart/get-or-create-cart', [FBACartController::class, 'getOrCreateCart']);
 Route::delete('/amzn/fba-cart/remove', [FBACartController::class, 'removeFromCart']);
 Route::post('/amzn/fba-cart/commit', [FBACartController::class, 'commitCart']);
-
-use App\Http\Controllers\Amzn\FBAShipmentController;
 
 Route::post('/amzn/fba-shipment/add-item', [FBAShipmentController::class, 'addItemToShipment']);
 Route::get('/amzn/fba-shipment/fetch-shipments', [FBAShipmentController::class, 'fetch_shipment']);
@@ -335,11 +384,7 @@ Route::get('/amzn/fba-shipment/step8/confirm_transportation_options', [FBAShipme
 Route::get('/amzn/fba-shipment/step9/get_shipment', [FBAShipmentController::class, 'step9a_get_shipment']);
 Route::get('/amzn/fba-shipment/step10/print_label', [FBAShipmentController::class, 'step10a_print_label']);
 
-use App\Http\Controllers\TestTableController;
-
 Route::get('/test', [TestTableController::class, 'index']);
-
-use App\Http\Controllers\tblproductController;
 
 Route::get('/products', [tblproductController::class, 'index']);
 Route::get('/stockroom/products/by-fnsku', [tblproductController::class, 'fetchPerFnsku']);
@@ -362,7 +407,6 @@ Route::prefix('api/stockroom')->group(function () {
     Route::post('process-scan', [StockroomController::class, 'processScan']);
     Route::post('print-label', [StockroomController::class, 'printLabel']);
     Route::get('stores', [StockroomController::class, 'getStores']);
-
 
     // New routes for Process functionality
     Route::post('/process-items', [StockroomController::class, 'processItems']);
@@ -387,7 +431,7 @@ Route::prefix('api/unreceived')->group(function () {
     Route::post('process-scan', [UnreceivedController::class, 'processScan']);
 });
 
-// Routes for Received scanner 
+// Routes for Received scanner
 Route::prefix('api/received')->group(function () {
     Route::get('products', [ReceivedController::class, 'index']);
     Route::get('verify-tracking', [ReceivedController::class, 'verifyTracking']);
@@ -421,7 +465,7 @@ Route::prefix('api/returns')->group(function () {
     Route::post('process-scan', [ReturnScannerController::class, 'processScan']);
 });
 
-// Routes for Labeling Function 
+// Routes for Labeling Function
 Route::prefix('api/labeling')->group(function () {
     Route::get('products', [LabelingController::class, 'index']);
     Route::post('products', [LabelingController::class, 'store']);
@@ -432,7 +476,7 @@ Route::prefix('api/labeling')->group(function () {
     Route::post('move-to-stockroom', [LabelingController::class, 'moveToStockroom']);
 });
 
-// Routes for RTS Function 
+// Routes for RTS Function
 Route::prefix('api/rts')->group(function () {
     Route::get('products', [RTSController::class, 'index']);
     Route::post('save-rts-options', [RTSController::class, 'saveRTSOptions']);
@@ -440,11 +484,10 @@ Route::prefix('api/rts')->group(function () {
     Route::post('products', [RTSController::class, 'store']);
 });
 
-
 Route::post('/test-move-validation', [LabelingController::class, 'moveToValidation']);
 Route::post('/test-move-stockroom', [LabelingController::class, 'moveToStockroom']);
 
-// Routes for Validation Function 
+// Routes for Validation Function
 Route::prefix('api/validation')->group(function () {
     Route::get('products', [ValidationController::class, 'index']);
     Route::post('move-to-stockroom', [ValidationController::class, 'moveToStockroom']);
@@ -452,7 +495,7 @@ Route::prefix('api/validation')->group(function () {
     Route::post('validate', [ValidationController::class, 'validate']);
 });
 
-// Routes for Fbm Order Function 
+// Routes for Fbm Order Function
 Route::prefix('api/fbm-orders')->group(function () {
     Route::get('/', [FbmOrderController::class, 'index']);
     Route::get('/stores', [FbmOrderController::class, 'getStores']);
@@ -478,9 +521,7 @@ Route::prefix('api/notfound')->group(function () {
     Route::post('move-to-stockroom', [notfoundController::class, 'moveToStockroom']);
 });
 
-
-
-// Routes for ASIN List Function  
+// Routes for ASIN List Function
 Route::prefix('api/asinlist')->group(function () {
 
     // Get ASIN products list
@@ -492,7 +533,6 @@ Route::prefix('api/asinlist')->group(function () {
     Route::post('/msku/save', [ASINlistController::class, 'saveMsku']);
     Route::post('/msku/generate', [ASINlistController::class, 'generateMsku']);
     Route::get('/all/stores', [ASINlistController::class, 'fetchstores']);
-
 
     // Update ASIN details (EAN/UPC/Instruction Link/Meta Keyword/Transparency)
     Route::post('update-asin-details', [ASINlistController::class, 'updateAsinDetails']);
@@ -515,12 +555,11 @@ Route::prefix('api/asinlist')->group(function () {
     // Upload vector image
     Route::post('upload-vector-image', [ASINlistController::class, 'uploadAsinVectorImage']);
 
-    //Bulk Upload asin instruction card
+    // Bulk Upload asin instruction card
     Route::post('bulk-upload-instruction-cards', [ASINlistController::class, 'bulkUploadInstructionCards']);
 });
 
-
-// Routes for Houseage Function 
+// Routes for Houseage Function
 Route::prefix('api/houseage')->group(function () {
     Route::get('products', [HouseageController::class, 'index']);
     Route::post('products', [HouseageController::class, 'store']);
@@ -532,8 +571,7 @@ Route::prefix('api/houseage')->group(function () {
     Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
 });
 
-
-// Printer API routes  
+// Printer API routes
 Route::prefix('api/printer')->group(function () {
     // Check if serial number meets print conditions
     Route::post('check-serial', [PrinterController::class, 'checkSerial']);
@@ -566,7 +604,6 @@ Route::prefix('api/printer')->group(function () {
     Route::post('clear-cache', [PrinterController::class, 'clearCache']);
 });
 
-
 Route::prefix('api/printer-management')->middleware(['auth'])->group(function () {
     Route::get('get-printers', [PrinterManagementController::class, 'getAllPrinters']);
     Route::get('get-printer/{id}', [PrinterManagementController::class, 'getPrinter']);
@@ -580,7 +617,7 @@ Route::prefix('api/printer-management')->middleware(['auth'])->group(function ()
     Route::delete('divorce-printers/{id}', [PrinterManagementController::class, 'divorcePrinters']);
 });
 
-// Routes for FNSKU List Function  
+// Routes for FNSKU List Function
 Route::get('api/fnsku/fnsku-list', [FnskuController::class, 'getFnskuList']);
 Route::post('api/fnsku/update-fnsku', [FnskuController::class, 'updateFnsku']);
 Route::get('api/fnsku/fnsku', [FnskuController::class, 'index']);
@@ -588,12 +625,10 @@ Route::post('api/fnsku/insert-fnsku', [FnskuController::class, 'insertFnsku']);
 Route::get('api/labeling/product/{productId}', [LabelingController::class, 'getProduct']);
 Route::get('api/fnsku/availability', [FnskuController::class, 'getFnskuAvailability']);
 
-
 Route::get('/clone-table-form', [App\Http\Controllers\TableController::class, 'showCloneForm'])->name('clone.table.form');
 Route::post('/clone-table', [App\Http\Controllers\TableController::class, 'cloneTable'])->name('clone.table');
 
 // FBM Orders Shipping Label
-use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
 
 Route::post('/amzn/fbm-orders/purchase-label/rates', [ShippingLabelController::class, 'get_rates']);
 Route::post('/amzn/fbm-orders/purchase-label/createshipment', [ShippingLabelController::class, 'create_shipment']);
@@ -609,25 +644,25 @@ Route::get('/postmaster', function () {
 Route::get('/usps_tracking', function () {
     ob_start();
     include base_path('automations/usps_tracking_updater.php');
+
     return response(ob_get_clean());
 });
 
 Route::get('/ups_tracking', function () {
     ob_start();
+
     return include base_path('automations/ups_tracking_updater.php');
+
     return response(ob_get_clean());
 });
 
 Route::get('auth/google', [LoginController::class, 'googlepage']);
 Route::get('auth/google/callback', [LoginController::class, 'handleGoogleCallback']);
 
-
-use App\Http\Controllers\Fbmorders\PrintInvoiceController;
-
 Route::post('/fbm-orders-invoice', [PrintInvoiceController::class, 'printInvoice']);
 
 Route::get('/fbm-orders-invoice-test', function () {
-    $controller = new PrintInvoiceController();
+    $controller = new PrintInvoiceController;
 
     $request = Request::create('/fbm-orders-invoice', 'POST', [
         'platform_order_ids' => ['111-9674483-2472244'],
@@ -635,7 +670,7 @@ Route::get('/fbm-orders-invoice-test', function () {
         'settings' => [
             'displayPrice' => true,
             'testPrint' => true,
-            'signatureRequired' => true
+            'signatureRequired' => true,
         ],
     ]);
 
@@ -643,7 +678,6 @@ Route::get('/fbm-orders-invoice-test', function () {
 });
 
 // print shipping label fbm orders
-use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
 
 Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, 'printshippinglabel']);
 
@@ -652,7 +686,7 @@ Route::post('/update-timezone', [UserController::class, 'updateTimezone'])->name
 Route::get('/user/settings/timezone', [UserController::class, 'showTimezoneSettings'])->name('timezone.settings');
 
 Route::get('/fbm-orders-shippinglabel-test', function () {
-    $controller = new PrintShippingLabelController();
+    $controller = new PrintShippingLabelController;
 
     $request = Request::create('/fbm-orders-shippinglabel', 'POST', [
         'platform_order_ids' => ['114-0083765-2829867'],
@@ -660,7 +694,7 @@ Route::get('/fbm-orders-shippinglabel-test', function () {
         'settings' => [
             'displayPrice' => true,
             'testPrint' => true,
-            'signatureRequired' => true
+            'signatureRequired' => true,
         ],
     ]);
 
@@ -672,7 +706,6 @@ Route::get('/session-warmup', function () {
 });
 
 // Fbm Orders Manual Shipment Label
-use App\Http\Controllers\Fbmorders\ManualShipmentLabelController;
 
 Route::post('/fbm-orders-manualshipmentlabel', [ManualShipmentLabelController::class, 'store']);
 Route::post('/fbm-orders-add-new-carrier', [ManualShipmentLabelController::class, 'newCarrierDescription']);
@@ -700,11 +733,7 @@ Route::get('/amzn/test-asin-data', function () {
 });
 */
 
-use App\Http\Controllers\Amzn\Listing\CatalogController;
-
 Route::get('/amzn/catalog/get_asin_catalog', [CatalogController::class, 'get_asin_catalog']);
-
-use App\Http\Controllers\NotificationController;
 
 Route::post('/notifications/create', [NotificationController::class, 'create']);
 Route::get('/notifications/user/{id}', [NotificationController::class, 'getByUser']);
@@ -715,7 +744,6 @@ Route::get('/notifications/unread-count/{id}', [NotificationController::class, '
 Route::get('/joined-fnsku-data', [LabelingController::class, 'getFnskuData']);
 
 // HR Controller
-use App\Http\Controllers\HrController;
 Route::prefix('hr')->group(function () {
     Route::get('/employees', [HrController::class, 'getEmployees']);
     Route::get('/employee-rate-history', [HrController::class, 'getEmployeeRateHistory']);
@@ -727,7 +755,6 @@ Route::prefix('hr')->group(function () {
     Route::post('/time-records/{id}/edit', [HrController::class, 'editTimeRecord']);
     Route::post('/time-records/edit-history', [HrController::class, 'listClockEditHistory']);
     Route::post('/time-records/{id}/edit-history', [HrController::class, 'getClockEditHistoryByClock']);
-
 
     Route::get('/leave-history', [HrController::class, 'getLeaveHistory']);
     Route::get('/violations', [HrController::class, 'getViolations']);
@@ -771,8 +798,6 @@ Route::prefix('hr')->group(function () {
     Route::post('/break/end', [AttendanceController::class, 'end'])->name('hr.break.end');
 });
 
-
-
 Route::get('/schedule/month', [AttendanceController::class, 'month']);
 
 // routes/web.php
@@ -780,6 +805,7 @@ Route::middleware(['auth'])->get('/account/complete', function () {
     return view('account.complete');  // the small Blade that calls your HR endpoints
 })->name('account.complete.view');
 
-use App\Http\Controllers\DaysSupplyController;
-
-Route::get('/ds7oos', [DaysSupplyController::class, 'index']); // public for now
+// Add this BEFORE the fallback route
+Route::get('/aiTraining', function () {
+    return view('aiTraining'); // Blade file wrapper for Vue
+})->middleware(['auth']); // if you want it only for logged users
