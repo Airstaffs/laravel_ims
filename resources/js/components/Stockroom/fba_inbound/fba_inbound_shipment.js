@@ -336,7 +336,7 @@ export default {
             this.selectedShipment = shipment;
             console.log(shipment);
             this.form = {
-                store: shipment.store || "Renovar Tech",
+                store: shipment.store || "RenovarTech",
                 destinationMarketplace: "ATVPDKIKX0DER",
                 shipmentID: shipment.shipmentID,
                 inboundplanid: "", // default empty

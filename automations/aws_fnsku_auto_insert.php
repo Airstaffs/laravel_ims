@@ -554,9 +554,9 @@ function getSignatureKey($key, $dateStamp, $regionName, $serviceName)
 
 function sidfetcherino($Connect, $store)
 {
-    if ($store == 'Renovar Tech') {
+    if ($store == 'RenovarTech') {
         $id = 1; // The id you want to retrieve
-    } else if ($store == 'All Renewed') {
+    } else if ($store == 'AllRenewed') {
         $id = 3;
     }
 

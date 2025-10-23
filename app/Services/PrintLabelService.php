@@ -1603,7 +1603,7 @@ class PrintLabelService extends BasetablesController
         try {
             $isAllRenewed = (stripos($storeName, 'Allrenewed') !== false || 
                               stripos($storeName, 'All renewed') !== false ||
-                              stripos($storeName, 'All Renewed') !== false);
+                              stripos($storeName, 'AllRenewed') !== false);
             
             switch ($grading) {
                 case 'UsedLikeNew':

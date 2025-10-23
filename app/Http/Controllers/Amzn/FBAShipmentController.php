@@ -59,7 +59,7 @@ class FBAShipmentController extends Controller
                 'shipmentID' => $shipmentID,
                 'dateshipped' => $dateshipped,
                 'Location' => 'SHIPMENT',
-                'store' => 'Renovar Tech',
+                'store' => 'RenovarTech',
                 'row_show' => 1,
                 'processby' => $username
             ]);
@@ -162,7 +162,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
 
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationMarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -230,7 +230,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -384,7 +384,7 @@ class FBAShipmentController extends Controller
                 'shipmentID' => 'nullable|string'
             ]);
 
-            $store = $request->input('store', 'Renovar Tech');
+            $store = $request->input('store', 'RenovarTech');
             $nextToken = $request->input('nextToken', null);
             $destinationMarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
             $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -552,7 +552,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -705,7 +705,7 @@ class FBAShipmentController extends Controller
             'inboundplanid' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -844,7 +844,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -983,7 +983,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -1133,7 +1133,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -1274,7 +1274,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -1415,7 +1415,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'Renovar Tech');
+        $store = $request->input('store', 'RenovarTech');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA17YTXZSKB');
@@ -1557,7 +1557,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -1699,7 +1699,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -1850,7 +1850,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -2018,7 +2018,7 @@ class FBAShipmentController extends Controller
         ]);
 
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -2177,7 +2177,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -2333,7 +2333,7 @@ class FBAShipmentController extends Controller
         ]);
 
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -2485,7 +2485,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -2646,7 +2646,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -2807,7 +2807,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -2976,7 +2976,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
@@ -3121,7 +3121,7 @@ class FBAShipmentController extends Controller
             'shipmentID' => 'nullable|string'
         ]);
         $data_additionale = []; // data that is to be passed to jsonCreation
-        $store = $request->input('store', 'All Renewed');
+        $store = $request->input('store', 'AllRenewed');
         $nextToken = $request->input('nextToken', null);
         $destinationmarketplace = $request->input('destinationMarketplace', 'ATVPDKIKX0DER');
         $shipmentID = $request->input('shipmentID', 'FBA4EA5THYYCU');
