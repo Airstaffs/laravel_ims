@@ -85,7 +85,7 @@ return new class extends Migration
             $table->string('printby')->nullable();
             $table->string('itemnumber')->nullable();
             $table->string('warehouselocation')->nullable();
-            $table->string('StoreName')->default('Renovar Tech');
+            $table->string('StoreName')->default('RenovarTech');
             $table->string('EmployeeNote')->nullable();
             $table->string('TrackingLink')->nullable();
             $table->integer('Discount')->nullable();
