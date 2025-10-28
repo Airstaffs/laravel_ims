@@ -651,8 +651,31 @@ class PrintLabelService extends BasetablesController
             ]);
 
             switch ($labelType) {
-                case 'serial_labels':
-                    return $this->generateAllSerialLabels($product, $condition, $returnCounts);
+             //   case 'serial_labels':
+             //       return $this->generateAllSerialLabels($product, $condition, $returnCounts);
+
+              
+                  case 'serial_labels':
+                    if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
+                        $Wserial = trim($product->serialnumber);
+                        $smallCardCopies = 1;
+                        $zpl = '';
+                         // Get return count for serial A from the passed parameter
+                        $returnCountA = $returnCounts['a'] ?? 0;
+                        
+                        Log::info('Reprinting small label cards:', [
+                            'serial' => $Wserial,
+                            'copies' => $smallCardCopies
+                        ]);
+                        
+                        // Generate 3 copies
+                        for ($i = 0; $i < $smallCardCopies; $i++) {
+                            $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
+                        }
+                        
+                        return $zpl;
+                    }
+                    return '';   
                     
                 case 'fnsku_label':
                     return !empty($product->FNSKUviewer) ? 
@@ -705,28 +728,7 @@ class PrintLabelService extends BasetablesController
                 case 'print_count':
                     return (isset($product->printCount) && $product->printCount > 0) ? 
                         $this->generatePrintCountLabel($product->printCount + 1) : '';
-
-                case 'small_label_card':
-                    if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
-                        $Wserial = trim($product->serialnumber);
-                        $smallCardCopies = 1;
-                        $zpl = '';
-                         // Get return count for serial A from the passed parameter
-                        $returnCountA = $returnCounts['a'] ?? 0;
-                        
-                        Log::info('Reprinting small label cards:', [
-                            'serial' => $Wserial,
-                            'copies' => $smallCardCopies
-                        ]);
-                        
-                        // Generate 3 copies
-                        for ($i = 0; $i < $smallCardCopies; $i++) {
-                            $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
-                        }
-                        
-                        return $zpl;
-                    }
-                    return '';        
+     
                     
                 default:
                     Log::warning('Unknown label type for reprint:', ['labelType' => $labelType]);
@@ -767,7 +769,7 @@ class PrintLabelService extends BasetablesController
                 }
             }
 
-            // Serial number labels (A and B)
+            /* Serial number labels (A and B)
             if (!empty($product->serialnumber) && !empty($product->serialnumberb)) {
                 $nonNullCount++;
                 $zpl .= $this->generateDualSerialLabels($product->serialnumber, $product->serialnumberb, $condition);
@@ -784,7 +786,25 @@ class PrintLabelService extends BasetablesController
             } else if (!empty($product->serialnumberc) && empty($product->serialnumberd)) {
                 $nonNullCount++;
                 $zpl .= $this->generateSingleSerialLabels($product->serialnumberc, $condition, "");
-            }
+            }*/
+            //NEW SERIAL LABEL QR FORMAT
+
+               if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
+                    $Wserial = trim($product->serialnumber);
+                    $smallCardCopies = 5;
+                    $returnCountA = $returnCounts['a'] ?? 0;
+                    
+                    Log::info('Generating small label cards:', [
+                        'serial' => $Wserial,
+                        'copies' => $smallCardCopies
+                    ]);
+                    
+                    // Print small label card multiple times
+                    for ($i = 0; $i < $smallCardCopies; $i++) {
+                        $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
+                    }
+                }
+
 
             // FNSKU label with special prefix handling
             if (!empty($product->FNSKUviewer)) {
@@ -808,6 +828,11 @@ class PrintLabelService extends BasetablesController
             if (!empty($product->itemnumber)) {
                 $nonNullCount++;
                 $zpl .= $this->generateItemNumberLabel($product);
+            }
+
+            if (!empty($product->serialnumber)) {
+                $nonNullCount++;
+                $zpl .= $this->imageProcessingService->convertImageQRserial($product->serialnumber);
             }
 
             // Timestamp and priority label
@@ -840,15 +865,12 @@ class PrintLabelService extends BasetablesController
                 $zpl .= $this->generateTransparencyQRLabel($product->TRANSPARENCY_QR_STATUS);
             }
 
-            // QR codes for manual and serial
+            /* QR codes for manual and serial
             if (!empty($product->ASINviewer)) {
                 $zpl .= $this->imageProcessingService->convertImageQRmanual($product->ASINviewer, $product->AStitle ?? '');
-            }
-
-            if (!empty($product->serialnumber)) {
-                $nonNullCount++;
-                $zpl .= $this->imageProcessingService->convertImageQRserial($product->serialnumber);
-            }
+            }*/
+            
+       
 
             // Print count
             if (isset($product->printCount) && $product->printCount > 0) {
@@ -886,22 +908,7 @@ class PrintLabelService extends BasetablesController
                 $zpl .= $this->generateValidationStatusLabel($product->validation_status);
             }
 
-            if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
-                    $Wserial = trim($product->serialnumber);
-                    $smallCardCopies = 3;
-                    $returnCountA = $returnCounts['a'] ?? 0;
-                    
-                    Log::info('Generating small label cards:', [
-                        'serial' => $Wserial,
-                        'copies' => $smallCardCopies
-                    ]);
-                    
-                    // Print small label card multiple times
-                    for ($i = 0; $i < $smallCardCopies; $i++) {
-                        $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
-                    }
-                }
-
+         
             // Instruction card processing - Generate separately for different printer
             if (!empty($product->ASINviewer)) {
                 Log::info('Generating instruction cards for married printer system');
@@ -1457,6 +1464,14 @@ class PrintLabelService extends BasetablesController
                 }
 
                      $zplIC .= $this->imageProcessingService->generateQRforInstructionCard($Wserial);
+
+                             // ✅ NEW: Generate restocking label
+                     $zplIC .= $this->imageProcessingService->generateRestockingLabel($Wserial);
+            
+                     // ✅ NEW: Generate replacement request label  
+                     $zplIC .= $this->imageProcessingService->generateRequestReplacementLabel();
+
+                     $zplIC .= $this->imageProcessingService->generateRecycleRequestLabel();
             }
             
             Log::info('Final instruction card ZPL for married printer:', ['length' => strlen($zplIC)]);
