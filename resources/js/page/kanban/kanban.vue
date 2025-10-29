@@ -19,7 +19,8 @@
 				</div>
 
 				<div v-show="!isHidden[status]">
-					<div v-for="task in tasks.slice(0, visibleCounts[status])" :key="task.id" style="margin-bottom: 10px;">
+					<div v-for="task in tasks.slice(0, visibleCounts[status])" :key="task.id"
+						style="margin-bottom: 10px;">
 						<KanbanCard :task="task" @fetch-tasks="fetchTasks" :allUsers="userData" />
 					</div>
 
@@ -59,6 +60,8 @@ export default kanban
 	gap: 20px;
 	padding: 20px;
 	align-items: start;
+	background: #ebf0f3;
+	border-radius: 10px;
 }
 
 .status_container {
