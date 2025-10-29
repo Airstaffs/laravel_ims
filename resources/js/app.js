@@ -595,73 +595,76 @@ const app = createApp({
         },
 
         loadContent(module) {
-            updateActivity();
-            this.extendSession();
+    updateActivity();
+    this.extendSession();
 
-            const navName = String(module).toLowerCase();
+    const navName = String(module).toLowerCase();
 
-            if(navName === 'kanban') {
-                const componentName = this.mapToComponentName(navName);
-                this.safeComponentUpdate(componentName, navName);
+    // Handle Kanban directly without permission check
+    if (navName === 'kanban') {
+        const componentName = this.mapToComponentName(navName);
+        this.safeComponentUpdate(componentName, navName);
+        return;
+    }
 
-                return
-            }
-
-            if (navName === "printer") {
+    // Handle Printer modal
+    if (navName === "printer") {
+        if (typeof showPrinterModal === "function") {
+            showPrinterModal();
+        } else {
+            console.error("showPrinterModal function not found");
+            setTimeout(() => {
                 if (typeof showPrinterModal === "function") {
                     showPrinterModal();
                 } else {
-                    console.error("showPrinterModal function not found");
-                    setTimeout(() => {
-                        if (typeof showPrinterModal === "function") {
-                            showPrinterModal();
-                        } else {
-                            alert("Printer modal not available. Please check configuration.");
-                        }
-                    }, 100);
+                    alert("Printer modal not available. Please check configuration.");
                 }
-                return;
-            }
+            }, 100);
+        }
+        return;
+    }
 
-            if (navName === "asinoption") {
-                if (typeof showAsinOptionModal === "function") {
-                    showAsinOptionModal();
-                } else {
-                    console.error("showAsinOptionModal function not found");
-                }
-                return;
-            }
+    // Handle ASIN Option modal
+    if (navName === "asinoption") {
+        if (typeof showAsinOptionModal === "function") {
+            showAsinOptionModal();
+        } else {
+            console.error("showAsinOptionModal function not found");
+        }
+        return;
+    }
 
-            const allowedModules = window.allowedModules
-                ? window.allowedModules.map((m) => m.toLowerCase())
-                : [];
-            const mainModule = window.mainModule ? window.mainModule.toLowerCase() : "";
-            const customModules = window.customModules
-                ? window.customModules.map((m) => m.toLowerCase())
-                : [];
+    // Permission check for other modules
+    const allowedModules = window.allowedModules
+        ? window.allowedModules.map((m) => m.toLowerCase())
+        : [];
+    const mainModule = window.mainModule ? window.mainModule.toLowerCase() : "";
+    const customModules = window.customModules
+        ? window.customModules.map((m) => m.toLowerCase())
+        : [];
 
-            const hasAccess =
-                navName === "fbashipmentinbound" ||
-                allowedModules.includes(navName) ||
-                navName === mainModule ||
-                customModules.includes(navName)
+    const hasAccess =
+        navName === "fbashipmentinbound" ||
+        allowedModules.includes(navName) ||
+        navName === mainModule ||
+        customModules.includes(navName);
 
-            logSession("Checking permissions:", {
-                requested: navName,
-                main: mainModule,
-                allowed: allowedModules,
-                custom: customModules,
-                hasAccess,
-            });
+    logSession("Checking permissions:", {
+        requested: navName,
+        main: mainModule,
+        allowed: allowedModules,
+        custom: customModules,
+        hasAccess,
+    });
 
-            if (hasAccess) {
-                const componentName = this.mapToComponentName(navName);
-                logSession(`Mapping from nav "${navName}" to component "${componentName}"`);
-                this.safeComponentUpdate(componentName, navName);
-            } else {
-                alert("You do not have permission to access this module.");
-            }
-        },
+    if (hasAccess) {
+        const componentName = this.mapToComponentName(navName);
+        logSession(`Mapping from nav "${navName}" to component "${componentName}"`);
+        this.safeComponentUpdate(componentName, navName);
+    } else {
+        alert("You do not have permission to access this module.");
+    }
+},
 
         safeComponentUpdate(componentName, originalNavName = null) {
             try {
