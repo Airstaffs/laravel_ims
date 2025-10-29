@@ -49,6 +49,16 @@
         <!-- Navbar Collapse for Desktop -->
         <div class="collapse d-none d-md-block" id="navbarNav">
             <ul class="navbar-nav text-center">
+
+                <!----Kanban---->
+                <li class="nav-item" id="kanban-nav-item">
+                    <a class="nav-link d-flex align-items-center justify-content-center" href="#"
+                        data-bs-toggle="modal" data-bs-target="#" onclick="window.loadContent('kanban')">
+                        <i class="bi bi-kanban me-2"></i>
+                        <span class="d-none d-lg-inline">Kanban</span>
+                    </a>
+                </li>
+
                 <!-- Announcements -->
                 <li class="nav-item" id="announcement-nav-item">
                     <a class="nav-link d-flex align-items-center justify-content-center" href="#"
@@ -107,7 +117,8 @@
                 </li>
 
                 <!-- Place this form outside of the navbar, preferably right after the closing </nav> tag -->
-                <form id="force-logout-form" action="{{ url('/force-logout') }}" method="GET" style="display: none;">
+                <form id="force-logout-form" action="{{ url('/force-logout') }}" method="GET"
+                    style="display: none;">
                 </form>
 
             </ul>

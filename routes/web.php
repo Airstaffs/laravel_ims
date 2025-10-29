@@ -49,6 +49,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
+use App\Http\Controllers\KanbanTaskController;
+use App\Http\Controllers\KanbanUserPermissionController;
+use App\Http\Controllers\KanbanCommentController;
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -684,6 +687,19 @@ Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, '
 // timezone system
 Route::post('/update-timezone', [UserController::class, 'updateTimezone'])->name('update-timezone');
 Route::get('/user/settings/timezone', [UserController::class, 'showTimezoneSettings'])->name('timezone.settings');
+
+//user accounts
+Route::get('/user/getAllUsers', [UserController::class, 'getAllUsers']);
+
+//kanban
+Route::post('/user/kanban/addTask', [KanbanTaskController::class, 'addTask']);
+Route::post('user/kanban/getTasks', [KanbanTaskController::class, 'getTasks']);
+Route::post('/user/kanban/deleteTask', [KanbanTaskController::class, 'deleteTask']);
+Route::post('/user/kanban/getUserPermissions', [KanbanUserPermissionController::class, 'getUserPermissions']);
+Route::post('/user/kanban/saveUserPermissions', [KanbanUserPermissionController::class, 'saveUserPermissions']);
+Route::post('/user/kanban/getTaskComments', [KanbanCommentController::class, 'getTaskComments']);
+Route::post('/user/kanban/addTaskComment', [KanbanCommentController::class, 'addTaskComment']);
+
 
 Route::get('/fbm-orders-shippinglabel-test', function () {
     $controller = new PrintShippingLabelController;
