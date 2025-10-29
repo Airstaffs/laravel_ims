@@ -19,7 +19,7 @@ return new class extends Migration
 
             // Foreign key references
             $table->foreign('taskId')
-                ->references('id')->on('tblkanbantask')
+                ->references('id')->on('tblkanbantasks')
                 ->onDelete('cascade');
 
             $table->foreign('userId')

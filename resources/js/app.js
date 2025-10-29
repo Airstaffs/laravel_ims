@@ -600,6 +600,13 @@ const app = createApp({
 
             const navName = String(module).toLowerCase();
 
+            if(navName === 'kanban') {
+                const componentName = this.mapToComponentName(navName);
+                this.safeComponentUpdate(componentName, navName);
+
+                return
+            }
+
             if (navName === "printer") {
                 if (typeof showPrinterModal === "function") {
                     showPrinterModal();
@@ -637,9 +644,7 @@ const app = createApp({
                 navName === "fbashipmentinbound" ||
                 allowedModules.includes(navName) ||
                 navName === mainModule ||
-                customModules.includes(navName) ||
-                navName === "kanban" ||
-                allowedModules.includes(navName);
+                customModules.includes(navName)
 
             logSession("Checking permissions:", {
                 requested: navName,
