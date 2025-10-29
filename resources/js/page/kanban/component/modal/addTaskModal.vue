@@ -101,7 +101,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import * as bootstrap from 'bootstrap'
-import MentionsDropdown from '../MentionsDropdown.vue'
+import MentionsDropdown from '../mentionsDropdown.vue'
 import Swal from 'sweetalert2'
 
 const props = defineProps({
