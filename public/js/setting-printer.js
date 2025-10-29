@@ -825,7 +825,6 @@ function renderAllPrintersTable(printers) {
     }
 
     if (printers.length === 0) {
-        // Show empty state for both desktop and mobile
         tbody.innerHTML =
             '<tr><td colspan="5" class="text-center">No printers found</td></tr>';
         if (mobileContainer) {
@@ -922,79 +921,88 @@ function renderAllPrintersTable(printers) {
             );
         }
     });
+}
 
-    // Add this event listener once (outside the insertion loop)
-    tbody.addEventListener("click", function (e) {
+document.addEventListener("DOMContentLoaded", function () {
+    // Use event delegation on document body to catch all edit buttons
+    document.body.addEventListener("click", function (e) {
         if (e.target.closest(".edit-printer-btn")) {
             const printerId = e.target.closest(".edit-printer-btn").dataset.id;
-            console.log("Edit printer ID:", printerId);
-
-            // Fetch the printer data from the server
-            fetch(`/api/printer-management/get-printer/${printerId}`)
-                .then((response) => {
-                    console.log("Response status:", response.status);
-                    return response.json();
-                })
-                .then((data) => {
-                    console.log("Full response object:", data);
-
-                    // Extract the printer object from the response
-                    const printer = data.printer;
-                    console.log("Printer object:", printer);
-
-                    // SET THE PRINTER ID in the hidden input
-                    document.getElementById("editPrinterId").value =
-                        printer.printerid;
-
-                    // Populate the form fields with correct field names
-                    document.getElementById("editPrinterName").value =
-                        printer.printername || "";
-                    document.getElementById("editPrinterType").value =
-                        printer.printer_type || "";
-                    document.getElementById("editPrinterIP").value =
-                        printer.printerip || "";
-                    document.getElementById("editPrinterPort").value =
-                        printer.port || 9100;
-                    document.getElementById("editPrinterStatus").value =
-                        printer.status || "active";
-                    document.getElementById("editPrinterDescription").value =
-                        printer.description || "";
-
-                    console.log("Form populated with values");
-                    console.log("Printer ID set to:", printer.printerid);
-
-                    // Show edit modal WITHOUT backdrop
-                    const editModal = new bootstrap.Modal(
-                        document.getElementById("editPrinterModal"),
-                        {
-                            backdrop: false,
-                        }
-                    );
-                    editModal.show();
-
-                    // Extra cleanup - remove any backdrop that might appear
-                    setTimeout(() => {
-                        const backdrops =
-                            document.querySelectorAll(".modal-backdrop");
-                        backdrops.forEach((backdrop) => {
-                            if (
-                                document
-                                    .getElementById("editPrinterModal")
-                                    .classList.contains("show")
-                            ) {
-                                backdrop.remove();
-                            }
-                        });
-                    }, 50);
-                })
-                .catch((error) => {
-                    console.error("Error fetching printer data:", error);
-                    console.error("Error details:", error.message);
-                    alert("Failed to load printer data. Please try again.");
-                });
+            window.handleEditPrinterClick(printerId);
         }
     });
-}
+});
+
+// Global function to handle edit printer button clicks
+window.handleEditPrinterClick = function (printerId) {
+    console.log("Edit printer ID:", printerId);
+
+    // Fetch the printer data from the server
+    fetch(`/api/printer-management/get-printer/${printerId}`)
+        .then((response) => {
+            console.log("Response status:", response.status);
+            return response.json();
+        })
+        .then((data) => {
+            console.log("Full response object:", data);
+
+            // Extract the printer object from the response
+            const printer = data.printer;
+            console.log("Printer object:", printer);
+
+            // SET THE PRINTER ID in the hidden input
+            document.getElementById("editPrinterId").value = printer.printerid;
+
+            // Populate the form fields with correct field names
+            document.getElementById("editPrinterName").value =
+                printer.printername || "";
+            document.getElementById("editPrinterType").value =
+                printer.printer_type || "";
+            document.getElementById("editPrinterIP").value =
+                printer.printerip || "";
+            document.getElementById("editPrinterPort").value =
+                printer.port || 9100;
+            document.getElementById("editPrinterStatus").value =
+                printer.status || "active";
+            document.getElementById("editPrinterDescription").value =
+                printer.description || "";
+
+            console.log("Form populated with values");
+            console.log("Printer ID set to:", printer.printerid);
+
+            // Show edit modal WITHOUT backdrop
+            const editModal = new bootstrap.Modal(
+                document.getElementById("editPrinterModal"),
+                {
+                    backdrop: false,
+                }
+            );
+            editModal.show();
+
+            // Extra cleanup - remove any backdrop that might appear
+            setTimeout(() => {
+                const backdrops = document.querySelectorAll(".modal-backdrop");
+                backdrops.forEach((backdrop) => {
+                    if (
+                        document
+                            .getElementById("editPrinterModal")
+                            .classList.contains("show")
+                    ) {
+                        backdrop.remove();
+                    }
+                });
+            }, 50);
+        })
+        .catch((error) => {
+            console.error("Error fetching printer data:", error);
+            console.error("Error details:", error.message);
+            Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: "Failed to load printer data. Please try again.",
+            });
+        });
+};
 
 // Add new printer
 function addNewPrinter(form) {

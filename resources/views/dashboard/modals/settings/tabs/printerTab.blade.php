@@ -281,7 +281,7 @@
     </div>
 </div>
 
-<!-- Edit Printer Modal -->
+<!-- (ALL PRINTERS) Edit Printer Modal -->
 <div class="modal fade" id="editPrinterModal" tabindex="-1" aria-labelledby="editPrinterModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -1807,7 +1807,9 @@
                                         <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
                                             <i class="bi bi-pencil"></i> Edit
                                         </button>
-                                        <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
+                                        <button class="btn btn-sm btn-danger delete-printer-btn"
+                                                onclick="confirmAndDeletePrinter(${printer.printerid})"
+                                                data-id="${printer.printerid}">
                                             <i class="bi bi-trash"></i> Delete
                                         </button>
                                     </td>
@@ -1841,7 +1843,9 @@
                                     <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
                                         <i class="bi bi-pencil"></i> Edit
                                     </button>
-                                    <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
+                                    <button class="btn btn-sm btn-danger delete-printer-btn"
+                                            onclick="confirmAndDeletePrinter(${printer.printerid})"
+                                            data-id="${printer.printerid}">
                                         <i class="bi bi-trash"></i> Delete
                                     </button>
                                 </div>
