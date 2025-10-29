@@ -36,7 +36,6 @@
 
 			<div class="card-title mt-1 text-break">{{ task.title }}</div>
 			<MentionedProfile :mentions="task.mentions" v-if="task.mentions && task.mentions.length" />
-
 		</div>
 
 		<!-- Modals -->
@@ -45,6 +44,8 @@
 			@close="closeModal('delete')" @confirm="handleDeleteTask" />
 		<PermissionModal v-if="modalState.permission && currentTask" :task="currentTask"
 			@close="closeModal('permission')" />
+		<EditTaskModal v-if="modalState.edit && currentTask" ref="editModalRef" :taskData="currentTask"
+			:allUsers="props.allUsers" @task-updated="handleEditUpdated" @close="closeModal('edit')" />
 	</div>
 </template>
 
@@ -55,10 +56,12 @@ import MentionedProfile from './mentionedProfile.vue'
 import ViewTaskModal from './modal/viewTaskModal.vue'
 import DeleteTaskModal from './modal/deleteTaskModal.vue'
 import PermissionModal from './modal/permissionModal.vue'
+import EditTaskModal from './modal/editTaskModal.vue'
 import Swal from 'sweetalert2'
 import axios from 'axios'
 
-const props = defineProps({ task: Object })
+const props = defineProps({ task: Object, allUsers: Array })
+const emit = defineEmits(['fetch-tasks'])
 
 const dropdownOpen = ref(false)
 const currentTask = ref(null)
@@ -66,26 +69,25 @@ const loading = ref(false)
 const modalState = ref({
 	view: false,
 	delete: false,
-	permission: false
+	permission: false,
+	edit: false
 })
 const dropdownRef = ref(null)
-const emit = defineEmits(['fetch-tasks'])
+const editModalRef = ref(null)
 
 // Permission check
-const checkPermission = type => {
+const checkPermission = (type) => {
 	const userId = window.user.id
 	const mention = props.task.mentions?.find(u => u.id === userId)
-	return type === 'edit'
-		? mention?.can_edit ?? props.task.userId === userId
-		: type === 'delete'
-			? mention?.can_delete ?? props.task.userId === userId
-			: type === 'permission'
-				? props.task.userId === userId
-				: false
+
+	if (type === 'edit') return mention?.can_edit ?? props.task.userId === userId
+	if (type === 'delete') return mention?.can_delete ?? props.task.userId === userId
+	if (type === 'permission') return props.task.userId === userId
+	return false
 }
 
 // Dropdown
-const toggleDropdown = () => dropdownOpen.value = !dropdownOpen.value
+const toggleDropdown = () => (dropdownOpen.value = !dropdownOpen.value)
 const handleClickOutside = e => {
 	if (!dropdownRef.value?.contains(e.target)) dropdownOpen.value = false
 }
@@ -96,10 +98,15 @@ const openModal = (type, task) => {
 		currentTask.value = task
 		modalState.value[type] = true
 		dropdownOpen.value = false
+
+		if (type === 'edit' && editModalRef.value) {
+			editModalRef.value.openModal()
+		}
 	} else {
 		Swal.fire('Access Denied', 'You do not have permission to use this button', 'error')
 	}
 }
+
 const closeModal = type => {
 	modalState.value[type] = false
 	currentTask.value = null
@@ -122,9 +129,18 @@ const handleDeleteTask = async () => {
 	}
 }
 
+// Handle edit updated
+const handleEditUpdated = updatedTask => {
+	console.log('Updated task from modal:', updatedTask)
+	emit('fetch-tasks')
+	closeModal('edit')
+}
+
 // Date formatting
 const formatDate = dateStr =>
-	dateStr ? new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : ''
+	dateStr
+		? new Date(dateStr).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+		: ''
 
 onMounted(() => document.addEventListener('click', handleClickOutside))
 onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))

@@ -44,7 +44,7 @@
                         </div>
 
                         <div class="tab-pane fade" id="activity-log-tab-pane" role="tabpanel" tabindex="0">
-                            <TaskActivityLogs />
+                            <TaskActivityLogs v-if="showActivityLogs" :task-id="props.task.id" />
                         </div>
                     </div>
                 </div>
@@ -69,13 +69,20 @@ const props = defineProps({
 })
 
 const showComments = ref(false)
+const showActivityLogs = ref(false)
 
 function handleTabShown(e) {
     const targetId = e.target.getAttribute('data-bs-target')
     if (targetId === '#comment-tab-pane') {
         showComments.value = true
+    } else if (targetId === '#activity-log-tab-pane') {
+        showActivityLogs.value = true
+    } else {
+        showComments.value = false
+        showActivityLogs.value = false
     }
 }
+
 
 onMounted(() => {
     document.addEventListener('shown.bs.tab', handleTabShown)

@@ -35,7 +35,6 @@
             </div>
         </div>
 
-        <!-- ✅ Add comment form -->
         <form v-if="ifHasPermission()" @submit.prevent="addComment" class="d-flex flex-column gap-2">
             <textarea v-model="newComment" class="form-control" placeholder="Write a comment..." rows="2"
                 :disabled="isSubmitting"></textarea>
@@ -116,7 +115,6 @@ async function addComment() {
     }
 }
 
-// optional: simple timestamp formatter
 function formatDate(datetime) {
     const date = new Date(datetime)
     return date.toLocaleString('en-US', {

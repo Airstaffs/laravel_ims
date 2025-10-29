@@ -62,12 +62,7 @@ function removeMention(index) {
     emit('update:modelValue', selectedMentions.value)
 }
 
-// ✅ Convert IDs → full user info for display only
-const selectedMentionUsers = computed(() =>
-    selectedMentions.value.map(id => props.users.find(u => u.id === id)).filter(Boolean)
-)
 
-// Keep in sync with parent updates
 watch(() => props.modelValue, val => {
     selectedMentions.value = [...val]
 })
@@ -77,6 +72,5 @@ watch(() => props.modelValue, val => {
 <style scoped>
 .mentions-dropdown {
     z-index: 1055;
-    /* make sure it's above modal backdrop */
 }
 </style>
