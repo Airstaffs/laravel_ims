@@ -189,8 +189,7 @@
                 <p>
                     <strong>
                         Married printers allow you to pair a small label printer with an instruction card printer
-                        for
-                        synchronized printing.
+                        for synchronized printing.
                     </strong>
                 </p>
                 <p><strong>Click to load married printers...</strong></p>
@@ -276,6 +275,8 @@
                     </div>
                 </form>
             </div>
+
+            <div id="marriedPrintersContainer"></div>
         </div>
     </div>
 </div>
@@ -1633,6 +1634,7 @@
 
     // Function to load printers filtered by type with consistent UI
     function loadPrintersByType(type, containerId) {
+        console.log(type, containerId)
         const container = document.getElementById(containerId);
         if (!container) {
             console.error(`Container #${containerId} not found`);
@@ -1833,7 +1835,7 @@
         if (marriedPrintersTab) {
             marriedPrintersTab.addEventListener('shown.bs.tab', function () {
                 if (typeof window.loadMarriedPrinters === 'function') {
-                    window.loadMarriedPrinters();
+                    window.fetchMarriedPrinters();
                 }
             });
         }
