@@ -117,7 +117,7 @@
 import { ref, watch } from 'vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
-import MentionsDropdown from '../MentionsDropdown.vue'
+import MentionsDropdown from '../mentionsDropdown.vue'
 
 const props = defineProps({
     taskData: Object,
