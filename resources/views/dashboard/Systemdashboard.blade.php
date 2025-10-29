@@ -1132,6 +1132,16 @@ function hasAccess($module, $mainModule, $subModules): bool
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
+    @if (Auth::check())
+        <script>
+            window.user = @json(Auth::user());
+        </script>
+    @else
+        <script>
+            window.user = null;
+        </script>
+    @endif
+
     @vite(['resources/js/app.js'])
 
     <script>

@@ -219,7 +219,7 @@ axios.interceptors.response.use(
             if (originalRequest.__retryCount >= CSRF_CONFIG.MAX_RETRY_ATTEMPTS) {
                 logCsrf(`❌ Max retries exceeded for request`);
                 console.error('Session appears to be invalid. Consider reloading the page.');
-                
+
                 if (status === 419 && !sessionStorage.getItem('csrf_error_shown')) {
                     sessionStorage.setItem('csrf_error_shown', 'true');
                     setTimeout(() => {
@@ -228,7 +228,7 @@ axios.interceptors.response.use(
                         }
                     }, 500);
                 }
-                
+
                 return Promise.reject(error);
             }
 
@@ -239,10 +239,10 @@ axios.interceptors.response.use(
                 if (originalRequest.__retryCount > 1) {
                     await new Promise(resolve => setTimeout(resolve, 500));
                 }
-                
+
                 await refreshCsrf();
                 originalRequest.headers['X-CSRF-TOKEN'] = axios.defaults.headers.common['X-CSRF-TOKEN'];
-                
+
                 return axios(originalRequest);
             } catch (refreshError) {
                 console.error("❌ Failed to refresh token and retry request:", refreshError);
@@ -291,16 +291,16 @@ localStorage.setItem('session_start_time', sessionStartTime.toString());
 function updateActivity() {
     const now = Date.now();
     const wasIdle = isUserIdle;
-    
+
     lastActivityTime = now;
     isUserIdle = false;
-    
+
     // If user was idle and now active, refresh token
     if (wasIdle && IDLE_CONFIG.TOKEN_REFRESH_ON_ACTIVITY) {
         logSession('👤 User returned from idle, refreshing token...');
         refreshTokenAfterIdle();
     }
-    
+
     localStorage.setItem('last_activity_time', now.toString());
 }
 
@@ -313,11 +313,11 @@ activityEvents.forEach(event => {
 function checkIdleState() {
     const now = Date.now();
     const idleTime = now - lastActivityTime;
-    
+
     if (idleTime > IDLE_CONFIG.MAX_IDLE_TIME && !isUserIdle) {
         isUserIdle = true;
         logSession('😴 User is idle');
-        
+
         // Stop heartbeat when idle to save resources
         if (heartbeatTimer) {
             clearInterval(heartbeatTimer);
@@ -332,22 +332,22 @@ setInterval(checkIdleState, 60 * 1000);
 async function refreshTokenAfterIdle() {
     try {
         const sessionAge = Date.now() - parseInt(localStorage.getItem('session_start_time') || Date.now());
-        
+
         if (sessionAge > IDLE_CONFIG.SESSION_LIFETIME * 0.95) {
             console.warn('⚠️ Session is about to expire, reloading page...');
             showSessionExpiredNotification();
             return;
         }
-        
+
         await refreshCsrf();
         logSession('✅ Token refreshed after idle');
-        
+
         startHeartbeat();
         await keepSessionAlive();
         
     } catch (error) {
         console.error('❌ Failed to refresh after idle:', error);
-        
+
         if (error.response?.status === 401 || error.response?.status === 419) {
             showSessionExpiredNotification();
         }
@@ -358,11 +358,11 @@ function startHeartbeat() {
     if (heartbeatTimer) {
         clearInterval(heartbeatTimer);
     }
-    
+
     heartbeatTimer = setInterval(async () => {
         const now = Date.now();
         const idleTime = now - lastActivityTime;
-        
+
         // Only send heartbeat if user was active recently
         if (idleTime < IDLE_CONFIG.MAX_IDLE_TIME) {
             try {
@@ -371,7 +371,7 @@ function startHeartbeat() {
                 logSession('💓 Heartbeat sent');
             } catch (error) {
                 console.error('❌ Heartbeat failed:', error);
-                
+
                 if (error.response?.status === 419) {
                     logSession('🔄 Attempting recovery...');
                     await refreshTokenAfterIdle();
@@ -387,10 +387,10 @@ function startHeartbeat() {
 document.addEventListener('visibilitychange', async () => {
     if (document.visibilityState === 'visible') {
         logSession('👁️ Tab visible again');
-        
+
         const now = Date.now();
         const awayTime = now - lastActivityTime;
-        
+
         if (awayTime > IDLE_CONFIG.MAX_IDLE_TIME) {
             logSession(`🔄 Was away for ${Math.round(awayTime / 60000)} minutes, refreshing...`);
             await refreshTokenAfterIdle();
@@ -415,7 +415,7 @@ async function keepSessionAlive(forceRefresh = false) {
         const response = await axios.post(CSRF_CONFIG.KEEP_ALIVE_ENDPOINT, {
             timestamp: Date.now()
         }, {
-            headers: { "Cache-Control": "no-cache" },
+                headers: { "Cache-Control": "no-cache" },
         });
 
         logSession("✅ Session kept alive successfully", response.data);
@@ -474,6 +474,7 @@ import PrinterModule from "./page/printer/printer.vue";
 import HumanResource from "./page/hr/hr.vue";
 import RTS from "./page/rts/rts.vue";
 import Training from "./page/aiTraining/training.vue";
+import Kanban from "./page/kanban/kanban.vue";
 
 const asyncComponentMap = {
     printcustominvoice: () =>
@@ -502,6 +503,7 @@ const componentMapping = {
     "Human Resource": "humanresource",
     Training: "training",
     RTS: "rts",
+    Kanban: "kanban",
 };
 
 // ============================================
@@ -593,66 +595,76 @@ const app = createApp({
         },
 
         loadContent(module) {
-            updateActivity();
-            this.extendSession();
+    updateActivity();
+    this.extendSession();
 
-            const navName = String(module).toLowerCase();
+    const navName = String(module).toLowerCase();
 
-            if (navName === "printer") {
+    // Handle Kanban directly without permission check
+    if (navName === 'kanban') {
+        const componentName = this.mapToComponentName(navName);
+        this.safeComponentUpdate(componentName, navName);
+        return;
+    }
+
+    // Handle Printer modal
+    if (navName === "printer") {
+        if (typeof showPrinterModal === "function") {
+            showPrinterModal();
+        } else {
+            console.error("showPrinterModal function not found");
+            setTimeout(() => {
                 if (typeof showPrinterModal === "function") {
                     showPrinterModal();
                 } else {
-                    console.error("showPrinterModal function not found");
-                    setTimeout(() => {
-                        if (typeof showPrinterModal === "function") {
-                            showPrinterModal();
-                        } else {
-                            alert("Printer modal not available. Please check configuration.");
-                        }
-                    }, 100);
+                    alert("Printer modal not available. Please check configuration.");
                 }
-                return;
-            }
+            }, 100);
+        }
+        return;
+    }
 
-            if (navName === "asinoption") {
-                if (typeof showAsinOptionModal === "function") {
-                    showAsinOptionModal();
-                } else {
-                    console.error("showAsinOptionModal function not found");
-                }
-                return;
-            }
+    // Handle ASIN Option modal
+    if (navName === "asinoption") {
+        if (typeof showAsinOptionModal === "function") {
+            showAsinOptionModal();
+        } else {
+            console.error("showAsinOptionModal function not found");
+        }
+        return;
+    }
 
-            const allowedModules = window.allowedModules
-                ? window.allowedModules.map((m) => m.toLowerCase())
-                : [];
-            const mainModule = window.mainModule ? window.mainModule.toLowerCase() : "";
-            const customModules = window.customModules
-                ? window.customModules.map((m) => m.toLowerCase())
-                : [];
+    // Permission check for other modules
+    const allowedModules = window.allowedModules
+        ? window.allowedModules.map((m) => m.toLowerCase())
+        : [];
+    const mainModule = window.mainModule ? window.mainModule.toLowerCase() : "";
+    const customModules = window.customModules
+        ? window.customModules.map((m) => m.toLowerCase())
+        : [];
 
-            const hasAccess =
-                navName === "fbashipmentinbound" ||
-                allowedModules.includes(navName) ||
-                navName === mainModule ||
-                customModules.includes(navName);
+    const hasAccess =
+        navName === "fbashipmentinbound" ||
+        allowedModules.includes(navName) ||
+        navName === mainModule ||
+        customModules.includes(navName);
 
-            logSession("Checking permissions:", {
-                requested: navName,
-                main: mainModule,
-                allowed: allowedModules,
-                custom: customModules,
-                hasAccess,
-            });
+    logSession("Checking permissions:", {
+        requested: navName,
+        main: mainModule,
+        allowed: allowedModules,
+        custom: customModules,
+        hasAccess,
+    });
 
-            if (hasAccess) {
-                const componentName = this.mapToComponentName(navName);
-                logSession(`Mapping from nav "${navName}" to component "${componentName}"`);
-                this.safeComponentUpdate(componentName, navName);
-            } else {
-                alert("You do not have permission to access this module.");
-            }
-        },
+    if (hasAccess) {
+        const componentName = this.mapToComponentName(navName);
+        logSession(`Mapping from nav "${navName}" to component "${componentName}"`);
+        this.safeComponentUpdate(componentName, navName);
+    } else {
+        alert("You do not have permission to access this module.");
+    }
+},
 
         safeComponentUpdate(componentName, originalNavName = null) {
             try {
@@ -750,6 +762,7 @@ const app = createApp({
         humanresource: HumanResource,
         rts: RTS,
         training: Training,
+        kanban: Kanban,
     },
 });
 
@@ -858,7 +871,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Initialize activity tracking
     updateActivity();
-    
+
     // Start heartbeat
     startHeartbeat();
 
