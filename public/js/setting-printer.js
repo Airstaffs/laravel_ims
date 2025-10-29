@@ -1550,7 +1550,27 @@ function fetchMarriedPrinters() {
         .then((response) => response.json())
         .then((data) => {
             if (data.success) {
-                renderMarriedPrinters(data.marriages || []);
+                // ✅ Hide the initial blue info alert
+                const infoAlert = document.querySelector(
+                    "#marriedPrinters .alert.alert-info"
+                );
+                if (infoAlert) {
+                    infoAlert.style.display = "none";
+                }
+
+                const marriages = data.marriages || [];
+
+                if (marriages.length === 0) {
+                    // ✅ Show message if no married printers
+                    container.innerHTML = `
+                        <div class="alert alert-secondary text-center">
+                            <strong>No married printers found.</strong>
+                        </div>
+                    `;
+                } else {
+                    // ✅ Render the printers normally
+                    renderMarriedPrinters(marriages);
+                }
             } else {
                 console.error(
                     "Failed to fetch married printers:",
