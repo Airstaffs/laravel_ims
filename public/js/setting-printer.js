@@ -54,7 +54,6 @@ if (!axios) {
             // Put the backdrop just below the top modal
             const top = activeModal || getTopModal();
             const topZ = Number(getComputedStyle(top).zIndex || ACTIVE_Z);
-            backdrop.style.zIndex = String(Math.max(BASE_Z, topZ - 5));
             backdrop.style.pointerEvents = ""; // clicks go to the top modal as normal
             BODY.classList.add("modal-open");
         } else {
@@ -168,7 +167,6 @@ function forceModalInteractive(modalElement) {
 function preventSettingsModalInterference() {
     const settingsModal = document.getElementById("settingsModal");
     if (settingsModal) {
-        settingsModal.style.zIndex = "1040";
         settingsModal.style.display = "block";
         settingsModal.classList.add("show");
     }
@@ -240,7 +238,6 @@ function handlePrinterModalOpen(modalId, modalElement) {
 
         const backdrop = document.querySelector(".modal-backdrop:last-of-type");
         if (backdrop) {
-            backdrop.style.zIndex = "1050";
             backdrop.style.pointerEvents = "none";
         }
     }, 50);
@@ -277,7 +274,6 @@ function handlePrinterModalClose(modalId, modalElement) {
 
             const backdrop = document.createElement("div");
             backdrop.className = "modal-backdrop fade show";
-            backdrop.style.zIndex = "1040";
             document.body.appendChild(backdrop);
 
             ensurePrinterTabActive();
@@ -375,7 +371,6 @@ window.editPrinter = function (printerId) {
                     if (!document.querySelector(".modal-backdrop")) {
                         const backdrop = document.createElement("div");
                         backdrop.className = "modal-backdrop fade show";
-                        backdrop.style.zIndex = "1050";
                         backdrop.style.pointerEvents = "none";
                         document.body.appendChild(backdrop);
                     }
@@ -457,7 +452,6 @@ window.showAddPrinterModal = function () {
         if (!document.querySelector(".modal-backdrop")) {
             const backdrop = document.createElement("div");
             backdrop.className = "modal-backdrop fade show";
-            backdrop.style.zIndex = "1050";
             backdrop.style.pointerEvents = "none";
             document.body.appendChild(backdrop);
         }
@@ -723,13 +717,23 @@ function setupFormListeners() {
             e.preventDefault();
             e.stopPropagation();
 
+            console.log("Form element:", this); // Debug log
+            console.log("Form validity:", this.checkValidity()); // Debug log
+
             if (!this.checkValidity()) {
                 this.classList.add("was-validated");
                 return;
             }
 
             this.classList.add("was-validated");
-            updatePrinter(this);
+
+            // Make sure updatePrinter exists
+            if (typeof window.updatePrinter === "function") {
+                console.log("Calling updatePrinter with form:", this); // Debug log
+                window.updatePrinter(this);
+            } else {
+                console.error("updatePrinter function not found!");
+            }
         });
     }
 
@@ -821,7 +825,6 @@ function renderAllPrintersTable(printers) {
     }
 
     if (printers.length === 0) {
-        // Show empty state for both desktop and mobile
         tbody.innerHTML =
             '<tr><td colspan="5" class="text-center">No printers found</td></tr>';
         if (mobileContainer) {
@@ -920,6 +923,87 @@ function renderAllPrintersTable(printers) {
     });
 }
 
+document.addEventListener("DOMContentLoaded", function () {
+    // Use event delegation on document body to catch all edit buttons
+    document.body.addEventListener("click", function (e) {
+        if (e.target.closest(".edit-printer-btn")) {
+            const printerId = e.target.closest(".edit-printer-btn").dataset.id;
+            window.handleEditPrinterClick(printerId);
+        }
+    });
+});
+
+// Global function to handle edit printer button clicks
+window.handleEditPrinterClick = function (printerId) {
+    console.log("Edit printer ID:", printerId);
+
+    // Fetch the printer data from the server
+    fetch(`/api/printer-management/get-printer/${printerId}`)
+        .then((response) => {
+            console.log("Response status:", response.status);
+            return response.json();
+        })
+        .then((data) => {
+            console.log("Full response object:", data);
+
+            // Extract the printer object from the response
+            const printer = data.printer;
+            console.log("Printer object:", printer);
+
+            // SET THE PRINTER ID in the hidden input
+            document.getElementById("editPrinterId").value = printer.printerid;
+
+            // Populate the form fields with correct field names
+            document.getElementById("editPrinterName").value =
+                printer.printername || "";
+            document.getElementById("editPrinterType").value =
+                printer.printer_type || "";
+            document.getElementById("editPrinterIP").value =
+                printer.printerip || "";
+            document.getElementById("editPrinterPort").value =
+                printer.port || 9100;
+            document.getElementById("editPrinterStatus").value =
+                printer.status || "active";
+            document.getElementById("editPrinterDescription").value =
+                printer.description || "";
+
+            console.log("Form populated with values");
+            console.log("Printer ID set to:", printer.printerid);
+
+            // Show edit modal WITHOUT backdrop
+            const editModal = new bootstrap.Modal(
+                document.getElementById("editPrinterModal"),
+                {
+                    backdrop: false,
+                }
+            );
+            editModal.show();
+
+            // Extra cleanup - remove any backdrop that might appear
+            setTimeout(() => {
+                const backdrops = document.querySelectorAll(".modal-backdrop");
+                backdrops.forEach((backdrop) => {
+                    if (
+                        document
+                            .getElementById("editPrinterModal")
+                            .classList.contains("show")
+                    ) {
+                        backdrop.remove();
+                    }
+                });
+            }, 50);
+        })
+        .catch((error) => {
+            console.error("Error fetching printer data:", error);
+            console.error("Error details:", error.message);
+            Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: "Failed to load printer data. Please try again.",
+            });
+        });
+};
+
 // Add new printer
 function addNewPrinter(form) {
     const formData = new FormData(form);
@@ -997,7 +1081,24 @@ function addNewPrinter(form) {
 
 // Update printer
 window.updatePrinter = function (form) {
-    const printerId = form.querySelector('[name="printer_id"]')?.value;
+    console.log("updatePrinter called with:", form); // Debug log
+
+    if (!form) {
+        console.error("Form is null or undefined");
+        Swal.fire({
+            icon: "error",
+            title: "Form error",
+            text: "Form element not found.",
+        });
+        return;
+    }
+
+    const printerIdInput = form.querySelector('[name="printer_id"]');
+    console.log("Printer ID input element:", printerIdInput); // Debug log
+
+    const printerId = printerIdInput?.value;
+    console.log("Printer ID value:", printerId); // Debug log
+
     if (!printerId) {
         Swal.fire({
             icon: "warning",
@@ -1008,12 +1109,21 @@ window.updatePrinter = function (form) {
     }
 
     const formData = new FormData(form);
-    const submitBtn = form.querySelector('button[type="submit"]');
-    const originalBtnText = submitBtn.innerHTML;
 
-    submitBtn.disabled = true;
-    submitBtn.innerHTML =
-        '<i class="spinner-border spinner-border-sm me-1"></i>Updating...';
+    // Debug: log all form data
+    console.log("Form data entries:");
+    for (let pair of formData.entries()) {
+        console.log(pair[0] + ": " + pair[1]);
+    }
+
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn?.innerHTML || "Save changes";
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML =
+            '<i class="spinner-border spinner-border-sm me-1"></i>Updating...';
+    }
 
     fetch(`/api/printer-management/update-printer/${printerId}`, {
         method: "POST",
@@ -1027,7 +1137,7 @@ window.updatePrinter = function (form) {
         .then((data) => {
             if (data.success) {
                 // Close modal first so the alert is front and center
-                const modal = document.getElementById("editPrinterTestModal");
+                const modal = document.getElementById("editPrinterModal");
                 if (modal) {
                     const modalInstance = bootstrap.Modal.getInstance(modal);
                     if (modalInstance) modalInstance.hide();
@@ -1040,41 +1150,17 @@ window.updatePrinter = function (form) {
                     confirmButtonText: "OK",
                 }).then((result) => {
                     if (result.isConfirmed) {
-                        // Close the edit modal
-                        const editModalEl = document.getElementById(
-                            "editPrinterEditModal"
-                        );
-                        if (editModalEl) {
-                            const editModal =
-                                bootstrap.Modal.getInstance(editModalEl);
-                            if (editModal) editModal.hide();
-                        }
-
-                        // Show the settings modal
-                        const settingsModalEl =
-                            document.getElementById("settingsModal");
-                        if (settingsModalEl) {
-                            const settingsModal = new bootstrap.Modal(
-                                settingsModalEl
-                            );
-                            settingsModal.show();
+                        // Refresh the printer list
+                        if (typeof fetchAllPrinters === "function") {
+                            fetchAllPrinters();
                         }
                     }
                 });
 
-                // Refresh lists
-                fetchAllPrinters();
-                setTimeout(() => {
-                    const currentSubTab =
-                        window.printerTabState?.subTab || "printer-list-tab";
-                    if (currentSubTab === "small-label-tab") {
-                        fetchPrintersByType("small_label");
-                    } else if (currentSubTab === "instruction-card-tab") {
-                        fetchPrintersByType("instruction_card");
-                    } else if (currentSubTab === "married-printer-tab") {
-                        fetchMarriedPrinters();
-                    }
-                }, 100);
+                // Remove backdrops
+                document
+                    .querySelectorAll(".modal-backdrop")
+                    .forEach((backdrop) => backdrop.remove());
             } else {
                 // Laravel validation errors? data.errors = { field: ["msg", ...], ... }
                 const validationHtml = data.errors
@@ -1102,8 +1188,10 @@ window.updatePrinter = function (form) {
             });
         })
         .finally(() => {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalBtnText;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            }
         });
 };
 

@@ -281,18 +281,108 @@
     </div>
 </div>
 
+<!-- (ALL PRINTERS) Edit Printer Modal -->
+<div class="modal fade" id="editPrinterModal" tabindex="-1" aria-labelledby="editPrinterModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPrinterModalLabel">Edit Printer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPrinterForm">
+                    @csrf
+                    <input type="hidden" name="printer_id" id="editPrinterId">
+
+                    <div class="printer-info-header-compact">
+                        <div class="d-flex align-items-center">
+                            <div class="printer-icon-wrapper-compact edit-printer-icon">
+                                <i class="bi bi-gear-fill"></i>
+                            </div>
+
+                            <div class="ms-3">
+                                <h5 class="mb-0">Update Printer Settings</h5>
+                                <small class="text-muted">Modify Configuration Settings</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <fieldset>
+                        <label>
+                            <i class="bi-printer"></i>
+                            <span>Printer Name</span>
+                            <span>*</span>
+                        </label>
+                        <input type="text" class="form-control" id="editPrinterName" name="printer_name" required>
+                    </fieldset>
+
+                    <fieldset>
+                        <label>
+                            <i class="bi bi-tag"></i>
+                            <span>Type</span>
+                            <span>*</span>
+                        </label>
+                        <select name="printer_type" id="editPrinterType" class="form-select" required>
+                            <option value="">Select Type</option>
+                            <option value="small_label">Small Label</option>
+                            <option value="instruction_card">Instruction Card</option>
+                        </select>
+                    </fieldset>
+
+                    <fieldset class="d-flex gap-1">
+                        <div class="ip-container">
+                            <label>
+                                <i class="bi bi-globe"></i>
+                                <span>IP Address</span>
+                                <span>*</span>
+                            </label>
+                            <input type="text" class="form-control" id="editPrinterIP" name="ip_address"
+                                placeholder="192.168.1.100" required>
+                        </div>
+                        <div class="port-container">
+                            <label>
+                                <i class="bi bi-plug"></i>
+                                <span>Port</span>
+                            </label>
+                            <input type="number" class="form-control" id="editPrinterPort" name="port" value="9100"
+                                min="1" max="65535">
+                        </div>
+                        <div class="status-container">
+                            <label>
+                                <i class="bi bi-circle-fill"></i>
+                                <span>Status</span>
+                            </label>
+                            <select name="status" id="editPrinterStatus" class="form-select">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="maintenance">Maintenance</option>
+                            </select>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <label>
+                            <i class="bi bi-card-text"></i>
+                            <span>Description</span>
+                            <span>(Optional)</span>
+                        </label>
+                        <textarea name="description" id="editPrinterDescription" class="form-control"
+                            placeholder="Update printer description or notes..."></textarea>
+                    </fieldset>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="submit" form="editPrinterForm" class="btn btn-primary" id="savePrinterBtn">
+                    Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style scoped>
-    /* ===== ENHANCED MODAL MANAGEMENT CSS ===== */
-
-    /* Base modal z-index hierarchy */
-
-    /* Printer modals - higher layer */
     .modal-printer {
         z-index: 1055 !important;
-    }
-
-    .modal-printer .modal-backdrop {
-        z-index: 1050 !important;
     }
 
     /* Force modal content to be fully opaque and interactive */
@@ -379,10 +469,6 @@
     /* Force printer modals to be on top */
     body.modal-open .modal[id*="Printer"] {
         z-index: 1055 !important;
-    }
-
-    body.modal-open .modal[id*="Printer"]+.modal-backdrop {
-        z-index: 1050 !important;
     }
 
     /* Prevent gray overlay stacking */
@@ -1721,7 +1807,9 @@
                                         <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
                                             <i class="bi bi-pencil"></i> Edit
                                         </button>
-                                        <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
+                                        <button class="btn btn-sm btn-danger delete-printer-btn"
+                                                onclick="confirmAndDeletePrinter(${printer.printerid})"
+                                                data-id="${printer.printerid}">
                                             <i class="bi bi-trash"></i> Delete
                                         </button>
                                     </td>
@@ -1755,7 +1843,9 @@
                                     <button class="btn btn-sm btn-primary edit-printer-btn" data-id="${printer.printerid}">
                                         <i class="bi bi-pencil"></i> Edit
                                     </button>
-                                    <button class="btn btn-sm btn-danger delete-printer-btn" data-id="${printer.printerid}">
+                                    <button class="btn btn-sm btn-danger delete-printer-btn"
+                                            onclick="confirmAndDeletePrinter(${printer.printerid})"
+                                            data-id="${printer.printerid}">
                                         <i class="bi bi-trash"></i> Delete
                                     </button>
                                 </div>
@@ -1801,7 +1891,7 @@
         const printerTab = document.getElementById('printer-tab');
         if (printerTab) {
             printerTab.addEventListener('click', function () {
-                console.log('Printer tab clicked');
+                console.log('Printer tab clicked asd');
 
                 // Small delay to ensure tab content is loaded
                 setTimeout(() => {
