@@ -41,7 +41,10 @@ export default {
     try {
       const response = await axios.get('/user/getAllUsers')
       if (response.data.data) {
-        this.userData = response.data.data
+        
+        // dont include current user
+        const users = response.data.data.filter(user => user.id !== this.user.id)
+        this.userData = users
       }
     } catch (error) {
       console.log('User data fetch error:', error)

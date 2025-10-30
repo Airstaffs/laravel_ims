@@ -57,38 +57,38 @@
                             <MentionsDropdown id="edit-mentions" v-model="task.mentions" :users="allUsers" />
                         </div>
 
-                        <!-- Existing Images/Media -->
+                        <!-- Existing Media -->
                         <div v-if="task.existingMedias.length" class="mb-3">
                             <label class="form-label">Current Media</label>
                             <ul class="list-group">
                                 <li v-for="media in task.existingMedias" :key="media"
                                     class="list-group-item d-flex justify-content-between align-items-center">
                                     <span class="d-flex align-items-center gap-2">
-                                        <img :src="getImageUrl(media)" alt="task media"
+                                        <img v-if="mediaIsImage(media)" :src="getImageUrl(media)" alt="task media"
                                             style="max-height: 40px; border-radius: 4px; object-fit: cover;"
                                             loading="lazy" @error="e => e.target.style.display = 'none'" />
-                                        <span class="text-truncate">{{ media.split('/').pop() }}</span>
+                                        <span class="text-truncate">{{ getFileName(media) }}</span>
                                     </span>
                                     <button type="button" class="btn btn-sm btn-danger flex-shrink-0"
-                                        @click="removeExistingMedia(media)"
-                                        :aria-label="`Remove ${media.split('/').pop()}`">
+                                        @click="removeExistingMedia(media)">
                                         Remove
                                     </button>
                                 </li>
                             </ul>
                         </div>
 
-                        <!-- New Images to Upload -->
+                        <!-- Upload New Media (images + files) -->
                         <div class="mb-3">
-                            <label for="edit-images" class="form-label">Upload New Images</label>
-                            <input id="edit-images" type="file" @change="handleFiles" class="form-control" multiple
-                                accept="image/*" />
+                            <label for="edit-media" class="form-label">Upload New Media</label>
+                            <input id="edit-media" type="file" class="form-control" multiple
+                                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" @change="handleFiles" />
+
                             <ul v-if="task.images.length" class="list-group mt-2">
-                                <li v-for="(file, index) in task.images" :key="getFileKey(file, index)"
+                                <li v-for="(file, index) in task.images" :key="file.name + file.size + index"
                                     class="list-group-item d-flex justify-content-between align-items-center">
                                     <span class="text-truncate">{{ file.name }}</span>
                                     <button type="button" class="btn btn-sm btn-warning flex-shrink-0"
-                                        @click="removeNewFile(index)" :aria-label="`Remove ${file.name}`">
+                                        @click="removeNewFile(index)">
                                         Remove
                                     </button>
                                 </li>
@@ -134,51 +134,62 @@ const task = ref({
     status: 'todo',
     priority: 'medium',
     mentions: [],
-    images: [],
-    existingMedias: [],
+    images: [], // new uploaded files
+    existingMedias: [], // existing images/files
     user_id: window.user.id
 })
 
 const isSubmitting = ref(false)
 const originalMedias = ref([])
 
-watch(() => props.taskData, (newVal) => {
-    if (newVal) {
-        let medias = []
-        let mentions = []
+watch(
+    () => props.taskData,
+    (newVal) => {
+        if (newVal) {
+            let medias = []
+            let mentions = []
 
-        try {
-            // Handle medias - could be string, array, or null
-            if (newVal.medias) {
-                medias = typeof newVal.medias === 'string' ? JSON.parse(newVal.medias) : Array.isArray(newVal.medias) ? newVal.medias : []
+            try {
+                if (newVal.medias) {
+                    medias =
+                        typeof newVal.medias === 'string'
+                            ? JSON.parse(newVal.medias)
+                            : Array.isArray(newVal.medias)
+                                ? newVal.medias
+                                : []
+                }
+                if (newVal.mentions) {
+                    mentions =
+                        typeof newVal.mentions === 'string'
+                            ? JSON.parse(newVal.mentions)
+                            : Array.isArray(newVal.mentions)
+                                ? newVal.mentions
+                                : []
+                }
+            } catch (err) {
+                console.error('Error parsing JSON:', err)
+                medias = Array.isArray(newVal.medias) ? newVal.medias : []
+                mentions = Array.isArray(newVal.mentions) ? newVal.mentions : []
             }
 
-            // Handle mentions - could be string, array of objects, or array of IDs
-            if (newVal.mentions) {
-                mentions = typeof newVal.mentions === 'string' ? JSON.parse(newVal.mentions) : Array.isArray(newVal.mentions) ? newVal.mentions : []
+            task.value = {
+                id: newVal.id,
+                title: newVal.title || '',
+                description: newVal.description || '',
+                notes: newVal.note || '',
+                status: newVal.status || 'todo',
+                priority: newVal.priority || 'medium',
+                mentions: mentions,
+                images: [],
+                existingMedias: [...medias],
+                user_id: newVal.userId || window.user.id
             }
-        } catch (err) {
-            console.error('Error parsing JSON:', err)
-            medias = Array.isArray(newVal.medias) ? newVal.medias : []
-            mentions = Array.isArray(newVal.mentions) ? newVal.mentions : []
-        }
 
-        task.value = {
-            id: newVal.id,
-            title: newVal.title || '',
-            description: newVal.description || '',
-            notes: newVal.note || '',
-            status: newVal.status || 'todo',
-            priority: newVal.priority || 'medium',
-            mentions: mentions,
-            images: [],
-            existingMedias: [...medias],
-            user_id: newVal.userId || window.user.id
+            originalMedias.value = [...medias]
         }
-
-        originalMedias.value = [...medias]
-    }
-}, { immediate: true })
+    },
+    { immediate: true }
+)
 
 function handleFiles(event) {
     const files = Array.from(event.target.files)
@@ -192,19 +203,21 @@ function removeNewFile(index) {
 }
 
 function removeExistingMedia(mediaPath) {
-    task.value.existingMedias = task.value.existingMedias.filter(m => m !== mediaPath)
+    task.value.existingMedias = task.value.existingMedias.filter((m) => m !== mediaPath)
 }
 
 function getImageUrl(imagePath) {
-    return imagePath.startsWith('http')
-        ? imagePath
-        : `/images/kanban_media/${imagePath}`
+    return imagePath.startsWith('http') ? imagePath : `/images/kanban_media/${imagePath}`
 }
 
-function getFileKey(file, index) {
-    return file instanceof File
-        ? file.name + file.size + index
-        : file
+function getFileName(pathOrFile) {
+    return typeof pathOrFile === 'string'
+        ? pathOrFile.split('/').pop()
+        : pathOrFile.name
+}
+
+function mediaIsImage(mediaPath) {
+    return /\.(jpg|jpeg|png|gif|webp)$/i.test(mediaPath)
 }
 
 function buildFormData() {
@@ -225,18 +238,17 @@ function buildFormData() {
         })
     }
 
-    // New images to upload
+    // New media files
     if (task.value.images.length) {
         task.value.images.forEach((file, index) => {
             formData.append(`images[${index}]`, file)
         })
     }
 
-    // Media paths to remove
+    // Remove old media
     const mediasToRemove = originalMedias.value.filter(
-        path => !task.value.existingMedias.includes(path)
+        (path) => !task.value.existingMedias.includes(path)
     )
-
     if (mediasToRemove.length) {
         mediasToRemove.forEach((path, index) => {
             formData.append(`removed_images[${index}]`, path)
@@ -274,7 +286,8 @@ async function handleEdit() {
         emit('close')
     } catch (err) {
         console.error('❌ Update failed:', err)
-        const errorMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'An error occurred'
+        const errorMsg =
+            err.response?.data?.message || err.response?.data?.error || err.message || 'An error occurred'
         await Swal.fire({
             icon: 'error',
             title: 'Failed to update task',
@@ -285,8 +298,6 @@ async function handleEdit() {
     }
 }
 </script>
-
-
 
 <style scoped>
 @keyframes spin {
@@ -299,14 +310,11 @@ async function handleEdit() {
     animation: spin 1s linear infinite;
 }
 
-/* Modal width */
 .modal-dialog {
     width: 50%;
     max-width: 600px;
-    /* optional */
 }
 
-/* Mobile */
 @media (max-width: 780px) {
     .modal-dialog {
         width: 95%;

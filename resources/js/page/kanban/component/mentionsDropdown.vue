@@ -9,14 +9,13 @@
             </span>
         </div>
 
-
         <!-- Dropdown -->
         <div class="dropdown w-100">
             <button class="btn btn-outline-secondary w-100 dropdown-toggle" type="button" @click="toggleDropdown">
                 Select Mentions
             </button>
             <ul v-show="isOpen" class="dropdown-menu w-100 show" style="max-height: 150px; overflow-y: auto">
-                <li v-for="user in users" :key="user.id" class="dropdown-item" @click="addMention(user)">
+                <li v-for="user in filteredUsers" :key="user.id" class="dropdown-item" @click="addMention(user)">
                     {{ user.username }}
                 </li>
             </ul>
@@ -25,7 +24,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, computed, watch } from 'vue'
 
 const props = defineProps({
     users: {
@@ -52,22 +51,23 @@ function addMention(user) {
     if (!selectedMentions.value.some(m => m.id === user.id)) {
         selectedMentions.value.push({ id: user.id, username: user.username })
         emit('update:modelValue', selectedMentions.value)
-        console.log('Selected mentions:', selectedMentions.value)
     }
 }
-
 
 function removeMention(index) {
     selectedMentions.value.splice(index, 1)
     emit('update:modelValue', selectedMentions.value)
 }
 
+// Hide names if it is already mentioned
+const filteredUsers = computed(() => {
+    return props.users.filter(u => !selectedMentions.value.some(m => m.id === u.id))
+})
 
 watch(() => props.modelValue, val => {
     selectedMentions.value = [...val]
 })
 </script>
-
 
 <style scoped>
 .mentions-dropdown {

@@ -1,6 +1,6 @@
 <template>
   <div>
-    <!-- Button to open modal -->
+    <!-- Button: Open Modal -->
     <button type="button" class="btn btn-secondary btn-xs" @click="openModal" aria-label="Add new task">
       <i class="bi bi-plus"></i>
     </button>
@@ -9,23 +9,23 @@
     <div class="modal fade" id="addTaskModal" tabindex="-1" aria-labelledby="addTaskModalLabel" aria-hidden="true">
       <div class="modal-dialog modal-width">
         <div class="modal-content">
-          <!-- Modal Header -->
+          <!-- Header -->
           <div class="modal-header">
             <h5 class="modal-title" id="addTaskModalLabel">Add New Task</h5>
             <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
           </div>
 
-          <!-- Modal Body (Form) -->
+          <!-- Body -->
           <div class="modal-body">
             <form @submit.prevent="submitTask" novalidate>
-              <!-- Task Title -->
+              <!-- Title -->
               <div class="mb-3">
                 <label for="taskTitle" class="form-label">Title</label>
                 <input type="text" id="taskTitle" v-model.trim="task.title" class="form-control"
                   placeholder="Enter task title" required />
               </div>
 
-              <!-- Task Description -->
+              <!-- Description -->
               <div class="mb-3">
                 <label for="taskDescription" class="form-label">Description</label>
                 <textarea id="taskDescription" v-model="task.description" class="form-control"
@@ -41,12 +41,13 @@
               <!-- Status -->
               <div class="mb-3">
                 <label for="taskStatus" class="form-label">Status</label>
-                <select id="taskStatus" v-model="task.status" class="form-select" required>
+                <p class="fw-bold">To Do</p>
+                <!-- <select id="taskStatus" v-model="task.status" class="form-select" required>
                   <option value="todo">To Do</option>
-                  <option value="inprogress">In Progress</option>
+                  <option value="inprogress" disabled>In Progress</option>
                   <option value="review">Under Review</option>
                   <option value="done">Done</option>
-                </select>
+                </select> -->
               </div>
 
               <!-- Priority -->
@@ -59,22 +60,27 @@
                 </select>
               </div>
 
-              <!-- Mentions Dropdown -->
+              <!-- Mentions -->
               <div class="mb-3">
                 <label for="taskMentions" class="form-label">Mentions</label>
                 <MentionsDropdown id="taskMentions" v-model="task.mentions" :users="allUsers" />
               </div>
 
-              <!-- Multiple Images -->
+              <!-- Upload Files -->
               <div class="mb-3">
-                <label for="taskImages" class="form-label">Upload Images</label>
-                <input type="file" id="taskImages" @change="handleFiles" class="form-control" multiple
-                  accept="image/*" />
-                <ul v-if="task.images.length" class="list-group mt-2">
-                  <li v-for="(file, index) in task.images" :key="getFileKey(file, index)"
+                <label for="taskFiles" class="form-label">Upload Images / Documents</label>
+                <input type="file" id="taskFiles" @change="handleFiles" class="form-control" multiple
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" />
+
+                <!-- File List -->
+                <ul v-if="task.files.length" class="list-group mt-2">
+                  <li v-for="(file, index) in task.files" :key="fileKey(file, index)"
                     class="list-group-item d-flex justify-content-between align-items-center">
-                    <span class="text-truncate">{{ file.name }}</span>
-                    <button type="button" class="btn btn-sm btn-danger flex-shrink-0" @click="removeFile(index)"
+                    <span class="text-truncate d-flex align-items-center">
+                      <i :class="fileIcon(file)" class="me-2"></i>
+                      {{ file.name }}
+                    </span>
+                    <button type="button" class="btn btn-sm btn-danger" @click="removeFile(index)"
                       :aria-label="`Remove ${file.name}`">
                       Remove
                     </button>
@@ -105,10 +111,7 @@ import MentionsDropdown from '../mentionsDropdown.vue'
 import Swal from 'sweetalert2'
 
 const props = defineProps({
-  allUsers: {
-    type: Array,
-    default: () => []
-  }
+  allUsers: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['task-added'])
@@ -123,7 +126,7 @@ const INITIAL_TASK = {
   status: 'todo',
   priority: 'medium',
   mentions: [],
-  images: [],
+  files: [],
   user_id: window.user.id
 }
 
@@ -137,50 +140,57 @@ function closeModal() {
   modalInstance?.hide()
 }
 
-function handleFiles(event) {
-  const files = Array.from(event.target.files)
-  if (files.length) {
-    task.value.images.push(...files)
-  }
-}
-
-function removeFile(index) {
-  task.value.images.splice(index, 1)
-}
-
-function getFileKey(file, index) {
-  return file.name + file.size + index
-}
-
 function resetForm() {
   task.value = { ...INITIAL_TASK }
 }
 
+function handleFiles(event) {
+  const files = Array.from(event.target.files)
+  if (files.length) task.value.files.push(...files)
+  event.target.value = '' // reset input
+}
+
+function removeFile(index) {
+  task.value.files.splice(index, 1)
+}
+
+function fileKey(file, index) {
+  return `${file.name}-${file.size}-${index}`
+}
+
+function fileIcon(file) {
+  const type = file.type
+  if (type.startsWith('image/')) return 'bi bi-image'
+  if (type.includes('pdf')) return 'bi bi-file-earmark-pdf'
+  if (type.includes('word')) return 'bi bi-file-earmark-word'
+  if (type.includes('excel') || type.includes('spreadsheet')) return 'bi bi-file-earmark-excel'
+  if (type.includes('presentation')) return 'bi bi-file-earmark-ppt'
+  return 'bi bi-file-earmark-text'
+}
+
 function buildFormData() {
   const formData = new FormData()
-  formData.append('title', task.value.title)
-  formData.append('description', task.value.description)
-  formData.append('status', task.value.status)
-  formData.append('priority', task.value.priority)
-  formData.append('note', task.value.notes)
-  formData.append('user_id', task.value.user_id)
+  const { title, description, notes, status, priority, mentions, files, user_id } = task.value
 
-  if (task.value.mentions.length) {
-    task.value.mentions.forEach((m, i) => {
-      formData.append(`mentions[${i}]`, m.id)
-    })
-  }
+  formData.append('title', title)
+  formData.append('description', description)
+  formData.append('note', notes)
+  formData.append('status', status)
+  formData.append('priority', priority)
+  formData.append('user_id', user_id)
 
-  if (task.value.images.length) {
-    task.value.images.forEach((file, index) => {
-      formData.append(`images[${index}]`, file)
-    })
-  }
+  mentions.forEach((m, i) => formData.append(`mentions[${i}]`, m.id))
+  files.forEach((file, i) => formData.append(`files[${i}]`, file))
 
   return formData
 }
 
 async function submitTask() {
+  if (!task.value.title.trim()) {
+    Swal.fire({ icon: 'warning', title: 'Title is required!' })
+    return
+  }
+
   isSubmitting.value = true
   try {
     await axios.post('/user/kanban/addTask', buildFormData(), {
@@ -201,23 +211,29 @@ async function submitTask() {
     await Swal.fire({
       icon: 'error',
       title: 'Failed to add task',
-      text: err.response?.data?.message || 'An error occurred'
+      text: err.response?.data?.message || 'An unexpected error occurred.'
     })
   } finally {
     isSubmitting.value = false
   }
 }
 
-// Lifecycle
 onMounted(() => {
   const modalEl = document.getElementById('addTaskModal')
   modalInstance = new bootstrap.Modal(modalEl)
+
+  // Reset form (including mentions and files) whenever the modal is fully hidden
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    resetForm()
+    task.value.files = []
+  })
 })
 
 onBeforeUnmount(() => {
   modalInstance?.dispose()
 })
 </script>
+
 
 <style scoped>
 .btn-xs {
@@ -248,36 +264,13 @@ onBeforeUnmount(() => {
   padding: 1rem;
 }
 
-@media (max-width: 768px) {
-  .modal-content {
-    max-width: 90%;
-    margin: 0.5rem;
-  }
-
-  .modal-body {
-    max-height: calc(100vh - 120px);
-  }
-}
-
-@media (max-width: 480px) {
-  .modal-content {
-    max-width: 100%;
-    margin: 0;
-    border-radius: 0;
-  }
-
-  .modal-body {
-    max-height: calc(100vh - 100px);
-  }
+.spin {
+  animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.spin {
-  animation: spin 1s linear infinite;
 }
 </style>
