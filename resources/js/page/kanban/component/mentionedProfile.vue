@@ -1,11 +1,14 @@
 <template>
-    <div class="mentions-stack">
-        <div v-for="(user, index) in mentions" :key="user.id" class="mention-avatar"
-            :style="{ left: `${index * 18}px`, zIndex: mentions.length - index }" :title="user.username"
-            data-bs-toggle="tooltip" data-bs-placement="top">
-            <img v-if="user.profile_picture" :src="user.profile_picture" :alt="user.username"
-                @error="handleImageError($event, user)" />
-            <span v-else class="fallback-letter">{{ user.username.charAt(0).toUpperCase() }}</span>
+    <div>
+        <p v-show="showLabel" class="fw-bolder">Mentioned Users</p>
+        <div class="mentions-stack">
+            <div v-for="(user, index) in mentions" :key="user.id" class="mention-avatar"
+                :style="{ left: `${index * 18}px`, zIndex: mentions.length - index }" :title="user.username"
+                data-bs-toggle="tooltip" data-bs-placement="top">
+                <img v-if="user.profile_picture" :src="user.profile_picture" :alt="user.username"
+                    @error="handleImageError($event, user)" />
+                <span v-else class="fallback-letter">{{ user.username.charAt(0).toUpperCase() }}</span>
+            </div>
         </div>
     </div>
 </template>
@@ -19,7 +22,8 @@ const props = defineProps({
         type: Array,
         required: true,
         default: () => []
-    }
+    },
+    showLabel: { type: Boolean, default: () => false }
 })
 
 // Optional: replace broken image with letter

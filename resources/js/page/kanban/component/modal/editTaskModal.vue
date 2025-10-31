@@ -24,7 +24,7 @@
                             <div class="mb-3">
                                 <label for="edit-desc" class="form-label">Description</label>
                                 <textarea id="edit-desc" v-model="task.description" class="form-control"
-                                    rows="3"></textarea>
+                                    rows="10"></textarea>
                             </div>
 
                             <!-- Notes -->

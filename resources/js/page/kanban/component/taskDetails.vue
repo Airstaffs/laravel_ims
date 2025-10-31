@@ -5,8 +5,8 @@
         <p class="text-secondary my-2">{{ task.description || 'No description' }}</p>
         <p class="my-2"><strong>Notes:</strong> {{ task.note || 'No notes' }}</p>
 
-        <MentionedProfile :mentions="task.mentions" />
-
+        <MentionedProfile :mentions="task.mentions" show-label="true" />
+        <p class="text-secondary my-4" style="font-size: 14px;">Created by: {{ task.createdBy }}</p>
         <!-- Image gallery -->
         <div class="mt-4">
             <PictureGallery v-if="images.length" :images="images" />
