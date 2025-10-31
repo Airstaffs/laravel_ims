@@ -3,6 +3,7 @@ import AddTaskModal from './component/modal/addTaskModal.vue'
 import PriorityBadge from './component/priorityBadge.vue'
 import MentionedProfile from './component/mentionedProfile.vue'
 import KanbanCard from './component/kanbanCard.vue'
+import { onUnmounted } from 'vue'
 
 export default {
   components: {
@@ -31,7 +32,8 @@ export default {
         'In Progress': false,
         'Under Review': false,
         'Done': false
-      }
+      },
+      intervalId: null
     }
   },
 
@@ -74,6 +76,13 @@ export default {
     }
   },
 
+  autoFetchTasks () {
+    this.intervalId =  setInterval(() => {
+      this.fetchTasks()
+    }, 60000)
+  },
+
+
     toggleHidden(status) {
       this.isHidden[status] = !this.isHidden[status]
     },
@@ -111,7 +120,13 @@ export default {
     }
   },
 
+ 
   mounted() {
+    this.autoFetchTasks()
     this.fetchAllData()
+  },
+
+  onUnmounted() {
+    clearInterval(this.intervalId)
   }
 }

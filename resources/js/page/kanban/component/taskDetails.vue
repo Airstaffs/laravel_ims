@@ -8,7 +8,9 @@
         <MentionedProfile :mentions="task.mentions" />
 
         <!-- Image gallery -->
-        <PictureGallery v-if="images.length" :images="images" />
+        <div class="mt-4">
+            <PictureGallery v-if="images.length" :images="images" />
+        </div>
 
         <!-- Document list -->
         <div v-if="documents.length" class="mt-3">

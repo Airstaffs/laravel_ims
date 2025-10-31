@@ -52,10 +52,15 @@
 
                 <!----Kanban---->
                 <li class="nav-item" id="kanban-nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center" href="#"
-                        data-bs-toggle="modal" data-bs-target="#" onclick="window.loadContent('kanban')">
+                    <a class="nav-link d-flex align-items-center justify-content-center position-relative"
+                        href="#" data-bs-toggle="modal" data-bs-target="#" onclick="window.loadContent('kanban')">
                         <i class="bi bi-kanban me-2"></i>
                         <span class="d-none d-lg-inline">Kanban</span>
+                        <span id="kanbanNotifAccount"
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                            0
+                            <span class="visually-hidden">unread notifications</span>
+                        </span>
                     </a>
                 </li>
 

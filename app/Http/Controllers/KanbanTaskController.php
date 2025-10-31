@@ -253,69 +253,92 @@ if ($request->hasFile('images')) {
 }
 
 
-    public function getTasks(Request $request)
-    {
-        $validated = $request->validate([
-            'userId' => 'required|integer',
-        ]);
+public function getTasks(Request $request)
+{
+    $validated = $request->validate([
+        'userId' => 'required|integer',
+    ]);
 
-        $userId = $validated['userId'];
+    $userId = $validated['userId'];
 
-        try {
-            $tasks = Task::where('userId', $userId)
-                ->orWhere(function ($query) use ($userId) {
-                    $query->whereNotNull('mentions')
-                          ->where(function ($q) use ($userId) {
-                              $q->where('mentions', 'like', '%[' . $userId . ']%')
-                                ->orWhere('mentions', 'like', '%,' . $userId . ',%')
-                                ->orWhere('mentions', 'like', '%,' . $userId . ']%')
-                                ->orWhere('mentions', 'like', '%[' . $userId . ',%');
-                          });
-                })
-                ->orderBy('created_at', 'desc')
-                ->get();
+    try {
+        $tasks = Task::where('userId', $userId)
+            ->orWhere(function ($query) use ($userId) {
+                $query->whereNotNull('mentions')
+                    ->where(function ($q) use ($userId) {
+                        $q->where('mentions', 'like', '%[' . $userId . ']%')
+                            ->orWhere('mentions', 'like', '%,' . $userId . ',%')
+                            ->orWhere('mentions', 'like', '%,' . $userId . ']%')
+                            ->orWhere('mentions', 'like', '%[' . $userId . ',%');
+                    });
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
 
-            $tasks->transform(function ($task) {
-                // Decode JSON columns safely
-                $task->mentions = $task->mentions ? json_decode($task->mentions, true) : [];
-                $task->medias = $task->medias ? json_decode($task->medias, true) : [];
+        $tasks->transform(function ($task) {
+            // Decode JSON safely
+            $task->mentions = $task->mentions ? json_decode($task->mentions, true) : [];
+            $task->medias = $task->medias ? json_decode($task->medias, true) : [];
 
-                if (!empty($task->mentions)) {
-                    // Fetch user info along with permissions for this task
-                    $users = DB::table('tbluser as u')
-                        ->leftJoin('tblkanbanuserpermission as p', function ($join) use ($task) {
-                            $join->on('u.id', '=', 'p.userId')
-                                 ->where('p.taskId', $task->id);
-                        })
-                        ->select(
-                            'u.id',
-                            'u.username',
-                            'u.profile_picture',
-                            DB::raw('IFNULL(p.can_edit, 0) as can_edit'),
-                            DB::raw('IFNULL(p.can_comment, 0) as can_comment'),
-                            DB::raw('IFNULL(p.can_delete, 0) as can_delete')
-                        )
-                        ->whereIn('u.id', $task->mentions)
-                        ->get();
+            // Fetch creator info (createdBy)
+            $creator = DB::table('tbluser')
+                ->select('username')
+                ->where('id', $task->userId)
+                ->first();
+            $task->createdBy = $creator->username ?? null;
 
-                    $task->mentions = $users;
+            // Fetch mentions info
+            if (!empty($task->mentions)) {
+                $users = DB::table('tbluser as u')
+                    ->leftJoin('tblkanbanuserpermission as p', function ($join) use ($task) {
+                        $join->on('u.id', '=', 'p.userId')
+                            ->where('p.taskId', $task->id);
+                    })
+                    ->select(
+                        'u.id',
+                        'u.username',
+                        'u.profile_picture',
+                        DB::raw('IFNULL(p.can_edit, 0) as can_edit'),
+                        DB::raw('IFNULL(p.can_comment, 0) as can_comment'),
+                        DB::raw('IFNULL(p.can_delete, 0) as can_delete')
+                    )
+                    ->whereIn('u.id', $task->mentions)
+                    ->get();
+
+                $task->mentions = $users;
+            }
+
+            //  Get Comment Counts
+            $task->commentCount = DB::table('tblkanbancomments')
+                ->where('taskId', $task->id)
+                ->count();
+
+            // Get File Counts
+            if (is_string($task->medias)) {
+                $task->medias = json_decode($task->medias, true);
+                } elseif (!is_array($task->medias)) {
+                    $task->medias = [];
                 }
+            $task->fileCount = is_array($task->medias) ? count($task->medias) : 0;
 
-                return $task;
-            });
+            return $task;
+        });
 
-            return response()->json([
-                'success' => true,
-                'tasks' => $tasks,
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch tasks',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'tasks' => $tasks,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch tasks',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
+
+
 
     public function deleteTask(Request $request)
     {
@@ -359,4 +382,73 @@ if ($request->hasFile('images')) {
             'message' => 'Task and associated images deleted successfully.'
         ], 200);
     }
+
+    
+public function kanbanNotif(Request $request)
+{
+    $validated = $request->validate([
+        'userId' => 'required|integer'
+    ]);
+
+    $userId = $validated['userId'];
+
+    $mentionedCount = DB::table('tblkanbantasks')
+        ->where(function ($query) use ($userId) {
+            // Task mentions this user
+            $query->where('mentions', 'like', '%"'.$userId.'"%')
+                  ->orWhere('mentions', 'like', '%['.$userId.']%')
+                  ->orWhere('mentions', 'like', '%'.$userId.'%');
+        })
+        ->where(function ($query) use ($userId) {
+            // Task has not been read by this user
+            $query->whereNull('readBy') // readBy is null → not read
+                  ->orWhereRaw('NOT JSON_CONTAINS(readBy, ?)', [json_encode($userId)]);
+        })
+        ->count();
+
+    return response()->json([
+        'success' => true,
+        'mentionedCount' => $mentionedCount
+    ]);
+}
+
+
+public function readNotif(Request $request)
+{
+    $validated = $request->validate([
+        'userId' => 'required|integer',
+        'taskId' => 'required|integer',
+    ]);
+
+    $userId = $validated['userId'];
+    $taskId = $validated['taskId'];
+
+    $task = DB::table('tblkanbantasks')->where('id', $taskId)->first();
+
+    if (!$task) {
+        return response()->json(['error' => 'Task not found'], 404);
+    }
+
+    // Decode JSON array (use empty array if null)
+    $readBy = json_decode($task->readBy ?? '[]', true);
+
+    if (!in_array($userId, $readBy)) {
+        $readBy[] = $userId;
+
+        DB::table('tblkanbantasks')
+            ->where('id', $taskId)
+            ->update([
+                'readBy' => json_encode($readBy),
+            ]);
+    }
+
+    return response()->json([
+        'message' => 'Task marked as read',
+        'readBy' => $readBy,
+    ]);
+}
+
+
+
+
 }
