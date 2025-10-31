@@ -1156,7 +1156,7 @@ public function generateQRforSmallLabelCard($serialNumber, $returnCount = 0)
         }
         
         // Create the QR code URL
-        $manual = "https://www.google.com/search?q=" . urlencode($serialNumber);
+        $manual = $serialNumber;
 
         // Generate QR code in temp directory
         $qrCodePath = $this->imagesPath . '/temp/qr_small_' . $serialNumber . '.png';

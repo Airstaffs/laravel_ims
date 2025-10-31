@@ -18,6 +18,7 @@ class PrinterController extends BasetablesController
 {
     protected $imageProcessingService;
     protected $printLabelService; 
+    protected $unvalidatedItemTable = 'tblUnvalidatedItem';
 
     public function __construct()
     {
@@ -44,161 +45,212 @@ class PrinterController extends BasetablesController
     }
 
     /**
- * Check if a serial number meets print conditions
- * UPDATED with better error handling
- *
- * @param Request $request
- * @return \Illuminate\Http\JsonResponse
- */
-public function checkSerial(Request $request)
-{
-    try {
-        $request->validate([
-            'serial_number' => 'required|string'
-        ]);
-
-        $searchTerm = trim($request->serial_number);
-        
-        Log::info('CheckSerial called with search term:', ['search_term' => $searchTerm]);
-        
-        // Search for the product using enhanced search logic
+     * NEW: Insert unvalidated item record
+     * 
+     * @param int $productId
+     * @return bool
+     */
+    protected function insertUnvalidatedItem($productId)
+    {
         try {
-            $product = $this->searchProductForPrinting($searchTerm);
-        } catch (Exception $searchException) {
-            Log::error('Error in searchProductForPrinting:', [
-                'error' => $searchException->getMessage(),
-                'trace' => $searchException->getTraceAsString(),
-                'search_term' => $searchTerm
+            // Check if this ProductID already exists in unvalidated items table with NotProcessed status
+            $existing = DB::table($this->unvalidatedItemTable)
+                ->where('ProductID', $productId)
+                ->where('status', 'NotProcessed')
+                ->first();
+
+            if ($existing) {
+                Log::info('Unvalidated item already exists in tracking table:', [
+                    'ProductID' => $productId,
+                    'existing_record_id' => $existing->UnvalidatedID ?? 'unknown'
+                ]);
+                return true; // Already tracked, no need to insert again
+            }
+
+            // Insert new unvalidated item record
+            DB::table($this->unvalidatedItemTable)->insert([
+                'ProductID' => $productId,
+                'status' => 'NotProcessed',
+                'scanned_date' => now()
+            ]);
+
+            Log::info('Unvalidated item inserted into tracking table:', [
+                'ProductID' => $productId
+            ]);
+
+            return true;
+
+        } catch (Exception $e) {
+            Log::error('Error inserting unvalidated item:', [
+                'error' => $e->getMessage(),
+                'ProductID' => $productId,
+                'trace' => $e->getTraceAsString()
             ]);
             
-            return response()->json([
-                'success' => false,
-                'message' => 'Error searching for product: ' . $searchException->getMessage(),
-                'meets_print_conditions' => false
-            ], 500);
+            // Don't fail the main operation if logging fails
+            return false;
         }
-
-        if (!$product) {
-            Log::warning('Product not found:', ['search_term' => $searchTerm]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Item not found with search term: ' . $searchTerm,
-                'meets_print_conditions' => false
-            ]);
-        }
-
-        Log::info('Product found:', [
-            'ProductID' => $product->ProductID ?? 'null',
-            'validation_status' => $product->validation_status ?? 'null'
-        ]);
-
-        // NEW: Check validation status FIRST before other conditions
-        if (!isset($product->validation_status) || 
-            strcasecmp($product->validation_status, 'validated') !== 0) {
-            
-            // Get the validation status or default to 'Not Validated'
-            $validationStatus = $product->validation_status ?? 'Not Validated';
-            
-            Log::info('Validation check failed:', [
-                'ProductID' => $product->ProductID,
-                'validation_status' => $validationStatus
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Item is not validated yet (Status: ' . $validationStatus . ')',
-                'meets_print_conditions' => false,
-                'requires_confirmation' => true,
-                'validation_status' => $validationStatus,
-                'product_data' => [
-                    'ProductID' => $product->ProductID ?? null,
-                    'rtcounter' => $product->rtcounter ?? null,
-                    'FNSKUviewer' => $product->FNSKUviewer ?? null,
-                    'ASINviewer' => $product->ASINviewer ?? null,
-                    'AStitle' => $product->AStitle ?? 'Unknown Title',
-                    'serialnumber' => $product->serialnumber ?? null,
-                    'validation_status' => $validationStatus
-                ]
-            ]);
-        }
-
-        // Check if product meets print conditions
-        try {
-            $conditions = $this->checkPrintConditions($product);
-        } catch (Exception $conditionException) {
-            Log::error('Error in checkPrintConditions:', [
-                'error' => $conditionException->getMessage(),
-                'ProductID' => $product->ProductID ?? 'null'
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => 'Error checking print conditions: ' . $conditionException->getMessage(),
-                'meets_print_conditions' => false
-            ], 500);
-        }
-        
-        if ($conditions['meets_conditions']) {
-            return response()->json([
-                'success' => true,
-                'message' => 'Item ready for printing',
-                'meets_print_conditions' => true,
-                'product_data' => [
-                    'ProductID' => $product->ProductID,
-                    'rtcounter' => $product->rtcounter,
-                    'FNSKUviewer' => $product->FNSKUviewer,
-                    'ASINviewer' => $product->ASINviewer,
-                    'AStitle' => $product->AStitle,
-                    'fnsku_grading' => $product->fnsku_grading ?? null,
-                    'fnsku_storename' => $product->fnsku_storename ?? null,
-                    'serialnumber' => $product->serialnumber,
-                    'serialnumberb' => $product->serialnumberb ?? null,
-                    'serialnumberc' => $product->serialnumberc ?? null,
-                    'serialnumberd' => $product->serialnumberd ?? null,
-                    'ProductModuleLoc' => $product->ProductModuleLoc,
-                    'printCount' => $product->printCount ?? 0,
-                    'warehouselocation' => $product->warehouselocation ?? null,
-                    'notes' => $product->notes ?? null,
-                    'stickernote' => $product->stickernote ?? null,
-                    'basketnumber' => $product->basketnumber ?? null,
-                    'priorityrank' => $product->priorityrank ?? null,
-                    'validation_status' => $product->validation_status,
-                    'asinStatus' => $product->asinStatus ?? null,
-                ]
-            ]);
-        } else {
-            return response()->json([
-                'success' => false,
-                'message' => $conditions['message'],
-                'meets_print_conditions' => false,
-                'product_data' => [
-                    'ProductID' => $product->ProductID,
-                    'rtcounter' => $product->rtcounter ?? null,
-                    'ProductModuleLoc' => $product->ProductModuleLoc,
-                    'current_status' => $conditions['current_status'] ?? 'Unknown',
-                    'AStitle' => $product->AStitle ?? 'Unknown Title',
-                    'ASINviewer' => $product->ASINviewer ?? null,
-                    'FNSKUviewer' => $product->FNSKUviewer ?? null
-                ]
-            ]);
-        }
-
-    } catch (Exception $e) {
-        Log::error('Error checking serial for printing:', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-            'search_term' => $request->serial_number ?? 'unknown',
-            'line' => $e->getLine(),
-            'file' => $e->getFile()
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Error checking item: ' . $e->getMessage(),
-            'meets_print_conditions' => false
-        ], 500);
     }
-}
+
+    /**
+     * Check if a serial number meets print conditions
+     * UPDATED with better error handling and unvalidated item tracking
+     *
+     * @param Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function checkSerial(Request $request)
+    {
+        try {
+            $request->validate([
+                'serial_number' => 'required|string'
+            ]);
+
+            $searchTerm = trim($request->serial_number);
+            
+            Log::info('CheckSerial called with search term:', ['search_term' => $searchTerm]);
+            
+            // Search for the product using enhanced search logic
+            try {
+                $product = $this->searchProductForPrinting($searchTerm);
+            } catch (Exception $searchException) {
+                Log::error('Error in searchProductForPrinting:', [
+                    'error' => $searchException->getMessage(),
+                    'trace' => $searchException->getTraceAsString(),
+                    'search_term' => $searchTerm
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error searching for product: ' . $searchException->getMessage(),
+                    'meets_print_conditions' => false
+                ], 500);
+            }
+
+            if (!$product) {
+                Log::warning('Product not found:', ['search_term' => $searchTerm]);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item not found with search term: ' . $searchTerm,
+                    'meets_print_conditions' => false
+                ]);
+            }
+
+            Log::info('Product found:', [
+                'ProductID' => $product->ProductID ?? 'null',
+                'validation_status' => $product->validation_status ?? 'null'
+            ]);
+
+            // NEW: Check validation status FIRST before other conditions
+            if (!isset($product->validation_status) || 
+                strcasecmp($product->validation_status, 'validated') !== 0) {
+                
+                // Get the validation status or default to 'Not Validated'
+                $validationStatus = $product->validation_status ?? 'Not Validated';
+                
+                // INSERT into tblUnvalidatedItem
+                $this->insertUnvalidatedItem($product->ProductID);
+                
+                Log::info('Validation check failed:', [
+                    'ProductID' => $product->ProductID,
+                    'validation_status' => $validationStatus
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item is not validated yet (Status: ' . $validationStatus . ')',
+                    'meets_print_conditions' => false,
+                    'requires_confirmation' => true,
+                    'validation_status' => $validationStatus,
+                    'product_data' => [
+                        'ProductID' => $product->ProductID ?? null,
+                        'rtcounter' => $product->rtcounter ?? null,
+                        'FNSKUviewer' => $product->FNSKUviewer ?? null,
+                        'ASINviewer' => $product->ASINviewer ?? null,
+                        'AStitle' => $product->AStitle ?? 'Unknown Title',
+                        'serialnumber' => $product->serialnumber ?? null,
+                        'validation_status' => $validationStatus
+                    ]
+                ]);
+            }
+
+            // Check if product meets print conditions
+            try {
+                $conditions = $this->checkPrintConditions($product);
+            } catch (Exception $conditionException) {
+                Log::error('Error in checkPrintConditions:', [
+                    'error' => $conditionException->getMessage(),
+                    'ProductID' => $product->ProductID ?? 'null'
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error checking print conditions: ' . $conditionException->getMessage(),
+                    'meets_print_conditions' => false
+                ], 500);
+            }
+            
+            if ($conditions['meets_conditions']) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Item ready for printing',
+                    'meets_print_conditions' => true,
+                    'product_data' => [
+                        'ProductID' => $product->ProductID,
+                        'rtcounter' => $product->rtcounter,
+                        'FNSKUviewer' => $product->FNSKUviewer,
+                        'ASINviewer' => $product->ASINviewer,
+                        'AStitle' => $product->AStitle,
+                        'fnsku_grading' => $product->fnsku_grading ?? null,
+                        'fnsku_storename' => $product->fnsku_storename ?? null,
+                        'serialnumber' => $product->serialnumber,
+                        'serialnumberb' => $product->serialnumberb ?? null,
+                        'serialnumberc' => $product->serialnumberc ?? null,
+                        'serialnumberd' => $product->serialnumberd ?? null,
+                        'ProductModuleLoc' => $product->ProductModuleLoc,
+                        'printCount' => $product->printCount ?? 0,
+                        'warehouselocation' => $product->warehouselocation ?? null,
+                        'notes' => $product->notes ?? null,
+                        'stickernote' => $product->stickernote ?? null,
+                        'basketnumber' => $product->basketnumber ?? null,
+                        'priorityrank' => $product->priorityrank ?? null,
+                        'validation_status' => $product->validation_status,
+                        'asinStatus' => $product->asinStatus ?? null,
+                    ]
+                ]);
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => $conditions['message'],
+                    'meets_print_conditions' => false,
+                    'product_data' => [
+                        'ProductID' => $product->ProductID,
+                        'rtcounter' => $product->rtcounter ?? null,
+                        'ProductModuleLoc' => $product->ProductModuleLoc,
+                        'current_status' => $conditions['current_status'] ?? 'Unknown',
+                        'AStitle' => $product->AStitle ?? 'Unknown Title',
+                        'ASINviewer' => $product->ASINviewer ?? null,
+                        'FNSKUviewer' => $product->FNSKUviewer ?? null
+                    ]
+                ]);
+            }
+
+        } catch (Exception $e) {
+            Log::error('Error checking serial for printing:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'search_term' => $request->serial_number ?? 'unknown',
+                'line' => $e->getLine(),
+                'file' => $e->getFile()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error checking item: ' . $e->getMessage(),
+                'meets_print_conditions' => false
+            ], 500);
+        }
+    }
 
     /**
      * Enhanced search function for printing - UPDATED to use base FNSKU for database lookups
@@ -313,111 +365,114 @@ public function checkSerial(Request $request)
 
     /**
      * Search for a product to reprint by serial number, PCN, or RT counter
-     * UPDATED to use base FNSKU for database lookups
+     * UPDATED to use base FNSKU for database lookups and track unvalidated items
      *
      * @param Request $request
      * @return \Illuminate\Http\JsonResponse
      */
     public function searchForReprint(Request $request)
-{
-    try {
-        $request->validate([
-            'search_term' => 'required|string'
-        ]);
-
-        $searchTerm = trim($request->search_term);
-        
-        Log::info('Searching for reprint:', ['search_term' => $searchTerm]);
-        
-        // Search by different criteria
-        $product = $this->searchProductByTerm($searchTerm);
-
-        if (!$product) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Product not found with search term: ' . $searchTerm
+    {
+        try {
+            $request->validate([
+                'search_term' => 'required|string'
             ]);
-        }
 
-        // NEW: Check validation status before allowing reprint
-        if (!isset($product->validation_status) || 
-            strcasecmp($product->validation_status, 'validated') !== 0) {
+            $searchTerm = trim($request->search_term);
             
-            $validationStatus = $product->validation_status ?? 'Not Validated';
+            Log::info('Searching for reprint:', ['search_term' => $searchTerm]);
             
-            Log::info('Reprint search - validation check failed:', [
-                'ProductID' => $product->ProductID,
-                'validation_status' => $validationStatus,
-                'search_term' => $searchTerm
-            ]);
-            
+            // Search by different criteria
+            $product = $this->searchProductByTerm($searchTerm);
+
+            if (!$product) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product not found with search term: ' . $searchTerm
+                ]);
+            }
+
+            // NEW: Check validation status before allowing reprint
+            if (!isset($product->validation_status) || 
+                strcasecmp($product->validation_status, 'validated') !== 0) {
+                
+                $validationStatus = $product->validation_status ?? 'Not Validated';
+                
+                // INSERT into tblUnvalidatedItem
+                $this->insertUnvalidatedItem($product->ProductID);
+                
+                Log::info('Reprint search - validation check failed:', [
+                    'ProductID' => $product->ProductID,
+                    'validation_status' => $validationStatus,
+                    'search_term' => $searchTerm
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item is not validated yet (Status: ' . $validationStatus . '). Cannot reprint unvalidated items.',
+                    'requires_validation' => true,
+                    'validation_status' => $validationStatus,
+                    'product_preview' => [
+                        'ProductID' => $product->ProductID ?? null,
+                        'rtcounter' => $product->rtcounter ?? null,
+                        'FNSKUviewer' => $product->FNSKUviewer ?? null,
+                        'AStitle' => $product->AStitle ?? 'Unknown Title',
+                        'validation_status' => $validationStatus
+                    ]
+                ]);
+            }
+
+            // Return product data for reprint (only if validated)
             return response()->json([
-                'success' => false,
-                'message' => 'Item is not validated yet (Status: ' . $validationStatus . '). Cannot reprint unvalidated items.',
-                'requires_validation' => true,
-                'validation_status' => $validationStatus,
-                'product_preview' => [
-                    'ProductID' => $product->ProductID ?? null,
-                    'rtcounter' => $product->rtcounter ?? null,
-                    'FNSKUviewer' => $product->FNSKUviewer ?? null,
-                    'AStitle' => $product->AStitle ?? 'Unknown Title',
-                    'validation_status' => $validationStatus
+                'success' => true,
+                'message' => 'Product found successfully',
+                'product_data' => [
+                    'ProductID' => $product->ProductID,
+                    'rtcounter' => $product->rtcounter,
+                    'FNSKUviewer' => $product->FNSKUviewer,
+                    'ASINviewer' => $product->ASINviewer ?? null,
+                    'AStitle' => $product->AStitle ?? null,
+                    'fnsku_grading' => $product->fnsku_grading ?? null,
+                    'fnsku_storename' => $product->fnsku_storename ?? null,
+                    'serialnumber' => $product->serialnumber,
+                    'serialnumberb' => $product->serialnumberb ?? null,
+                    'serialnumberc' => $product->serialnumberc ?? null,
+                    'serialnumberd' => $product->serialnumberd ?? null,
+                    'ProductModuleLoc' => $product->ProductModuleLoc,
+                    'printCount' => $product->printCount ?? 0,
+                    'warehouselocation' => $product->warehouselocation ?? null,
+                    'notes' => $product->notes ?? null,
+                    'stickernote' => $product->stickernote ?? null,
+                    'basketnumber' => $product->basketnumber ?? null,
+                    'priorityrank' => $product->priorityrank ?? null,
+                    'validation_status' => $product->validation_status,
+                    'asinStatus' => $product->asinStatus ?? null,
+                    'itemnumber' => $product->itemnumber ?? null,
+                    'PRD' => $product->PRD ?? null,
+                    'PCN' => $product->PCN ?? null,
+                    'itemstatus' => $product->itemstatus ?? null,
+                    'subvariant' => $product->subvariant ?? null,
+                    'mID' => $product->mID ?? null,
+                    'vectorimage' => $product->vectorimage ?? null,
+                    'instructioncard' => $product->instructioncard ?? null,
+                    'instructioncard2' => $product->instructioncard2 ?? null,
+                    'instructioncard3' => $product->instructioncard3 ?? null,
+                    'TRANSPARENCY_QR_STATUS' => $product->TRANSPARENCY_QR_STATUS ?? null
                 ]
             ]);
+
+        } catch (Exception $e) {
+            Log::error('Error searching for reprint:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'search_term' => $request->search_term ?? 'unknown'
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error searching for product: ' . $e->getMessage()
+            ], 500);
         }
-
-        // Return product data for reprint (only if validated)
-        return response()->json([
-            'success' => true,
-            'message' => 'Product found successfully',
-            'product_data' => [
-                'ProductID' => $product->ProductID,
-                'rtcounter' => $product->rtcounter,
-                'FNSKUviewer' => $product->FNSKUviewer,
-                'ASINviewer' => $product->ASINviewer ?? null,
-                'AStitle' => $product->AStitle ?? null,
-                'fnsku_grading' => $product->fnsku_grading ?? null,
-                'fnsku_storename' => $product->fnsku_storename ?? null,
-                'serialnumber' => $product->serialnumber,
-                'serialnumberb' => $product->serialnumberb ?? null,
-                'serialnumberc' => $product->serialnumberc ?? null,
-                'serialnumberd' => $product->serialnumberd ?? null,
-                'ProductModuleLoc' => $product->ProductModuleLoc,
-                'printCount' => $product->printCount ?? 0,
-                'warehouselocation' => $product->warehouselocation ?? null,
-                'notes' => $product->notes ?? null,
-                'stickernote' => $product->stickernote ?? null,
-                'basketnumber' => $product->basketnumber ?? null,
-                'priorityrank' => $product->priorityrank ?? null,
-                'validation_status' => $product->validation_status,
-                'asinStatus' => $product->asinStatus ?? null,
-                'itemnumber' => $product->itemnumber ?? null,
-                'PRD' => $product->PRD ?? null,
-                'PCN' => $product->PCN ?? null,
-                'itemstatus' => $product->itemstatus ?? null,
-                'subvariant' => $product->subvariant ?? null,
-                'mID' => $product->mID ?? null,
-                'vectorimage' => $product->vectorimage ?? null,
-                'instructioncard' => $product->instructioncard ?? null,
-                'instructioncard2' => $product->instructioncard2 ?? null,
-                'instructioncard3' => $product->instructioncard3 ?? null,
-                'TRANSPARENCY_QR_STATUS' => $product->TRANSPARENCY_QR_STATUS ?? null
-            ]
-        ]);
-
-    } catch (Exception $e) {
-        Log::error('Error searching for reprint:', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-            'search_term' => $request->search_term ?? 'unknown'
-        ]);
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Error searching for product: ' . $e->getMessage()
-        ], 500);
     }
-}
 
     /**
      * UPDATED: Reprint a single label type with STRICT ENFORCEMENT
@@ -992,24 +1047,24 @@ public function checkSerial(Request $request)
                 $product->ASINviewer = null;
             }
 
-        if ($asinRecord) {
-            $product->AStitle = $asinRecord->internal ?? null;
-            $product->asinStatus = $asinRecord->asinStatus ?? null;
-            $product->vectorimage = $asinRecord->vectorimage ?? null;
-            $product->instructioncard = $asinRecord->instructioncard ?? null;
-            $product->instructioncard2 = $asinRecord->instructioncard2 ?? null;
-            $product->instructioncard3 = $asinRecord->instructioncard3 ?? null;
-            $product->TRANSPARENCY_QR_STATUS = $asinRecord->TRANSPARENCY_QR_STATUS ?? null;
-        } else {
-            // Set defaults if no ASIN record found
-            $product->AStitle = null;
-            $product->asinStatus = null;
-            $product->vectorimage = null;
-            $product->instructioncard = null;
-            $product->instructioncard2 = null;
-            $product->instructioncard3 = null;
-            $product->TRANSPARENCY_QR_STATUS = null;
-        }
+            if ($asinRecord) {
+                $product->AStitle = $asinRecord->internal ?? null;
+                $product->asinStatus = $asinRecord->asinStatus ?? null;
+                $product->vectorimage = $asinRecord->vectorimage ?? null;
+                $product->instructioncard = $asinRecord->instructioncard ?? null;
+                $product->instructioncard2 = $asinRecord->instructioncard2 ?? null;
+                $product->instructioncard3 = $asinRecord->instructioncard3 ?? null;
+                $product->TRANSPARENCY_QR_STATUS = $asinRecord->TRANSPARENCY_QR_STATUS ?? null;
+            } else {
+                // Set defaults if no ASIN record found
+                $product->AStitle = null;
+                $product->asinStatus = null;
+                $product->vectorimage = null;
+                $product->instructioncard = null;
+                $product->instructioncard2 = null;
+                $product->instructioncard3 = null;
+                $product->TRANSPARENCY_QR_STATUS = null;
+            }
 
             Log::info('Product found:', [
                 'ProductID' => $product->ProductID,

@@ -444,7 +444,7 @@ export default {
       availableLabelTypes: [
         // Small Label Types - INCLUDING VECTOR IMAGE
    //     { key: 'serial_labels', name: 'Serial Number Labels', description: 'All serial number labels (A, B, C, D)', category: 'small' },
-         { key: 'serial_labels', name: 'Serial number', description: 'Serial number Label', category: 'small' },
+        { key: 'serial_labels', name: 'Serial number', description: 'Serial number Label', category: 'small' },
         { key: 'fnsku_label', name: 'FNSKU Label', description: 'Main FNSKU barcode label', category: 'small' },
         { key: 'title_label', name: 'Title Label', description: 'Product title with RT/AR package number', category: 'small' },
         { key: 'item_number_label', name: 'Item Number Label', description: 'Item number with barcode', category: 'small' },
