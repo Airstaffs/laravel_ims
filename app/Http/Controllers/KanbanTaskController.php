@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Exception;
+use Carbon\Carbon;
 use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +64,11 @@ class KanbanTaskController extends Controller
         $mentions = $validated['mentions'] ?? [];
         $mentions = array_map('intval', $mentions);
 
+        //set timezone
+        date_default_timezone_set('America/Los_Angeles');
+        $laTime = Carbon::now('America/Los_Angeles')->format('Y-m-d H:i:s');
+
+
         // ✅ Create task record
         $task = Task::create([
             'title' => $validated['title'],
@@ -73,6 +79,8 @@ class KanbanTaskController extends Controller
             'mentions' => json_encode($mentions),
             'medias' => json_encode($mediaPaths), // contains paths like 'images/filename.jpg' or 'files/filename.pdf'
             'userId' => $validated['user_id'] ?? null,
+            'created_at' => $laTime,
+            'updated_at' => $laTime,
         ]);
 
         // ✅ Assign mention permissions
@@ -141,7 +149,6 @@ class KanbanTaskController extends Controller
 
         $existingMedias = $task->medias ? json_decode($task->medias, true) : [];
 
-        // Remove selected media files
       // Remove selected media files
 if (!empty($validated['removed_images'])) {
     foreach ($validated['removed_images'] as $relativePath) {

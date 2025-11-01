@@ -210,14 +210,25 @@ const markAsRead = () => {
 }
 
 // Date formatting
-const formatDate = (dateStr) =>
-	dateStr
-		? new Date(dateStr).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-		})
-		: ''
+function formatDate(dateString) {
+	const date = new Date(dateString);
+
+	const months = [
+		"January", "February", "March", "April", "May", "June",
+		"July", "August", "September", "October", "November", "December"
+	];
+
+	const month = months[date.getUTCMonth()];
+	const day = date.getUTCDate();
+	const year = date.getUTCFullYear();
+
+	let hours = date.getUTCHours();
+	const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+	const ampm = hours >= 12 ? 'pm' : 'am';
+	hours = hours % 12 || 12;
+
+	return `${month} ${day}, ${year} ${hours}:${minutes}${ampm}`;
+}
 
 
 onMounted(() => {

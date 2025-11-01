@@ -1,7 +1,8 @@
 <template>
     <div>
         <p v-show="showLabel" class="fw-bolder">Mentioned Users</p>
-        <div class="mentions-stack">
+        <p v-if="mentions.length === 0" class="text-secondary">No Mentions</p>
+        <div class="mentions-stack" v-else>
             <div v-for="(user, index) in mentions" :key="user.id" class="mention-avatar"
                 :style="{ left: `${index * 18}px`, zIndex: mentions.length - index }" :title="user.username"
                 data-bs-toggle="tooltip" data-bs-placement="top">

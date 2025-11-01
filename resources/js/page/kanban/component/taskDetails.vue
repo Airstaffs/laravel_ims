@@ -6,7 +6,8 @@
         <p class="my-2"><strong>Notes:</strong> {{ task.note || 'No notes' }}</p>
 
         <MentionedProfile :mentions="task.mentions" show-label="true" />
-        <p class="text-secondary my-4" style="font-size: 14px;">Created by: {{ task.createdBy }}</p>
+        <p class="text-secondary mt-4" style="font-size: 14px;">Created by: {{ task.createdBy }}</p>
+        <p class="text-secondary mb-4" style="font-size: 14px;">Created at: {{ formatDate(task.created_at) }}</p>
         <!-- Image gallery -->
         <div class="mt-4">
             <PictureGallery v-if="images.length" :images="images" />
@@ -58,6 +59,26 @@ function filterFileTypes() {
             documents.value.push(file)
         }
     })
+}
+
+function formatDate(dateString) {
+    const date = new Date(dateString);
+
+    const months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+
+    const month = months[date.getUTCMonth()];
+    const day = date.getUTCDate();
+    const year = date.getUTCFullYear();
+
+    let hours = date.getUTCHours();
+    const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    hours = hours % 12 || 12;
+
+    return `${month} ${day}, ${year} ${hours}:${minutes}${ampm}`;
 }
 
 // Get only the filename, removing the folder prefix
