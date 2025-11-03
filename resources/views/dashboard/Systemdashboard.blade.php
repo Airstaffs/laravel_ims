@@ -1069,7 +1069,16 @@ function hasAccess($module, $mainModule, $subModules): bool
                 })
                 .then(response => response.json())
                 .then(data => {
-                    document.getElementById("kanbanNotifAccount").textContent = data.mentionedCount
+                    if (data.mentionedCount > 0) {
+                        ["kanbanNotifMobile", "kanbanNotifDesktop"].forEach(id => {
+                            const el = document.getElementById(id)
+                            if (el) {
+                                el.style.display = "inline"
+                                el.textContent = data.mentionedCount
+                            }
+                        })
+                    }
+
                 })
                 .catch(error => console.error('Error fetching notifications:', error));
         }

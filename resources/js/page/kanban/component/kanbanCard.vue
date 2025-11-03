@@ -128,17 +128,23 @@ const openModal = (type, task) => {
 			editTaskModalRef.value.openModal()
 		}
 
-		//after opening the view modal, mark as read the notif if the task is new
 		if (type === 'view' && isNewTask.value) {
-			markAsRead()
-			isNewTask.value = false
-			const notifElem = document.getElementById('kanbanNotifAccount');
-			if (notifElem) {
-				let count = parseInt(notifElem.textContent || '0', 10);
-				count = Math.max(0, count - 1); // subtract 1 but not below 0
-				notifElem.textContent = count;
-			}
+			markAsRead();
+			isNewTask.value = false;
+
+			const notifIds = ['kanbanNotifDesktop', 'kanbanNotifMobile'];
+
+			notifIds.forEach(id => {
+				const elem = document.getElementById(id);
+				if (elem) {
+					let count = parseInt(elem.textContent || '0', 10);
+					count = Math.max(0, count - 1);
+					elem.textContent = count;
+					elem.style.display = count > 0 ? 'inline' : 'none';
+				}
+			});
 		}
+
 	} else {
 		Swal.fire('Access Denied', 'You do not have permission to use this button', 'error')
 	}
