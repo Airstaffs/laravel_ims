@@ -18,7 +18,7 @@ class PrinterController extends BasetablesController
 {
     protected $imageProcessingService;
     protected $printLabelService; 
-    protected $unvalidatedItemTable = 'tblUnvalidatedItem';
+
 
     public function __construct()
     {
