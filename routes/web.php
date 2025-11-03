@@ -697,6 +697,8 @@ Route::post('/user/kanban/addTask', [KanbanTaskController::class, 'addTask']);
 Route::post('user/kanban/getTasks', [KanbanTaskController::class, 'getTasks']);
 Route::post('/user/kanban/deleteTask', [KanbanTaskController::class, 'deleteTask']);
 Route::post('/user/kanban/editTask', [KanbanTaskController::class, 'editTask']);
+Route::post('/user/kanban/notification', [KanbanTaskController::class, 'kanbanNotif']);
+Route::post('/user/kanban/readNotif', [KanbanTaskController::class, 'readNotif']);
 Route::post('/user/kanban/getUserPermissions', [KanbanUserPermissionController::class, 'getUserPermissions']);
 Route::post('/user/kanban/saveUserPermissions', [KanbanUserPermissionController::class, 'saveUserPermissions']);
 Route::post('/user/kanban/getTaskComments', [KanbanCommentController::class, 'getTaskComments']);

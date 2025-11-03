@@ -222,6 +222,9 @@ function hasAccess($module, $mainModule, $subModules): bool
                 navbarBrand: !!navbarBrand
             });
 
+            //get notification for kanban
+            getKanbanNotif()
+
             if (burgerMenu) {
                 burgerMenu.addEventListener('click', function(e) {
                     e.preventDefault();
@@ -1049,6 +1052,36 @@ function hasAccess($module, $mainModule, $subModules): bool
                 window.location.replace('/login');
             }
         });
+
+        function getKanbanNotif() {
+            const user = @json(Auth::user());
+
+            fetch('/user/kanban/notification', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        userId: user.id
+                    }),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.mentionedCount > 0) {
+                        ["kanbanNotifMobile", "kanbanNotifDesktop"].forEach(id => {
+                            const el = document.getElementById(id)
+                            if (el) {
+                                el.style.display = "inline"
+                                el.textContent = data.mentionedCount
+                            }
+                        })
+                    }
+
+                })
+                .catch(error => console.error('Error fetching notifications:', error));
+        }
 
         console.log('Complete security system loaded successfully');
     </script>

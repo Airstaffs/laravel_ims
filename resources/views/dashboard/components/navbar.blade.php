@@ -14,6 +14,14 @@
 
             <!-- Icons Always Visible on Mobile -->
             <div class="d-flex align-items-center ms-auto d-lg-none d-md-none">
+                <a href="#" class="nav-link p-2 position-relative" onclick="window.loadContent('kanban')">
+                    <i class="bi bi-kanban"></i>
+                    <span id="kanbanNotifMobile"
+                        class="position-absolute top-2 start-100 translate-middle badge rounded-pill bg-danger"
+                        style="display: none">
+                        0
+                    </span>
+                </a>
                 <a href="" class="nav-link p-2" onclick="openBreakModal(event)">
                     <i class="bi bi-file-break"></i>
                     <span class="d-none d-lg-inline">Break</span>
@@ -52,10 +60,15 @@
 
                 <!----Kanban---->
                 <li class="nav-item" id="kanban-nav-item">
-                    <a class="nav-link d-flex align-items-center justify-content-center" href="#"
-                        data-bs-toggle="modal" data-bs-target="#" onclick="window.loadContent('kanban')">
+                    <a class="nav-link d-flex align-items-center justify-content-center position-relative"
+                        href="#" onclick="window.loadContent('kanban')">
                         <i class="bi bi-kanban me-2"></i>
                         <span class="d-none d-lg-inline">Kanban</span>
+                        <span id="kanbanNotifDesktop"
+                            class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                            style="display: none">
+                            0
+                        </span>
                     </a>
                 </li>
 

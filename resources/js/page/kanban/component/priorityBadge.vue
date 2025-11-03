@@ -1,5 +1,5 @@
 <template>
-    <span :class="[priorityColorClass(priority), ' px-2 rounded-pill mb-2']">
+    <span :class="[priorityColorClass(priority), ' px-2 rounded-pill mb-2 fw-bolder']" style="font-size: 14px;">
         {{ priority.charAt(0).toUpperCase() + priority.slice(1) }}
     </span>
 </template>

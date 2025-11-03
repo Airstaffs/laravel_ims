@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Exception;
+use Carbon\Carbon;
 use App\Models\Task;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -11,295 +12,340 @@ use Illuminate\Support\Facades\Storage;
 
 class KanbanTaskController extends Controller
 {
-    public function addTask(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'title' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'note' => 'nullable|string',
-                'status' => 'required|string',
-                'priority' => 'required|string',
-                'mentions' => 'nullable|array',
-                'mentions.*' => 'integer',
-                'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-                'user_id' => 'nullable|integer',
-            ]);
-
-            // Upload images
-            $mediaPaths = [];
-            if ($request->hasFile('images')) {
-                $uploadDir = public_path('images/kanban_media');
-                if (!file_exists($uploadDir)) {
-                    mkdir($uploadDir, 0775, true);
-                }
-
-                foreach ($request->file('images') as $image) {
-                    $filename = time() . '_' . $image->getClientOriginalName();
-                    $image->move($uploadDir, $filename);
-                    $mediaPaths[] = $filename;
-                }
-            }
-
-            $mentions = $validated['mentions'] ?? [];
-            $mentions = array_map('intval', $mentions);
-
-            $task = Task::create([
-                'title' => $validated['title'],
-                'description' => $validated['description'] ?? '',
-                'note' => $validated['note'] ?? '',
-                'status' => $validated['status'],
-                'priority' => $validated['priority'],
-                'mentions' => json_encode($mentions),
-                'medias' => json_encode($mediaPaths),
-                'userId' => $validated['user_id'] ?? null,
-            ]);
-
-            foreach ($mentions as $userId) {
-                DB::table('tblkanbanuserpermission')->insert([
-                    'taskId' => $task->id,
-                    'userId' => $userId,
-                    'can_edit' => false,
-                    'can_comment' => true,
-                    'can_delete' => false,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            $userName = 'Unknown User';
-            if (!empty($validated['user_id'])) {
-                $user = DB::table('tbluser')->where('id', $validated['user_id'])->first();
-                if ($user) {
-                    $userName = $user->username;
-                }
-            }
-
-            // Create activity log
-            DB::table('tblkanbanactivitylog')->insert([
-                'taskId' => $task->id,
-                'userId' => $validated['user_id'] ?? null,
-                'description' => 'Task has been created by ' . $userName . '.',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Task created successfully',
-                'task' => $task
-            ], 201);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Task creation failed',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function editTask(Request $request)
-    {
-        try {
-            $validated = $request->validate([
-                'taskId' => 'required|integer',
-                'title' => 'required|string|max:255',
-                'description' => 'nullable|string',
-                'note' => 'nullable|string',
-                'status' => 'required|string',
-                'priority' => 'required|string',
-                'mentions' => 'nullable|array',
-                'mentions.*' => 'integer',
-                'images.*' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
-                'removed_images' => 'nullable|array', // Array of filenames to remove
-            ]);
-
-            // Find the task
-            $task = Task::findOrFail($validated['taskId']);
-
-            // Get existing medias
-            $existingMedias = $task->medias ? json_decode($task->medias, true) : [];
-
-            // Handle removed images
-            if (!empty($validated['removed_images'])) {
-                $uploadDir = public_path('images/kanban_media');
-                foreach ($validated['removed_images'] as $imageFilename) {
-                    $imagePath = $uploadDir . '/' . $imageFilename;
-                    if (File::exists($imagePath)) {
-                        File::delete($imagePath);
-                    }
-                }
-                // Remove from medias array
-                $existingMedias = array_diff($existingMedias, $validated['removed_images']);
-                $existingMedias = array_values($existingMedias); // Re-index array
-            }
-
-            // Handle new images upload
-            if ($request->hasFile('images')) {
-                $uploadDir = public_path('images/kanban_media');
-                if (!file_exists($uploadDir)) {
-                    mkdir($uploadDir, 0775, true);
-                }
-
-                foreach ($request->file('images') as $image) {
-                    $filename = time() . '_' . uniqid() . '_' . $image->getClientOriginalName();
-                    $image->move($uploadDir, $filename);
-                    $existingMedias[] = $filename;
-                }
-            }
-
-            // Get current mentions
-            $currentMentions = $task->mentions ? json_decode($task->mentions, true) : [];
-            $newMentions = $validated['mentions'] ?? [];
-            $newMentions = array_map('intval', $newMentions);
-
-            // Find added and removed mentions
-            $addedMentions = array_diff($newMentions, $currentMentions);
-            $removedMentions = array_diff($currentMentions, $newMentions);
-
-            // Add permissions for new mentions
-            foreach ($addedMentions as $userId) {
-                DB::table('tblkanbanuserpermission')->insert([
-                    'taskId' => $task->id,
-                    'userId' => $userId,
-                    'can_edit' => false,
-                    'can_comment' => true,
-                    'can_delete' => false,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
-
-            // Remove permissions for removed mentions
-            if (!empty($removedMentions)) {
-                DB::table('tblkanbanuserpermission')
-                    ->where('taskId', $task->id)
-                    ->whereIn('userId', $removedMentions)
-                    ->delete();
-            }
-
-            // Update task
-            $task->update([
-                'title' => $validated['title'],
-                'description' => $validated['description'] ?? $task->description,
-                'note' => $validated['note'] ?? $task->note,
-                'status' => $validated['status'],
-                'priority' => $validated['priority'],
-                'mentions' => json_encode($newMentions),
-                'medias' => json_encode($existingMedias),
-            ]);
-
-            // Get current user info for activity log
-            $userName = 'Unknown User';
-            if (!empty(auth()->id())) {
-                $user = DB::table('tbluser')->where('id', auth()->id())->first();
-                if ($user) {
-                    $userName = $user->username;
-                }
-            }
-
-            // Create activity log
-            DB::table('tblkanbanactivitylog')->insert([
-                'taskId' => $task->id,
-                'userId' => auth()->id() ?? null,
-                'description' => 'Task has been updated by ' . $userName . '.',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            // Reload task to get latest data
-            $task->refresh();
-            
-            // Decode medias and mentions for response
-            $task->medias = $task->medias ? json_decode($task->medias, true) : [];
-            $task->mentions = $task->mentions ? json_decode($task->mentions, true) : [];
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Task updated successfully',
-                'task' => $task
-            ], 200);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $e->errors()
-            ], 422);
-
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Task update failed',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    public function getTasks(Request $request)
-    {
+  public function addTask(Request $request)
+{
+    try {
+        // ✅ Validate request
         $validated = $request->validate([
-            'userId' => 'required|integer',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'note' => 'nullable|string',
+            'status' => 'required|string',
+            'priority' => 'required|string',
+            'mentions' => 'nullable|array',
+            'mentions.*' => 'integer',
+            'user_id' => 'nullable|integer',
+
+            // Accept both images and documents
+            'files.*' => 'file|mimes:jpeg,png,jpg,gif,pdf,doc,docx,xls,xlsx,ppt,pptx,txt|max:5120',
         ]);
 
-        $userId = $validated['userId'];
+        $mediaPaths = [];
 
-        try {
-            $tasks = Task::where('userId', $userId)
-                ->orWhere(function ($query) use ($userId) {
-                    $query->whereNotNull('mentions')
-                          ->where(function ($q) use ($userId) {
-                              $q->where('mentions', 'like', '%[' . $userId . ']%')
-                                ->orWhere('mentions', 'like', '%,' . $userId . ',%')
-                                ->orWhere('mentions', 'like', '%,' . $userId . ']%')
-                                ->orWhere('mentions', 'like', '%[' . $userId . ',%');
-                          });
-                })
-                ->orderBy('created_at', 'desc')
-                ->get();
+        // ✅ Check for files
+        if ($request->hasFile('files')) {
+            $baseDir = public_path('images/kanban_media');
+            $imageDir = $baseDir . '/images';
+            $fileDir  = $baseDir . '/files';
 
-            $tasks->transform(function ($task) {
-                // Decode JSON columns safely
-                $task->mentions = $task->mentions ? json_decode($task->mentions, true) : [];
-                $task->medias = $task->medias ? json_decode($task->medias, true) : [];
-
-                if (!empty($task->mentions)) {
-                    // Fetch user info along with permissions for this task
-                    $users = DB::table('tbluser as u')
-                        ->leftJoin('tblkanbanuserpermission as p', function ($join) use ($task) {
-                            $join->on('u.id', '=', 'p.userId')
-                                 ->where('p.taskId', $task->id);
-                        })
-                        ->select(
-                            'u.id',
-                            'u.username',
-                            'u.profile_picture',
-                            DB::raw('IFNULL(p.can_edit, 0) as can_edit'),
-                            DB::raw('IFNULL(p.can_comment, 0) as can_comment'),
-                            DB::raw('IFNULL(p.can_delete, 0) as can_delete')
-                        )
-                        ->whereIn('u.id', $task->mentions)
-                        ->get();
-
-                    $task->mentions = $users;
+            // Make sure directories exist
+            foreach ([$imageDir, $fileDir] as $dir) {
+                if (!file_exists($dir)) {
+                    mkdir($dir, 0775, true);
                 }
+            }
 
-                return $task;
-            });
+            foreach ($request->file('files') as $file) {
+                $originalName = preg_replace('/\s+/', '_', $file->getClientOriginalName());
+                $filename = time() . '_' . $originalName;
 
-            return response()->json([
-                'success' => true,
-                'tasks' => $tasks,
+                // ✅ Detect file type (image vs document)
+                if (str_starts_with($file->getMimeType(), 'image/')) {
+                    $file->move($imageDir, $filename);
+                    $mediaPaths[] = 'images/' . $filename;
+                } else {
+                    $file->move($fileDir, $filename);
+                    $mediaPaths[] = 'files/' . $filename;
+                }
+            }
+        }
+
+        // ✅ Mentions cleanup
+        $mentions = $validated['mentions'] ?? [];
+        $mentions = array_map('intval', $mentions);
+
+        //set timezone
+        date_default_timezone_set('America/Los_Angeles');
+        $laTime = Carbon::now('America/Los_Angeles')->format('Y-m-d H:i:s');
+
+
+        // ✅ Create task record
+        $task = Task::create([
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? '',
+            'note' => $validated['note'] ?? '',
+            'status' => $validated['status'],
+            'priority' => $validated['priority'],
+            'mentions' => json_encode($mentions),
+            'medias' => json_encode($mediaPaths), // contains paths like 'images/filename.jpg' or 'files/filename.pdf'
+            'userId' => $validated['user_id'] ?? null,
+            'created_at' => $laTime,
+            'updated_at' => $laTime,
+        ]);
+
+        // ✅ Assign mention permissions
+        foreach ($mentions as $userId) {
+            DB::table('tblkanbanuserpermission')->insert([
+                'taskId' => $task->id,
+                'userId' => $userId,
+                'can_edit' => false,
+                'can_comment' => true,
+                'can_delete' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to fetch tasks',
-                'error' => $e->getMessage(),
-            ], 500);
+        }
+
+        // ✅ Activity log
+        $userName = 'Unknown User';
+        if (!empty($validated['user_id'])) {
+            $user = DB::table('tbluser')->where('id', $validated['user_id'])->first();
+            if ($user) {
+                $userName = $user->username;
+            }
+        }
+
+        DB::table('tblkanbanactivitylog')->insert([
+            'taskId' => $task->id,
+            'userId' => $validated['user_id'] ?? null,
+            'description' => 'Task has been created by ' . $userName . '.',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Task created successfully',
+            'task' => $task
+        ], 201);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Task creation failed',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
+
+
+   public function editTask(Request $request)
+{
+    try {
+        $validated = $request->validate([
+            'taskId' => 'required|integer',
+            'title' => 'required|string|max:255',
+            'description' => 'nullable|string',
+            'note' => 'nullable|string',
+            'status' => 'required|string',
+            'priority' => 'required|string',
+            'mentions' => 'nullable|array',
+            'mentions.*' => 'integer',
+            'images.*' => 'file|max:5120', // accepts any file, max 5MB
+            'removed_images' => 'nullable|array',
+        ]);
+
+        $task = Task::findOrFail($validated['taskId']);
+
+        $existingMedias = $task->medias ? json_decode($task->medias, true) : [];
+
+      // Remove selected media files
+if (!empty($validated['removed_images'])) {
+    foreach ($validated['removed_images'] as $relativePath) {
+        $fullPath = public_path("images/kanban_media/{$relativePath}");
+        if (File::exists($fullPath)) {
+            File::delete($fullPath);
         }
     }
+
+    // Remove from the JSON list
+    $existingMedias = array_values(array_diff($existingMedias, $validated['removed_images']));
+}
+
+// Upload new files
+if ($request->hasFile('images')) {
+    $uploadDirImages = public_path('images/kanban_media/images');
+    $uploadDirFiles = public_path('images/kanban_media/files');
+
+    if (!file_exists($uploadDirImages)) mkdir($uploadDirImages, 0775, true);
+    if (!file_exists($uploadDirFiles)) mkdir($uploadDirFiles, 0775, true);
+
+    foreach ($request->file('images') as $file) {
+        $filename = time() . '_' . uniqid() . '_' . $file->getClientOriginalName();
+
+        if (str_starts_with($file->getMimeType(), 'image/')) {
+            $file->move($uploadDirImages, $filename);
+            $existingMedias[] = "images/{$filename}";
+        } else {
+            $file->move($uploadDirFiles, $filename);
+            $existingMedias[] = "files/{$filename}";
+        }
+    }
+}
+
+
+
+        // Mentions handling
+        $currentMentions = $task->mentions ? json_decode($task->mentions, true) : [];
+        $newMentions = $validated['mentions'] ?? [];
+        $newMentions = array_map('intval', $newMentions);
+
+        $addedMentions = array_diff($newMentions, $currentMentions);
+        $removedMentions = array_diff($currentMentions, $newMentions);
+
+        foreach ($addedMentions as $userId) {
+            DB::table('tblkanbanuserpermission')->insert([
+                'taskId' => $task->id,
+                'userId' => $userId,
+                'can_edit' => false,
+                'can_comment' => true,
+                'can_delete' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        if (!empty($removedMentions)) {
+            DB::table('tblkanbanuserpermission')
+                ->where('taskId', $task->id)
+                ->whereIn('userId', $removedMentions)
+                ->delete();
+        }
+
+        // Update task
+        $task->update([
+            'title' => $validated['title'],
+            'description' => $validated['description'] ?? $task->description,
+            'note' => $validated['note'] ?? $task->note,
+            'status' => $validated['status'],
+            'priority' => $validated['priority'],
+            'mentions' => json_encode($newMentions),
+            'medias' => json_encode($existingMedias),
+        ]);
+
+        // Activity log
+        $userName = auth()->user()->username ?? 'Unknown User';
+        DB::table('tblkanbanactivitylog')->insert([
+            'taskId' => $task->id,
+            'userId' => auth()->id(),
+            'description' => "Task has been updated by {$userName}.",
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $task->refresh();
+        $task->medias = $task->medias ? json_decode($task->medias, true) : [];
+        $task->mentions = $task->mentions ? json_decode($task->mentions, true) : [];
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Task updated successfully',
+            'task' => $task,
+        ], 200);
+
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $e->errors(),
+        ], 422);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Task update failed',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+
+public function getTasks(Request $request)
+{
+    $validated = $request->validate([
+        'userId' => 'required|integer',
+    ]);
+
+    $userId = $validated['userId'];
+
+    try {
+        $tasks = Task::where('userId', $userId)
+            ->orWhere(function ($query) use ($userId) {
+                $query->whereNotNull('mentions')
+                    ->where(function ($q) use ($userId) {
+                        $q->where('mentions', 'like', '%[' . $userId . ']%')
+                            ->orWhere('mentions', 'like', '%,' . $userId . ',%')
+                            ->orWhere('mentions', 'like', '%,' . $userId . ']%')
+                            ->orWhere('mentions', 'like', '%[' . $userId . ',%');
+                    });
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        $tasks->transform(function ($task) {
+            // Decode JSON safely
+            $task->mentions = $task->mentions ? json_decode($task->mentions, true) : [];
+            $task->medias = $task->medias ? json_decode($task->medias, true) : [];
+
+            // Fetch creator info (createdBy)
+            $creator = DB::table('tbluser')
+                ->select('username')
+                ->where('id', $task->userId)
+                ->first();
+            $task->createdBy = $creator->username ?? null;
+
+            // Fetch mentions info
+            if (!empty($task->mentions)) {
+                $users = DB::table('tbluser as u')
+                    ->leftJoin('tblkanbanuserpermission as p', function ($join) use ($task) {
+                        $join->on('u.id', '=', 'p.userId')
+                            ->where('p.taskId', $task->id);
+                    })
+                    ->select(
+                        'u.id',
+                        'u.username',
+                        'u.profile_picture',
+                        DB::raw('IFNULL(p.can_edit, 0) as can_edit'),
+                        DB::raw('IFNULL(p.can_comment, 0) as can_comment'),
+                        DB::raw('IFNULL(p.can_delete, 0) as can_delete')
+                    )
+                    ->whereIn('u.id', $task->mentions)
+                    ->get();
+
+                $task->mentions = $users;
+            }
+
+            //  Get Comment Counts
+            $task->commentCount = DB::table('tblkanbancomments')
+                ->where('taskId', $task->id)
+                ->count();
+
+            // Get File Counts
+            if (is_string($task->medias)) {
+                $task->medias = json_decode($task->medias, true);
+                } elseif (!is_array($task->medias)) {
+                    $task->medias = [];
+                }
+            $task->fileCount = is_array($task->medias) ? count($task->medias) : 0;
+
+            return $task;
+        });
+
+        return response()->json([
+            'success' => true,
+            'tasks' => $tasks,
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to fetch tasks',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+
+
 
     public function deleteTask(Request $request)
     {
@@ -343,4 +389,73 @@ class KanbanTaskController extends Controller
             'message' => 'Task and associated images deleted successfully.'
         ], 200);
     }
+
+    
+public function kanbanNotif(Request $request)
+{
+    $validated = $request->validate([
+        'userId' => 'required|integer'
+    ]);
+
+    $userId = $validated['userId'];
+
+    $mentionedCount = DB::table('tblkanbantasks')
+        ->where(function ($query) use ($userId) {
+            // Task mentions this user
+            $query->where('mentions', 'like', '%"'.$userId.'"%')
+                  ->orWhere('mentions', 'like', '%['.$userId.']%')
+                  ->orWhere('mentions', 'like', '%'.$userId.'%');
+        })
+        ->where(function ($query) use ($userId) {
+            // Task has not been read by this user
+            $query->whereNull('readBy') // readBy is null → not read
+                  ->orWhereRaw('NOT JSON_CONTAINS(readBy, ?)', [json_encode($userId)]);
+        })
+        ->count();
+
+    return response()->json([
+        'success' => true,
+        'mentionedCount' => $mentionedCount
+    ]);
+}
+
+
+public function readNotif(Request $request)
+{
+    $validated = $request->validate([
+        'userId' => 'required|integer',
+        'taskId' => 'required|integer',
+    ]);
+
+    $userId = $validated['userId'];
+    $taskId = $validated['taskId'];
+
+    $task = DB::table('tblkanbantasks')->where('id', $taskId)->first();
+
+    if (!$task) {
+        return response()->json(['error' => 'Task not found'], 404);
+    }
+
+    // Decode JSON array (use empty array if null)
+    $readBy = json_decode($task->readBy ?? '[]', true);
+
+    if (!in_array($userId, $readBy)) {
+        $readBy[] = $userId;
+
+        DB::table('tblkanbantasks')
+            ->where('id', $taskId)
+            ->update([
+                'readBy' => json_encode($readBy),
+            ]);
+    }
+
+    return response()->json([
+        'message' => 'Task marked as read',
+        'readBy' => $readBy,
+    ]);
+}
+
+
+
+
 }

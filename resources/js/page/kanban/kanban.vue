@@ -60,7 +60,7 @@ export default kanban
 	gap: 20px;
 	padding: 20px;
 	align-items: start;
-	background: #ebf0f3;
+	background: #eeefef;
 	border-radius: 10px;
 }
 

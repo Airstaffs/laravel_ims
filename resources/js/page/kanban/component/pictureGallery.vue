@@ -1,6 +1,8 @@
 <template>
+    <h6>Images</h6>
     <div class="gallery-container">
         <!-- Thumbnails -->
+
         <div class="gallery-item" v-for="(image, index) in imagesWithPath" :key="index" @click="openModal(index)">
             <img :src="image" alt="image" />
         </div>
@@ -9,10 +11,13 @@
         <div v-if="showModal" class="modal fade show d-block" tabindex="-1">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content position-relative">
-                    <button type="button" class="btn-close position-absolute end-0 m-3" @click="closeModal"></button>
+                    <!-- Close button -->
+                    <button type="button" class="btn-close" @click="closeModal" aria-label="Close"></button>
 
+                    <!-- Zoomed Image -->
                     <img :src="imagesWithPath[currentIndex]" class="gallery-modal-img" />
 
+                    <!-- Navigation -->
                     <button class="btn-nav left" @click="prevImage">‹</button>
                     <button class="btn-nav right" @click="nextImage">›</button>
                 </div>
@@ -35,8 +40,6 @@ const props = defineProps({
 // State
 const showModal = ref(false)
 const currentIndex = ref(0)
-
-console.log(props.images)
 
 // Computed: prepend public path
 const imagesWithPath = computed(() =>
@@ -73,8 +76,8 @@ const nextImage = () => {
 }
 
 .gallery-item {
-    flex: 1 1 200px;
-    max-width: 200px;
+    flex: 1 1 150px;
+    max-width: 100px;
     border-radius: 8px;
     overflow: hidden;
     cursor: pointer;
@@ -82,7 +85,7 @@ const nextImage = () => {
 
 .gallery-item img {
     width: 100%;
-    height: 180px;
+    height: 100px;
     object-fit: cover;
     transition: transform 0.3s ease, opacity 0.3s ease;
 }
@@ -92,13 +95,45 @@ const nextImage = () => {
     opacity: 0.9;
 }
 
+/* Modal image */
 .gallery-modal-img {
     width: 100%;
+    max-width: 90vw;
+    /* responsive width */
     height: auto;
     max-height: 85vh;
+    /* responsive height */
     object-fit: contain;
+    display: block;
+    margin: 0 auto;
 }
 
+/* Modal content */
+.modal-dialog {
+    max-width: 95vw;
+    margin: 1rem auto;
+}
+
+.modal-content {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    padding: 0;
+    border-radius: 8px;
+}
+
+/* Close button */
+.btn-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 10;
+    /* on top of nav buttons */
+}
+
+/* Navigation buttons */
 .btn-nav {
     position: absolute;
     top: 50%;
@@ -108,6 +143,8 @@ const nextImage = () => {
     font-size: 1.5rem;
     padding: 0.6rem 1rem;
     color: white;
+    z-index: 5;
+    /* below close button */
 }
 
 .btn-nav:hover {
@@ -122,13 +159,24 @@ const nextImage = () => {
     right: 0.5rem;
 }
 
-@media (max-width: 576px) {
+/* Responsive adjustments */
+@media (max-width: 768px) {
     .gallery-item {
         flex: 1 1 45%;
     }
 
     .gallery-item img {
-        height: 130px;
+        height: 120px;
+    }
+}
+
+@media (max-width: 480px) {
+    .gallery-item {
+        flex: 1 1 100%;
+    }
+
+    .gallery-item img {
+        height: 150px;
     }
 
     .gallery-modal-img {

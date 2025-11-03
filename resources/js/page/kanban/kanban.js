@@ -3,6 +3,7 @@ import AddTaskModal from './component/modal/addTaskModal.vue'
 import PriorityBadge from './component/priorityBadge.vue'
 import MentionedProfile from './component/mentionedProfile.vue'
 import KanbanCard from './component/kanbanCard.vue'
+import { onUnmounted } from 'vue'
 
 export default {
   components: {
@@ -31,7 +32,8 @@ export default {
         'In Progress': false,
         'Under Review': false,
         'Done': false
-      }
+      },
+      intervalId: null
     }
   },
 
@@ -41,7 +43,10 @@ export default {
     try {
       const response = await axios.get('/user/getAllUsers')
       if (response.data.data) {
-        this.userData = response.data.data
+        
+        // dont include current user
+        const users = response.data.data.filter(user => user.id !== this.user.id)
+        this.userData = users
       }
     } catch (error) {
       console.log('User data fetch error:', error)
@@ -70,6 +75,13 @@ export default {
       this.isLoading = false
     }
   },
+
+  autoFetchTasks () {
+    this.intervalId =  setInterval(() => {
+      this.fetchTasks()
+    }, 60000)
+  },
+
 
     toggleHidden(status) {
       this.isHidden[status] = !this.isHidden[status]
@@ -108,7 +120,13 @@ export default {
     }
   },
 
+ 
   mounted() {
+    this.autoFetchTasks()
     this.fetchAllData()
+  },
+
+  onUnmounted() {
+    clearInterval(this.intervalId)
   }
 }

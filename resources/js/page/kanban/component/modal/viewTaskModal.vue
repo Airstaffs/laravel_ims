@@ -50,7 +50,7 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button class="btn btn-primary w-100 w-sm-auto" @click="$emit('close')">Close</button>
+                    <button class="btn btn-primary  w-sm-auto" @click="$emit('close')">Close</button>
                 </div>
             </div>
         </div>
