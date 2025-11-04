@@ -10,7 +10,10 @@ import bootstrap from "bootstrap/dist/js/bootstrap.bundle.min.js";
 import AnnouncementModal from "./components/announcementmodal.vue";
 import scheduling from "./components/scheduling.vue";
 import History from "./components/history.vue";
-
+import Menu from 'primevue/menu';
+import Select from 'primevue/select';
+import { PrimeIcons } from '@primevue/core/api';
+import Button from "primevue/button";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const DAYS = [
@@ -276,12 +279,53 @@ export default {
         AnnouncementModal,
         scheduling,
         History,
+        Menu,
+        Select,
+        Button
     },
 
     data() {
         return {
             // navbar controller
             currentView: "Employee",
+            newTabs: [
+                {
+                    label: "Employee",
+                    icon: PrimeIcons.USERS,
+                    command: () => this.setView("Employee")
+                },
+                {
+                    label: "Time Record",
+                    icon: PrimeIcons.CLOCK,
+                    command: () => this.setView("Time Record")
+                },
+                {
+                    label: "Violations",
+                    icon: PrimeIcons.EXCLAMATION_TRIANGLE,
+                    command: () => this.setView("Violations")
+                },
+                {
+                    label: "Announcement",
+                    icon: PrimeIcons.BELL,
+                    command: () => this.setView("Announcement")
+                },
+                {
+                    label: "Holiday",
+                    icon: PrimeIcons.CALENDAR_TIMES,
+                    command: () => this.setView("Holiday")
+                },
+                {
+                    label: "History",
+                    icon: PrimeIcons.HISTORY,
+                    command: () => this.setView("History")
+                    
+                },
+                {
+                    label: "Scheduling",
+                    icon: PrimeIcons.CALENDAR ,
+                    command: () => this.setView("Scheduling")
+                }
+            ],
             tabs: [
                 "Employee",
                 "Time Record",
@@ -289,16 +333,7 @@ export default {
                 "Announcement",
                 "Holiday",
                 "History",
-                "Scheduling",
-                // {
-                //     label: "History",
-                //     dropdown: [
-                //         "Time Record Edit History",
-                //         "Employee Leave History",
-                //         "Employee Rate History",
-                //         "Violations History",
-                //     ],
-                // },
+                "Scheduling"
             ],
             dropdownOpen: false,
             showFilters: true,
@@ -521,8 +556,8 @@ export default {
     },
 
     created() {
-        if (!this.currentView && this.tabs.length)
-            this.currentView = this.tabs[0];
+        if (!this.currentView && this.newTabs.length)
+            this.currentView = this.newTabs[0];
     },
 
     mounted() {
