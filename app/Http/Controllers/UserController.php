@@ -731,4 +731,13 @@ class UserController extends Controller
             'timezone_setting' => $setting
         ]);
     }
+    
+    public function getAllUsers() {
+        $users = DB::table('tbluser')->select('id', 'username', 'role', 'profile_picture')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $users
+        ]);
+    }
 }

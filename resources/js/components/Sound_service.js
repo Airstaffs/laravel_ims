@@ -52,8 +52,9 @@ export const SoundService = {
     PCNalreadyUsed(vibrate = true) {
       this.playSound('PCNalreadyUsed', vibrate);
     },
+    
      ItemNotValidated(vibrate = true) {
-      this.playSound('PCNalreadyUsed', vibrate);
+      this.playSound('ItemNotValidated', vibrate);
     }
 
 
