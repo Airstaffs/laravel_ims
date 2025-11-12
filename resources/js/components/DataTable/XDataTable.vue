@@ -1,7 +1,20 @@
 <template>
-    <DataTable :value="value" v-model:selection="internalSelection" :loading="loading" :paginator="paginator"
-        :rows="rows" :rowsPerPageOptions="rowsPerPageOptions" class="desktop-view" size="small" :style="tableStyle"
-        dataKey="id" :selectionMode="selectionMode">
+    <DataTable :value="displayValue" v-model:selection="internalSelection" :paginator="paginator" :rows="rows"
+        :rowsPerPageOptions="rowsPerPageOptions" class="desktop-view" size="small" :style="tableStyle" dataKey="id"
+        :selectionMode="selectionMode">
+        <!-- ✅ Custom Loading + Empty Row -->
+        <template #empty>
+            <div class="p-datatable-empty-message" style="width: 100%; text-align: center; padding: 2rem 0;">
+                <span v-if="loading">
+                    <i class="pi pi-spin pi-spinner mr-2"></i>
+                    Loading data...
+                </span>
+                <span v-else>
+                    No data found
+                </span>
+            </div>
+        </template>
+
 
         <Column v-for="col in visibleColumns" :key="col.field || col.header || col.selectionMode" v-bind="col">
             <template v-if="!col.selectionMode && col.slot && $slots[col.slot]" #body="{ data }">
@@ -36,17 +49,21 @@ export default {
         paginator: { type: Boolean, default: false },
         rows: { type: Number, default: 10 },
         rowsPerPageOptions: { type: Array, default: () => [10, 20, 50] },
-        tableStyle: { type: [String, Object], default: () => ({}) },
+        tableStyle: { type: [String, Object], default: () => ({}) }
     },
     emits: ["update:selection"],
     data() {
-        return { internalSelection: this.selection };
+        return {
+            internalSelection: this.selection,
+        };
     },
     computed: {
-
         visibleColumns() {
-            console.log(this.columns, "columnscolumnscolumns")
             return this.columns.filter((col) => col.visible !== false);
+        },
+        displayValue() {
+            // 👇 Important: When loading, return an empty array so #empty slot shows up
+            return this.loading ? [] : this.value;
         },
     },
     watch: {
@@ -59,3 +76,12 @@ export default {
     },
 };
 </script>
+
+<style scoped>
+.p-datatable-empty-message {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+</style>

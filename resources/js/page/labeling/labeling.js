@@ -1160,37 +1160,37 @@ export default {
             }
         },
 
-        async showFnskuAvailabilityInfo(fnsku) {
-            try {
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/fnsku/availability`,
-                    {
-                        params: { fnsku: fnsku.FNSKU },
-                        withCredentials: true,
-                    }
-                );
-
-                if (response.data.success && response.data.fnsku_info) {
-                    const info = response.data.fnsku_info;
-
-                    let message = `FNSKU: ${info.base_fnsku}\n`;
-                    message += `Times used: ${info.times_used}\n`;
-                    message += `Current units: ${info.remaining_units}\n`;
-                    message += `Next FNSKU to use: ${info.next_fnsku_to_use}\n`;
-                    message += `Units after use: ${info.units_after_use}\n`;
-                    message += `ASIN: ${info.asin}\n`;
-                    message += `Condition: ${info.grading}\n`;
-                    message += `Store: ${info.storename}`;
-
-                    alert(message);
-                } else {
-                    alert("FNSKU availability information not available");
-                }
-            } catch (error) {
-                console.error("Error fetching FNSKU availability:", error);
-                alert("Error fetching FNSKU availability information");
+        // data will show from a modal not in alert for better ui experience
+     async showFnskuAvailabilityInfo(fnsku) {
+    try {
+        const response = await axios.get(
+            `${API_BASE_URL}/api/fnsku/availability`,
+            {
+                params: { fnsku: fnsku.FNSKU },
+                withCredentials: true,
             }
-        },
+        );
+
+        if (response.data.success && response.data.fnsku_info) {
+            return {
+                info: response.data.fnsku_info,
+                errorMessage: ""
+            };
+        } else {
+            return {
+                info: {},
+                errorMessage: "FNSKU availability information not available"
+            };
+        }
+    } catch (error) {
+        console.error("Error fetching FNSKU availability:", error);
+        return {
+            info: {},
+            errorMessage: "Error fetching FNSKU availability information"
+        };
+    }
+},
+
 
         /**
          * Add a method to display FNSKU prefix information in the UI
