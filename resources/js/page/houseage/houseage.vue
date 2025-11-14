@@ -4,342 +4,59 @@
             <div class="header-buttons"></div>
             <div class="module-filter">
                 <label for="moduleFilter">Module:</label>
-                <select
-                    id="moduleFilter"
-                    v-model="moduleFilter"
-                    class="module-select"
-                >
+                <!-- <select id="moduleFilter" v-model="moduleFilter" class="module-select">
                     <option value="">All Modules</option>
-                    <option
-                        v-for="module in uniqueModules"
-                        :key="module"
-                        :value="module"
-                    >
+                    <option v-for="module in uniqueModules" :key="module" :value="module">
                         {{ module }}
                     </option>
-                </select>
+                </select> -->
+                <Select v-model="moduleFilter" :options="uniqueModuleOptions" optionLabel="label" optionValue="value"
+                    placeholder="Select condition" size="small" fluid />
             </div>
         </div>
 
         <h2 class="module-title">Houseage Module</h2>
 
         <!-- Desktop Table Container -->
-        <div class="table-container desktop-view">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="sticky-header first-col">
-                            <input
-                                type="checkbox"
-                                @click="toggleAll"
-                                v-model="selectAll"
-                            />
-                        </th>
-                        <th class="sticky-header second-sticky">
-                            <div class="product-name">
-                                <span
-                                    class="sortable"
-                                    @click="sortBy('ProductTitle')"
-                                >
-                                    Product Name
-                                    <i
-                                        v-if="sortColumn === 'ProductTitle'"
-                                        :class="
-                                            sortOrder === 'asc'
-                                                ? 'fas fa-sort-up'
-                                                : 'fas fa-sort-down'
-                                        "
-                                    ></i>
-                                </span>
-                            </div>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('ASIN')">
-                                ASIN
-                                <i
-                                    v-if="sortColumn === 'ASIN'"
-                                    :class="
-                                        sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                    "
-                                ></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('FNSKU')">
-                                FNSKU
-                                <i
-                                    v-if="sortColumn === 'FNSKU'"
-                                    :class="
-                                        sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                    "
-                                ></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('grading')">
-                                Grading
-                                <i
-                                    v-if="sortColumn === 'grading'"
-                                    :class="
-                                        sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                    "
-                                ></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span
-                                class="sortable"
-                                @click="sortBy('serialnumber')"
-                            >
-                                Serial Number
-                                <i
-                                    v-if="sortColumn === 'serialnumber'"
-                                    :class="
-                                        sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                    "
-                                ></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('quantity')">
-                                Quantity
-                                <i
-                                    v-if="sortColumn === 'quantity'"
-                                    :class="
-                                        sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                    "
-                                ></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span
-                                class="sortable"
-                                @click="sortBy('fulfillment_status')"
-                            >
-                                Fullfilment Status
-                                <i
-                                    v-if="sortColumn === 'fulfillment_status'"
-                                    :class="
-                                        sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                    "
-                                ></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span
-                                class="sortable"
-                                @click="sortBy('ProductModuleLoc')"
-                            >
-                                Module
-                                <i
-                                    v-if="sortColumn === 'ProductModuleLoc'"
-                                    :class="
-                                        sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                    "
-                                ></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span
-                                class="sortable"
-                                @click="sortBy('returnstatus')"
-                            >
-                                Return Status
-                                <i
-                                    v-if="sortColumn === 'returnstatus'"
-                                    :class="
-                                        sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                    "
-                                ></i>
-                            </span>
-                        </th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="loading">
-                        <td colspan="10" class="text-center">
-                            <div class="loading-spinner">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Loading...
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-else-if="sortedInventory.length === 0">
-                        <td colspan="9" class="text-center">No orders found</td>
-                    </tr>
-                    <template
-                        v-else
-                        v-for="(item, index) in sortedInventory"
-                        :key="item.id"
-                    >
-                        <tr>
-                            <td class="sticky-col first-col">
-                                <input type="checkbox" v-model="item.checked" />
-                                <span class="placeholder-date">{{
-                                    item.shipBy || ""
-                                }}</span>
-                            </td>
-                            <td class="sticky-col second-sticky">
-                                <div class="product-container">
-                                    <div
-                                        class="product-image-container"
-                                        @click="openImageModal(item)"
-                                    >
-                                        <!-- Use the actual file path for the main image -->
-                                        <img
-                                            :src="
-                                                '/images/thumbnails/' +
-                                                item.img1
-                                            "
-                                            :alt="
-                                                item.ProductTitle || 'Product'
-                                            "
-                                            class="product-thumbnail clickable-image"
-                                            @error="handleImageError($event)"
-                                        />
-                                        <div
-                                            class="image-count-badge"
-                                            v-if="countAllImages(item) > 0"
-                                        >
-                                            +{{ countAllImages(item) }}
-                                        </div>
-                                    </div>
-                                    <div class="product-info">
-                                        <p>{{ item.ProductTitle }}</p>
-                                        <p>
-                                            ID#:
-                                            <span
-                                                v-if="
-                                                    item.storename ===
-                                                    'Allrenewed'
-                                                "
-                                                >AR {{ item.rtcounter }}</span
-                                            >
-                                            <span
-                                                v-else-if="
-                                                    item.storename ===
-                                                    'Renovartech'
-                                                "
-                                                >RT {{ item.rtcounter }}</span
-                                            >
-                                            <span v-else>{{
-                                                item.rtcounter
-                                            }}</span>
-                                        </p>
-                                        <p>
-                                            <span
-                                                class="badge"
-                                                :class="
-                                                    item.validation_status +
-                                                    '-badge'
-                                                "
-                                            >
-                                                {{ item.validation_status }}
-                                            </span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </td>
 
-                            <td>
-                                <span><strong></strong> {{ item.ASIN }}</span>
-                            </td>
-                            <td>
-                                <span><strong></strong> {{ item.FNSKU }}</span>
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong> {{ item.grading }}</span
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.serialnumber }}</span
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong> {{ item.quantity }}</span
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.fulfillment_status }}</span
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.ProductModuleLoc }}</span
-                                >
-                            </td>
-                            <td>
-                                <span
-                                    ><strong></strong>
-                                    {{ item.returnstatus }}</span
-                                >
-                            </td>
-                            <td>
-                                <div class="action-buttons">
-                                    <button
-                                        @click="openCopyDetailsModal(item)"
-                                        class="btn btn-copy-details"
-                                        title="Copy product details"
-                                    >
-                                        <i class="bi bi-clipboard"></i>
-                                        <span>Copy Details</span>
-                                    </button>
 
-                                    <button
-                                        @click="openEditModal(item)"
-                                        class="btn btn-edit"
-                                    >
-                                        <i class="bi bi-pencil"></i>Edit
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="expandedRows[index]">
-                            <td :colspan="showDetails ? 18 : 12">
-                                <div
-                                    class="expanded-content p-3 border rounded"
-                                >
-                                    <p>
-                                        <strong
-                                            >External Title provided by
-                                            Supplier:</strong
-                                        >
-                                        {{ item.ProductTitle }}
-                                    </p>
-                                    <p>
-                                        <strong>Product Name:</strong>
-                                        {{ item.AStitle }}
-                                    </p>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
+        <div class="px-4">
+            <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
+                tableClass="desktop-view">
+                <template #gallery="{ data }">
+                    <div class="d-flex justify-content-center align-items-center">
+                        <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
+                            :countAdditionalImages="countAllImages" size="small" />
+                    </div>
+                </template>
+                <template #ProductTitle="{ data }">
+                    <div class="d-flex align-items-start gap-4">
+                        <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
+                            <p style="font-size: .8rem;">ID# {{ data.rtcounter }}</p>
+                            <p class="fw-semibold">
+                                {{ data.ProductTitle }}
+                            </p>
+                        </div>
+                    </div>
+                </template>
+                <template #validationStatus="{ data }">
+                    <div>
+                        <div class="badge" :class="data.validation_status +
+                            '-badge'
+                            ">
+                            {{ data.validation_status }}
+                        </div>
+                    </div>
+                </template>
+                <template #actions="{ data }">
+                    <div class="d-flex flex-column  align-items-start">
+                        <Button severity="contrast" variant="text" size="small" class="text-success"
+                            label="Copy Details" icon="pi pi-clone" @click="openCopyDetailsModal(data)" />
+                        <Button severity="contrast" variant="text" size="small" class="text-primary" label="Edit"
+                            icon="pi pi-pencil" @click="openEditModal(data)" />
+                    </div>
+                </template>
+            </XDataTable>
         </div>
 
         <!-- Mobile Cards View -->
@@ -349,179 +66,95 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div
-                    v-else-if="sortedInventory.length === 0"
-                    class="no-data-mobile"
-                >
+                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
                     No data found
                 </div>
-                <div
-                    class="mobile-card"
-                    v-else
-                    v-for="(item, index) in sortedInventory"
-                    :key="item.id"
-                >
+                <div class="mobile-card" v-else v-for="(item, index) in sortedInventory" :key="item.id">
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
-                        <div class="mobile-product-image clickable">
-                            <img
-                                :src="'/images/thumbnails/' + item.img1"
-                                :alt="item.ProductTitle || 'Product'"
-                                class="product-thumbnail clickable-image"
-                                @error="handleImageError($event)"
-                                @click="openImageModal(item)"
-                            />
-                            <div
-                                class="image-count-badge"
-                                v-if="countAllImages(item) > 0"
-                            >
-                                +{{ countAllImages(item) }}
-                            </div>
-                        </div>
+                        <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
+                            :countAdditionalImages="countAllImages" />
                         <div class="mobile-product-info">
-                            <h3 class="mobile-product-name clickable">
-                                <p>RT# : {{ item.rtcounter }}</p>
-                                <p>{{ item.ProductTitle }}</p>
-                            </h3>
+                            <h6 class="mobile-product-name clickable">
+                                <span style="font-size: 1rem;">RT# : {{ item.rtcounter }}</span>
+                                <span>{{ item.ProductTitle }}</span>
+                            </h6>
+                            <div class="badge" :class="item.validation_status +
+                                '-badge'
+                                ">
+                                {{ item.validation_status }}
+                            </div>
                         </div>
                     </div>
 
                     <hr />
 
                     <div class="mobile-card-details">
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Location:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.warehouselocation }}</span
-                            >
-                        </div>
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Added date:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.datedelivered }}</span
-                            >
-                        </div>
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label"
-                                >Updated date:</span
-                            >
-                            <span class="mobile-detal-value">
-                                {{ item.lastDateUpdate }}</span
-                            >
-                        </div>
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">FNSKU:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.FNSKUviewer }}</span
-                            >
-                        </div>
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">MSKU:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.MSKUviewer }}</span
-                            >
-                        </div>
-                        <div class="mobile-detail-row">
+                        <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ASINviewer }}</span
-                            >
+                                {{ item.ASIN }}</span>
                         </div>
-                        <!-- Insert Hidden Here -->
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">FBM:</span>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">FNSKU:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FBMAvailable }}</span
-                            >
+                                {{ item.FNSKU }}</span>
                         </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">FBA:</span>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">Grading:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FbaAvailable }}</span
-                            >
+                                {{ item.grading }}</span>
                         </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">Outbound:</span>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">Quantity:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Outbound }}</span
-                            >
+                                {{ item.quantity }}</span>
                         </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">Inbound:</span>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">Fullfilment Status:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Inbound }}</span
-                            >
+                                {{ item.fulfillment_status }}</span>
                         </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label"
-                                >Unfulfillable:</span
-                            >
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">Module:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Unfulfillable }}</span
-                            >
+                                {{ item.ProductModuleLoc }}</span>
                         </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">Reserved:</span>
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">Return Status:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Reserved }}</span
-                            >
+                                {{ item.returnstatus }}</span>
                         </div>
-                        <!--  -->
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label"
-                                >Fullfilment:</span
-                            >
+                        <div class="mobile-detail-row mb-2">
+                            <span class="mobile-detail-label">Serial Number:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Fulfilledby }}</span
-                            >
-                        </div>
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Status:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.status }}</span
-                            >
-                        </div>
-                        <div class="mobile-detail-row">
-                            <span class="mobile-detail-label"
-                                >Serial Number:</span
-                            >
-                            <span class="mobile-detal-value">
-                                {{ item.serialnumber }}</span
-                            >
+                                {{ item.serialnumber }}</span>
                         </div>
                     </div>
 
                     <hr />
 
-                    <div class="mobile-card-actions">
-                        <button
-                            class="btn btn-details"
-                            @click="toggleDetails(index)"
-                        >
+                    <div class="d-flex align-items-center justify-content-evenly">
+                        <!-- <button class="btn btn-details" @click="toggleDetails(index)">
                             <i class="fas fa-info-circle"></i> Details
-                        </button>
-
-                        <!-- <span><strong></strong> {{ item.actions }}</span> -->
-                        <button
-                            @click="openEditModal(item)"
-                            class="btn btn-fnsku"
-                        >
+                        </button> -->
+                        <!-- 
+                        <button @click="openEditModal(item)" class="btn btn-fnsku">
                             <i class="bi bi-clipboard-check"></i> Edit
-                        </button>
+                        </button> -->
+                        <Button severity="success" size="small" label="Copy Details" icon="pi pi-clone"
+                            @click="openCopyDetailsModal(item)" />
+                        <Button severity="info" size="small" label="Edit" icon="pi pi-pencil"
+                            @click="openEditModal(item)" />
                     </div>
 
                     <hr v-if="expandedRows[index]" />
 
-                    <div
-                        v-if="expandedRows[index]"
-                        class="mobile-expanded-content"
-                    >
+                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
                         <p>
-                            <strong
-                                >External Title provided by Supplier:</strong
-                            >
+                            <strong>External Title provided by Supplier:</strong>
                             {{ item.ProductTitle }}
                         </p>
                         <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
@@ -535,37 +168,19 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        class="per-page-select"
-                    >
-                        <option
-                            v-for="option in [10, 15, 20, 50, 100]"
-                            :key="option"
-                            :value="option"
-                        >
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
                     </select>
                 </div>
 
                 <div class="pagination">
-                    <button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                    >
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
                         <i class="fas fa-chevron-left"></i> Back
                     </button>
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                    >
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -582,33 +197,22 @@
                         <div class="productTitle">
                             <h2>{{ ProductTitle }}</h2>
                         </div>
-                        <button
-                            class="btn btn-modal-close"
-                            @click="closeImageModal"
-                        >
+                        <button class="btn btn-modal-close" @click="closeImageModal">
                             &times;
                         </button>
                     </div>
 
                     <div class="modal-body">
                         <div class="image-tabs">
-                            <button
-                                class="tab-button"
-                                :class="{ active: activeTab === 'regular' }"
-                                @click="switchTab('regular')"
-                                :disabled="regularImages.length === 0"
-                            >
+                            <button class="tab-button" :class="{ active: activeTab === 'regular' }"
+                                @click="switchTab('regular')" :disabled="regularImages.length === 0">
                                 <span>Product Images</span>
                                 <span class="badge img-badge">{{
                                     regularImages.length
                                 }}</span>
                             </button>
-                            <button
-                                class="tab-button"
-                                :class="{ active: activeTab === 'captured' }"
-                                @click="switchTab('captured')"
-                                :disabled="capturedImages.length === 0"
-                            >
+                            <button class="tab-button" :class="{ active: activeTab === 'captured' }"
+                                @click="switchTab('captured')" :disabled="capturedImages.length === 0">
                                 <span>Captured Images</span>
                                 <span class="badge img-badge">{{
                                     capturedImages.length
@@ -617,65 +221,32 @@
                         </div>
 
                         <!-- Display message if no images in current category -->
-                        <div
-                            v-if="currentImageSet.length === 0"
-                            class="no-images-message"
-                        >
+                        <div v-if="currentImageSet.length === 0" class="no-images-message">
                             No images available in this category
                         </div>
 
                         <!-- Main image display (only shown if we have images) -->
-                        <div
-                            v-if="currentImageSet.length > 0"
-                            class="main-image-container"
-                        >
-                            <button
-                                class="nav-button prev"
-                                @click="prevImage"
-                                v-if="currentImageSet.length > 1"
-                            >
+                        <div v-if="currentImageSet.length > 0" class="main-image-container">
+                            <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
                                 <i class="bi bi-arrow-left-short"></i>
                             </button>
-                            <img
-                                :src="currentImageSet[currentImageIndex]"
-                                alt="Product Image"
-                                class="modal-main-image"
-                                @error="handleImageError"
-                            />
-                            <button
-                                class="nav-button next"
-                                @click="nextImage"
-                                v-if="currentImageSet.length > 1"
-                            >
+                            <img :src="currentImageSet[currentImageIndex]" alt="Product Image" class="modal-main-image"
+                                @error="handleImageError" />
+                            <button class="nav-button next" @click="nextImage" v-if="currentImageSet.length > 1">
                                 <i class="bi bi-arrow-right-short"></i>
                             </button>
                         </div>
 
-                        <div
-                            class="image-counter"
-                            v-if="currentImageSet.length > 0"
-                        >
+                        <div class="image-counter" v-if="currentImageSet.length > 0">
                             {{ currentImageIndex + 1 }} /
                             {{ currentImageSet.length }}
                         </div>
 
                         <!-- Thumbnails for the current image set -->
-                        <div
-                            class="thumbnails-container"
-                            v-if="currentImageSet.length > 1"
-                        >
-                            <div
-                                v-for="(image, index) in currentImageSet"
-                                :key="index"
-                                class="modal-thumbnail"
-                                :class="{ active: index === currentImageIndex }"
-                                @click="currentImageIndex = index"
-                            >
-                                <img
-                                    :src="image"
-                                    :alt="`Thumbnail ${index + 1}`"
-                                    @error="handleImageError"
-                                />
+                        <div class="thumbnails-container" v-if="currentImageSet.length > 1">
+                            <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
+                                :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
+                                <img :src="image" :alt="`Thumbnail ${index + 1}`" @error="handleImageError" />
                             </div>
                         </div>
                     </div>
@@ -683,848 +254,576 @@
             </div>
         </div>
 
-        <div v-if="showEditModal" class="modal edit-modal">
-            <div class="modal-overlay" @click="closeEditModal"></div>
+        <Dialog v-model:visible="showEditModal" modal :style="{ width: '95%' }" header="Edit Product">
+            <div class="edit-order-container">
+                <form method="POST" class="editOrderForm">
+                    <div class="form-grid-wrapper">
+                        <!-- LEFT: IMAGE + GENERAL INFO -->
+                        <div class="form-col-left">
+                            <div class="image-section" v-if="imageList.length">
+                                <!-- Main Image -->
+                                <div class="main-image">
+                                    <img :src="activeImageUrl" alt="Main Product Image" loading="lazy"
+                                        @error="onImageErrorMain" />
+                                </div>
 
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div class="productTitle">
-                        <h2>Edit</h2>
-                    </div>
-                    <button class="btn btn-modal-close" @click="closeEditModal">
-                        &times;
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="edit-order-container">
-                        <form method="POST" class="editOrderForm">
-                            <div class="form-grid-wrapper">
-                                <!-- LEFT: IMAGE + GENERAL INFO -->
-                                <div class="form-col-left">
-                                    <div
-                                        class="image-section"
-                                        v-if="imageList.length"
-                                    >
-                                        <!-- Main Image -->
-                                        <div class="main-image">
-                                            <img
-                                                :src="activeImageUrl"
-                                                alt="Main Product Image"
-                                                loading="lazy"
-                                                @error="onImageErrorMain"
-                                            />
-                                        </div>
-
-                                        <!-- Thumbnails -->
-                                        <div class="thumbnail-carousel">
-                                            <div
-                                                v-for="(
-                                                    img, index
-                                                ) in imageList"
-                                                :key="index"
-                                                :class="[
+                                <!-- Thumbnails -->
+                                <div class="thumbnail-carousel">
+                                    <div v-for="(
+img, index
+                                                ) in imageList" :key="index" :class="[
                                                     'thumbnail',
                                                     {
                                                         active:
                                                             index ===
                                                             activeIndex,
                                                     },
-                                                ]"
-                                                @click="activeIndex = index"
-                                                @mouseenter="
+                                                ]" @click="activeIndex = index" @mouseenter="
                                                     activeIndex = index
-                                                "
-                                            >
-                                                <img
-                                                    :src="basePath + img"
-                                                    alt="Thumbnail"
-                                                    loading="lazy"
-                                                    @error="
-                                                        onThumbnailError($event)
-                                                    "
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div class="serial-upload-section">
-                                        <fieldset>
-                                            <label>Serial Number Photo</label>
-
-                                            <div class="serial-upload">
-                                                <!-- hidden file input triggered by button -->
-                                                <input
-                                                    ref="serialInput"
-                                                    type="file"
-                                                    accept="image/*"
-                                                    capture="environment"
-                                                    class="form-control hidden"
-                                                    @change="
-                                                        onSerialImageSelected
-                                                    "
-                                                />
-
-                                                <!-- Live preview -->
-                                                <div class="serial-preview">
-                                                    <img
-                                                        :src="
-                                                            displaySerialImage
-                                                        "
-                                                        alt="Serial number preview"
-                                                        loading="lazy"
-                                                        width="100%"
-                                                        @error="
-                                                            onSerialImgError
-                                                        "
-                                                    />
-
-                                                    <div
-                                                        v-if="
-                                                            serialImageUploading
-                                                        "
-                                                        class="progress"
-                                                    >
-                                                        <div
-                                                            class="bar"
-                                                            :style="{
-                                                                width:
-                                                                    uploadProgress +
-                                                                    '%',
-                                                            }"
-                                                        ></div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </fieldset>
-                                    </div>
-
-                                    <div
-                                        class="form-section general-info-section"
-                                    >
-                                        <!-- SECTION: General Info -->
-                                        <div class="general-info-section">
-                                            <h3 class="form-section-heading">
-                                                General Info
-                                            </h3>
-
-                                            <fieldset>
-                                                <label><span>RT:</span></label>
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    :value="item.ProductID"
-                                                    placeholder="RT Counter"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span>ASIN:</span></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.ASIN"
-                                                    readonly
-                                                    disabled
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span>FNSKU:</span></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.FNSKU"
-                                                    readonly
-                                                    disabled
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >External Title:</span
-                                                    ></label
-                                                >
-                                                <textarea
-                                                    ref="productTextarea"
-                                                    class="form-control no-resize"
-                                                    v-model="item.ProductTitle"
-                                                    placeholder="Product Title"
-                                                    rows="1"
-                                                    @input="autoResize"
-                                                ></textarea>
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Internal Title:</span
-                                                    ></label
-                                                >
-                                                <textarea
-                                                    ref="productTextarea"
-                                                    class="form-control no-resize"
-                                                    v-model="item.ProductTitle"
-                                                    placeholder="Product Title"
-                                                    rows="1"
-                                                    @input="autoResize"
-                                                    readonly
-                                                    disabled
-                                                ></textarea>
-                                            </fieldset>
-                                        </div>
+                                                    ">
+                                        <img :src="basePath + img" alt="Thumbnail" loading="lazy" @error="
+                                            onThumbnailError($event)
+                                            " />
                                     </div>
                                 </div>
+                            </div>
 
-                                <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
-                                <div class="form-col-center">
-                                    <div class="form-section other-section">
-                                        <!-- SECTION: Dates -->
-                                        <div class="dates-section">
-                                            <h3 class="form-section-heading">
-                                                Dates
-                                            </h3>
+                            <div class="">
+                                <fieldset>
+                                    <label>Serial Number Photo</label>
 
+                                    <div class="serial-upload">
+                                        <!-- hidden file input triggered by button -->
+                                        <input ref="serialInput" type="file" accept="image/*" capture="environment"
+                                            class="form-control hidden" @change="
+                                                onSerialImageSelected
+                                            " />
+
+                                        <!-- Live preview -->
+                                        <div class="serial-preview">
+                                            <img :src="displaySerialImage
+                                                " alt="Serial number preview" loading="lazy" width="100%" @error="
+                                                    onSerialImgError
+                                                " />
+
+                                            <div v-if="
+                                                serialImageUploading
+                                            " class="progress">
+                                                <div class="bar" :style="{
+                                                    width:
+                                                        uploadProgress +
+                                                        '%',
+                                                }"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+                            </div>
+                        </div>
+
+                        <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
+                        <div class="form-col-center">
+                            <Card>
+                                <template #title>
+                                    <div>
+                                        <h6 class="text-primary">General Information</h6>
+                                        <Divider />
+                                    </div>
+                                </template>
+                                <template #content>
+                                    <div class="row">
+                                        <div class="col-md-6">
                                             <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Order Date:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="date"
-                                                    class="form-control"
-                                                    v-model="item.orderdate"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Payment Date:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="date"
-                                                    class="form-control"
-                                                    v-model="item.paymentdate"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Shipped Date:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="date"
-                                                    class="form-control"
-                                                    v-model="item.shipdate"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Delivered Date:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="date"
-                                                    class="form-control"
-                                                    v-model="item.datedelivered"
-                                                />
+                                                <label>External Title:</label>
+                                                <Textarea ref="productTextarea" class="no-resize"
+                                                    v-model="item.ProductTitle" placeholder="Product Title" rows="2"
+                                                    @input="autoResize" size="small" fluid></Textarea>
                                             </fieldset>
                                         </div>
-
-                                        <!-- SECTION: Serial & Tracking -->
-                                        <div class="serial-tracking-section">
-                                            <h3 class="form-section-heading">
-                                                Serial & Tracking
-                                            </h3>
-
-                                            <template v-if="serialKeys.length">
-                                                <fieldset
-                                                    v-for="(
-                                                        key, index
-                                                    ) in serialKeys"
-                                                    :key="key"
-                                                >
-                                                    <label
-                                                        ><span
-                                                            >Serial Number
+                                        <div class="col-md-6">
+                                            <fieldset>
+                                                <label>Internal Title:</label>
+                                                <Textarea ref="productTextarea" class="no-resize"
+                                                    v-model="item.ProductTitle" placeholder="Product Title" rows="2"
+                                                    @input="autoResize" size="small" fluid readonly disabled></Textarea>
+                                            </fieldset>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <fieldset>
+                                                <label>RT:</label>
+                                                <InputText type="text" size="small" fluid :value="item.ProductID"
+                                                    placeholder="RT Counter" />
+                                            </fieldset>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <fieldset>
+                                                <label>ASIN:</label>
+                                                <InputText type="text" size="small" fluid v-model="item.ASIN" readonly
+                                                    disabled />
+                                            </fieldset>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <fieldset>
+                                                <label>FNSKU:</label>
+                                                <InputText type="text" size="small" fluid v-model="item.FNSKU" readonly
+                                                    disabled />
+                                            </fieldset>
+                                        </div>
+                                    </div>
+                                </template>
+                            </Card>
+                            <div class="mt-4 bg-white border-0">
+                                <div class="row ">
+                                    <div class="col-lg-3 mb-2">
+                                        <Card>
+                                            <template #title>
+                                                <h6 class="text-primary">
+                                                    Dates
+                                                </h6>
+                                                <Divider />
+                                            </template>
+                                            <template #content>
+                                                <fieldset>
+                                                    <label><span>Order Date:</span></label>
+                                                    <InputText type="date" size=small fluid v-model="item.orderdate" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label><span>Payment Date:</span></label>
+                                                    <InputText type="date" size=small fluid
+                                                        v-model="item.paymentdate" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label><span>Shipped Date:</span></label>
+                                                    <InputText type="date" size=small fluid v-model="item.shipdate" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label><span>Delivered Date:</span></label>
+                                                    <InputText type="date" size=small fluid
+                                                        v-model="item.datedelivered" />
+                                                </fieldset>
+                                            </template>
+                                        </Card>
+                                    </div>
+                                    <div class="col-lg-3  mb-2">
+                                        <Card>
+                                            <template #title>
+                                                <h6 class="text-primary">
+                                                    Serial & Tracking
+                                                </h6>
+                                                <Divider />
+                                            </template>
+                                            <template #content>
+                                                <template v-if="serialKeys.length">
+                                                    <fieldset v-for="(
+key, index
+                                                    ) in serialKeys" :key="key">
+                                                        <label>Serial Number
                                                             {{
                                                                 getLabel(index)
-                                                            }}:</span
-                                                        ></label
-                                                    >
-                                                    <input
-                                                        type="text"
-                                                        class="form-control"
-                                                        v-model="item[key]"
-                                                        @blur="
-                                                            checkDuplicateSerial(
-                                                                item[key]
-                                                            )
-                                                        "
-                                                    />
-                                                </fieldset>
-                                            </template>
+                                                            }}:</label>
+                                                        <InputText type="text" size="small" fluid v-model="item[key]"
+                                                            @blur="
+                                                                checkDuplicateSerial(
+                                                                    item[key]
+                                                                )
+                                                                " />
+                                                    </fieldset>
+                                                </template>
 
-                                            <template
-                                                v-if="trackingKeys.length"
-                                            >
-                                                <fieldset
-                                                    v-for="(
-                                                        key, index
-                                                    ) in trackingKeys"
-                                                    :key="key"
-                                                >
-                                                    <label
-                                                        ><span
-                                                            >Tracking Number
+                                                <template v-if="trackingKeys.length">
+                                                    <fieldset v-for="(
+key, index
+                                                    ) in trackingKeys" :key="key">
+                                                        <label>Tracking Number
                                                             {{
                                                                 index + 1
-                                                            }}:</span
-                                                        ></label
-                                                    >
-                                                    <input
-                                                        type="text"
-                                                        class="form-control"
-                                                        v-model="item[key]"
-                                                    />
+                                                            }}:</label>
+                                                        <InputText type="text" size="small" fluid v-model="item[key]" />
+                                                    </fieldset>
+                                                </template>
+                                            </template>
+                                        </Card>
+                                    </div>
+                                    <div class="col-lg-3  mb-2">
+                                        <Card>
+                                            <template #title>
+                                                <h6 class="text-primary">Product Information</h6>
+                                                <Divider />
+                                            </template>
+                                            <template #content>
+                                                <fieldset>
+                                                    <label><span>Sub-variant:</span></label>
+                                                    <InputText type="text" size="small" fluid
+                                                        v-model="item.itemnumber" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label><span>Order Number:</span></label>
+                                                    <InputText type="text" size="small" fluid :value="item.rtid"
+                                                        placeholder="Order Number" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label><span>Item Number:</span></label>
+                                                    <InputText type="text" size="small" fluid
+                                                        v-model="item.itemnumber" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label><span>Supplier ID/Name:</span></label>
+                                                    <InputText type="text" size="small" fluid v-model="item.seller" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Material:</label>
+                                                    <Select v-model="item.materialtype" :options="materialTypesOptions"
+                                                        optionLabel="label" optionValue="value"
+                                                        placeholder="Select material type" size="small" fluid />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Source Type:</label>
+                                                    <Select v-model="item.sourceType" :options="sourceTypeOptions"
+                                                        optionLabel="label" optionValue="value"
+                                                        placeholder="Select source type" size="small" fluid />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Carrier /
+                                                        Courier:</label>
+                                                    <Select v-model="item.carrier" :options="courierOptions"
+                                                        optionLabel="label" optionValue="value"
+                                                        placeholder="Select courier" size="small" fluid />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Listed Condition:</label>
+                                                    <Select v-model="item.listedcondition"
+                                                        :options="listedConditionOptions" optionLabel="label"
+                                                        optionValue="value" placeholder="Select condition" size="small"
+                                                        fluid />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Payment Method:</label>
+                                                    <Select v-model="item.paymentmethod" :options="paymentMethodOptions"
+                                                        optionLabel="label" optionValue="value"
+                                                        placeholder="Select Payment Method" size="small" fluid />
                                                 </fieldset>
                                             </template>
-                                        </div>
-
-                                        <!-- SECTION: Product Info -->
-                                        <div class="product-info-section">
-                                            <h3 class="form-section-heading">
-                                                Product Info
-                                            </h3>
-
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Sub-variant:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.itemnumber"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Order Number:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    :value="item.rtid"
-                                                    placeholder="Order Number"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Item Number:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.itemnumber"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Supplier ID/Name:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.seller"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Material:</span
-                                                    ></label
-                                                >
-                                                <select
-                                                    class="form-control"
-                                                    v-model="item.materialtype"
-                                                >
-                                                    <option disabled value="">
-                                                        Select material type
-                                                    </option>
-                                                    <option
-                                                        v-for="type in materialTypes"
-                                                        :key="type"
-                                                        :value="type"
-                                                    >
-                                                        {{ type }}
-                                                    </option>
-                                                </select>
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Source Type:</span
-                                                    ></label
-                                                >
-                                                <select
-                                                    class="form-control"
-                                                    v-model="item.sourceType"
-                                                >
-                                                    <option disabled value="">
-                                                        Select source type
-                                                    </option>
-                                                    <option value="ES">
-                                                        ES
-                                                    </option>
-                                                    <option value="AS">
-                                                        AS
-                                                    </option>
-                                                    <option value="XS">
-                                                        XS
-                                                    </option>
-                                                    <option value="PS">
-                                                        PS
-                                                    </option>
-                                                    <option value="RS">
-                                                        RS
-                                                    </option>
-                                                    <option value="B&H">
-                                                        B&H
-                                                    </option>
-                                                </select>
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Carrier /
-                                                        Courier:</span
-                                                    ></label
-                                                >
-                                                <select
-                                                    class="form-control"
-                                                    v-model="item.carrier"
-                                                >
-                                                    <option disabled value="">
-                                                        Select courier
-                                                    </option>
-                                                    <option
-                                                        v-for="carrier in carrierOptions"
-                                                        :key="carrier"
-                                                        :value="carrier"
-                                                    >
-                                                        {{ carrier }}
-                                                    </option>
-                                                </select>
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Listed Condition:</span
-                                                    ></label
-                                                >
-                                                <select
-                                                    class="form-control"
-                                                    v-model="
-                                                        item.listedcondition
-                                                    "
-                                                >
-                                                    <option disabled value="">
-                                                        Select condition
-                                                    </option>
-                                                    <option value="New">
-                                                        New
-                                                    </option>
-                                                    <option value="Open Box">
-                                                        Open Box
-                                                    </option>
-                                                    <option value="Used">
-                                                        Used
-                                                    </option>
-                                                    <option
-                                                        value="For parts or not working"
-                                                    >
-                                                        For parts or not working
-                                                    </option>
-                                                </select>
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Payment Method:</span
-                                                    ></label
-                                                >
-                                                <select
-                                                    class="form-control"
-                                                    v-model="item.paymentmethod"
-                                                >
-                                                    <option disabled value="">
-                                                        Select Payment Method
-                                                    </option>
-                                                    <option value="PayPal">
-                                                        PayPal
-                                                    </option>
-                                                    <option
-                                                        value="Credit/Debit Card"
-                                                    >
-                                                        Credit/Debit Card
-                                                    </option>
-                                                    <option value="Cash">
-                                                        Cash
-                                                    </option>
-                                                    <option
-                                                        value="Bank Transfer"
-                                                    >
-                                                        Bank Transfer
-                                                    </option>
-                                                    <option value="Check">
-                                                        Check
-                                                    </option>
-                                                </select>
-                                            </fieldset>
-                                        </div>
-
-                                        <!-- SECTION: Other Info -->
-                                        <div class="other-info-section">
-                                            <h3 class="form-section-heading">
-                                                Other Info
-                                            </h3>
-
-                                            <fieldset>
-                                                <label
-                                                    ><span>Module:</span></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="
-                                                        item.ProductModuleLoc
-                                                    "
-                                                    readonly
-                                                    disabled
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Store Name:</span
-                                                    ></label
-                                                >
-                                                <select
-                                                    class="form-control"
-                                                    v-model="item.storename"
-                                                >
-                                                    <option disabled value="">
-                                                        Select Store Name
-                                                    </option>
-                                                    <option
-                                                        v-for="type in storeNames"
-                                                        :key="type"
-                                                        :value="type"
-                                                    >
-                                                        {{ type }}
-                                                    </option>
-                                                </select>
-                                            </fieldset>
-                                            <fieldset>
-                                                <label><span>RPN:</span></label>
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.RPN"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label><span>PRD:</span></label>
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.PRD"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label><span>PCN:</span></label>
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.PCN"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Basket Number:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.basketnumber"
-                                                />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Priority Rank:</span
-                                                    ></label
-                                                >
-                                                <select
-                                                    class="form-control"
-                                                    v-model="item.priorityrank"
-                                                >
-                                                    <option disabled value="">
-                                                        Select Priority Rank
-                                                    </option>
-                                                    <option
-                                                        v-for="type in priorityRanks"
-                                                        :key="type"
-                                                        :value="type"
-                                                    >
-                                                        {{ type }}
-                                                    </option>
-                                                </select>
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Validation
-                                                        Status:</span
-                                                    ></label
-                                                >
-                                                <select
-                                                    class="form-control"
-                                                    v-model="
-                                                        item.validation_status
-                                                    "
-                                                >
-                                                    <option disabled value="">
-                                                        Select Validation Status
-                                                    </option>
-                                                    <option
-                                                        v-for="type in validationStatuses"
-                                                        :key="type"
-                                                        :value="type"
-                                                    >
-                                                        {{ type }}
-                                                    </option>
-                                                </select>
-                                            </fieldset>
-                                            <fieldset>
-                                                <label
-                                                    ><span
-                                                        >Return Status:</span
-                                                    ></label
-                                                >
-                                                <input
-                                                    type="text"
-                                                    class="form-control"
-                                                    v-model="item.returnstatus"
-                                                    readonly
-                                                    disabled
-                                                />
-                                            </fieldset>
-                                        </div>
+                                        </Card>
                                     </div>
-                                </div>
-
-                                <!-- RIGHT: PRICING -->
-                                <div class="form-col-right">
-                                    <div
-                                        class="pos-pricing-ui bg-white rounded shadow p-4"
-                                        style="max-width: 480px"
-                                    >
-                                        <!-- Header -->
-                                        <div class="border-bottom pb-2">
-                                            <h3 class="text-dark mb-0">
-                                                Pricing
-                                            </h3>
-                                        </div>
-
-                                        <!-- Full-width Fields -->
-                                        <fieldset>
-                                            <label><span>Quantity</span></label>
-                                            <input
-                                                type="number"
-                                                class="form-control form-control-lg text-end"
-                                                v-model="item.quantity"
-                                            />
-                                        </fieldset>
-
-                                        <fieldset>
-                                            <label
-                                                ><span>Total Price</span></label
-                                            >
-                                            <input
-                                                type="number"
-                                                class="form-control form-control-lg text-end"
-                                                v-model="item.price"
-                                            />
-                                        </fieldset>
-
-                                        <fieldset>
-                                            <label><span>Discount</span></label>
-                                            <input
-                                                type="number"
-                                                class="form-control form-control-lg text-end"
-                                                v-model="item.Discount"
-                                            />
-                                        </fieldset>
-
-                                        <fieldset>
-                                            <label><span>Tax</span></label>
-                                            <input
-                                                type="number"
-                                                class="form-control form-control-lg text-end"
-                                                v-model="item.tax"
-                                            />
-                                        </fieldset>
-
-                                        <fieldset>
-                                            <label><span>Shipping</span></label>
-                                            <input
-                                                type="number"
-                                                class="form-control form-control-lg text-end"
-                                                v-model="item.priceshipping"
-                                            />
-                                        </fieldset>
-
-                                        <fieldset>
-                                            <label><span>Refund</span></label>
-                                            <input
-                                                type="number"
-                                                class="form-control form-control-lg text-end"
-                                                v-model="item.refund"
-                                            />
-                                        </fieldset>
-
-                                        <!-- Divider -->
-                                        <hr class="my-4" />
-
-                                        <fieldset>
-                                            <label
-                                                ><span>Unit Price</span></label
-                                            >
-                                            <input
-                                                type="text"
-                                                class="form-control form-control-lg text-end bg-light"
-                                                :value="formattedUnitprice"
-                                                readonly
-                                            />
-                                        </fieldset>
-                                        <!-- Total Summary -->
-                                        <fieldset>
-                                            <label
-                                                ><span>Grand Total</span></label
-                                            >
-                                            <input
-                                                type="text"
-                                                class="form-control form-control-lg text-end bg-light fw-bold text-success"
-                                                :value="grandTotal"
-                                                readonly
-                                            />
-                                        </fieldset>
+                                    <div class="col-lg-3  mb-2">
+                                        <Card>
+                                            <template #title>
+                                                <h6 class="text-primary">
+                                                    Other Info
+                                                </h6>
+                                                <Divider />
+                                            </template>
+                                            <template #content>
+                                                <fieldset>
+                                                    <label>Module:</label>
+                                                    <InputText type="text" size="small" fluid v-model="item.ProductModuleLoc
+                                                        " readonly disabled />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Store Name:</label>
+                                                    <Select v-model="item.storename" :options="storenameOptions"
+                                                        optionLabel="label" optionValue="value"
+                                                        placeholder=" Select Store Name" size="small" fluid />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>RPN:</label>
+                                                    <InputText type="text" size="small" fluid v-model="item.RPN" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>PRD:</label>
+                                                    <InputText type="text" size="small" fluid v-model="item.PRD" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>PCN:</label>
+                                                    <InputText type="text" size="small" fluid v-model="item.PCN" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Basket Number:</label>
+                                                    <InputText type="text" size="small" fluid
+                                                        v-model="item.basketnumber" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Priority Rank:</label>
+                                                    <Select v-model="item.priorityrank" :options="priorityRanksOptions"
+                                                        optionLabel="label" optionValue="value"
+                                                        placeholder=" Select Priority Rank" size="small" fluid />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Validation
+                                                        Status:</label>
+                                                    <Select v-model="item.validation_status"
+                                                        :options="validationStatusOptions" optionLabel="label"
+                                                        optionValue="value" placeholder="Select Validation Status"
+                                                        size="small" fluid />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Return Status:</label>
+                                                    <InputText type="text" size="small" fluid
+                                                        v-model="item.returnstatus" readonly disabled />
+                                                </fieldset>
+                                            </template>
+                                        </Card>
                                     </div>
                                 </div>
                             </div>
+                            <fieldset>
+                                <label><span>Description:</span></label>
+                                <Textarea ref="descriptionarea" class="no-resize" v-model="item.description"
+                                    placeholder="Description" rows="3" fluid size="small"
+                                    @input="autoResize"></Textarea>
+                            </fieldset>
 
-                            <div class="form-notes">
-                                <div class="form-section notes-section">
-                                    <!-- Description, Supplier Notes, Employee Notes -->
-                                    <!-- SECTION: Notes -->
+                            <fieldset>
+                                <label><span>Supplier Notes:</span></label>
+                                <Textarea ref="supplierNotesarea" class="no-resize" v-model="item.supplierNotes"
+                                    placeholder="Supplier Notes" rows="3" fluid size="small"
+                                    @input="autoResize"></Textarea>
+                            </fieldset>
+
+                            <fieldset>
+                                <label><span>Employee Notes:</span></label>
+                                <Textarea ref="employeeNotesarea" class="no-resize" v-model="item.employeeNotes"
+                                    placeholder="Employee Notes" rows="3" fluid size="small"
+                                    @input="autoResize"></Textarea>
+                            </fieldset>
+
+                            <fieldset>
+                                <label><span>Sticker Notes:</span></label>
+                                <Textarea ref="stickerNotesarea" class="no-resize" v-model="item.stickerNotes"
+                                    placeholder="Employee Notes" rows="3" fluid size="small"
+                                    @input="autoResize"></Textarea>
+                            </fieldset>
+                        </div>
+
+                        <!-- RIGHT: PRICING -->
+                        <div class="form-col-right">
+                            <Card class="shadow">
+                                <template #title>
+                                    <h4 class="text-primary">
+                                        Pricing
+                                    </h4>
+                                    <Divider />
+                                </template>
+                                <template #content>
                                     <fieldset>
-                                        <label><span>Description:</span></label>
-                                        <textarea
-                                            ref="descriptionarea"
-                                            class="form-control no-resize"
-                                            v-model="item.description"
-                                            placeholder="Description"
-                                            rows="1"
-                                            @input="autoResize"
-                                        ></textarea>
+                                        <label><span>Quantity</span></label>
+                                        <InputText type="number" size="small" fluid class="text-end"
+                                            v-model="item.quantity" />
                                     </fieldset>
 
                                     <fieldset>
-                                        <label
-                                            ><span>Supplier Notes:</span></label
-                                        >
-                                        <textarea
-                                            ref="supplierNotesarea"
-                                            class="form-control no-resize"
-                                            v-model="item.supplierNotes"
-                                            placeholder="Supplier Notes"
-                                            rows="1"
-                                            @input="autoResize"
-                                        ></textarea>
+                                        <label><span>Total Price</span></label>
+                                        <InputText type="number" size="small" fluid class="text-end"
+                                            v-model="item.price" />
                                     </fieldset>
 
                                     <fieldset>
-                                        <label
-                                            ><span>Employee Notes:</span></label
-                                        >
-                                        <textarea
-                                            ref="employeeNotesarea"
-                                            class="form-control no-resize"
-                                            v-model="item.employeeNotes"
-                                            placeholder="Employee Notes"
-                                            rows="1"
-                                            @input="autoResize"
-                                        ></textarea>
+                                        <label><span>Discount</span></label>
+                                        <InputText type="number" size="small" fluid class="text-end"
+                                            v-model="item.Discount" />
                                     </fieldset>
 
                                     <fieldset>
-                                        <label
-                                            ><span>Sticker Notes:</span></label
-                                        >
-                                        <textarea
-                                            ref="stickerNotesarea"
-                                            class="form-control no-resize"
-                                            v-model="item.stickerNotes"
-                                            placeholder="Employee Notes"
-                                            rows="1"
-                                            @input="autoResize"
-                                        ></textarea>
+                                        <label><span>Tax</span></label>
+                                        <InputText type="number" size="small" fluid class="text-end"
+                                            v-model="item.tax" />
                                     </fieldset>
-                                </div>
-                            </div>
-                        </form>
+
+                                    <fieldset>
+                                        <label><span>Shipping</span></label>
+                                        <InputText type="number" size="small" fluid class="text-end"
+                                            v-model="item.priceshipping" />
+                                    </fieldset>
+
+                                    <fieldset>
+                                        <label><span>Refund</span></label>
+                                        <InputText type="number" size="small" fluid class="text-end"
+                                            v-model="item.refund" />
+                                    </fieldset>
+
+                                    <!-- Divider -->
+                                    <hr class="my-4" />
+
+                                    <fieldset>
+                                        <label><span>Unit Price</span></label>
+                                        <InputText type="text" size="small" fluid class="text-end bg-light"
+                                            :value="formattedUnitprice" readonly />
+                                    </fieldset>
+                                    <!-- Total Summary -->
+                                    <fieldset>
+                                        <label><span>Grand Total</span></label>
+                                        <InputText type="text" size="small" fluid
+                                            class="text-end bg-light fw-bold text-success" :value="grandTotal"
+                                            readonly />
+                                    </fieldset>
+                                </template>
+                            </Card>
+                        </div>
                     </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button
-                        type="button"
-                        class="btn btn-primary btn-lg text-white"
-                        @click="saveEditModal"
-                    >
-                        <i class="fas fa-save me-2"></i> Save
-                    </button>
-                </div>
+                </form>
             </div>
-        </div>
+            <template #footer>
+                <div class="pt-2">
+                    <Button type="button" @click="saveEditModal">
+                        <i class="fas fa-save"></i> Save
+                    </Button>
+                </div>
+            </template>
+        </Dialog>
 
-        <copyDetailsModal
-            :show-modal="showCopyDetailsModal"
-            :item-data="currentCopyItem"
-            @close="closeCopyDetailsModal"
-        />
+        <copyDetailsModal :show-modal="showCopyDetailsModal" :item-data="currentCopyItem"
+            @close="closeCopyDetailsModal" />
     </div>
 </template>
 
 <script>
+import { Button, Card, Dialog, Divider, InputText, Select, Textarea } from "primevue";
+import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Houseage from "./houseage.js";
-export default Houseage;
+import TableGallery from "../../components/Gallery/tableGallery.vue";
+
+const TABLE_COLUMNS = [
+    {
+        selectionMode: "multiple",
+        header: "",
+        style: { width: "3rem", minWidth: "3rem" },
+        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    },
+    {
+        field: "gallery",
+        header: "Gallery",
+        slot: "gallery",
+        style: { width: "4rem", minWidth: "4rem" },
+    },
+    {
+        field: "ProductTitle",
+        header: "Product Name",
+        sortable: true,
+        headerStyle: "font-size: 16px;",
+        slot: "ProductTitle",
+        style: { minWidth: "15rem", maxWidth: "20rem" },
+    },
+    {
+        header: "Status",
+        field: 'validation_status',
+        headerStyle: "font-size: 16px;",
+        slot: "validationStatus",
+        style: { width: "6rem", minWidth: "6rem" },
+    },
+    {
+        field: "ASIN",
+        header: "ASIN",
+        headerStyle: "font-size: 16px;",
+        bodyStyle: { fontSize: "14px" }
+    },
+    {
+        field: "FNSKU",
+        header: "FNSKU",
+        headerStyle: "font-size: 16px;",
+        bodyStyle: { fontSize: "14px" }
+    },
+    {
+        field: "grading",
+        header: "Grading",
+        headerStyle: "font-size: 16px;",
+        bodyStyle: { fontSize: "14px" }
+    },
+    {
+        field: "serialnumber",
+        header: "Serial Number",
+        headerStyle: "font-size: 16px;",
+        bodyStyle: { fontSize: "14px" }
+    },
+    {
+        field: "quantity",
+        header: "Quantity",
+        headerStyle: "font-size: 16px;",
+        bodyStyle: { fontSize: "14px" }
+    },
+    {
+        field: "fulfillment_status",
+        header: "Fullfilment Status",
+        headerStyle: "font-size: 16px;",
+        bodyStyle: { fontSize: "14px" }
+    }, {
+        field: "ProductModuleLoc",
+        header: "Module",
+        headerStyle: "font-size: 16px;",
+        bodyStyle: { fontSize: "14px" }
+    },
+    {
+        field: "returnstatus",
+        header: "Return Status",
+        headerStyle: "font-size: 16px;",
+        bodyStyle: { fontSize: "14px" }
+    },
+]
+export default {
+    mixins: [Houseage],
+    components: {
+        XDataTable, Dialog, Divider, Card, Select, InputText, TableGallery, Button, Textarea
+    },
+    data() {
+        return {
+            columns: TABLE_COLUMNS,
+            sourceTypeOptions: [
+                { label: "ES", value: "ES" },
+                { label: "AS", value: "AS" },
+                { label: "XS", value: "XS" },
+                { label: "PS", value: "PS" },
+                { label: "RS", value: "RS" },
+                { label: "B&H", value: "B&H" }
+            ],
+            listedConditionOptions: [
+                { label: "New", value: "New" },
+                { label: "Open Box", value: "Open Box" },
+                { label: "Used", value: "Used" },
+                { label: "For parts or not working", value: "For parts or not working" }
+            ],
+            paymentMethodOptions: [
+                { label: "PayPal", value: "PayPal" },
+                { label: "Credit/Debit Card", value: "Credit/Debit Card" },
+                { label: "Cash", value: "Cash" },
+                { label: "Bank Transfer", value: "Bank Transfer" },
+                { label: "Check", value: "Check" }
+            ]
+        }
+    },
+    computed: {
+        materialTypesOptions() {
+            return this.materialTypes.map((type) => ({
+                value: type,
+                label: type,
+            }));
+        },
+        courierOptions() {
+            return this.carrierOptions.map((carrier) => ({
+                value: carrier,
+                label: carrier,
+            }))
+        },
+        storenameOptions() {
+            return this.storeNames.map((store) => ({
+                value: store,
+                label: store,
+            }))
+        },
+        priorityRanksOptions() {
+            return this.priorityRanks.map((type) => ({ label: type, value: type }))
+        },
+        validationStatusOptions() {
+            return this.validationStatuses.map((status) => ({ label: status, value: status }))
+        },
+        uniqueModuleOptions() {
+            return this.uniqueModules.map((module) => ({ label: module, value: module }))
+
+        }
+    }
+}
+
 </script>
 
 <style>
@@ -1618,6 +917,7 @@ export default Houseage;
     0% {
         transform: rotate(0deg);
     }
+
     100% {
         transform: rotate(360deg);
     }
@@ -1644,9 +944,11 @@ button:disabled {
     0% {
         background-color: #f8f9fa;
     }
+
     50% {
         background-color: #e9ecef;
     }
+
     100% {
         background-color: #f8f9fa;
     }

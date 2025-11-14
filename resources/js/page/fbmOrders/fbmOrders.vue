@@ -1,5 +1,5 @@
 <template>
-    <div class="vue-container fbm-order-module">
+    <div class="vue-container">
         <!-- Top header bar with blue background -->
         <div class="top-header">
             <div class="header-buttons">
@@ -7,11 +7,8 @@
                     <i class="fas fa-chart-line"></i>
                     <span>Work History</span>
                 </button>
-                <button
-                    class="btn btn-header"
-                    v-if="persistentSelectedOrderIds.length > 0"
-                    @click="PurchaseShippingLabel"
-                >
+                <button class="btn btn-header" v-if="persistentSelectedOrderIds.length > 0"
+                    @click="PurchaseShippingLabel">
                     <i class="fas fa-shipping-fast"></i>
                     <span>Purchase Shipping Label</span>
                 </button>
@@ -34,12 +31,7 @@
 
             <div class="store-filter">
                 <label for="store-select">Store:</label>
-                <select
-                    id="store-select"
-                    v-model="selectedStore"
-                    @change="changeStore"
-                    class="store-select"
-                >
+                <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
                     <option value="">All Stores</option>
                     <option v-for="store in stores" :key="store" :value="store">
                         {{ store }}
@@ -47,12 +39,7 @@
                 </select>
 
                 <label for="status-select">Status:</label>
-                <select
-                    id="status-select"
-                    v-model="statusFilter"
-                    @change="changeStatusFilter"
-                    class="status-select"
-                >
+                <select id="status-select" v-model="statusFilter" @change="changeStatusFilter" class="status-select">
                     <option value="">All Status</option>
                     <option value="Pending">Pending</option>
                     <option value="Shipped">Shipped</option>
@@ -67,18 +54,13 @@
         </div>
 
         <!-- Selection status bar - NEW COMPONENT -->
-        <div
-            class="selection-status-bar"
-            v-if="persistentSelectedOrderIds.length > 0"
-        >
+        <div class="selection-status-bar" v-if="persistentSelectedOrderIds.length > 0">
             <div class="selection-info">
                 <i class="fas fa-check-square"></i>
-                <span
-                    >{{ persistentSelectedOrderIds.length }} order{{
-                        persistentSelectedOrderIds.length > 1 ? "s" : ""
-                    }}
-                    selected across all pages</span
-                >
+                <span>{{ persistentSelectedOrderIds.length }} order{{
+                    persistentSelectedOrderIds.length > 1 ? "s" : ""
+                }}
+                    selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
                 </button>
@@ -88,361 +70,156 @@
         <h2 class="module-title">FBM Order Module</h2>
 
         <!-- Desktop Table Container -->
-        <div class="table-container desktop-view">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="sticky-header first-col">
-                            <input
-                                type="checkbox"
-                                @click="toggleAll"
-                                v-model="selectAll"
-                            />
-                        </th>
-                        <th class="sticky-header second-sticky">
-                            Order Details
-                        </th>
-                        <th>Product Details</th>
-                        <th>Order Type</th>
-                        <th>Order Status</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="loading">
-                        <td colspan="6" class="text-center">
-                            <div class="loading-spinner">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Loading...
+        <div class="px-4">
+            <XDataTable :value="orders" :loading="loading" :columns="columns" :pagination="false"
+                tableClass="desktop-view" showGridlines>
+                <template #orderDetails="{ data }">
+                    <div class="d-flex flex-column gap-2">
+                        <div>
+                            <span>Order Id: </span>
+                            <span>{{ data.platform_order_id }}</span>
+                        </div>
+                        <div>
+                            <span>Customer Name: </span>
+                            <span>{{ data.buyer_name || "N/A" }}</span>
+                        </div>
+                        <div>
+                            <span>Address: </span>
+                            <span>{{ formatAddress(data.address) }}</span>
+                        </div>
+                        <div>
+                            <span>Fulfillment Channel: </span>
+                            <span class="fbm-tag">{{
+                                data.FulfillmentChannel
+                                }}</span>
+                        </div>
+                        <div>
+                            <span>Amazon Order: </span>
+                            <span>{{ formatDate(data.purchase_date) }}</span>
+                        </div>
+                    </div>
+                </template>
+                <template #productDetails="{ data }">
+                    <div>
+                        <div v-for="(subdata, index) in data.items" :key="index"
+                            class="mb-4 d-flex align-items-start gap-2 border-bottom pb-2">
+                            <div class="checkbox-disabled-tooltip">
+                                <input type="checkbox" :value="subdata.outboundorderitemid
+                                    " v-model="dispenseItemsSelected" class="item-dispense-checkbox" :disabled="!isItemDispensed(subdata)
+                                        " />
                             </div>
-                        </td>
-                    </tr>
-                    <tr v-else-if="orders.length === 0">
-                        <td colspan="6" class="text-center">No orders found</td>
-                    </tr>
-                    <template
-                        v-else
-                        v-for="(order, index) in orders"
-                        :key="order.outboundorderid"
-                    >
-                        <tr
-                            :class="{
-                                'has-dispensed-items': hasDispensedItems(order),
-                            }"
-                        >
-                            <td class="sticky-col first-col">
-                                <div class="checkbox-disabled-tooltip">
-                                    <input
-                                        type="checkbox"
-                                        v-model="order.checked"
-                                        @change="handleOrderCheckChange(order)"
-                                        :disabled="!canSelectOrder(order)"
-                                    />
-                                </div>
-                            </td>
-                            <!-- Order ID and Customer columns combined for Order Details -->
-                            <td class="sticky-col second-sticky">
-                                <div class="order-id">
-                                    {{ order.platform_order_id }}
+                            <div class="d-flex flex-column gap-2">
+                                <h6> {{ subdata.platform_title }}
+                                </h6>
+                                <div>
+                                    <span>Order Item ID: </span>
+                                    <span>{{ subdata.platform_order_item_id || "N/A" }}</span>
                                 </div>
                                 <div>
-                                    Customer name:
-                                    {{ order.buyer_name || "N/A" }}
+                                    <span>Ordered ASIN: </span>
+                                    <span>{{ subdata.platform_asin || "N/A" }}</span>
+                                    <Button v-if="subdata.platform_asin" label="Edit" variant="link" size="small"
+                                        class="text-primary" />
                                 </div>
                                 <div>
-                                    Address: {{ formatAddress(order.address) }}
+                                    <span>Ordered MNSKU: </span>
+                                    <span>{{ subdata.platform_sku || "N/A" }}</span>
                                 </div>
                                 <div>
-                                    Fulfillment Channel:
-                                    <span class="fbm-tag">{{
-                                        order.FulfillmentChannel
-                                    }}</span>
-                                </div>
-                                <div>Amazon Order</div>
-                                <div>{{ formatDate(order.purchase_date) }}</div>
-                            </td>
-                            <!-- Enhanced Product Details column with multiple dispensed products support -->
-                            <td class="product-details-cell">
-                                <div
-                                    v-for="(item, itemIndex) in order.items ||
-                                    []"
-                                    :key="itemIndex"
-                                    class="product-item"
-                                >
-                                    <!-- Item title row with checkbox -->
-                                    <div class="product-title-row">
-                                        <div class="checkbox-disabled-tooltip">
-                                            <input
-                                                type="checkbox"
-                                                :value="
-                                                    item.outboundorderitemid
-                                                "
-                                                v-model="dispenseItemsSelected"
-                                                class="item-dispense-checkbox"
-                                                :disabled="
-                                                    !isItemDispensed(item)
-                                                "
-                                            />
-                                        </div>
-                                        <div class="product-title">
-                                            {{ item.platform_title }}
-                                            <!-- Enhanced quantity badge with dispensed count -->
-                                            <span
-                                                v-if="item.quantity_ordered > 1"
-                                                class="quantity-badge"
-                                            >
-                                                Qty: {{ item.quantity_ordered }}
-                                                <span
-                                                    v-if="isItemDispensed(item)"
-                                                    class="dispensed-count"
-                                                >
-                                                    ({{
-                                                        getDispensedProductCount(
-                                                            item
-                                                        )
-                                                    }}
-                                                    dispensed)
-                                                </span>
-                                            </span>
-                                        </div>
-                                    </div>
-
-                                    <div class="product-detail">
-                                        Order Item ID:
-                                        {{
-                                            item.platform_order_item_id || "N/A"
-                                        }}
-                                    </div>
-                                    <div class="product-detail">
-                                        Ordered ASIN: {{ item.platform_asin }}
-                                        <button
-                                            v-if="item.platform_asin"
-                                            class="edit-small-btn"
-                                        >
-                                            Edit
-                                        </button>
-                                    </div>
-                                    <div class="product-detail">
-                                        Ordered MSKU: {{ item.platform_sku }}
-                                    </div>
-                                    <div class="product-detail">
-                                        Ordered Condition: {{ item.condition }}
-                                    </div>
-                                    <div class="product-detail">
-                                        Item Price: ${{
-                                            parseFloat(
-                                                item.unit_price || 0
-                                            ).toFixed(2)
-                                        }}
-                                    </div>
-                                    <div class="product-detail">
-                                        Item Tax: ${{
-                                            parseFloat(
-                                                item.unit_tax || 0
-                                            ).toFixed(2)
-                                        }}
-                                    </div>
-
-                                    <!-- Enhanced dispensed products display for multiple quantities -->
-                                    <div
-                                        v-if="isItemDispensed(item)"
-                                        class="dispensed-item-details"
-                                    >
-                                        <div class="dispensed-header">
-                                            <span class="product-id-badge">
-                                                Dispensed Products ({{
-                                                    getDispensedProductCount(
-                                                        item
-                                                    )
-                                                }}/{{ item.quantity_ordered }})
-                                            </span>
-                                        </div>
-
-                                        <!-- Display all dispensed products -->
-                                        <div
-                                            v-for="(
-                                                dispensedProduct, dpIndex
-                                            ) in getDispensedProductsDisplay(
-                                                item
-                                            )"
-                                            :key="'dp-' + dpIndex"
-                                            class="dispensed-product-item"
-                                        >
-                                            <div class="dispensed-detail">
-                                                <strong>Title:</strong>
-                                                {{
-                                                    dispensedProduct.title ||
-                                                    "N/A"
-                                                }}
-                                            </div>
-                                            <div class="dispensed-detail">
-                                                <strong>ASIN:</strong>
-                                                {{
-                                                    dispensedProduct.asin ||
-                                                    "N/A"
-                                                }}
-                                            </div>
-                                            <div class="dispensed-detail">
-                                                <strong>Location:</strong>
-                                                {{
-                                                    dispensedProduct.warehouseLocation ||
-                                                    "N/A"
-                                                }}
-                                            </div>
-                                            <div
-                                                v-if="
-                                                    dispensedProduct.serialNumber
-                                                "
-                                                class="dispensed-detail"
-                                            >
-                                                <strong>Serial #:</strong>
-                                                {{
-                                                    dispensedProduct.serialNumber
-                                                }}
-                                            </div>
-                                            <div
-                                                v-if="
-                                                    dispensedProduct.rtCounter
-                                                "
-                                                class="dispensed-detail"
-                                            >
-                                                <strong>RT Counter:</strong>
-                                                {{ dispensedProduct.rtCounter }}
-                                            </div>
-                                            <div
-                                                v-if="dispensedProduct.FNSKU"
-                                                class="dispensed-detail"
-                                            >
-                                                <strong>FNSKU:</strong>
-                                                {{ dispensedProduct.FNSKU }}
-                                            </div>
-                                            <div class="dispensed-actions">
-                                                <button
-                                                    class="btn-not-found"
-                                                    @click="
-                                                        markProductNotFound(
-                                                            dispensedProduct.product_id,
-                                                            item
-                                                        )
-                                                    "
-                                                    title="Mark product as not found and auto-select replacement"
-                                                >
-                                                    <i
-                                                        class="fas fa-exclamation-triangle"
-                                                    ></i>
-                                                    Not Found
-                                                </button>
-                                            </div>
-                                            <hr
-                                                v-if="
-                                                    dpIndex <
-                                                    getDispensedProductsDisplay(
-                                                        item
-                                                    ).length -
-                                                        1
-                                                "
-                                                class="dispensed-separator"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <!-- Order Type and Shipment columns combined -->
-                            <td class="order-type-cell">
-                                <div>
-                                    Order Type:
-                                    {{ order.order_type || "StandardOrder" }}
+                                    <span>Ordered Condition: </span>
+                                    <span>{{ subdata.condition || "N/A" }}</span>
                                 </div>
                                 <div>
-                                    Shipment Service:
-                                    {{ order.shipment_service || "Standard" }}
-                                </div>
-                                <div>
-                                    Replacement Order:
-                                    {{
-                                        order.is_replacement ? "true" : "false"
+                                    <span>Item Price: </span>
+                                    <span>${{
+                                        parseFloat(
+                                            subdata.unit_price || 0
+                                        ).toFixed(2)
                                     }}
-                                </div>
-                                <div>
-                                    Shipped by Date:
-                                    {{ formatShipByDate(order.ship_date) }}
-                                </div>
-                                <div>
-                                    Delivered by Date:
-                                    {{
-                                        formatDeliveryDate(order.delivery_date)
-                                    }}
-                                </div>
-                                <div v-if="hasTrackingNumber(order)">
-                                    Tracking Status:
-                                    {{ getTrackingStatus(order) }}
-                                </div>
-                            </td>
-                            <!-- Order Status column -->
-                            <td class="order-status-cell">
-                                <div>Purchase label date:</div>
-                                <div>
-                                    Order Status:
-                                    <span
-                                        :class="
-                                            getStatusClass(order.order_status)
-                                        "
-                                    >
-                                        {{ order.order_status }}
                                     </span>
                                 </div>
                                 <div>
-                                    Ship Status: {{ getShipStatus(order) }}
+                                    <span>Item Tax: </span>
+                                    <span>${{
+                                        parseFloat(
+                                            subdata.unit_tax || 0
+                                        ).toFixed(2)
+                                    }}
+                                    </span>
                                 </div>
-                                <div>
-                                    Store Name: {{ order.storename || "N/A" }}
-                                </div>
-                            </td>
-                            <!-- Action column -->
-                            <td>
-                                <div class="action-cell">
-                                    <select class="action-select">
-                                        <option value="NULL">NULL</option>
-                                    </select>
-
-                                    <div class="action-buttons">
-                                        <button class="btn-track">TRACK</button>
-                                        <button class="btn-tracking-history">
-                                            Tracking History
-                                        </button>
-
-                                        <!-- Print Invoice Open Modal -->
-                                        <button
-                                            class="btn-process"
-                                            @click="
-                                                openPrintInvoiceModal(order)
-                                            "
-                                        >
-                                            <i class="fas fa-shipping-fast"></i>
-                                            Print
-                                        </button>
-
-                                        <!-- Process Button (with integrated Auto Dispense) -->
-                                        <button
-                                            class="btn-process"
-                                            @click="openProcessModal(order)"
-                                            :disabled="
-                                                order.order_status ===
-                                                    'Shipped' ||
-                                                order.order_status ===
-                                                    'Canceled'
-                                            "
-                                        >
-                                            <i class="fas fa-shipping-fast"></i>
-                                            Process
-                                        </button>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
+                            </div>
+                            <!-- <Divider /> -->
+                        </div>
+                    </div>
+                </template>
+                <template #orderType="{ data }">
+                    <div class="d-flex flex-column align-items-start gap-2">
+                        <div>
+                            <span>Order Type: </span>
+                            <span> {{ data.order_type || "StandardOrder" }}
+                            </span>
+                        </div>
+                        <div>
+                            <span>Shipment Service: </span>
+                            <span> {{ data.shipment_service || "Standard" }}
+                            </span>
+                        </div>
+                        <div>
+                            <span>Replacement Order: </span>
+                            <span> {{ data.is_replacement ? 'True' : 'False' }}
+                            </span>
+                        </div>
+                        <div>
+                            <span>Ship by Date: </span>
+                            <span> {{ formatShipByDate(data.ship_date) }}</span>
+                        </div>
+                        <div>
+                            <span>Delivered by Date: </span>
+                            <span> {{ formatDeliveryDate(data.delivery_date)
+                            }}</span>
+                        </div>
+                        <div v-if="hasTrackingNumber(data)">
+                            <span>Tracking Status:</span>
+                            <span>{{ getTrackingStatus($data) }}</span>
+                        </div>
+                    </div>
+                </template>
+                <template #orderStatus="{ data }">
+                    <div>
+                        <div>
+                            <span>Order Status: </span>
+                            <span :class="getStatusClass(data.order_status)
+                                ">
+                                {{ data.order_status }}
+                            </span>
+                        </div>
+                        <div>
+                            <span>Ship Status: </span>
+                            <span>{{ getShipStatus(data) }}</span>
+                        </div>
+                        <div>
+                            <span>Store Name: </span>
+                            <span>{{ data.storename || "N/A" }}</span>
+                        </div>
+                    </div>
+                </template>
+                <template #actions="{ data }">
+                    <div class="d-flex flex-column gap-2">
+                        <Select optionLabel="label" optionValue="value" :options="[
+                            { label: 'Null', value: 'Null' }
+                        ]" fluid size=small :modelValue="'Null'" />
+                        <Button label="Track" size=small class="w-100" outlined />
+                        <Button label="Tracking History" severity="info" size=small class="w-100" outlined />
+                        <Button label="Print" icon="pi pi-print" severity="warn" class="w-100" size=small
+                            @click="openPrintInvoiceModal(data)" />
+                        <Button label="Process" icon="pi pi-truck" severity="help" class="w-100" size=small :disabled="data.order_status ===
+                            'Shipped' ||
+                            data.order_status ===
+                            'Canceled'
+                            " @click="openProcessModal(data)" />
+                    </div>
+                </template>
+            </XDataTable>
         </div>
 
         <!-- Mobile Cards View -->
@@ -454,31 +231,21 @@
                 No orders found
             </div>
             <div v-else class="mobile-cards">
-                <div
-                    v-for="(order, index) in orders"
-                    :key="order.outboundorderid"
-                    class="mobile-card"
-                >
+                <div v-for="(order, index) in orders" :key="order.outboundorderid" class="mobile-card">
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <div class="checkbox-disabled-tooltip">
-                                <input
-                                    type="checkbox"
-                                    v-model="order.checked"
-                                    @change="handleOrderCheckChange(order)"
-                                    :disabled="!canSelectOrder(order)"
-                                />
+                                <input type="checkbox" v-model="order.checked" @change="handleOrderCheckChange(order)"
+                                    :disabled="!canSelectOrder(order)" />
                             </div>
                         </div>
                         <div class="mobile-order-id">
                             {{ order.platform_order_id }}
                         </div>
-                        <div
-                            :class="[
-                                'mobile-status',
-                                getStatusClass(order.order_status),
-                            ]"
-                        >
+                        <div :class="[
+                            'mobile-status',
+                            getStatusClass(order.order_status),
+                        ]">
                             {{ order.order_status }}
                         </div>
                     </div>
@@ -496,35 +263,24 @@
 
                     <!-- Enhanced Mobile Products Display -->
                     <div class="mobile-products">
-                        <div
-                            v-for="(item, itemIndex) in order.items || []"
-                            :key="itemIndex"
-                            class="mobile-product-item"
-                        >
+                        <div v-for="(item, itemIndex) in order.items || []" :key="itemIndex"
+                            class="mobile-product-item">
                             <!-- Mobile product title with checkbox -->
                             <div class="mobile-product-title-row">
                                 <div class="checkbox-disabled-tooltip">
-                                    <input
-                                        type="checkbox"
-                                        :value="item.outboundorderitemid"
-                                        v-model="dispenseItemsSelected"
-                                        class="mobile-item-dispense-checkbox"
-                                        :disabled="!isItemDispensed(item)"
-                                    />
+                                    <input type="checkbox" :value="item.outboundorderitemid"
+                                        v-model="dispenseItemsSelected" class="mobile-item-dispense-checkbox"
+                                        :disabled="!isItemDispensed(item)" />
                                 </div>
                                 <div class="mobile-product-title">
                                     {{ item.platform_title }}
-                                    <span
-                                        v-if="item.quantity_ordered > 1"
-                                        class="quantity-badge-mobile"
-                                    >
+                                    <span v-if="item.quantity_ordered > 1" class="quantity-badge-mobile">
                                         Qty: {{ item.quantity_ordered }}
                                         <span v-if="isItemDispensed(item)">
                                             ({{
                                                 getDispensedProductCount(item)
                                             }}
-                                            dispensed)</span
-                                        >
+                                            dispensed)</span>
                                     </span>
                                 </div>
                             </div>
@@ -539,22 +295,16 @@
                             </div>
 
                             <!-- Enhanced mobile dispensed products display -->
-                            <div
-                                v-if="isItemDispensed(item)"
-                                class="mobile-product-dispense"
-                            >
+                            <div v-if="isItemDispensed(item)" class="mobile-product-dispense">
                                 <div class="mobile-dispensed-header">
                                     Dispensed Products ({{
                                         getDispensedProductCount(item)
                                     }})
                                 </div>
-                                <div
-                                    v-for="(
-                                        dispensedProduct, dpIndex
-                                    ) in getDispensedProductsDisplay(item)"
-                                    :key="'mobile-dp-' + dpIndex"
-                                    class="mobile-dispensed-item"
-                                >
+                                <div v-for="(
+dispensedProduct, dpIndex
+                                    ) in getDispensedProductsDisplay(item)" :key="'mobile-dp-' + dpIndex"
+                                    class="mobile-dispensed-item">
                                     <div class="mobile-dispensed-detail">
                                         <strong>Title:</strong>
                                         {{ dispensedProduct.title || "N/A" }}
@@ -570,41 +320,26 @@
                                             "N/A"
                                         }}
                                     </div>
-                                    <div
-                                        v-if="dispensedProduct.serialNumber"
-                                        class="mobile-dispensed-detail"
-                                    >
+                                    <div v-if="dispensedProduct.serialNumber" class="mobile-dispensed-detail">
                                         <strong>Serial:</strong>
                                         {{ dispensedProduct.serialNumber }}
                                     </div>
-                                    <div
-                                        v-if="dispensedProduct.rtCounter"
-                                        class="mobile-dispensed-detail"
-                                    >
+                                    <div v-if="dispensedProduct.rtCounter" class="mobile-dispensed-detail">
                                         <strong>RT:</strong>
                                         {{ dispensedProduct.rtCounter }}
                                     </div>
-                                    <div
-                                        v-if="dispensedProduct.FNSKU"
-                                        class="mobile-dispensed-detail"
-                                    >
+                                    <div v-if="dispensedProduct.FNSKU" class="mobile-dispensed-detail">
                                         <strong>FNSKU:</strong>
                                         {{ dispensedProduct.FNSKU }}
                                     </div>
                                     <div class="mobile-dispensed-actions">
-                                        <button
-                                            class="btn-not-found-mobile"
-                                            @click="
-                                                markProductNotFound(
-                                                    dispensedProduct.product_id,
-                                                    item
-                                                )
-                                            "
-                                            title="Mark as not found"
-                                        >
-                                            <i
-                                                class="fas fa-exclamation-triangle"
-                                            ></i>
+                                        <button class="btn-not-found-mobile" @click="
+                                            markProductNotFound(
+                                                dispensedProduct.product_id,
+                                                item
+                                            )
+                                            " title="Mark as not found">
+                                            <i class="fas fa-exclamation-triangle"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -616,24 +351,22 @@
 
                     <div class="mobile-order-details">
                         <div class="mobile-detail">
-                            <span class="mobile-detail-label"
-                                >Purchase Date:</span
-                            >
+                            <span class="mobile-detail-label">Purchase Date:</span>
                             <span class="mobile-detail-value">{{
                                 formatDate(order.purchase_date)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Order Type:</span>
                             <span class="mobile-detail-value">{{
                                 order.order_type
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Shipment:</span>
                             <span class="mobile-detail-value">{{
                                 order.shipment_service
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
 
@@ -646,27 +379,19 @@
                         </button>
 
                         <!-- Print Invoice Open Modal -->
-                        <button
-                            class="mobile-btn btn-process"
-                            @click="
-                                openPrintInvoiceModal(order)
-                            "
-                        >
+                        <button class="mobile-btn btn-process" @click="
+                            openPrintInvoiceModal(order)
+                            ">
                             <i class="fas fa-shipping-fast"></i>
                             Print
                         </button>
 
                         <!-- Process Button (with integrated Auto Dispense) -->
-                        <button
-                            class="mobile-btn btn-process"
-                            @click="openProcessModal(order)"
-                            :disabled="
-                                order.order_status ===
-                                    'Shipped' ||
-                                order.order_status ===
-                                    'Canceled'
-                            "
-                        >
+                        <button class="mobile-btn btn-process" @click="openProcessModal(order)" :disabled="order.order_status ===
+                            'Shipped' ||
+                            order.order_status ===
+                            'Canceled'
+                            ">
                             <i class="fas fa-shipping-fast"></i>
                             Process
                         </button>
@@ -680,37 +405,19 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        class="per-page-select"
-                    >
-                        <option
-                            v-for="option in [10, 15, 20, 50, 100]"
-                            :key="option"
-                            :value="option"
-                        >
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
                     </select>
                 </div>
 
                 <div class="pagination">
-                    <button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                    >
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
                         <i class="fas fa-chevron-left"></i> Back
                     </button>
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                    >
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -894,12 +601,12 @@
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -910,17 +617,17 @@
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -1180,11 +887,11 @@
                                         <p><strong>Amazon Order Id: </strong>{{ order.platform_order_id }}</p>
                                         <p><strong>Customer Name: </strong>{{ order.BuyerName }}</p>
                                         <p><strong>Address: </strong>
-                                            <ul class="list-unstyled m-0 d-flex flex-column align-items-end">
-                                                <li>{{ order.address_line1 }},</li>
-                                                <li>{{ order.city }}, {{ order.StateOrRegion }}</li>
-                                                <li>{{ order.postal_code }}, {{ order.CountryCode }}</li>
-                                            </ul>
+                                        <ul class="list-unstyled m-0 d-flex flex-column align-items-end">
+                                            <li>{{ order.address_line1 }},</li>
+                                            <li>{{ order.city }}, {{ order.StateOrRegion }}</li>
+                                            <li>{{ order.postal_code }}, {{ order.CountryCode }}</li>
+                                        </ul>
                                         </p>
                                     </li>
 
@@ -1357,31 +1064,21 @@
                         <i class="fas fa-chart-line"></i>
                         <span>Work Summary</span>
                     </h2>
-                    <button
-                        class="btn btn-modal-close"
-                        @click="closeWorkHistoryModal"
-                    >
+                    <button class="btn btn-modal-close" @click="closeWorkHistoryModal">
                         &times;
                     </button>
                 </div>
 
                 <div class="modal-controls">
                     <!-- Mobile Toggle Button -->
-                    <button
-                        class="btn btn-toggle d-md-none"
-                        @click="toggleFilters"
-                    >
+                    <button class="btn btn-toggle d-md-none" @click="toggleFilters">
                         <i class="fas fa-sliders-h"></i>
                     </button>
 
                     <form class="first-control" v-show="showFilters">
                         <fieldset>
                             <label>Sort By: </label>
-                            <select
-                                v-model="workHistoryFilters.sortBy"
-                                @change="fetchWorkHistory"
-                                class="form-control"
-                            >
+                            <select v-model="workHistoryFilters.sortBy" @change="fetchWorkHistory" class="form-control">
                                 <option value="purchase_date">
                                     Label Purchase Date (DESC)
                                 </option>
@@ -1396,31 +1093,19 @@
 
                         <fieldset>
                             <label>Start Date & Time:</label>
-                            <input
-                                type="datetime-local"
-                                v-model="workHistoryFilters.startDate"
-                                @change="fetchWorkHistory"
-                                class="form-control"
-                            />
+                            <input type="datetime-local" v-model="workHistoryFilters.startDate"
+                                @change="fetchWorkHistory" class="form-control" />
                         </fieldset>
 
                         <fieldset>
                             <label>End Date & Time:</label>
-                            <input
-                                type="datetime-local"
-                                v-model="workHistoryFilters.endDate"
-                                @change="fetchWorkHistory"
-                                class="form-control"
-                            />
+                            <input type="datetime-local" v-model="workHistoryFilters.endDate" @change="fetchWorkHistory"
+                                class="form-control" />
                         </fieldset>
 
                         <fieldset>
                             <label>Select User:</label>
-                            <select
-                                v-model="workHistoryFilters.userId"
-                                @change="fetchWorkHistory"
-                                class="form-control"
-                            >
+                            <select v-model="workHistoryFilters.userId" @change="fetchWorkHistory" class="form-control">
                                 <option value="all">All Users</option>
                                 <option value="Van">Van</option>
                                 <option value="Jundell">Jundell</option>
@@ -1430,11 +1115,8 @@
 
                         <fieldset>
                             <label>Filter Late Orders:</label>
-                            <select
-                                v-model="workHistoryFilters.lateOrders"
-                                @change="fetchWorkHistory"
-                                class="form-control"
-                            >
+                            <select v-model="workHistoryFilters.lateOrders" @change="fetchWorkHistory"
+                                class="form-control">
                                 <option value="">All Orders</option>
                                 <option value="late">Late Orders Only</option>
                                 <option value="ontime">On Time Orders</option>
@@ -1442,28 +1124,17 @@
                         </fieldset>
 
                         <fieldset>
-                            <label
-                                ><span>Total Orders:</span>
+                            <label><span>Total Orders:</span>
                                 <span>{{
                                     workHistoryStats.totalOrders
-                                }}</span></label
-                            >
-                            <input
-                                type="text"
-                                v-model="workHistoryFilters.searchQuery"
-                                @input="fetchWorkHistory"
-                                placeholder="Search Order Id or ..."
-                                class="search-input form-control"
-                            />
+                                    }}</span></label>
+                            <input type="text" v-model="workHistoryFilters.searchQuery" @input="fetchWorkHistory"
+                                placeholder="Search Order Id or ..." class="search-input form-control" />
                         </fieldset>
 
                         <div>
                             <label></label>
-                            <button
-                                role="button"
-                                class="btn btn-primary text-white"
-                                @click="exportWorkHistory"
-                            >
+                            <button role="button" class="btn btn-primary text-white" @click="exportWorkHistory">
                                 <i class="fas fa-download"></i> Export Work
                                 History
                             </button>
@@ -1482,10 +1153,7 @@
                             <i class="fas fa-redo"></i> Retry
                         </button>
                     </div>
-                    <div
-                        v-else-if="workHistory && workHistory.length > 0"
-                        class="work-history-content"
-                    >
+                    <div v-else-if="workHistory && workHistory.length > 0" class="work-history-content">
                         <!-- Exact Table Design Match -->
                         <div class="work-history-table d-none d-md-block">
                             <table>
@@ -1496,9 +1164,7 @@
                                         <th>
                                             <div class="th-content">
                                                 <span>Ordered Items</span>
-                                                <span
-                                                    >(ASIN / Title / MSKU)</span
-                                                >
+                                                <span>(ASIN / Title / MSKU)</span>
                                             </div>
                                         </th>
                                         <th>Amazon Order ID</th>
@@ -1508,13 +1174,8 @@
                                                 <div class="th-main">
                                                     Carrier
                                                 </div>
-                                                <select
-                                                    v-model="
-                                                        workHistoryFilters.carrierFilter
-                                                    "
-                                                    @change="fetchWorkHistory"
-                                                    class="carrier-filter form-control"
-                                                >
+                                                <select v-model="workHistoryFilters.carrierFilter
+                                                    " @change="fetchWorkHistory" class="carrier-filter form-control">
                                                     <option value="">
                                                         All Status
                                                     </option>
@@ -1540,13 +1201,8 @@
                                                 <div class="th-main">
                                                     All Stores
                                                 </div>
-                                                <select
-                                                    v-model="
-                                                        workHistoryFilters.storeFilter
-                                                    "
-                                                    @change="fetchWorkHistory"
-                                                    class="store-filter form-control"
-                                                >
+                                                <select v-model="workHistoryFilters.storeFilter
+                                                    " @change="fetchWorkHistory" class="store-filter form-control">
                                                     <option value="">
                                                         All Stores
                                                     </option>
@@ -1563,19 +1219,14 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr
-                                        v-for="(
-                                            historyItem, index
-                                        ) in workHistory"
-                                        :key="index"
-                                        class="work-history-row"
-                                    >
+                                    <tr v-for="(
+historyItem, index
+                                        ) in workHistory" :key="index" class="work-history-row">
                                         <td>
                                             <ul class="list-unstyled m-0">
                                                 <li>
                                                     <p>
-                                                        <strong
-                                                            >Purchase Date:
+                                                        <strong>Purchase Date:
                                                         </strong>
                                                         <span>{{
                                                             getMainDate(
@@ -1586,8 +1237,7 @@
                                                 </li>
                                                 <li>
                                                     <p>
-                                                        <strong
-                                                            >Label Purchase
+                                                        <strong>Label Purchase
                                                             Date:
                                                         </strong>
                                                         <span>{{
@@ -1606,18 +1256,14 @@
                                             }}
                                         </td>
                                         <td>
-                                            <ul
-                                                class="list-unstyled m-0"
-                                                v-for="(
-                                                    item, itemIndex
+                                            <ul class="list-unstyled m-0" v-for="(
+item, itemIndex
                                                 ) in historyItem.orderInfo
-                                                    .items || []"
-                                                :key="itemIndex"
-                                            >
+        .items || []" :key="itemIndex">
                                                 <li>
                                                     <strong>{{
                                                         item.Title
-                                                    }}</strong>
+                                                        }}</strong>
                                                 </li>
                                                 <li>{{ item.ASIN }}</li>
                                                 <li>{{ item.MSKU }}</li>
@@ -1636,24 +1282,21 @@
                                             }}
                                         </td>
                                         <td>
-                                            <span
-                                                :class="
-                                                    getCarrierClass(
-                                                        historyItem.orderInfo
-                                                            .carrier ||
-                                                            historyItem
-                                                                .orderInfo
-                                                                .carrier_description
-                                                    )
-                                                "
-                                            >
+                                            <span :class="getCarrierClass(
+                                                historyItem.orderInfo
+                                                    .carrier ||
+                                                historyItem
+                                                    .orderInfo
+                                                    .carrier_description
+                                            )
+                                                ">
                                                 {{
                                                     getCarrierText(
                                                         historyItem.orderInfo
                                                             .carrier ||
-                                                            historyItem
-                                                                .orderInfo
-                                                                .carrier_description
+                                                        historyItem
+                                                            .orderInfo
+                                                            .carrier_description
                                                     )
                                                 }}
                                             </span>
@@ -1662,10 +1305,8 @@
                                             <ul class="list-unstyled m-0">
                                                 <li>
                                                     <p>
-                                                        <strong
-                                                            >Date
-                                                            Delivered</strong
-                                                        >
+                                                        <strong>Date
+                                                            Delivered</strong>
                                                         <span>{{
                                                             getDeliveryStatus(
                                                                 historyItem.orderInfo
@@ -1675,9 +1316,7 @@
                                                 </li>
                                                 <li>
                                                     <p>
-                                                        <strong
-                                                            >Date Ship</strong
-                                                        >
+                                                        <strong>Date Ship</strong>
                                                         <span>{{
                                                             getDeliverySubDate(
                                                                 historyItem.orderInfo
@@ -1713,11 +1352,7 @@
                         </div>
 
                         <div class="work-history-mobile d-block d-md-none">
-                            <div
-                                class="card mb-3"
-                                v-for="(historyItem, index) in workHistory"
-                                :key="index"
-                            >
+                            <div class="card mb-3" v-for="(historyItem, index) in workHistory" :key="index">
                                 <div class="card-body">
                                     <!-- Purchase Dates -->
                                     <p class="mb-1">
@@ -1739,12 +1374,8 @@
                                     </p>
 
                                     <!-- Ordered Items -->
-                                    <div
-                                        v-for="(item, itemIndex) in historyItem
-                                            .orderInfo.items || []"
-                                        :key="itemIndex"
-                                        class="mb-2"
-                                    >
+                                    <div v-for="(item, itemIndex) in historyItem
+                                        .orderInfo.items || []" :key="itemIndex" class="mb-2">
                                         <p>
                                             <strong>Item:</strong>
                                             {{ item.Title }}
@@ -1777,22 +1408,19 @@
                                     </p>
                                     <p class="mb-2">
                                         <strong>Carrier:</strong>
-                                        <span
-                                            :class="
-                                                getCarrierClass(
-                                                    historyItem.orderInfo
-                                                        .carrier ||
-                                                        historyItem.orderInfo
-                                                            .carrier_description
-                                                )
-                                            "
-                                        >
+                                        <span :class="getCarrierClass(
+                                            historyItem.orderInfo
+                                                .carrier ||
+                                            historyItem.orderInfo
+                                                .carrier_description
+                                        )
+                                            ">
                                             {{
                                                 getCarrierText(
                                                     historyItem.orderInfo
                                                         .carrier ||
-                                                        historyItem.orderInfo
-                                                            .carrier_description
+                                                    historyItem.orderInfo
+                                                        .carrier_description
                                                 )
                                             }}
                                         </span>
@@ -1843,85 +1471,53 @@
                         </div>
 
                         <!-- Work History Pagination Section -->
-                        <div
-                            class="work-history-pagination"
-                            v-if="workHistory && workHistory.length > 0"
-                        >
-                            <div
-                                class="pagination-controls"
-                                v-if="workHistoryPagination.totalPages > 1"
-                            >
+                        <div class="work-history-pagination" v-if="workHistory && workHistory.length > 0">
+                            <div class="pagination-controls" v-if="workHistoryPagination.totalPages > 1">
                                 <!-- First Button -->
-                                <button
-                                    @click="goToWorkHistoryPage(1)"
-                                    :disabled="
-                                        workHistoryPagination.currentPage === 1
-                                    "
-                                    class="pagination-btn first-btn"
-                                >
+                                <button @click="goToWorkHistoryPage(1)" :disabled="workHistoryPagination.currentPage === 1
+                                    " class="pagination-btn first-btn">
                                     <i class="fas fa-chevron-left"></i>
                                     <i class="fas fa-chevron-left"></i>
                                 </button>
 
                                 <!-- Previous Button -->
-                                <button
-                                    @click="prevWorkHistoryPage"
-                                    :disabled="
-                                        workHistoryPagination.currentPage === 1
-                                    "
-                                    class="pagination-btn prev-btn"
-                                >
+                                <button @click="prevWorkHistoryPage" :disabled="workHistoryPagination.currentPage === 1
+                                    " class="pagination-btn prev-btn">
                                     <i class="fas fa-chevron-left"></i>
                                 </button>
 
                                 <!-- Page Numbers -->
                                 <div class="page-numbers">
-                                    <template
-                                        v-for="page in visibleWorkHistoryPages"
-                                        :key="page"
-                                    >
-                                        <button
-                                            @click="goToWorkHistoryPage(page)"
-                                            :class="[
-                                                'pagination-btn',
-                                                'page-btn',
-                                                {
-                                                    active:
-                                                        page ===
-                                                        workHistoryPagination.currentPage,
-                                                },
-                                            ]"
-                                        >
+                                    <template v-for="page in visibleWorkHistoryPages" :key="page">
+                                        <button @click="goToWorkHistoryPage(page)" :class="[
+                                            'pagination-btn',
+                                            'page-btn',
+                                            {
+                                                active:
+                                                    page ===
+                                                    workHistoryPagination.currentPage,
+                                            },
+                                        ]">
                                             {{ page }}
                                         </button>
                                     </template>
                                 </div>
 
                                 <!-- Next Button -->
-                                <button
-                                    @click="nextWorkHistoryPage"
-                                    :disabled="
-                                        workHistoryPagination.currentPage ===
-                                        workHistoryPagination.totalPages
-                                    "
-                                    class="pagination-btn next-btn"
-                                >
+                                <button @click="nextWorkHistoryPage" :disabled="workHistoryPagination.currentPage ===
+                                    workHistoryPagination.totalPages
+                                    " class="pagination-btn next-btn">
                                     <i class="fas fa-chevron-right"></i>
                                 </button>
 
                                 <!-- Last Button -->
-                                <button
-                                    @click="
-                                        goToWorkHistoryPage(
-                                            workHistoryPagination.totalPages
-                                        )
-                                    "
-                                    :disabled="
-                                        workHistoryPagination.currentPage ===
+                                <button @click="
+                                    goToWorkHistoryPage(
                                         workHistoryPagination.totalPages
-                                    "
-                                    class="pagination-btn last-btn"
-                                >
+                                    )
+                                    " :disabled="workHistoryPagination.currentPage ===
+                                        workHistoryPagination.totalPages
+                                        " class="pagination-btn last-btn">
                                     <i class="fas fa-chevron-right"></i>
                                     <i class="fas fa-chevron-right"></i>
                                 </button>
@@ -1934,18 +1530,11 @@
                     </div>
                 </div>
 
-                <ScrollFab
-                    targetSelector=".modal-content"
-                    bottomSelector=".work-history-pagination"
-                />
+                <ScrollFab targetSelector=".modal-content" bottomSelector=".work-history-pagination" />
             </div>
         </div>
 
-        <PrintInvoiceModal
-            :visible="printInvoiceVisible"
-            :order="selectedOrder"
-            @close="closePrintInvoiceModal"
-        />
+        <PrintInvoiceModal :visible="printInvoiceVisible" :order="selectedOrder" @close="closePrintInvoiceModal" />
 
         <!-- Manual Shipment Label Modal -->
         <ManualShipmentLabelModal :visible="manualShipmentLabelVisible" @close="closeManualShipmentLabelModal" />
@@ -1953,6 +1542,54 @@
 </template>
 
 <script>
+import { Button, Divider, Select } from "primevue";
+import XDataTable from "../../components/DataTable/XDataTable.vue";
 import fbmorder from "./fbmOrders.js";
-export default fbmorder;
+const TABLE_COLUMNS = [
+    {
+        selectionMode: "multiple",
+        header: "",
+        style: { width: "3rem", minWidth: "3rem" },
+        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    },
+    {
+        header: "Order Details",
+        slot: "orderDetails",
+        headerStyle: "width: 20rem; min-width: 20rem; max-width: 20rem; padding: 0.25rem;",
+        bodyStyle: "width: 20rem; min-width: 20rem; max-width: 20rem; padding: 0.25rem; font-size: 14px",
+    },
+    {
+        header: "Product Details",
+        slot: "productDetails",
+        headerStyle: "width: 50rem; min-width: 50rem; max-width: 50rem; padding: 0.25rem;",
+        bodyStyle: "width: 50rem; min-width: 50rem; max-width: 50rem; padding: 0.25rem; font-size: 14px;",
+    },
+    {
+        header: "Order Type",
+        bodyStyle: "font-size: 14px",
+        slot: "orderType",
+        style: { minWidth: "16rem" }
+    },
+    {
+        header: "Order Status",
+        bodyStyle: "font-size: 14px",
+        slot: "orderStatus",
+        style: { minWidth: "14rem" }
+    }
+]
+export default {
+    mixins: [fbmorder],
+    components: {
+        XDataTable,
+        Button,
+        Divider,
+        Select
+    },
+    data() {
+        return {
+            columns: TABLE_COLUMNS
+        }
+    }
+};
 </script>

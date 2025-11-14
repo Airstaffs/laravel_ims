@@ -36,7 +36,7 @@
                                 ">RT {{ data.rtcounter }}</span>
                                 <span v-else>{{
                                     data.rtcounter
-                                    }}</span>
+                                }}</span>
                             </div>
                             <p class="fw-semibold">{{ data.astitle }}</p>
                         </div>
@@ -246,7 +246,7 @@
                                     ">RT {{ item.rtcounter }}</span>
                                     <span v-else>{{ item.rtcounter }}</span>
                                 </p>
-                                <h4>{{ item.astitle }}</h4>
+                                <h6>{{ item.astitle }}</h6>
                                 <div class="badge" :class="item.validation_status +
                                     '-badge'
                                     ">

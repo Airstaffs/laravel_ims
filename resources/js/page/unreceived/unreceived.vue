@@ -456,7 +456,7 @@
                                     <h5 class="text-primary fw-bolder">Description</h5>
                                 </template>
                                 <template #content>
-                                    <p style="word-break: break-all; height: 450px; overflow-y: auto;">{{
+                                    <p style="word-break: break-all; max-height: 450px; overflow-y: auto;">{{
                                         item.description }}</p>
                                 </template>
                             </Card>

@@ -45,195 +45,6 @@
                 </template>
             </XDataTable>
         </div>
-        <!-- <div class="table-container desktop-view">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="sticky-header first-col">
-                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
-                        </th>
-                        <th class="sticky-header second-sticky">
-                            <div class="product-name">
-                                <span class="sortable" @click="sortBy('ProductTitle')">
-                                    Product Name
-                                    <i v-if="sortColumn === 'ProductTitle'" :class="sortOrder === 'asc'
-                                            ? 'fas fa-sort-up'
-                                            : 'fas fa-sort-down'
-                                        "></i>
-                                </span>
-                            </div>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('serialnumber')">
-                                Serial Number
-                                <i v-if="sortColumn === 'serialnumber'" :class="sortOrder === 'asc'
-                                        ? 'fas fa-sort-up'
-                                        : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('ASIN')">
-                                ASIN
-                                <i v-if="sortColumn === 'ASIN'" :class="sortOrder === 'asc'
-                                        ? 'fas fa-sort-up'
-                                        : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('FNSKUviewer')">
-                                FNSKU
-                                <i v-if="sortColumn === 'FNSKUviewer'" :class="sortOrder === 'asc'
-                                        ? 'fas fa-sort-up'
-                                        : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('trackingnumber')">
-                                Tracking Number
-                                <i v-if="sortColumn === 'trackingnumber'" :class="sortOrder === 'asc'
-                                        ? 'fas fa-sort-up'
-                                        : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('quantity')">
-                                Quantity
-                                <i v-if="sortColumn === 'quantity'" :class="sortOrder === 'asc'
-                                        ? 'fas fa-sort-up'
-                                        : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('datedelivered')">
-                                Date Delivered
-                                <i v-if="sortColumn === 'datedelivered'" :class="sortOrder === 'asc'
-                                        ? 'fas fa-sort-up'
-                                        : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="loading">
-                        <td colspan="9" class="text-center">
-                            <div class="loading-spinner">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Loading...
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-else-if="sortedInventory.length === 0">
-                        <td colspan="9" class="text-center">No data found</td>
-                    </tr>
-                    <template v-else v-for="(item, index) in sortedInventory" :key="item.id">
-                        <tr>
-                            <td class="sticky-col first-col">
-                                <input type="checkbox" v-model="item.checked" />
-                                <span class="placeholder-date">{{
-                                    item.shipBy || ""
-                                    }}</span>
-                            </td>
-                            <td class="sticky-col second-sticky">
-                                <div class="product-container">
-                                    <div class="product-image-container" @click="openImageModal(item)">
-                                        <img :src="'/images/thumbnails/' +
-                                            item.img1
-                                            " :alt="item.ProductTitle || 'Product'
-                                                " class="product-thumbnail clickable-image"
-                                            @error="handleImageError($event)" />
-                                        <div class="image-count-badge" v-if="countAllImages(item) > 0">
-                                            +{{ countAllImages(item) }}
-                                        </div>
-                                    </div>
-                                    <div class="product-info clickable">
-                                        <p>RT# : {{ item.rtcounter }}</p>
-                                        <p>{{ item.ProductTitle }}</p>
-                                    </div>
-                                </div>
-                            </td>
-
-                            <td>
-                                <span>
-                                    {{ item.serialnumber }}
-                                </span>
-                            </td>
-                            <td>
-                                <span>
-                                    {{ item.ASIN }}
-                                </span>
-                            </td>
-                            <td>
-                                <span>
-                                    {{ item.FNSKUviewer }}
-                                </span>
-                            </td>
-                            <td>
-                                <span>
-                                    {{ item.trackingnumber }}
-                                </span>
-                            </td>
-                            <td>
-                                <span> {{ item.quantity }} unit </span>
-                            </td>
-                            <td>
-                                <span>
-                                    {{ item.datedelivered }}
-                                </span>
-                            </td>
-
-                            <td>
-                                <div class="action-buttons">
-                                    <span>
-                                        <strong></strong>
-                                        {{ item.actions }}
-                                    </span>
-                                    <button @click="showFnskuModal(item)" class="btn btn-fnsku">
-                                        <i class="bi bi-clipboard-check"></i>
-                                        SET FNSKU
-                                    </button>
-                                    <button @click="confirmSplitItem(item)" class="btn btn-split" :disabled="isProcessing || !canSplit(item)
-                                        " :title="!canSplit(item)
-                                                ? 'Cannot split - quantity must be greater than 1'
-                                                : 'Split into individual items'
-                                            ">
-                                        <i class="bi bi-scissors"></i> Split
-                                    </button>
-
-                                    <button @click="confirmMoveToValidation(item)" class="btn btn-validation"
-                                        :disabled="isProcessing">
-                                        <i class="bi bi-check-circle"></i> Move
-                                        to Validation
-                                    </button>
-
-                                    <button @click="confirmMoveToStockroom(item)" class="btn btn-stockroom"
-                                        :disabled="isProcessing">
-                                        <i class="bi bi-box-seam"></i> Move to
-                                        Stockroom
-                                    </button>
-
-                                    <button @click="openCopyDetailsModal(item)" class="btn btn-copy-details"
-                                        title="Copy product details">
-                                        <i class="bi bi-clipboard"></i> Copy
-                                        Details
-                                    </button>
-
-                                    <button @click="openEditModal(item)" class="btn btn-edit">
-                                        <i class="bi bi-pencil"></i>Edit
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </div> -->
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -381,14 +192,14 @@
                             <span>Product Images</span>
                             <span class="badge img-badge">{{
                                 regularImages.length
-                                }}</span>
+                            }}</span>
                         </button>
                         <button class="tab-button" :class="{ active: activeTab === 'captured' }"
                             @click="switchTab('captured')" :disabled="capturedImages.length === 0">
                             <span>Captured Images</span>
                             <span class="badge img-badge">{{
                                 capturedImages.length
-                                }}</span>
+                            }}</span>
                         </button>
                     </div>
 
@@ -883,8 +694,13 @@ key, index
                     </div>
                 </div>
                 <div class="col-md-9">
-                    <h5>Search and Filters</h5>
-                    <div class="mb-4">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <p class="fs-5 fw-semibold">Search and Filters</p>
+                        <Button :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
+                            :label="showFilters ? 'Hide Filters' : 'Show Filters'" @click="showFilters = !showFilters"
+                            size=small severity="contrast" variant="text" class="text-primary" />
+                    </div>
+                    <div v-if="showFilters" class="mb-4">
                         <fieldset>
                             <label>Search Title or Asin</label>
                             <InputText fluid size="small" placeholder="Enter Title or Asin" @input="filterFnskuList"
@@ -919,7 +735,7 @@ key, index
                     </div>
 
                     <XDataTable :value="validFnskuList" :columns="fnskuColumn" :pagination="false"
-                        :loading="isSearching" scrollable scrollHeight="400px" tableClass="mt-4"
+                        :loading="isSearching" scrollable scrollHeight="400px" tableClass="mt-4 desktop-view"
                         :actionsHeaderClass="my - actions - header">
                         <template #image="{ data }">
                             <img :src="getImageSrc(
@@ -998,7 +814,98 @@ key, index
                         </template>
                     </XDataTable>
 
-                    <div class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light d-none d-md-block">
+                    <div class="mobile-view p-0 mt-4">
+                        <div class="mobile-cards">
+                            <div v-if="isSearching" class="loading-spinner-mobile">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Loading...
+                            </div>
+                            <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
+                                No data found
+                            </div>
+
+                            <div class="mobile-card" v-else v-for="(item, index) in validFnskuList" :key="item.id">
+                                <div class="mobile-card-header">
+                                    <div class="mobile-checkbox">
+                                        <input type="checkbox" v-model="item.checked" />
+                                    </div>
+                                    <img :src="getImageSrc(
+                                        item.ASIN,
+                                        0
+                                    )
+                                        " :alt="`Main image for ${item.ASIN}`" class="asin-thumbnail"
+                                        :style="{ maxWidth: '5rem' }" @error="setDefaultImage" />
+                                    <div class="mobile-product-info">
+                                        <div class="mobile-product-name">
+                                            <h6>{{ item.astitle || "----" }}</h6>
+                                        </div>
+                                    </div>
+                                </div>
+                                <hr />
+                                <div class="mobile-card-details">
+                                    <div class="mobile-detail-row mb-2">
+                                        <span class="mobile-detail-label">ASIN:</span>
+                                        <span class="mobile-detal-value">
+                                            {{ item.ASIN }}</span>
+                                    </div>
+
+                                    <div class="mobile-detail-row mb-2">
+                                        <span class="mobile-detail-label">Inventory:</span>
+                                        <span class="mobile-detal-value">
+                                            <span>{{ item.Units }} items in stock</span>
+                                            <span v-if="
+                                                item.Units < 11
+                                            " class="badge bg-warning ms-1">
+                                                Used
+                                                {{
+                                                    11 - item.Units
+                                                }}
+                                                times
+                                            </span>
+                                            <span v-else class="badge bg-success ms-1">
+                                                First use
+                                            </span></span>
+                                    </div>
+                                    <div class="mobile-detail-row mb-2">
+                                        <span class="mobile-detail-label">FNSKU:</span>
+                                        <div class="mobile-detal-value">
+                                            <span>{{ item.FNSKU }}</span>
+                                            <div class="small text-muted">
+                                                <i class="fas fa-arrow-right"></i>
+                                                Will assign:
+                                                <strong>{{
+                                                    getNextFnskuToUse(
+                                                        item
+                                                    )
+                                                }}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mobile-detail-row mb-2">
+                                        <span class="mobile-detail-label">MSKU:</span>
+                                        <span class="mobile-detal-value">
+                                            {{ item.MSKU }}</span>
+                                    </div>
+                                    <div class="mobile-detail-row mb-2">
+                                        <span class="mobile-detail-label">Grading:</span>
+                                        <span class="mobile-detal-value">
+                                            {{
+                                                getGradingLabel(
+                                                    item.grading
+                                                )
+                                            }}</span>
+                                    </div>
+                                    <div class="mobile-detail-row mb-2">
+                                        <span class="mobile-detail-label">Store:</span>
+                                        <span class="mobile-detal-value">
+                                            {{ item.storename }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light flex-wrap">
                         <div>
                             <span v-if="isInitialLoad || isSearching">Loading...</span>
                             <span v-else-if="
@@ -1023,19 +930,21 @@ key, index
                             <nav>
                                 <ul class="pagination pagination-sm mb-0">
                                     <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                                        <button class="page-link" @click="prevPage" :disabled="currentPage === 1">
+                                        <Button @click="prevPage" :disabled="currentPage === 1" size="small"
+                                            severity="info">
                                             Previous
-                                        </button>
+                                        </Button>
                                     </li>
 
                                     <li class="page-item active">
-                                        <span class="page-link">Page {{ currentPage }}</span>
+                                        <span>Page {{ currentPage }}</span>
                                     </li>
 
                                     <li class="page-item" :class="{ disabled: !hasMorePages }">
-                                        <button class="page-link" @click="nextPage" :disabled="!hasMorePages">
+                                        <Button @click="nextPage" :disabled="!hasMorePages" size="small"
+                                            severity="info">
                                             Next
-                                        </button>
+                                        </Button>
                                     </li>
                                 </ul>
                             </nav>

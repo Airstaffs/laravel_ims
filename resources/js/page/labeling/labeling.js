@@ -550,7 +550,7 @@ export default {
                             store: this.selectedStore || "",
                             grading: this.selectedGrading || "",
                             fnsku: this.fnskuExact || "",
-                            limit: 100,
+                            limit: 5,
                             exclude_assigned: false, // SET TO FALSE FOR TESTING - this allows you to see used FNSKUs
                         },
                         withCredentials: true,
