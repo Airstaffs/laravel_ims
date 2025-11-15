@@ -11,6 +11,9 @@ import "primeicons/primeicons.css";
 
 import axios from "axios";
 
+import Swal from "sweetalert2";
+window.Swal = Swal;
+
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -236,10 +239,15 @@ axios.interceptors.response.use(
                 originalRequest.__retryCount >= CSRF_CONFIG.MAX_RETRY_ATTEMPTS
             ) {
                 logCsrf(`❌ Max retries exceeded for request`);
-                console.error('Session appears to be invalid. Consider reloading the page.');
+                console.error(
+                    "Session appears to be invalid. Consider reloading the page."
+                );
 
-                if (status === 419 && !sessionStorage.getItem('csrf_error_shown')) {
-                    sessionStorage.setItem('csrf_error_shown', 'true');
+                if (
+                    status === 419 &&
+                    !sessionStorage.getItem("csrf_error_shown")
+                ) {
+                    sessionStorage.setItem("csrf_error_shown", "true");
                     setTimeout(() => {
                         if (
                             confirm(
@@ -265,7 +273,8 @@ axios.interceptors.response.use(
                 }
 
                 await refreshCsrf();
-                originalRequest.headers['X-CSRF-TOKEN'] = axios.defaults.headers.common['X-CSRF-TOKEN'];
+                originalRequest.headers["X-CSRF-TOKEN"] =
+                    axios.defaults.headers.common["X-CSRF-TOKEN"];
 
                 return axios(originalRequest);
             } catch (refreshError) {
@@ -332,7 +341,7 @@ function updateActivity() {
         refreshTokenAfterIdle();
     }
 
-    localStorage.setItem('last_activity_time', now.toString());
+    localStorage.setItem("last_activity_time", now.toString());
 }
 
 // Listen for all user activity
@@ -354,7 +363,7 @@ function checkIdleState() {
 
     if (idleTime > IDLE_CONFIG.MAX_IDLE_TIME && !isUserIdle) {
         isUserIdle = true;
-        logSession('😴 User is idle');
+        logSession("😴 User is idle");
 
         // Stop heartbeat when idle to save resources
         if (heartbeatTimer) {
@@ -369,7 +378,9 @@ setInterval(checkIdleState, 60 * 1000);
 
 async function refreshTokenAfterIdle() {
     try {
-        const sessionAge = Date.now() - parseInt(localStorage.getItem('session_start_time') || Date.now());
+        const sessionAge =
+            Date.now() -
+            parseInt(localStorage.getItem("session_start_time") || Date.now());
 
         if (sessionAge > IDLE_CONFIG.SESSION_LIFETIME * 0.95) {
             console.warn("⚠️ Session is about to expire, reloading page...");
@@ -378,12 +389,12 @@ async function refreshTokenAfterIdle() {
         }
 
         await refreshCsrf();
-        logSession('✅ Token refreshed after idle');
+        logSession("✅ Token refreshed after idle");
 
         startHeartbeat();
         await keepSessionAlive();
     } catch (error) {
-        console.error('❌ Failed to refresh after idle:', error);
+        console.error("❌ Failed to refresh after idle:", error);
 
         if (error.response?.status === 401 || error.response?.status === 419) {
             showSessionExpiredNotification();
@@ -407,7 +418,7 @@ function startHeartbeat() {
                 lastHeartbeat = now;
                 logSession("💓 Heartbeat sent");
             } catch (error) {
-                console.error('❌ Heartbeat failed:', error);
+                console.error("❌ Heartbeat failed:", error);
 
                 if (error.response?.status === 419) {
                     logSession("🔄 Attempting recovery...");
@@ -421,9 +432,9 @@ function startHeartbeat() {
 }
 
 // Handle page visibility (tab switching)
-document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible') {
-        logSession('👁️ Tab visible again');
+document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState === "visible") {
+        logSession("👁️ Tab visible again");
 
         const now = Date.now();
         const awayTime = now - lastActivityTime;
@@ -453,11 +464,15 @@ async function keepSessionAlive(forceRefresh = false) {
             await refreshCsrf();
         }
 
-        const response = await axios.post(CSRF_CONFIG.KEEP_ALIVE_ENDPOINT, {
-            timestamp: Date.now()
-        }, {
+        const response = await axios.post(
+            CSRF_CONFIG.KEEP_ALIVE_ENDPOINT,
+            {
+                timestamp: Date.now(),
+            },
+            {
                 headers: { "Cache-Control": "no-cache" },
-        });
+            }
+        );
 
         logSession("✅ Session kept alive successfully", response.data);
         localStorage.setItem("last_session_ping", Date.now().toString());
@@ -646,76 +661,82 @@ const app = createApp({
         },
 
         loadContent(module) {
-    updateActivity();
-    this.extendSession();
+            updateActivity();
+            this.extendSession();
 
-    const navName = String(module).toLowerCase();
+            const navName = String(module).toLowerCase();
 
-    // Handle Kanban directly without permission check
-    if (navName === 'kanban') {
-        const componentName = this.mapToComponentName(navName);
-        this.safeComponentUpdate(componentName, navName);
-        return;
-    }
+            // Handle Kanban directly without permission check
+            if (navName === "kanban") {
+                const componentName = this.mapToComponentName(navName);
+                this.safeComponentUpdate(componentName, navName);
+                return;
+            }
 
-    // Handle Printer modal
-    if (navName === "printer") {
-        if (typeof showPrinterModal === "function") {
-            showPrinterModal();
-        } else {
-            console.error("showPrinterModal function not found");
-            setTimeout(() => {
+            // Handle Printer modal
+            if (navName === "printer") {
                 if (typeof showPrinterModal === "function") {
                     showPrinterModal();
                 } else {
-                    alert("Printer modal not available. Please check configuration.");
+                    console.error("showPrinterModal function not found");
+                    setTimeout(() => {
+                        if (typeof showPrinterModal === "function") {
+                            showPrinterModal();
+                        } else {
+                            alert(
+                                "Printer modal not available. Please check configuration."
+                            );
+                        }
+                    }, 100);
                 }
-            }, 100);
-        }
-        return;
-    }
+                return;
+            }
 
-    // Handle ASIN Option modal
-    if (navName === "asinoption") {
-        if (typeof showAsinOptionModal === "function") {
-            showAsinOptionModal();
-        } else {
-            console.error("showAsinOptionModal function not found");
-        }
-        return;
-    }
+            // Handle ASIN Option modal
+            if (navName === "asinoption") {
+                if (typeof showAsinOptionModal === "function") {
+                    showAsinOptionModal();
+                } else {
+                    console.error("showAsinOptionModal function not found");
+                }
+                return;
+            }
 
-    // Permission check for other modules
-    const allowedModules = window.allowedModules
-        ? window.allowedModules.map((m) => m.toLowerCase())
-        : [];
-    const mainModule = window.mainModule ? window.mainModule.toLowerCase() : "";
-    const customModules = window.customModules
-        ? window.customModules.map((m) => m.toLowerCase())
-        : [];
+            // Permission check for other modules
+            const allowedModules = window.allowedModules
+                ? window.allowedModules.map((m) => m.toLowerCase())
+                : [];
+            const mainModule = window.mainModule
+                ? window.mainModule.toLowerCase()
+                : "";
+            const customModules = window.customModules
+                ? window.customModules.map((m) => m.toLowerCase())
+                : [];
 
-    const hasAccess =
-        navName === "fbashipmentinbound" ||
-        allowedModules.includes(navName) ||
-        navName === mainModule ||
-        customModules.includes(navName);
+            const hasAccess =
+                navName === "fbashipmentinbound" ||
+                allowedModules.includes(navName) ||
+                navName === mainModule ||
+                customModules.includes(navName);
 
-    logSession("Checking permissions:", {
-        requested: navName,
-        main: mainModule,
-        allowed: allowedModules,
-        custom: customModules,
-        hasAccess,
-    });
+            logSession("Checking permissions:", {
+                requested: navName,
+                main: mainModule,
+                allowed: allowedModules,
+                custom: customModules,
+                hasAccess,
+            });
 
-    if (hasAccess) {
-        const componentName = this.mapToComponentName(navName);
-        logSession(`Mapping from nav "${navName}" to component "${componentName}"`);
-        this.safeComponentUpdate(componentName, navName);
-    } else {
-        alert("You do not have permission to access this module.");
-    }
-},
+            if (hasAccess) {
+                const componentName = this.mapToComponentName(navName);
+                logSession(
+                    `Mapping from nav "${navName}" to component "${componentName}"`
+                );
+                this.safeComponentUpdate(componentName, navName);
+            } else {
+                alert("You do not have permission to access this module.");
+            }
+        },
 
         safeComponentUpdate(componentName, originalNavName = null) {
             try {
