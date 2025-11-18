@@ -623,9 +623,186 @@
                 </template>
 
                 <div class="scrollable-content">
-                    <div id="timerecord">
-                        <!-- Time record content will go here -->
-                        <p>Time record content placeholder</p>
+                    <div class="time-record-content">
+                        <Card class="filter-card">
+                            <template #content>
+                                <div class="filter-section">
+                                    <h5 class="section-title mb-3">
+                                        <i class="pi pi-filter"></i>
+                                        Filter Attendance Records
+                                    </h5>
+
+                                    <div class="filter-grid">
+                                        <div class="filter-field">
+                                            <label for="start_date"
+                                                >Start Date</label
+                                            >
+                                            <Calendar
+                                                id="start_date"
+                                                v-model="recordFilter.startDate"
+                                                dateFormat="yy-mm-dd"
+                                                showIcon
+                                                placeholder="Select start date"
+                                            />
+                                        </div>
+
+                                        <div class="filter-field">
+                                            <label for="end_date"
+                                                >End Date</label
+                                            >
+                                            <Calendar
+                                                id="end_date"
+                                                v-model="recordFilter.endDate"
+                                                dateFormat="yy-mm-dd"
+                                                showIcon
+                                                placeholder="Select end date"
+                                            />
+                                        </div>
+
+                                        <div class="filter-actions">
+                                            <Button
+                                                label="Filter"
+                                                icon="pi pi-search"
+                                                @click="filterAttendanceRecords"
+                                                :loading="loadingRecords"
+                                            />
+                                            <Button
+                                                label="Clear"
+                                                icon="pi pi-times"
+                                                @click="clearFilter"
+                                                severity="secondary"
+                                                outlined
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
+
+                        <!-- Total Hours Summary -->
+                        <Card class="total-hours-card">
+                            <template #content>
+                                <div class="total-hours-display">
+                                    <i class="pi pi-clock"></i>
+                                    <div>
+                                        <span class="total-label"
+                                            >Total Hours</span
+                                        >
+                                        <span class="total-value">{{
+                                            totalHours
+                                        }}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
+
+                        <!-- Attendance Records DataTable -->
+                        <Card>
+                            <template #content>
+                                <DataTable
+                                    :value="filteredRecords"
+                                    :paginator="true"
+                                    :rows="10"
+                                    :rowsPerPageOptions="[10, 20, 50]"
+                                    responsiveLayout="scroll"
+                                    stripedRows
+                                    :loading="loadingRecords"
+                                    class="time-record-table"
+                                >
+                                    <template #empty>
+                                        <div class="text-center p-4">
+                                            <i
+                                                class="pi pi-inbox"
+                                                style="
+                                                    font-size: 3rem;
+                                                    color: #6c757d;
+                                                "
+                                            ></i>
+                                            <p class="mt-3">
+                                                No records found.
+                                            </p>
+                                        </div>
+                                    </template>
+
+                                    <Column
+                                        field="date"
+                                        header="Date"
+                                        style="min-width: 120px"
+                                    >
+                                        <template #body="slotProps">
+                                            <div class="record-date">
+                                                <i class="pi pi-calendar"></i>
+                                                <strong>{{
+                                                    formatRecordDate(
+                                                        slotProps.data.time_in
+                                                    )
+                                                }}</strong>
+                                            </div>
+                                        </template>
+                                    </Column>
+
+                                    <Column
+                                        field="time_in"
+                                        header="Time In"
+                                        style="min-width: 120px"
+                                    >
+                                        <template #body="slotProps">
+                                            <div class="record-time">
+                                                <i class="pi pi-sign-in"></i>
+                                                {{
+                                                    formatTime(
+                                                        slotProps.data.time_in
+                                                    )
+                                                }}
+                                            </div>
+                                        </template>
+                                    </Column>
+
+                                    <Column
+                                        field="time_out"
+                                        header="Time Out"
+                                        style="min-width: 120px"
+                                    >
+                                        <template #body="slotProps">
+                                            <div
+                                                v-if="slotProps.data.time_out"
+                                                class="record-time"
+                                            >
+                                                <i class="pi pi-sign-out"></i>
+                                                {{
+                                                    formatTime(
+                                                        slotProps.data.time_out
+                                                    )
+                                                }}
+                                            </div>
+                                            <Tag
+                                                v-else
+                                                severity="danger"
+                                                value="Not yet timed out"
+                                            />
+                                        </template>
+                                    </Column>
+
+                                    <Column
+                                        field="hours"
+                                        header="Computed Hours"
+                                        style="min-width: 150px"
+                                    >
+                                        <template #body="slotProps">
+                                            <div class="computed-hours-badge">
+                                                <i class="pi pi-clock"></i>
+                                                <strong>{{
+                                                    calculateRecordHours(
+                                                        slotProps.data.time_in,
+                                                        slotProps.data.time_out
+                                                    )
+                                                }}</strong>
+                                            </div>
+                                        </template>
+                                    </Column>
+                                </DataTable>
+                            </template>
+                        </Card>
                     </div>
                 </div>
             </TabPanel>
@@ -638,9 +815,106 @@
                 </template>
 
                 <div class="scrollable-content">
-                    <div id="myprivileges">
-                        <!-- Privileges content will go here -->
-                        <p>Privileges content placeholder</p>
+                    <div class="privileges-content">
+                        <!-- Header Card -->
+                        <Card class="privileges-header-card">
+                            <template #content>
+                                <div class="privileges-header">
+                                    <div class="header-icon">
+                                        <i class="pi pi-shield"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="header-title">
+                                            Account Privileges
+                                        </h5>
+                                        <p class="header-subtitle">
+                                            View your assigned system privileges
+                                            and access permissions
+                                        </p>
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
+
+                        <!-- Privileges Grid -->
+                        <Card class="privileges-card">
+                            <template #content>
+                                <div
+                                    v-if="loadingPrivileges"
+                                    class="loading-state"
+                                >
+                                    <ProgressSpinner
+                                        style="width: 50px; height: 50px"
+                                    />
+                                    <p>Loading privileges...</p>
+                                </div>
+
+                                <div
+                                    v-else-if="privilegesList.length === 0"
+                                    class="empty-state"
+                                >
+                                    <i class="pi pi-info-circle"></i>
+                                    <p>No privileges assigned</p>
+                                </div>
+
+                                <div v-else class="privileges-grid">
+                                    <div
+                                        v-for="privilege in privilegesList"
+                                        :key="privilege.key"
+                                        class="privilege-item"
+                                        :class="{
+                                            'privilege-enabled':
+                                                privilege.enabled,
+                                        }"
+                                    >
+                                        <Checkbox
+                                            v-model="privilege.enabled"
+                                            :inputId="privilege.key"
+                                            :binary="true"
+                                            disabled
+                                            class="privilege-checkbox"
+                                        />
+                                        <label
+                                            :for="privilege.key"
+                                            class="privilege-label"
+                                        >
+                                            <i
+                                                :class="privilege.icon"
+                                                class="privilege-icon"
+                                            ></i>
+                                            <span>{{ privilege.label }}</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
+
+                        <!-- Legend -->
+                        <Card class="legend-card">
+                            <template #content>
+                                <div class="legend-content">
+                                    <div class="legend-item">
+                                        <i
+                                            class="pi pi-check-circle"
+                                            style="color: #28a745"
+                                        ></i>
+                                        <span
+                                            >Enabled - You have access to this
+                                            feature</span
+                                        >
+                                    </div>
+                                    <div class="legend-item">
+                                        <i
+                                            class="pi pi-times-circle"
+                                            style="color: #dc3545"
+                                        ></i>
+                                        <span
+                                            >Disabled - Access not granted</span
+                                        >
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
                     </div>
                 </div>
             </TabPanel>
@@ -648,14 +922,208 @@
             <!-- My Schedule Tab -->
             <TabPanel>
                 <template #header>
-                    <i class="pi pi-calendar-plus mr-2"></i>
+                    <i class="pi pi-calendar mr-2"></i>
                     <span>My Schedule</span>
                 </template>
 
                 <div class="scrollable-content">
-                    <div id="myschedule">
-                        <!-- Schedule content will go here -->
-                        <p>Schedule content placeholder</p>
+                    <div class="schedule-content">
+                        <!-- Header Controls -->
+                        <Card class="schedule-header-card">
+                            <template #content>
+                                <div class="schedule-header">
+                                    <div class="schedule-nav">
+                                        <Button
+                                            icon="pi pi-chevron-left"
+                                            severity="secondary"
+                                            outlined
+                                            @click="previousMonth"
+                                            :disabled="loadingSchedule"
+                                        />
+
+                                        <div class="month-display">
+                                            <i class="pi pi-calendar"></i>
+                                            <span>{{ currentMonthLabel }}</span>
+                                        </div>
+
+                                        <Button
+                                            icon="pi pi-chevron-right"
+                                            severity="secondary"
+                                            outlined
+                                            @click="nextMonth"
+                                            :disabled="loadingSchedule"
+                                        />
+                                    </div>
+
+                                    <div class="schedule-legend">
+                                        <div class="legend-item">
+                                            <span
+                                                class="status-dot present"
+                                            ></span>
+                                            <span>Present</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span
+                                                class="status-dot late"
+                                            ></span>
+                                            <span>Late</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span
+                                                class="status-dot absent"
+                                            ></span>
+                                            <span>Absent</span>
+                                        </div>
+                                        <div class="legend-item">
+                                            <span
+                                                class="swatch swatch-today"
+                                            ></span>
+                                            <span>Today</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
+
+                        <!-- Loading State -->
+                        <Card v-if="loadingSchedule" class="loading-card">
+                            <template #content>
+                                <div class="loading-state">
+                                    <ProgressSpinner
+                                        style="width: 50px; height: 50px"
+                                    />
+                                    <p>Loading schedule...</p>
+                                </div>
+                            </template>
+                        </Card>
+
+                        <!-- Calendar Grid -->
+                        <Card v-else class="calendar-card">
+                            <template #content>
+                                <div class="calendar-grid">
+                                    <!-- Day Headers -->
+                                    <div
+                                        v-for="dow in dayHeaders"
+                                        :key="dow"
+                                        class="calendar-dow"
+                                    >
+                                        {{ dow }}
+                                    </div>
+
+                                    <!-- Leading blank cells -->
+                                    <div
+                                        v-for="blank in leadingBlanks"
+                                        :key="'blank-' + blank"
+                                        class="calendar-cell blank"
+                                    ></div>
+
+                                    <!-- Day cells -->
+                                    <div
+                                        v-for="day in daysInMonth"
+                                        :key="day"
+                                        class="calendar-cell"
+                                        :class="{
+                                            'is-today': isToday(day),
+                                            'is-selected': isSelected(day),
+                                            'has-schedule': hasSchedule(day),
+                                        }"
+                                        @click="selectDate(day)"
+                                    >
+                                        <div class="cell-date">
+                                            <span>{{ day }}</span>
+                                            <span
+                                                v-if="getStatus(day)"
+                                                class="status-dot"
+                                                :class="getStatus(day)"
+                                                :title="getStatus(day)"
+                                            ></span>
+                                        </div>
+                                        <div class="cell-meta">
+                                            {{ getMetaText(day) }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
+
+                        <!-- Day Details -->
+                        <Card v-if="selectedDayInfo" class="day-details-card">
+                            <template #header>
+                                <div class="day-details-header">
+                                    <h6>{{ selectedDayFormatted }}</h6>
+                                    <Button
+                                        icon="pi pi-times"
+                                        text
+                                        rounded
+                                        severity="secondary"
+                                        @click="clearSelectedDay"
+                                    />
+                                </div>
+                            </template>
+                            <template #content>
+                                <!-- Holidays -->
+                                <div
+                                    v-if="selectedDayInfo.holidays?.length"
+                                    class="mb-3"
+                                >
+                                    <div class="detail-section-title">
+                                        <i class="pi pi-sun"></i>
+                                        <span>Holiday</span>
+                                    </div>
+                                    <ul class="holiday-list">
+                                        <li
+                                            v-for="(
+                                                holiday, idx
+                                            ) in selectedDayInfo.holidays"
+                                            :key="idx"
+                                        >
+                                            {{ holiday.title }} —
+                                            {{ holiday.date }}
+                                            <span v-if="holiday.status"
+                                                >({{ holiday.status }})</span
+                                            >
+                                        </li>
+                                    </ul>
+                                </div>
+
+                                <!-- Schedule Entries -->
+                                <div class="detail-section-title">
+                                    <i class="pi pi-clock"></i>
+                                    <span>Schedule</span>
+                                </div>
+                                <div
+                                    v-if="!selectedDayInfo.entries?.length"
+                                    class="empty-schedule"
+                                >
+                                    <i class="pi pi-info-circle"></i>
+                                    <p>No schedule for this day</p>
+                                </div>
+                                <div v-else class="schedule-list">
+                                    <div
+                                        v-for="(
+                                            entry, idx
+                                        ) in selectedDayInfo.entries"
+                                        :key="idx"
+                                        class="schedule-entry"
+                                    >
+                                        <div class="entry-info">
+                                            <div class="entry-name">
+                                                {{ entry.name || "Shift" }}
+                                            </div>
+                                            <div
+                                                v-if="entry.notes"
+                                                class="entry-notes"
+                                            >
+                                                {{ entry.notes }}
+                                            </div>
+                                        </div>
+                                        <div class="entry-time">
+                                            {{ entry.start }} – {{ entry.end }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
                     </div>
                 </div>
             </TabPanel>
@@ -803,6 +1271,154 @@ export default {
             updatingTimezone: false,
             accountDetailsLoaded: false,
             timezonesLoaded: false,
+
+            recordFilter: {
+                startDate: null,
+                endDate: null,
+            },
+            filteredRecords: [],
+            totalHours: "0 hrs 0 mins",
+            loadingRecords: false,
+
+            privilegesLoaded: false,
+            loadingPrivileges: false,
+            privilegesList: [
+                {
+                    key: "humanresource",
+                    label: "Human Resource",
+                    icon: "pi pi-users",
+                    enabled: false,
+                },
+                {
+                    key: "order",
+                    label: "Order",
+                    icon: "pi pi-shopping-cart",
+                    enabled: false,
+                },
+                {
+                    key: "unreceived",
+                    label: "Unreceived",
+                    icon: "pi pi-inbox",
+                    enabled: false,
+                },
+                {
+                    key: "receiving",
+                    label: "Receiving",
+                    icon: "pi pi-download",
+                    enabled: false,
+                },
+                {
+                    key: "labeling",
+                    label: "Labeling",
+                    icon: "pi pi-tags",
+                    enabled: false,
+                },
+                {
+                    key: "testing",
+                    label: "Testing",
+                    icon: "pi pi-check-square",
+                    enabled: false,
+                },
+                {
+                    key: "cleaning",
+                    label: "Cleaning",
+                    icon: "pi pi-sparkles",
+                    enabled: false,
+                },
+                {
+                    key: "packing",
+                    label: "Packing",
+                    icon: "pi pi-box",
+                    enabled: false,
+                },
+                {
+                    key: "stockroom",
+                    label: "Stockroom",
+                    icon: "pi pi-warehouse",
+                    enabled: false,
+                },
+                {
+                    key: "validation",
+                    label: "Validation",
+                    icon: "pi pi-verified",
+                    enabled: false,
+                },
+                {
+                    key: "fnsku",
+                    label: "FNSKU",
+                    icon: "pi pi-qrcode",
+                    enabled: false,
+                },
+                {
+                    key: "asinlist",
+                    label: "ASIN List",
+                    icon: "pi pi-list",
+                    enabled: false,
+                },
+                {
+                    key: "productionarea",
+                    label: "Production Area",
+                    icon: "pi pi-building",
+                    enabled: false,
+                },
+                {
+                    key: "rts",
+                    label: "RTS",
+                    icon: "pi pi-refresh",
+                    enabled: false,
+                },
+                {
+                    key: "returnscanner",
+                    label: "Return Scanner",
+                    icon: "pi pi-replay",
+                    enabled: false,
+                },
+                {
+                    key: "fbmorder",
+                    label: "FBM Order",
+                    icon: "pi pi-send",
+                    enabled: false,
+                },
+                {
+                    key: "notfound",
+                    label: "Not Found",
+                    icon: "pi pi-question-circle",
+                    enabled: false,
+                },
+                {
+                    key: "asinoption",
+                    label: "ASIN Option",
+                    icon: "pi pi-sliders-h",
+                    enabled: false,
+                },
+                {
+                    key: "houseage",
+                    label: "Houseage",
+                    icon: "pi pi-home",
+                    enabled: false,
+                },
+                {
+                    key: "printer",
+                    label: "Printer",
+                    icon: "pi pi-print",
+                    enabled: false,
+                },
+                {
+                    key: "announcement",
+                    label: "Announcement",
+                    icon: "pi pi-megaphone",
+                    enabled: false,
+                },
+            ],
+
+            // My Schedule
+            loadingSchedule: false,
+            scheduleData: null,
+            viewYear: new Date().getFullYear(),
+            viewMonth: new Date().getMonth(), // 0-11
+            selectedDate: new Date(),
+
+            dayHeaders: ["M", "T", "W", "T", "F", "S", "S"],
         };
     },
     watch: {
@@ -811,12 +1427,24 @@ export default {
                 this.loadAttendanceData();
                 this.startClock();
 
-                if (
-                    this.activeAccountTab === "details" &&
-                    !this.accountDetailsLoaded
-                ) {
+                // Preload account details
+                if (!this.accountDetailsLoaded) {
                     this.loadAccountDetails();
                 }
+
+                // Preload timezones
+                if (!this.timezonesLoaded) {
+                    this.loadTimezones();
+                }
+
+                // Load time records
+                this.filterAttendanceRecords();
+
+                // Load privileges
+                this.loadUserPrivileges();
+
+                // Preload schedule
+                this.loadScheduleData();
             } else {
                 this.stopClock();
             }
@@ -830,6 +1458,41 @@ export default {
     },
     beforeUnmount() {
         this.stopClock();
+    },
+    computed: {
+        currentMonthLabel() {
+            return new Date(this.viewYear, this.viewMonth, 1).toLocaleString(
+                "en-US",
+                { month: "long", year: "numeric" }
+            );
+        },
+
+        daysInMonth() {
+            return new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
+        },
+
+        leadingBlanks() {
+            const first = new Date(this.viewYear, this.viewMonth, 1);
+            let dow = first.getDay(); // 0 = Sunday
+            dow = dow === 0 ? 7 : dow; // Convert Sunday to 7
+            return dow - 1; // Monday = 0 blanks
+        },
+
+        selectedDayInfo() {
+            if (!this.selectedDate || !this.scheduleData) return null;
+            const iso = this.formatISO(this.selectedDate);
+            return this.scheduleData.byDate?.[iso] || null;
+        },
+
+        selectedDayFormatted() {
+            if (!this.selectedDate) return "";
+            return this.selectedDate.toLocaleDateString("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+                year: "numeric",
+            });
+        },
     },
     methods: {
         async loadAttendanceData() {
@@ -1277,6 +1940,249 @@ export default {
                 });
             } finally {
                 this.updatingTimezone = false;
+            }
+        },
+
+        async filterAttendanceRecords() {
+            this.loadingRecords = true;
+
+            try {
+                const formData = {
+                    start_date: this.recordFilter.startDate
+                        ? this.recordFilter.startDate instanceof Date
+                            ? this.recordFilter.startDate
+                                  .toISOString()
+                                  .split("T")[0]
+                            : this.recordFilter.startDate
+                        : null,
+                    end_date: this.recordFilter.endDate
+                        ? this.recordFilter.endDate instanceof Date
+                            ? this.recordFilter.endDate
+                                  .toISOString()
+                                  .split("T")[0]
+                            : this.recordFilter.endDate
+                        : null,
+                };
+
+                const response = await axios.post(
+                    "/attendance/filter",
+                    formData
+                );
+
+                this.filteredRecords = response.data.employeeClocks || [];
+                this.calculateTotalHours();
+            } catch (error) {
+                console.error("Error filtering records:", error);
+                Swal.fire({
+                    title: "Error!",
+                    text: "Failed to filter attendance records",
+                    icon: "error",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.loadingRecords = false;
+            }
+        },
+
+        clearFilter() {
+            this.recordFilter.startDate = null;
+            this.recordFilter.endDate = null;
+            this.filterAttendanceRecords();
+        },
+
+        calculateTotalHours() {
+            let totalMinutes = 0;
+
+            this.filteredRecords.forEach((record) => {
+                if (record.time_in) {
+                    const timeIn = new Date(record.time_in);
+                    const timeOut = record.time_out
+                        ? new Date(record.time_out)
+                        : new Date();
+
+                    const diffInMinutes = Math.round(
+                        (timeOut - timeIn) / 60000
+                    );
+                    totalMinutes += diffInMinutes;
+                }
+            });
+
+            const hours = Math.floor(totalMinutes / 60);
+            const minutes = totalMinutes % 60;
+
+            this.totalHours = `${hours} hrs ${minutes} mins`;
+        },
+
+        formatRecordDate(datetime) {
+            if (!datetime) return "";
+            const date = new Date(datetime);
+            return date.toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+            });
+        },
+
+        calculateRecordHours(timeIn, timeOut) {
+            if (!timeIn) return "N/A";
+
+            const start = new Date(timeIn);
+            const end = timeOut ? new Date(timeOut) : new Date();
+            const diff = end - start;
+
+            const hours = Math.floor(diff / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+            return `${hours}h ${minutes}m`;
+        },
+
+        async loadUserPrivileges() {
+            this.loadingPrivileges = true;
+
+            try {
+                const response = await axios.get("/myprivileges");
+
+                if (response.data.status === "success" && response.data.data) {
+                    const userPrivileges = response.data.data;
+
+                    // Update privilegesList with user's actual privileges
+                    this.privilegesList.forEach((privilege) => {
+                        if (userPrivileges.hasOwnProperty(privilege.key)) {
+                            // Convert to boolean (1 or 0 from database)
+                            privilege.enabled =
+                                userPrivileges[privilege.key] === 1 ||
+                                userPrivileges[privilege.key] === "1";
+                        }
+                    });
+
+                    // Mark as loaded
+                    this.privilegesLoaded = true;
+                }
+            } catch (error) {
+                console.error("Error loading privileges:", error);
+                this.$toast.add({
+                    severity: "error",
+                    summary: "Error",
+                    detail: "Failed to load privileges",
+                    life: 3000,
+                });
+            } finally {
+                this.loadingPrivileges = false;
+            }
+        },
+
+        // === Date Helpers ===
+        formatISO(date) {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, "0");
+            const d = String(date.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}`;
+        },
+
+        isToday(day) {
+            const date = new Date(this.viewYear, this.viewMonth, day);
+            const today = new Date();
+            return this.formatISO(date) === this.formatISO(today);
+        },
+
+        isSelected(day) {
+            if (!this.selectedDate) return false;
+            const date = new Date(this.viewYear, this.viewMonth, day);
+            return this.formatISO(date) === this.formatISO(this.selectedDate);
+        },
+
+        hasSchedule(day) {
+            const date = new Date(this.viewYear, this.viewMonth, day);
+            const iso = this.formatISO(date);
+            const info = this.scheduleData?.byDate?.[iso];
+            return (
+                info && (info.entries?.length > 0 || info.holidays?.length > 0)
+            );
+        },
+
+        getStatus(day) {
+            const date = new Date(this.viewYear, this.viewMonth, day);
+            const iso = this.formatISO(date);
+            return this.scheduleData?.byDate?.[iso]?.status || null;
+        },
+
+        getMetaText(day) {
+            const date = new Date(this.viewYear, this.viewMonth, day);
+            const iso = this.formatISO(date);
+            const info = this.scheduleData?.byDate?.[iso];
+
+            if (!info) return "—";
+
+            let text = "";
+
+            if (info.entries?.length) {
+                if (info.entries.length === 1) {
+                    text = `${info.entries[0].start}–${info.entries[0].end}`;
+                } else {
+                    text = `${info.entries.length} shifts`;
+                }
+            }
+
+            if (info.holidays?.length) {
+                const holidate = date.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                });
+                text = text ? `${text} • Holiday` : `Holiday: ${holidate}`;
+            }
+
+            return text || "—";
+        },
+
+        // === Navigation ===
+        async previousMonth() {
+            this.viewMonth--;
+            if (this.viewMonth < 0) {
+                this.viewMonth = 11;
+                this.viewYear--;
+            }
+            await this.loadScheduleData();
+        },
+
+        async nextMonth() {
+            this.viewMonth++;
+            if (this.viewMonth > 11) {
+                this.viewMonth = 0;
+                this.viewYear++;
+            }
+            await this.loadScheduleData();
+        },
+
+        selectDate(day) {
+            this.selectedDate = new Date(this.viewYear, this.viewMonth, day);
+        },
+
+        clearSelectedDay() {
+            this.selectedDate = null;
+        },
+
+        // === API ===
+        async loadScheduleData() {
+            this.loadingSchedule = true;
+
+            try {
+                const y = this.viewYear;
+                const m = String(this.viewMonth + 1).padStart(2, "0");
+                const ym = `${y}-${m}`;
+
+                const response = await axios.get(`/schedule/month?ym=${ym}`);
+                this.scheduleData = response.data || { byDate: {} };
+            } catch (error) {
+                console.error("Error loading schedule:", error);
+                this.scheduleData = { byDate: {} };
+                this.$toast.add({
+                    severity: "error",
+                    summary: "Error",
+                    detail: "Failed to load schedule",
+                    life: 3000,
+                });
+            } finally {
+                this.loadingSchedule = false;
             }
         },
     },
@@ -1880,6 +2786,555 @@ export default {
     opacity: 0.8;
 }
 
+/* ==================== TIME RECORD TAB ==================== */
+
+.time-record-content {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.filter-card {
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+}
+
+.filter-section {
+    padding: 0.5rem;
+}
+
+.filter-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 1rem;
+    align-items: end;
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+}
+
+.filter-field label {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.total-hours-card {
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+
+.total-hours-card :deep(.p-card-content) {
+    padding: 1.5rem;
+}
+
+.total-hours-display {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: white;
+}
+
+.total-hours-display i {
+    font-size: 2.5rem;
+}
+
+.total-hours-display > div {
+    display: flex;
+    flex-direction: column;
+}
+
+.total-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.total-value {
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.time-record-table {
+    margin-top: 1rem;
+}
+
+.record-date,
+.record-time {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.record-date i,
+.record-time i {
+    color: #007bff;
+}
+
+.computed-hours-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #007bff;
+}
+
+.computed-hours-badge i {
+    font-size: 1.1rem;
+}
+
+/* ==================== MY PRIVILEGES TAB ==================== */
+
+.privileges-content {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.privileges-header-card {
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+}
+
+.privileges-header-card :deep(.p-card-content) {
+    padding: 1.5rem;
+}
+
+.privileges-header {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    color: white;
+}
+
+.header-icon {
+    font-size: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.header-subtitle {
+    margin: 0.5rem 0 0 0;
+    font-size: 0.95rem;
+    opacity: 0.9;
+}
+
+.privileges-card {
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.loading-state,
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    text-align: center;
+    color: #6c757d;
+}
+
+.loading-state p,
+.empty-state p {
+    margin-top: 1rem;
+    font-size: 1rem;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: #94a3b8;
+}
+
+.privileges-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    padding: 0.5rem;
+}
+
+.privilege-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.privilege-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.privilege-enabled {
+    border-color: #28a745;
+    background: #e8f5e9;
+}
+
+.privilege-enabled:hover {
+    border-color: #1e7e34;
+}
+
+.privilege-checkbox {
+    flex-shrink: 0;
+}
+
+.privilege-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: #2c3e50;
+    cursor: default;
+    user-select: none;
+}
+
+.privilege-icon {
+    color: #007bff;
+    font-size: 1.1rem;
+}
+
+.privilege-enabled .privilege-icon {
+    color: #28a745;
+}
+
+.legend-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.legend-content {
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.legend-item i {
+    font-size: 1.2rem;
+}
+
+/* Disabled checkbox styling */
+:deep(.privilege-checkbox.p-disabled) {
+    opacity: 1;
+}
+
+:deep(.privilege-enabled .p-checkbox .p-checkbox-box) {
+    border-color: #28a745;
+    background: #28a745;
+}
+
+:deep(.privilege-item:not(.privilege-enabled) .p-checkbox .p-checkbox-box) {
+    border-color: #dc3545;
+    background: #fff;
+}
+
+/* ==================== MY SCHEDULE TAB ==================== */
+
+.schedule-content {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.schedule-header-card {
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.schedule-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.schedule-nav {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.month-display {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.5rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #2c3e50;
+    min-width: 220px;
+    justify-content: center;
+}
+
+.month-display i {
+    color: #007bff;
+}
+
+.schedule-legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-dot.present {
+    background-color: #28a745;
+}
+
+.status-dot.late {
+    background-color: #ffc107;
+}
+
+.status-dot.absent {
+    background-color: #dc3545;
+}
+
+.swatch {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.swatch-today {
+    background-color: #007bff;
+    opacity: 0.3;
+}
+
+/* Calendar Grid */
+.calendar-card {
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+
+.calendar-dow {
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #2c3e50;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.calendar-cell {
+    min-height: 100px;
+    padding: 0.75rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+}
+
+.calendar-cell:not(.blank):hover {
+    border-color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+}
+
+.calendar-cell.blank {
+    background: #f8f9fa;
+    cursor: default;
+    border-color: transparent;
+}
+
+.calendar-cell.is-today {
+    background: rgba(0, 123, 255, 0.1);
+    border-color: #007bff;
+}
+
+.calendar-cell.is-selected {
+    background: #007bff;
+    color: white;
+}
+
+.calendar-cell.is-selected .cell-meta {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.calendar-cell.has-schedule {
+    border-color: #28a745;
+}
+
+.cell-date {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.cell-meta {
+    font-size: 0.85rem;
+    color: #6c757d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Day Details */
+.day-details-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.day-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+}
+
+.day-details-header h6 {
+    margin: 0;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.detail-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.detail-section-title i {
+    color: #007bff;
+}
+
+.holiday-list {
+    list-style: none;
+    padding: 0 0 0 1.5rem;
+    margin: 0;
+    color: #6c757d;
+}
+
+.holiday-list li {
+    margin-bottom: 0.5rem;
+}
+
+.empty-schedule {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+.empty-schedule i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.schedule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.schedule-entry {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #007bff;
+}
+
+.entry-info {
+    flex: 1;
+}
+
+.entry-name {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.25rem;
+}
+
+.entry-notes {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.entry-time {
+    font-weight: 600;
+    color: #007bff;
+    white-space: nowrap;
+}
+
+.loading-card {
+    margin-bottom: 1.5rem;
+}
+
+.loading-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem;
+    color: #6c757d;
+}
+
+.loading-state p {
+    margin-top: 1rem;
+}
+
 /* ==================== RESPONSIVE DESIGN ==================== */
 
 /* Tablet and Mobile */
@@ -1980,6 +3435,75 @@ export default {
         background: #007bff;
         border-radius: 2px;
     }
+
+    .filter-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .filter-actions {
+        width: 100%;
+    }
+
+    .filter-actions button {
+        flex: 1;
+    }
+
+    .total-value {
+        font-size: 1.5rem;
+    }
+
+    .privileges-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .privileges-header {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .header-icon {
+        font-size: 2.5rem;
+    }
+
+    .legend-content {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .schedule-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .schedule-nav {
+        justify-content: center;
+    }
+
+    .schedule-legend {
+        justify-content: center;
+    }
+
+    .calendar-grid {
+        gap: 4px;
+    }
+
+    .calendar-dow {
+        padding: 0.5rem 0.25rem;
+    }
+
+    .calendar-cell {
+        min-height: 70px;
+        padding: 0.5rem;
+    }
+
+    .cell-date {
+        font-size: 1rem;
+    }
+
+    .cell-meta {
+        font-size: 0.8rem;
+    }
 }
 
 /* Extra Small Mobile */
@@ -1997,6 +3521,58 @@ export default {
     .profile-tabs :deep(.p-tabview-nav-link .pi) {
         font-size: 1.2rem;
         margin: 0;
+    }
+
+    .header-title {
+        font-size: 1.25rem;
+    }
+
+    .header-subtitle {
+        font-size: 0.85rem;
+    }
+
+    .month-display {
+        min-width: 180px;
+        font-size: 0.9rem;
+    }
+
+    .schedule-legend {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .calendar-dow {
+        font-size: 0.75rem;
+        padding: 0.25rem;
+    }
+
+    .calendar-cell {
+        min-height: 60px;
+        padding: 0.25rem;
+    }
+
+    .cell-date {
+        font-size: 0.9rem;
+    }
+
+    .cell-meta {
+        font-size: 0.7rem;
+    }
+
+    .status-dot {
+        width: 8px;
+        height: 8px;
+    }
+
+    .schedule-entry {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .entry-time {
+        width: 100%;
+        text-align: left;
     }
 }
 </style>
