@@ -1,6 +1,6 @@
 <template>
     <DataTable :value="displayValue" v-model:selection="internalSelection" :paginator="paginator"
-        :showGridlines="showGridlines" :rows="rows" :rowsPerPageOptions="rowsPerPageOptions" class="desktop-view"
+        :showGridlines="showGridlines" :rows="rows" :rowsPerPageOptions="rowsPerPageOptions" :class="tableClass"
         size="small" :style="tableStyle" dataKey="id" :selectionMode="selectionMode">
         <!-- ✅ Custom Loading + Empty Row -->
         <template #empty>
@@ -51,6 +51,7 @@ export default {
         rowsPerPageOptions: { type: Array, default: () => [10, 20, 50] },
         tableStyle: { type: [String, Object], default: () => ({}) },
         showGridlines: { type: Boolean, default: false },
+        tableClass: { type: String, default: "" }
     },
     emits: ["update:selection"],
     data() {

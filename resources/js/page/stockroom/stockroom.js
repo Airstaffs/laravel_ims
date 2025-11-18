@@ -330,10 +330,25 @@ export default {
 
         // Regular product details modal
         viewProductDetails(item) {
-            const processedItem = this.applyGradeConversion([item])[0];
-            this.selectedProduct = processedItem;
-            this.showProductDetailsModal = true;
-        },
+    const processedItem = this.applyGradeConversion([item])[0];
+    this.selectedProduct = processedItem;
+    this.showProductDetailsModal = true;
+const arr = Array(10).fill({
+  FNSKUviewer: "C1X0049KMM13",
+  MSKU: "B7-1GUH-D06Z",
+  ProductID: 11,
+  display_grading: "Refurbished - Excellent",
+  grading: "New",
+  rtcounter: 11,
+  serialnumber: "949F3E109E72A",
+  warehouselocation: "L123A"
+});
+    this.selectedProduct.serials = [
+        ...this.selectedProduct.serials,
+        ...arr
+    ];
+},
+
 
         // Close product details modal
         closeProductDetailsModal() {
