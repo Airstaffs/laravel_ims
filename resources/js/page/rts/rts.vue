@@ -8,7 +8,8 @@
 
         <!-- Desktop Table Container -->
         <div class="px-4">
-            <XDataTable :value="sortedInventory" :columns="column" :pagination="false" :loading="loading">
+            <XDataTable :value="sortedInventory" :columns="column" :pagination="false" :loading="loading"
+                tableClass="desktop-view">
 
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
@@ -200,14 +201,14 @@
                                 <span>Product Images</span>
                                 <span class="badge img-badge">{{
                                     regularImages.length
-                                }}</span>
+                                    }}</span>
                             </button>
                             <button class="tab-button" :class="{ active: activeTab === 'captured' }"
                                 @click="switchTab('captured')" :disabled="capturedImages.length === 0">
                                 <span>Captured Images</span>
                                 <span class="badge img-badge">{{
                                     capturedImages.length
-                                }}</span>
+                                    }}</span>
                             </button>
                         </div>
 
@@ -632,7 +633,160 @@ key, index
 
 
         <!-- RTS Options Modal -->
-        <div v-if="showRTSModal" class="modal rts-modal">
+        <Dialog v-model:visible="showRTSModal" modal :header="`RTS Options - RT# ${rtsCurrentItem?.rtcounter}`"
+            :style="{ maxWidth: '200rem' }">
+            <div class="modal-body">
+                <div class="rts-form-container">
+                    <form @submit.prevent="saveRTSModal" class="rts-form">
+                        <!-- Product Info Header -->
+                        <div class="rts-product-info">
+                            <div class="product-image-mini">
+                                <img :src="'/images/thumbnails/' +
+                                    (rtsCurrentItem?.img1 || '')
+                                    " :alt="rtsCurrentItem?.ProductTitle ||
+                                        'Product'
+                                        " @error="handleImageError($event)" />
+                            </div>
+                            <div class="product-details">
+                                <h4>{{ rtsCurrentItem?.ProductTitle }}</h4>
+                                <p>
+                                    <strong>FNSKU:</strong>
+                                    {{ rtsCurrentItem?.FNSKU }}
+                                </p>
+                                <p>
+                                    <strong>Serial:</strong>
+                                    {{ rtsCurrentItem?.serialnumber }}
+                                </p>
+                            </div>
+                        </div>
+
+                        <hr class="divider" />
+
+                        <!-- RTS Form Fields -->
+                        <div class="rts-form-grid">
+                            <div class="rts-form-section">
+                                <!-- Date Field -->
+                                <fieldset class="rts-fieldset">
+                                    <label class="rts-label">
+                                        <span class="label-text">Date Filed</span>
+                                    </label>
+                                    <InputText size="small" fluid type="date" class="rts-input"
+                                        v-model="rtsForm.dateField" required />
+                                </fieldset>
+
+                                <!-- Filed IN Checkboxes -->
+                                <fieldset class="rts-fieldset">
+                                    <label class="rts-label">
+                                        <span class="label-text">Filed IN:</span>
+                                    </label>
+                                    <div class="checkbox-group">
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" v-model="rtsForm.filedInES" class="checkbox-input" />
+                                            <span class="checkbox-text">ES</span>
+                                        </label>
+                                        <label class="checkbox-label">
+                                            <input type="checkbox" v-model="rtsForm.filedInPPL"
+                                                class="checkbox-input" />
+                                            <span class="checkbox-text">PPL</span>
+                                        </label>
+                                    </div>
+                                </fieldset>
+
+                                <!-- Test Result -->
+                                <fieldset class="rts-fieldset">
+                                    <label class="rts-label">
+                                        <span class="label-text">Test Result</span>
+                                    </label>
+                                    <Select :options="testResultOptions" optionLabel="label" optionValue="value" fluid
+                                        size="small" v-model="rtsForm.testResult" placeholder="Select Test Result"
+                                        required />
+                                </fieldset>
+
+                                <!-- Status -->
+                                <fieldset class="rts-fieldset">
+                                    <label class="rts-label">
+                                        <span class="label-text">Status</span>
+                                    </label>
+                                    <Select :options="statusOptions" optionLabel="label" optionValue="value" fluid
+                                        size="small" v-model="rtsForm.status" placeholder="Select Status" required />
+
+                                </fieldset>
+
+                                <!-- RTS Result -->
+                                <fieldset class="rts-fieldset">
+                                    <label class="rts-label">
+                                        <span class="label-text">RTS Result</span>
+                                    </label>
+                                    <Select :options="rtsResultOptions" optionLabel="label" optionValue="value" fluid
+                                        size="small" v-model="rtsForm.rtsResult" placeholder="Select Status" required />
+
+                                </fieldset>
+                            </div>
+
+                            <div class="rts-form-section">
+                                <!-- REFUND STATUS Section -->
+                                <div class="refund-status-section">
+                                    <h3 class="section-title">
+                                        REFUND STATUS
+                                    </h3>
+
+                                    <!-- Amount -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Amount:</span>
+                                        </label>
+                                        <InputText type="number" step="0.01" v-model="rtsForm.refundAmount"
+                                            placeholder="0.00" size="small" fluid />
+                                    </fieldset>
+
+                                    <!-- Date of Refund -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Date of Refund</span>
+                                        </label>
+                                        <InputText size="small" fluid type="date" v-model="rtsForm.refundDate" />
+                                    </fieldset>
+
+                                    <!-- Reason of Return -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Reason of Return</span>
+                                        </label>
+                                        <Textarea size="small" fluid v-model="rtsForm.reasonOfReturn" rows="3"
+                                            placeholder="Enter reason for return..."></Textarea>
+                                    </fieldset>
+
+                                    <!-- Return TN -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Return TN:</span>
+                                        </label>
+                                        <InputText size="small" fluid type="text" v-model="rtsForm.returnTN"
+                                            placeholder="Enter tracking number" />
+                                    </fieldset>
+
+                                    <!-- Notes -->
+                                    <fieldset class="rts-fieldset">
+                                        <label class="rts-label">
+                                            <span class="label-text">Notes</span>
+                                        </label>
+                                        <Textarea size="small" fluid v-model="rtsForm.notes" rows="4"
+                                            placeholder="Additional notes..."></Textarea>
+                                    </fieldset>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            <template #footer>
+                <Button @click="closeRTSModal" label="Cancel" severity="secondary" size=small icon="pi pi-times" />
+                <Button @click="saveRTSModal" :disabled="loading" :label="loading ? 'Saving...' : 'Save'"
+                    :loading="loading" icon="pi pi-save" />
+            </template>
+        </Dialog>
+
+        <div v-if="false" class="modal rts-modal">
             <div class="modal-overlay" @click="closeRTSModal"></div>
 
             <div class="modal-content rts-modal-content">
@@ -682,8 +836,8 @@ key, index
                                         <label class="rts-label">
                                             <span class="label-text">Date Filed</span>
                                         </label>
-                                        <input type="date" class="form-control rts-input" v-model="rtsForm.dateField"
-                                            required />
+                                        <InputText size="small" fluid type="date" class="rts-input"
+                                            v-model="rtsForm.dateField" required />
                                     </fieldset>
 
                                     <!-- Filed IN Checkboxes -->
@@ -710,17 +864,9 @@ key, index
                                         <label class="rts-label">
                                             <span class="label-text">Test Result</span>
                                         </label>
-                                        <select class="form-control rts-select" v-model="rtsForm.testResult" required>
-                                            <option value="">
-                                                Select Test Result
-                                            </option>
-                                            <option value="Passed">
-                                                Passed
-                                            </option>
-                                            <option value="Failed">
-                                                Failed
-                                            </option>
-                                        </select>
+                                        <Select :options="testResultOptions" optionLabel="label" optionValue="value"
+                                            fluid size="small" v-model="rtsForm.testResult"
+                                            placeholder="Select Test Result" />
                                     </fieldset>
 
                                     <!-- Status -->
@@ -933,6 +1079,20 @@ export default {
                 { label: "Cash", value: "Cash" },
                 { label: "Bank Transfer", value: "Bank Transfer" },
                 { label: "Check", value: "Check" }
+            ],
+            testResultOptions: [
+                { label: "Passed", value: "Passed" },
+                { label: "Failed", value: "Failed" }
+            ],
+            statusOptions: [
+                { label: "RTS", value: "RTS" },
+                { label: "Dismantle", value: "Dismantle" }
+            ],
+            rtsResultOptions: [
+                { label: "PRNR", value: "PRNR" },
+                { label: "FRNR", value: "FRNR" },
+                { label: "Replacement", value: "Replacement" },
+                { label: "Ship-Back", value: "Ship-Back" },
             ]
         }
     },
@@ -1270,6 +1430,7 @@ div[aria-labelledby="swal2-title"] {
     background: #f8f9fa;
     border-radius: 6px;
     border: 1px solid #e9ecef;
+    width: 500px;
 }
 
 /* FIXED BUTTON STYLES - ALL SAME WIDTH */
@@ -1757,6 +1918,7 @@ div[aria-labelledby="swal2-title"] {
 
     .refund-status-section {
         padding: 12px;
+        width: 100%;
     }
 
     .divider {
