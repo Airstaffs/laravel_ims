@@ -23,9 +23,10 @@
                                 Attendance / Clock-in & Clock-out
                             </h3>
 
-                            <!-- Time Display -->
-                            <Card class="time-card mb-3">
+                            <!-- Combined Time Display & Hours Summary -->
+                            <Card class="combined-info-card mb-3">
                                 <template #content>
+                                    <!-- Time Display Section -->
                                     <div class="time-display">
                                         <div
                                             id="current-time"
@@ -38,6 +39,39 @@
                                             class="current-day"
                                         >
                                             {{ currentDay }}
+                                        </div>
+                                    </div>
+
+                                    <Divider />
+
+                                    <!-- Hours Summary Section -->
+                                    <div class="summary-grid">
+                                        <div class="summary-item">
+                                            <i
+                                                class="pi pi-clock summary-icon"
+                                            ></i>
+                                            <div>
+                                                <div class="summary-label">
+                                                    Today's Hours
+                                                </div>
+                                                <div class="summary-value">
+                                                    {{ todayHours }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <Divider layout="vertical" />
+                                        <div class="summary-item">
+                                            <i
+                                                class="pi pi-calendar summary-icon"
+                                            ></i>
+                                            <div>
+                                                <div class="summary-label">
+                                                    This Week's Hours
+                                                </div>
+                                                <div class="summary-value">
+                                                    {{ weekHours }}
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </template>
@@ -69,43 +103,6 @@
                                     size="large"
                                 />
                             </div>
-
-                            <!-- Hours Summary -->
-                            <div class="hours-summary">
-                                <Card>
-                                    <template #content>
-                                        <div class="summary-grid">
-                                            <div class="summary-item">
-                                                <i
-                                                    class="pi pi-clock summary-icon"
-                                                ></i>
-                                                <div>
-                                                    <div class="summary-label">
-                                                        Today's Hours
-                                                    </div>
-                                                    <div class="summary-value">
-                                                        {{ todayHours }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <Divider layout="vertical" />
-                                            <div class="summary-item">
-                                                <i
-                                                    class="pi pi-calendar summary-icon"
-                                                ></i>
-                                                <div>
-                                                    <div class="summary-label">
-                                                        This Week's Hours
-                                                    </div>
-                                                    <div class="summary-value">
-                                                        {{ weekHours }}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </template>
-                                </Card>
-                            </div>
                         </div>
 
                         <!-- Attendance DataTable -->
@@ -114,7 +111,8 @@
                             :paginator="true"
                             :rows="5"
                             :rowsPerPageOptions="[5, 10, 20]"
-                            responsiveLayout="scroll"
+                            responsiveLayout="stack"
+                            breakpoint="768px"
                             class="attendance-table"
                             stripedRows
                             :loading="loading"
@@ -704,7 +702,8 @@
                                     :paginator="true"
                                     :rows="10"
                                     :rowsPerPageOptions="[10, 20, 50]"
-                                    responsiveLayout="scroll"
+                                    responsiveLayout="stack"
+                                    breakpoint="768px"
                                     stripedRows
                                     :loading="loadingRecords"
                                     class="time-record-table"
@@ -724,11 +723,7 @@
                                         </div>
                                     </template>
 
-                                    <Column
-                                        field="date"
-                                        header="Date"
-                                        style="min-width: 120px"
-                                    >
+                                    <Column field="date" header="Date">
                                         <template #body="slotProps">
                                             <div class="record-date">
                                                 <i class="pi pi-calendar"></i>
@@ -741,11 +736,7 @@
                                         </template>
                                     </Column>
 
-                                    <Column
-                                        field="time_in"
-                                        header="Time In"
-                                        style="min-width: 120px"
-                                    >
+                                    <Column field="time_in" header="Time In">
                                         <template #body="slotProps">
                                             <div class="record-time">
                                                 <i class="pi pi-sign-in"></i>
@@ -758,11 +749,7 @@
                                         </template>
                                     </Column>
 
-                                    <Column
-                                        field="time_out"
-                                        header="Time Out"
-                                        style="min-width: 120px"
-                                    >
+                                    <Column field="time_out" header="Time Out">
                                         <template #body="slotProps">
                                             <div
                                                 v-if="slotProps.data.time_out"
@@ -786,7 +773,6 @@
                                     <Column
                                         field="hours"
                                         header="Computed Hours"
-                                        style="min-width: 150px"
                                     >
                                         <template #body="slotProps">
                                             <div class="computed-hours-badge">
@@ -1000,47 +986,54 @@
                         <!-- Calendar Grid -->
                         <Card v-else class="calendar-card">
                             <template #content>
-                                <div class="calendar-grid">
-                                    <!-- Day Headers -->
-                                    <div
-                                        v-for="dow in dayHeaders"
-                                        :key="dow"
-                                        class="calendar-dow"
-                                    >
-                                        {{ dow }}
-                                    </div>
+                                <div class="calendar-wrapper">
+                                    <div class="calendar-grid">
+                                        <!-- Day Headers -->
+                                        <div class="calendar-dow">M</div>
+                                        <div class="calendar-dow">T</div>
+                                        <div class="calendar-dow">W</div>
+                                        <div class="calendar-dow">T</div>
+                                        <div class="calendar-dow">F</div>
+                                        <div class="calendar-dow">S</div>
+                                        <div class="calendar-dow">S</div>
 
-                                    <!-- Leading blank cells -->
-                                    <div
-                                        v-for="blank in leadingBlanks"
-                                        :key="'blank-' + blank"
-                                        class="calendar-cell blank"
-                                    ></div>
-
-                                    <!-- Day cells -->
-                                    <div
-                                        v-for="day in daysInMonth"
-                                        :key="day"
-                                        class="calendar-cell"
-                                        :class="{
-                                            'is-today': isToday(day),
-                                            'is-selected': isSelected(day),
-                                            'has-schedule': hasSchedule(day),
-                                        }"
-                                        @click="selectDate(day)"
-                                    >
-                                        <div class="cell-date">
-                                            <span>{{ day }}</span>
-                                            <span
-                                                v-if="getStatus(day)"
-                                                class="status-dot"
-                                                :class="getStatus(day)"
-                                                :title="getStatus(day)"
-                                            ></span>
-                                        </div>
-                                        <div class="cell-meta">
-                                            {{ getMetaText(day) }}
-                                        </div>
+                                        <!-- Render all cells -->
+                                        <template
+                                            v-for="(
+                                                cell, index
+                                            ) in calendarCells"
+                                            :key="index"
+                                        >
+                                            <div
+                                                v-if="cell.isBlank"
+                                                class="calendar-cell blank"
+                                            ></div>
+                                            <div
+                                                v-else
+                                                class="calendar-cell"
+                                                :class="{
+                                                    'is-today': cell.isToday,
+                                                    'is-selected':
+                                                        cell.isSelected,
+                                                    'has-schedule':
+                                                        cell.hasSchedule,
+                                                }"
+                                                @click="selectDate(cell.day)"
+                                            >
+                                                <div class="cell-date">
+                                                    <span>{{ cell.day }}</span>
+                                                    <span
+                                                        v-if="cell.status"
+                                                        class="status-dot"
+                                                        :class="cell.status"
+                                                        :title="cell.status"
+                                                    ></span>
+                                                </div>
+                                                <div class="cell-meta">
+                                                    {{ cell.metaText }}
+                                                </div>
+                                            </div>
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -1467,15 +1460,83 @@ export default {
             );
         },
 
-        daysInMonth() {
-            return new Date(this.viewYear, this.viewMonth + 1, 0).getDate();
-        },
+        calendarCells() {
+            const cells = [];
+            const firstDay = new Date(this.viewYear, this.viewMonth, 1);
+            const lastDay = new Date(this.viewYear, this.viewMonth + 1, 0);
+            const daysInMonth = lastDay.getDate();
 
-        leadingBlanks() {
-            const first = new Date(this.viewYear, this.viewMonth, 1);
-            let dow = first.getDay(); // 0 = Sunday
-            dow = dow === 0 ? 7 : dow; // Convert Sunday to 7
-            return dow - 1; // Monday = 0 blanks
+            // Calculate leading blanks (Monday = 0 blanks)
+            let dow = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const leadingBlanks = dow === 0 ? 6 : dow - 1;
+
+            // Add blank cells
+            for (let i = 0; i < leadingBlanks; i++) {
+                cells.push({ isBlank: true });
+            }
+
+            // Add day cells
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(this.viewYear, this.viewMonth, day);
+                const iso = this.formatISO(date);
+                const info = this.scheduleData?.byDate?.[iso];
+
+                // Check if today
+                const dateOnly = new Date(this.viewYear, this.viewMonth, day);
+                dateOnly.setHours(0, 0, 0, 0);
+                const isToday = dateOnly.getTime() === today.getTime();
+
+                // Check if selected
+                const isSelected =
+                    this.selectedDate &&
+                    this.formatISO(this.selectedDate) === iso;
+
+                // Check if has schedule
+                const hasSchedule =
+                    info &&
+                    (info.entries?.length > 0 || info.holidays?.length > 0);
+
+                // Get status
+                const status = info?.status || null;
+
+                // Get meta text
+                let metaText = "—";
+                if (info) {
+                    if (info.entries?.length) {
+                        if (info.entries.length === 1) {
+                            metaText = `${info.entries[0].start}–${info.entries[0].end}`;
+                        } else {
+                            metaText = `${info.entries.length} shifts`;
+                        }
+                    }
+
+                    if (info.holidays?.length) {
+                        const holidate = date.toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                        });
+                        metaText =
+                            metaText === "—"
+                                ? `Holiday: ${holidate}`
+                                : `${metaText} • Holiday`;
+                    }
+                }
+
+                cells.push({
+                    isBlank: false,
+                    day,
+                    isToday,
+                    isSelected,
+                    hasSchedule,
+                    status,
+                    metaText,
+                });
+            }
+
+            return cells;
         },
 
         selectedDayInfo() {
@@ -2318,109 +2379,135 @@ export default {
 /* ==================== ATTENDANCE TAB ==================== */
 
 .attendance-container {
-    padding: 0;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 1rem;
 }
 
-.time-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+/* Combined Info Card */
+.combined-info-card {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
     border: none;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+    margin: 0 auto 1.5rem auto;
 }
 
-.time-card :deep(.p-card-content) {
-    padding: 1.5rem;
+.combined-info-card :deep(.p-card-content) {
+    max-width: 700px;
+    margin: 0 auto;
 }
 
+/* Time Display Section */
 .time-display {
-    color: white;
     text-align: center;
+    color: white;
+    margin-bottom: 1rem;
 }
 
 .current-time {
     font-size: 2.5rem;
     font-weight: 700;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .current-day {
-    font-size: 1.1rem;
-    opacity: 0.9;
+    font-size: 1rem;
+    opacity: 0.95;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-.button-group {
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
-    flex-wrap: wrap;
+/* Divider in combined card */
+.combined-info-card :deep(.p-divider) {
+    margin: 1rem 0;
 }
 
-.clock-button {
-    min-width: 150px;
+.combined-info-card :deep(.p-divider.p-divider-horizontal:before) {
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.hours-summary {
-    margin-top: 1.5rem;
+.combined-info-card :deep(.p-divider.p-divider-vertical:before) {
+    border-left: 1px solid rgba(255, 255, 255, 0.3);
 }
 
+/* Hours Summary Section */
 .summary-grid {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    display: flex;
     align-items: center;
+    justify-content: center;
     gap: 1rem;
 }
 
 .summary-item {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    justify-content: center;
+    gap: 0.75rem;
+    flex: 1;
+    max-width: 280px;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .summary-icon {
     font-size: 2rem;
-    color: var(--primary-color);
+    color: #007bff;
+    flex-shrink: 0;
 }
 
 .summary-label {
-    font-size: 0.875rem;
-    color: var(--text-color-secondary);
-    margin-bottom: 0.25rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.2rem;
+    font-weight: 500;
 }
 
 .summary-value {
     font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-color);
+    font-weight: 700;
+    color: #2c3e50;
 }
 
+/* Clock Buttons */
+.button-group {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.clock-button {
+    min-width: 180px;
+}
+
+/* Attendance Table */
 .attendance-table {
-    margin-top: 2rem;
+    margin-top: 1rem;
 }
 
 .time-cell {
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 .time-value {
     font-weight: 600;
-    font-size: 1rem;
+    color: #2c3e50;
 }
 
 .date-value {
-    font-size: 0.875rem;
-    color: var(--text-color-secondary);
-    margin-top: 0.25rem;
+    font-size: 0.85rem;
+    color: #6c757d;
 }
 
 .computed-hours {
     font-weight: 600;
-    color: var(--primary-color);
-    text-align: center;
-}
-
-.text-muted {
-    color: var(--text-color-secondary);
-    font-style: italic;
+    color: #28a745;
+    font-size: 1.1rem;
 }
 
 /* ==================== NOTES DIALOG ==================== */
@@ -2469,6 +2556,11 @@ export default {
 :deep(.p-inputtextarea:focus) {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 0.2rem rgba(var(--primary-color-rgb), 0.2);
+}
+
+.notes-text {
+    color: #6c757d;
+    font-style: italic;
 }
 
 /* ==================== ACCOUNT TAB ==================== */
@@ -2796,12 +2888,23 @@ export default {
 .filter-card {
     margin-bottom: 1.5rem;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e9ecef;
-    border-radius: 12px;
 }
 
 .filter-section {
     padding: 0.5rem;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #2c3e50;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.section-title i {
+    color: #007bff;
 }
 
 .filter-grid {
@@ -3061,13 +3164,12 @@ export default {
 /* ==================== MY SCHEDULE TAB ==================== */
 
 .schedule-content {
-    max-width: 1200px;
+    max-width: 100%;
     margin: 0 auto;
 }
 
 .schedule-header-card {
-    margin-bottom: 1.5rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin-bottom: 1rem;
 }
 
 .schedule-header {
@@ -3088,12 +3190,10 @@ export default {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.5rem 1.5rem;
-    background: #f8f9fa;
-    border-radius: 8px;
+    padding: 0.5rem 1rem;
     font-weight: 600;
     color: #2c3e50;
-    min-width: 220px;
+    min-width: 200px;
     justify-content: center;
 }
 
@@ -3103,7 +3203,7 @@ export default {
 
 .schedule-legend {
     display: flex;
-    gap: 1.5rem;
+    gap: 1rem;
     flex-wrap: wrap;
 }
 
@@ -3111,15 +3211,16 @@ export default {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #6c757d;
 }
 
 .status-dot {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     display: inline-block;
+    flex-shrink: 0;
 }
 
 .status-dot.present {
@@ -3135,10 +3236,11 @@ export default {
 }
 
 .swatch {
-    width: 20px;
-    height: 20px;
-    border-radius: 4px;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
     display: inline-block;
+    flex-shrink: 0;
 }
 
 .swatch-today {
@@ -3146,64 +3248,68 @@ export default {
     opacity: 0.3;
 }
 
-/* Calendar Grid */
+/* Calendar */
 .calendar-card {
-    margin-bottom: 1.5rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin-bottom: 1rem;
+}
+
+.calendar-wrapper {
+    width: 100%;
+    overflow-x: auto;
 }
 
 .calendar-grid {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+    gap: 4px;
+    min-width: 100%;
 }
 
 .calendar-dow {
     text-align: center;
     font-weight: 600;
-    font-size: 0.9rem;
-    color: #2c3e50;
-    padding: 0.75rem;
-    background: #f8f9fa;
-    border-radius: 8px;
+    font-size: 0.8rem;
+    color: #6c757d;
+    padding: 0.5rem 0.25rem;
 }
 
 .calendar-cell {
-    min-height: 100px;
-    padding: 0.75rem;
-    border: 2px solid #e9ecef;
-    border-radius: 8px;
+    min-height: 70px;
+    padding: 0.5rem;
+    border: 2px solid #dee2e6;
+    border-radius: 6px;
     background: white;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: all 0.2s;
     display: flex;
     flex-direction: column;
+    justify-content: space-between;
 }
 
 .calendar-cell:not(.blank):hover {
     border-color: #007bff;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.2);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.15);
 }
 
 .calendar-cell.blank {
-    background: #f8f9fa;
+    background: transparent;
     cursor: default;
-    border-color: transparent;
+    border: none;
 }
 
 .calendar-cell.is-today {
-    background: rgba(0, 123, 255, 0.1);
+    background: rgba(0, 123, 255, 0.08);
     border-color: #007bff;
 }
 
 .calendar-cell.is-selected {
     background: #007bff;
     color: white;
+    border-color: #007bff;
 }
 
 .calendar-cell.is-selected .cell-meta {
-    color: rgba(255, 255, 255, 0.9);
+    color: rgba(255, 255, 255, 0.95);
 }
 
 .calendar-cell.has-schedule {
@@ -3213,30 +3319,32 @@ export default {
 .cell-date {
     display: flex;
     justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
+    align-items: flex-start;
+    margin-bottom: 0.25rem;
     font-weight: 600;
-    font-size: 1.1rem;
+    font-size: 0.95rem;
 }
 
 .cell-meta {
-    font-size: 0.85rem;
+    font-size: 0.7rem;
     color: #6c757d;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.2;
 }
 
 /* Day Details */
 .day-details-card {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    margin-top: 1rem;
 }
 
 .day-details-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem 1.5rem;
 }
 
 .day-details-header h6 {
@@ -3251,7 +3359,7 @@ export default {
     gap: 0.5rem;
     font-weight: 600;
     color: #2c3e50;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .detail-section-title i {
@@ -3263,6 +3371,7 @@ export default {
     padding: 0 0 0 1.5rem;
     margin: 0;
     color: #6c757d;
+    font-size: 0.9rem;
 }
 
 .holiday-list li {
@@ -3292,10 +3401,10 @@ export default {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1rem;
+    padding: 0.75rem;
     background: #f8f9fa;
-    border-radius: 8px;
-    border-left: 4px solid #007bff;
+    border-radius: 6px;
+    border-left: 3px solid #007bff;
 }
 
 .entry-info {
@@ -3309,7 +3418,7 @@ export default {
 }
 
 .entry-notes {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #6c757d;
 }
 
@@ -3317,10 +3426,11 @@ export default {
     font-weight: 600;
     color: #007bff;
     white-space: nowrap;
+    margin-left: 1rem;
 }
 
 .loading-card {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .loading-state {
@@ -3347,31 +3457,119 @@ export default {
         padding: 1rem;
     }
 
-    /* Attendance Tab */
+    .attendance-container {
+        padding: 0.5rem;
+    }
+
+    .combined-info-card {
+        max-width: 100%;
+    }
+
+    .combined-info-card :deep(.p-card-content) {
+        padding: 1.5rem;
+    }
+
     .current-time {
-        font-size: 2rem;
+        font-size: 2.5rem;
     }
 
     .current-day {
-        font-size: 1rem;
+        font-size: 1.1rem;
     }
 
     .summary-grid {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
+        flex-direction: column;
+        gap: 1rem;
     }
 
-    .summary-grid :deep(.p-divider-vertical) {
+    .summary-grid :deep(.p-divider.p-divider-vertical) {
         display: none;
+    }
+
+    .summary-item {
+        width: 100%;
+        max-width: 100%;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    .summary-icon {
+        font-size: 2rem;
+    }
+
+    .summary-value {
+        font-size: 1.25rem;
     }
 
     .button-group {
         flex-direction: column;
         align-items: stretch;
+        max-width: 100%;
     }
 
     .clock-button {
         width: 100%;
+        min-width: auto;
+    }
+
+    /* Stacked Table Styling - LEFT ALIGNED */
+    .attendance-table {
+        font-size: 0.9rem;
+    }
+
+    .attendance-table :deep(.p-datatable-wrapper) {
+        overflow-x: visible;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td) {
+        text-align: left;
+        display: block;
+        border: none;
+        padding: 0.75rem 1rem;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:before) {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #6c757d;
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr) {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        display: block;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:first-child) {
+        background: #f8f9fa;
+        border-radius: 6px 6px 0 0;
+        font-weight: 600;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:nth-child(3)) {
+        background: #e8f5e9;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:last-child) {
+        border-radius: 0 0 6px 6px;
+        text-align: center;
+    }
+
+    .attendance-table :deep(.p-datatable-thead) {
+        display: none;
+    }
+
+    /* Keep time cells left aligned */
+    .time-cell {
+        align-items: flex-start;
     }
 
     /* Account Tab */
@@ -3453,17 +3651,148 @@ export default {
         font-size: 1.5rem;
     }
 
+    .attendance-container {
+        padding: 0.5rem;
+    }
+
+    .current-time {
+        font-size: 2rem;
+    }
+
+    .current-day {
+        font-size: 1rem;
+    }
+
+    .button-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .clock-button {
+        width: 100%;
+        min-width: auto;
+    }
+
+    .summary-grid {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .summary-grid :deep(.p-divider) {
+        display: none;
+    }
+
+    .summary-item {
+        width: 100%;
+        padding: 0.75rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+    .summary-icon {
+        font-size: 2rem;
+    }
+
+    .summary-value {
+        font-size: 1.25rem;
+    }
+
+    /* Stacked Table Styling - LEFT ALIGNED */
+    .attendance-table {
+        font-size: 0.9rem;
+    }
+
+    .attendance-table :deep(.p-datatable-wrapper) {
+        overflow-x: visible;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td) {
+        text-align: left;
+        display: block;
+        border: none;
+        padding: 0.75rem 1rem;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:before) {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #6c757d;
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr) {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        display: block;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:first-child) {
+        background: #f8f9fa;
+        border-radius: 6px 6px 0 0;
+        font-weight: 600;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:nth-child(3)) {
+        background: #e8f5e9;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:last-child) {
+        border-radius: 0 0 6px 6px;
+        text-align: center;
+    }
+
+    .attendance-table :deep(.p-datatable-thead) {
+        display: none;
+    }
+
+    /* Keep time cells left aligned */
+    .time-cell {
+        align-items: flex-start;
+    }
+
     .privileges-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        padding: 0.25rem;
+    }
+
+    .privilege-item {
+        padding: 0.75rem 0.5rem;
+        gap: 0.5rem;
+    }
+
+    .privilege-label {
+        font-size: 0.85rem;
+        gap: 0.4rem;
+    }
+
+    .privilege-icon {
+        font-size: 1rem;
     }
 
     .privileges-header {
         flex-direction: column;
         text-align: center;
+        gap: 1rem;
     }
 
     .header-icon {
         font-size: 2.5rem;
+    }
+
+    .header-title {
+        font-size: 1.25rem;
+    }
+
+    .header-subtitle {
+        font-size: 0.85rem;
     }
 
     .legend-content {
@@ -3480,29 +3809,17 @@ export default {
         justify-content: center;
     }
 
-    .schedule-legend {
-        justify-content: center;
-    }
-
-    .calendar-grid {
-        gap: 4px;
-    }
-
-    .calendar-dow {
-        padding: 0.5rem 0.25rem;
-    }
-
     .calendar-cell {
-        min-height: 70px;
-        padding: 0.5rem;
+        min-height: 60px;
+        padding: 0.35rem;
     }
 
     .cell-date {
-        font-size: 1rem;
+        font-size: 0.85rem;
     }
 
     .cell-meta {
-        font-size: 0.8rem;
+        font-size: 0.65rem;
     }
 }
 
@@ -3523,45 +3840,167 @@ export default {
         margin: 0;
     }
 
-    .header-title {
-        font-size: 1.25rem;
+    .combined-info-card :deep(.p-card-content) {
+        padding: 1.25rem;
     }
 
-    .header-subtitle {
+    .current-time {
+        font-size: 2rem;
+    }
+
+    .current-day {
+        font-size: 1rem;
+    }
+
+    .summary-item {
+        padding: 0.85rem;
+        gap: 0.75rem;
+    }
+
+    .summary-icon {
+        font-size: 1.75rem;
+    }
+
+    .summary-label {
         font-size: 0.85rem;
     }
 
-    .month-display {
-        min-width: 180px;
+    .summary-value {
+        font-size: 1.15rem;
+    }
+
+    /* More compact stacked table */
+    .attendance-table :deep(.p-datatable-tbody > tr > td) {
+        padding: 0.6rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr > td:before) {
+        font-size: 0.8rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .attendance-table :deep(.p-datatable-tbody > tr) {
+        margin-bottom: 0.75rem;
+    }
+
+    .time-value {
         font-size: 0.9rem;
     }
 
-    .schedule-legend {
+    .date-value {
+        font-size: 0.8rem;
+    }
+
+    .computed-hours {
+        font-size: 1rem;
+    }
+
+    .total-hours-display {
         flex-direction: column;
+        text-align: center;
+    }
+
+    .total-hours-display i {
+        font-size: 2rem;
+    }
+
+    .total-value {
+        font-size: 1.25rem;
+    }
+
+    .section-title {
+        font-size: 0.95rem;
+    }
+
+    .filter-field label {
+        font-size: 0.9rem;
+    }
+
+    /* More compact stacked table */
+    .time-record-table :deep(.p-datatable-tbody > tr > td) {
+        padding: 0.6rem 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .time-record-table :deep(.p-datatable-tbody > tr > td:before) {
+        font-size: 0.8rem;
+        margin-bottom: 0.2rem;
+    }
+
+    .time-record-table :deep(.p-datatable-tbody > tr) {
+        margin-bottom: 0.75rem;
+    }
+
+    .privileges-grid {
+        grid-template-columns: 1fr;
         gap: 0.5rem;
     }
 
+    .privilege-item {
+        padding: 0.6rem 0.5rem;
+        gap: 0.5rem;
+        border-radius: 6px;
+    }
+
+    .privilege-label {
+        font-size: 0.8rem;
+    }
+
+    .privilege-icon {
+        font-size: 0.9rem;
+    }
+
+    .privilege-checkbox :deep(.p-checkbox-box) {
+        width: 18px;
+        height: 18px;
+    }
+
+    .privileges-header-card :deep(.p-card-content) {
+        padding: 1rem;
+    }
+
+    .header-icon {
+        font-size: 2rem;
+    }
+
+    .header-title {
+        font-size: 1.1rem;
+    }
+
+    .header-subtitle {
+        font-size: 0.8rem;
+    }
+
+    .legend-item {
+        font-size: 0.85rem;
+    }
+
+    .legend-item i {
+        font-size: 1rem;
+    }
+
+    .calendar-grid {
+        gap: 3px;
+    }
+
     .calendar-dow {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         padding: 0.25rem;
     }
 
     .calendar-cell {
-        min-height: 60px;
+        min-height: 50px;
         padding: 0.25rem;
     }
 
     .cell-date {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
     }
 
     .cell-meta {
-        font-size: 0.7rem;
-    }
-
-    .status-dot {
-        width: 8px;
-        height: 8px;
+        font-size: 0.6rem;
+        -webkit-line-clamp: 1;
     }
 
     .schedule-entry {
@@ -3571,8 +4010,7 @@ export default {
     }
 
     .entry-time {
-        width: 100%;
-        text-align: left;
+        margin-left: 0;
     }
 }
 </style>
