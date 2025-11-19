@@ -68,7 +68,7 @@
 
                     <Button
                         icon="pi pi-cog"
-                        @click="openSettingsModal"
+                        @click="openSettingModal"
                         severity="secondary"
                         text
                         rounded
@@ -173,7 +173,7 @@
                     <Button
                         icon="pi pi-cog"
                         label="Settings"
-                        @click="openSettingsModal"
+                        @click="settingsVisible = true"
                         severity="secondary"
                         text
                         class="nav-button with-label"
@@ -199,6 +199,7 @@
     </nav>
     <Sidebar v-model:visible="visible" />
     <ProfileModal v-model:visible="profileVisible" />
+    <SettingsModal v-model:visible="settingsVisible" />
 </template>
 
 <script>
@@ -207,6 +208,7 @@ import Badge from "primevue/badge";
 import Searching from "../page/searching/Searching.vue";
 import Sidebar from "./Sidebar.vue";
 import ProfileModal from "./ProfileModal.vue";
+import SettingsModal from "./SettingsModal.vue";
 
 export default {
     name: "Navbar",
@@ -216,6 +218,7 @@ export default {
         Searching,
         Sidebar,
         ProfileModal,
+        SettingsModal,
     },
     data() {
         return {
@@ -224,6 +227,7 @@ export default {
             siteTitle: "IMS",
             visible: false,
             profileVisible: false,
+            settingsVisible: false,
         };
     },
     mounted() {
@@ -287,11 +291,8 @@ export default {
             this.profileVisible = true;
         },
 
-        openSettingsModal() {
-            const modal = new bootstrap.Modal(
-                document.getElementById("settingsModal")
-            );
-            modal.show();
+        openSettingModal() {
+            this.settingsVisible = true;
         },
 
         showLogoutModal() {

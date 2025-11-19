@@ -2303,6 +2303,11 @@ export default {
     margin: 0;
 }
 
+.profile-tabs :deep(.p-tabview-tab-header) {
+    white-space: nowrap;
+    font-size: 0.875rem;
+}
+
 /* Fix for tab headers - remove bottom border and center content */
 .profile-tabs :deep(.p-tabview-nav-link) {
     border-bottom: none !important;
@@ -3755,6 +3760,77 @@ export default {
     /* Keep time cells left aligned */
     .time-cell {
         align-items: flex-start;
+    }
+
+    .filter-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .filter-actions {
+        width: 100%;
+    }
+
+    .filter-actions button {
+        flex: 1;
+    }
+
+    .total-value {
+        font-size: 1.5rem;
+    }
+
+    /* Stacked Table Styling - LEFT ALIGNED */
+    .time-record-table :deep(.p-datatable-wrapper) {
+        overflow-x: visible;
+    }
+
+    .time-record-table :deep(.p-datatable-tbody > tr > td) {
+        text-align: left;
+        display: block;
+        border: none;
+        padding: 0.75rem 1rem;
+    }
+
+    .time-record-table :deep(.p-datatable-tbody > tr > td:before) {
+        content: attr(data-label);
+        font-weight: 600;
+        color: #6c757d;
+        display: block;
+        margin-bottom: 0.25rem;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .time-record-table :deep(.p-datatable-tbody > tr) {
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        display: block;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .time-record-table :deep(.p-datatable-tbody > tr > td:first-child) {
+        background: #f8f9fa;
+        border-radius: 6px 6px 0 0;
+        font-weight: 600;
+    }
+
+    .time-record-table :deep(.p-datatable-tbody > tr > td:last-child) {
+        border-radius: 0 0 6px 6px;
+        background: #f0f8ff;
+    }
+
+    .time-record-table :deep(.p-datatable-thead) {
+        display: none;
+    }
+
+    /* Left align all content in stacked mode */
+    .record-date,
+    .record-time,
+    .computed-hours-badge {
+        justify-content: flex-start;
     }
 
     .privileges-grid {
