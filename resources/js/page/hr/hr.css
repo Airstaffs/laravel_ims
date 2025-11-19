@@ -1,18 +1,18 @@
-.nav-tabs > ul {
+.nav-tabs>ul {
     display: flex;
     justify-content: flex-start;
     align-items: center;
 }
 
-.nav-tabs > ul li > button {
+.nav-tabs>ul li>button {
     border: 0;
     font-weight: 600;
     font-size: 1.2rem;
     border-radius: 0;
 }
 
-.nav-tabs > ul li > button.active,
-.nav-tabs > ul li > button:hover {
+.nav-tabs>ul li>button.active,
+.nav-tabs>ul li>button:hover {
     background-color: #007bff;
     color: #fff;
 }
@@ -31,6 +31,7 @@ a.dropdown-item {
     justify-content: flex-start;
     align-items: stretch;
     gap: 20px;
+    width: 100%;
 }
 
 .employee-header {
@@ -83,10 +84,12 @@ a.dropdown-item {
 .modal.modal-employeeDetails {
     position: fixed;
     inset: 0;
-    display: flex; /* <-- makes it visible */
+    display: flex;
+    /* <-- makes it visible */
     align-items: center;
     justify-content: center;
-    z-index: 1; /* above page content */
+    z-index: 1;
+    /* above page content */
 }
 
 .modal-employeeDetails .modal-overlay {
@@ -99,7 +102,8 @@ a.dropdown-item {
 .modal-employeeDetails .modal-content {
     position: relative;
     z-index: 1057;
-    width: 1000px; /* tweak as you like */
+    width: 1000px;
+    /* tweak as you like */
     max-width: 95vw;
     max-height: 85vh;
     overflow: auto;
@@ -285,7 +289,7 @@ table tbody tr td {
 }
 
 .hr-module .main-content {
-    width: calc(100% - 196px);
+    width: 100%;
     background-color: #fff;
     border: 1px solid #e1e1e1;
     padding: 20px;
@@ -384,14 +388,14 @@ table tbody tr td {
     align-items: center;
 }
 
-.history-header ul > li {
+.history-header ul>li {
     display: inline-block;
     padding: 8px 15px;
     cursor: pointer;
     border-bottom: 1px solid transparent;
 }
 
-.history-header ul > li:hover {
+.history-header ul>li:hover {
     border-bottom: 1px solid #007bff;
 }
 
@@ -458,7 +462,8 @@ table tbody tr td {
     display: inline-block;
     padding: 0.25rem 0.5rem;
     border-radius: 0.5rem;
-    background: rgba(13, 110, 253, 0.06); /* primary, very light */
+    background: rgba(13, 110, 253, 0.06);
+    /* primary, very light */
     font-variant-numeric: tabular-nums;
 }
 

@@ -803,7 +803,7 @@
     gap: 5px;
 }
 
-.fbm-order-module .process-modal .matching-product-info > div {
+.fbm-order-module .process-modal .matching-product-info>div {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -843,7 +843,7 @@
     border-left: 3px solid #007bff;
 }
 
-.fbm-order-module .product-id-info > div {
+.fbm-order-module .product-id-info>div {
     margin-bottom: 3px;
 }
 
@@ -855,6 +855,7 @@
 
 /* Only apply these styles on mobile screens */
 @media (max-width: 768px) {
+
     /* Better mobile display toggling */
     .fbm-order-module .desktop-view {
         display: none !important;
@@ -885,7 +886,7 @@
     .fbm-order-module .mobile-order-id {
         font-weight: bold;
         flex-grow: 1;
-        font-size: 1rem;
+        font-size: .9rem;
     }
 
     .fbm-order-module .mobile-status {
@@ -1400,9 +1401,7 @@
 
 /* Item-specific tooltip message */
 .fbm-order-module .product-title-row .checkbox-disabled-tooltip:hover::after,
-.fbm-order-module
-    .mobile-product-title-row
-    .checkbox-disabled-tooltip:hover::after,
+.fbm-order-module .mobile-product-title-row .checkbox-disabled-tooltip:hover::after,
 .fbm-order-module .item-title-row .checkbox-disabled-tooltip:hover::after {
     content: "Item must be dispensed before it can be selected";
 }
@@ -1412,8 +1411,7 @@
     background-color: rgba(232, 244, 248, 0.3);
 }
 
-.fbm-order-module
-    .mobile-card:has(.mobile-checkbox input[type="checkbox"]:not(:disabled)) {
+.fbm-order-module .mobile-card:has(.mobile-checkbox input[type="checkbox"]:not(:disabled)) {
     border-left: 3px solid #28a745;
 }
 
@@ -1424,8 +1422,7 @@
     padding-left: 10px;
 }
 
-.fbm-order-module
-    .mobile-product-item:has(.mobile-item-dispense-checkbox:not(:disabled)) {
+.fbm-order-module .mobile-product-item:has(.mobile-item-dispense-checkbox:not(:disabled)) {
     background-color: rgba(232, 244, 248, 0.15);
     border-left: 3px solid #28a745;
     padding-left: 5px;
@@ -1808,17 +1805,18 @@
     position: relative;
 }
 
-.fbm-order-module .process-dispensed-product > div {
+.fbm-order-module .process-dispensed-product>div {
     margin-bottom: 3px;
     font-size: 0.85rem;
 }
 
-.fbm-order-module .process-dispensed-product > div:last-child {
+.fbm-order-module .process-dispensed-product>div:last-child {
     margin-bottom: 0;
 }
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
+
     .fbm-order-module .dispensed-detail,
     .fbm-order-module .mobile-dispensed-detail {
         flex-direction: column;
@@ -2091,14 +2089,14 @@
     font-size: 0.8rem;
 }
 
-.order-info ul > li > p,
-.order-info ul > li .orderItems-container ul > li {
+.order-info ul>li>p,
+.order-info ul>li .orderItems-container ul>li {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
 }
 
-.order-info ul > li .orderItems-container ul {
+.order-info ul>li .orderItems-container ul {
     padding: 1rem;
     border-radius: 8px;
     border-left: 1px solid #ddd;
@@ -2281,7 +2279,7 @@
 }
 
 fieldset label,
-.first-control div > label {
+.first-control div>label {
     height: 40px;
     display: flex;
     justify-content: flex-start;
@@ -2356,7 +2354,7 @@ span.carrier-breakdown {
     width: 120px;
 }
 
-.work-history-row td ul > li p {
+.work-history-row td ul>li p {
     display: flex;
     flex-direction: column;
     white-space: pre;
@@ -2428,6 +2426,7 @@ span.carrier-breakdown {
 }
 
 @media (max-width: 767px) {
+
     .shipmentLabel .modal-content,
     .carrier .modal-content {
         width: 100%;
@@ -2542,17 +2541,17 @@ span.carrier-breakdown {
         width: 100%;
     }
 
-    .first-control div > label {
+    .first-control div>label {
         display: none;
     }
 
-    .first-control div > button {
+    .first-control div>button {
         width: 250px;
         justify-content: center;
         margin: 0 auto;
     }
 
-    .workHistory .card-body > div:nth-child(-n + 4) {
+    .workHistory .card-body>div:nth-child(-n + 4) {
         display: unset;
     }
 

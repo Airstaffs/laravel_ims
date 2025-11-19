@@ -2,27 +2,30 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
-use Illuminate\Support\Str;
 use App\Models\SystemDesign;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use App\Services\UserLogService;
 use Carbon\Carbon;
-use Laravel\Socialite\Facades\Socialite;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Session;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Laravel\Socialite\Facades\Socialite;
 
 class LoginController extends Controller
 {
     protected $userLogService;
+
     const DB_TZ = 'America/Los_Angeles';
 
     private function maskHas(?int $mask, int $isoDow): bool
     {
         $m = (int) ($mask ?? 0);
+
         return $m > 0 && (($m & (1 << ($isoDow - 1))) !== 0);
     }
 
@@ -72,10 +75,13 @@ class LoginController extends Controller
 
         // helper: resolve early_login_mins (user override > template > 0)
         $resolveLoginMins = function ($userVal, $tmplVal) {
-            if (is_numeric($userVal))
+            if (is_numeric($userVal)) {
                 return (int) $userVal;
-            if (is_numeric($tmplVal))
+            }
+            if (is_numeric($tmplVal)) {
                 return (int) $tmplVal;
+            }
+
             return 0;
         };
 
@@ -89,13 +95,14 @@ class LoginController extends Controller
 
             // ---- A) Today-anchored window
             $todayOk = ($hasMask && $this->maskHas($r->days_mask, $dowToday))
-                || (!$hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowToday));
+                || (! $hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowToday));
 
             if ($todayOk) {
-                $start = Carbon::parse($today . ' ' . $r->start_time, $tz);
-                $end = Carbon::parse($today . ' ' . $r->end_time, $tz);
-                if ((int) $r->end_next_day === 1)
+                $start = Carbon::parse($today.' '.$r->start_time, $tz);
+                $end = Carbon::parse($today.' '.$r->end_time, $tz);
+                if ((int) $r->end_next_day === 1) {
                     $end->addDay();
+                }
 
                 $allowedFrom = $start->copy()->subMinutes($loginGrace);
 
@@ -103,7 +110,7 @@ class LoginController extends Controller
                     return ['allowed' => true, 'message' => null];
                 }
                 if ($now->lt($allowedFrom)) {
-                    if (!$tooEarlyEarliest || $allowedFrom->lt($tooEarlyEarliest)) {
+                    if (! $tooEarlyEarliest || $allowedFrom->lt($tooEarlyEarliest)) {
                         $tooEarlyEarliest = $allowedFrom;
                     }
                 }
@@ -112,11 +119,11 @@ class LoginController extends Controller
             // ---- B) Overnight window (yesterday-anchored)
             if ((int) $r->end_next_day === 1) {
                 $yOk = ($hasMask && $this->maskHas($r->days_mask, $dowYest))
-                    || (!$hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowYest));
+                    || (! $hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowYest));
 
                 if ($yOk) {
-                    $startY = Carbon::parse($yesterday . ' ' . $r->start_time, $tz);
-                    $endY = Carbon::parse($yesterday . ' ' . $r->end_time, $tz)->addDay();
+                    $startY = Carbon::parse($yesterday.' '.$r->start_time, $tz);
+                    $endY = Carbon::parse($yesterday.' '.$r->end_time, $tz)->addDay();
 
                     $allowedFromY = $startY->copy()->subMinutes($loginGrace);
 
@@ -132,13 +139,13 @@ class LoginController extends Controller
         if ($tooEarlyEarliest) {
             return [
                 'allowed' => false,
-                'message' => 'Too early to log in. Earliest allowed time: ' . $tooEarlyEarliest->format('h:i A') . '.'
+                'message' => 'Too early to log in. Earliest allowed time: '.$tooEarlyEarliest->format('h:i A').'.',
             ];
         }
 
         return [
             'allowed' => false,
-            'message' => 'You are outside your scheduled login time window.'
+            'message' => 'You are outside your scheduled login time window.',
         ];
     }
 
@@ -153,18 +160,18 @@ class LoginController extends Controller
         // Always evaluate schedule in LA time:
         $gate = $this->checkLoginWindow($user->id, self::DB_TZ); // 'America/Los_Angeles'
 
-        if ($gate['allowed'])
+        if ($gate['allowed']) {
             return null;
+        }
 
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return redirect()->route('login')->withErrors([
-            'username' => ($gate['message'] ?? 'Login not allowed right now.') . ' (based on Los Angeles time)',
+            'username' => ($gate['message'] ?? 'Login not allowed right now.').' (based on Los Angeles time)',
         ]);
     }
-
 
     public function __construct(UserLogService $userLogService)
     {
@@ -206,7 +213,7 @@ class LoginController extends Controller
 
             $attemptCredentials = [
                 $loginField => $credentials['username'],
-                'password' => $credentials['password']
+                'password' => $credentials['password'],
             ];
 
             // Attempt authentication
@@ -231,15 +238,14 @@ class LoginController extends Controller
                 try {
                     $this->userLogService->log('User LOGIN');
                 } catch (\Exception $e) {
-                    Log::warning('Failed to log user login: ' . $e->getMessage());
+                    Log::warning('Failed to log user login: '.$e->getMessage());
                 }
 
                 // FIXED: Set success message for dashboard (not login page)
                 // This will be displayed on the dashboard page after redirect
-                $request->session()->flash('login_success', 'Welcome back, ' . $user->username . '!');
+                $request->session()->flash('login_success', 'Welcome back, '.$user->username.'!');
 
                 $firstLogin = \DB::table('tbluser')->where('username', $user->username)->value('first_login');
-
 
                 if (is_null($firstLogin) || (int) $firstLogin === 1) {
                     return redirect()->route('account.complete.view');
@@ -256,7 +262,8 @@ class LoginController extends Controller
         } catch (\Illuminate\Validation\ValidationException $e) {
             return back()->withErrors($e->errors())->withInput();
         } catch (\Exception $e) {
-            Log::error('Login error: ' . $e->getMessage());
+            Log::error('Login error: '.$e->getMessage());
+
             return back()->with('error', 'An error occurred during login. Please try again.')->withInput();
         }
     }
@@ -285,6 +292,7 @@ class LoginController extends Controller
                 return $valid;
             }
         }
+
         // HARD DEFAULT if nothing valid
         return 'America/Los_Angeles';
     }
@@ -293,8 +301,9 @@ class LoginController extends Controller
     {
         // Parse existing JSON (could be null/invalid)
         $existing = json_decode($user->timezone_setting ?? '', true);
-        if (!is_array($existing))
+        if (! is_array($existing)) {
             $existing = [];
+        }
 
         // Merge with defaults to ensure both keys exist
         $setting = array_merge($this->defaultTimezoneSetting(), $existing);
@@ -315,8 +324,8 @@ class LoginController extends Controller
 
         // If keys were missing before OR value changed, persist back to DB
         $needsUpdate = ($originalJson !== json_encode($setting))
-            || !array_key_exists('usertimezone', $existing)
-            || !array_key_exists('auto_sync', $existing);
+            || ! array_key_exists('usertimezone', $existing)
+            || ! array_key_exists('auto_sync', $existing);
 
         if ($needsUpdate) {
             DB::table('tbluser')->where('id', $user->id)->update([
@@ -340,7 +349,7 @@ class LoginController extends Controller
             $request->session()->put([
                 'site_title' => $systemDesign->site_title,
                 'theme_color' => $systemDesign->theme_color,
-                'logo' => $systemDesign->logo
+                'logo' => $systemDesign->logo,
             ]);
         }
     }
@@ -349,7 +358,7 @@ class LoginController extends Controller
     {
         // Store main module
         $mainModule = $user->main_module;
-        if (!empty($mainModule)) {
+        if (! empty($mainModule)) {
             $request->session()->put('main_module', $mainModule);
         }
 
@@ -393,20 +402,20 @@ class LoginController extends Controller
 
             // Filter active stores
             $activeStores = array_filter(
-                array_map(fn($column) => $column->Field, $storeColumns),
-                fn($store) => $user->{$store} == 1
+                array_map(fn ($column) => $column->Field, $storeColumns),
+                fn ($store) => $user->{$store} == 1
             );
 
             $request->session()->put('stores', array_values($activeStores));
         } catch (\Exception $e) {
-            Log::warning('Failed to store store permissions: ' . $e->getMessage());
+            Log::warning('Failed to store store permissions: '.$e->getMessage());
             $request->session()->put('stores', []);
         }
     }
 
     public function showSystemDashboard()
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return redirect()->route('login')
                 ->with('error', 'Please log in to access the dashboard.');
         }
@@ -433,13 +442,13 @@ class LoginController extends Controller
             $todayMinutes = DB::table('tblemployeeclocks')
                 ->where('userid', $user->id)
                 ->whereDate('TimeIn', Carbon::today('America/Los_Angeles'))
-                ->sum(DB::raw("
+                ->sum(DB::raw('
                     TIMESTAMPDIFF(
                         MINUTE,
                         TimeIn,
                         COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR))
                     )
-                "));
+                '));
 
             // Calculate this week's total worked minutes
             $weekMinutes = DB::table('tblemployeeclocks')
@@ -448,13 +457,13 @@ class LoginController extends Controller
                     Carbon::now('America/Los_Angeles')->startOfWeek(),
                     Carbon::now('America/Los_Angeles')->endOfWeek(),
                 ])
-                ->sum(DB::raw("
+                ->sum(DB::raw('
                     TIMESTAMPDIFF(
                         MINUTE,
                         TimeIn,
                         COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR))
                     )
-                "));
+                '));
 
             // Format hours
             $todayHoursFormatted = sprintf('%d hrs %02d mins', intdiv($todayMinutes, 60), $todayMinutes % 60);
@@ -506,7 +515,8 @@ class LoginController extends Controller
                 'employeeClocks'
             ));
         } catch (\Exception $e) {
-            Log::error('Dashboard error: ' . $e->getMessage());
+            Log::error('Dashboard error: '.$e->getMessage());
+
             return redirect()->route('login')
                 ->with('error', 'Unable to load dashboard. Please try again.');
         }
@@ -526,7 +536,7 @@ class LoginController extends Controller
             $email = $googleUser->getEmail();
 
             // Restrict to @airstaffs.com domain
-            if (!Str::endsWith($email, '@airstaffs.com')) {
+            if (! Str::endsWith($email, '@airstaffs.com')) {
                 return redirect()->route('login')
                     ->with('error', 'Only Airstaffs employees are allowed.');
             }
@@ -537,7 +547,7 @@ class LoginController extends Controller
             // Try to find user by email first
             $user = User::where('email', $email)->first();
 
-            if (!$user) {
+            if (! $user) {
                 // Email not found, check if username exists (might have null email)
                 $user = User::where('username', $username)->first();
 
@@ -546,7 +556,7 @@ class LoginController extends Controller
                     Log::info('Found existing user by username, updating email', [
                         'username' => $username,
                         'old_email' => $user->email,
-                        'new_email' => $email
+                        'new_email' => $email,
                     ]);
 
                     $user->update([
@@ -560,7 +570,7 @@ class LoginController extends Controller
                         'email' => $email,
                         'profile_picture' => $googleUser->getAvatar(),
                         'password' => bcrypt(Str::random(32)),
-                        'role' => 'User'
+                        'role' => 'User',
                     ]);
                     Log::info('Created new user', ['username' => $username, 'email' => $email]);
                 }
@@ -589,7 +599,7 @@ class LoginController extends Controller
             try {
                 $this->userLogService->log('User LOGIN via Google');
             } catch (\Exception $e) {
-                Log::warning('Failed to log Google login: ' . $e->getMessage());
+                Log::warning('Failed to log Google login: '.$e->getMessage());
             }
 
             // Check if user needs to complete their profile
@@ -600,8 +610,9 @@ class LoginController extends Controller
                 if (is_null($firstLogin)) {
                     Log::info('Redirecting to account complete view', [
                         'user_id' => $user->id,
-                        'first_login' => $firstLogin
+                        'first_login' => $firstLogin,
                     ]);
+
                     return redirect()->route('account.complete.view');
                 }
             }
@@ -610,11 +621,12 @@ class LoginController extends Controller
                 ->with('login_success', "Welcome back, {$user->username}! (Google Login)");
 
         } catch (\Exception $e) {
-            Log::error('Google login error: ' . $e->getMessage(), [
+            Log::error('Google login error: '.$e->getMessage(), [
                 'exception' => get_class($e),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
             ]);
+
             return redirect()->route('login')
                 ->with('error', 'Failed to log in with Google. Please try again.');
         }
@@ -708,7 +720,7 @@ class LoginController extends Controller
             }
 
             // Keep tbluser.email in sync with work_email if provided
-            if (!empty($data['work_email'])) {
+            if (! empty($data['work_email'])) {
                 DB::table('tbluser')->where('id', $uid)->update([
                     'email' => $data['work_email'],
                     'updated_at' => now(),
@@ -718,7 +730,7 @@ class LoginController extends Controller
             // If this was the first-login completion, set the timestamp
             if ($firstLogin) {
                 DB::table('tbluser')->where('id', $uid)->update([
-                    'first_login' => now()
+                    'first_login' => now(),
                 ]);
                 Log::info('First login completed, setting first_login timestamp', ['user_id' => $uid]);
             }
@@ -735,7 +747,7 @@ class LoginController extends Controller
                 $this->userLogService->log('User LOGOUT');
             }
         } catch (\Exception $e) {
-            Log::warning('Failed to log user logout: ' . $e->getMessage());
+            Log::warning('Failed to log user logout: '.$e->getMessage());
         }
 
         Auth::logout();

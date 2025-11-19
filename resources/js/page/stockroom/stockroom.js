@@ -384,10 +384,12 @@ export default {
 
         // Regular product details modal
         viewProductDetails(item) {
-            const processedItem = this.applyGradeConversion([item])[0];
-            this.selectedProduct = processedItem;
-            this.showProductDetailsModal = true;
-        },
+    const processedItem = this.applyGradeConversion([item])[0];
+    this.selectedProduct = processedItem;
+    this.showProductDetailsModal = true;
+
+},
+
 
         // Close product details modal
         closeProductDetailsModal() {

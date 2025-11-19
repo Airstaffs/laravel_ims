@@ -3,7 +3,16 @@ import { createApp } from "vue";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
+
+// Add PrimeVue CSS
+import "primeicons/primeicons.css";
+
 import axios from "axios";
+
+import Swal from "sweetalert2";
+window.Swal = Swal;
 
 // ============================================
 // CONFIGURATION
@@ -126,11 +135,17 @@ async function refreshCsrf() {
 }
 
 function validateCsrfToken() {
-    const metaToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    const metaToken = document.querySelector(
+        'meta[name="csrf-token"]'
+    )?.content;
     const backupToken = localStorage.getItem("csrf_token_backup");
     const axiosToken = axios.defaults.headers.common["X-CSRF-TOKEN"];
 
-    const tokens = { meta: metaToken, localStorage: backupToken, axios: axiosToken };
+    const tokens = {
+        meta: metaToken,
+        localStorage: backupToken,
+        axios: axiosToken,
+    };
     const allMatch = metaToken === backupToken && backupToken === axiosToken;
 
     if (!allMatch) {
@@ -179,7 +194,9 @@ function showSessionExpiredNotification() {
 
         new bootstrap.Modal(modal).show();
     } else {
-        if (confirm("Your session has expired. Click OK to refresh the page.")) {
+        if (
+            confirm("Your session has expired. Click OK to refresh the page.")
+        ) {
             window.location.reload();
         }
     }
@@ -194,7 +211,9 @@ function startTokenHealthCheck(intervalMinutes = 10) {
             refreshCsrf().catch(console.error);
         } else if (!validation.synchronized) {
             console.warn("⚠️ CSRF tokens out of sync, synchronizing...");
-            const metaToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const metaToken = document.querySelector(
+                'meta[name="csrf-token"]'
+            )?.content;
             if (metaToken) {
                 axios.defaults.headers.common["X-CSRF-TOKEN"] = metaToken;
                 localStorage.setItem("csrf_token_backup", metaToken);
@@ -216,14 +235,25 @@ axios.interceptors.response.use(
         if ((status === 419 || status === 401) && originalRequest) {
             originalRequest.__retryCount = originalRequest.__retryCount || 0;
 
-            if (originalRequest.__retryCount >= CSRF_CONFIG.MAX_RETRY_ATTEMPTS) {
+            if (
+                originalRequest.__retryCount >= CSRF_CONFIG.MAX_RETRY_ATTEMPTS
+            ) {
                 logCsrf(`❌ Max retries exceeded for request`);
-                console.error('Session appears to be invalid. Consider reloading the page.');
+                console.error(
+                    "Session appears to be invalid. Consider reloading the page."
+                );
 
-                if (status === 419 && !sessionStorage.getItem('csrf_error_shown')) {
-                    sessionStorage.setItem('csrf_error_shown', 'true');
+                if (
+                    status === 419 &&
+                    !sessionStorage.getItem("csrf_error_shown")
+                ) {
+                    sessionStorage.setItem("csrf_error_shown", "true");
                     setTimeout(() => {
-                        if (confirm('Your session may have expired. Would you like to reload the page?')) {
+                        if (
+                            confirm(
+                                "Your session may have expired. Would you like to reload the page?"
+                            )
+                        ) {
                             window.location.reload();
                         }
                     }, 500);
@@ -233,19 +263,25 @@ axios.interceptors.response.use(
             }
 
             originalRequest.__retryCount++;
-            logCsrf(`Retrying request (attempt ${originalRequest.__retryCount})`);
+            logCsrf(
+                `Retrying request (attempt ${originalRequest.__retryCount})`
+            );
 
             try {
                 if (originalRequest.__retryCount > 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise((resolve) => setTimeout(resolve, 500));
                 }
 
                 await refreshCsrf();
-                originalRequest.headers['X-CSRF-TOKEN'] = axios.defaults.headers.common['X-CSRF-TOKEN'];
+                originalRequest.headers["X-CSRF-TOKEN"] =
+                    axios.defaults.headers.common["X-CSRF-TOKEN"];
 
                 return axios(originalRequest);
             } catch (refreshError) {
-                console.error("❌ Failed to refresh token and retry request:", refreshError);
+                console.error(
+                    "❌ Failed to refresh token and retry request:",
+                    refreshError
+                );
                 return Promise.reject(error);
             }
         }
@@ -256,10 +292,14 @@ axios.interceptors.response.use(
 
 axios.interceptors.request.use(
     (config) => {
-        const hasToken = config.headers?.["X-CSRF-TOKEN"] || config.headers?.common?.["X-CSRF-TOKEN"];
+        const hasToken =
+            config.headers?.["X-CSRF-TOKEN"] ||
+            config.headers?.common?.["X-CSRF-TOKEN"];
 
         if (!hasToken) {
-            const metaToken = document.querySelector('meta[name="csrf-token"]')?.content;
+            const metaToken = document.querySelector(
+                'meta[name="csrf-token"]'
+            )?.content;
             const backupToken = localStorage.getItem("csrf_token_backup");
             const token = metaToken || backupToken;
 
@@ -286,7 +326,7 @@ let sessionStartTime = Date.now();
 let heartbeatTimer = null;
 let isUserIdle = false;
 
-localStorage.setItem('session_start_time', sessionStartTime.toString());
+localStorage.setItem("session_start_time", sessionStartTime.toString());
 
 function updateActivity() {
     const now = Date.now();
@@ -297,16 +337,23 @@ function updateActivity() {
 
     // If user was idle and now active, refresh token
     if (wasIdle && IDLE_CONFIG.TOKEN_REFRESH_ON_ACTIVITY) {
-        logSession('👤 User returned from idle, refreshing token...');
+        logSession("👤 User returned from idle, refreshing token...");
         refreshTokenAfterIdle();
     }
 
-    localStorage.setItem('last_activity_time', now.toString());
+    localStorage.setItem("last_activity_time", now.toString());
 }
 
 // Listen for all user activity
-const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
-activityEvents.forEach(event => {
+const activityEvents = [
+    "mousedown",
+    "mousemove",
+    "keypress",
+    "scroll",
+    "touchstart",
+    "click",
+];
+activityEvents.forEach((event) => {
     document.addEventListener(event, updateActivity, { passive: true });
 });
 
@@ -316,7 +363,7 @@ function checkIdleState() {
 
     if (idleTime > IDLE_CONFIG.MAX_IDLE_TIME && !isUserIdle) {
         isUserIdle = true;
-        logSession('😴 User is idle');
+        logSession("😴 User is idle");
 
         // Stop heartbeat when idle to save resources
         if (heartbeatTimer) {
@@ -331,22 +378,23 @@ setInterval(checkIdleState, 60 * 1000);
 
 async function refreshTokenAfterIdle() {
     try {
-        const sessionAge = Date.now() - parseInt(localStorage.getItem('session_start_time') || Date.now());
+        const sessionAge =
+            Date.now() -
+            parseInt(localStorage.getItem("session_start_time") || Date.now());
 
         if (sessionAge > IDLE_CONFIG.SESSION_LIFETIME * 0.95) {
-            console.warn('⚠️ Session is about to expire, reloading page...');
+            console.warn("⚠️ Session is about to expire, reloading page...");
             showSessionExpiredNotification();
             return;
         }
 
         await refreshCsrf();
-        logSession('✅ Token refreshed after idle');
+        logSession("✅ Token refreshed after idle");
 
         startHeartbeat();
         await keepSessionAlive();
-        
     } catch (error) {
-        console.error('❌ Failed to refresh after idle:', error);
+        console.error("❌ Failed to refresh after idle:", error);
 
         if (error.response?.status === 401 || error.response?.status === 419) {
             showSessionExpiredNotification();
@@ -368,31 +416,35 @@ function startHeartbeat() {
             try {
                 await keepSessionAlive();
                 lastHeartbeat = now;
-                logSession('💓 Heartbeat sent');
+                logSession("💓 Heartbeat sent");
             } catch (error) {
-                console.error('❌ Heartbeat failed:', error);
+                console.error("❌ Heartbeat failed:", error);
 
                 if (error.response?.status === 419) {
-                    logSession('🔄 Attempting recovery...');
+                    logSession("🔄 Attempting recovery...");
                     await refreshTokenAfterIdle();
                 }
             }
         } else {
-            logSession('😴 User idle, skipping heartbeat');
+            logSession("😴 User idle, skipping heartbeat");
         }
     }, SESSION_HEARTBEAT_INTERVAL);
 }
 
 // Handle page visibility (tab switching)
-document.addEventListener('visibilitychange', async () => {
-    if (document.visibilityState === 'visible') {
-        logSession('👁️ Tab visible again');
+document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState === "visible") {
+        logSession("👁️ Tab visible again");
 
         const now = Date.now();
         const awayTime = now - lastActivityTime;
 
         if (awayTime > IDLE_CONFIG.MAX_IDLE_TIME) {
-            logSession(`🔄 Was away for ${Math.round(awayTime / 60000)} minutes, refreshing...`);
+            logSession(
+                `🔄 Was away for ${Math.round(
+                    awayTime / 60000
+                )} minutes, refreshing...`
+            );
             await refreshTokenAfterIdle();
         } else {
             updateActivity();
@@ -412,11 +464,15 @@ async function keepSessionAlive(forceRefresh = false) {
             await refreshCsrf();
         }
 
-        const response = await axios.post(CSRF_CONFIG.KEEP_ALIVE_ENDPOINT, {
-            timestamp: Date.now()
-        }, {
+        const response = await axios.post(
+            CSRF_CONFIG.KEEP_ALIVE_ENDPOINT,
+            {
+                timestamp: Date.now(),
+            },
+            {
                 headers: { "Cache-Control": "no-cache" },
-        });
+            }
+        );
 
         logSession("✅ Session kept alive successfully", response.data);
         localStorage.setItem("last_session_ping", Date.now().toString());
@@ -476,6 +532,8 @@ import RTS from "./page/rts/rts.vue";
 import Training from "./page/aiTraining/training.vue";
 import Kanban from "./page/kanban/kanban.vue";
 
+import Navbar from "./components/Navbar.vue";
+
 const asyncComponentMap = {
     printcustominvoice: () =>
         import("./page/stockroom/print_invoice/print_custom_invoice.vue"),
@@ -528,8 +586,14 @@ const sessionMixin = {
     },
     beforeUnmount() {
         if (this._sessionActivityHandler && this._sessionElement) {
-            this._sessionElement.removeEventListener("click", this._sessionActivityHandler);
-            this._sessionElement.removeEventListener("keydown", this._sessionActivityHandler);
+            this._sessionElement.removeEventListener(
+                "click",
+                this._sessionActivityHandler
+            );
+            this._sessionElement.removeEventListener(
+                "keydown",
+                this._sessionActivityHandler
+            );
         }
     },
     methods: {
@@ -586,7 +650,9 @@ const app = createApp({
         },
 
         getNavigationName(componentName) {
-            for (const [navName, compName] of Object.entries(componentMapping)) {
+            for (const [navName, compName] of Object.entries(
+                componentMapping
+            )) {
                 if (compName === componentName) {
                     return navName;
                 }
@@ -595,76 +661,82 @@ const app = createApp({
         },
 
         loadContent(module) {
-    updateActivity();
-    this.extendSession();
+            updateActivity();
+            this.extendSession();
 
-    const navName = String(module).toLowerCase();
+            const navName = String(module).toLowerCase();
 
-    // Handle Kanban directly without permission check
-    if (navName === 'kanban') {
-        const componentName = this.mapToComponentName(navName);
-        this.safeComponentUpdate(componentName, navName);
-        return;
-    }
+            // Handle Kanban directly without permission check
+            if (navName === "kanban") {
+                const componentName = this.mapToComponentName(navName);
+                this.safeComponentUpdate(componentName, navName);
+                return;
+            }
 
-    // Handle Printer modal
-    if (navName === "printer") {
-        if (typeof showPrinterModal === "function") {
-            showPrinterModal();
-        } else {
-            console.error("showPrinterModal function not found");
-            setTimeout(() => {
+            // Handle Printer modal
+            if (navName === "printer") {
                 if (typeof showPrinterModal === "function") {
                     showPrinterModal();
                 } else {
-                    alert("Printer modal not available. Please check configuration.");
+                    console.error("showPrinterModal function not found");
+                    setTimeout(() => {
+                        if (typeof showPrinterModal === "function") {
+                            showPrinterModal();
+                        } else {
+                            alert(
+                                "Printer modal not available. Please check configuration."
+                            );
+                        }
+                    }, 100);
                 }
-            }, 100);
-        }
-        return;
-    }
+                return;
+            }
 
-    // Handle ASIN Option modal
-    if (navName === "asinoption") {
-        if (typeof showAsinOptionModal === "function") {
-            showAsinOptionModal();
-        } else {
-            console.error("showAsinOptionModal function not found");
-        }
-        return;
-    }
+            // Handle ASIN Option modal
+            if (navName === "asinoption") {
+                if (typeof showAsinOptionModal === "function") {
+                    showAsinOptionModal();
+                } else {
+                    console.error("showAsinOptionModal function not found");
+                }
+                return;
+            }
 
-    // Permission check for other modules
-    const allowedModules = window.allowedModules
-        ? window.allowedModules.map((m) => m.toLowerCase())
-        : [];
-    const mainModule = window.mainModule ? window.mainModule.toLowerCase() : "";
-    const customModules = window.customModules
-        ? window.customModules.map((m) => m.toLowerCase())
-        : [];
+            // Permission check for other modules
+            const allowedModules = window.allowedModules
+                ? window.allowedModules.map((m) => m.toLowerCase())
+                : [];
+            const mainModule = window.mainModule
+                ? window.mainModule.toLowerCase()
+                : "";
+            const customModules = window.customModules
+                ? window.customModules.map((m) => m.toLowerCase())
+                : [];
 
-    const hasAccess =
-        navName === "fbashipmentinbound" ||
-        allowedModules.includes(navName) ||
-        navName === mainModule ||
-        customModules.includes(navName);
+            const hasAccess =
+                navName === "fbashipmentinbound" ||
+                allowedModules.includes(navName) ||
+                navName === mainModule ||
+                customModules.includes(navName);
 
-    logSession("Checking permissions:", {
-        requested: navName,
-        main: mainModule,
-        allowed: allowedModules,
-        custom: customModules,
-        hasAccess,
-    });
+            logSession("Checking permissions:", {
+                requested: navName,
+                main: mainModule,
+                allowed: allowedModules,
+                custom: customModules,
+                hasAccess,
+            });
 
-    if (hasAccess) {
-        const componentName = this.mapToComponentName(navName);
-        logSession(`Mapping from nav "${navName}" to component "${componentName}"`);
-        this.safeComponentUpdate(componentName, navName);
-    } else {
-        alert("You do not have permission to access this module.");
-    }
-},
+            if (hasAccess) {
+                const componentName = this.mapToComponentName(navName);
+                logSession(
+                    `Mapping from nav "${navName}" to component "${componentName}"`
+                );
+                this.safeComponentUpdate(componentName, navName);
+            } else {
+                alert("You do not have permission to access this module.");
+            }
+        },
 
         safeComponentUpdate(componentName, originalNavName = null) {
             try {
@@ -678,19 +750,30 @@ const app = createApp({
 
                         asyncComponentMap[name]()
                             .then((module) => {
-                                logSession(`Successfully loaded async component: ${name}`);
+                                logSession(
+                                    `Successfully loaded async component: ${name}`
+                                );
                                 this.$options.components[name] = module.default;
                                 this.safeComponentUpdate(name, originalNavName);
                             })
                             .catch((err) => {
-                                console.error(`Failed to load async component "${name}":`, err);
-                                alert(`Failed to load ${name} component. Please try again.`);
-                                logSession(`Staying on current component due to load failure`);
+                                console.error(
+                                    `Failed to load async component "${name}":`,
+                                    err
+                                );
+                                alert(
+                                    `Failed to load ${name} component. Please try again.`
+                                );
+                                logSession(
+                                    `Staying on current component due to load failure`
+                                );
                             });
                         return;
                     }
 
-                    console.warn(`Component "${name}" not registered and no async loader found.`);
+                    console.warn(
+                        `Component "${name}" not registered and no async loader found.`
+                    );
                     return;
                 }
 
@@ -703,9 +786,12 @@ const app = createApp({
                 this.currentComponent = name;
 
                 this.$nextTick(() => {
-                    const navName = originalNavName || this.getNavigationName(name);
+                    const navName =
+                        originalNavName || this.getNavigationName(name);
                     this.updateActiveState(navName);
-                    logSession(`Component updated to: ${name}, Nav highlight: ${navName}`);
+                    logSession(
+                        `Component updated to: ${name}, Nav highlight: ${navName}`
+                    );
                 });
             } catch (err) {
                 console.error("Error switching component:", err);
@@ -721,7 +807,10 @@ const app = createApp({
         updateActiveState(moduleName) {
             document.querySelectorAll(".nav .nav-link").forEach((link) => {
                 const linkModule = link.getAttribute("data-module");
-                if (linkModule && linkModule.toLowerCase() === moduleName.toLowerCase()) {
+                if (
+                    linkModule &&
+                    linkModule.toLowerCase() === moduleName.toLowerCase()
+                ) {
                     link.classList.add("active");
                 } else {
                     link.classList.remove("active");
@@ -735,7 +824,9 @@ const app = createApp({
             if (!element) return;
 
             if (!this.collapses[id]) {
-                this.collapses[id] = new bootstrap.Collapse(element, { toggle: false });
+                this.collapses[id] = new bootstrap.Collapse(element, {
+                    toggle: false,
+                });
             }
             this.collapses[id].toggle();
         },
@@ -770,14 +861,21 @@ const app = createApp({
 app.mixin({
     mounted() {
         this.$nextTick(() => {
-            const eventHandlers = ["click", "keydown", "mousedown", "touchstart"];
+            const eventHandlers = [
+                "click",
+                "keydown",
+                "mousedown",
+                "touchstart",
+            ];
             const activityHandler = () => {
                 updateActivity(); // Use new unified activity tracker
             };
 
             if (this.$el && this.$el.addEventListener) {
                 eventHandlers.forEach((event) => {
-                    this.$el.addEventListener(event, activityHandler, { passive: true });
+                    this.$el.addEventListener(event, activityHandler, {
+                        passive: true,
+                    });
                 });
 
                 this._sessionEvents = eventHandlers;
@@ -787,13 +885,39 @@ app.mixin({
         });
     },
     beforeUnmount() {
-        if (this._sessionHandler && this._sessionElement && this._sessionEvents) {
+        if (
+            this._sessionHandler &&
+            this._sessionElement &&
+            this._sessionEvents
+        ) {
             this._sessionEvents.forEach((event) => {
-                this._sessionElement.removeEventListener(event, this._sessionHandler);
+                this._sessionElement.removeEventListener(
+                    event,
+                    this._sessionHandler
+                );
             });
         }
     },
 });
+
+// ============================================
+// PRIMEVUE SETUP FOR BLADE APPS
+// ============================================
+
+import PrimeVue from "primevue/config";
+import Aura from "@primevue/themes/aura";
+import ToastService from "primevue/toastservice";
+
+// Configure main app with PrimeVue
+app.use(PrimeVue, {
+    theme: {
+        preset: Aura,
+        options: {
+            darkModeSelector: false, // Keep it light to match Bootstrap
+        },
+    },
+});
+app.use(ToastService);
 
 // Mount main app
 window.appInstance = app.mount("#app");
@@ -825,7 +949,7 @@ window.csrfHandler = {
 window.keepSessionAlive = keepSessionAlive;
 window.refreshCsrf = refreshCsrf;
 
-// ⭐ NEW: Idle Handler API
+// Idle Handler API
 window.idleHandler = {
     updateActivity,
     checkIdleState,
@@ -835,12 +959,15 @@ window.idleHandler = {
 };
 
 // ============================================
-// SEARCH APP
+// SEARCH APP WITH PRIMEVUE
 // ============================================
 
 const searchApp = createApp({
     mixins: [sessionMixin],
-    components: { searching: Searching },
+    components: {
+        searching: Searching,
+        navbar: Navbar,
+    },
     mounted() {
         this.$nextTick(() => {
             const searchElement = document.getElementById("appsearch");
@@ -855,7 +982,35 @@ const searchApp = createApp({
     },
 });
 
+// Add PrimeVue to search app too
+searchApp.use(PrimeVue, {
+    theme: {
+        preset: Aura,
+        options: {
+            darkModeSelector: false,
+        },
+    },
+});
+searchApp.use(ToastService);
+
 searchApp.mount("#appsearch");
+
+if (document.getElementById("navbar-app")) {
+    const navbarApp = createApp({
+        components: { navbar: Navbar },
+    });
+
+    navbarApp.use(PrimeVue, {
+        theme: {
+            preset: Aura,
+            options: {
+                darkModeSelector: false,
+            },
+        },
+    });
+
+    navbarApp.mount("#navbar-app");
+}
 
 // ============================================
 // DOCUMENT READY INITIALIZATION
@@ -917,7 +1072,10 @@ function createSessionIndicator() {
         indicator.addEventListener("click", () => {
             keepSessionAlive();
             indicator.classList.add("session-active");
-            setTimeout(() => indicator.classList.remove("session-active"), 1000);
+            setTimeout(
+                () => indicator.classList.remove("session-active"),
+                1000
+            );
         });
 
         document.body.appendChild(indicator);

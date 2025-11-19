@@ -66,8 +66,13 @@
         gap: 10px;
     }
 
+    .mobile-detal-value {
+        font-size: 14px;
+    }
+
     .mobile-detail-label {
         font-weight: 600;
+        font-size: 14px;
     }
 
     .mobile-card-actions {
