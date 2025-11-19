@@ -1420,6 +1420,136 @@
             @close="showDs7Oos = false"
             @save="applyDsFilters"
         />
+
+      <!-- Printer Selection Modal -->
+<div class="printer-selection-modal-wrapper" v-if="showPrinterSelectionModal">
+    <div class="printer-modal-overlay" @click="closePrinterSelectionModal"></div>
+    <div class="printer-modal-dialog">
+        <div class="printer-modal-content">
+            <div class="printer-modal-header">
+                <h2 class="printer-modal-title">
+                    <i class="fas fa-print"></i> Select Printer
+                </h2>
+                <button
+                    class="printer-modal-close"
+                    @click="closePrinterSelectionModal"
+                >
+                    &times;
+                </button>
+            </div>
+            
+            <div class="printer-modal-body">
+                <div class="alert alert-info" v-if="selectedItemsForPrint.length > 0">
+                    <i class="fas fa-info-circle"></i>
+                    Choose a printer to print labels for {{ selectedItemsForPrint.length }} item(s)
+                </div>
+                
+                <!-- Show items to be printed -->
+                <div class="form-group" v-if="selectedItemsForPrint.length > 0">
+                    <label>Items to Print:</label>
+                    <div class="items-to-print-list">
+                        <div v-for="item in selectedItemsForPrint" :key="item.productId" class="print-item">
+                            <span class="serial-number">{{ item.serialNumber }}</span>
+                            <span v-if="item.fnsku" class="fnsku-info">{{ item.fnsku }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Select Printer:</label>
+                    <select 
+                        v-model="selectedPrinterForPrint" 
+                        class="form-control"
+                        :disabled="loadingPrinters"
+                        :class="{ loading: loadingPrinters }"
+                    >
+                        <option value="">-- Select a printer --</option>
+                        
+                        <!-- Single Printers Group -->
+                        <optgroup label="Single Printers" v-if="singlePrinters.length > 0">
+                            <option 
+                                v-for="printer in singlePrinters" 
+                                :key="printer.printerid"
+                                :value="printer.printerid"
+                            >
+                                {{ printer.printername_short }}
+                                <template v-if="rememberedPrinterId == printer.printerid"> ⭐ (Last Used)</template>
+                            </option>
+                        </optgroup>
+                        
+                        <!-- Married Printers Group -->
+                        <optgroup label="Married Printers" v-if="marriedPrinterGroups.length > 0">
+                            <option 
+                                v-for="group in marriedPrinterGroups" 
+                                :key="group.value"
+                                :value="group.value"
+                            >
+                                {{ group.label }}
+                                <template v-if="rememberedPrinterId == group.value"> ⭐ (Last Used)</template>
+                            </option>
+                        </optgroup>
+                    </select>
+                    <small class="form-text text-muted" v-if="loadingPrinters">
+                        <i class="fas fa-spinner fa-spin"></i> Loading printers...
+                    </small>
+                    <small class="form-text text-muted" v-else-if="availablePrinters.length === 0">
+                        <i class="fas fa-exclamation-triangle"></i> No printers available
+                    </small>
+                    <small class="form-text text-muted" v-else-if="rememberedPrinterId && selectedPrinterForPrint">
+                        <i class="fas fa-star"></i> Your last used printer is pre-selected
+                    </small>
+                </div>
+
+                <!-- Small Label Only Toggle -->
+                <div class="form-group">
+                    <label class="toggle-label">
+                        <input 
+                            type="checkbox" 
+                            v-model="printSmallLabelOnly"
+                            class="toggle-checkbox"
+                        />
+                        <span class="toggle-text">
+                            <i class="fas fa-tag"></i> Small Label Only (Skip Instruction Card)
+                        </span>
+                    </label>
+                    <small class="form-text text-muted">
+                        When enabled, only the small product label will be printed without the instruction card
+                    </small>
+                </div>
+            </div>
+            
+            <div class="printer-modal-footer">
+                <button 
+                    class="btn btn-secondary" 
+                    @click="closePrinterSelectionModal"
+                >
+                    <i class="fas fa-times"></i> Cancel
+                </button>
+                
+                <!-- Forget Printer button - only show if printer is remembered -->
+                <button 
+                    v-if="rememberedPrinterId"
+                    class="btn btn-warning" 
+                    @click="clearPrinterPreference"
+                    title="Clear saved printer preference"
+                >
+                    <i class="fas fa-times-circle"></i> Forget Printer
+                </button>
+                
+                <button 
+                    class="btn btn-primary" 
+                    @click="confirmPrintSelected"
+                    :disabled="!selectedPrinterForPrint || isProcessing || loadingPrinters"
+                >
+                    <i class="fas fa-print"></i> 
+                    {{ isProcessing ? 'Printing...' : 'Print Selected' }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
     </div>
 </template>
 
@@ -2095,4 +2225,286 @@ export default Stockroom;
     font-size: 9px;
     border-radius: 11px;
 }
+
+/* Printer Selection Modal Styles */
+.printer-selection-modal-wrapper {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.printer-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1051;
+}
+
+.printer-modal-dialog {
+    position: relative;
+    z-index: 1052;
+    max-width: 600px;
+    width: 90%;
+    margin: 0 auto;
+}
+
+.printer-modal-content {
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.printer-modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: #f8f9fa;
+    border-radius: 8px 8px 0 0;
+}
+
+.printer-modal-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+}
+
+.printer-modal-title i {
+    margin-right: 8px;
+    color: #007bff;
+}
+
+.printer-modal-close {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #666;
+    line-height: 1;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.printer-modal-close:hover {
+    background-color: #e9ecef;
+    color: #000;
+}
+
+.printer-modal-body {
+    padding: 20px;
+    max-height: 60vh;
+    overflow-y: auto;
+}
+
+.printer-modal-body .alert {
+    padding: 12px 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    background-color: #d1ecf1;
+    border: 1px solid #bee5eb;
+    color: #0c5460;
+}
+
+.printer-modal-body .alert i {
+    margin-right: 8px;
+}
+
+.items-to-print-list {
+    max-height: 150px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    background: #f8f9fa;
+    margin-top: 8px;
+}
+
+.print-item {
+    padding: 6px 0;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.print-item:last-child {
+    border-bottom: none;
+}
+
+.print-item .serial-number {
+    font-weight: 600;
+    color: #333;
+}
+
+.print-item .fnsku-info {
+    color: #6c757d;
+    font-size: 13px;
+}
+
+.printer-modal-body .form-group {
+    margin-bottom: 20px;
+}
+
+.printer-modal-body .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #495057;
+}
+
+.printer-modal-body .form-control {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.2s;
+}
+
+.printer-modal-body .form-control:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+.printer-modal-body .form-control:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+}
+
+.printer-modal-body .form-control.loading {
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 20px;
+    opacity: 0.7;
+}
+
+.printer-modal-body .form-text {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-checkbox {
+    width: 18px;
+    height: 18px;
+    margin-right: 10px;
+    cursor: pointer;
+    accent-color: #007bff;
+}
+
+.toggle-text {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 500;
+    color: #495057;
+}
+
+.toggle-text i {
+    color: #007bff;
+}
+
+.printer-modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between; /* Changed from flex-end */
+    align-items: center;
+    gap: 10px;
+    background-color: #f8f9fa;
+    border-radius: 0 0 8px 8px;
+}
+
+.printer-modal-footer .btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    min-width: 0; /* Allow buttons to shrink if needed */
+}
+
+.printer-modal-footer .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.printer-modal-footer .btn-secondary {
+    background-color: #6c757d;
+    color: white;
+}
+
+.printer-modal-footer .btn-secondary:hover:not(:disabled) {
+    background-color: #5a6268;
+}
+
+.printer-modal-footer .btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.printer-modal-footer .btn-primary:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+.printer-modal-footer .btn i {
+    font-size: 14px;
+}
+
+.printer-modal-footer .btn-warning {
+    background-color: #ffc107;
+    color: #000;
+}
+
+.printer-modal-footer .btn-warning:hover:not(:disabled) {
+    background-color: #e0a800;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .printer-modal-dialog {
+        width: 95%;
+    }
+    
+    .printer-modal-body {
+        max-height: 50vh;
+    }
+    
+    .items-to-print-list {
+        max-height: 120px;
+    }
+}
+
 </style>

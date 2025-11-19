@@ -1100,12 +1100,14 @@ class PrinterController extends BasetablesController
             $request->validate([
                 'serial_number' => 'required|string',
                 'printer_id' => 'required|integer',
-                'print_data' => 'required|array'
+                'print_data' => 'required|array',
+                 'small_label_only' => 'sometimes|boolean' 
             ]);
 
             $serialNumber = trim($request->serial_number);
             $printerId = $request->printer_id;
             $printData = $request->print_data;
+             $smallLabelOnly = $request->input('small_label_only', false);
             
             // Get selected printer info with marriage details
             $selectedPrinter = DB::table('tblprinters')
@@ -1207,7 +1209,8 @@ class PrinterController extends BasetablesController
             $printResult = $this->printLabelService->printLabelWithMarriedPrinters(
                 $productId, 
                 $username, 
-                $selectedPrinter
+                $selectedPrinter,
+                $smallLabelOnly 
             );
 
             // Check if the print service returned a successful result

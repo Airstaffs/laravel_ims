@@ -48,7 +48,7 @@ class PrintLabelService extends BasetablesController
      * NEW: Print label with married printer system support
      * This method handles printing to married printers automatically
      */
-    public function printLabelWithMarriedPrinters($productId, $username, $selectedPrinter)
+    public function printLabelWithMarriedPrinters($productId, $username, $selectedPrinter, $smallLabelOnly = false)
     {
         try {
             Log::info('Starting print with married printer system:', [
@@ -71,9 +71,9 @@ class PrintLabelService extends BasetablesController
 
             // Check if the selected printer is married
             if (!empty($selectedPrinter->married_to_printer_id)) {
-                return $this->printToMarriedPrinters($enrichedProduct, $username, $selectedPrinter);
+                return $this->printToMarriedPrinters($enrichedProduct, $username, $selectedPrinter, $smallLabelOnly);
             } else {
-                return $this->printToSinglePrinter($enrichedProduct, $username, $selectedPrinter);
+                return $this->printToSinglePrinter($enrichedProduct, $username, $selectedPrinter, $smallLabelOnly);
             }
 
         } catch (Exception $e) {
@@ -93,7 +93,7 @@ class PrintLabelService extends BasetablesController
     /**
      * NEW: Print to married printers (synchronized printing)
      */
-    protected function printToMarriedPrinters($product, $username, $selectedPrinter)
+    protected function printToMarriedPrinters($product, $username, $selectedPrinter, $smallLabelOnly = false)
     {
         try {
             // Get the married printer details
@@ -156,7 +156,7 @@ class PrintLabelService extends BasetablesController
             }
 
             // Print instruction cards to instruction card printer
-            if (!empty($zplData['instructionCardZpl'])) {
+            if (!$smallLabelOnly && !empty($zplData['instructionCardZpl'])) {
                 Log::info('Sending instruction cards to instruction card printer:', [
                     'printer_name' => $instructionCardPrinter->printername,
                     'printer_ip' => $instructionCardPrinter->printerip
@@ -217,7 +217,7 @@ class PrintLabelService extends BasetablesController
     /**
      * NEW: Print to single printer (non-married)
      */
-    protected function printToSinglePrinter($product, $username, $selectedPrinter)
+    protected function printToSinglePrinter($product, $username, $selectedPrinter, $smallLabelOnly = false)
     {
         try {
             Log::info('Printing to single printer:', [
@@ -249,8 +249,14 @@ class PrintLabelService extends BasetablesController
             } else {
                 // Unknown printer type - generate all labels
                 $zplData = $this->generateCompleteZplCode($product, $condition, $returnCounts, $username);
-                $zpl = $zplData['mainZpl'] . $zplData['instructionCardZpl'];
-                $labelTypes = 'all labels';
+                    if ($smallLabelOnly) {
+                        $zpl = $zplData['mainZpl'];
+                        $labelTypes = 'small labels only';
+                        Log::info('⭐ SMALL LABELS ONLY - skipping instruction cards');
+                    } else {
+                        $zpl = $zplData['mainZpl'] . $zplData['instructionCardZpl'];
+                        $labelTypes = 'all labels';
+                    }
             }
 
             if (empty($zpl)) {
@@ -1474,16 +1480,7 @@ class PrintLabelService extends BasetablesController
                 Log::error('Warranty card page 2 not found at: ' . $serialCard2Path);
             }
 
-            // Add QR code instruction card
-            Log::info('Generating QR instruction card');
-            $qrZpl = $this->imageProcessingService->generateQRforInstructionCard($Wserial);
-            if (!empty($qrZpl)) {
-                $zplIC .= $qrZpl;
-                Log::info('Successfully generated QR instruction card ZPL');
-            } else {
-                Log::warning('QR instruction card ZPL is empty');
-            }
-
+         
             // Add restocking label
             Log::info('Generating restocking label');
             $restockingZpl = $this->imageProcessingService->generateRestockingLabel($Wserial);
@@ -1514,6 +1511,23 @@ class PrintLabelService extends BasetablesController
                 Log::warning('Recycle request label ZPL is empty');
             }
             
+            
+               // Add QR code instruction card
+           $numberOfCopies = 2;
+
+            for ($copy = 1; $copy <= $numberOfCopies; $copy++) {
+                $qrZpl = $this->imageProcessingService->generateQRforInstructionCard($Wserial);
+                
+                if (!empty($qrZpl)) {
+                    $zplIC .= $qrZpl;
+                    Log::info("Successfully generated QR instruction card ZPL (Copy {$copy} of {$numberOfCopies})");
+                } else {
+                    Log::warning("QR instruction card ZPL is empty (Copy {$copy} of {$numberOfCopies})");
+                }
+            }
+
+
+
             Log::info('Completed all warranty cards and labels for serial: ' . $Wserial);
         } else {
             Log::info('No serial number provided - skipping warranty cards');

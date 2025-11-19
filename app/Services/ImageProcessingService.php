@@ -980,7 +980,7 @@ class ImageProcessingService
         }
         
         // Create the QR code URL
-        $manual = url('storage/serial_qr/' . $serialNumber . '.png');
+         $manual = $serialNumber;
         
         // Generate QR code in temp directory
         $qrCodePath = $this->imagesPath . '/temp/qr_' . $serialNumber . '.png';
