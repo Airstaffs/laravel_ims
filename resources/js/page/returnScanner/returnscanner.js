@@ -57,6 +57,8 @@ export default {
             showImageModal: false,
             modalImages: [],
             currentImageIndex: 0,
+            viewDetailsModal: false,
+            item: {}
         };
     },
     computed: {
@@ -165,6 +167,11 @@ export default {
 
             // Re-enable scrolling
             document.body.style.overflow = "auto";
+        },
+
+        handleShowDetailsModal(item) {
+            this.item = item
+            this.viewDetailsModal = true
         },
 
         nextImage() {

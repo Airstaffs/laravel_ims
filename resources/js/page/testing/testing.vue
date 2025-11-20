@@ -4,7 +4,9 @@
             <span>Top Header</span>
         </div> -->
 
-        <h2 class="module-title">Testing Module</h2>
+        <!-- <h2 class="module-title">Testing Module</h2> -->
+        <TitlePage title="Product Testing"
+            subtitle="Manage and log quality assurance and functional testing results for products prior to inventory staging." />
 
         <!-- Desktop Table Container -->
         <div class="px-4">
@@ -801,16 +803,18 @@
                 </div>
             </div>
         </Dialog>
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Dialog, Card } from "primevue";
+import { Button, Dialog, Card, ScrollTop } from "primevue";
 import Testing from "./testing.js";
 import gallery from "../../components/Gallery/gallery.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -859,7 +863,9 @@ export default {
         gallery,
         TableGallery,
         XDataTable,
-        MobileCard1
+        MobileCard1,
+        ScrollTop,
+        TitlePage
     },
     data() {
         return {

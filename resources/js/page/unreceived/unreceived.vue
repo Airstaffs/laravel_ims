@@ -9,7 +9,8 @@
             </div>
         </div>
 
-        <h2 class="module-title">Unreceived Module</h2>
+        <TitlePage title="Unreceived Shipments"
+            subtitle="Track and manage all inbound inventory shipments that have not yet been received or confirmed." />
 
         <!-- Simplified Scanner Component -->
         <scanner-component scanner-title="Unreceived Scanner" storage-prefix="unreceived" :enable-camera="true"
@@ -933,16 +934,18 @@
                 </div>
             </div>
         </div> -->
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Dialog, Card } from "primevue";
+import { Button, Dialog, Card, ScrollTop } from "primevue";
 import Unreceived from "./unreceived.js";
 import gallery from "../../components/Gallery/gallery.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -991,7 +994,9 @@ export default {
         gallery,
         TableGallery,
         XDataTable,
-        MobileCard1
+        MobileCard1,
+        ScrollTop,
+        TitlePage
     },
     data() {
         return {

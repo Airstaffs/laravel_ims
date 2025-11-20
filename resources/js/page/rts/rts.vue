@@ -4,7 +4,9 @@
             <span>Top Header</span>
         </div> -->
 
-        <h2 class="module-title">RTS Module</h2>
+        <!-- <h2 class="module-title">RTS Module</h2> -->
+        <TitlePage title="Return to Seller Processing"
+            subtitle="Manage products designated for return to the original seller or supplier. Finalize shipment details and confirm the return status." />
 
         <!-- Desktop Table Container -->
         <div class="px-4">
@@ -976,14 +978,16 @@ key, index
                 </div>
             </div>
         </div>
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Card, Dialog, Divider, InputText, Select, Textarea } from "primevue";
+import { Button, Card, Dialog, Divider, InputText, ScrollTop, Select, Textarea } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import RTS from "./rts.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -1052,7 +1056,7 @@ export default {
     mixins: [RTS],
     components: {
         XDataTable,
-        Dialog, Button, TableGallery, Card, InputText, Select, Divider, Textarea
+        Dialog, Button, TableGallery, Card, InputText, Select, Divider, Textarea, ScrollTop, TitlePage
     },
     data() {
         return {

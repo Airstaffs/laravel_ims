@@ -907,6 +907,7 @@ app.mixin({
 import PrimeVue from "primevue/config";
 import Aura from "@primevue/themes/aura";
 import ToastService from "primevue/toastservice";
+import Tooltip  from "primevue/tooltip";
 
 // Configure main app with PrimeVue
 app.use(PrimeVue, {
@@ -918,6 +919,7 @@ app.use(PrimeVue, {
     },
 });
 app.use(ToastService);
+app.directive('tooltip', Tooltip);
 
 // Mount main app
 window.appInstance = app.mount("#app");

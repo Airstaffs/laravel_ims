@@ -23,7 +23,7 @@
                 <button class="btn" @click="openDs7Oos">Open DS7 & OOS</button>
             </div>
 
-            <div class="store-filter">
+            <!-- <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
                     <option value="">All Stores</option>
@@ -42,7 +42,7 @@
                     <option value="both">Both FBM & FBA</option>
                     <option value="none">No Availability</option>
                 </select>
-            </div>
+            </div> -->
         </div>
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
@@ -89,32 +89,70 @@
             </template>
         </scanner-component>
 
-        <h2 class="module-title">Stockroom Module</h2>
+        <!-- <h2 class="module-title">Stockroom Module</h2> -->
+        <TitlePage title="Inventory Stock"
+            subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock." />
+        <div class="stats-container px-4">
 
-        <div class="inventory-counts-section">
-            <div class="count-badge total-count">
-                <span class="count-label">Count:</span>
-                <span class="count-value">{{
-                    inventoryCounts?.total || 0
-                    }}</span>
+            <div class="stat-card bg-primary-light">
+                <div class="stat-icon bg-primary">
+                    <i class="pi pi-hashtag text-white"></i>
+                </div>
+                <div>
+                    <p class="mb-0 ">Total Counts</p>
+                    <h5 class="mb-0">{{ inventoryCounts?.total || 0 }}</h5>
+                </div>
             </div>
-            <div class="count-separator"></div>
-            <div class="count-badge qoh-count">
-                <span class="count-label">QOH</span>
-                <span class="count-value">{{ inventoryCounts?.qoh || 0 }}</span>
+
+            <div class="stat-card bg-success-light">
+                <div class="stat-icon bg-success">
+                    <i class="pi pi-box text-white"></i>
+                </div>
+                <div>
+                    <p class="mb-0 ">Total QOHs</p>
+                    <h5 class="mb-0">{{ inventoryCounts?.qoh || 0 }}</h5>
+                </div>
             </div>
-            <div class="count-badge fbm-count">
-                <span class="count-label">FBM</span>
-                <span class="count-value">{{ inventoryCounts?.fbm || 0 }}</span>
+
+            <div class="stat-card bg-warning-light">
+                <div class="stat-icon bg-warning">
+                    <i class="pi pi-user text-white"></i>
+                </div>
+                <div>
+                    <p class="mb-0 ">Total FBMs</p>
+                    <h5 class="mb-0">{{ inventoryCounts?.fbm || 0 }}</h5>
+                </div>
             </div>
-            <div class="count-badge fba-count">
-                <span class="count-label">FBA</span>
-                <span class="count-value">{{ inventoryCounts?.fba || 0 }}</span>
+
+            <div class="stat-card bg-danger-light">
+                <div class="stat-icon bg-danger">
+                    <i class="pi pi-warehouse text-white"></i>
+                </div>
+                <div>
+                    <p class="mb-0 ">Total FBAs</p>
+                    <h5 class="mb-0">{{ inventoryCounts?.fba || 0 }}</h5>
+                </div>
             </div>
+
         </div>
+
+
+
 
         <!-- Desktop Table Container -->
         <div class="px-4">
+            <div class="search-container">
+                <fieldset class="d-flex align-items-center gap-1">
+                    <label for="moduleFilter">Store</label>
+                    <Select :options="storeOptions" v-model="selectedStore" optionLabel="label" optionValue="value"
+                        size="small" class="select-form" @change="changeStore" placeholder="Select a store" />
+                </fieldset>
+                <fieldset class="d-flex align-items-center gap-1">
+                    <label>Fullfilment</label>
+                    <Select :options="fullfilmentOptions" v-model="availabilityFilter" optionLabel="label"
+                        optionValue="value" size="small" class="select-form" />
+                </fieldset>
+            </div>
             <XDataTable :value="sortedInventory" :columns="columns" :paginator="false" tableClass="desktop-view"
                 :loading="loading">
                 <template #productName="{ data }">
@@ -161,7 +199,7 @@
                     </div>
                 </template>
                 <template #actions="{ data }">
-                    <div class="d-flex flex-column">
+                    <div class="d-flex flex-column align-items-start">
                         <Button label="Print" icon="pi pi-print" size="small" severity="contrast" variant="text"
                             class="text-success" @click="printLabel(data.ProductID)" />
                         <Button label="More Details" icon="pi pi-info-circle" size="small" severity="contrast"
@@ -213,7 +251,7 @@
                             <span class="mobile-detail-label">ASIN: </span>
                             <span class="mobile-detail-value">{{
                                 item.ASIN
-                                }}</span>
+                            }}</span>
                         </div>
                         <!-- Hidden details -->
                         <!-- <div class="mobile-detail-row" v-if="showDetails">
@@ -251,7 +289,7 @@
                             <span class="mobile-detail-label">Store: </span>
                             <span class="mobile-detail-value">{{
                                 item.storename
-                                }}</span>
+                            }}</span>
                         </div>
                         <div>
                             <span class="mobile-detail-label">Quantity Inside: </span>
@@ -273,7 +311,7 @@
                             <span class="mobile-detail-label">FNSKUs: </span>
                             <span class="mobile-detail-value">{{
                                 item.fnskus ? item.fnskus.length : 0
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
 
@@ -314,25 +352,25 @@
                                         <span class="mobile-serial-label">Serial:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.serialnumber
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Location:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.warehouselocation
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">FNSKU:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.FNSKUviewer
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">MSKU:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.MSKU
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Grading:</span>
@@ -578,49 +616,49 @@
                             <span class="product-details-label">ASIN: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.ASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBM: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.FBMAvailable
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBA: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.FbaAvailable
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Outbound: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Outbound
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Inbound: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Inbound
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Unfulfillable: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Unfulfillable
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Reserved: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Reserved
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Store: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.storename
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Quantity Inside: </span>
@@ -949,13 +987,15 @@
         <!-- DS7oos Modal -->
         <ds7-oos-modal :show="showDs7Oos" :store-options="distinctStores" :initial="dsFilters"
             @close="showDs7Oos = false" @save="applyDsFilters" />
+        <ScrollTop />
     </div>
 </template>
 
 <script>
 import Stockroom from "./stockroom.js";
 import XDataTable from '../../components/DataTable/XDataTable.vue'
-import { Button, Card, Dialog, Divider, Drawer, InputText, Select, Textarea } from "primevue";
+import { Button, Card, Dialog, Divider, Drawer, InputText, ScrollTop, Select, Textarea } from "primevue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -1063,20 +1103,35 @@ export default {
         Divider,
         Select,
         InputText,
-        Textarea
+        Textarea,
+        ScrollTop,
+        TitlePage
     },
     data() {
         return {
             columns: TABLE_COLUMNS,
-            serial_columns: SERIAL_TABLE_COLUMNS
+            serial_columns: SERIAL_TABLE_COLUMNS,
+            fullfilmentOptions: [
+                { value: "all", label: "All Items" },
+                { value: "fbm", label: "FBM Only" },
+                { value: "fba", label: "FBA Only" },
+                { value: "both", label: "Both FBM & FBA" },
+                { value: "none", label: "No Availability" }
+            ]
         }
     },
     computed: {
         processShipmentTypeOptions() {
             return [{ label: "For Dispense", value: "For Dispense" }, { label: "For Replacement", value: "For Replacement" }]
+        },
+        storeOptions() {
+            const options = this.stores.map(store => ({ label: store, value: store }))
+
+            return [{ value: '', label: 'All Stores' }, ...options]
         }
     }
 }
+
 </script>
 
 <style scoped>
@@ -1787,5 +1842,97 @@ export default {
     height: 22px;
     font-size: 9px;
     border-radius: 11px;
+}
+
+.stats-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid #dee2e6;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    flex: 0 0 14%;
+}
+
+/* Icon */
+.stat-icon {
+    border-radius: 50%;
+    padding: 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Light backgrounds */
+.bg-primary-light {
+    background: rgba(13, 110, 253, 0.1);
+}
+
+.bg-success-light {
+    background: rgba(25, 135, 84, 0.1);
+}
+
+.bg-warning-light {
+    background: rgba(255, 193, 7, 0.15);
+}
+
+.bg-danger-light {
+    background: rgba(220, 53, 69, 0.12);
+}
+
+.search-container {
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.select-form {
+    width: 200px;
+}
+
+@media (max-width: 992px) {
+    .stat-card {
+        flex: 0 0 14%;
+    }
+}
+
+@media (max-width: 768px) {
+    .stats-container {
+        gap: 0.5rem;
+    }
+
+    .stat-card {
+        flex: 1 1 48%;
+        min-width: 0;
+        flex-direction: row;
+        align-items: flex-start;
+    }
+
+    .stat-icon {
+        display: none;
+    }
+
+    .filter-title {
+        display: none;
+    }
+
+    .search-container fieldset {
+        width: 100%;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.1rem;
+    }
+
+    .select-form,
+    .p-select {
+        width: 100% !important;
+    }
 }
 </style>
