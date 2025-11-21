@@ -19,7 +19,9 @@
             </div>
         </div>
 
-        <h2 class="module-title">Receiving Module</h2>
+        <!-- <h2 class="module-title">Receiving Module</h2> -->
+        <TitlePage title="Inventory Receiving"
+            subtitle="View and log inbound inventory items as they are physically received and added to stock." />
 
         <!-- Detect Serial Numbers Modal -->
         <detect-serial-modal v-if="showDetectSerialModal" @close="closeDetectSerialModal"
@@ -831,6 +833,7 @@
                 </div>
             </div>
         </div>
+        <ScrollTop />
     </div>
 </template>
 <style scoped>
@@ -907,12 +910,13 @@
 </style>
 
 <script>
-import { Button, Dialog, Card } from "primevue";
+import { Button, Dialog, Card, ScrollTop } from "primevue";
 import Received from "./receiving.js";
 import gallery from "../../components/Gallery/gallery.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -961,7 +965,9 @@ export default {
         gallery,
         TableGallery,
         XDataTable,
-        MobileCard1
+        MobileCard1,
+        ScrollTop,
+        TitlePage
     },
     data() {
         return {

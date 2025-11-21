@@ -4,7 +4,9 @@
             <span>Top Header</span>
         </div> -->
 
-        <h2 class="module-title">Cleaning Module</h2>
+        <!-- <h2 class="module-title">Cleaning Module</h2> -->
+        <TitlePage title="Cleaning & Inspection"
+            subtitle="Track and manage products requiring physical cleaning, refurbishment, or data clean-up before being staged for sale." />
 
         <!-- Desktop Table Container -->
         <div class="p-4">
@@ -449,16 +451,17 @@
             </div>
         </Dialog>
 
-
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Card, Dialog } from "primevue";
+import { Button, Card, Dialog, ScrollTop } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import Cleaning from "./cleaning.js";
 import Gallery from "../../components/Gallery/gallery.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 const TABLE_COLUMNS = [
     {
         selectionMode: "multiple",
@@ -524,7 +527,7 @@ const TABLE_COLUMNS = [
 ]
 export default {
     mixins: [Cleaning],
-    components: { XDataTable, TableGallery, Button, Gallery, Dialog, Card },
+    components: { XDataTable, TableGallery, Button, Gallery, Dialog, Card, ScrollTop, TitlePage },
     data() {
         return {
             columns: TABLE_COLUMNS

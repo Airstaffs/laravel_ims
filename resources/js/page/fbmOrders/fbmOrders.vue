@@ -29,7 +29,7 @@
                 </button>
             </div>
 
-            <div class="store-filter">
+            <!-- <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
                     <option value="">All Stores</option>
@@ -50,7 +50,7 @@
                 <button class="btn-refresh" @click="refreshData">
                     <i class="fas fa-sync-alt"></i>
                 </button>
-            </div>
+            </div> -->
         </div>
 
         <!-- Selection status bar - NEW COMPONENT -->
@@ -59,7 +59,7 @@
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{
                     persistentSelectedOrderIds.length > 1 ? "s" : ""
-                    }}
+                }}
                     selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
@@ -67,12 +67,26 @@
             </div>
         </div>
 
-        <h2 class="module-title">FBM Order Module</h2>
+        <!-- <h2 class="module-title">FBM Order Module</h2> -->
+        <TitlePage title="Merchant Fulfillment Orders"
+            subtitle="Manage all orders fulfilled directly by the merchant. Process shipments, generate labels, and track the status of FBM orders." />
 
         <!-- Desktop Table Container -->
         <div class="px-4">
+            <div class="search-container">
+                <fieldset class="d-flex align-items-center gap-3 ">
+                    <label for="moduleFilter">Store</label>
+                    <Select :options="storeOptions" v-model="selectedStore" optionLabel="label" optionValue="value"
+                        size="small" class="select-form" @change="changeStore" placeholder="Select a store" />
+                </fieldset>
+                <fieldset class="d-flex align-items-center gap-3 ">
+                    <label for="moduleFilter">Status</label>
+                    <Select :options="statusOptions" v-model="statusFilter" optionLabel="label" optionValue="value"
+                        size="small" class="select-form" @change="changeStatusFilter" placeholder="Select a status" />
+                </fieldset>
+            </div>
             <XDataTable :value="orders" :loading="loading" :columns="columns" :pagination="false"
-                tableClass="desktop-view" showGridlines>
+                tableClass="desktop-view">
                 <template #orderDetails="{ data }">
                     <div class="d-flex flex-column gap-2">
                         <div class="detail-item-container">
@@ -91,7 +105,7 @@
                             <span>Fulfillment Channel: </span>
                             <span class="text-danger fw-bolder">{{
                                 data.FulfillmentChannel
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="detail-item-container">
                             <span>Amazon Order: </span>
@@ -110,9 +124,20 @@
                             </div>
                             <div class="d-flex flex-column gap-2"
                                 style="word-break: break-word; white-space: normal; overflow-wrap: break-word; border-bottom: none;">
-                                <h5>
-                                    {{ subdata.platform_title }}
-                                </h5>
+                                <div>
+                                    <h5>
+                                        {{ subdata.platform_title }}
+                                    </h5>
+                                    <span v-if="subdata.quantity_ordered > 1"
+                                        class="bg-secondary text-white px-2 rounded-2">
+                                        Qty: {{ subdata.quantity_ordered }}
+                                        <span v-if="isItemDispensed(subdata)">
+                                            ({{
+                                                getDispensedProductCount(subdata)
+                                            }}
+                                            dispensed)</span>
+                                    </span>
+                                </div>
                                 <div class="detail-item-container">
                                     <span>Order Item ID: </span>
                                     <span>{{ subdata.platform_order_item_id || "N/A" }}</span>
@@ -180,7 +205,7 @@
                         <div class="detail-item-container">
                             <span>Delivered by Date: </span>
                             <span> {{ formatDeliveryDate(data.delivery_date)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div v-if="hasTrackingNumber(data)">
                             <span>Tracking Status:</span>
@@ -206,19 +231,25 @@
                     </div>
                 </template>
                 <template #actions="{ data }">
-                    <div class="d-flex flex-column gap-2">
+                    <div class="d-flex flex-column align-items-start gap-2">
                         <Select optionLabel="label" optionValue="value" :options="[
                             { label: 'Null', value: 'Null' }
                         ]" fluid size="small" :modelValue="'Null'" />
-                        <Button label="Track" size="small" class="w-100" outlined />
-                        <Button label="Tracking History" severity="info" size="small" class="w-100" outlined />
-                        <Button label="Print" icon="pi pi-print" severity="warn" class="w-100" size="small"
-                            @click="openPrintInvoiceModal(data)" />
-                        <Button label="Process" icon="pi pi-truck" severity="help" class="w-100" size="small" :disabled="data.order_status ===
-                            'Shipped' ||
-                            data.order_status ===
-                            'Canceled'
-                            " @click="openProcessModal(data)" />
+                        <!-- <Button label="Track" size="small" icon="pi pi-compass" severity="contrast" variant="text"
+                            outlined />
+                        <Button label="Tracking History" icon="pi pi-history" severity="contrast" variant="text"
+                            size="small" outlined /> -->
+                        <Button label="Print" icon="pi pi-print" severity="contrast" variant="text" size="small"
+                            @click="openPrintInvoiceModal(data)" class="text-primary" />
+                        <Button label="Process" icon="pi pi-truck" severity="contrast" variant="text" size="small"
+                            :disabled="data.order_status ===
+                                'Shipped' ||
+                                data.order_status ===
+                                'Canceled'" @click="openProcessModal(data)" class="text-warning" />
+                        <Button type="button" severity="contrast" variant="text" icon="pi pi-list"
+                            @click="toggle($event, data)" aria-haspopup="true" aria-controls="overlay_menu" size="small"
+                            label="More Actions" />
+                        <Menu ref="menu" id="overlay_menu" :model="menuActions" :popup="true" />
                     </div>
                 </template>
             </XDataTable>
@@ -296,7 +327,7 @@
                                 <span class="mobile-detail-label">Condition: </span>
                                 <span class="mobile-detail-value">{{ item.condition }} | Price: ${{
                                     parseFloat(item.unit_price || 0).toFixed(2)
-                                    }}</span>
+                                }}</span>
                             </div>
 
                             <!-- Enhanced mobile dispensed products display -->
@@ -359,19 +390,19 @@ dispensedProduct, dpIndex
                             <span class="mobile-detail-label">Purchase Date: </span>
                             <span class="mobile-detail-value">{{
                                 formatDate(order.purchase_date)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Order Type: </span>
                             <span class="mobile-detail-value">{{
                                 order.order_type
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Shipment: </span>
                             <span class="mobile-detail-value">{{
                                 order.shipment_service
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
 
@@ -601,12 +632,12 @@ dispensedProduct, dpIndex
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -617,17 +648,17 @@ dispensedProduct, dpIndex
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -664,7 +695,7 @@ dispensedProduct, dpIndex
         </div>
 
         <!-- Process Order Modal with Integrated Auto Dispense -->
-        <Dialog :visible="showProcessModal"
+        <Dialog v-model:visible="showProcessModal"
             :header="`Process Order: ${currentProcessOrder ? currentProcessOrder.platform_order_id : ''}`" modal
             :style="{ width: '100%', maxWidth: '1000px' }" :breakpoints="{ '960px': '90vw', '640px': '95vw' }">
             <div class="flex flex-column gap-4">
@@ -698,7 +729,7 @@ dispensedProduct, dpIndex
                                         </div>
                                         <div><strong>Order Item ID:</strong> {{
                                             dispenseItem.ordered_item.platform_order_item_id
-                                            }}</div>
+                                        }}</div>
                                     </div>
                                     <Tag :value="`Qty: ${dispenseItem.quantity_ordered} (${dispenseItem.quantity_dispensed} dispensed, ${dispenseItem.quantity_remaining} remaining)`"
                                         severity="info" class="mt-2" />
@@ -803,7 +834,7 @@ dispensedProduct, dpIndex
                                                 dispensedProduct.rtCounter }}</div>
                                             <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong> {{
                                                 dispensedProduct.FNSKU
-                                                }}</div>
+                                            }}</div>
                                         </div>
                                         <Button label="Not Found" icon="pi pi-exclamation-triangle" severity="warning"
                                             size="small" text
@@ -1054,497 +1085,379 @@ dispensedProduct, dpIndex
         </div>
 
         <!-- Work History Modal with Pagination -->
-        <div v-if="showWorkHistoryModal" class="modal workHistory">
-            <div class="modal-overlay" @click="closeWorkHistoryModal"></div>
-
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>
-                        <i class="fas fa-chart-line"></i>
-                        <span>Work Summary</span>
-                    </h2>
-                    <button class="btn btn-modal-close" @click="closeWorkHistoryModal">
-                        &times;
-                    </button>
-                </div>
-
-                <div class="modal-controls">
-                    <!-- Mobile Toggle Button -->
-                    <button class="btn btn-toggle d-md-none" @click="toggleFilters">
-                        <i class="fas fa-sliders-h"></i>
-                    </button>
-
-                    <form class="first-control" v-show="showFilters">
-                        <fieldset>
-                            <label>Sort By: </label>
-                            <select v-model="workHistoryFilters.sortBy" @change="fetchWorkHistory" class="form-control">
-                                <option value="purchase_date">
-                                    Label Purchase Date (DESC)
-                                </option>
-                                <option value="created_date">
-                                    Purchase Date
-                                </option>
-                                <option value="delivery_date">
-                                    Delivery Date
-                                </option>
-                            </select>
+        <Dialog v-model:visible="showWorkHistoryModal" modal header="Work History" :style="{ width: '95%' }">
+            <div>
+                <div>
+                    <Button class="d-md-none mb-2" icon="pi pi-filter" severity="info" size="small"
+                        @click="toggleFilters" :label="showFilters ? 'Hide Filters' : 'Show Filters'" />
+                    <form class="workhistory-filters" v-show="showFilters">
+                        <!-- Sort By -->
+                        <fieldset class="filter-field">
+                            <label>Sort By</label>
+                            <Select :options="sortOptions" optionLabel="label" optionValue="value"
+                                v-model="workHistoryFilters.sortBy" fluid size="small" @change="fetchWorkHistory" />
                         </fieldset>
 
-                        <fieldset>
-                            <label>Start Date & Time:</label>
-                            <input type="datetime-local" v-model="workHistoryFilters.startDate"
-                                @change="fetchWorkHistory" class="form-control" />
+                        <!-- Start Date -->
+                        <fieldset class="filter-field">
+                            <label>Start Date & Time</label>
+                            <InputText type="datetime-local" size="small" v-model="workHistoryFilters.startDate" fluid
+                                @change="fetchWorkHistory" />
                         </fieldset>
 
-                        <fieldset>
-                            <label>End Date & Time:</label>
-                            <input type="datetime-local" v-model="workHistoryFilters.endDate" @change="fetchWorkHistory"
-                                class="form-control" />
+                        <!-- End Date -->
+                        <fieldset class="filter-field">
+                            <label>End Date & Time</label>
+                            <InputText type="datetime-local" size="small" v-model="workHistoryFilters.endDate" fluid
+                                @change="fetchWorkHistory" />
                         </fieldset>
 
-                        <fieldset>
-                            <label>Select User:</label>
-                            <select v-model="workHistoryFilters.userId" @change="fetchWorkHistory" class="form-control">
-                                <option value="all">All Users</option>
-                                <option value="Van">Van</option>
-                                <option value="Jundell">Jundell</option>
-                                <option value="Admin">Admin</option>
-                            </select>
+                        <!-- User -->
+                        <fieldset class="filter-field">
+                            <label>Select User</label>
+                            <Select :options="userOptions" optionLabel="label" optionValue="value"
+                                v-model="workHistoryFilters.userId" fluid size="small" @change="fetchWorkHistory" />
                         </fieldset>
 
-                        <fieldset>
-                            <label>Filter Late Orders:</label>
-                            <select v-model="workHistoryFilters.lateOrders" @change="fetchWorkHistory"
-                                class="form-control">
-                                <option value="">All Orders</option>
-                                <option value="late">Late Orders Only</option>
-                                <option value="ontime">On Time Orders</option>
-                            </select>
+                        <!-- Late Orders -->
+                        <fieldset class="filter-field">
+                            <label>Filter Late Orders</label>
+                            <Select :options="lateOrderOptions" optionLabel="label" optionValue="value"
+                                v-model="workHistoryFilters.lateOrders" fluid size="small" @change="fetchWorkHistory" />
                         </fieldset>
 
-                        <fieldset>
-                            <label><span>Total Orders:</span>
-                                <span>{{
-                                    workHistoryStats.totalOrders
+                        <!-- Search -->
+                        <fieldset class="filter-field">
+                            <label>Total Orders: <span class="text-primary">{{ workHistoryStats.totalOrders
                                     }}</span></label>
-                            <input type="text" v-model="workHistoryFilters.searchQuery" @input="fetchWorkHistory"
-                                placeholder="Search Order Id or ..." class="search-input form-control" />
+                            <InputText type="text" size="small" placeholder="Search Order ID or ..."
+                                v-model="workHistoryFilters.searchQuery" class="search-input" fluid
+                                @input="fetchWorkHistory" />
                         </fieldset>
 
-                        <div>
-                            <label></label>
-                            <button role="button" class="btn btn-primary text-white" @click="exportWorkHistory">
-                                <i class="fas fa-download"></i> Export Work
-                                History
-                            </button>
-                        </div>
+                        <!-- Export -->
+                        <fieldset class="filter-field ">
+                            <!-- <label></label> -->
+                            <!-- <Button size="small" severity="info" icon="pi pi-file-export" label="Export Data"
+                            @click="exportWorkHistory" /> -->
+                            <Button icon="pi pi-file-export" severity="info" size="small" @click="exportWorkHistory"
+                                label="Export Work History" />
+                        </fieldset>
                     </form>
+
                 </div>
 
-                <div class="modal-body">
-                    <div v-if="loading" class="loading-spinner">
-                        <i class="fas fa-spinner fa-spin"></i> Loading work
-                        history...
-                    </div>
-                    <div v-else-if="error" class="error-message">
-                        <i class="fas fa-exclamation-triangle"></i> {{ error }}
-                        <button class="btn btn-retry" @click="fetchWorkHistory">
-                            <i class="fas fa-redo"></i> Retry
-                        </button>
-                    </div>
-                    <div v-else-if="workHistory && workHistory.length > 0" class="work-history-content">
-                        <!-- Exact Table Design Match -->
-                        <div class="work-history-table d-none d-md-block">
-                            <table>
-                                <thead class="sticky-thead">
-                                    <tr>
-                                        <th>Purchase Date</th>
-                                        <th>Customer Name</th>
-                                        <th>
-                                            <div class="th-content">
-                                                <span>Ordered Items</span>
-                                                <span>(ASIN / Title / MSKU)</span>
-                                            </div>
-                                        </th>
-                                        <th>Amazon Order ID</th>
-                                        <th>Tracking ID</th>
-                                        <th>
-                                            <div class="th-content">
-                                                <div class="th-main">
-                                                    Carrier
-                                                </div>
-                                                <select v-model="workHistoryFilters.carrierFilter
-                                                    " @change="fetchWorkHistory" class="carrier-filter form-control">
-                                                    <option value="">
-                                                        All Status
-                                                    </option>
-                                                    <option value="UPS">
-                                                        UPS
-                                                    </option>
-                                                    <option value="FEDEX">
-                                                        FedEx
-                                                    </option>
-                                                    <option value="USPS">
-                                                        USPS
-                                                    </option>
-                                                    <option value="DHL">
-                                                        DHL
-                                                    </option>
-                                                </select>
-                                            </div>
-                                        </th>
-                                        <th>Delivery Date</th>
-                                        <th>Dispensed FNSKU</th>
-                                        <th>
-                                            <div class="th-content">
-                                                <div class="th-main">
-                                                    All Stores
-                                                </div>
-                                                <select v-model="workHistoryFilters.storeFilter
-                                                    " @change="fetchWorkHistory" class="store-filter form-control">
-                                                    <option value="">
-                                                        All Stores
-                                                    </option>
-                                                    <option value="TestStore">
-                                                        TestStore
-                                                    </option>
-                                                    <option value="AllRenewed">
-                                                        AllRenewed
-                                                    </option>
-                                                </select>
-                                            </div>
-                                        </th>
-                                        <th>Remarks</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr v-for="(
-historyItem, index
-                                        ) in workHistory" :key="index" class="work-history-row">
-                                        <td>
-                                            <ul class="list-unstyled m-0">
-                                                <li>
-                                                    <p>
-                                                        <strong>Purchase Date:
-                                                        </strong>
-                                                        <span>{{
-                                                            getMainDate(
-                                                                historyItem.orderInfo
-                                                            )
-                                                        }}</span>
-                                                    </p>
-                                                </li>
-                                                <li>
-                                                    <p>
-                                                        <strong>Label Purchase
-                                                            Date:
-                                                        </strong>
-                                                        <span>{{
-                                                            getSubDate(
-                                                                historyItem.orderInfo
-                                                            )
-                                                        }}</span>
-                                                    </p>
-                                                </li>
-                                            </ul>
-                                        </td>
-                                        <td>
-                                            {{
-                                                historyItem.orderInfo
-                                                    .customer_name || "N/A"
-                                            }}
-                                        </td>
-                                        <td>
-                                            <ul class="list-unstyled m-0" v-for="(
-item, itemIndex
-                                                ) in historyItem.orderInfo
-        .items || []" :key="itemIndex">
-                                                <li>
-                                                    <strong>{{
-                                                        item.Title
-                                                        }}</strong>
-                                                </li>
-                                                <li>{{ item.ASIN }}</li>
-                                                <li>{{ item.MSKU }}</li>
-                                            </ul>
-                                        </td>
-                                        <td>
-                                            {{
-                                                historyItem.orderInfo
-                                                    .AmazonOrderId
-                                            }}
-                                        </td>
-                                        <td>
-                                            {{
-                                                historyItem.orderInfo
-                                                    .trackingid || "N/A"
-                                            }}
-                                        </td>
-                                        <td>
-                                            <span :class="getCarrierClass(
+                <div v-if="loading" class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i> Loading work
+                    history...
+                </div>
+                <div v-else-if="error" class="error-message">
+                    <i class="fas fa-exclamation-triangle"></i> {{ error }}
+                    <button class="btn btn-retry" @click="fetchWorkHistory">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                </div>
+
+                <div v-else-if="workHistory && workHistory.length > 0">
+                    <XDataTable :value="workHistory" :columns="historyColumns" :paginator="false" scrollable
+                        scrollHeight="400px" tableClass="mt-4 desktop-view">
+                        <!----Header Slots---->
+                        <template #carrierHeader>
+                            <div class="w-100">
+                                <p class="fw-semibold">Carrier</p>
+                                <Select :options="carrierOptions" v-model="workHistoryFilters.carrierFilter"
+                                    optionLabel="label" optionValue="value" @change="fetchWorkHistory" fluid
+                                    size="small" placeholder="Select Carrier" />
+                            </div>
+                        </template>
+                        <template #allStoresHeader>
+                            <div class="w-100">
+                                <p class="fw-semibold">All Stores</p>
+                                <Select :options="allStoresHistoryOptions" v-model="workHistoryFilters.storeFilter"
+                                    optionLabel="label" optionValue="value" @change="fetchWorkHistory" fluid
+                                    size="small" placeholder="Select Store" />
+                            </div>
+                        </template>
+
+                        <!----End Of Header Slots--->
+                        <template #purchaseDate="{ data }">
+                            <div class="d-flex flex-column gap-2">
+                                <div>
+                                    <p class="fw-semibold">Purchase Date:</p>
+                                    <p>{{ getMainDate(data.orderInfo) }}</p>
+                                </div>
+                                <div>
+                                    <p class="fw-semibold">Label Purchase Date:</p>
+                                    <p>{{ getSubDate(data.orderInfo) }}</p>
+                                </div>
+                            </div>
+                        </template>
+
+                        <template #customerName="{ data }">
+                            <p>{{ data.orderInfo.customer_name || "N/A" }}</p>
+                        </template>
+                        <template #orderedItems="{ data }">
+                            <div
+                                style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
+                                <ul class="list-unstyled m-0" v-for="(item, itemIndex) in data.orderInfo.items || []"
+                                    :key="itemIndex">
+                                    <li>
+                                        <strong>{{
+                                            item.Title
+                                            }}</strong>
+                                    </li>
+                                    <li>{{ item.ASIN }}</li>
+                                    <li>{{ item.MSKU }}</li>
+                                </ul>
+                            </div>
+                        </template>
+                        <template #AmazonOrderId="{ data }">
+                            <p>{{ data.orderInfo.AmazonOrderId }}</p>
+                        </template>
+                        <template #trackingid="{ data }">
+                            <p>{{ data.orderInfo.trackingid }}</p>
+                        </template>
+                        <template #carrier="{ data }">
+                            <p :class="getCarrierClass(
+                                data.orderInfo
+                                    .carrier ||
+                                data.orderInfo
+                                    .carrier_description
+                            )
+                                ">
+                                {{
+                                    getCarrierText(
+                                        data.orderInfo
+                                            .carrier ||
+                                        data.orderInfo
+                                            .carrier_description
+                                    )
+                                }}
+                            </p>
+
+                        </template>
+
+                        <template #deliveryDate="{ data }">
+                            <p class="mb-1">
+                                <strong>Date Delivered:</strong>
+                                {{
+                                    getDeliveryStatus(
+                                        data.orderInfo
+                                    )
+                                }}
+                            </p>
+                            <p class="mb-2">
+                                <strong>Date Ship:</strong>
+                                {{
+                                    getDeliverySubDate(
+                                        data.orderInfo
+                                    )
+                                }}
+                            </p>
+
+                        </template>
+
+                        <template #dispensedFNSKU="{ data }">
+                            <p> {{ getDispensedStatus(data.orderInfo) }}
+                            </p>
+                        </template>
+
+                        <template #allStores="{ data }">
+                            {{ data.orderInfo.strname || "N/A" }}
+                        </template>
+                        <template #remarks="{ data }">
+                            {{ getRemarks(data.orderInfo) }}
+                        </template>
+                    </XDataTable>
+                    <div class="work-history-mobile d-block d-md-none">
+                        <div class="card mb-3" v-for="(historyItem, index) in workHistory" :key="index"
+                            :style="{ fontSize: '14px' }">
+                            <div class="card-body">
+                                <!-- Purchase Dates -->
+                                <p class="mb-1">
+                                    <strong>Purchase Date:</strong>
+                                    {{ getMainDate(historyItem.orderInfo) }}
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Label Purchase Date:</strong>
+                                    {{ getSubDate(historyItem.orderInfo) }}
+                                </p>
+
+                                <!-- Customer Name -->
+                                <p class="mb-2">
+                                    <strong>Customer:</strong>
+                                    {{
+                                        historyItem.orderInfo
+                                            .customer_name || "N/A"
+                                    }}
+                                </p>
+
+                                <!-- Ordered Items -->
+                                <div v-for="(item, itemIndex) in historyItem
+                                    .orderInfo.items || []" :key="itemIndex" class="mb-2">
+                                    <p>
+                                        <strong>Item:</strong>
+                                        {{ item.Title }}
+                                    </p>
+                                    <p>
+                                        <strong>ASIN:</strong>
+                                        {{ item.ASIN }}
+                                    </p>
+                                    <p>
+                                        <strong>MSKU:</strong>
+                                        {{ item.MSKU }}
+                                    </p>
+                                </div>
+
+                                <!-- Amazon Order ID -->
+                                <p class="mb-2">
+                                    <strong>Order ID:</strong>
+                                    {{
+                                        historyItem.orderInfo.AmazonOrderId
+                                    }}
+                                </p>
+
+                                <!-- Tracking and Carrier -->
+                                <p class="mb-2">
+                                    <strong>Tracking ID:</strong>
+                                    {{
+                                        historyItem.orderInfo.trackingid ||
+                                        "N/A"
+                                    }}
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Carrier:</strong>
+                                    <span :class="getCarrierClass(
+                                        historyItem.orderInfo
+                                            .carrier ||
+                                        historyItem.orderInfo
+                                            .carrier_description
+                                    )
+                                        ">
+                                        {{
+                                            getCarrierText(
                                                 historyItem.orderInfo
                                                     .carrier ||
-                                                historyItem
-                                                    .orderInfo
+                                                historyItem.orderInfo
                                                     .carrier_description
                                             )
-                                                ">
-                                                {{
-                                                    getCarrierText(
-                                                        historyItem.orderInfo
-                                                            .carrier ||
-                                                        historyItem
-                                                            .orderInfo
-                                                            .carrier_description
-                                                    )
-                                                }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <ul class="list-unstyled m-0">
-                                                <li>
-                                                    <p>
-                                                        <strong>Date
-                                                            Delivered</strong>
-                                                        <span>{{
-                                                            getDeliveryStatus(
-                                                                historyItem.orderInfo
-                                                            )
-                                                        }}</span>
-                                                    </p>
-                                                </li>
-                                                <li>
-                                                    <p>
-                                                        <strong>Date Ship</strong>
-                                                        <span>{{
-                                                            getDeliverySubDate(
-                                                                historyItem.orderInfo
-                                                            )
-                                                        }}</span>
-                                                    </p>
-                                                </li>
-                                            </ul>
-                                        </td>
-                                        <td>
-                                            {{
-                                                getDispensedStatus(
-                                                    historyItem.orderInfo
-                                                )
-                                            }}
-                                        </td>
-                                        <td>
-                                            {{
-                                                historyItem.orderInfo.strname ||
-                                                "N/A"
-                                            }}
-                                        </td>
-                                        <td>
-                                            {{
-                                                getRemarks(
-                                                    historyItem.orderInfo
-                                                )
-                                            }}
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <div class="work-history-mobile d-block d-md-none">
-                            <div class="card mb-3" v-for="(historyItem, index) in workHistory" :key="index">
-                                <div class="card-body">
-                                    <!-- Purchase Dates -->
-                                    <p class="mb-1">
-                                        <strong>Purchase Date:</strong>
-                                        {{ getMainDate(historyItem.orderInfo) }}
-                                    </p>
-                                    <p class="mb-2">
-                                        <strong>Label Purchase Date:</strong>
-                                        {{ getSubDate(historyItem.orderInfo) }}
-                                    </p>
-
-                                    <!-- Customer Name -->
-                                    <p class="mb-2">
-                                        <strong>Customer:</strong>
-                                        {{
-                                            historyItem.orderInfo
-                                                .customer_name || "N/A"
                                         }}
-                                    </p>
+                                    </span>
+                                </p>
 
-                                    <!-- Ordered Items -->
-                                    <div v-for="(item, itemIndex) in historyItem
-                                        .orderInfo.items || []" :key="itemIndex" class="mb-2">
-                                        <p>
-                                            <strong>Item:</strong>
-                                            {{ item.Title }}
-                                        </p>
-                                        <p>
-                                            <strong>ASIN:</strong>
-                                            {{ item.ASIN }}
-                                        </p>
-                                        <p>
-                                            <strong>MSKU:</strong>
-                                            {{ item.MSKU }}
-                                        </p>
-                                    </div>
-
-                                    <!-- Amazon Order ID -->
-                                    <p class="mb-2">
-                                        <strong>Order ID:</strong>
-                                        {{
-                                            historyItem.orderInfo.AmazonOrderId
-                                        }}
-                                    </p>
-
-                                    <!-- Tracking and Carrier -->
-                                    <p class="mb-2">
-                                        <strong>Tracking ID:</strong>
-                                        {{
-                                            historyItem.orderInfo.trackingid ||
-                                            "N/A"
-                                        }}
-                                    </p>
-                                    <p class="mb-2">
-                                        <strong>Carrier:</strong>
-                                        <span :class="getCarrierClass(
+                                <!-- Delivery Info -->
+                                <p class="mb-1">
+                                    <strong>Date Delivered:</strong>
+                                    {{
+                                        getDeliveryStatus(
                                             historyItem.orderInfo
-                                                .carrier ||
-                                            historyItem.orderInfo
-                                                .carrier_description
                                         )
-                                            ">
-                                            {{
-                                                getCarrierText(
-                                                    historyItem.orderInfo
-                                                        .carrier ||
-                                                    historyItem.orderInfo
-                                                        .carrier_description
-                                                )
-                                            }}
-                                        </span>
-                                    </p>
+                                    }}
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Date Ship:</strong>
+                                    {{
+                                        getDeliverySubDate(
+                                            historyItem.orderInfo
+                                        )
+                                    }}
+                                </p>
 
-                                    <!-- Delivery Info -->
-                                    <p class="mb-1">
-                                        <strong>Date Delivered:</strong>
-                                        {{
-                                            getDeliveryStatus(
-                                                historyItem.orderInfo
-                                            )
-                                        }}
-                                    </p>
-                                    <p class="mb-2">
-                                        <strong>Date Ship:</strong>
-                                        {{
-                                            getDeliverySubDate(
-                                                historyItem.orderInfo
-                                            )
-                                        }}
-                                    </p>
+                                <!-- FNSKU & Store -->
+                                <p class="mb-2">
+                                    <strong>Dispensed FNSKU:</strong>
+                                    {{
+                                        getDispensedStatus(
+                                            historyItem.orderInfo
+                                        )
+                                    }}
+                                </p>
+                                <p class="mb-2">
+                                    <strong>Store:</strong>
+                                    {{
+                                        historyItem.orderInfo.strname ||
+                                        "N/A"
+                                    }}
+                                </p>
 
-                                    <!-- FNSKU & Store -->
-                                    <p class="mb-2">
-                                        <strong>Dispensed FNSKU:</strong>
-                                        {{
-                                            getDispensedStatus(
-                                                historyItem.orderInfo
-                                            )
-                                        }}
-                                    </p>
-                                    <p class="mb-2">
-                                        <strong>Store:</strong>
-                                        {{
-                                            historyItem.orderInfo.strname ||
-                                            "N/A"
-                                        }}
-                                    </p>
-
-                                    <!-- Remarks -->
-                                    <p class="mb-0">
-                                        <strong>Remarks:</strong>
-                                        {{ getRemarks(historyItem.orderInfo) }}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Work History Pagination Section -->
-                        <div class="work-history-pagination" v-if="workHistory && workHistory.length > 0">
-                            <div class="pagination-controls" v-if="workHistoryPagination.totalPages > 1">
-                                <!-- First Button -->
-                                <button @click="goToWorkHistoryPage(1)" :disabled="workHistoryPagination.currentPage === 1
-                                    " class="pagination-btn first-btn">
-                                    <i class="fas fa-chevron-left"></i>
-                                    <i class="fas fa-chevron-left"></i>
-                                </button>
-
-                                <!-- Previous Button -->
-                                <button @click="prevWorkHistoryPage" :disabled="workHistoryPagination.currentPage === 1
-                                    " class="pagination-btn prev-btn">
-                                    <i class="fas fa-chevron-left"></i>
-                                </button>
-
-                                <!-- Page Numbers -->
-                                <div class="page-numbers">
-                                    <template v-for="page in visibleWorkHistoryPages" :key="page">
-                                        <button @click="goToWorkHistoryPage(page)" :class="[
-                                            'pagination-btn',
-                                            'page-btn',
-                                            {
-                                                active:
-                                                    page ===
-                                                    workHistoryPagination.currentPage,
-                                            },
-                                        ]">
-                                            {{ page }}
-                                        </button>
-                                    </template>
-                                </div>
-
-                                <!-- Next Button -->
-                                <button @click="nextWorkHistoryPage" :disabled="workHistoryPagination.currentPage ===
-                                    workHistoryPagination.totalPages
-                                    " class="pagination-btn next-btn">
-                                    <i class="fas fa-chevron-right"></i>
-                                </button>
-
-                                <!-- Last Button -->
-                                <button @click="
-                                    goToWorkHistoryPage(
-                                        workHistoryPagination.totalPages
-                                    )
-                                    " :disabled="workHistoryPagination.currentPage ===
-                                        workHistoryPagination.totalPages
-                                        " class="pagination-btn last-btn">
-                                    <i class="fas fa-chevron-right"></i>
-                                    <i class="fas fa-chevron-right"></i>
-                                </button>
+                                <!-- Remarks -->
+                                <p class="mb-0">
+                                    <strong>Remarks:</strong>
+                                    {{ getRemarks(historyItem.orderInfo) }}
+                                </p>
                             </div>
                         </div>
                     </div>
+                    <div class="work-history-pagination" v-if="workHistory && workHistory.length > 0">
+                        <div class="pagination-controls" v-if="workHistoryPagination.totalPages > 1">
+                            <!-- First Button -->
+                            <Button @click="goToWorkHistoryPage(1)" size=small outlined severity="secondary"
+                                :disabled="workHistoryPagination.currentPage === 1">
+                                <i class="pi pi-angle-left"></i>
+                                <i class="pi pi-angle-left"></i>
+                            </Button>
 
-                    <div v-else class="no-data">
-                        No work history available for the selected criteria.
+                            <!-- Previous Button -->
+                            <Button @click="prevWorkHistoryPage" size=small outlined severity="secondary" :disabled="workHistoryPagination.currentPage === 1
+                                ">
+                                <i class="pi pi-angle-left"></i>
+                            </Button>
+
+                            <!-- Page Numbers -->
+                            <div class="page-numbers">
+                                <template v-for="page in visibleWorkHistoryPages" :key="page">
+                                    <Button size="small" outlined severity="secondary" class="pagination-btn page-btn"
+                                        :class="{ active: page === workHistoryPagination.currentPage }"
+                                        @click="goToWorkHistoryPage(page)">
+                                        {{ page }}
+                                    </Button>
+                                </template>
+                            </div>
+
+                            <!-- Next Button -->
+                            <Button @click="nextWorkHistoryPage" size=small outlined severity="secondary" :disabled="workHistoryPagination.currentPage ===
+                                workHistoryPagination.totalPages
+                                ">
+                                <i class="pi pi-angle-right"></i>
+                            </Button>
+
+                            <!-- Last Button -->
+                            <Button size=small outlined severity="secondary" @click="
+                                goToWorkHistoryPage(
+                                    workHistoryPagination.totalPages
+                                )
+                                " :disabled="workHistoryPagination.currentPage ===
+                                    workHistoryPagination.totalPages
+                                    ">
+                                <i class="pi pi-angle-right"></i>
+                                <i class="pi pi-angle-right"></i>
+                            </Button>
+                        </div>
                     </div>
                 </div>
+
+
+
 
                 <ScrollFab targetSelector=".modal-content" bottomSelector=".work-history-pagination" />
             </div>
-        </div>
+        </Dialog>
+
 
         <PrintInvoiceModal :visible="printInvoiceVisible" :order="selectedOrder" @close="closePrintInvoiceModal" />
 
         <!-- Manual Shipment Label Modal -->
         <ManualShipmentLabelModal :visible="manualShipmentLabelVisible" @close="closeManualShipmentLabelModal" />
+
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Badge, Button, Dialog, Divider, InputText, Message, Panel, Select, Tag, Textarea } from "primevue";
+import { Badge, Button, Dialog, Divider, InputText, Menu, Message, Panel, ScrollTop, Select, Tag, Textarea, Tooltip } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import fbmorder from "./fbmOrders.js";
-import { Dropdown } from "bootstrap";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 const TABLE_COLUMNS = [
     {
         selectionMode: "multiple",
@@ -1578,6 +1491,72 @@ const TABLE_COLUMNS = [
         style: { minWidth: "14rem" }
     }
 ]
+
+const TABLE_HISTORY_COLUMNS = [
+    {
+        header: "Dates",
+        field: "orderInfo",
+        slot: "purchaseDate",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "10rem" }
+    },
+    {
+        header: "Customer Name",
+        field: "customer_name",
+        slot: "customerName",
+        bodyStyle: "font-size: 14px",
+    },
+    {
+        header: "Ordered Items (Title / ASIN / MSKU)",
+        field: "orderInfo",
+        slot: "orderedItems",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "30rem" }
+    },
+    {
+        header: "Amazon Order Id",
+        field: "AmazonOrderId",
+        slot: "AmazonOrderId",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        header: "Tracking Id",
+        field: "trackingid",
+        slot: "trackingid",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        field: "carrier",
+        slot: "carrier",
+        headerSlot: "carrierHeader",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "10rem" }
+    },
+    {
+        header: "Delivery Date",
+        field: "deliveryDate",
+        slot: "deliveryDate",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        header: "Dispensed FNSKU",
+        field: "dispensedFNSKU",
+        slot: "dispensedFNSKU",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        field: "allStores",
+        slot: "allStores",
+        headerSlot: "allStoresHeader",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        header: "Remarks",
+        field: "remarks",
+        slot: "remarks",
+        bodyStyle: "font-size: 14px"
+    }
+]
 export default {
     mixins: [fbmorder],
     components: {
@@ -1586,20 +1565,96 @@ export default {
         Divider,
         Select,
         Badge,
-        Dropdown,
         Tag,
         Message,
         InputText,
         Dialog,
         Textarea,
-        Panel
+        Panel,
+        ScrollTop,
+        Tooltip,
+        Menu,
+        TitlePage,
+        Tag
     },
     data() {
         return {
-            columns: TABLE_COLUMNS
+            columns: TABLE_COLUMNS,
+            historyColumns: TABLE_HISTORY_COLUMNS,
+            menuActions: [],
+            currentActionItem: null,
+            storeOptions: [
+                {
+                    "label": "All Stores",
+                    "value": ''
+                },
+                {
+                    "label": "All Renewed",
+                    "value": "All Renewed"
+                },
+                {
+                    "label": "Renovar Tech",
+                    "value": "Renovar Tech"
+                }
+            ],
+            statusOptions: [
+                { value: "", label: "All Status" },
+                { value: "Pending", label: "Pending" },
+                { value: "Shipped", label: "Shipped" },
+                { value: "Canceled", label: "Canceled" },
+                { value: "Unshipped", label: "Unshipped" }
+            ],
+            sortOptions: [
+                { value: "purchase_date", label: "Label Purchase Date (DESC)" },
+                { value: "created_date", label: "Purchase Date" },
+                { value: "delivery_date", label: "Delivery Date" },
+            ],
+            userOptions: [
+                { value: "all", label: "All Users" },
+                { value: "Van", label: "Van" },
+                { value: "Jundell", label: "Jundell" },
+                { value: "Admin", label: "Admin" },
+            ],
+            lateOrderOptions: [
+                { value: "", label: "All Orders" },
+                { value: "late", label: "Late Orders Only" },
+                { value: "ontime", label: "On Time Orders" },
+            ],
+            carrierOptions: [
+                { value: "all", label: "All Status" },
+                { value: "UPS", label: "UPS" },
+                { value: "FEDEX", label: "FedEx" },
+                { value: "USPS", label: "USPS" },
+                { value: "DHL", label: "DHL" },
+            ],
+            allStoresHistoryOptions: [
+                { value: "", label: "All Orders" },
+                { value: "TestStore", label: "TestStore" },
+                { value: "AllRenewed", label: "AllRenewed" },
+            ]
         }
+
     },
     methods: {
+        toggle(event, item) {
+            this.currentActionItem = item;
+            this.menuActions = this.getMoreActionItems(this.currentActionItem);
+            if (this.$refs.menu) {
+                this.$refs.menu.toggle(event);
+            }
+        },
+        getMoreActionItems(item) {
+            return [
+                {
+                    label: 'Track',
+                    icon: 'pi pi-compass',
+                },
+                {
+                    label: 'Tracking History',
+                    icon: 'pi pi-history',
+                }
+            ]
+        },
         getStatusColor(status) {
             switch (status) {
                 case 'Pending':
@@ -1614,12 +1669,93 @@ export default {
                     return '#F1FF00'
             }
         }
-    }
+    },
+    mounted() {
+        console.log(this.workHistoryFilters.carrierFilter, "carrierFilter"
+        )
+    },
 };
 </script>
 
 <style>
 .detail-item-container span:nth-child(1) {
     font-weight: 500;
+}
+
+.page-btn.active {
+    background: rgb(48, 115, 241) !important;
+    color: #fff !important;
+    border-color: fff !important;
+}
+
+.select-form {
+    width: 200px;
+}
+
+.search-container {
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+@media (max-width: 768px) {
+
+    .search-container fieldset {
+        width: 100%;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 0.5rem;
+    }
+
+    .select-form,
+    .p-select {
+        width: 100% !important;
+    }
+}
+
+.workhistory-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    /* keep everything in 1 row */
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.filter-field {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    /* all fields equal width */
+    min-width: 200px;
+    /* prevents fields from shrinking too small */
+}
+
+.filter-field label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4a4a4a;
+}
+
+.export-field {
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+}
+
+/* EXACTLY 2 columns on mobile */
+@media (max-width: 576px) {
+    .workhistory-filters {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+        padding: 0.75rem;
+    }
+
+    .filter-field label {
+        font-size: 0.8rem;
+    }
 }
 </style>

@@ -4,7 +4,9 @@
             <span>Top Header</span>
         </div> -->
 
-        <h1 class="module-title">Packaging Module</h1>
+        <!-- <h1 class="module-title">Packaging Module</h1> -->
+        <TitlePage title="Order Packaging"
+            subtitle="Manage and finalize products by preparing packaging, ensuring all components are included, and staging for final shipment." />
 
         <!-- Desktop Table Container -->
         <div class="p-4">
@@ -450,15 +452,17 @@
                 </div>
             </div>
         </Dialog>
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Dialog } from "primevue";
+import { Button, Dialog, ScrollTop } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Packing from "./packing.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import Gallery from "../../components/Gallery/gallery.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 const TABLE_COLUMNS = [
     {
         selectionMode: "multiple",
@@ -529,7 +533,9 @@ export default {
         Dialog,
         Button,
         TableGallery,
-        Gallery
+        Gallery,
+        ScrollTop,
+        TitlePage
     },
     data() {
         return {

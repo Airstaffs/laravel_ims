@@ -4,8 +4,9 @@
             <span>Top Header</span>
         </div> -->
 
-        <h1 class="module-title">NotFound Items</h1>
-
+        <!-- <h1 class="module-title">NotFound Items</h1> -->
+        <TitlePage title="Missing Inventory"
+            subtitle="Track and manage inventory items that have been flagged as missing or not found during cycle counting or system reconciliation." />
         <!-- Desktop Table Container -->
         <div class="p-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
@@ -450,16 +451,17 @@
                 </div>
             </div>
         </Dialog>
-
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Dialog } from "primevue";
+import { Button, Dialog, ScrollTop } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import notFound from "./notfound.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import Gallery from "../../components/Gallery/gallery.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -526,7 +528,7 @@ const TABLE_COLUMNS = [
 ]
 export default {
     mixins: [notFound],
-    components: { XDataTable, Dialog, Button, TableGallery, Gallery },
+    components: { XDataTable, Dialog, Button, TableGallery, Gallery, ScrollTop, TitlePage },
     data() {
         return {
             columns: TABLE_COLUMNS

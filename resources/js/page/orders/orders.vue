@@ -4,7 +4,10 @@
             <span>Top Header</span>
         </div> -->
 
-        <h2 class="module-title">Order Module</h2>
+        <TitlePage title="Order Management"
+            subtitle="View and manage all current and past shipment orders, including tracking information and status." />
+
+
 
         <!-- Desktop Table Container -->
         <div class="px-4">
@@ -768,7 +771,7 @@ key, index
         </Dialog>
 
 
-
+        <ScrollTop />
     </div>
 </template>
 
@@ -776,7 +779,8 @@ key, index
 import Orders from "./orders.js";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
-import { Badge, Button, Card, Dialog, Divider, InputText, Textarea, DatePicker, Select } from "primevue";
+import { Badge, Button, Card, Dialog, Divider, InputText, Textarea, DatePicker, Select, ScrollTop } from "primevue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 // export default Orders;
 
 const TABLE_COLUMNS = [
@@ -858,7 +862,9 @@ export default {
         Textarea,
         Card,
         DatePicker,
-        Select
+        Select,
+        ScrollTop,
+        TitlePage
     },
     data() {
         return {

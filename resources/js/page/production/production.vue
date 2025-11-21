@@ -4,8 +4,9 @@
             <span>Top Header</span>
         </div> -->
 
-        <h1 class="module-title">Production Module</h1>
-
+        <!-- <h1 class="module-title">Production Module</h1> -->
+        <TitlePage title="Assembly & Production"
+            subtitle="Track and manage products through the internal assembly, manufacturing, or customization process before final staging." />
         <!-- Desktop Table Container -->
         <div class="p-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
@@ -450,15 +451,17 @@
                 </div>
             </div>
         </Dialog>
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Dialog } from "primevue";
+import { Button, Dialog, ScrollTop } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Production from "./production.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import Gallery from "../../components/Gallery/gallery.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -525,7 +528,7 @@ const TABLE_COLUMNS = [
 ]
 export default {
     mixins: [Production],
-    components: { XDataTable, Dialog, TableGallery, Gallery, Button },
+    components: { XDataTable, Dialog, TableGallery, Gallery, Button, ScrollTop, TitlePage },
     data() {
         return {
             columns: TABLE_COLUMNS
