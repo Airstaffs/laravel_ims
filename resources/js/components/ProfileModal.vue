@@ -6,7 +6,6 @@
         header="Profile"
         :style="{ width: '90%', height: '80vh' }"
         class="profile-modal"
-        :maximizable="true"
     >
         <TabView class="profile-tabs">
             <!-- Attendance Tab -->
@@ -2249,6 +2248,30 @@ export default {
     },
 };
 </script>
+
+<style>
+/* Global styles for mobile fullscreen - NOT scoped */
+@media (max-width: 768px) {
+    .p-dialog.p-component.profile-modal {
+        width: 100vw !important;
+        height: 100vh !important;
+        top: 0px !important;
+        left: 0px !important;
+        max-height: 100% !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        transform: none !important;
+    }
+
+    .profile-modal .p-dialog-header {
+        border-radius: 0 !important;
+    }
+
+    .profile-modal .p-dialog-content {
+        border-radius: 0 !important;
+    }
+}
+</style>
 
 <style scoped>
 .mr-2 {
