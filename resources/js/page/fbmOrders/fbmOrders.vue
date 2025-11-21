@@ -124,9 +124,20 @@
                             </div>
                             <div class="d-flex flex-column gap-2"
                                 style="word-break: break-word; white-space: normal; overflow-wrap: break-word; border-bottom: none;">
-                                <h5>
-                                    {{ subdata.platform_title }}
-                                </h5>
+                                <div>
+                                    <h5>
+                                        {{ subdata.platform_title }}
+                                    </h5>
+                                    <span v-if="subdata.quantity_ordered > 1"
+                                        class="bg-secondary text-white px-2 rounded-2">
+                                        Qty: {{ subdata.quantity_ordered }}
+                                        <span v-if="isItemDispensed(subdata)">
+                                            ({{
+                                                getDispensedProductCount(subdata)
+                                            }}
+                                            dispensed)</span>
+                                    </span>
+                                </div>
                                 <div class="detail-item-container">
                                     <span>Order Item ID: </span>
                                     <span>{{ subdata.platform_order_item_id || "N/A" }}</span>
@@ -220,7 +231,7 @@
                     </div>
                 </template>
                 <template #actions="{ data }">
-                    <div class="d-flex flex-column gap-2">
+                    <div class="d-flex flex-column align-items-start gap-2">
                         <Select optionLabel="label" optionValue="value" :options="[
                             { label: 'Null', value: 'Null' }
                         ]" fluid size="small" :modelValue="'Null'" />
@@ -234,8 +245,7 @@
                             :disabled="data.order_status ===
                                 'Shipped' ||
                                 data.order_status ===
-                                'Canceled'
-                                " @click="openProcessModal(data)" class="text-warning" />
+                                'Canceled'" @click="openProcessModal(data)" class="text-warning" />
                         <Button type="button" severity="contrast" variant="text" icon="pi pi-list"
                             @click="toggle($event, data)" aria-haspopup="true" aria-controls="overlay_menu" size="small"
                             label="More Actions" />
@@ -1151,6 +1161,25 @@ dispensedProduct, dpIndex
                 <div v-else-if="workHistory && workHistory.length > 0">
                     <XDataTable :value="workHistory" :columns="historyColumns" :paginator="false" scrollable
                         scrollHeight="400px" tableClass="mt-4 desktop-view">
+                        <!----Header Slots---->
+                        <template #carrierHeader>
+                            <div class="w-100">
+                                <p class="fw-semibold">Carrier</p>
+                                <Select :options="carrierOptions" v-model="workHistoryFilters.carrierFilter"
+                                    optionLabel="label" optionValue="value" @change="fetchWorkHistory" fluid
+                                    size="small" placeholder="Select Carrier" />
+                            </div>
+                        </template>
+                        <template #allStoresHeader>
+                            <div class="w-100">
+                                <p class="fw-semibold">All Stores</p>
+                                <Select :options="allStoresHistoryOptions" v-model="workHistoryFilters.storeFilter"
+                                    optionLabel="label" optionValue="value" @change="fetchWorkHistory" fluid
+                                    size="small" placeholder="Select Store" />
+                            </div>
+                        </template>
+
+                        <!----End Of Header Slots--->
                         <template #purchaseDate="{ data }">
                             <div class="d-flex flex-column gap-2">
                                 <div>
@@ -1497,10 +1526,11 @@ const TABLE_HISTORY_COLUMNS = [
         bodyStyle: "font-size: 14px"
     },
     {
-        header: "Carrier",
         field: "carrier",
         slot: "carrier",
-        bodyStyle: "font-size: 14px"
+        headerSlot: "carrierHeader",
+        bodyStyle: "font-size: 14px",
+        style: { minWidth: "10rem" }
     },
     {
         header: "Delivery Date",
@@ -1515,9 +1545,9 @@ const TABLE_HISTORY_COLUMNS = [
         bodyStyle: "font-size: 14px"
     },
     {
-        header: "All Stores",
         field: "allStores",
         slot: "allStores",
+        headerSlot: "allStoresHeader",
         bodyStyle: "font-size: 14px"
     },
     {
@@ -1544,7 +1574,8 @@ export default {
         ScrollTop,
         Tooltip,
         Menu,
-        TitlePage
+        TitlePage,
+        Tag
     },
     data() {
         return {
@@ -1588,8 +1619,21 @@ export default {
                 { value: "", label: "All Orders" },
                 { value: "late", label: "Late Orders Only" },
                 { value: "ontime", label: "On Time Orders" },
+            ],
+            carrierOptions: [
+                { value: "all", label: "All Status" },
+                { value: "UPS", label: "UPS" },
+                { value: "FEDEX", label: "FedEx" },
+                { value: "USPS", label: "USPS" },
+                { value: "DHL", label: "DHL" },
+            ],
+            allStoresHistoryOptions: [
+                { value: "", label: "All Orders" },
+                { value: "TestStore", label: "TestStore" },
+                { value: "AllRenewed", label: "AllRenewed" },
             ]
         }
+
     },
     methods: {
         toggle(event, item) {
@@ -1625,6 +1669,10 @@ export default {
                     return '#F1FF00'
             }
         }
+    },
+    mounted() {
+        console.log(this.workHistoryFilters.carrierFilter, "carrierFilter"
+        )
     },
 };
 </script>

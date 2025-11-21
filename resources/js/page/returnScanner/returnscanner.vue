@@ -104,7 +104,7 @@
         <!-- Returns History Table -->
         <div class="px-4">
             <div class="search-container">
-                <fieldset>
+                <fieldset class="d-flex align-items-center gap-1">
                     <label for="store-select">Store:</label>
                     <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small"
                         class="select-form" v-model="selectedStore" @change="changeStore"
@@ -144,7 +144,7 @@
                         data.BuyerName ||
                         data.costumer_name ||
                         "Unknown"
-                    }}</p>
+                        }}</p>
                 </template>
                 <template #actions="{ data }">
                     <div>
@@ -190,25 +190,25 @@
                             <span class="fw-semibold">RT#:</span>
                             <span class="mobile-detail-value">{{
                                 formatRTNumber(item.rtcounter, item.storename)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumber
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="item.serialnumberb" class="mobile-detail-row">
                             <span class="fw-semibold">Second Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumberb
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Location:</span>
                             <span class="mobile-detail-value">{{
                                 item.warehouselocation || "Floor"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Status:</span>
@@ -226,7 +226,7 @@
                                 item.BuyerName ||
                                 item.costumer_name ||
                                 "Unknown"
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
                     <Divider />

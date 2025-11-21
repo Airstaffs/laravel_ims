@@ -15,8 +15,16 @@
             </div>
         </template>
 
+        <Column v-if="showIndex" header="#" :style="{ width: '4rem' }">
+            <template #body="{ data, index }">
+                {{ index + 1 }}
+            </template>
+        </Column>
 
         <Column v-for="col in visibleColumns" :key="col.field || col.header || col.selectionMode" v-bind="col">
+            <template v-if="col.headerSlot && $slots[col.headerSlot]" #header>
+                <slot :name="col.headerSlot" />
+            </template>
             <template v-if="!col.selectionMode && col.slot && $slots[col.slot]" #body="{ data }">
                 <slot :name="col.slot" :data="data" />
             </template>
@@ -51,7 +59,8 @@ export default {
         rowsPerPageOptions: { type: Array, default: () => [10, 20, 50] },
         tableStyle: { type: [String, Object], default: () => ({}) },
         showGridlines: { type: Boolean, default: false },
-        tableClass: { type: String, default: "" }
+        tableClass: { type: String, default: "" },
+        showIndex: { type: Boolean, default: false }
     },
     emits: ["update:selection"],
     data() {
@@ -85,5 +94,9 @@ export default {
     justify-content: center;
     align-items: center;
     width: 100%;
+}
+
+:deep(.p-datatable-thead > tr > th) {
+    vertical-align: top !important;
 }
 </style>

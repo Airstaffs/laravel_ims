@@ -211,6 +211,7 @@ const markAsRead = () => {
 			userId: window.user.id,
 			taskId: props.task.id
 		}
+		window.kanbanMentionedCount = Math.max(0, window.kanbanMentionedCount - 1)
 		axios.post('/user/kanban/readNotif', payload)
 	}
 }
