@@ -644,7 +644,7 @@
                             >
                         </div>
 
-                        <!-- <div class="form-field">
+                        <div class="form-field">
                             <label
                                 for="editMarketplaceDisplay"
                                 class="form-label"
@@ -658,11 +658,11 @@
                                 readonly
                                 disabled
                             />
-                        </div> -->
+                        </div>
 
                         <div class="form-field">
                             <label for="editMarketplaceID" class="form-label"
-                                >Marketplace ID</label
+                                >Marketplace ID (Display)</label
                             >
                             <InputText
                                 id="editMarketplaceID"
@@ -835,7 +835,144 @@
                     <i class="bi bi-clock"></i>
                     <span> Time Record</span>
                 </template>
-                <!-- Add content here -->
+
+                <div class="scrollable-content">
+                    <div class="tab-content time-record-content">
+                        <h3 class="text-center mb-3">User Time Record</h3>
+
+                        <form
+                            @submit.prevent="filterTimeRecords"
+                            class="time-record-form"
+                        >
+                            <!-- Inline Filters -->
+                            <div class="inline-filters">
+                                <div class="filter-item">
+                                    <Dropdown
+                                        id="timeRecordUser"
+                                        v-model="timeRecordForm.selectedUserId"
+                                        :options="users"
+                                        optionLabel="username"
+                                        optionValue="id"
+                                        placeholder="Select user"
+                                        class="w-full"
+                                        :loading="loadingUsers"
+                                        @change="filterTimeRecords"
+                                    />
+                                </div>
+                                <div class="filter-item">
+                                    <Calendar
+                                        id="startDate"
+                                        v-model="timeRecordForm.startDate"
+                                        dateFormat="yy-mm-dd"
+                                        placeholder="Start date"
+                                        showIcon
+                                        iconDisplay="input"
+                                        class="w-full"
+                                        @date-select="filterTimeRecords"
+                                    />
+
+                                    <Calendar
+                                        id="endDate"
+                                        v-model="timeRecordForm.endDate"
+                                        dateFormat="yy-mm-dd"
+                                        placeholder="End date"
+                                        showIcon
+                                        iconDisplay="input"
+                                        class="w-full"
+                                        @date-select="filterTimeRecords"
+                                    />
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- Time Records Table -->
+                        <div
+                            class="time-records-table"
+                            v-if="timeRecords.length > 0"
+                        >
+                            <DataTable
+                                :value="timeRecords"
+                                stripedRows
+                                class="records-table"
+                                :paginator="timeRecords.length > 10"
+                                :rows="10"
+                            >
+                                <Column
+                                    field="details"
+                                    header="Details"
+                                    style="min-width: 200px"
+                                >
+                                    <template #body="slotProps">
+                                        <div class="detail-cell">
+                                            {{ slotProps.data.details }}
+                                        </div>
+                                    </template>
+                                </Column>
+                                <Column
+                                    field="total_hours"
+                                    header="Total Hours"
+                                    style="width: 150px"
+                                >
+                                    <template #body="slotProps">
+                                        <Tag
+                                            :value="
+                                                slotProps.data.total_hours +
+                                                ' hrs'
+                                            "
+                                            severity="info"
+                                        />
+                                    </template>
+                                </Column>
+                                <Column
+                                    field="notes"
+                                    header="Notes"
+                                    style="min-width: 200px"
+                                >
+                                    <template #body="slotProps">
+                                        <div class="notes-cell">
+                                            {{
+                                                slotProps.data.notes ||
+                                                "No notes"
+                                            }}
+                                        </div>
+                                    </template>
+                                </Column>
+                            </DataTable>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div v-else-if="loadingTimeRecords" class="empty-state">
+                            <i
+                                class="pi pi-spin pi-spinner"
+                                style="font-size: 2rem; color: #007bff"
+                            ></i>
+                            <p>Loading time records...</p>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div v-else-if="hasFiltered" class="empty-state">
+                            <i
+                                class="bi bi-clock-history"
+                                style="font-size: 3rem; color: #94a3b8"
+                            ></i>
+                            <p>
+                                No time records found for the selected criteria
+                            </p>
+                        </div>
+
+                        <!-- Initial State -->
+                        <div v-else class="empty-state">
+                            <i
+                                class="bi bi-filter"
+                                style="font-size: 3rem; color: #94a3b8"
+                            ></i>
+                            <p>
+                                Select a user and date range to view time
+                                records
+                            </p>
+                        </div>
+                    </div>
+                </div>
             </TabPanel>
 
             <TabPanel>
@@ -877,6 +1014,7 @@ import FileUpload from "primevue/fileupload";
 import RadioButton from "primevue/radiobutton";
 import Checkbox from "primevue/checkbox";
 import MultiSelect from "primevue/multiselect";
+import Calendar from "primevue/calendar";
 
 import Swal from "sweetalert2";
 
@@ -902,6 +1040,7 @@ export default {
         RadioButton,
         Checkbox,
         MultiSelect,
+        Calendar,
     },
     props: {
         settingsVisible: {
@@ -1022,6 +1161,15 @@ export default {
             ],
             userStores: [],
             isSavingPrivileges: false,
+            // Time Record management
+            timeRecordForm: {
+                selectedUserId: null,
+                startDate: null,
+                endDate: null,
+            },
+            timeRecords: [],
+            loadingTimeRecords: false,
+            hasFiltered: false,
         };
     },
     watch: {
@@ -2002,6 +2150,97 @@ export default {
                 this.marketplaceOptions = [];
             }
         },
+
+        async filterTimeRecords() {
+            // Don't filter if required fields are empty
+            if (
+                !this.timeRecordForm.selectedUserId ||
+                !this.timeRecordForm.startDate ||
+                !this.timeRecordForm.endDate
+            ) {
+                return;
+            }
+
+            this.loadingTimeRecords = true;
+            this.hasFiltered = true;
+
+            try {
+                const startDate = this.formatDate(
+                    this.timeRecordForm.startDate
+                );
+                const endDate = this.formatDate(this.timeRecordForm.endDate);
+
+                const response = await fetch(
+                    `/get-time-records/${this.timeRecordForm.selectedUserId}?start_date=${startDate}&end_date=${endDate}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+                    }
+                );
+
+                // Check if response is JSON
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    throw new Error(
+                        "Invalid response from server. Please check the endpoint configuration."
+                    );
+                }
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Transform the data to match our display format
+                    this.timeRecords = data.map((record) => {
+                        const timeIn = new Date(record.TimeIn);
+                        const timeOut = record.TimeOut
+                            ? new Date(record.TimeOut)
+                            : null;
+
+                        // Calculate total hours
+                        let totalHours = 0;
+                        if (timeOut) {
+                            const diff = timeOut - timeIn;
+                            totalHours = (diff / (1000 * 60 * 60)).toFixed(2);
+                        }
+
+                        return {
+                            details: `${timeIn.toLocaleDateString()} - ${timeIn.toLocaleTimeString()}${
+                                timeOut
+                                    ? " to " + timeOut.toLocaleTimeString()
+                                    : " (Still clocked in)"
+                            }`,
+                            total_hours:
+                                totalHours > 0 ? totalHours : "In Progress",
+                            notes: record.notes || "No notes",
+                            timeIn: record.TimeIn,
+                            timeOut: record.TimeOut,
+                        };
+                    });
+                } else {
+                    throw new Error("Failed to fetch time records");
+                }
+            } catch (error) {
+                console.error("Fetch time records error:", error);
+                this.timeRecords = [];
+            } finally {
+                this.loadingTimeRecords = false;
+            }
+        },
+
+        formatDate(date) {
+            if (!date) return "";
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        },
     },
 };
 </script>
@@ -2922,7 +3161,10 @@ export default {
 
 .store-form :deep(.p-inputtext),
 .edit-store-form :deep(.p-inputtext),
-.edit-store-form :deep(.p-multiselect) {
+.edit-store-form :deep(.p-multiselect),
+.privileges-form :deep(.p-select),
+.time-record-form :deep(.p-select),
+.time-record-form :deep(.p-inputtext) {
     width: 100%;
     border: 2px solid #e9ecef;
     border-radius: 8px;
@@ -3038,6 +3280,24 @@ export default {
 .privileges-form h3 {
     font-size: 1.25rem;
     margin-bottom: 1.5rem;
+}
+
+.time-record-form :deep(.inline-filters) {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.time-record-form :deep(.filter-item) {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.time-record-form :deep(.p-select) {
+    width: 150px;
 }
 
 /* ==================== RESPONSIVE DESIGN ==================== */
@@ -3201,6 +3461,63 @@ export default {
 
     .privilege-label {
         font-size: 0.8rem;
+    }
+
+    /* Time Record responsive */
+    .time-record-content {
+        padding: 1rem;
+    }
+
+    .inline-filters {
+        flex-direction: column;
+    }
+
+    .filter-item {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .time-records-table {
+        overflow-x: auto;
+    }
+
+    .records-table :deep(.p-datatable-thead) {
+        display: none;
+    }
+
+    .records-table :deep(.p-datatable-tbody > tr) {
+        display: block;
+        margin-bottom: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .records-table :deep(.p-datatable-tbody > tr > td) {
+        display: block;
+        text-align: left;
+        border: none;
+        padding: 0.75rem 1rem;
+    }
+
+    .records-table :deep(.p-datatable-tbody > tr > td:first-child) {
+        background: #f8f9fa;
+        border-radius: 6px 6px 0 0;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .records-table :deep(.p-datatable-tbody > tr > td:last-child) {
+        border-radius: 0 0 6px 6px;
+    }
+
+    .detail-cell,
+    .notes-cell {
+        max-width: 100%;
+        white-space: normal;
     }
 }
 
