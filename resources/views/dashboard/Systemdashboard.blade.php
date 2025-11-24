@@ -31,16 +31,14 @@
     <style>
         .navbar {
             background-color:
-                {{ session('theme_color', '#007bff') }}
-            ;
+                {{ session('theme_color', '#007bff') }};
             transition: margin-left 0.3s ease-in-out, padding-left 0.3s ease-in-out;
         }
 
         .sidebar-nav .nav-link.active {
             color: #fff;
             background-color:
-                {{ session('theme_color', '#007bff') }}
-            ;
+                {{ session('theme_color', '#007bff') }};
             border-radius: 5px;
             font-weight: 500;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -117,48 +115,48 @@
 
                 foreach ($moduleColumns as $column) {
                     // Only add to subModules if it's enabled AND not the main module
-                    if (!empty($freshUser->{$column}) && $column !== $mainModule) {
-                        $subModules[] = strtolower($column);
-                    }
-                }
+        if (!empty($freshUser->{$column}) && $column !== $mainModule) {
+            $subModules[] = strtolower($column);
+        }
+    }
 
-                session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
-            } else {
-                $mainModule = strtolower(session('main_module', ''));
-                $subModules = array_map('strtolower', session('sub_modules', []));
-            }
+    session(['main_module' => $mainModule, 'sub_modules' => $subModules]);
+} else {
+    $mainModule = strtolower(session('main_module', ''));
+    $subModules = array_map('strtolower', session('sub_modules', []));
+}
 
-            // Remove duplication - ensure main module is not in sub modules
-            $subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
+// Remove duplication - ensure main module is not in sub modules
+$subModules = array_filter($subModules, fn($mod) => $mod !== $mainModule);
 
-            // Fallback to first submodule or dashboard
-            $defaultModule = $mainModule ?: $subModules[0] ?? 'dashboard';
+// Fallback to first submodule or dashboard
+$defaultModule = $mainModule ?: $subModules[0] ?? 'dashboard';
 
-            $modules = [
-                'humanresource' => 'Human Resource',
-                'order' => 'Order',
-                'asinoption' => 'Asin Option',
-                'unreceived' => 'Unreceived',
-                'receiving' => 'Received',
-                'labeling' => 'Labeling',
-                'validation' => 'Validation',
-                'testing' => 'Testing',
-                'cleaning' => 'Cleaning',
-                'packing' => 'Packing',
-                'stockroom' => 'Stockroom',
-                'productionarea' => 'Production Area',
-                'rts' => 'RTS',
-                'returnscanner' => 'Return Scanner',
-                'fbmorder' => 'FBM Order',
-                'notfound' => 'Not Found',
-                'houseage' => 'Houseage',
-                'printer' => 'Printer',
-            ];
+$modules = [
+    'humanresource' => 'Human Resource',
+    'order' => 'Order',
+    'asinoption' => 'Asin Option',
+    'unreceived' => 'Unreceived',
+    'receiving' => 'Received',
+    'labeling' => 'Labeling',
+    'validation' => 'Validation',
+    'testing' => 'Testing',
+    'cleaning' => 'Cleaning',
+    'packing' => 'Packing',
+    'stockroom' => 'Stockroom',
+    'productionarea' => 'Production Area',
+    'rts' => 'RTS',
+    'returnscanner' => 'Return Scanner',
+    'fbmorder' => 'FBM Order',
+    'notfound' => 'Not Found',
+    'houseage' => 'Houseage',
+    'printer' => 'Printer',
+];
 
-            function hasAccess($module, $mainModule, $subModules): bool
-            {
-                $module = strtolower($module);
-                return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
+function hasAccess($module, $mainModule, $subModules): bool
+{
+    $module = strtolower($module);
+    return $module === 'dashboard' || $module === $mainModule || in_array($module, $subModules);
             }
         @endphp
 
@@ -213,7 +211,7 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             const burgerMenu = document.getElementById('burger-menu');
             const sidebar = document.getElementById('sidebar');
             const content = document.getElementById('main-content');
@@ -230,7 +228,7 @@
             getKanbanNotif()
 
             if (burgerMenu) {
-                burgerMenu.addEventListener('click', function (e) {
+                burgerMenu.addEventListener('click', function(e) {
                     e.preventDefault();
                     console.log('Burger menu clicked');
                     console.log('Sidebar current classes:', sidebar?.className);
@@ -336,7 +334,8 @@
         <div id="app">
             <!-- Hidden component triggers -->
             @foreach ($modules as $module => $label)
-                <a id="{{ $module }}Link" style="display:none" href="#" @click.prevent="loadContent('{{ $module }}')">
+                <a id="{{ $module }}Link" style="display:none" href="#"
+                    @click.prevent="loadContent('{{ $module }}')">
                     {{ $label }}
                 </a>
             @endforeach
@@ -360,10 +359,10 @@
     @include('dashboard.modals.notification-modal')
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             const profileModal = document.getElementById('profileModal');
 
-            profileModal.addEventListener('shown.bs.modal', function () {
+            profileModal.addEventListener('shown.bs.modal', function() {
                 const defaultTab = document.querySelector('#attendance-tab');
                 const defaultTabPane = document.querySelector('#attendance');
 
@@ -373,7 +372,7 @@
                 }
             });
 
-            profileModal.addEventListener('hidden.bs.modal', function () {
+            profileModal.addEventListener('hidden.bs.modal', function() {
                 // Reset all tabs
                 document.querySelectorAll('#profileTab .nav-link').forEach(tab => {
                     tab.classList.remove('active');
@@ -469,10 +468,10 @@
     @endif
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             // Automatically show all toasts on page load
             const toastElList = [].slice.call(document.querySelectorAll('.toast'));
-            toastElList.forEach(function (toastEl) {
+            toastElList.forEach(function(toastEl) {
                 new bootstrap.Toast(toastEl).show();
             });
         });
@@ -507,7 +506,8 @@
     <audio id="logout-sound" src="/sounds/logout.mp3"></audio>
 
     <!-- Success Modal -->
-    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel" aria-hidden="true">
+    <div class="modal fade" id="successModal" tabindex="-1" aria-labelledby="successModalLabel"
+        aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-success text-white">
@@ -543,7 +543,7 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             // Get the audio elements
             const clockinSound = document.getElementById('clockin-sound');
             const clockoutSound = document.getElementById('clockout-sound');
@@ -565,12 +565,12 @@
                 clockoutSound.play();
             @endif
 
-                // Show error modal and play error sound if an error message exists
-                @if (session('error'))
-                    const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
-                    errorModal.show();
-                    errorSound.play();
-                @endif
+            // Show error modal and play error sound if an error message exists
+            @if (session('error'))
+                const errorModal = new bootstrap.Modal(document.getElementById('errorModal'));
+                errorModal.show();
+                errorSound.play();
+            @endif
         });
     </script>
 
@@ -604,7 +604,7 @@
     @endenv
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
+        document.addEventListener('DOMContentLoaded', function() {
             console.log('Dashboard loaded - initializing security measures...');
 
             // Check for CSRF token on page load
@@ -640,16 +640,16 @@
 
             // Method 1: History manipulation
             history.pushState(null, null, window.location.href);
-            window.addEventListener('popstate', function (event) {
+            window.addEventListener('popstate', function(event) {
                 console.log('Back button pressed - checking authentication...');
 
                 // Check if user is still authenticated
                 fetch('/check-auth', {
-                    method: 'GET',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
+                        method: 'GET',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    })
                     .then(response => {
                         if (response.status === 401 || response.status === 419) {
                             console.log('User not authenticated - redirecting to login');
@@ -666,16 +666,16 @@
             });
 
             // Method 2: Page show event (handles browser cache)
-            window.addEventListener('pageshow', function (event) {
+            window.addEventListener('pageshow', function(event) {
                 if (event.persisted) {
                     console.log('Page loaded from cache - checking authentication...');
                     // Page was loaded from cache (back button)
                     fetch('/check-auth', {
-                        method: 'GET',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    })
+                            method: 'GET',
+                            headers: {
+                                'X-Requested-With': 'XMLHttpRequest'
+                            }
+                        })
                         .then(response => {
                             if (response.status === 401 || response.status === 419) {
                                 console.log('User not authenticated - clearing cache and redirecting');
@@ -697,17 +697,17 @@
             });
 
             // Method 3: Visibility change (tab switching)
-            document.addEventListener('visibilitychange', function () {
+            document.addEventListener('visibilitychange', function() {
                 if (!document.hidden) {
                     // Page became visible again
                     console.log('Page became visible - checking authentication...');
                     setTimeout(() => {
                         fetch('/check-auth', {
-                            method: 'GET',
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
-                        })
+                                method: 'GET',
+                                headers: {
+                                    'X-Requested-With': 'XMLHttpRequest'
+                                }
+                            })
                             .then(response => {
                                 if (response.status === 401 || response.status === 419) {
                                     console.log('Session expired - redirecting to login');
@@ -741,7 +741,7 @@
             document.head.appendChild(style);
 
             // Method 5: Keyboard shortcuts prevention
-            document.addEventListener('keydown', function (e) {
+            document.addEventListener('keydown', function(e) {
                 // Prevent Alt + Left Arrow (back)
                 if (e.altKey && e.keyCode === 37) {
                     e.preventDefault();
@@ -782,7 +782,7 @@
                 confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
 
                 // Add single event listener
-                newBtn.addEventListener('click', function (e) {
+                newBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
                     console.log('Logout confirmed by user');
@@ -820,12 +820,12 @@
 
             // Try to get fresh CSRF token first
             fetch('/csrf-token', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Accept': 'application/json'
-                }
-            })
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
                 .then(response => response.json())
                 .then(data => {
                     console.log('Fresh CSRF token obtained');
@@ -948,12 +948,12 @@
             if (!csrfToken) return;
 
             fetch('/keep-alive', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': csrfToken.getAttribute('content')
-                }
-            })
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': csrfToken.getAttribute('content')
+                    }
+                })
                 .then(response => {
                     if (response.status === 419 || response.status === 401) {
                         console.log('Session expired, redirecting to login');
@@ -969,11 +969,11 @@
             console.log('Refreshing CSRF token...');
 
             fetch('/csrf-token', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
                 .then(response => response.json())
                 .then(data => {
                     if (data.token) {
@@ -997,11 +997,11 @@
 
         function checkAuthStatus() {
             fetch('/check-auth', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
                 .then(response => {
                     if (response.status === 401 || response.status === 419) {
                         console.log('Authentication check failed - redirecting to login');
@@ -1018,7 +1018,7 @@
         function clearBrowserCache() {
             // Clear service worker caches
             if ('caches' in window) {
-                caches.keys().then(function (names) {
+                caches.keys().then(function(names) {
                     for (let name of names) {
                         caches.delete(name);
                     }
@@ -1037,19 +1037,19 @@
         }
 
         // GLOBAL ERROR HANDLER
-        window.addEventListener('error', function (e) {
+        window.addEventListener('error', function(e) {
             if (e.message && e.message.includes('419')) {
                 console.log('Caught 419 error globally');
                 window.location.replace('/login');
             }
         });
 
-        window.addEventListener('unhandledrejection', function (event) {
+        window.addEventListener('unhandledrejection', function(event) {
             if (event.reason && event.reason.message && (
-                event.reason.message.includes('419') ||
-                event.reason.message.includes('401') ||
-                event.reason.message.includes('Unauthenticated')
-            )) {
+                    event.reason.message.includes('419') ||
+                    event.reason.message.includes('401') ||
+                    event.reason.message.includes('Unauthenticated')
+                )) {
                 console.log('Caught authentication error in promise rejection');
                 window.location.replace('/login');
             }
@@ -1071,6 +1071,9 @@
                 })
                 .then(response => response.json())
                 .then(data => {
+                    console.log(data.mentionedCount || 0, "data.mentionedCount || 0;")
+                    window.kanbanMentionedCount = data.mentionedCount || 0;
+
                     if (data.mentionedCount > 0) {
                         ["kanbanNotifMobile", "kanbanNotifDesktop"].forEach(id => {
                             const el = document.getElementById(id)
@@ -1080,10 +1083,10 @@
                             }
                         })
                     }
-
                 })
                 .catch(error => console.error('Error fetching notifications:', error));
         }
+
 
         console.log('Complete security system loaded successfully');
     </script>
@@ -1131,7 +1134,7 @@
             const mobileView = document.querySelector('.mobile-view'); // For mobile view
 
             if (searchInput && (dataTable || mobileView)) {
-                searchInput.addEventListener("input", function () {
+                searchInput.addEventListener("input", function() {
                     const filter = searchInput.value.toLowerCase();
 
                     if (dataTable) {
@@ -1163,7 +1166,7 @@
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
         integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous">
-        </script>
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 

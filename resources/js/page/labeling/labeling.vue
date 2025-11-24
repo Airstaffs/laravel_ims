@@ -4,7 +4,9 @@
             <span>Top Header</span>
         </div> -->
 
-        <h2 class="module-title">Labeling Module</h2>
+        <!-- <h2 class="module-title">Labeling Module</h2> -->
+        <TitlePage title="Label Generation"
+            subtitle="Prepare and manage the details required to generate inventory, shipment, or fulfillment labels for products." />
 
         <!-- Desktop Table Container -->
         <div class="px-4">
@@ -1051,14 +1053,16 @@ key, index
                 <Button size="small" severity="danger" @click="showOtherFNSKUInfoModal = false">Close</Button>
             </template>
         </Dialog>
+        <ScrollTop />
     </div>
 </template>
 
 <script>
 import Labeling from "./labeling.js";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
-import { Button, Menu, SplitButton, Divider, Dialog, InputText, Select, Card, Textarea } from "primevue";
+import { Button, Menu, SplitButton, Divider, Dialog, InputText, Select, Card, Textarea, ScrollTop } from "primevue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -1174,7 +1178,7 @@ const FNSKU_COLUMN = [
 
 export default {
     mixins: [Labeling],
-    components: { XDataTable, Button, SplitButton, TableGallery, Menu, Divider, Dialog, Divider, InputText, Select, Card, Textarea },
+    components: { XDataTable, Button, SplitButton, TableGallery, Menu, Divider, Dialog, Divider, InputText, Select, Card, Textarea, ScrollTop, TitlePage },
     data() {
         return {
             columns: TABLE_COLUMNS,

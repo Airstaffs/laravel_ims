@@ -1,26 +1,28 @@
 <template>
     <div class="vue-container houseage-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons"></div>
             <div class="module-filter">
                 <label for="moduleFilter">Module:</label>
-                <!-- <select id="moduleFilter" v-model="moduleFilter" class="module-select">
-                    <option value="">All Modules</option>
-                    <option v-for="module in uniqueModules" :key="module" :value="module">
-                        {{ module }}
-                    </option>
-                </select> -->
                 <Select v-model="moduleFilter" :options="uniqueModuleOptions" optionLabel="label" optionValue="value"
                     placeholder="Select condition" size="small" fluid />
             </div>
-        </div>
+        </div> -->
 
-        <h2 class="module-title">Houseage Module</h2>
-
+        <!-- <h2 class="module-title">Houseage Module</h2> -->
+        <TitlePage title="Inventory Staging"
+            subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment." />
         <!-- Desktop Table Container -->
 
 
         <div class="px-4">
+            <div class="search-container">
+                <fieldset class="d-flex align-items-center gap-3 ">
+                    <label for="moduleFilter">Module:</label>
+                    <Select v-model="moduleFilter" :options="uniqueModuleOptions" optionLabel="label"
+                        optionValue="value" placeholder="Select condition" size="small" class="select-form" />
+                </fieldset>
+            </div>
             <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
                 tableClass="desktop-view">
                 <template #gallery="{ data }">
@@ -675,14 +677,17 @@ key, index
 
         <copyDetailsModal :show-modal="showCopyDetailsModal" :item-data="currentCopyItem"
             @close="closeCopyDetailsModal" />
+
+        <ScrollTop />
     </div>
 </template>
 
 <script>
-import { Button, Card, Dialog, Divider, InputText, Select, Textarea } from "primevue";
+import { Button, Card, Dialog, Divider, InputText, ScrollTop, Select, Textarea } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Houseage from "./houseage.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -764,7 +769,7 @@ const TABLE_COLUMNS = [
 export default {
     mixins: [Houseage],
     components: {
-        XDataTable, Dialog, Divider, Card, Select, InputText, TableGallery, Button, Textarea
+        XDataTable, Dialog, Divider, Card, Select, InputText, TableGallery, Button, Textarea, ScrollTop, TitlePage
     },
     data() {
         return {
@@ -818,7 +823,10 @@ export default {
             return this.validationStatuses.map((status) => ({ label: status, value: status }))
         },
         uniqueModuleOptions() {
-            return this.uniqueModules.map((module) => ({ label: module, value: module }))
+            return [
+                { value: "", label: "All Modules" },
+                ...this.uniqueModules.map((module) => ({ label: module, value: module }))
+            ]
 
         }
     }
@@ -1047,6 +1055,22 @@ button:disabled {
         padding: 8px 12px;
         font-size: 0.8rem;
         margin: 1px;
+    }
+
+
+}
+
+.search-container {
+    margin: 20px 0;
+}
+
+.select-form {
+    width: 200px;
+}
+
+@media (max-width: 768px) {
+    .select-form {
+        width: 100%;
     }
 }
 </style>

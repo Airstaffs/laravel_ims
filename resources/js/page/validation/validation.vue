@@ -1,24 +1,32 @@
 <template>
     <div class="vue-container validation-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons"></div>
 
             <div class="validation-filter">
                 <label for="validationStatusFilter">Status:</label>
-                <!-- <select id="validationStatusFilter" v-model="validationStatusFilter" class="valid-select">
+                <select id="validationStatusFilter" v-model="validationStatusFilter" class="valid-select">
                     <option value="">All Status</option>
                     <option v-for="status in uniqueValidationStatuses" :key="status" :value="status">
                         {{ status }}
                     </option>
-                </select> -->
-                <Select v-model="validationStatusFilter" :options="uniqueValidationStatusesList" optionLabel="label"
-                    optionValue="value" placeholder="All Status" class="valid-select" size="small" />
-            </div>
-        </div>
+                </select>
 
-        <h2 class="module-title">Validation Module</h2>
+            </div>
+        </div> -->
+
+        <!-- <h2 class="module-title">Validation Module</h2> -->
+        <TitlePage title="Data Validation"
+            subtitle="Review and validate critical order and inventory data to ensure all records are complete and accurate before processing." />
 
         <div class="px-4">
+            <div class="search-container">
+                <fieldset class="d-flex align-items-center gap-3 ">
+                    <label for="moduleFilter">Status:</label>
+                    <Select v-model="validationStatusFilter" :options="uniqueValidationStatusesList" optionLabel="label"
+                        optionValue="value" placeholder="All Status" class="select-form" size="small" />
+                </fieldset>
+            </div>
             <XDataTable :value="sortedInventory" :paginator="false" :columns="columns" tableClass="desktop-view">
 
                 <template #productname="{ data }">
@@ -1390,14 +1398,16 @@ image, index
             </div>
         </div>
         <!-- End of Validation Confirmation Modal -->
+        <ScrollTop />
     </div>
 </template>
 
 <script>
 import Validation from "./validation.js";
-import { Badge, Button, Divider, Dialog, Card, InputText, Select } from "primevue";
+import { Badge, Button, Divider, Dialog, Card, InputText, Select, ScrollTop } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
 // export default Validation;
 
 const TABLE_COLUMNS = [
@@ -1470,7 +1480,9 @@ export default {
         Dialog,
         Card,
         InputText,
-        Select
+        Select,
+        ScrollTop,
+        TitlePage
     },
     data() {
         return {
@@ -1493,3 +1505,19 @@ export default {
     }
 }
 </script>
+
+<style>
+.search-container {
+    margin: 20px 0;
+}
+
+.select-form {
+    width: 200px;
+}
+
+@media (max-width: 768px) {
+    .select-form {
+        width: 100%;
+    }
+}
+</style>
