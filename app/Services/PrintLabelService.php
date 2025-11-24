@@ -884,6 +884,32 @@ class PrintLabelService extends BasetablesController
                 $zpl .= $this->generatePrintCountLabel($product->printCount + 1);
             }
 
+
+            // Condition auxiliary labels (Renewed or Used)
+            if (!empty($product->ASINviewer)) {
+                $nonNullCount++;
+                
+                // Determine item condition based on condition string
+                $itemCondition = 'Used'; // Default
+                if ($isRenewed || 
+                    stripos($condition, 'Refurbished') !== false || 
+                    stripos($condition, 'Renewed') !== false) {
+                    $itemCondition = 'Renewed';
+                }
+                
+                Log::info('Generating condition auxiliary labels:', [
+                    'condition' => $condition,
+                    'item_condition' => $itemCondition,
+                    'copies' => 3
+                ]);
+                
+                // Print condition label 3 times
+                $conditionCopies = 3;
+                for ($i = 0; $i < $conditionCopies; $i++) {
+                    $zpl .= $this->imageProcessingService->generateConditionAuxSmallLabel($itemCondition);
+                }
+            }
+
             // Additional renewed labels
             if (!empty($product->ProductID) && $isRenewed) {
                 $nonNullCount++;
