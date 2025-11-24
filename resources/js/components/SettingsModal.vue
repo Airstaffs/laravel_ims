@@ -870,7 +870,8 @@
                                         class="w-full"
                                         @date-select="filterTimeRecords"
                                     />
-
+                                </div>
+                                <div class="filter-item">
                                     <Calendar
                                         id="endDate"
                                         v-model="timeRecordForm.endDate"
@@ -980,7 +981,111 @@
                     <i class="bi bi-person-lines-fill"></i>
                     <span> User Logs</span>
                 </template>
-                <!-- Add content here -->
+
+                <div class="scrollable-content">
+                    <div class="tab-content user-logs-content">
+                        <h3 class="text-center mb-3">User Logs</h3>
+
+                        <form
+                            @submit.prevent="filterUserLogs"
+                            class="user-logs-form"
+                        >
+                            <!-- Inline Filters -->
+                            <div class="inline-filters">
+                                <div class="filter-item">
+                                    <Dropdown
+                                        id="userLogsUser"
+                                        v-model="userLogsForm.selectedUserId"
+                                        :options="users"
+                                        optionLabel="username"
+                                        optionValue="id"
+                                        placeholder="Select user"
+                                        class="w-full"
+                                        :loading="loadingUsers"
+                                        @change="filterUserLogs"
+                                    />
+                                </div>
+                                <div class="filter-item">
+                                    <Calendar
+                                        id="userLogsDate"
+                                        v-model="userLogsForm.selectedDate"
+                                        dateFormat="yy-mm-dd"
+                                        placeholder="Select date"
+                                        showIcon
+                                        iconDisplay="input"
+                                        class="w-full"
+                                        @date-select="filterUserLogs"
+                                    />
+                                </div>
+                            </div>
+                        </form>
+
+                        <!-- User Logs Table -->
+                        <div class="user-logs-table" v-if="userLogs.length > 0">
+                            <DataTable
+                                :value="userLogs"
+                                stripedRows
+                                class="logs-table"
+                                :paginator="userLogs.length > 10"
+                                :rows="10"
+                            >
+                                <Column
+                                    field="action"
+                                    header="User Actions"
+                                    style="min-width: 300px"
+                                >
+                                    <template #body="slotProps">
+                                        <div class="action-cell">
+                                            {{ slotProps.data.action }}
+                                        </div>
+                                    </template>
+                                </Column>
+                                <Column
+                                    field="created_at"
+                                    header="Date"
+                                    style="width: 200px"
+                                >
+                                    <template #body="slotProps">
+                                        <div class="date-cell">
+                                            {{
+                                                formatLogDate(
+                                                    slotProps.data.created_at
+                                                )
+                                            }}
+                                        </div>
+                                    </template>
+                                </Column>
+                            </DataTable>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div v-else-if="loadingUserLogs" class="empty-state">
+                            <i
+                                class="pi pi-spin pi-spinner"
+                                style="font-size: 2rem; color: #007bff"
+                            ></i>
+                            <p>Loading user logs...</p>
+                        </div>
+
+                        <!-- Empty State -->
+                        <div v-else-if="hasFilteredLogs" class="empty-state">
+                            <i
+                                class="bi bi-journal-x"
+                                style="font-size: 3rem; color: #94a3b8"
+                            ></i>
+                            <p>No logs found</p>
+                        </div>
+
+                        <!-- Initial State -->
+                        <div v-else class="empty-state">
+                            <i
+                                class="bi bi-filter"
+                                style="font-size: 3rem; color: #94a3b8"
+                            ></i>
+                            <p>Select a user and date to view logs</p>
+                        </div>
+                    </div>
+                </div>
             </TabPanel>
 
             <TabPanel>
@@ -1170,6 +1275,14 @@ export default {
             timeRecords: [],
             loadingTimeRecords: false,
             hasFiltered: false,
+            // User Logs management
+            userLogsForm: {
+                selectedUserId: null,
+                selectedDate: null,
+            },
+            userLogs: [],
+            loadingUserLogs: false,
+            hasFilteredLogs: false,
         };
     },
     watch: {
@@ -2241,6 +2354,70 @@ export default {
             const day = String(d.getDate()).padStart(2, "0");
             return `${year}-${month}-${day}`;
         },
+
+        async filterUserLogs() {
+            // Don't filter if required fields are empty
+            if (
+                !this.userLogsForm.selectedUserId ||
+                !this.userLogsForm.selectedDate
+            ) {
+                return;
+            }
+
+            this.loadingUserLogs = true;
+            this.hasFilteredLogs = true;
+
+            try {
+                const selectedDate = this.formatDate(
+                    this.userLogsForm.selectedDate
+                );
+
+                const response = await fetch(
+                    `/get-user-logs/${this.userLogsForm.selectedUserId}?date=${selectedDate}`,
+                    {
+                        method: "GET",
+                        headers: {
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+                    }
+                );
+
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    throw new Error("Invalid response from server.");
+                }
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.userLogs = data.logs || data || [];
+                } else {
+                    throw new Error("Failed to fetch user logs");
+                }
+            } catch (error) {
+                console.error("Fetch user logs error:", error);
+                this.userLogs = [];
+            } finally {
+                this.loadingUserLogs = false;
+            }
+        },
+
+        formatLogDate(dateString) {
+            if (!dateString) return "";
+            const date = new Date(dateString);
+            return date.toLocaleString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+            });
+        },
     },
 };
 </script>
@@ -3161,13 +3338,11 @@ export default {
 
 .store-form :deep(.p-inputtext),
 .edit-store-form :deep(.p-inputtext),
-.edit-store-form :deep(.p-multiselect),
-.privileges-form :deep(.p-select),
-.time-record-form :deep(.p-select),
-.time-record-form :deep(.p-inputtext) {
+.edit-store-form :deep(.p-multiselect) {
     width: 100%;
     border: 2px solid #e9ecef;
     border-radius: 8px;
+    padding: 0.75rem 1rem;
     transition: all 0.3s ease;
     font-size: 1rem;
 }
@@ -3191,7 +3366,6 @@ export default {
 }
 
 .privileges-form {
-    width: 100%;
     margin: 0 auto;
 }
 
@@ -3283,7 +3457,8 @@ export default {
     margin-bottom: 1.5rem;
 }
 
-.time-record-form :deep(.inline-filters) {
+.time-record-form .inline-filters,
+.user-logs-form .inline-filters {
     display: flex;
     justify-content: flex-end;
     align-items: center;
@@ -3291,13 +3466,14 @@ export default {
     margin-bottom: 1.5rem;
 }
 
-.time-record-form :deep(.filter-item) {
+.time-record-form .filter-item,
+.user-logs-form .filter-item {
     display: flex;
     align-items: center;
     gap: 0.75rem;
 }
 
-.time-record-form :deep(.p-select) {
+.time-record-form .p-select {
     width: 150px;
 }
 
@@ -3519,6 +3695,69 @@ export default {
     .notes-cell {
         max-width: 100%;
         white-space: normal;
+    }
+
+    .inline-filters {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .filter-item {
+        width: 100%;
+    }
+
+    /* User Logs responsive */
+    .user-logs-content {
+        padding: 1rem;
+    }
+
+    .user-logs-form .inline-filters {
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .user-logs-form .filter-item {
+        width: 100%;
+    }
+
+    .user-logs-form :deep(.p-inputtext),
+    .user-logs-form :deep(.p-datepicker) {
+        width: 100%;
+    }
+
+    .user-logs-table {
+        overflow-x: auto;
+    }
+
+    .logs-table :deep(.p-datatable-thead) {
+        display: none;
+    }
+
+    .logs-table :deep(.p-datatable-tbody > tr) {
+        display: block;
+        margin-bottom: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .logs-table :deep(.p-datatable-tbody > tr > td) {
+        display: block;
+        text-align: left;
+        border: none;
+        padding: 0.75rem 1rem;
+    }
+
+    .logs-table :deep(.p-datatable-tbody > tr > td:first-child) {
+        background: #f8f9fa;
+        border-radius: 6px 6px 0 0;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .logs-table :deep(.p-datatable-tbody > tr > td:last-child) {
+        border-radius: 0 0 6px 6px;
     }
 }
 
