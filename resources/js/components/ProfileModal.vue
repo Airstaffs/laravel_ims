@@ -3494,11 +3494,11 @@ export default {
     }
 
     .combined-info-card :deep(.p-card-content) {
-        padding: 1.5rem;
+        padding: 0;
     }
 
     .current-time {
-        font-size: 2.5rem;
+        font-size: 1.5rem;
     }
 
     .current-day {
@@ -3507,7 +3507,7 @@ export default {
 
     .summary-grid {
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 
     .summary-grid :deep(.p-divider.p-divider-vertical) {
@@ -3664,7 +3664,7 @@ export default {
 
     .filter-grid {
         grid-template-columns: 1fr;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 
     .filter-actions {
@@ -3684,7 +3684,7 @@ export default {
     }
 
     .current-time {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
 
     .current-day {
@@ -3703,7 +3703,7 @@ export default {
 
     .summary-grid {
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 
     .summary-grid :deep(.p-divider) {
@@ -3787,7 +3787,7 @@ export default {
 
     .filter-grid {
         grid-template-columns: 1fr;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 
     .filter-actions {
@@ -3800,6 +3800,10 @@ export default {
 
     .total-value {
         font-size: 1.5rem;
+    }
+
+    .time-record-content :deep(.p-card-content) {
+        padding: 0;
     }
 
     /* Stacked Table Styling - LEFT ALIGNED */
@@ -3940,11 +3944,11 @@ export default {
     }
 
     .combined-info-card :deep(.p-card-content) {
-        padding: 1.25rem;
+        padding: 0;
     }
 
     .current-time {
-        font-size: 2rem;
+        font-size: 1.5rem;
     }
 
     .current-day {
@@ -4055,8 +4059,12 @@ export default {
         height: 18px;
     }
 
+    .privileges-header-card :deep(.p-card) {
+        margin-bottom: 1rem;
+    }
+
     .privileges-header-card :deep(.p-card-content) {
-        padding: 1rem;
+        padding: 0;
     }
 
     .header-icon {
