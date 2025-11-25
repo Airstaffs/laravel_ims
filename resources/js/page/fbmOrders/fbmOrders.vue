@@ -1,7 +1,7 @@
 <template>
     <div class="vue-container fbm-order-module">
         <!-- Top header bar with blue background -->
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons">
                 <button class="btn btn-header" @click="openWorkHistoryModal">
                     <i class="fas fa-chart-line"></i>
@@ -29,7 +29,7 @@
                 </button>
             </div>
 
-            <!-- <div class="store-filter">
+            <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
                     <option value="">All Stores</option>
@@ -50,8 +50,8 @@
                 <button class="btn-refresh" @click="refreshData">
                     <i class="fas fa-sync-alt"></i>
                 </button>
-            </div> -->
-        </div>
+            </div>
+        </div> -->
 
         <!-- Selection status bar - NEW COMPONENT -->
         <div class="selection-status-bar" v-if="persistentSelectedOrderIds.length > 0">
@@ -68,8 +68,25 @@
         </div>
 
         <!-- <h2 class="module-title">FBM Order Module</h2> -->
-        <TitlePage title="Merchant Fulfillment Orders"
-            subtitle="Manage all orders fulfilled directly by the merchant. Process shipments, generate labels, and track the status of FBM orders." />
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage title="FBM Orders Management"
+                subtitle="Manage all orders fulfilled directly by the merchant. Process shipments, generate labels, and track the status of FBM orders." />
+            <div class="d-flex justify-content-center gap-2 me-4 flex-wrap">
+                <Button severity="info" size="small" outlined @click="openWorkHistoryModal" label="Work History"
+                    icon="pi pi-chart-line" />
+                <Button size="small" severity="secondary" outlined v-if="persistentSelectedOrderIds.length > 0"
+                    @click="PurchaseShippingLabel" label="Purchase Shipping Label" icon="pi pi-truck" />
+                <Button size="small" severity="secondary" outlined @click="processSelectedOrders"
+                    label="Process Selected" icon="pi pi-truck" />
+                <Button size="small" severity="secondary" outlined @click="printShippingLabels" label="Print Labels"
+                    icon="pi pi-tag" />
+                <Button size="small" severity="secondary" outlined @click="generatePackingSlips"
+                    label="Generate Packing Slips" icon="pi pi-file" />
+                <Button size="small" severity="secondary" outlined @click="openManualShipmentLabelModal"
+                    label="Manual Shipment Label" />
+            </div>
+        </div>
+
 
         <!-- Desktop Table Container -->
         <div class="px-4">
@@ -697,7 +714,9 @@ dispensedProduct, dpIndex
         <!-- Process Order Modal with Integrated Auto Dispense -->
         <Dialog v-model:visible="showProcessModal"
             :header="`Process Order: ${currentProcessOrder ? currentProcessOrder.platform_order_id : ''}`" modal
-            :style="{ width: '100%', maxWidth: '1000px' }" :breakpoints="{ '960px': '90vw', '640px': '95vw' }">
+            :style="{ width: '100%', maxWidth: '1000px' }" :pt="{
+                root: { class: 'mobile-fullscreen-dialog' }
+            }">
             <div class="flex flex-column gap-4">
                 <!-- Auto Dispense Section -->
                 <div v-if="processingAutoDispense" class="auto-dispense-section">
@@ -1085,7 +1104,9 @@ dispensedProduct, dpIndex
         </div>
 
         <!-- Work History Modal with Pagination -->
-        <Dialog v-model:visible="showWorkHistoryModal" modal header="Work History" :style="{ width: '95%' }">
+        <Dialog v-model:visible="showWorkHistoryModal" modal header="Work History" :style="{ width: '95%' }" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
             <div>
                 <div>
                     <Button class="d-md-none mb-2" icon="pi pi-filter" severity="info" size="small"
@@ -1160,7 +1181,7 @@ dispensedProduct, dpIndex
 
                 <div v-else-if="workHistory && workHistory.length > 0">
                     <XDataTable :value="workHistory" :columns="historyColumns" :paginator="false" scrollable
-                        scrollHeight="400px" tableClass="mt-4 desktop-view">
+                        scrollHeight="600px" tableClass="mt-4 desktop-view">
                         <!----Header Slots---->
                         <template #carrierHeader>
                             <div class="w-100">
@@ -1678,6 +1699,20 @@ export default {
 </script>
 
 <style>
+@media (max-width: 600px) {
+    .mobile-fullscreen-dialog.p-dialog {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: none !important;
+        max-height: none !important;
+        border-radius: 0 !important;
+
+        top: 0 !important;
+        left: 0 !important;
+        transform: none !important;
+    }
+}
+
 .detail-item-container span:nth-child(1) {
     font-weight: 500;
 }

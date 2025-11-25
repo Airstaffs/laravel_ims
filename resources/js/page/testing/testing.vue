@@ -5,7 +5,7 @@
         </div> -->
 
         <!-- <h2 class="module-title">Testing Module</h2> -->
-        <TitlePage title="Product Testing"
+        <TitlePage title="Product Testing Management"
             subtitle="Manage and log quality assurance and functional testing results for products prior to inventory staging." />
 
         <!-- Desktop Table Container -->
@@ -16,7 +16,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
+                            :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
 
@@ -576,7 +576,9 @@
         </div>
 
         <Dialog v-model:visible="showEditModal" class="view-modal" modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;">
+            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;" :pt="{
+                root: { class: 'mobile-fullscreen-dialog' }
+            }">
             <div class="modal-body">
                 <div class="view-info-container">
                     <div class="view-grid-wrapper">

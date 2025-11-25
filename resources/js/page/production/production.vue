@@ -5,7 +5,7 @@
         </div> -->
 
         <!-- <h1 class="module-title">Production Module</h1> -->
-        <TitlePage title="Assembly & Production"
+        <TitlePage title="Production Management"
             subtitle="Track and manage products through the internal assembly, manufacturing, or customization process before final staging." />
         <!-- Desktop Table Container -->
         <div class="p-4">
@@ -14,7 +14,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
+                            :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">

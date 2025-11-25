@@ -5,7 +5,7 @@
         </div> -->
 
         <!-- <h2 class="module-title">Cleaning Module</h2> -->
-        <TitlePage title="Cleaning & Inspection"
+        <TitlePage title="Cleaning Management"
             subtitle="Track and manage products requiring physical cleaning, refurbishment, or data clean-up before being staged for sale." />
 
         <!-- Desktop Table Container -->
@@ -15,7 +15,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
+                            :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">
@@ -223,7 +223,9 @@
             </div>
         </div>
         <Dialog class="view-modal" v-model:visible="showEditModal" modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;">
+            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;" :pt="{
+                root: { class: 'mobile-fullscreen-dialog' }
+            }">
             <div class="modal-body">
                 <div class="view-info-container">
                     <div class="view-grid-wrapper">

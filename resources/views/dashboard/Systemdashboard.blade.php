@@ -61,7 +61,7 @@
     -->
 </head>
 
-<body>
+<body class="d-flex flex-column min-vh-100">
     <!-- Navbar -->
     @include('dashboard.components.navbar')
 
@@ -330,7 +330,7 @@ function hasAccess($module, $mainModule, $subModules): bool
         window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation', 'scheduling'];
     </script>
 
-    <div id="main-content" class="content">
+    <div id="main-content" class="content flex-grow-1">
         <div id="app">
             <!-- Hidden component triggers -->
             @foreach ($modules as $module => $label)

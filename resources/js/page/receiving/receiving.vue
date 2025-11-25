@@ -1,27 +1,31 @@
 <template>
     <div class="vue-container receiving-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons">
                 <button class="btn btn-scan" @click="openScannerModal">
                     <i class="fas fa-barcode"></i>
                     <span>Scan Items</span>
                 </button>
-                <!-- <button class="btn btn-manual" @click="openDetectSerialModal">
+                <button class="btn btn-manual" @click="openDetectSerialModal">
                     <i class="fas fa-keyboard"></i> Detect Serial Numbers
-                </button> -->
-                <!-- <a
+                </button>
+                <a
                     href="{{ url('/aiTraining') }}"
                     target="_blank"
                     class="btn btn-training"
                 >
                     <i class="fas fa-robot"></i> Detection Training
-                </a> -->
+                </a>
             </div>
+        </div> -->
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage title="Received Management"
+                subtitle="View and log inbound inventory items as they are physically received and added to stock." />
+
+            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode" />
         </div>
 
-        <!-- <h2 class="module-title">Receiving Module</h2> -->
-        <TitlePage title="Inventory Receiving"
-            subtitle="View and log inbound inventory items as they are physically received and added to stock." />
 
         <!-- Detect Serial Numbers Modal -->
         <detect-serial-modal v-if="showDetectSerialModal" @close="closeDetectSerialModal"
@@ -214,7 +218,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
+                            :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
 
@@ -543,7 +547,7 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="modal image-modal">
+        <div v-if="showImageModal" class="modal image-modal ">
             <div class="modal-overlay" @click="closeImageModal"></div>
 
             <div class="modal-content">

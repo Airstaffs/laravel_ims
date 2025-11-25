@@ -1,13 +1,13 @@
 <template>
     <div class="vue-container return-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons">
                 <button class="btn btn-scan" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
                 </button>
             </div>
 
-            <!-- <div class="store-filter">
+            <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
                     <option value="">All Stores</option>
@@ -15,11 +15,13 @@
                         {{ store }}
                     </option>
                 </select>
-            </div> -->
+            </div>
+        </div> -->
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage title="Return Scanner Management"
+                subtitle="View and manage the status of all incoming customer product returns for processing." />
+            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode" />
         </div>
-
-        <TitlePage title="Return Processing"
-            subtitle="View and manage the status of all incoming customer product returns for processing." />
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
         <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true"
@@ -100,64 +102,65 @@
                 </button>
             </template>
         </scanner-component>
-
+        <div class="search-container px-4">
+            <fieldset class="d-flex align-items-center gap-1">
+                <label for="store-select">Store:</label>
+                <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small" class="select-form"
+                    v-model="selectedStore" @change="changeStore" placeholder="Select a Store" />
+            </fieldset>
+        </div>
         <!-- Returns History Table -->
-        <div class="px-4">
-            <div class="search-container">
-                <fieldset class="d-flex align-items-center gap-1">
-                    <label for="store-select">Store:</label>
-                    <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small"
-                        class="select-form" v-model="selectedStore" @change="changeStore"
-                        placeholder="Select a Store" />
-                </fieldset>
+        <div class="desktop-view">
+            <div class="px-4">
+
+                <XDataTable :value="returnHistory" :columns="columns" :paginator="false">
+                    <template #gallery="{ data }">
+                        <div class="d-flex justify-content-center align-items-center">
+                            <TableGallery :data="data" :openImageModal="openImageModal"
+                                :handleImageError="handleImageError" :countAdditionalImages="countAdditionalImages" />
+                        </div>
+                    </template>
+                    <template #date="{ data }">
+                        <p>{{ formatDate(data.LPNDATE) }}</p>
+                    </template>
+                    <template #returnId="{ data }">
+                        {{ data.LPN || "N/A" }}
+                    </template>
+                    <template #rtNumber="{ data }">
+                        {{
+                            formatRTNumber(
+                                data.rtcounter,
+                                data.storename
+                            )
+                        }}
+                    </template>
+                    <template #serialnumberb="{ data }">
+                        <p>{{ data.serialnumberb || "-" }}</p>
+                    </template>
+                    <template #status="{ data }">
+                        <Tag :value="data.returnstatus"
+                            :severity="data.returnstatus === 'Returned' ? 'success' : 'secondary'" />
+                    </template>
+                    <template #buyer="{ data }">
+                        <p>{{
+                            data.BuyerName ||
+                            data.costumer_name ||
+                            "Unknown"
+                            }}</p>
+                    </template>
+                    <template #actions="{ data }">
+                        <div>
+                            <Button label="More Details" severity="contrast" icon="pi pi-info-circle" variant="text"
+                                class="text-primary" size="small" @click="handleShowDetailsModal(data)" />
+                        </div>
+                    </template>
+                </XDataTable>
             </div>
-            <XDataTable :value="returnHistory" :columns="columns" :paginator="false" tableClass="desktop-view">
-                <template #gallery="{ data }">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
-                    </div>
-                </template>
-                <template #date="{ data }">
-                    <p>{{ formatDate(data.LPNDATE) }}</p>
-                </template>
-                <template #returnId="{ data }">
-                    {{ data.LPN || "N/A" }}
-                </template>
-                <template #rtNumber="{ data }">
-                    {{
-                        formatRTNumber(
-                            data.rtcounter,
-                            data.storename
-                        )
-                    }}
-                </template>
-                <template #serialnumberb="{ data }">
-                    <p>{{ data.serialnumberb || "-" }}</p>
-                </template>
-                <template #status="{ data }">
-                    <Tag :value="data.returnstatus"
-                        :severity="data.returnstatus === 'Returned' ? 'success' : 'secondary'" />
-                </template>
-                <template #buyer="{ data }">
-                    <p>{{
-                        data.BuyerName ||
-                        data.costumer_name ||
-                        "Unknown"
-                        }}</p>
-                </template>
-                <template #actions="{ data }">
-                    <div>
-                        <Button label="More Details" severity="contrast" icon="pi pi-info-circle" variant="text"
-                            class="text-primary" size="small" @click="handleShowDetailsModal(data)" />
-                    </div>
-                </template>
-            </XDataTable>
         </div>
 
 
         <!-- Mobile Cards View -->
-        <div class="mobile-view">
+        <AnimateDiv :delay="200" class="mobile-view">
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -166,7 +169,8 @@
                 <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
                     No data found
                 </div>
-                <div v-else v-for="(item, index) in returnHistory" :key="index" class="mobile-card">
+                <AnimateDiv v-else v-for="(item, index) in returnHistory" :key="index" class="mobile-card"
+                    :delay="index * 100">
                     <div class="mobile-card-header">
                         <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
                             :countAdditionalImages="countAdditionalImages" />
@@ -234,7 +238,7 @@
                         <Button @click="handleShowDetailsModal(item)" icon="pi pi-info-circle" label="More Details"
                             size="small" />
                     </div>
-                </div>
+                </AnimateDiv>
 
                 <div v-if="returnHistory.length === 0" class="mobile-card">
                     <div class="mobile-card-details">
@@ -244,10 +248,12 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </AnimateDiv>
 
         <!---DETAILS MODAL--->
-        <Dialog v-model:visible="viewDetailsModal" modal header="Product Details" class="view-details-dialog">
+        <Dialog v-model:visible="viewDetailsModal" modal header="Product Details" class="view-details-dialog" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
             <div class="row">
                 <div class="col-md-6 mb-4">
                     <Gallery :item="item" />
@@ -358,6 +364,7 @@ import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Gallery from "../../components/Gallery/gallery.vue";
 import { Button, Dialog, Divider, Select, Tag } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
     {
@@ -428,7 +435,8 @@ export default {
         Gallery,
         Divider,
         Select,
-        TitlePage
+        TitlePage,
+        AnimateDiv
     },
     data() {
         return {

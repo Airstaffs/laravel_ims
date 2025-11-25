@@ -1,7 +1,7 @@
 <template>
     <div class="vue-container stockroom-module">
         <!-- Top header bar with blue background -->
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons">
                 <button class="btn" @click="openScannerModal">
                     <i class="fas fa-barcode"></i>
@@ -23,7 +23,7 @@
                 <button class="btn" @click="openDs7Oos">Open DS7 & OOS</button>
             </div>
 
-            <!-- <div class="store-filter">
+            <div class="store-filter">
                 <label for="store-select">Store:</label>
                 <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
                     <option value="">All Stores</option>
@@ -42,8 +42,8 @@
                     <option value="both">Both FBM & FBA</option>
                     <option value="none">No Availability</option>
                 </select>
-            </div> -->
-        </div>
+            </div>
+        </div> -->
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
         <scanner-component scanner-title="Stockroom Scanner" storage-prefix="stockroom" :enable-camera="true"
@@ -90,8 +90,25 @@
         </scanner-component>
 
         <!-- <h2 class="module-title">Stockroom Module</h2> -->
-        <TitlePage title="Inventory Stock"
-            subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock." />
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage title="Stockroom Management"
+                subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock." />
+            <div class="d-flex justify-content-center gap-2 me-4 flex-wrap">
+                <Button size="small" @click="openScannerModal" label="Scan Items" icon="pi pi-barcode" />
+                <Button size="small" severity="warn" @click="loadFBAInboundShipment" label="FBA Inbound Shipment"
+                    icon="pi pi-truck" />
+
+                <Button size="small" severity="info" @click="showNewScannedModal = true" icon="pi pi-barcode"
+                    label="New Scanned">
+                    <span v-if="shouldShowBadge" class="notification-badge" :class="badgeClasses"
+                        :title="`${newScannedCount} new items scanned today (US time)`">
+                        {{ displayCount }}
+                    </span>
+                </Button>
+                <Button size="small" severity="help" @click="openDs7Oos" label="Open DS7 & OO" />
+            </div>
+        </div>
+
         <div class="stats-container px-4">
 
             <div class="stat-card bg-primary-light">
@@ -251,7 +268,7 @@
                             <span class="mobile-detail-label">ASIN: </span>
                             <span class="mobile-detail-value">{{
                                 item.ASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <!-- Hidden details -->
                         <!-- <div class="mobile-detail-row" v-if="showDetails">
@@ -289,7 +306,7 @@
                             <span class="mobile-detail-label">Store: </span>
                             <span class="mobile-detail-value">{{
                                 item.storename
-                            }}</span>
+                                }}</span>
                         </div>
                         <div>
                             <span class="mobile-detail-label">Quantity Inside: </span>
@@ -311,7 +328,7 @@
                             <span class="mobile-detail-label">FNSKUs: </span>
                             <span class="mobile-detail-value">{{
                                 item.fnskus ? item.fnskus.length : 0
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
 
@@ -352,25 +369,25 @@
                                         <span class="mobile-serial-label">Serial:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.serialnumber
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Location:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.warehouselocation
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">FNSKU:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.FNSKUviewer
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">MSKU:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.MSKU
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Grading:</span>
@@ -421,8 +438,9 @@
         </div>
 
         <!-- Process Items Modal (Replaces Move Items Modal) -->
-        <Dialog v-model:visible="showProcessModal" modal header="Process Items" :breakpoints="{ '600px': '100vw' }"
-            style="width: 40vw">
+        <Dialog v-model:visible="showProcessModal" modal header="Process Items" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }" :style="{ width: '95%' }">
             <div class="process-form">
                 <div class="form-group">
                     <label>Shipment Type:</label>
@@ -586,7 +604,9 @@
         </div> -->
 
         <!-- Product Details Modal -->
-        <Dialog v-model:visible="showProductDetailsModal" modal :style="{ width: '95%' }" header="Product Details">
+        <Dialog v-model:visible="showProductDetailsModal" modal :style="{ width: '95%' }" header="Product Details" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
             <div class="product-details-layout">
 
                 <div class="product-details-left">
@@ -616,49 +636,49 @@
                             <span class="product-details-label">ASIN: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.ASIN
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBM: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.FBMAvailable
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBA: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.FbaAvailable
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Outbound: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Outbound
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Inbound: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Inbound
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Unfulfillable: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Unfulfillable
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Reserved: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Reserved
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Store: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.storename
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Quantity Inside: </span>
