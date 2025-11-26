@@ -5,7 +5,8 @@ import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 import Ds7OosModal from "./modals/ds7oos.vue";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+// Fallback to current origin if VITE_API_URL is not set to avoid undefined requests
+const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 export default {
     name: "StockroomModule",
@@ -193,14 +194,17 @@ export default {
             );
         },
         shouldShowBadge() {
-            // FIXED: More robust badge visibility logic
-            return (
-                this.newScannedCount > 0 &&
-                this.newScannedCount !== null &&
-                this.newScannedCount !== undefined &&
-                !isNaN(this.newScannedCount)
-            );
-        },
+        console.log('🔍 Badge visibility check:', {
+            count: this.newScannedCount,
+            type: typeof this.newScannedCount,
+            isNumber: !isNaN(this.newScannedCount),
+            isGreaterThanZero: this.newScannedCount > 0
+        });
+        
+        // Simple, clear logic
+        const count = Number(this.newScannedCount);
+        return !isNaN(count) && count > 0;
+       },
 
         badgeClasses() {
             const count = this.newScannedCount || 0;
@@ -301,27 +305,26 @@ export default {
         },
 
         // Add this method for better error recovery new scan count
-        async fetchCountWithRetry(maxRetries = 3) {
+       async fetchCountWithRetry(maxRetries = 3) {
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
-                    await this.fetchNewScannedCount();
+                    console.log(`🔄 Fetch attempt ${attempt}/${maxRetries}`);
+                    
+                    // CRITICAL FIX: Call refreshNewScannedCount instead of fetchNewScannedCount
+                    await this.refreshNewScannedCount();
+                    
+                    console.log(`✅ Success on attempt ${attempt}, count:`, this.newScannedCount);
                     return; // Success, exit retry loop
                 } catch (error) {
-                    console.log(
-                        `Count fetch attempt ${attempt} failed:`,
-                        error.message
-                    );
+                    console.log(`⚠️ Attempt ${attempt} failed:`, error.message);
 
                     if (attempt === maxRetries) {
-                        console.error(
-                            "All retry attempts failed for count fetch"
-                        );
-                        // Don't reset count to 0 - keep existing value
+                        console.error("❌ All retry attempts failed");
                         return;
                     }
 
                     // Wait before retrying (exponential backoff)
-                    const delay = Math.pow(2, attempt) * 1000;
+                    const delay = Math.pow(2, attempt) * 500; // 500ms, 1s, 2s
                     await new Promise((resolve) => setTimeout(resolve, delay));
                 }
             }
@@ -1662,184 +1665,177 @@ async fetchAvailablePrinters() {
 
         // Process scan with validation - UPDATED with notification count refresh
         async processScan(scannedCode = null) {
-            try {
-                // Use either the scanned code or input fields
-                let scanSerial, scanFnsku, scanLocation;
+    try {
+        // Use either the scanned code or input fields
+        let scanSerial, scanFnsku, scanLocation;
 
-                if (scannedCode) {
-                    // External code passed (from hardware scanner)
-                    scanSerial = "";
-                    scanFnsku = this.normalizeFnsku(scannedCode);
-                    this.fnsku = scanFnsku;
-                    scanLocation = this.locationInput || "";
-                } else {
-                    // Use the input fields
-                    scanSerial = this.serialNumber;
-                    scanFnsku = this.fnsku;
-                    scanLocation = this.locationInput;
-                    console.log("Scanned code normalized to:", scanFnsku);
-
-                    // Basic validation - need at least one of serial or FNSKU
-                    if (!scanFnsku && !scanSerial) {
-                        this.$refs.scanner.showScanError(
-                            "Serial Number or FNSKU is required"
-                        );
-                        SoundService.error();
-                        this.focusNextField("serialNumberInput");
-                        return;
-                    }
-                }
-
-                // Validate serial number if provided
-                if (
-                    scanSerial &&
-                    (!/^[a-zA-Z0-9]+$/.test(scanSerial) ||
-                        scanSerial.includes("X00"))
-                ) {
-                    this.$refs.scanner.showScanError(
-                        "Invalid Serial Number - must be alphanumeric and not contain X00"
-                    );
-                    SoundService.error();
-                    return;
-                }
-
-                // Check if FNSKU is actually a location
-                if (scanFnsku && /^L\d{3}[A-G]$/i.test(scanFnsku)) {
-                    this.$refs.scanner.showScanError(
-                        "FNSKU appears to be a location. Please enter it in the Location field."
-                    );
-                    SoundService.error();
-                    return;
-                }
-
-                // Validate location format - this should happen for both auto and manual mode at submission time
-                const locationRegex = /^L\d{3}[A-G]$/i;
-                if (
-                    scanLocation &&
-                    !locationRegex.test(scanLocation) &&
-                    scanLocation !== "Floor" &&
-                    scanLocation !== "L800G"
-                ) {
-                    this.$refs.scanner.showScanError(
-                        "Invalid Location Format (use L###X, Floor, or L800G)"
-                    );
-                    SoundService.error();
-                    return;
-                }
-
-                // Get images from scanner
-                const imageData = this.$refs.scanner.capturedImages.map(
-                    (img) => img.data
+        if (scannedCode) {
+            scanSerial = "";
+            scanFnsku = this.normalizeFnsku(scannedCode);
+            this.fnsku = scanFnsku;
+            scanLocation = this.locationInput || "";
+        } else {
+            scanSerial = this.serialNumber;
+            scanFnsku = this.fnsku;
+            scanLocation = this.locationInput;
+            
+            if (!scanFnsku && !scanSerial) {
+                this.$refs.scanner.showScanError(
+                    "Serial Number or FNSKU is required"
                 );
+                SoundService.error();
+                this.focusNextField("serialNumberInput");
+                return;
+            }
+        }
 
-                // Send data to server
-                const scanData = {
-                    SerialNumber: scanSerial,
+        // Validation checks...
+        if (scanSerial && (!/^[a-zA-Z0-9]+$/.test(scanSerial) || scanSerial.includes("X00"))) {
+            this.$refs.scanner.showScanError(
+                "Invalid Serial Number - must be alphanumeric and not contain X00"
+            );
+            SoundService.error();
+            return;
+        }
+
+        if (scanFnsku && /^L\d{3}[A-G]$/i.test(scanFnsku)) {
+            this.$refs.scanner.showScanError(
+                "FNSKU appears to be a location. Please enter it in the Location field."
+            );
+            SoundService.error();
+            return;
+        }
+
+        const locationRegex = /^L\d{3}[A-G]$/i;
+        if (scanLocation && !locationRegex.test(scanLocation) && 
+            scanLocation !== "Floor" && scanLocation !== "L800G") {
+            this.$refs.scanner.showScanError(
+                "Invalid Location Format (use L###X, Floor, or L800G)"
+            );
+            SoundService.error();
+            return;
+        }
+
+        const imageData = this.$refs.scanner.capturedImages.map(
+            (img) => img.data
+        );
+
+        const scanData = {
+            SerialNumber: scanSerial,
+            FNSKU: scanFnsku,
+            Location: scanLocation,
+            Images: imageData,
+        };
+
+        this.$refs.scanner.startLoading("Processing Scan");
+
+        const response = await axios.post(
+            "/api/stockroom/process-scan",
+            scanData,
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
+            }
+        );
+
+        this.$refs.scanner.stopLoading();
+        const data = response.data;
+
+        if (data.success) {
+    this.$refs.scanner.showScanSuccess(data.item || "Item scanned successfully");
+    SoundService.successScan(true);
+
+    this.$refs.scanner.addSuccessScan({
+        Serial: scanSerial,
+        FNSKU: scanFnsku,
+        Location: scanLocation,
+    });
+
+    this.$refs.scanner.capturedImages = [];
+
+    // ============================================
+    // CRITICAL FIX: Real-time updates after scan
+    // ============================================
+    console.log('🎯 Scan successful - triggering updates...');
+    
+    try {
+        // 1. Update badge count with retry
+        console.log('🔄 Refreshing badge count...');
+        await this.fetchCountWithRetry(3);
+        console.log('✅ Badge count updated:', this.newScannedCount);
+        
+        // 2. Refresh inventory table
+        console.log('🔄 Refreshing inventory table...');
+        await this.fetchInventory();
+        console.log('✅ Inventory table refreshed');
+        
+        // 3. If modal is open, refresh it
+        if (this.showNewScannedModal && this.$refs.newScannedModal?.fetchItems) {
+            console.log('🔄 Refreshing modal...');
+            await this.$refs.newScannedModal.fetchItems();
+            console.log('✅ Modal refreshed');
+        }
+        
+        // 4. Force Vue to re-render
+        this.$nextTick(() => {
+            this.$forceUpdate();
+            console.log('✅ UI re-rendered - Final count:', this.newScannedCount);
+        });
+    } catch (error) {
+        console.error('⚠️ Error during refresh:', error);
+    }
+
+    if (data.needReprint && data.productId) {
+        if (confirm("Different FNSKU found in the database. Do you want to reprint the label?")) {
+            this.printLabel(data.productId);
+        }
+    }
+} else {
+            this.$refs.scanner.showScanError(
+                data.message || "Error processing scan"
+            );
+            SoundService.scanRejected(true);
+
+            this.$refs.scanner.addErrorScan(
+                {
+                    Serial: scanSerial,
                     FNSKU: scanFnsku,
                     Location: scanLocation,
-                    Images: imageData,
-                };
+                },
+                data.reason || "error"
+            );
 
-                // Show loading state
-                this.$refs.scanner.startLoading("Processing Scan");
+            this.$refs.scanner.capturedImages = [];
+        }
 
-                // Send to API
-                const response = await axios.post(
-                    "/api/stockroom/process-scan",
-                    scanData,
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            )?.content,
-                        },
-                    }
-                );
+        // Clear input fields and focus first field
+        this.serialNumber = "";
+        this.fnsku = "";
+        this.locationInput = "";
+        this.focusNextField("serialNumberInput");
+        
+    } catch (error) {
+        this.$refs.scanner.stopLoading();
+        console.error("Error processing scan:", error);
+        this.$refs.scanner.showScanError("Network or server error");
+        SoundService.scanRejected(true);
 
-                // Hide loading
-                this.$refs.scanner.stopLoading();
-
-                const data = response.data;
-
-                if (data.success) {
-                    // Success case
-                    this.$refs.scanner.showScanSuccess(
-                        data.item || "Item scanned successfully"
-                    );
-                    SoundService.successScan(true);
-
-                    // Add to scan history
-                    this.$refs.scanner.addSuccessScan({
-                        Serial: scanSerial,
-                        FNSKU: scanFnsku,
-                        Location: scanLocation,
-                    });
-
-                    // Clear images
-                    this.$refs.scanner.capturedImages = [];
-
-                    // IMPORTANT: Refresh the notification count after successful scan
-                    await this.refreshNewScannedCount();
-
-                    // Check if we need to handle reprint
-                    if (data.needReprint && data.productId) {
-                        // Confirm reprint label
-                        if (
-                            confirm(
-                                "Different FNSKU found in the database. Do you want to reprint the label?"
-                            )
-                        ) {
-                            this.printLabel(data.productId);
-                        }
-                    }
-                } else {
-                    // Error case
-                    this.$refs.scanner.showScanError(
-                        data.message || "Error processing scan"
-                    );
-                    SoundService.scanRejected(true);
-
-                    // Add to error scan history
-                    this.$refs.scanner.addErrorScan(
-                        {
-                            Serial: scanSerial,
-                            FNSKU: scanFnsku,
-                            Location: scanLocation,
-                        },
-                        data.reason || "error"
-                    );
-
-                    // Clear images
-                    this.$refs.scanner.capturedImages = [];
-                }
-
-                // Clear input fields and focus first field
-                this.serialNumber = "";
-                this.fnsku = "";
-                this.locationInput = "";
-                this.focusNextField("serialNumberInput");
-            } catch (error) {
-                // Hide loading
-                this.$refs.scanner.stopLoading();
-
-                console.error("Error processing scan:", error);
-                this.$refs.scanner.showScanError("Network or server error");
-                SoundService.scanRejected(true);
-
-                // Add failed scan to history
-                this.$refs.scanner.addErrorScan(
-                    {
-                        Serial: this.serialNumber || "",
-                        FNSKU: this.fnsku || "",
-                        Location: this.locationInput || "",
-                    },
-                    "network_error"
-                );
-            }
-        },
+        this.$refs.scanner.addErrorScan(
+            {
+                Serial: this.serialNumber || "",
+                FNSKU: this.fnsku || "",
+                Location: this.locationInput || "",
+            },
+            "network_error"
+        );
+    }
+  },
 
         // Updated mergeSelectedItems function with correct API URL format
         async mergeSelectedItems() {
@@ -2233,57 +2229,57 @@ async fetchAvailablePrinters() {
 
         // NEW SCANNED ITEMS METHODS - Updated for modal integration
         async fetchNewScannedCount() {
-            try {
-                // FIXED: Use US timezone for date calculation
-                const now = new Date();
-                const usDate = new Date(
-                    now.toLocaleString("en-US", {
-                        timeZone: "America/Los_Angeles",
-                    })
-                );
-                const today = usDate.toISOString().split("T")[0];
+    try {
+        const now = new Date();
+        const usDate = new Date(
+            now.toLocaleString("en-US", {
+                timeZone: "America/Los_Angeles",
+            })
+        );
+        const today = usDate.toISOString().split("T")[0];
 
-                console.log("Fetching new scanned count for US date:", today);
+        console.log("🔄 Fetching new scanned count for US date:", today);
 
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
-                    {
-                        params: { date: today },
-                        withCredentials: true,
-                        timeout: 10000, // Add timeout to prevent hanging requests
-                    }
-                );
-
-                // FIXED: Ensure count is always a number, never undefined/null
-                const newCount = parseInt(response.data.count) || 0;
-
-                console.log(
-                    "New scanned count received:",
-                    newCount,
-                    "Previous count:",
-                    this.newScannedCount
-                );
-
-                // Only update if the value actually changed to prevent unnecessary re-renders
-                if (this.newScannedCount !== newCount) {
-                    this.newScannedCount = newCount;
-                    console.log(
-                        "Updated new scanned count to:",
-                        this.newScannedCount
-                    );
-                }
-            } catch (error) {
-                console.error("Error fetching new scanned count:", error);
-                // FIXED: Don't reset count to 0 on error - keep existing count
-                // This prevents the badge from disappearing due to network issues
-                if (
-                    this.newScannedCount === undefined ||
-                    this.newScannedCount === null
-                ) {
-                    this.newScannedCount = 0;
-                }
+        const response = await axios.get(
+            `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+            {
+                params: { 
+                    date: today,
+                    _t: Date.now() // Cache buster
+                },
+                withCredentials: true,
+                timeout: 10000,
             }
-        },
+        );
+
+        console.log("📦 API Response:", response.data);
+
+        // CRITICAL: Ensure it's a number
+        const newCount = parseInt(response.data.count, 10) || 0;
+        
+        console.log("✅ Parsed count:", newCount, "Type:", typeof newCount);
+
+        // Force Vue to detect the change
+        this.$set(this, 'newScannedCount', newCount);
+        
+        console.log("🎯 After $set, newScannedCount =", this.newScannedCount);
+        
+        // Double-force the update
+        this.$nextTick(() => {
+            this.$forceUpdate();
+            console.log("🔄 Force update complete, count is now:", this.newScannedCount);
+        });
+
+        return newCount;
+    } catch (error) {
+        console.error("❌ Error fetching new scanned count:", error);
+        // Don't reset to 0 on error
+        if (this.newScannedCount === undefined || this.newScannedCount === null) {
+            this.$set(this, 'newScannedCount', 0);
+        }
+        return this.newScannedCount;
+    }
+},
 
         // Add this method to refresh the notification count after scanning
         async refreshNewScannedCount() {

@@ -61,7 +61,7 @@
 
                 <!-- Center: Search -->
                 <div class="navbar-center">
-                    <searching @search="handleSearch" />
+                    <Searching @search="handleSearch" />
                 </div>
 
                 <!-- Right Section -->
@@ -117,7 +117,7 @@
 <script>
 import Button from "primevue/button";
 import Badge from "primevue/badge";
-import Searching from "../page/searching/Searching.vue";
+import Searching from "../page/searching/searching.vue";
 import Sidebar from "./Sidebar.vue";
 import ProfileModal from "./ProfileModal.vue";
 import SettingsModal from "./SettingsModal.vue";
