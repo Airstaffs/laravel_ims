@@ -5,7 +5,7 @@
         </div> -->
 
         <!-- <h2 class="module-title">Labeling Module</h2> -->
-        <TitlePage title="Labelling Management"
+        <TitlePage title="Labeling Management"
             subtitle="Prepare and manage the details required to generate inventory, shipment, or fulfillment labels for products." />
 
         <!-- Desktop Table Container -->
@@ -194,14 +194,14 @@
                             <span>Product Images</span>
                             <span class="badge img-badge">{{
                                 regularImages.length
-                                }}</span>
+                            }}</span>
                         </button>
                         <button class="tab-button" :class="{ active: activeTab === 'captured' }"
                             @click="switchTab('captured')" :disabled="capturedImages.length === 0">
                             <span>Captured Images</span>
                             <span class="badge img-badge">{{
                                 capturedImages.length
-                                }}</span>
+                            }}</span>
                         </button>
                     </div>
 
