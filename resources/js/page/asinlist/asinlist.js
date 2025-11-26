@@ -367,7 +367,6 @@ export default {
 
         // Store management
         async fetchStores() {
-            this.loading = true;
             try {
                 const response = await axios.get(
                     `${API_BASE_URL}/api/asinlist/stores`,
@@ -379,9 +378,7 @@ export default {
             } catch (error) {
                 console.error("Error fetching stores:", error);
                 this.stores = [];
-            } finally {
-                this.loading = false;
-            }
+            } 
         },
 
         changeStore() {

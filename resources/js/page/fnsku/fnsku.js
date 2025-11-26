@@ -39,7 +39,7 @@ export default {
         async fetchInventory() {
             this.loading = true;
             try {
-                const response = await axios.get(`${API_BASE_URL}/fnsku`, {
+                const response = await axios.get(`${API_BASE_URL}/api/fnsku/fnsku`, {
                     params: {
                         search: this.searchQuery,
                         page: this.currentPage,
@@ -70,7 +70,8 @@ export default {
             this.inventory.forEach((item) => (item.checked = this.selectAll));
         },
         toggleDetails(index) {
-            this.$set(this.expandedRows, index, !this.expandedRows[index]);
+            // this.$set(this.expandedRows, index, !this.expandedRows[index]);
+              this.expandedRows[index] = !this.expandedRows[index];
         },
 
         showInsertFnskuModal() {

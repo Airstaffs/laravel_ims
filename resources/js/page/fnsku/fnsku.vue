@@ -1,26 +1,42 @@
 <template>
     <div class="vue-container fnsku-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons">
                 <button @click="showInsertFnskuModal" class="btn fnsku-button">
                     <i class="bi bi-plus"></i> ADD FNSKU
                 </button>
             </div>
+        </div> -->
+
+        <h2 class="module-title"></h2>
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage title="FNSKU Module" />
+            <Button @click="showInsertFnskuModal" label="Add FNSKU" severity="info" outlined size="small"
+                icon="pi pi-plus" class="me-4" />
         </div>
 
-        <h2 class="module-title">FNSKU Module</h2>
-
         <!-- Desktop Table Container -->
-        <div class="table-container desktop-view">
+        <div class="px-4">
+            <XDataTable :value="inventory" :columns="columns" :loading="loading" :paginator="false"
+                tableClass="desktop-view">
+                <template #grading="{ data }">
+                    <Tag :value="data.grading" :severity="getGradingSeverity(data.grading)"
+                        style="font-size: 0.7rem;" />
+                </template>
+
+                <template #status="{ data }">
+                    <Tag :value="data.fnsku_status" :severity="data.fnsku_status === 'available' ? 'success' : 'danger'"
+                        style="font-size: 0.7rem;" />
+                </template>
+
+            </XDataTable>
+        </div>
+        <!-- <div class="table-container desktop-view">
             <table>
                 <thead>
                     <tr>
                         <th class="sticky-header first-col">
-                            <input
-                                type="checkbox"
-                                @click="toggleAll"
-                                v-model="selectAll"
-                            />
+                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
                         </th>
                         <th class="">ASIN</th>
                         <th class="">FNSKU</th>
@@ -44,11 +60,7 @@
                     <tr v-else-if="inventory.length === 0">
                         <td colspan="9" class="text-center">No orders found</td>
                     </tr>
-                    <template
-                        v-else
-                        v-for="(item, index) in inventory"
-                        :key="item.FNSKUID"
-                    >
+                    <template v-else v-for="(item, index) in inventory" :key="item.FNSKUID">
                         <tr>
                             <td class="sticky-col first-col">
                                 <input type="checkbox" v-model="item.checked" />
@@ -69,34 +81,27 @@
                                 </span>
                             </td>
                             <td>
-                                <span
-                                    class="badge text-white"
-                                    :class="{
-                                        'bg-primary':
-                                            item.grading === 'UsedVeryGood',
-                                        'bg-warning':
-                                            item.grading === 'UsedGood',
-                                        'bg-info':
-                                            item.grading === 'UsedLikeNew',
-                                        'bg-secondary': ![
-                                            'UsedVeryGood',
-                                            'UsedGood',
-                                            'UsedLikeNew',
-                                        ].includes(item.grading),
-                                    }"
-                                >
+                                <span class="badge text-white" :class="{
+                                    'bg-primary':
+                                        item.grading === 'UsedVeryGood',
+                                    'bg-warning':
+                                        item.grading === 'UsedGood',
+                                    'bg-info':
+                                        item.grading === 'UsedLikeNew',
+                                    'bg-secondary': ![
+                                        'UsedVeryGood',
+                                        'UsedGood',
+                                        'UsedLikeNew',
+                                    ].includes(item.grading),
+                                }">
                                     {{ item.grading }}
                                 </span>
                             </td>
                             <td>
-                                <span
-                                    class="badge text-white"
-                                    :class="
-                                        item.fnsku_status === 'available'
-                                            ? 'bg-success'
-                                            : 'bg-danger'
-                                    "
-                                >
+                                <span class="badge text-white" :class="item.fnsku_status === 'available'
+                                    ? 'bg-success'
+                                    : 'bg-danger'
+                                    ">
                                     {{ item.fnsku_status }}
                                 </span>
                             </td>
@@ -112,10 +117,7 @@
                             </td>
                             <td>
                                 {{ item.totalquantity }}
-                                <button
-                                    @click="toggleDetails(index)"
-                                    class="more-details-btn"
-                                >
+                                <button @click="toggleDetails(index)" class="more-details-btn">
                                     {{
                                         expandedRows[index]
                                             ? "Less Details"
@@ -135,7 +137,7 @@
                     </template>
                 </tbody>
             </table>
-        </div>
+        </div> -->
 
         <!-- Mobile View -->
         <div class="mobile-view">
@@ -147,13 +149,8 @@
                 <div v-else-if="inventory.length === 0" class="no-data-mobile">
                     No data found
                 </div>
-                <div
-                    class="mobile-card"
-                    v-else
-                    v-for="(item, index) in inventory"
-                    :key="item.FNSKUID"
-                >
-                    <div class="mobile-card-details">
+                <div class="mobile-card" v-else v-for="(item, index) in inventory" :key="item.FNSKUID">
+                    <div class="mobile-card-details d-flex flex-column gap-2" :style="{ fontSize: '14px' }">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
@@ -177,35 +174,20 @@
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Grading:</span>
-                            <span
-                                class="mobile-detail-value badge text-white"
-                                :class="{
-                                    'bg-primary':
-                                        item.grading === 'UsedVeryGood',
-                                    'bg-warning': item.grading === 'UsedGood',
-                                    'bg-info': item.grading === 'UsedLikeNew',
-                                    'bg-secondary': ![
-                                        'UsedVeryGood',
-                                        'UsedGood',
-                                        'UsedLikeNew',
-                                    ].includes(item.grading),
-                                }"
-                            >
-                                {{ item.grading }}
-                            </span>
+                            <Tag :value="item.grading" :severity="getGradingSeverity(item.grading)"
+                                style="font-size: 0.7rem;" />
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Status:</span>
-                            <span
-                                class="mobile-detail-value badge text-white"
-                                :class="
-                                    item.fnsku_status === 'available'
-                                        ? 'bg-success'
-                                        : 'bg-danger'
-                                "
-                            >
+                            <!-- <span class="mobile-detail-value badge text-white" :class="item.fnsku_status === 'available'
+                                ? 'bg-success'
+                                : 'bg-danger'
+                                ">
                                 {{ item.fnsku_status }}
-                            </span>
+                            </span> -->
+                            <Tag :value="item.fnsku_status"
+                                :severity="item.fnsku_status === 'available' ? 'success' : 'danger'"
+                                style="font-size: 0.7rem;" />
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Store name:</span>
@@ -221,13 +203,10 @@
                         </div>
                     </div>
 
-                    <hr />
+                    <!-- <hr />
 
                     <div class="mobile-card-actions">
-                        <button
-                            @click="toggleDetails(index)"
-                            class="mobile-btn mobile-btn-details"
-                        >
+                        <button @click="toggleDetails(index)" class="mobile-btn mobile-btn-details">
                             <i class="fas fa-info-circle"></i>
                             {{
                                 expandedRows[index]
@@ -239,15 +218,12 @@
 
                     <hr v-if="expandedRows[index]" />
 
-                    <div
-                        v-if="expandedRows[index]"
-                        class="mobile-expanded-content"
-                    >
+                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
                         <div class="mobile-section">
                             <strong>Product Name:</strong> {{ item.astitle }}
                         </div>
-                        <!-- Add more fields if needed -->
-                    </div>
+     
+                    </div> -->
                 </div>
             </div>
         </div>
@@ -257,37 +233,19 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select
-                        v-model="perPage"
-                        @change="changePerPage"
-                        class="per-page-select"
-                    >
-                        <option
-                            v-for="option in [10, 15, 20, 50, 100]"
-                            :key="option"
-                            :value="option"
-                        >
+                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
                     </select>
                 </div>
 
                 <div class="pagination">
-                    <button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                    >
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
                         <i class="fas fa-chevron-left"></i> Back
                     </button>
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                    >
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -295,79 +253,90 @@
         </div>
 
         <!-- Insert FNSKU Modal -->
-        <div class="modal fnsku-modal" v-if="isInsertFnskuModalVisible">
+        <Dialog v-model:visible="isInsertFnskuModalVisible" modal header="Add New FNSKU" :style="{ width: '50%' }" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
+            <form>
+                <fieldset>
+                    <label><span>FNSKU:</span></label>
+                    <InputText type="text" id="newFnsku" v-model="newFnskuData.fnsku" placeholder="Enter FNSKU"
+                        size="small" fluid ref="newFnskuInput" @input="focusNext('newMskuInput')" />
+                </fieldset>
+
+                <fieldset>
+                    <label><span>MSKU:</span></label>
+                    <InputText type="text" id="newMsku" v-model="newFnskuData.msku" placeholder="Enter MSKU"
+                        size="small" fluid ref="newMskuInput" @input="focusNext('newAsinInput')" />
+                </fieldset>
+
+                <fieldset>
+                    <label><span>ASIN:</span></label>
+                    <InputText type="text" id="newAsin" v-model="newFnskuData.asin" placeholder="Enter ASIN"
+                        size="small" fluid ref="newAsinInput" @input="focusNext('newTitleInput')" />
+                </fieldset>
+
+                <fieldset>
+                    <label><span>Title:</span></label>
+                    <InputText type="text" id="newTitle" v-model="newFnskuData.astitle"
+                        placeholder="Enter Product Title" size="small" fluid ref="newTitleInput"
+                        @input="focusNext('newGradingInput')" />
+                </fieldset>
+
+                <fieldset>
+                    <label><span>Grading:</span></label>
+                    <Select v-model="newFnskuData.grading" ref="newGradingInput" :options="gradingOptions" size="small"
+                        fluid optionLabel="label" optionValue="value" />
+                </fieldset>
+
+                <fieldset>
+                    <label><span>Store Name:</span></label>
+                    <Select v-model="newFnskuData.storeName" ref="newStoreNameInput" :options="storeOptions"
+                        size="small" fluid optionLabel="label" optionValue="value" />
+                </fieldset>
+
+                <Button class="mt-4" @click="saveNewFnsku" severity="info" size="small" label="Add FNSKU" />
+            </form>
+        </Dialog>
+        <!-- <div class="modal fnsku-modal" v-if="isInsertFnskuModalVisible">
             <div class="modal-overlay" @click="hideInsertFnskuModal"></div>
 
             <div class="modal-content">
                 <div class="modal-header">
                     <h2>Add New FNSKU</h2>
-                    <span class="close" @click="hideInsertFnskuModal"
-                        >&times;</span
-                    >
+                    <span class="close" @click="hideInsertFnskuModal">&times;</span>
                 </div>
 
                 <div class="modal-body">
                     <form class="fnskuForm">
                         <fieldset>
                             <label><span>FNSKU:</span></label>
-                            <input
-                                type="text"
-                                id="newFnsku"
-                                v-model="newFnskuData.fnsku"
-                                placeholder="Enter FNSKU"
-                                class="form-control"
-                                ref="newFnskuInput"
-                                @input="focusNext('newMskuInput')"
-                            />
+                            <input type="text" id="newFnsku" v-model="newFnskuData.fnsku" placeholder="Enter FNSKU"
+                                class="form-control" ref="newFnskuInput" @input="focusNext('newMskuInput')" />
                         </fieldset>
 
                         <fieldset>
                             <label><span>MSKU:</span></label>
-                            <input
-                                type="text"
-                                id="newMsku"
-                                v-model="newFnskuData.msku"
-                                placeholder="Enter MSKU"
-                                class="form-control"
-                                ref="newMskuInput"
-                                @input="focusNext('newAsinInput')"
-                            />
+                            <input type="text" id="newMsku" v-model="newFnskuData.msku" placeholder="Enter MSKU"
+                                class="form-control" ref="newMskuInput" @input="focusNext('newAsinInput')" />
                         </fieldset>
 
                         <fieldset>
                             <label><span>ASIN:</span></label>
-                            <input
-                                type="text"
-                                id="newAsin"
-                                v-model="newFnskuData.asin"
-                                placeholder="Enter ASIN"
-                                class="form-control"
-                                ref="newAsinInput"
-                                @input="focusNext('newTitleInput')"
-                            />
+                            <input type="text" id="newAsin" v-model="newFnskuData.asin" placeholder="Enter ASIN"
+                                class="form-control" ref="newAsinInput" @input="focusNext('newTitleInput')" />
                         </fieldset>
 
                         <fieldset>
                             <label><span>Title:</span></label>
-                            <input
-                                type="text"
-                                id="newTitle"
-                                v-model="newFnskuData.astitle"
-                                placeholder="Enter Product Title"
-                                class="form-control"
-                                ref="newTitleInput"
-                                @input="focusNext('newGradingInput')"
-                            />
+                            <input type="text" id="newTitle" v-model="newFnskuData.astitle"
+                                placeholder="Enter Product Title" class="form-control" ref="newTitleInput"
+                                @input="focusNext('newGradingInput')" />
                         </fieldset>
 
                         <fieldset>
                             <label><span>Grading:</span></label>
-                            <select
-                                id="newGrading"
-                                v-model="newFnskuData.grading"
-                                class="form-control"
-                                ref="newGradingInput"
-                            >
+                            <select id="newGrading" v-model="newFnskuData.grading" class="form-control"
+                                ref="newGradingInput">
                                 <option value="New">New</option>
                                 <option value="Like New">Like New</option>
                                 <option value="Very Good">Very Good</option>
@@ -378,12 +347,8 @@
 
                         <fieldset>
                             <label><span>Store Name:</span></label>
-                            <select
-                                id="newStoreName"
-                                v-model="newFnskuData.storeName"
-                                class="form-control"
-                                ref="newStoreNameInput"
-                            >
+                            <select id="newStoreName" v-model="newFnskuData.storeName" class="form-control"
+                                ref="newStoreNameInput">
                                 <option value="Allrenewed">Allrenewed</option>
                                 <option value="Renovartech">Renovartech</option>
                             </select>
@@ -395,11 +360,96 @@
                     </form>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 </template>
 
 <script>
 import FNSKU from "./fnsku.js";
-export default FNSKU;
+import XDataTable from '../../components/DataTable/XDataTable.vue'
+import { Button, Tag, InputText, Select, Dialog } from "primevue";
+import TitlePage from '../../components/TitlePage/TitlePage.vue'
+const TABLE_COLUMNS = [
+    {
+        selectionMode: "multiple",
+        header: "",
+        style: { width: "3rem", minWidth: "3rem" },
+        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    },
+    {
+        header: "ASIN",
+        field: "ASIN",
+        bodyStyle: "fontSize: 14px"
+    },
+    {
+        header: "FNSKU",
+        field: "FNSKU",
+        bodyStyle: "fontSize: 14px"
+    },
+    {
+        header: "MSKU",
+        field: "MSKU",
+        bodyStyle: "fontSize: 14px"
+    },
+    {
+        header: "Grading",
+        slot: "grading",
+        bodyStyle: "fontSize: 14px"
+    },
+    {
+        header: "Status",
+        slot: "status",
+        bodyStyle: "fontSize: 14px"
+    },
+    {
+        header: "Store Name",
+        field: "storename",
+        bodyStyle: "fontSize: 14px"
+    },
+    {
+        header: "Units",
+        field: "Units",
+        bodyStyle: "fontSize: 14px"
+    }
+]
+
+export default {
+    mixins: [FNSKU],
+    components: {
+        XDataTable,
+        Button,
+        InputText,
+        Tag,
+        Select,
+        TitlePage,
+        Dialog
+    },
+    data() {
+        return {
+            columns: TABLE_COLUMNS,
+            gradingOptions: [
+                { value: "New", label: "New" },
+                { value: "Like New", label: "Like New" },
+                { value: "Very Good", label: "Very Good" },
+                { value: "Good", label: "Good" },
+                { value: "Acceptable", label: "Acceptable" }
+            ],
+            storeOptions: [
+                { value: "Allrenewed", label: "Allrenewed" },
+                { value: "Renovartech", label: "Renovartech" }
+            ]
+        }
+    },
+    methods: {
+        getGradingSeverity(grading) {
+            const severityMap = {
+                'UsedVeryGood': 'success',
+                'UsedGood': 'warn',
+                'UsedLikeNew': 'info'
+            };
+            return severityMap[grading] || 'secondary';
+        }
+    }
+};
 </script>
