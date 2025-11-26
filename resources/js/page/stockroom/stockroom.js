@@ -63,6 +63,16 @@ export default {
             selectAllItems: false,
             isProcessing: false,
 
+
+            //printing function 
+            showPrinterSelectionModal: false,
+            selectedPrinterForPrint: null,
+            availablePrinters: [],
+            loadingPrinters: false,
+            selectedItemsForPrint: [],
+            printSmallLabelOnly: false,
+            rememberedPrinterId: null,
+
             //scanned newly items - Updated for modal integration
             newScannedCount: 0,
             showNewScannedModal: false,
@@ -209,6 +219,50 @@ export default {
             const uniq = Array.from(new Set(this.stores || []));
             return uniq.sort((a, b) => String(a).localeCompare(String(b)));
         },
+
+        singlePrinters() {
+                return this.availablePrinters.filter(printer => !printer.is_married);
+            },
+
+            marriedPrinters() {
+                return this.availablePrinters.filter(printer => printer.is_married);
+            },
+
+            // Group married printers into pairs
+            marriedPrinterGroups() {
+                const married = this.marriedPrinters;
+                const groups = [];
+                const processed = new Set();
+                
+                for (let i = 0; i < married.length; i++) {
+                    const printer = married[i];
+                    
+                    // Skip if already processed
+                    if (processed.has(printer.printerid)) continue;
+                    
+                    // Find its partner (next married printer or itself)
+                    const partner = married[i + 1];
+                    
+                    if (partner && !processed.has(partner.printerid)) {
+                        // Found a pair
+                        groups.push({
+                            label: `${printer.printername_short} & ${partner.printername_short}`,
+                            value: `${printer.printerid},${partner.printerid}` // Store both IDs
+                        });
+                        processed.add(printer.printerid);
+                        processed.add(partner.printerid);
+                    } else {
+                        // Single married printer (no partner found)
+                        groups.push({
+                            label: printer.printername_short,
+                            value: printer.printerid.toString()
+                        });
+                        processed.add(printer.printerid);
+                    }
+                }
+                
+                return groups;
+            },
     },
     methods: {
         setupDailyReset() {
@@ -993,19 +1047,348 @@ export default {
             }
         },
 
-        // Print selected items
-        printSelectedItems() {
-            if (!this.hasSelectedItems) {
-                alert("Please select at least one item to print.");
-                return;
+         // printer functions 
+
+    savePrinterPreference(printerId) {
+    try {
+        // Convert to string to ensure consistency
+        const printerIdString = printerId.toString();
+        localStorage.setItem('preferred_printer_id', printerIdString);
+        this.rememberedPrinterId = printerIdString;
+        console.log('Saved printer preference:', printerIdString);
+    } catch (error) {
+        console.error('Error saving printer preference:', error);
+    }
+},
+
+    /**
+     * Load printer preference from localStorage
+     */
+    loadPrinterPreference() {
+        try {
+            const savedPrinterId = localStorage.getItem('preferred_printer_id');
+            if (savedPrinterId) {
+                this.rememberedPrinterId = savedPrinterId;
+                console.log('Loaded printer preference:', savedPrinterId);
+                return savedPrinterId;
+            }
+        } catch (error) {
+            console.error('Error loading printer preference:', error);
+        }
+        return null;
+    },
+
+    /**
+     * Clear printer preference
+     */
+   clearPrinterPreference() {
+        try {
+            localStorage.removeItem('preferred_printer_id');
+            this.rememberedPrinterId = null;
+            this.selectedPrinterForPrint = null; // Clear the dropdown selection
+            console.log('Cleared printer preference');
+            
+            // Don't show alert if called automatically due to invalid printer
+            if (this.showPrinterSelectionModal) {
+                alert('Printer preference cleared. Please select a printer.');
+            }
+        } catch (error) {
+            console.error('Error clearing printer preference:', error);
+        }
+    },
+
+   // Print selected items
+  async printSelectedItems() {
+    if (!this.hasSelectedItems) {
+        alert("Please select at least one item to print.");
+        return;
+    }
+
+    // Get serial numbers for selected items
+    this.selectedItemsForPrint = [];
+    
+    for (const itemId of this.selectedItems) {
+        const serial = this.currentProcessItem.serials.find(
+            s => s.ProductID === itemId
+        );
+        
+        if (serial && serial.serialnumber) {
+            this.selectedItemsForPrint.push({
+                productId: itemId,
+                serialNumber: serial.serialnumber,
+                rtCounter: serial.rtcounter,
+                fnsku: serial.FNSKUviewer
+            });
+        }
+    }
+
+    if (this.selectedItemsForPrint.length === 0) {
+        alert("No valid serial numbers found for selected items.");
+        return;
+    }
+
+    console.log('Items to print:', this.selectedItemsForPrint);
+
+    // IMPORTANT: Fetch available printers FIRST
+    await this.fetchAvailablePrinters();
+    
+    // THEN auto-select remembered printer AFTER printers are loaded
+    const rememberedPrinterId = this.loadPrinterPreference();
+    
+    if (rememberedPrinterId) {
+        console.log('Checking for remembered printer:', rememberedPrinterId);
+        
+        // Check if remembered printer exists in available printers
+        // Handle both single printer IDs and married printer pairs (comma-separated)
+        const printerExists = this.availablePrinters.some(p => {
+            // Check single printer ID
+            if (p.printerid == rememberedPrinterId) {
+                return true;
+            }
+            // Check married printer pair
+            if (rememberedPrinterId.includes(',')) {
+                const ids = rememberedPrinterId.split(',');
+                return ids.includes(p.printerid.toString());
+            }
+            return false;
+        });
+        
+        // Also check married printer groups
+        const groupExists = this.marriedPrinterGroups.some(g => g.value === rememberedPrinterId);
+        
+        if (printerExists || groupExists) {
+            this.selectedPrinterForPrint = rememberedPrinterId;
+            console.log('Auto-selected remembered printer:', rememberedPrinterId);
+            
+            // Use Vue's nextTick to ensure the DOM is updated
+            this.$nextTick(() => {
+                console.log('Selected printer in dropdown:', this.selectedPrinterForPrint);
+            });
+        } else {
+            console.log('Remembered printer not found in available printers:', rememberedPrinterId);
+            // Clear invalid remembered printer
+            this.clearPrinterPreference();
+        }
+    } else {
+        console.log('No remembered printer found');
+    }
+    
+    // Show printer selection modal
+    this.showPrinterSelectionModal = true;
+},
+
+    // Close printer selection modal
+    closePrinterSelectionModal() {
+        this.showPrinterSelectionModal = false;
+        this.selectedPrinterForPrint = null;
+        this.selectedItemsForPrint = [];
+        this.printSmallLabelOnly = false;
+    },
+
+        // Confirm and execute print with selected printer
+  async confirmPrintSelected() {
+        if (!this.selectedPrinterForPrint) {
+            alert("Please select a printer first.");
+            return;
+        }
+
+        if (this.selectedItemsForPrint.length === 0) {
+            alert("No items to print.");
+            return;
+        }
+
+        this.isProcessing = true;
+
+        try {
+            let successCount = 0;
+            let failCount = 0;
+            const errors = [];
+
+            // Extract the first printer ID as an integer
+            const printerIds = this.selectedPrinterForPrint.includes(',') 
+                ? this.selectedPrinterForPrint.split(',')
+                : [this.selectedPrinterForPrint];
+
+            const primaryPrinterId = parseInt(printerIds[0]);
+
+            // Save printer preference after successful selection
+            this.savePrinterPreference(this.selectedPrinterForPrint);
+
+            // Get printer names for display
+            const printerNames = printerIds.map(id => {
+                const printer = this.availablePrinters.find(p => p.printerid == id);
+                return printer ? printer.printername_short : id;
+            }).join(' & ');
+
+            console.log(`Starting batch print to ${printerNames}...`);
+            console.log(`Print mode: ${this.printSmallLabelOnly ? 'Small Label Only' : 'Full Label with Instruction Card'}`);
+
+            // Print each selected item
+            for (const item of this.selectedItemsForPrint) {
+                try {
+                    const result = await this.printLabelWithSerial(
+                        item.serialNumber, 
+                        primaryPrinterId,
+                        this.printSmallLabelOnly
+                    );
+                    
+                    if (result.success) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                        errors.push(`${item.serialNumber}: ${result.message}`);
+                    }
+                } catch (error) {
+                    failCount++;
+                    errors.push(`${item.serialNumber}: ${error.message}`);
+                }
             }
 
-            this.selectedItems.forEach((itemId) => {
-                this.printLabel(itemId);
+            let message = `Printing completed to ${printerNames}:\n${successCount} successful`;
+            if (failCount > 0) {
+                message += `\n${failCount} failed`;
+                if (errors.length > 0) {
+                    message += `\n\nErrors:\n${errors.slice(0, 3).join('\n')}`;
+                    if (errors.length > 3) {
+                        message += `\n...and ${errors.length - 3} more`;
+                    }
+                }
+            }
+
+            alert(message);
+
+            this.closePrinterSelectionModal();
+            
+            if (failCount === 0) {
+                this.closeProcessModal();
+            }
+            
+            this.fetchInventory();
+
+        } catch (error) {
+            console.error('Error printing selected items:', error);
+            alert('Error printing items: ' + error.message);
+        } finally {
+            this.isProcessing = false;
+        }
+    },
+
+        // Print label using serial number (uses existing printer controller)
+       async printLabelWithSerial(serialNumber, printerId, smallLabelOnly = false) {
+        try {
+            console.log('🖨️ printLabelWithSerial called with:', {
+                serialNumber,
+                printerId,
+                smallLabelOnly,
+                smallLabelOnlyType: typeof smallLabelOnly
             });
 
-            alert(`Printing ${this.selectedItems.length} labels...`);
-        },
+            const checkResponse = await axios.post(
+                `${API_BASE_URL}/api/printer/check-serial`,
+                { serial_number: serialNumber },
+                {
+                    withCredentials: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                    },
+                }
+            );
+
+            if (!checkResponse.data.success || !checkResponse.data.meets_print_conditions) {
+                return {
+                    success: false,
+                    message: checkResponse.data.message || 'Item not ready for printing'
+                };
+            }
+
+            const printPayload = {
+                serial_number: serialNumber,
+                printer_id: printerId,
+                print_data: checkResponse.data,
+                small_label_only: smallLabelOnly
+            };
+
+            console.log('✅ Check passed, sending to print with payload:', printPayload);
+            console.log('📦 small_label_only value being sent:', smallLabelOnly, '(type:', typeof smallLabelOnly, ')');
+
+            const printResponse = await axios.post(
+                `${API_BASE_URL}/api/printer/print-label`,
+                printPayload,
+                {
+                    withCredentials: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                    },
+                }
+            );
+
+            console.log('✅ Print response received:', printResponse.data);
+
+            return printResponse.data;
+
+        } catch (error) {
+            console.error('❌ Error printing label:', error);
+            return {
+                success: false,
+                message: error.response?.data?.message || error.message
+            };
+        }
+    },
+
+// Fetch available printers
+async fetchAvailablePrinters() {
+    this.loadingPrinters = true;
+    try {
+        console.log('Fetching printers from API...');
+        
+            const response = await axios.get(
+            `${API_BASE_URL}/api/printer/get-printers`,
+            {
+                withCredentials: true,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
+            }
+        );
+
+        console.log('Printer API response:', response.data);
+
+        if (response.data && response.data.success && response.data.printers) {
+            this.availablePrinters = response.data.printers;
+            console.log('Available printers loaded:', this.availablePrinters.length);
+            
+            if (this.availablePrinters.length === 0) {
+                alert('No active printers found. Please check printer configuration.');
+            }
+        } else {
+            console.error('Unexpected printer API response format:', response.data);
+            this.availablePrinters = [];
+            alert('No printers available. Please check printer settings.');
+        }
+        
+    } catch (error) {
+        console.error('Error fetching printers:', error);
+        console.error('Error response:', error.response?.data);
+        
+        if (error.response) {
+            alert(`Failed to fetch printers: ${error.response.data.message || error.response.statusText}`);
+        } else {
+            alert('Failed to fetch printers. Please check your connection.');
+        }
+        
+        this.availablePrinters = [];
+    } finally {
+        this.loadingPrinters = false;
+    }
+},
 
         // Validate serial number
         validateSerialNumber() {

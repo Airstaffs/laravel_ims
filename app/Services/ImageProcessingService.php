@@ -980,7 +980,7 @@ class ImageProcessingService
         }
         
         // Create the QR code URL
-        $manual = url('storage/serial_qr/' . $serialNumber . '.png');
+         $manual = $serialNumber;
         
         // Generate QR code in temp directory
         $qrCodePath = $this->imagesPath . '/temp/qr_' . $serialNumber . '.png';
@@ -1662,6 +1662,115 @@ public function generateRecycleRequestLabel()
         return "";
     }
 }
+
+
+
+ /**
+     * Generate condition auxiliary small label (2" x 1" label)
+     * Creates a small label showing item condition (Renewed or Used)
+     * 
+     * @param string $condition The condition to display ('Renewed' or 'Used')
+     * @return string ZPL command string
+     */
+    public function generateConditionAuxSmallLabel($condition)
+    {
+        try {
+            if (empty($condition)) {
+                Log::error("Condition is required for condition label");
+                return "";
+            }
+            
+            // Determine which template to use based on condition
+            if ($condition === 'Renewed') {
+                $templatePath = public_path('images/warranty/templates/AUXrenewed.png');
+            } else {
+                $templatePath = public_path('images/warranty/templates/AUXUsed.png');
+            }
+            
+            if (!file_exists($templatePath)) {
+                Log::error("Condition label template file does not exist: " . $templatePath);
+                return "";
+            }
+            
+            // Load the template
+            $imageData = base64_encode(file_get_contents($templatePath));
+            $decodedImage = base64_decode($imageData);
+            
+            if (!$decodedImage) {
+                Log::error("Failed to decode condition label template image");
+                return "";
+            }
+            
+            // Set dimensions for the smaller label - 2" x 1" at 203dpi
+            $outputImageWidth = 400;
+            $outputImageHeight = 220;
+            
+            // Create a blank image with the specified dimensions
+            $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            
+            // Fill the background with white color
+            $white = \imagecolorallocate($image, 255, 255, 255);
+            \imagefill($image, 0, 0, $white);
+            
+            // Load and scale the template
+            if ($templateImage = @\imagecreatefromstring($decodedImage)) {
+                $scaledImage = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+                \imagefill($scaledImage, 0, 0, $white);
+                \imagecopyresampled($scaledImage, $templateImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight, \imagesx($templateImage), \imagesy($templateImage));
+                \imagecopy($image, $scaledImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight);
+                \imagedestroy($scaledImage);
+                \imagedestroy($templateImage);
+            } else {
+                Log::error("Failed to create image from condition label template data");
+                \imagedestroy($image);
+                return "";
+            }
+            
+            // Convert image to binary string for ZPL
+            $binaryString = "";
+            
+            // Convert image pixels to binary string
+            for ($y = 0; $y < $outputImageHeight; $y++) {
+                for ($x = 0; $x < $outputImageWidth; $x++) {
+                    $color = \imagecolorat($image, $x, $y);
+                    $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
+                }
+            }
+            
+            // Free up memory
+            \imagedestroy($image);
+            
+            // Convert binary string to hexadecimal string
+            $hexString = '';
+            for ($i = 0; $i < strlen($binaryString); $i += 8) {
+                $byteString = substr($binaryString, $i, 8);
+                $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
+            }
+            
+            // Calculate bytes per row
+            $bytesPerRow = ceil($outputImageWidth / 8);
+            
+            // Construct ZPL command for smaller label
+            $zplCommand = "^XA\n";
+            $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
+            $zplCommand .= "^XZ";
+            
+            Log::info('Generated condition label ZPL successfully', [
+                'condition' => $condition
+            ]);
+            
+            return $zplCommand;
+            
+        } catch (Exception $e) {
+            Log::error('Error generating condition label:', [
+                'error' => $e->getMessage(),
+                'condition' => $condition,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return "";
+        }
+    }
     
     /**
      * Get port IP from database
