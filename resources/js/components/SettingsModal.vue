@@ -999,22 +999,49 @@
                                         :options="users"
                                         optionLabel="username"
                                         optionValue="id"
-                                        placeholder="Select user"
+                                        placeholder="Select user (optional)"
                                         class="w-full"
                                         :loading="loadingUsers"
+                                        showClear
                                         @change="filterUserLogs"
                                     />
                                 </div>
                                 <div class="filter-item">
                                     <Calendar
-                                        id="userLogsDate"
-                                        v-model="userLogsForm.selectedDate"
+                                        id="startDateLogs"
+                                        v-model="userLogsForm.startDate"
                                         dateFormat="yy-mm-dd"
-                                        placeholder="Select date"
+                                        placeholder="Start date (optional)"
                                         showIcon
                                         iconDisplay="input"
                                         class="w-full"
+                                        showClear
                                         @date-select="filterUserLogs"
+                                        @clear-click="filterUserLogs"
+                                    />
+                                </div>
+                                <div class="filter-item">
+                                    <Calendar
+                                        id="endDateLogs"
+                                        v-model="userLogsForm.endDate"
+                                        dateFormat="yy-mm-dd"
+                                        placeholder="End date (optional)"
+                                        showIcon
+                                        iconDisplay="input"
+                                        class="w-full"
+                                        showClear
+                                        @date-select="filterUserLogs"
+                                        @clear-click="filterUserLogs"
+                                    />
+                                </div>
+                                <div class="filter-item">
+                                    <Button
+                                        type="button"
+                                        label="Clear All"
+                                        icon="pi pi-filter-slash"
+                                        severity="secondary"
+                                        @click="clearUserLogsFilters"
+                                        :disabled="!hasLogsFilters"
                                     />
                                 </div>
                             </div>
@@ -1028,28 +1055,50 @@
                                 class="logs-table"
                                 :paginator="userLogs.length > 10"
                                 :rows="10"
+                                :loading="loadingUserLogs"
                             >
                                 <Column
-                                    field="action"
-                                    header="User Actions"
-                                    style="min-width: 300px"
+                                    field="username"
+                                    header="Username"
+                                    style="width: 150px"
+                                    sortable
                                 >
                                     <template #body="slotProps">
-                                        <div class="action-cell">
-                                            {{ slotProps.data.action }}
+                                        <div class="username-cell">
+                                            <i
+                                                class="bi bi-person-circle me-2"
+                                            ></i>
+                                            <strong>{{
+                                                slotProps.data.username
+                                            }}</strong>
                                         </div>
                                     </template>
                                 </Column>
                                 <Column
-                                    field="created_at"
-                                    header="Date"
+                                    field="actions"
+                                    header="User Actions"
+                                    style="min-width: 300px; max-width: 500px"
+                                >
+                                    <template #body="slotProps">
+                                        <div class="action-cell">
+                                            {{ slotProps.data.actions }}
+                                        </div>
+                                    </template>
+                                </Column>
+                                <Column
+                                    field="datetimelogs"
+                                    header="Date & Time"
                                     style="width: 200px"
+                                    sortable
                                 >
                                     <template #body="slotProps">
                                         <div class="date-cell">
+                                            <i
+                                                class="bi bi-calendar-event me-1"
+                                            ></i>
                                             {{
                                                 formatLogDate(
-                                                    slotProps.data.created_at
+                                                    slotProps.data.datetimelogs
                                                 )
                                             }}
                                         </div>
@@ -1073,7 +1122,13 @@
                                 class="bi bi-journal-x"
                                 style="font-size: 3rem; color: #94a3b8"
                             ></i>
-                            <p>No logs found</p>
+                            <p>No logs found for the selected criteria</p>
+                            <Button
+                                label="Clear Filters"
+                                icon="pi pi-filter-slash"
+                                @click="clearUserLogsFilters"
+                                class="mt-3"
+                            />
                         </div>
 
                         <!-- Initial State -->
@@ -1082,7 +1137,11 @@
                                 class="bi bi-filter"
                                 style="font-size: 3rem; color: #94a3b8"
                             ></i>
-                            <p>Select a user and date to view logs</p>
+                            <p>Select filters to view user logs</p>
+                            <small class="text-muted"
+                                >All filters are optional - leave empty to see
+                                all logs</small
+                            >
                         </div>
                     </div>
                 </div>
@@ -1093,7 +1152,774 @@
                     <i class="bi bi-printer"></i>
                     <span> Printers</span>
                 </template>
-                <!-- Add content here -->
+
+                <div class="scrollable-content">
+                    <div class="tab-content printers-content">
+                        <!-- Sub-tabs for Printer Management -->
+                        <div class="printer-subtabs">
+                            <Button
+                                :class="[
+                                    'printer-subtab-btn',
+                                    { active: activePrinterTab === 'all' },
+                                ]"
+                                @click="activePrinterTab = 'all'"
+                            >
+                                <i class="bi bi-list-ul me-1"></i>
+                                <span>All Printers</span>
+                            </Button>
+                            <Button
+                                :class="[
+                                    'printer-subtab-btn',
+                                    { active: activePrinterTab === 'small' },
+                                ]"
+                                @click="switchPrinterTab('small')"
+                            >
+                                <i class="bi bi-tag me-1"></i>
+                                <span>Small Label</span>
+                            </Button>
+                            <Button
+                                :class="[
+                                    'printer-subtab-btn',
+                                    {
+                                        active:
+                                            activePrinterTab === 'instruction',
+                                    },
+                                ]"
+                                @click="switchPrinterTab('instruction')"
+                            >
+                                <i class="bi bi-card-text me-1"></i>
+                                <span>Instruction Card</span>
+                            </Button>
+                            <Button
+                                :class="[
+                                    'printer-subtab-btn',
+                                    { active: activePrinterTab === 'married' },
+                                ]"
+                                @click="switchPrinterTab('married')"
+                            >
+                                <i class="bi bi-arrow-through-heart me-1"></i>
+                                <span>Married Printers</span>
+                            </Button>
+                        </div>
+
+                        <!-- All Printers Tab -->
+                        <div
+                            v-show="activePrinterTab === 'all'"
+                            class="printer-tab-content"
+                        >
+                            <div class="printer-actions-header">
+                                <Button
+                                    label="Add Printer"
+                                    icon="pi pi-plus"
+                                    @click="showAddPrinterDialog = true"
+                                    class="add-printer-btn"
+                                />
+                            </div>
+
+                            <!-- Printers Table -->
+                            <div class="printers-table-wrapper">
+                                <DataTable
+                                    v-if="allPrinters.length > 0"
+                                    :value="allPrinters"
+                                    :loading="loadingPrinters"
+                                    stripedRows
+                                    :paginator="allPrinters.length > 10"
+                                    :rows="10"
+                                    class="printers-table"
+                                >
+                                    <Column
+                                        field="printername"
+                                        header="Printer Name"
+                                        sortable
+                                    ></Column>
+                                    <Column
+                                        field="printer_type"
+                                        header="Type"
+                                        sortable
+                                    >
+                                        <template #body="slotProps">
+                                            <Tag
+                                                :value="
+                                                    getPrinterTypeLabel(
+                                                        slotProps.data
+                                                            .printer_type
+                                                    )
+                                                "
+                                                :severity="
+                                                    slotProps.data
+                                                        .printer_type ===
+                                                    'small_label'
+                                                        ? 'info'
+                                                        : 'success'
+                                                "
+                                            />
+                                        </template>
+                                    </Column>
+                                    <Column
+                                        field="printerip"
+                                        header="IP Address"
+                                    ></Column>
+                                    <Column field="status" header="Status">
+                                        <template #body="slotProps">
+                                            <Tag
+                                                :value="
+                                                    slotProps.data.status ||
+                                                    'unknown'
+                                                "
+                                                :severity="
+                                                    getStatusSeverity(
+                                                        slotProps.data.status
+                                                    )
+                                                "
+                                            />
+                                        </template>
+                                    </Column>
+                                    <Column
+                                        header="Actions"
+                                        headerStyle="width: 10rem"
+                                    >
+                                        <template #body="slotProps">
+                                            <Button
+                                                icon="pi pi-pencil"
+                                                severity="primary"
+                                                text
+                                                rounded
+                                                @click="
+                                                    editPrinter(slotProps.data)
+                                                "
+                                                class="mr-1"
+                                            />
+                                            <Button
+                                                icon="pi pi-trash"
+                                                severity="danger"
+                                                text
+                                                rounded
+                                                @click="
+                                                    confirmDeletePrinter(
+                                                        slotProps.data
+                                                    )
+                                                "
+                                            />
+                                        </template>
+                                    </Column>
+
+                                    <template #empty>
+                                        <div class="empty-state">
+                                            <i
+                                                class="bi bi-printer"
+                                                style="
+                                                    font-size: 3rem;
+                                                    color: #94a3b8;
+                                                "
+                                            ></i>
+                                            <p>No printers found</p>
+                                        </div>
+                                    </template>
+                                </DataTable>
+
+                                <div
+                                    v-else-if="!loadingPrinters"
+                                    class="empty-state"
+                                >
+                                    <i
+                                        class="bi bi-printer"
+                                        style="font-size: 3rem; color: #94a3b8"
+                                    ></i>
+                                    <p>No printers found</p>
+                                </div>
+
+                                <div v-else class="loading-state">
+                                    <i
+                                        class="pi pi-spin pi-spinner"
+                                        style="font-size: 2rem"
+                                    ></i>
+                                    <p>Loading printers...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Small Label Tab -->
+                        <div
+                            v-show="activePrinterTab === 'small'"
+                            class="printer-tab-content"
+                        >
+                            <DataTable
+                                v-if="smallLabelPrinters.length > 0"
+                                :value="smallLabelPrinters"
+                                :loading="loadingPrinters"
+                                stripedRows
+                                :paginator="smallLabelPrinters.length > 10"
+                                :rows="10"
+                            >
+                                <Column
+                                    field="printername"
+                                    header="Printer Name"
+                                    sortable
+                                ></Column>
+                                <Column
+                                    field="printerip"
+                                    header="IP Address"
+                                ></Column>
+                                <Column field="port" header="Port"></Column>
+                                <Column field="status" header="Status">
+                                    <template #body="slotProps">
+                                        <Tag
+                                            :value="
+                                                slotProps.data.status ||
+                                                'unknown'
+                                            "
+                                            :severity="
+                                                getStatusSeverity(
+                                                    slotProps.data.status
+                                                )
+                                            "
+                                        />
+                                    </template>
+                                </Column>
+                                <Column header="Actions">
+                                    <template #body="slotProps">
+                                        <Button
+                                            icon="pi pi-pencil"
+                                            severity="primary"
+                                            text
+                                            rounded
+                                            @click="editPrinter(slotProps.data)"
+                                            class="mr-1"
+                                        />
+                                        <Button
+                                            icon="pi pi-trash"
+                                            severity="danger"
+                                            text
+                                            rounded
+                                            @click="
+                                                confirmDeletePrinter(
+                                                    slotProps.data
+                                                )
+                                            "
+                                        />
+                                    </template>
+                                </Column>
+                            </DataTable>
+                            <div v-else class="empty-state">
+                                <i
+                                    class="bi bi-tag"
+                                    style="font-size: 3rem; color: #94a3b8"
+                                ></i>
+                                <p>No small label printers found</p>
+                            </div>
+                        </div>
+
+                        <!-- Instruction Card Tab -->
+                        <div
+                            v-show="activePrinterTab === 'instruction'"
+                            class="printer-tab-content"
+                        >
+                            <DataTable
+                                v-if="instructionCardPrinters.length > 0"
+                                :value="instructionCardPrinters"
+                                :loading="loadingPrinters"
+                                stripedRows
+                                :paginator="instructionCardPrinters.length > 10"
+                                :rows="10"
+                            >
+                                <Column
+                                    field="printername"
+                                    header="Printer Name"
+                                    sortable
+                                ></Column>
+                                <Column
+                                    field="printerip"
+                                    header="IP Address"
+                                ></Column>
+                                <Column field="port" header="Port"></Column>
+                                <Column field="status" header="Status">
+                                    <template #body="slotProps">
+                                        <Tag
+                                            :value="
+                                                slotProps.data.status ||
+                                                'unknown'
+                                            "
+                                            :severity="
+                                                getStatusSeverity(
+                                                    slotProps.data.status
+                                                )
+                                            "
+                                        />
+                                    </template>
+                                </Column>
+                                <Column header="Actions">
+                                    <template #body="slotProps">
+                                        <Button
+                                            icon="pi pi-pencil"
+                                            severity="primary"
+                                            text
+                                            rounded
+                                            @click="editPrinter(slotProps.data)"
+                                            class="mr-1"
+                                        />
+                                        <Button
+                                            icon="pi pi-trash"
+                                            severity="danger"
+                                            text
+                                            rounded
+                                            @click="
+                                                confirmDeletePrinter(
+                                                    slotProps.data
+                                                )
+                                            "
+                                        />
+                                    </template>
+                                </Column>
+                            </DataTable>
+                            <div v-else class="empty-state">
+                                <i
+                                    class="bi bi-card-text"
+                                    style="font-size: 3rem; color: #94a3b8"
+                                ></i>
+                                <p>No instruction card printers found</p>
+                            </div>
+                        </div>
+
+                        <!-- Married Printers Tab -->
+                        <div
+                            v-show="activePrinterTab === 'married'"
+                            class="printer-tab-content"
+                        >
+                            <div class="printer-actions-header">
+                                <Button
+                                    label="Marry Printers"
+                                    icon="pi pi-heart"
+                                    @click="showMarryPrinterDialog = true"
+                                    class="marry-printer-btn"
+                                    severity="success"
+                                />
+                            </div>
+
+                            <Message severity="info" class="mb-3">
+                                <strong
+                                    >Married printers allow you to pair a small
+                                    label printer with an instruction card
+                                    printer for synchronized printing.</strong
+                                >
+                            </Message>
+
+                            <!-- Married Printers List -->
+                            <div
+                                v-if="marriedPrinters.length > 0"
+                                class="married-printers-list"
+                            >
+                                <div
+                                    v-for="marriage in marriedPrinters"
+                                    :key="marriage.id"
+                                    class="married-printer-card"
+                                >
+                                    <div class="marriage-header">
+                                        <div class="marriage-icon">
+                                            <i class="bi bi-heart-fill"></i>
+                                        </div>
+                                        <div class="marriage-title">
+                                            <h6>
+                                                {{ marriage.marriage_name }}
+                                            </h6>
+                                            <small
+                                                v-if="marriage.description"
+                                                class="text-muted"
+                                                >{{
+                                                    marriage.description
+                                                }}</small
+                                            >
+                                        </div>
+                                        <Button
+                                            icon="pi pi-trash"
+                                            severity="danger"
+                                            text
+                                            rounded
+                                            @click="
+                                                confirmDeleteMarriage(marriage)
+                                            "
+                                        />
+                                    </div>
+                                    <div class="marriage-printers">
+                                        <div class="printer-pair">
+                                            <div class="printer-box">
+                                                <i class="bi bi-tag-fill"></i>
+                                                <span>{{
+                                                    marriage.small_label_printer_name
+                                                }}</span>
+                                            </div>
+                                            <i
+                                                class="bi bi-arrow-left-right"
+                                            ></i>
+                                            <div class="printer-box">
+                                                <i class="bi bi-card-text"></i>
+                                                <span>{{
+                                                    marriage.instruction_card_printer_name
+                                                }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div
+                                v-else-if="!loadingMarriages"
+                                class="empty-state"
+                            >
+                                <i
+                                    class="bi bi-heart"
+                                    style="font-size: 3rem; color: #94a3b8"
+                                ></i>
+                                <p>No married printers found</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Printer Dialog -->
+                <Dialog
+                    v-model:visible="showAddPrinterDialog"
+                    modal
+                    header="Add New Printer"
+                    :style="{ width: '600px' }"
+                    class="add-printer-dialog"
+                >
+                    <form @submit.prevent="addPrinter" class="printer-form">
+                        <div class="printer-form-header">
+                            <div class="printer-icon-wrapper">
+                                <i class="bi bi-printer-fill"></i>
+                            </div>
+                            <div class="ms-3">
+                                <h6 class="mb-0">Configure New Printer</h6>
+                                <small class="text-muted"
+                                    >Set up printer for your operations</small
+                                >
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label class="form-label">
+                                    <i class="bi bi-printer me-1"></i>
+                                    Printer Name
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <InputText
+                                    v-model="printerForm.printer_name"
+                                    placeholder="Enter printer name"
+                                    required
+                                    class="w-full"
+                                />
+                            </div>
+
+                            <div class="form-field">
+                                <label class="form-label">
+                                    <i class="bi bi-tag me-1"></i>
+                                    Type
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <Dropdown
+                                    v-model="printerForm.printer_type"
+                                    :options="printerTypeOptions"
+                                    optionLabel="label"
+                                    optionValue="value"
+                                    placeholder="Select Type"
+                                    class="w-full"
+                                    required
+                                />
+                            </div>
+
+                            <div class="form-field">
+                                <label class="form-label">
+                                    <i class="bi bi-globe me-1"></i>
+                                    IP Address
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <InputText
+                                    v-model="printerForm.ip_address"
+                                    placeholder="192.168.1.100"
+                                    required
+                                    class="w-full"
+                                />
+                            </div>
+
+                            <div class="form-field">
+                                <label class="form-label">
+                                    <i class="bi bi-plug me-1"></i>
+                                    Port
+                                </label>
+                                <InputNumber
+                                    v-model="printerForm.port"
+                                    :min="1"
+                                    :max="65535"
+                                    placeholder="9100"
+                                    class="w-full"
+                                />
+                            </div>
+
+                            <div class="form-field full-width">
+                                <label class="form-label">
+                                    <i class="bi bi-card-text me-1"></i>
+                                    Description
+                                    <span class="text-muted">(Optional)</span>
+                                </label>
+                                <Textarea
+                                    v-model="printerForm.description"
+                                    rows="2"
+                                    placeholder="Optional notes about this printer..."
+                                    class="w-full"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="form-footer">
+                            <Button
+                                label="Cancel"
+                                icon="pi pi-times"
+                                severity="secondary"
+                                @click="showAddPrinterDialog = false"
+                            />
+                            <Button
+                                type="submit"
+                                label="Add Printer"
+                                icon="pi pi-check"
+                                :loading="isAddingPrinter"
+                            />
+                        </div>
+                    </form>
+                </Dialog>
+
+                <!-- Edit Printer Dialog -->
+                <Dialog
+                    v-model:visible="showEditPrinterDialog"
+                    modal
+                    header="Edit Printer"
+                    :style="{ width: '600px' }"
+                    class="edit-printer-dialog"
+                >
+                    <form
+                        @submit.prevent="updatePrinter"
+                        class="edit-printer-form"
+                    >
+                        <div class="printer-form-header">
+                            <div class="printer-icon-wrapper">
+                                <i class="bi bi-gear-fill"></i>
+                            </div>
+                            <div class="ms-3">
+                                <h6 class="mb-0">Update Printer Settings</h6>
+                                <small class="text-muted"
+                                    >Modify Configuration Settings</small
+                                >
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">
+                                <i class="bi bi-printer me-1"></i>
+                                Printer Name
+                                <span class="text-danger">*</span>
+                            </label>
+                            <InputText
+                                v-model="editPrinterForm.printername"
+                                required
+                                class="w-full"
+                            />
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">
+                                <i class="bi bi-tag me-1"></i>
+                                Type
+                                <span class="text-danger">*</span>
+                            </label>
+                            <Dropdown
+                                v-model="editPrinterForm.printer_type"
+                                :options="printerTypeOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                class="w-full"
+                                required
+                            />
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-field">
+                                <label class="form-label">
+                                    <i class="bi bi-globe me-1"></i>
+                                    IP Address
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <InputText
+                                    v-model="editPrinterForm.printerip"
+                                    required
+                                    class="w-full"
+                                />
+                            </div>
+
+                            <div class="form-field">
+                                <label class="form-label">
+                                    <i class="bi bi-plug me-1"></i>
+                                    Port
+                                </label>
+                                <InputNumber
+                                    v-model="editPrinterForm.port"
+                                    :min="1"
+                                    :max="65535"
+                                    class="w-full"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">
+                                <i class="bi bi-circle-fill me-1"></i>
+                                Status
+                            </label>
+                            <Dropdown
+                                v-model="editPrinterForm.status"
+                                :options="statusOptions"
+                                optionLabel="label"
+                                optionValue="value"
+                                class="w-full"
+                            />
+                        </div>
+
+                        <div class="form-field">
+                            <label class="form-label">
+                                <i class="bi bi-card-text me-1"></i>
+                                Description
+                                <span class="text-muted">(Optional)</span>
+                            </label>
+                            <Textarea
+                                v-model="editPrinterForm.description"
+                                rows="3"
+                                class="w-full"
+                            />
+                        </div>
+
+                        <div class="form-footer">
+                            <Button
+                                label="Cancel"
+                                icon="pi pi-times"
+                                severity="secondary"
+                                @click="showEditPrinterDialog = false"
+                            />
+                            <Button
+                                type="submit"
+                                label="Save Changes"
+                                icon="pi pi-check"
+                                :loading="isUpdatingPrinter"
+                            />
+                        </div>
+                    </form>
+                </Dialog>
+
+                <!-- Marry Printers Dialog -->
+                <Dialog
+                    v-model:visible="showMarryPrinterDialog"
+                    modal
+                    header="Marry Printers"
+                    :style="{ width: '650px' }"
+                    class="marry-printer-dialog"
+                >
+                    <form @submit.prevent="marryPrinters" class="printer-form">
+                        <div class="marriage-info-card">
+                            <div class="marriage-icon-wrapper">
+                                <i class="bi bi-heart-fill"></i>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Create Printer Marriage</h6>
+                                <p class="mb-0 text-muted">
+                                    Join two printers to work together
+                                    seamlessly for synchronized printing
+                                    operations.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="form-grid">
+                            <div class="form-field">
+                                <label class="form-label">
+                                    <i class="bi bi-tag-fill me-1"></i>
+                                    Small Label Printer
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <Dropdown
+                                    v-model="
+                                        marriageForm.small_label_printer_id
+                                    "
+                                    :options="smallLabelPrinters"
+                                    optionLabel="printername"
+                                    optionValue="printerid"
+                                    placeholder="Choose your label printer..."
+                                    class="w-full"
+                                    required
+                                />
+                            </div>
+
+                            <div class="form-field">
+                                <label class="form-label">
+                                    <i class="bi bi-card-text me-1"></i>
+                                    Instruction Card Printer
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <Dropdown
+                                    v-model="
+                                        marriageForm.instruction_card_printer_id
+                                    "
+                                    :options="instructionCardPrinters"
+                                    optionLabel="printername"
+                                    optionValue="printerid"
+                                    placeholder="Choose your card printer..."
+                                    class="w-full"
+                                    required
+                                />
+                            </div>
+
+                            <div class="form-field full-width">
+                                <label class="form-label">
+                                    <i class="bi bi-tag me-1"></i>
+                                    Marriage Name
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <InputText
+                                    v-model="marriageForm.marriage_name"
+                                    placeholder="e.g., Production Line Alpha, Warehouse Station 1"
+                                    required
+                                    class="w-full"
+                                />
+                            </div>
+
+                            <div class="form-field full-width">
+                                <label class="form-label">
+                                    <i class="bi bi-card-text me-1"></i>
+                                    Description
+                                    <span class="text-muted">(Optional)</span>
+                                </label>
+                                <Textarea
+                                    v-model="marriageForm.description"
+                                    rows="3"
+                                    placeholder="Describe the purpose of this printer marriage, location, or any special notes..."
+                                    class="w-full"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="form-footer">
+                            <Button
+                                label="Cancel"
+                                icon="pi pi-times"
+                                severity="secondary"
+                                @click="showMarryPrinterDialog = false"
+                            />
+                            <Button
+                                type="submit"
+                                label="Create Marriage"
+                                icon="pi pi-heart"
+                                severity="success"
+                                :loading="isMarryingPrinters"
+                            />
+                        </div>
+                    </form>
+                </Dialog>
             </TabPanel>
         </TabView>
     </Dialog>
@@ -1275,14 +2101,67 @@ export default {
             timeRecords: [],
             loadingTimeRecords: false,
             hasFiltered: false,
+
             // User Logs management
             userLogsForm: {
                 selectedUserId: null,
-                selectedDate: null,
+                startDate: null,
+                endDate: null,
             },
             userLogs: [],
             loadingUserLogs: false,
             hasFilteredLogs: false,
+
+            // Printer management
+            activePrinterTab: "all",
+            allPrinters: [],
+            showAddPrinterDialog: false,
+            showEditPrinterDialog: false,
+            showMarryPrinterDialog: false,
+            isAddingPrinter: false,
+            isUpdatingPrinter: false,
+
+            printerForm: {
+                printer_name: "",
+                printer_type: "",
+                ip_address: "",
+                port: 9100,
+                description: "",
+            },
+
+            editPrinterForm: {
+                printerid: null,
+                printername: "",
+                printer_type: "",
+                printerip: "",
+                port: 9100,
+                status: "active",
+                description: "",
+            },
+
+            printerTypeOptions: [
+                { label: "🏷️ Small Label", value: "small_label" },
+                { label: "📋 Instruction Card", value: "instruction_card" },
+            ],
+
+            statusOptions: [
+                { label: "Active", value: "active" },
+                { label: "Inactive", value: "inactive" },
+                { label: "Maintenance", value: "maintenance" },
+            ],
+
+            // Married printers
+            showMarryPrinterForm: false,
+            isMarryingPrinters: false,
+            loadingMarriages: false,
+            marriedPrinters: [],
+
+            marriageForm: {
+                small_label_printer_id: null,
+                instruction_card_printer_id: null,
+                marriage_name: "",
+                description: "",
+            },
         };
     },
     watch: {
@@ -1320,6 +2199,7 @@ export default {
         this.applyThemeColor();
         this.fetchUsers();
         this.fetchStores();
+        this.fetchPrinters();
     },
     beforeUnmount() {},
     computed: {
@@ -1331,6 +2211,26 @@ export default {
             const query = this.userSearchQuery.toLowerCase();
             return this.users.filter((user) =>
                 user.username.toLowerCase().includes(query)
+            );
+        },
+
+        hasLogsFilters() {
+            return (
+                this.userLogsForm.selectedUserId !== null ||
+                this.userLogsForm.startDate !== null ||
+                this.userLogsForm.endDate !== null
+            );
+        },
+
+        smallLabelPrinters() {
+            return this.allPrinters.filter(
+                (p) => p.printer_type === "small_label"
+            );
+        },
+
+        instructionCardPrinters() {
+            return this.allPrinters.filter(
+                (p) => p.printer_type === "instruction_card"
             );
         },
     },
@@ -2356,35 +3256,45 @@ export default {
         },
 
         async filterUserLogs() {
-            // Don't filter if required fields are empty
-            if (
-                !this.userLogsForm.selectedUserId ||
-                !this.userLogsForm.selectedDate
-            ) {
-                return;
-            }
-
             this.loadingUserLogs = true;
             this.hasFilteredLogs = true;
 
             try {
-                const selectedDate = this.formatDate(
-                    this.userLogsForm.selectedDate
-                );
+                // Build query parameters
+                const params = new URLSearchParams();
 
-                const response = await fetch(
-                    `/get-user-logs/${this.userLogsForm.selectedUserId}?date=${selectedDate}`,
-                    {
-                        method: "GET",
-                        headers: {
-                            Accept: "application/json",
-                            "X-Requested-With": "XMLHttpRequest",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            ).content,
-                        },
-                    }
-                );
+                if (this.userLogsForm.selectedUserId) {
+                    params.append("user_id", this.userLogsForm.selectedUserId);
+                }
+
+                if (this.userLogsForm.startDate) {
+                    params.append(
+                        "start_date_logs",
+                        this.formatDateForAPI(this.userLogsForm.startDate)
+                    );
+                }
+
+                if (this.userLogsForm.endDate) {
+                    params.append(
+                        "end_date_logs",
+                        this.formatDateForAPI(this.userLogsForm.endDate)
+                    );
+                }
+
+                const url = `/get-user-logs${
+                    params.toString() ? "?" + params.toString() : ""
+                }`;
+
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: {
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": document.querySelector(
+                            'meta[name="csrf-token"]'
+                        ).content,
+                    },
+                });
 
                 const contentType = response.headers.get("content-type");
                 if (!contentType || !contentType.includes("application/json")) {
@@ -2394,16 +3304,31 @@ export default {
                 const data = await response.json();
 
                 if (response.ok) {
-                    this.userLogs = data.logs || data || [];
+                    this.userLogs = data || [];
                 } else {
                     throw new Error("Failed to fetch user logs");
                 }
             } catch (error) {
                 console.error("Fetch user logs error:", error);
                 this.userLogs = [];
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Failed to load user logs. Please try again.",
+                });
             } finally {
                 this.loadingUserLogs = false;
             }
+        },
+
+        clearUserLogsFilters() {
+            this.userLogsForm = {
+                selectedUserId: null,
+                startDate: null,
+                endDate: null,
+            };
+            this.userLogs = [];
+            this.hasFilteredLogs = false;
         },
 
         formatLogDate(dateString) {
@@ -2417,6 +3342,400 @@ export default {
                 minute: "2-digit",
                 second: "2-digit",
             });
+        },
+
+        formatDateForAPI(date) {
+            if (!date) return "";
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, "0");
+            const day = String(d.getDate()).padStart(2, "0");
+            return `${year}-${month}-${day}`;
+        },
+
+        // ==================== PRINTER MANAGEMENT ====================
+
+        async fetchPrinters() {
+            this.loadingPrinters = true;
+            try {
+                const response = await fetch(
+                    "/api/printer-management/get-printers",
+                    {
+                        method: "GET",
+                        headers: {
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+                    }
+                );
+
+                const data = await response.json();
+
+                if (response.ok && data.printers) {
+                    this.allPrinters = data.printers;
+                } else {
+                    throw new Error("Failed to fetch printers");
+                }
+            } catch (error) {
+                console.error("Fetch printers error:", error);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: "Failed to load printers. Please try again.",
+                });
+            } finally {
+                this.loadingPrinters = false;
+            }
+        },
+
+        switchPrinterTab(tab) {
+            this.activePrinterTab = tab;
+            if (tab === "married" && this.marriedPrinters.length === 0) {
+                this.fetchMarriedPrinters();
+            }
+        },
+
+        async addPrinter() {
+            this.isAddingPrinter = true;
+
+            try {
+                const response = await fetch(
+                    "/api/printer-management/add-printer",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+                        body: JSON.stringify(this.printerForm),
+                    }
+                );
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || "Failed to add printer");
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Success",
+                    text: "Printer added successfully!",
+                    confirmButtonText: "OK",
+                });
+
+                // Reset form
+                this.printerForm = {
+                    printer_name: "",
+                    printer_type: "",
+                    ip_address: "",
+                    port: 9100,
+                    description: "",
+                };
+
+                this.showAddPrinterDialog = false;
+                await this.fetchPrinters();
+            } catch (error) {
+                console.error("Add printer error:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: error.message || "Failed to add printer",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.isAddingPrinter = false;
+            }
+        },
+
+        editPrinter(printer) {
+            this.editPrinterForm = {
+                printerid: printer.printerid,
+                printername: printer.printername,
+                printer_type: printer.printer_type,
+                printerip: printer.printerip,
+                port: printer.port || 9100,
+                status: printer.status || "active",
+                description: printer.description || "",
+            };
+            this.showEditPrinterDialog = true;
+        },
+
+        async updatePrinter() {
+            this.isUpdatingPrinter = true;
+
+            try {
+                const response = await fetch(
+                    `/api/printer-management/update-printer/${this.editPrinterForm.printerid}`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+                        body: JSON.stringify(this.editPrinterForm),
+                    }
+                );
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || "Failed to update printer");
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Success",
+                    text: "Printer updated successfully!",
+                    confirmButtonText: "OK",
+                });
+
+                this.showEditPrinterDialog = false;
+                await this.fetchPrinters();
+            } catch (error) {
+                console.error("Update printer error:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: error.message || "Failed to update printer",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.isUpdatingPrinter = false;
+            }
+        },
+
+        async confirmDeletePrinter(printer) {
+            const result = await Swal.fire({
+                title: "Delete printer?",
+                text: `Are you sure you want to delete ${printer.printername}? This action cannot be undone.`,
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: "Delete",
+                cancelButtonText: "Cancel",
+            });
+
+            if (result.isConfirmed) {
+                await this.deletePrinter(printer.printerid);
+            }
+        },
+
+        async deletePrinter(printerId) {
+            try {
+                const response = await fetch(
+                    `/api/printer-management/delete-printer/${printerId}`,
+                    {
+                        method: "DELETE",
+                        headers: {
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                            Accept: "application/json",
+                        },
+                    }
+                );
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || "Failed to delete printer");
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Deleted",
+                    text: "Printer has been deleted.",
+                    confirmButtonText: "OK",
+                });
+
+                await this.fetchPrinters();
+            } catch (error) {
+                console.error("Delete printer error:", error);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: error.message || "Failed to delete printer",
+                    confirmButtonText: "OK",
+                });
+            }
+        },
+
+        getPrinterTypeLabel(type) {
+            const option = this.printerTypeOptions.find(
+                (o) => o.value === type
+            );
+            return option ? option.label : type;
+        },
+
+        getStatusSeverity(status) {
+            const severityMap = {
+                active: "success",
+                inactive: "secondary",
+                maintenance: "warning",
+                unknown: "danger",
+            };
+            return severityMap[status] || "secondary";
+        },
+
+        // ==================== MARRIED PRINTERS ====================
+
+        async fetchMarriedPrinters() {
+            this.loadingMarriages = true;
+            try {
+                const response = await fetch(
+                    "/api/printer-management/get-married-printers",
+                    {
+                        method: "GET",
+                        headers: {
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+                    }
+                );
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.marriedPrinters = data.marriages || [];
+                }
+            } catch (error) {
+                console.error("Fetch married printers error:", error);
+            } finally {
+                this.loadingMarriages = false;
+            }
+        },
+
+        async marryPrinters() {
+            this.isMarryingPrinters = true;
+
+            try {
+                const response = await fetch(
+                    "/api/printer-management/marry-printers",
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                            "X-Requested-With": "XMLHttpRequest",
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                        },
+                        body: JSON.stringify(this.marriageForm),
+                    }
+                );
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(
+                        data.message || "Failed to create marriage"
+                    );
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Success",
+                    text: "Printers married successfully!",
+                    confirmButtonText: "OK",
+                });
+
+                // Reset form
+                this.marriageForm = {
+                    small_label_printer_id: null,
+                    instruction_card_printer_id: null,
+                    marriage_name: "",
+                    description: "",
+                };
+
+                this.showMarryPrinterDialog = false;
+                await this.fetchMarriedPrinters();
+            } catch (error) {
+                console.error("Marry printers error:", error);
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: error.message || "Failed to marry printers",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.isMarryingPrinters = false;
+            }
+        },
+
+        async confirmDeleteMarriage(marriage) {
+            const result = await Swal.fire({
+                title: "Delete marriage?",
+                text: `Are you sure you want to delete the marriage "${marriage.marriage_name}"?`,
+                icon: "warning",
+                showCancelButton: true,
+                confirmButtonColor: "#d33",
+                cancelButtonColor: "#6c757d",
+                confirmButtonText: "Delete",
+                cancelButtonText: "Cancel",
+            });
+
+            if (result.isConfirmed) {
+                await this.deleteMarriage(marriage.id);
+            }
+        },
+
+        async deleteMarriage(marriageId) {
+            try {
+                const response = await fetch(
+                    `/api/printer-management/delete-marriage/${marriageId}`,
+                    {
+                        method: "DELETE",
+                        headers: {
+                            "X-CSRF-TOKEN": document.querySelector(
+                                'meta[name="csrf-token"]'
+                            ).content,
+                            Accept: "application/json",
+                        },
+                    }
+                );
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(
+                        data.message || "Failed to delete marriage"
+                    );
+                }
+
+                await Swal.fire({
+                    icon: "success",
+                    title: "Deleted",
+                    text: "Marriage has been deleted.",
+                    confirmButtonText: "OK",
+                });
+
+                await this.fetchMarriedPrinters();
+            } catch (error) {
+                console.error("Delete marriage error:", error);
+                Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: error.message || "Failed to delete marriage",
+                    confirmButtonText: "OK",
+                });
+            }
         },
     },
 };
@@ -3457,7 +4776,23 @@ export default {
     margin-bottom: 1.5rem;
 }
 
-.time-record-form .inline-filters,
+/* ==================== USER LOGS TAB ==================== */
+
+.user-logs-content {
+    padding: 1rem;
+}
+
+.user-logs-content h3 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.user-logs-form {
+    margin-bottom: 1.5rem;
+}
+
 .user-logs-form .inline-filters {
     display: flex;
     justify-content: flex-end;
@@ -3466,15 +4801,247 @@ export default {
     margin-bottom: 1.5rem;
 }
 
-.time-record-form .filter-item,
 .user-logs-form .filter-item {
     display: flex;
     align-items: center;
     gap: 0.75rem;
 }
 
-.time-record-form .p-select {
-    width: 150px;
+/* ==================== USER LOGS TAB ==================== */
+
+.user-logs-form :deep(.p-dropdown),
+.user-logs-form :deep(.p-calendar) {
+    width: 200px;
+}
+
+.user-logs-table {
+    margin-top: 1rem;
+}
+
+.logs-table {
+    width: 100%;
+}
+
+.username-cell {
+    display: flex;
+    align-items: center;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.username-cell i {
+    color: #007bff;
+    font-size: 1.2rem;
+}
+
+.action-cell {
+    line-height: 1.5;
+    color: #495057;
+}
+
+.date-cell {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    color: #6c757d;
+}
+
+.date-cell i {
+    color: #007bff;
+}
+
+/* ==================== PRINTERS TAB ==================== */
+
+.printers-content {
+    padding: 1rem;
+}
+
+.printer-subtabs {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+.printer-subtab-btn {
+    background: transparent !important;
+    border: none !important;
+    color: #6c757d !important;
+    font-weight: 500;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 3px solid transparent !important;
+    transition: all 0.3s ease;
+}
+
+.printer-subtab-btn:hover {
+    color: #007bff !important;
+    background: rgba(0, 123, 255, 0.05) !important;
+}
+
+.printer-subtab-btn.active {
+    color: #007bff !important;
+    border-bottom-color: #007bff !important;
+    font-weight: 600;
+}
+
+.printer-tab-content {
+    padding: 1rem 0;
+}
+
+.printer-actions-header {
+    margin-bottom: 1.5rem;
+}
+
+.add-printer-btn,
+.marry-printer-btn {
+    font-weight: 600;
+}
+
+/* Printer Form Styles */
+.add-printer-form,
+.marry-printer-form {
+    background: #f8f9fa;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.printer-form-header,
+.marriage-info-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.printer-icon-wrapper,
+.marriage-icon-wrapper {
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #007bff;
+    color: white;
+    border-radius: 50%;
+    font-size: 1.5rem;
+}
+
+.marriage-icon-wrapper {
+    background: #28a745;
+}
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-field.full-width {
+    grid-column: 1 / -1;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+}
+
+.form-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+/* Married Printers List */
+.married-printers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.married-printer-card {
+    background: white;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.married-printer-card:hover {
+    border-color: #28a745;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.1);
+}
+
+.marriage-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.marriage-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #28a745;
+    color: white;
+    border-radius: 50%;
+    font-size: 1.2rem;
+}
+
+.marriage-title {
+    flex: 1;
+}
+
+.marriage-title h6 {
+    margin: 0;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.marriage-printers {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.printer-pair {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.printer-box {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-weight: 500;
+}
+
+.printer-box i {
+    font-size: 1.2rem;
+    color: #007bff;
+}
+
+.mr-1 {
+    margin-right: 0.25rem;
 }
 
 /* ==================== RESPONSIVE DESIGN ==================== */
@@ -3712,21 +5279,30 @@ export default {
     }
 
     .user-logs-form .inline-filters {
-        flex-direction: column;
-        gap: 0.75rem;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: stretch;
+        margin: 0;
     }
 
     .user-logs-form .filter-item {
         width: 100%;
     }
 
-    .user-logs-form :deep(.p-inputtext),
-    .user-logs-form :deep(.p-datepicker) {
+    .user-logs-form .filter-item:nth-child(n + 2):nth-child(-n + 3) {
+        width: calc(100% / 2 - 6px);
+    }
+
+    .user-logs-form :deep(.p-dropdown),
+    .user-logs-form :deep(.p-calendar),
+    .user-logs-form :deep(.p-button) {
         width: 100%;
     }
 
-    .user-logs-table {
-        overflow-x: auto;
+    .user-logs-form :deep(.p-datepicker-input) {
+        width: 100%;
+        padding-right: 35px !important;
     }
 
     .logs-table :deep(.p-datatable-thead) {
@@ -3758,6 +5334,46 @@ export default {
 
     .logs-table :deep(.p-datatable-tbody > tr > td:last-child) {
         border-radius: 0 0 6px 6px;
+    }
+
+    .username-cell,
+    .date-cell {
+        display: block;
+    }
+
+    .action-cell {
+        word-wrap: break-word;
+        word-break: break-word;
+        overflow-wrap: break-word;
+        white-space: normal;
+        max-width: 100%;
+    }
+
+    .printer-subtabs {
+        overflow-x: auto;
+        overflow-y: hidden;
+        white-space: nowrap;
+    }
+
+    .printer-subtab-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .printer-pair {
+        flex-direction: column;
+    }
+
+    .printer-pair i.bi-arrow-left-right {
+        transform: rotate(90deg);
     }
 }
 

@@ -621,6 +621,23 @@
 
                 <div class="scrollable-content">
                     <div class="time-record-content">
+                        <!-- Total Hours Summary -->
+                        <Card class="total-hours-card">
+                            <template #content>
+                                <div class="total-hours-display">
+                                    <i class="pi pi-clock"></i>
+                                    <div>
+                                        <span class="total-label"
+                                            >Total Hours</span
+                                        >
+                                        <span class="total-value">{{
+                                            totalHours
+                                        }}</span>
+                                    </div>
+                                </div>
+                            </template>
+                        </Card>
+
                         <Card class="filter-card">
                             <template #content>
                                 <div class="filter-section">
@@ -671,23 +688,6 @@
                                                 outlined
                                             />
                                         </div>
-                                    </div>
-                                </div>
-                            </template>
-                        </Card>
-
-                        <!-- Total Hours Summary -->
-                        <Card class="total-hours-card">
-                            <template #content>
-                                <div class="total-hours-display">
-                                    <i class="pi pi-clock"></i>
-                                    <div>
-                                        <span class="total-label"
-                                            >Total Hours</span
-                                        >
-                                        <span class="total-value">{{
-                                            totalHours
-                                        }}</span>
                                     </div>
                                 </div>
                             </template>
@@ -3662,11 +3662,6 @@ export default {
         border-radius: 2px;
     }
 
-    .filter-grid {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
-    }
-
     .filter-actions {
         width: 100%;
     }
@@ -3785,11 +3780,6 @@ export default {
         align-items: flex-start;
     }
 
-    .filter-grid {
-        grid-template-columns: 1fr;
-        gap: 0.5rem;
-    }
-
     .filter-actions {
         width: 100%;
     }
@@ -3858,6 +3848,30 @@ export default {
     .record-time,
     .computed-hours-badge {
         justify-content: flex-start;
+    }
+
+    .time-record-content :deep(.filter-grid) {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .time-record-content :deep(.filter-field) {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .time-record-content :deep(.p-datepicker-input) {
+        width: 100%;
+    }
+
+    .time-record-content :deep(.filter-actions) {
+        flex-basis: 100%;
+        display: flex;
+        gap: 0.75rem;
     }
 
     .privileges-grid {
@@ -4014,10 +4028,6 @@ export default {
 
     .section-title {
         font-size: 0.95rem;
-    }
-
-    .filter-field label {
-        font-size: 0.9rem;
     }
 
     /* More compact stacked table */
