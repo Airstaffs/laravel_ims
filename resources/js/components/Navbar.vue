@@ -105,7 +105,7 @@
 
             <!-- Mobile: Second Row - Search -->
             <div class="navbar-search-mobile">
-                <searching @search="handleSearch" />
+                <Searching @search="handleSearch" />
             </div>
         </div>
     </nav>

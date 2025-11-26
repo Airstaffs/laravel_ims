@@ -5,7 +5,7 @@
         </div> -->
 
         <!-- <h1 class="module-title">NotFound Items</h1> -->
-        <TitlePage title="Missing Inventory"
+        <TitlePage title="Missing Inventory Management"
             subtitle="Track and manage inventory items that have been flagged as missing or not found during cycle counting or system reconciliation." />
         <!-- Desktop Table Container -->
         <div class="p-4">
@@ -14,7 +14,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
+                            :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">

@@ -5,7 +5,7 @@
         </div> -->
 
         <!-- <h1 class="module-title">Packaging Module</h1> -->
-        <TitlePage title="Order Packaging"
+        <TitlePage title="Packing Management"
             subtitle="Manage and finalize products by preparing packaging, ensuring all components are included, and staging for final shipment." />
 
         <!-- Desktop Table Container -->
@@ -15,7 +15,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
+                            :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">
@@ -475,7 +475,7 @@ const TABLE_COLUMNS = [
         field: "gallery",
         header: "Gallery",
         slot: "gallery",
-        style: { width: "4rem", minWidth: "4rem" },
+        style: { width: "5rem", minWidth: "5rem" },
     },
     {
         field: "ProductTitle",

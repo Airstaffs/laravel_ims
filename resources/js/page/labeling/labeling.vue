@@ -5,7 +5,7 @@
         </div> -->
 
         <!-- <h2 class="module-title">Labeling Module</h2> -->
-        <TitlePage title="Label Generation"
+        <TitlePage title="Labelling Management"
             subtitle="Prepare and manage the details required to generate inventory, shipment, or fulfillment labels for products." />
 
         <!-- Desktop Table Container -->
@@ -15,7 +15,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAllImages" size="small" />
+                            :countAdditionalImages="countAllImages" />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">
@@ -194,14 +194,14 @@
                             <span>Product Images</span>
                             <span class="badge img-badge">{{
                                 regularImages.length
-                            }}</span>
+                                }}</span>
                         </button>
                         <button class="tab-button" :class="{ active: activeTab === 'captured' }"
                             @click="switchTab('captured')" :disabled="capturedImages.length === 0">
                             <span>Captured Images</span>
                             <span class="badge img-badge">{{
                                 capturedImages.length
-                            }}</span>
+                                }}</span>
                         </button>
                     </div>
 
@@ -238,7 +238,9 @@
             </div>
         </div>
 
-        <Dialog v-model:visible="showEditModal" header="Edit Product" modal :style="{ width: '90%' }">
+        <Dialog v-model:visible="showEditModal" header="Edit Product" modal :style="{ width: '90%' }" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
             <div class="edit-order-container">
                 <form method="POST" class="editOrderForm">
                     <div class="form-grid-wrapper">
@@ -652,7 +654,9 @@ key, index
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="isFnskuModalVisible" header="Select FNSKU" modal :style="{ width: '95%' }">
+        <Dialog v-model:visible="isFnskuModalVisible" header="Select FNSKU" modal :style="{ width: '95%' }" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
 
             <div class="row">
                 <div class="col-md-3">

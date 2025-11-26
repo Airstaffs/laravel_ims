@@ -16,7 +16,7 @@
         </div> -->
 
         <!-- <h2 class="module-title">Validation Module</h2> -->
-        <TitlePage title="Data Validation"
+        <TitlePage title="Validation Management"
             subtitle="Review and validate critical order and inventory data to ensure all records are complete and accurate before processing." />
 
         <div class="px-4">
@@ -508,8 +508,9 @@
             </div>
         </div>
 
-        <Dialog v-model:visible="showValidationModal" modal header="Product Details" :style="{ width: '90vw' }"
-            :breakpoints="{ '960px': '95vw', '640px': '100vw' }">
+        <Dialog v-model:visible="showValidationModal" modal header="Product Details" :style="{ width: '90vw' }" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
             <div class="d-flex align-items-center justify-content-between gap-4 flex-wrap">
                 <div class="d-flex align-items-center gap-2 " style="width: 900px;">
                     <h6>Serial Number Verification</h6>

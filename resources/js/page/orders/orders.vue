@@ -16,7 +16,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
+                            :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">
@@ -433,7 +433,9 @@
                 </div>
             </div>
         </div>
-        <Dialog v-model:visible="showEditModal" modal :style="{ width: '90%' }">
+        <Dialog v-model:visible="showEditModal" modal :style="{ width: '90%' }" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
             <template #header>
                 <h5>{{ `RT ${item.rtcounter} - ${item.ProductTitle}` }}</h5>
             </template>

@@ -134,7 +134,8 @@ const handleNavClick = (module) => {
 
     activeModule.value = module
 
-    if (module === 'asinoption') {
+    if (module === 'Asin Option') {
+
         emit('show-asin-modal')
     } else if (window.loadContent) {
         window.loadContent(module)

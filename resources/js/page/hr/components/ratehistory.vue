@@ -1,13 +1,70 @@
 <script setup>
 import { onMounted, computed, toRef } from "vue";
-
+import { Select, Button } from "primevue";
+import XDataTable from "../../../components/DataTable/XDataTable.vue";
 const props = defineProps({ hrContext: { type: Object, required: true } });
 
 // reactive reference to the prop
 const ctx = toRef(props, "hrContext");
-
 // rows follows parent computed reactively
 const rows = computed(() => ctx.value.filteredRateHistory);
+
+const employeeOptions = ctx.value.employees.map((emp) => ({ value: emp.id, label: emp.username }))
+
+const columns = [
+    {
+        field: "username",
+        header: "Employee",
+        bodyStyle: "font-weight: bold",
+        style: { fontSize: '14px' }
+    },
+    {
+        field: "effective_start",
+        header: "Effective Start",
+        style: { fontSize: '14px' }
+    },
+    {
+        field: "effective_end",
+        header: "Effective End",
+        slot: "effectiveEnd",
+        style: { fontSize: '14px' }
+    },
+    {
+        field: "monthly_rate",
+        header: "Monthly",
+        slot: "monthlyRate",
+        style: { fontSize: '14px' }
+    },
+    {
+        field: "hourly_rate",
+        header: "Hourly",
+        slot: "hourlyRate",
+        style: { fontSize: '14px' }
+    },
+    {
+        field: "currency",
+        header: "Currency",
+        slot: "currency",
+        style: { fontSize: '14px' }
+    },
+    {
+        field: "created_by",
+        header: "Created By",
+        slot: "createdBy",
+        style: { fontSize: '14px' }
+    },
+    {
+        field: "created_at",
+        header: "Created At",
+        slot: "createdAt",
+        style: { fontSize: '14px' }
+    },
+    {
+        header: "Status",
+        slot: "status",
+        style: { fontSize: '14px' }
+    },
+]
 
 // nice currency formatting
 function fmtMoney(v) {
@@ -43,43 +100,28 @@ function onChangeEmployee() {
         <div class="rate-history-header">
             <fieldset>
                 <label>Employee</label>
-                <select
-                    class="form-select"
-                    v-model="ctx.rateHistoryFilterEmployeeId"
-                    @change="onChangeEmployee"
-                >
+                <Select filter="false" v-model="ctx.rateHistoryFilterEmployeeId" @change="onChangeEmployee"
+                    :options="employeeOptions" optionLabel="label" optionValue="value" size="small" fluid
+                    placeholder="Select Employee" />
+                <!-- <select class="form-select" v-model="ctx.rateHistoryFilterEmployeeId" @change="onChangeEmployee">
                     <option value="">All employees</option>
-                    <option
-                        v-for="e in ctx.employees"
-                        :key="e.id"
-                        :value="e.id"
-                    >
+                    <option v-for="e in ctx.employees" :key="e.id" :value="e.id">
                         {{ e.name }} ({{ e.username || "#" + e.id }})
                     </option>
-                </select>
+                </select> -->
             </fieldset>
 
             <fieldset class="has-checkbox">
-                <input
-                    id="onlyActive"
-                    type="checkbox"
-                    class="form-check-input"
-                    v-model="ctx.rateHistoryFilterOnlyActive"
-                />
-                <label for="onlyActive" class="form-check-label"
-                    >Active only</label
-                >
+                <input id="onlyActive" type="checkbox" class="form-check-input"
+                    v-model="ctx.rateHistoryFilterOnlyActive" />
+                <label for="onlyActive" class="form-check-label">Active only</label>
             </fieldset>
 
-            <button
-                class="btn btn-sm btn-outline-secondary ms-auto"
-                @click="
-                    ctx.refreshRateHistory(
-                        ctx.rateHistoryFilterEmployeeId || null
-                    )
-                "
-                :disabled="ctx.loading.rateHistory"
-            >
+            <button class="btn btn-sm btn-outline-secondary ms-auto" @click="
+                ctx.refreshRateHistory(
+                    ctx.rateHistoryFilterEmployeeId || null
+                )
+                " :disabled="ctx.loading.rateHistory">
                 {{ ctx.loading.rateHistory ? "Refreshing…" : "Refresh" }}
             </button>
         </div>
@@ -87,10 +129,7 @@ function onChangeEmployee() {
         <!-- Mobile / Small screens: Card list -->
         <div class="d-md-none">
             <!-- Empty state -->
-            <div
-                v-if="!(Array.isArray(rows) && rows.length)"
-                class="text-center text-muted py-4"
-            >
+            <div v-if="!(Array.isArray(rows) && rows.length)" class="text-center text-muted py-4">
                 {{
                     ctx.loading.rateHistory
                         ? "Loading…"
@@ -99,11 +138,7 @@ function onChangeEmployee() {
             </div>
 
             <!-- Cards -->
-            <div
-                class="rate-card shadow-sm rounded-3 mb-2 p-3"
-                v-for="(row, i) in rows"
-                :key="row.id || i"
-            >
+            <div class="rate-card shadow-sm rounded-3 mb-2 p-3" v-for="(row, i) in rows" :key="row.id || i">
                 <!-- Header: Employee + Status -->
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="me-3 flex-grow-1">
@@ -116,14 +151,10 @@ function onChangeEmployee() {
                             }}
                         </div>
                     </div>
-                    <span
-                        class="badge"
-                        :class="
-                            ctx.isActiveRate(row)
-                                ? 'bg-success'
-                                : 'bg-secondary'
-                        "
-                    >
+                    <span class="badge" :class="ctx.isActiveRate(row)
+                        ? 'bg-success'
+                        : 'bg-secondary'
+                        ">
                         {{ ctx.isActiveRate(row) ? "Active" : "Inactive" }}
                     </span>
                 </div>
@@ -167,7 +198,7 @@ function onChangeEmployee() {
                         <div class="value">
                             <span class="badge text-bg-light">{{
                                 row.currency || "PHP"
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
                 </div>
@@ -189,7 +220,37 @@ function onChangeEmployee() {
         </div>
 
         <!-- Desktop / Medium+ screens: Enhanced table -->
-        <div class="table-responsive d-none d-md-block">
+        <div class=" d-none d-md-block mt-4">
+            <XDataTable :value="rows" :showIndex="true" :columns="columns" :loading="ctx.loading.rateHistory">
+                <template #effectiveEnd="{ data }">
+                    <p>{{ data.effective_end || "Present" }}</p>
+                </template>
+                <template #monthlyRate="{ data }">
+                    <p class="fw-semibold">₱{{ fmtMoney(data.monthly_rate) }}</p>
+                </template>
+                <template #hourlyRate="{ data }">
+                    <p class="fw-semibold">₱{{ fmtMoney(data.hourly_rate) }}</p>
+                </template>
+                <template #currency="{ data }">
+                    <p>{{
+                        data.currency || "PHP"
+                        }}</p>
+                </template>
+                <template #createdBy="{ data }">
+                    <p> {{ data.created_by || "-" }}</p>
+                </template>
+                <template #createdAt="{ data }">
+                    <p> {{ data.created_at || "-" }}</p>
+                </template>
+                <template #status="{ data }">
+                    <div>
+                        <span v-if="ctx.isActiveRate(data)" class="badge bg-success">Active</span>
+                        <span v-else class="badge bg-secondary">Inactive</span>
+                    </div>
+                </template>
+            </XDataTable>
+        </div>
+        <!-- <div class="table-responsive d-none d-md-block">
             <table class="table align-middle table-hover mb-0">
                 <thead class="table-light sticky-top">
                     <tr>
@@ -209,10 +270,7 @@ function onChangeEmployee() {
                 <tbody v-if="Array.isArray(rows) && rows.length">
                     <tr v-for="(row, i) in rows" :key="row.id || i">
                         <td class="text-secondary">{{ i + 1 }}</td>
-                        <td
-                            class="fw-semibold text-truncate"
-                            style="max-width: 280px"
-                        >
+                        <td class="fw-semibold text-truncate" style="max-width: 280px">
                             {{
                                 row.employee_username ||
                                 row.username ||
@@ -226,21 +284,15 @@ function onChangeEmployee() {
                         <td>
                             <span class="badge text-bg-light">{{
                                 row.currency || "PHP"
-                            }}</span>
+                                }}</span>
                         </td>
                         <td class="text-truncate" style="max-width: 200px">
                             {{ row.created_by || "-" }}
                         </td>
                         <td>{{ ctx.formatDate(row.created_at) }}</td>
                         <td>
-                            <span
-                                v-if="ctx.isActiveRate(row)"
-                                class="badge bg-success"
-                                >Active</span
-                            >
-                            <span v-else class="badge bg-secondary"
-                                >Inactive</span
-                            >
+                            <span v-if="ctx.isActiveRate(row)" class="badge bg-success">Active</span>
+                            <span v-else class="badge bg-secondary">Inactive</span>
                         </td>
                     </tr>
                 </tbody>
@@ -257,7 +309,7 @@ function onChangeEmployee() {
                     </tr>
                 </tbody>
             </table>
-        </div>
+        </div> -->
     </div>
 </template>
 

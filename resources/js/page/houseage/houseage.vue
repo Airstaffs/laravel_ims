@@ -10,7 +10,7 @@
         </div> -->
 
         <!-- <h2 class="module-title">Houseage Module</h2> -->
-        <TitlePage title="Inventory Staging"
+        <TitlePage title="Houseage Management"
             subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment." />
         <!-- Desktop Table Container -->
 
@@ -28,7 +28,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAllImages" size="small" />
+                            :countAdditionalImages="countAllImages" />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">
@@ -256,7 +256,9 @@
             </div>
         </div>
 
-        <Dialog v-model:visible="showEditModal" modal :style="{ width: '95%' }" header="Edit Product">
+        <Dialog v-model:visible="showEditModal" modal :style="{ width: '95%' }" header="Edit Product" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
             <div class="edit-order-container">
                 <form method="POST" class="editOrderForm">
                     <div class="form-grid-wrapper">
