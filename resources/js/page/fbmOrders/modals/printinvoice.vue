@@ -1,6 +1,7 @@
 <template>
-    <Dialog :visible="visible" @update:visible="$emit('close')" header="Print Documents" :modal="true"
-        :style="{ width: '100%', maxWidth: '600px' }" :breakpoints="{ '960px': '75vw', '640px': '90vw' }">
+    <Dialog :visible="visible" @update:visible="$emit('close')" header="Print Documents" :modal="true" :pt="{
+        root: { class: 'mobile-fullscreen-dialog' }
+    }">
         <TabView v-model:activeIndex="activeTabIndex" class="w-full">
             <TabPanel header="Invoice" leftIcon="pi pi-file-pdf">
                 <div class="flex flex-column gap-4">

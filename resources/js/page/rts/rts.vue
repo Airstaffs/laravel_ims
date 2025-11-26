@@ -5,7 +5,7 @@
         </div> -->
 
         <!-- <h2 class="module-title">RTS Module</h2> -->
-        <TitlePage title="Return to Seller Processing"
+        <TitlePage title="Return to Seller Management"
             subtitle="Manage products designated for return to the original seller or supplier. Finalize shipment details and confirm the return status." />
 
         <!-- Desktop Table Container -->
@@ -16,7 +16,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAllImages" size="small" />
+                            :countAdditionalImages="countAllImages" />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">
@@ -203,14 +203,14 @@
                                 <span>Product Images</span>
                                 <span class="badge img-badge">{{
                                     regularImages.length
-                                    }}</span>
+                                }}</span>
                             </button>
                             <button class="tab-button" :class="{ active: activeTab === 'captured' }"
                                 @click="switchTab('captured')" :disabled="capturedImages.length === 0">
                                 <span>Captured Images</span>
                                 <span class="badge img-badge">{{
                                     capturedImages.length
-                                    }}</span>
+                                }}</span>
                             </button>
                         </div>
 
@@ -246,7 +246,9 @@
         </div>
 
         <!-- Edit Modal -->
-        <Dialog v-model:visible="showEditModal" modal header="Edit Product" :style="{ width: '95%' }">
+        <Dialog v-model:visible="showEditModal" modal header="Edit Product" :style="{ width: '95%' }" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
             <div class="modal-body">
                 <div class="edit-order-container">
                     <form method="POST" class="editOrderForm">
@@ -636,7 +638,9 @@ key, index
 
         <!-- RTS Options Modal -->
         <Dialog v-model:visible="showRTSModal" modal :header="`RTS Options - RT# ${rtsCurrentItem?.rtcounter}`"
-            :style="{ maxWidth: '200rem' }">
+            :style="{ maxWidth: '200rem' }" :pt="{
+                root: { class: 'mobile-fullscreen-dialog' }
+            }">
             <div class="modal-body">
                 <div class="rts-form-container">
                     <form @submit.prevent="saveRTSModal" class="rts-form">

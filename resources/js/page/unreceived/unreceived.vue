@@ -1,16 +1,17 @@
 <template>
     <div class="vue-container unreceived-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons">
-                <button class="btn btn-scan" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i>
-                    <span>Scan Items</span>
-                </button>
+
             </div>
+        </div> -->
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage title="Unreceived Management"
+                subtitle="Track and manage all inbound inventory shipments that have not yet been received or confirmed." />
+            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode" />
         </div>
 
-        <TitlePage title="Unreceived Shipments"
-            subtitle="Track and manage all inbound inventory shipments that have not yet been received or confirmed." />
 
         <!-- Simplified Scanner Component -->
         <scanner-component scanner-title="Unreceived Scanner" storage-prefix="unreceived" :enable-camera="true"
@@ -47,7 +48,7 @@
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" size="small" />
+                            :countAdditionalImages="countAdditionalImages" />
                     </div>
                 </template>
 
@@ -445,7 +446,9 @@
         </div>
 
         <Dialog class="view-modal" v-model:visible="showEditModal" modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;">
+            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" :style="{ width: '95%' }" :pt="{
+                root: { class: 'mobile-fullscreen-dialog' }
+            }">
             <div class="modal-body">
                 <div class="view-info-container">
                     <div class="view-grid-wrapper">

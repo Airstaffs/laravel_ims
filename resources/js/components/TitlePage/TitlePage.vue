@@ -1,13 +1,14 @@
 <template>
-    <div class="section-header">
-        <h1 class="section-title">{{ title }}</h1>
+    <AnimateDiv class="section-header-page">
+        <h1 class="section-title-page">{{ title }}</h1>
         <p class="section-subtitle text-secondary" v-if="subtitle">
             {{ subtitle }}
         </p>
-    </div>
+    </AnimateDiv>
 </template>
 
 <script setup>
+import AnimateDiv from '../AnimationDiv/AnimateDiv.vue';
 defineProps({
     title: {
         type: String,
@@ -21,12 +22,12 @@ defineProps({
 </script>
 
 <style scoped>
-.section-header {
+.section-header-page {
     padding: 1.5rem;
     /* border-bottom: 1px solid #e5e7eb; */
 }
 
-.section-title {
+.section-title-page {
     font-size: 2rem;
     font-weight: 600;
     margin-bottom: 0.25rem;

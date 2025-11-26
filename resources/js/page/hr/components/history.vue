@@ -1,75 +1,19 @@
 <template>
     <div class="history-container">
-        <div class="history-header">
-            <ul class="list-unstyled m-0">
-                <li
-                    :class="{
-                        active: $parent.hrContext.history.type === 'time',
-                    }"
-                    @click="$parent.hrContext.switchHistoryType('time')"
-                >
-                    Time Record
-                </li>
+        <TabMenu :model="items" v-model:activeIndex="activeIndex" class="mb-3" size="small" />
 
-                <li
-                    :class="{
-                        active: $parent.hrContext.history.type === 'leave',
-                    }"
-                    @click="$parent.hrContext.switchHistoryType('leave')"
-                >
-                    Leave
-                </li>
-
-                <li
-                    :class="{
-                        active: $parent.hrContext.history.type === 'rate',
-                    }"
-                    @click="$parent.hrContext.switchHistoryType('rate')"
-                >
-                    Rate
-                </li>
-
-                <li
-                    :class="{
-                        active: $parent.hrContext.history.type === 'violation',
-                    }"
-                    @click="$parent.hrContext.switchHistoryType('violation')"
-                >
-                    Violation
-                </li>
-            </ul>
-        </div>
-
-        <div class="history-content">
-            <TimeRecordHistory
-                v-if="$parent.hrContext.history.type === 'time'"
-                :key="$parent.hrContext.history.type"
-                :hr-context="$parent.hrContext"
-            />
-
-            <LeaveHistory
-                v-if="$parent.hrContext.history.type === 'leave'"
-                :hr-context="$parent.hrContext"
-                class="leave"
-            />
-
-            <RateHistory
-                v-if="$parent.hrContext.history.type === 'rate'"
-                :key="$parent.hrContext.history.type"
-                :hr-context="$parent.hrContext"
-                class="rate"
-            />
-
-            <ViolationsHistory
-                v-if="$parent.hrContext.history.type === 'violation'"
-                :hr-context="$parent.hrContext"
-                class="violation"
-            />
+        <div class="history-content mt-3">
+            <transition name="fade-slide" mode="out-in">
+                <component :is="activeComponent" :key="active" :hr-context="$parent.hrContext" />
+            </transition>
         </div>
     </div>
 </template>
 
+
 <script>
+import TabMenu from "primevue/tabmenu";
+
 import TimeRecordHistory from "../components/timerecordhistory.vue";
 import LeaveHistory from "../components/leavehistory.vue";
 import RateHistory from "../components/ratehistory.vue";
@@ -77,22 +21,67 @@ import ViolationsHistory from "../components/violationshistory.vue";
 
 export default {
     components: {
+        TabMenu,
         TimeRecordHistory,
         LeaveHistory,
         RateHistory,
         ViolationsHistory,
     },
+
+    data() {
+        return {
+            activeIndex: 0,
+            items: [
+                { label: "Time Record", value: "time" },
+                { label: "Leave", value: "leave" },
+                { label: "Rate", value: "rate" },
+                { label: "Violation", value: "violation" }
+            ]
+        };
+    },
+
+    computed: {
+        active() {
+            return this.items[this.activeIndex].value;
+        },
+
+        activeComponent() {
+            return {
+                time: "TimeRecordHistory",
+                leave: "LeaveHistory",
+                rate: "RateHistory",
+                violation: "ViolationsHistory",
+            }[this.active];
+        }
+    }
 };
 </script>
 
+
 <style>
-.history-header ul li {
-    display: inline-block;
-    padding: 8px 15px;
-    cursor: pointer;
+/* Optional: Better mobile UI */
+.p-tabmenu-nav {
+    flex-wrap: wrap;
 }
-.history-header ul li.active {
-    border-bottom: 2px solid #007bff;
-    font-weight: 700;
+
+.p-tabmenu-nav li {
+    flex: 1 1 auto;
+    text-align: center;
+}
+
+/* Animation */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+    transition: all 0.35s ease;
+}
+
+.fade-slide-enter-from {
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+.fade-slide-leave-to {
+    opacity: 0;
+    transform: translateY(-8px);
 }
 </style>
