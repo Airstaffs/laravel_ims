@@ -66,7 +66,7 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
 .main-image img {
     width: 100%;
     max-width: 400px;
-    height: 400px;
+    height: auto;
     object-fit: contain;
     display: block;
 }
@@ -121,7 +121,7 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
 
 .thumbnail img {
     width: 56px;
-    height: 56px;
+    height: 55px;
     object-fit: cover;
     display: block;
     transition: transform 0.2s ease;
@@ -132,7 +132,7 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
 }
 
 /* Large screens - thumbnails on the right */
-@media (min-width: 1024px) {
+@media (min-width: 769px) {
     .image-section {
         flex-direction: row;
         align-items: flex-start;
@@ -141,6 +141,7 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
     .main-image {
         flex: 1;
         max-width: 400px;
+        min-height: 300px;
     }
 
     .thumbnail-list {
@@ -152,8 +153,8 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
     }
 }
 
-/* Mobile and Tablet - thumbnails below */
-@media (max-width: 1023px) {
+/* Small screens - thumbnails below */
+@media (max-width: 768px) {
     .image-section {
         padding: 12px;
         gap: 12px;
@@ -173,7 +174,7 @@ const onThumbnailError = (event) => (event.target.src = defaultImage);
 
     .thumbnail img {
         width: 56px;
-        height: 56px;
+        height: 55px;
     }
 }
 </style>

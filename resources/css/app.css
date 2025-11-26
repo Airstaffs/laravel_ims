@@ -1269,13 +1269,13 @@ form.fnskuForm .btn-process {
     margin-bottom: 32px;
 }
 
-.form-col-left,
+/* .form-col-left,
 .form-col-center,
 .form-col-right {
     display: flex;
     flex-direction: column;
     gap: 16px;
-}
+} */
 
 /* ==== SECTION STYLES ==== */
 .form-section {
@@ -1658,9 +1658,9 @@ form#editPrinterForm {
 
 /* Info Sections */
 .info-section {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    /* border-bottom: 1px solid #e9ecef; */
 }
 
 .info-section:last-child {

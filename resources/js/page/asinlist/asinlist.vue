@@ -1564,7 +1564,87 @@
         </Dialog>
 
         <!-- Instruction Card Management Modal -->
-        <div v-if="showInstructionCardModal" class="instruction-card-modal">
+        <Dialog v-model:visible="showInstructionCardModal" modal
+            :header="`Manage Instruction Cards - ${selectedAsin?.ASIN}`">
+            <div class="card-management-layout">
+                <!-- Card 1 -->
+                <div class="card-slot">
+                    <div class="card-slot-header">
+                        <h4>Instruction Card 1</h4>
+                    </div>
+                    <div class="card-slot-image">
+                        <img :src="getInstructionCardPath(
+                            selectedAsin?.ASIN,
+                            1
+                        )
+                            " :alt="`Instruction card 1 for ${selectedAsin?.ASIN}`" class="card-slot-thumbnail" @error="
+                                handleInstructionCardError($event, 1)
+                                " />
+                    </div>
+                    <div class="card-slot-actions">
+                        <input type="file" :ref="`cardUpload1`" @change="
+                            (e) => handleInstructionCardUpload(e, 1)
+                        " accept="image/*" style="display: none" />
+                        <Button class="btn-upload-card" @click="$refs.cardUpload1.click()"
+                            :disabled="instructionCardUploading === 1" :label="instructionCardUploading === 1
+                                ? 'Uploading...'
+                                : 'Upload/Update'" size="small" icon="pi pi-upload" />
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="card-slot">
+                    <div class="card-slot-header">
+                        <h4>Instruction Card 2</h4>
+                    </div>
+                    <div class="card-slot-image">
+                        <img :src="getInstructionCardPath(
+                            selectedAsin?.ASIN,
+                            2
+                        )
+                            " :alt="`Instruction card 2 for ${selectedAsin?.ASIN}`" class="card-slot-thumbnail" @error="
+                                handleInstructionCardError($event, 2)
+                                " />
+                    </div>
+                    <div class="card-slot-actions">
+                        <input type="file" :ref="`cardUpload2`" @change="
+                            (e) => handleInstructionCardUpload(e, 2)
+                        " accept="image/*" style="display: none" />
+                        <Button class="btn-upload-card" @click="$refs.cardUpload2.click()"
+                            :disabled="instructionCardUploading === 2" :label="instructionCardUploading === 2
+                                ? 'Uploading...'
+                                : 'Upload/Update'" size="small" icon="pi pi-upload" />
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="card-slot">
+                    <div class="card-slot-header">
+                        <h4>Instruction Card 3</h4>
+                    </div>
+                    <div class="card-slot-image">
+                        <img :src="getInstructionCardPath(
+                            selectedAsin?.ASIN,
+                            3
+                        )
+                            " :alt="`Instruction card 3 for ${selectedAsin?.ASIN}`" class="card-slot-thumbnail" @error="
+                                handleInstructionCardError($event, 3)
+                                " />
+                    </div>
+                    <div class="card-slot-actions">
+                        <input type="file" :ref="`cardUpload3`" @change="
+                            (e) => handleInstructionCardUpload(e, 3)
+                        " accept="image/*" style="display: none" />
+                        <Button class="btn-upload-card" @click="$refs.cardUpload3.click()"
+                            :disabled="instructionCardUploading === 3" :label="instructionCardUploading === 3
+                                ? 'Uploading...'
+                                : 'Upload/Update'" size="small" icon="pi pi-upload" />
+                    </div>
+                </div>
+            </div>
+        </Dialog>
+
+        <div v-if="false" class="instruction-card-modal">
             <div class="instruction-card-modal-content">
                 <div class="instruction-card-modal-header">
                     <h3>Manage Instruction Cards - {{ selectedAsin?.ASIN }}</h3>
@@ -1595,14 +1675,9 @@
                                     (e) => handleInstructionCardUpload(e, 1)
                                 " accept="image/*" style="display: none" />
                                 <button class="btn-upload-card" @click="$refs.cardUpload1.click()"
-                                    :disabled="instructionCardUploading === 1">
-                                    <i class="fas fa-upload"></i>
-                                    {{
-                                        instructionCardUploading === 1
-                                            ? "Uploading..."
-                                            : "Upload/Update"
-                                    }}
-                                </button>
+                                    :disabled="instructionCardUploading === 1" :label="instructionCardUploading === 1
+                                        ? 'Uploading...'
+                                        : 'Upload/Update'" icon="pi pi-upload" />
                             </div>
                         </div>
 

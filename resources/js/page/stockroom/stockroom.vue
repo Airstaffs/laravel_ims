@@ -92,19 +92,24 @@
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
             <TitlePage title="Stockroom Management"
                 subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock." />
-            <div class="d-flex justify-content-center gap-2 me-4 flex-wrap">
-                <Button size="small" @click="openScannerModal" label="Scan Items" icon="pi pi-barcode" />
-                <Button size="small" severity="warn" @click="loadFBAInboundShipment" label="FBA Inbound Shipment"
-                    icon="pi pi-truck" />
+            <div class="d-flex justify-content-center gap-4 me-4 flex-wrap">
+                <Button size="small" severity="secondary" outlined @click="openScannerModal" label="Scan Items"
+                    icon="pi pi-barcode" />
+                <Button size="small" severity="secondary" outlined @click="loadFBAInboundShipment"
+                    label="FBA Inbound Shipment" icon="pi pi-truck" />
 
-                <Button size="small" severity="info" @click="showNewScannedModal = true" icon="pi pi-barcode"
+                <OverlayBadge v-if="shouldShowBadge" :value="displayCount" severity="danger">
+                    <Button :title="`${newScannedCount} new items scanned today (US time)`" size="small"
+                        severity="secondary" outlined @click="showNewScannedModal = true" icon="pi pi-barcode"
+                        label="New Scanned">
+                    </Button>
+                </OverlayBadge>
+
+                <Button v-else :title="`${newScannedCount} new items scanned today (US time)`" size="small"
+                    severity="secondary" outlined @click="showNewScannedModal = true" icon="pi pi-barcode"
                     label="New Scanned">
-                    <span v-if="shouldShowBadge" class="notification-badge" :class="badgeClasses"
-                        :title="`${newScannedCount} new items scanned today (US time)`">
-                        {{ displayCount }}
-                    </span>
                 </Button>
-                <Button size="small" severity="help" @click="openDs7Oos" label="Open DS7 & OO" />
+                <Button size="small" severity="secondary" outlined @click="openDs7Oos" label="Open DS7 & OO" />
             </div>
         </div>
 
@@ -690,7 +695,7 @@
 <script>
 import Stockroom from "./stockroom.js";
 import XDataTable from '../../components/DataTable/XDataTable.vue'
-import { Button, Card, Dialog, Divider, Drawer, InputText, ScrollTop, Select, Textarea } from "primevue";
+import { Button, Card, Dialog, Divider, Drawer, InputText, OverlayBadge, ScrollTop, Select, Textarea } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
@@ -801,7 +806,8 @@ export default {
         InputText,
         Textarea,
         ScrollTop,
-        TitlePage
+        TitlePage,
+        OverlayBadge
     },
     data() {
         return {

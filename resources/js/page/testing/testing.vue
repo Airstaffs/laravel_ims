@@ -579,7 +579,7 @@
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;" :pt="{
                 root: { class: 'mobile-fullscreen-dialog' }
             }">
-            <div class="modal-body">
+            <div>
                 <div class="view-info-container">
                     <div class="view-grid-wrapper">
                         <!-- LEFT: IMAGE -->
@@ -590,8 +590,10 @@
                                     <h5 class="text-primary fw-bolder">Description</h5>
                                 </template>
                                 <template #content>
-                                    <p style="word-break: break-all; max-height: 450px; overflow-y: auto;">{{
-                                        item.description }}</p>
+                                    <p
+                                        style="word-break: break-all; max-height: 450px; overflow-y: auto; font-size: 14px;">
+                                        {{
+                                            item.description }}</p>
                                 </template>
                             </Card>
                         </div>
