@@ -333,7 +333,7 @@ class ASINlistController extends BasetablesController
         $storeInput = trim($request->storename);
 
         // 1. Query the abbreviation from tblstores
-        $abbreviation = DB::table('stores') // adjust table name if it's different
+        $abbreviation = DB::table('tblstores') // adjust table name if it's different
             ->where('storename', $storeInput)
             ->value('abbreviation');
 
