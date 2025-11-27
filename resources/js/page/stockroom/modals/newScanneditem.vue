@@ -228,7 +228,8 @@
 <script>
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+// Fallback to current origin if VITE_API_URL is not configured
+const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 export default {
     name: 'NewScannedItemModal',
@@ -353,6 +354,9 @@ export default {
                 });
                 
                 this.filteredItems = [...this.items];
+
+                // Notify parent so badge/count can refresh
+                this.$emit('update-count', this.items.length);
                 
                 // Summary debug info
                 console.log('✅ Processing complete:', {
@@ -431,6 +435,7 @@ export default {
 
                 if (response.data.success) {
                     item.fbm_list_status = status;
+                    this.$emit('update-count', this.filteredItems.length);
                 } else {
                     console.error("Failed to update FBM status:", response.data.message);
                     if (revertOnError) {
