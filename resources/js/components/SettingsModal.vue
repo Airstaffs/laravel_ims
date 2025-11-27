@@ -1697,7 +1697,7 @@
                     </form>
                 </Dialog>
 
-                <!-- Edit Printer Dialog -->
+                <!-- Edit Printer Dialog - FIXED FIELD NAMES -->
                 <Dialog
                     v-model:visible="showEditPrinterDialog"
                     modal
@@ -1728,7 +1728,7 @@
                                 <span class="text-danger">*</span>
                             </label>
                             <InputText
-                                v-model="editPrinterForm.printername"
+                                v-model="editPrinterForm.printer_name"
                                 required
                                 class="w-full"
                             />
@@ -1758,7 +1758,7 @@
                                     <span class="text-danger">*</span>
                                 </label>
                                 <InputText
-                                    v-model="editPrinterForm.printerip"
+                                    v-model="editPrinterForm.ip_address"
                                     required
                                     class="w-full"
                                 />
@@ -1770,7 +1770,7 @@
                                     Port
                                 </label>
                                 <InputText
-                                    v-model.number="printerForm.port"
+                                    v-model.number="editPrinterForm.port"
                                     type="number"
                                     :min="1"
                                     :max="65535"
@@ -2145,9 +2145,9 @@ export default {
 
             editPrinterForm: {
                 printerid: null,
-                printername: "",
+                printer_name: "",
                 printer_type: "",
-                printerip: "",
+                ip_address: "",
                 port: 9100,
                 status: "active",
                 description: "",
@@ -3472,9 +3472,9 @@ export default {
         editPrinter(printer) {
             this.editPrinterForm = {
                 printerid: printer.printerid,
-                printername: printer.printername,
+                printer_name: printer.printername,
                 printer_type: printer.printer_type,
-                printerip: printer.printerip,
+                ip_address: printer.printerip,
                 port: printer.port || 9100,
                 status: printer.status || "active",
                 description: printer.description || "",
