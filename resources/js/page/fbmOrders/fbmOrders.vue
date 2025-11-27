@@ -103,7 +103,9 @@
                 </fieldset>
             </div>
             <XDataTable :value="orders" :loading="loading" :columns="columns" :pagination="false"
-                tableClass="desktop-view">
+                tableClass="desktop-view " dataKey="outboundorderid" selectionMode="multiple"
+                :onSelectionChange="onSelectionChange" :disableRowCheckbox="row => !canSelectOrder(row)"
+                :onAllSelectionChange="onAllSelectionChange">
                 <template #orderDetails="{ data }">
                     <div class="d-flex flex-column gap-2">
                         <div class="detail-item-container">
@@ -1480,13 +1482,13 @@ import XDataTable from "../../components/DataTable/XDataTable.vue";
 import fbmorder from "./fbmOrders.js";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         header: "Order Details",
         slot: "orderDetails",
@@ -1657,6 +1659,14 @@ export default {
 
     },
     methods: {
+        onSelectionChange(order, isSelected) {
+            order.checked = isSelected;
+            this.handleOrderCheckChange(order);
+        },
+        onAllSelectionChange(selectedRows, isSelectAll) {
+            this.selectAll = isSelectAll
+            this.toggleAll()
+        },
         toggle(event, item) {
             this.currentActionItem = item;
             this.menuActions = this.getMoreActionItems(this.currentActionItem);

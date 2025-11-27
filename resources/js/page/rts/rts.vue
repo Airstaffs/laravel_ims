@@ -11,7 +11,7 @@
         <!-- Desktop Table Container -->
         <div class="px-4">
             <XDataTable :value="sortedInventory" :columns="column" :pagination="false" :loading="loading"
-                tableClass="desktop-view">
+                tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
 
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
@@ -203,14 +203,14 @@
                                 <span>Product Images</span>
                                 <span class="badge img-badge">{{
                                     regularImages.length
-                                }}</span>
+                                    }}</span>
                             </button>
                             <button class="tab-button" :class="{ active: activeTab === 'captured' }"
                                 @click="switchTab('captured')" :disabled="capturedImages.length === 0">
                                 <span>Captured Images</span>
                                 <span class="badge img-badge">{{
                                     capturedImages.length
-                                }}</span>
+                                    }}</span>
                             </button>
                         </div>
 
@@ -994,13 +994,13 @@ import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         field: "gallery",
         header: "Gallery",

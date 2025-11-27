@@ -27,7 +27,8 @@
                         optionValue="value" placeholder="All Status" class="select-form" size="small" />
                 </fieldset>
             </div>
-            <XDataTable :value="sortedInventory" :paginator="false" :columns="columns" tableClass="desktop-view">
+            <XDataTable :value="sortedInventory" :paginator="false" :columns="columns" tableClass="desktop-view"
+                selectionMode="multiple" dataKey="ProductID">
 
                 <template #productname="{ data }">
                     <div class="d-flex align-items-start gap-4">
@@ -44,7 +45,7 @@
                                 ">RT {{ data.rtcounter }}</span>
                                 <span v-else>{{
                                     data.rtcounter
-                                }}</span>
+                                    }}</span>
                             </div>
                             <p class="fw-semibold">{{ data.astitle }}</p>
                         </div>
@@ -1412,13 +1413,13 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 // export default Validation;
 
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         header: "Product Name",
         field: 'astitle',
