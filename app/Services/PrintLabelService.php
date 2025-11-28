@@ -904,7 +904,7 @@ class PrintLabelService extends BasetablesController
                 ]);
                 
                 // Print condition label 3 times
-                $conditionCopies = 3;
+                $conditionCopies = 1;
                 for ($i = 0; $i < $conditionCopies; $i++) {
                     $zpl .= $this->imageProcessingService->generateConditionAuxSmallLabel($itemCondition);
                 }
@@ -915,6 +915,11 @@ class PrintLabelService extends BasetablesController
                 $nonNullCount++;
                 $zpl .= "^XA^FO5,70^ADN,200,42^FW^FD RENEWED ^FS^XZ";
                 $zpl .= "^XA^FO5,70^ADN,200,42^FW^FD RENEWED ^FS^XZ";
+            }else{
+                    $nonNullCount++;
+                $zpl .= "^XA^FO5,70^ADN,200,42^FW^FD Used ^FS^XZ";
+                $zpl .= "^XA^FO5,70^ADN,200,42^FW^FD Used ^FS^XZ";
+
             }
 
             // Warehouse location
@@ -1412,6 +1417,57 @@ class PrintLabelService extends BasetablesController
         // Define base paths
         $instructionCardBasePath = public_path('images/instructioncard/');
         $monochromeBasePath = storage_path('app/public/images/monochrome/');
+
+
+            // ✅ ALWAYS PROCESS WARRANTY CARDS IF SERIAL EXISTS (NOT OPTIONAL)
+        // This section runs regardless of instruction card 1-3 flags
+        if (!empty($Wserial)) {
+            Log::info('Processing warranty cards and labels for serial: ' . $Wserial);
+            
+            $serialCard1FileName = $Wserial . "_page_1.png";
+            $serialCard2FileName = $Wserial . "_page_2.png";
+            
+            $templatePath1 = public_path('images/warranty/templates/6_1st.png');
+            $templatePath2 = public_path('images/warranty/templates/6_2nd.png');
+            $generatedImagesPath = storage_path('app/public/images/warranty/generated_images/');
+            
+            $serialCard1Path = $generatedImagesPath . $serialCard1FileName;
+            $serialCard2Path = $generatedImagesPath . $serialCard2FileName;
+            
+            // Always regenerate warranty cards from templates
+            Log::info('Generating warranty cards from templates');
+            $this->imageProcessingService->generateSerialImagesFromTemplates($Wserial, $templatePath1, $templatePath2);
+            
+            // Process warranty card page 1
+            if (file_exists($serialCard1Path)) {
+                if ($this->imageProcessingService->safeConvertImage($serialCard1Path, $monochromeBasePath, 800, 1200)) {
+                    $monochromeImagePath = $monochromeBasePath . $serialCard1FileName;
+                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
+                    Log::info('Successfully generated warranty card page 1 ZPL');
+                } else {
+                    Log::error('Failed to convert warranty card page 1 to monochrome');
+                }
+            } else {
+                Log::error('Warranty card page 1 not found at: ' . $serialCard1Path);
+            }
+            
+            // Process warranty card page 2
+            if (file_exists($serialCard2Path)) {
+                if ($this->imageProcessingService->safeConvertImage($serialCard2Path, $monochromeBasePath, 800, 1200)) {
+                    $monochromeImagePath = $monochromeBasePath . $serialCard2FileName;
+                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
+                    Log::info('Successfully generated warranty card page 2 ZPL');
+                } else {
+                    Log::error('Failed to convert warranty card page 2 to monochrome');
+                }
+            } else {
+                Log::error('Warranty card page 2 not found at: ' . $serialCard2Path);
+            }
+
+                Log::info('Completed all warranty cards and labels for serial: ' . $Wserial);
+        } else {
+            Log::info('No serial number provided - skipping warranty cards');
+        }
         
         // Process Card 1 if enabled (OPTIONAL - only if flag is set)
         if ($hasInstructionCard1) {
@@ -1461,52 +1517,7 @@ class PrintLabelService extends BasetablesController
             }
         }
         
-        // ✅ ALWAYS PROCESS WARRANTY CARDS IF SERIAL EXISTS (NOT OPTIONAL)
-        // This section runs regardless of instruction card 1-3 flags
-        if (!empty($Wserial)) {
-            Log::info('Processing warranty cards and labels for serial: ' . $Wserial);
-            
-            $serialCard1FileName = $Wserial . "_page_1.png";
-            $serialCard2FileName = $Wserial . "_page_2.png";
-            
-            $templatePath1 = public_path('images/warranty/templates/6_1st.png');
-            $templatePath2 = public_path('images/warranty/templates/6_2nd.png');
-            $generatedImagesPath = storage_path('app/public/images/warranty/generated_images/');
-            
-            $serialCard1Path = $generatedImagesPath . $serialCard1FileName;
-            $serialCard2Path = $generatedImagesPath . $serialCard2FileName;
-            
-            // Always regenerate warranty cards from templates
-            Log::info('Generating warranty cards from templates');
-            $this->imageProcessingService->generateSerialImagesFromTemplates($Wserial, $templatePath1, $templatePath2);
-            
-            // Process warranty card page 1
-            if (file_exists($serialCard1Path)) {
-                if ($this->imageProcessingService->safeConvertImage($serialCard1Path, $monochromeBasePath, 800, 1200)) {
-                    $monochromeImagePath = $monochromeBasePath . $serialCard1FileName;
-                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
-                    Log::info('Successfully generated warranty card page 1 ZPL');
-                } else {
-                    Log::error('Failed to convert warranty card page 1 to monochrome');
-                }
-            } else {
-                Log::error('Warranty card page 1 not found at: ' . $serialCard1Path);
-            }
-            
-            // Process warranty card page 2
-            if (file_exists($serialCard2Path)) {
-                if ($this->imageProcessingService->safeConvertImage($serialCard2Path, $monochromeBasePath, 800, 1200)) {
-                    $monochromeImagePath = $monochromeBasePath . $serialCard2FileName;
-                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
-                    Log::info('Successfully generated warranty card page 2 ZPL');
-                } else {
-                    Log::error('Failed to convert warranty card page 2 to monochrome');
-                }
-            } else {
-                Log::error('Warranty card page 2 not found at: ' . $serialCard2Path);
-            }
-
-         
+    
             // Add restocking label
             Log::info('Generating restocking label');
             $restockingZpl = $this->imageProcessingService->generateRestockingLabel($Wserial);
@@ -1554,10 +1565,7 @@ class PrintLabelService extends BasetablesController
 
 
 
-            Log::info('Completed all warranty cards and labels for serial: ' . $Wserial);
-        } else {
-            Log::info('No serial number provided - skipping warranty cards');
-        }
+     
         
         Log::info('Final instruction card ZPL for married printer:', [
             'length' => strlen($zplIC),
