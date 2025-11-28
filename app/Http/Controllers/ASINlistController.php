@@ -75,16 +75,35 @@ class ASINlistController extends BasetablesController
 
             // Group by ASIN - Updated to include instructioncard3
             $asinQuery->groupBy(
-                'asin.ASIN', 'asin.internal', 'asin.metakeyword', 'asin.EAN', 'asin.UPC', 
-                'asin.ParentAsin', 'asin.CousinASIN', 'asin.UpgradeASIN', 'asin.GrandASIN', 
-                'asin.instructioncard', 'asin.instructioncard2', 'asin.instructioncard3',
-                'asin.instructionlink', 'asin.usermanuallink', 'asin.asinimg', 'asin.vectorimage', 
-                'asin.TRANSPARENCY_QR_STATUS', 'asin.dimension_length', 'asin.dimension_width', 
-                'asin.dimension_height', 'asin.weight_value', 'asin.weight_unit', 
-                'asin.white_length', 'asin.white_width', 'asin.white_height', 
-                'asin.white_value', 'asin.white_unit'
+                'asin.ASIN',
+                'asin.internal',
+                'asin.metakeyword',
+                'asin.EAN',
+                'asin.UPC',
+                'asin.ParentAsin',
+                'asin.CousinASIN',
+                'asin.UpgradeASIN',
+                'asin.GrandASIN',
+                'asin.instructioncard',
+                'asin.instructioncard2',
+                'asin.instructioncard3',
+                'asin.instructionlink',
+                'asin.usermanuallink',
+                'asin.asinimg',
+                'asin.vectorimage',
+                'asin.TRANSPARENCY_QR_STATUS',
+                'asin.dimension_length',
+                'asin.dimension_width',
+                'asin.dimension_height',
+                'asin.weight_value',
+                'asin.weight_unit',
+                'asin.white_length',
+                'asin.white_width',
+                'asin.white_height',
+                'asin.white_value',
+                'asin.white_unit'
             )
-            ->having('fnsku_count', '>', 0);
+                ->having('fnsku_count', '>', 0);
 
             // Order by ASIN
             $asinQuery->orderBy('asin.ASIN', 'asc');
@@ -195,21 +214,30 @@ class ASINlistController extends BasetablesController
         }
     }
 
+    protected static array $allowedUsers = ['Jundell', 'Admin', 'Julius', 'Glen'];
+
     public function searchAsin(Request $request)
     {
+        // Get current username (if logged in)
+        $currentUser = Auth::user();
+        $username = $currentUser?->username;
+
+        // Check if this user should bypass store filter
+        $isAllowedUser = $username && in_array($username, static::$allowedUsers, true);
+
         $keyword = strtolower(trim($request->query('keyword')));
         $storeFilter = strtolower(str_replace(' ', '', trim($request->query('storename'))));
 
         $results = DB::table('tblasin as a')
             ->leftJoin('tblfnsku as f', 'a.ASIN', '=', 'f.ASIN')
             ->select('a.ASIN', 'a.internal AS title', DB::raw('f.storename'))
-            ->where(function ($query) use ($keyword, $storeFilter) {
+            ->where(function ($query) use ($keyword) {
                 $query->whereRaw('LOWER(a.ASIN) LIKE ?', ["%{$keyword}%"])
                     ->orWhereRaw('LOWER(a.internal) LIKE ?', ["%{$keyword}%"])
                     ->orWhereRaw("REPLACE(LOWER(f.storename), ' ', '') LIKE ?", ["%{$keyword}%"]);
             })
-            ->when($storeFilter, function ($query) use ($storeFilter) {
-                // Only show ASINs used in this store or with NULL (new)
+            // 🧠 Only apply store filter if NOT in allowed user list
+            ->when(!$isAllowedUser && $storeFilter, function ($query) use ($storeFilter) {
                 $query->where(function ($sub) use ($storeFilter) {
                     $sub->whereNull('f.storename')
                         ->orWhereRaw("REPLACE(LOWER(f.storename), ' ', '') = ?", [$storeFilter]);
@@ -292,78 +320,78 @@ class ASINlistController extends BasetablesController
         };
     }
 
-public function generateMsku(Request $request)
-{
-    $request->validate([
-        'asin' => 'required|string',
-        'condition' => 'required|string',
-        'storename' => 'required|string',
-    ]);
-
-    $asin = strtoupper(trim($request->asin));
-    $condition = $request->condition;
-    $storeInput = trim($request->storename);
-
-    // 1. Query the abbreviation from tblstores
-    $abbreviation = DB::table('stores') // adjust table name if it's different
-        ->where('storename', $storeInput)
-        ->value('abbreviation');
-
-    if (!$abbreviation) {
-        return response()->json([
-            'error' => "No abbreviation found for store: {$storeInput}"
-        ], 404);
-    }
-
-    $prefixMap = [
-        "new_new" => "NN",
-        "new_open_box" => "NOB",
-        "new_oem" => "NOEM",
-        "refurbished_refurbished" => "RR",
-        "used_like_new" => "ULN",
-        "used_very_good" => "UVG",
-        "used_good" => "UG",
-        "used_acceptable" => "UA",
-        "collectible_like_new" => "CLN",
-        "collectible_very_good" => "CVG",
-        "collectible_good" => "CG",
-        "collectible_acceptable" => "CA",
-        "club_club" => "CLUB"
-    ];
-
-    $code = $prefixMap[$condition] ?? 'UNK';
-
-    $attempt = 0;
-    $maxAttempts = 30;
-    $msku = null;
-
-    // 2. Generate MSKU with abbreviation instead of store name
-    do {
-        $rand4 = strtoupper(Str::random(4));
-        $msku = "{$asin}-{$abbreviation}-{$code}-{$rand4}";
-        $exists = DB::table('tblfnsku')->where('MSKU', $msku)->exists();
-        $attempt++;
-    } while ($exists && $attempt < $maxAttempts);
-
-    if ($attempt >= $maxAttempts) {
-        Log::warning('Failed to generate unique MSKU after multiple attempts', [
-            'asin' => $asin,
-            'storename' => $storeInput,
-            'condition' => $condition
+    public function generateMsku(Request $request)
+    {
+        $request->validate([
+            'asin' => 'required|string',
+            'condition' => 'required|string',
+            'storename' => 'required|string',
         ]);
 
+        $asin = strtoupper(trim($request->asin));
+        $condition = $request->condition;
+        $storeInput = trim($request->storename);
+
+        // 1. Query the abbreviation from tblstores
+        $abbreviation = DB::table('tblstores') // adjust table name if it's different
+            ->where('storename', $storeInput)
+            ->value('abbreviation');
+
+        if (!$abbreviation) {
+            return response()->json([
+                'error' => "No abbreviation found for store: {$storeInput}"
+            ], 404);
+        }
+
+        $prefixMap = [
+            "new_new" => "NN",
+            "new_open_box" => "NOB",
+            "new_oem" => "NOEM",
+            "refurbished_refurbished" => "RR",
+            "used_like_new" => "ULN",
+            "used_very_good" => "UVG",
+            "used_good" => "UG",
+            "used_acceptable" => "UA",
+            "collectible_like_new" => "CLN",
+            "collectible_very_good" => "CVG",
+            "collectible_good" => "CG",
+            "collectible_acceptable" => "CA",
+            "club_club" => "CLUB"
+        ];
+
+        $code = $prefixMap[$condition] ?? 'UNK';
+
+        $attempt = 0;
+        $maxAttempts = 30;
+        $msku = null;
+
+        // 2. Generate MSKU with abbreviation instead of store name
+        do {
+            $rand4 = strtoupper(Str::random(4));
+            $msku = "{$asin}-{$abbreviation}-{$code}-{$rand4}";
+            $exists = DB::table('tblfnsku')->where('MSKU', $msku)->exists();
+            $attempt++;
+        } while ($exists && $attempt < $maxAttempts);
+
+        if ($attempt >= $maxAttempts) {
+            Log::warning('Failed to generate unique MSKU after multiple attempts', [
+                'asin' => $asin,
+                'storename' => $storeInput,
+                'condition' => $condition
+            ]);
+
+            return response()->json([
+                'error' => 'Unable to generate unique MSKU after multiple attempts.'
+            ], 422);
+        }
+
+        Log::info('Generated MSKU', ['msku' => $msku]);
+
         return response()->json([
-            'error' => 'Unable to generate unique MSKU after multiple attempts.'
-        ], 422);
+            'msku' => $msku,
+            'condition' => $condition
+        ]);
     }
-
-    Log::info('Generated MSKU', ['msku' => $msku]);
-
-    return response()->json([
-        'msku' => $msku,
-        'condition' => $condition
-    ]);
-}
 
     public function fetchStores()
     {
@@ -635,7 +663,7 @@ public function generateMsku(Request $request)
                 $fileUrl = url($relativePath);
 
                 // Update database with just the filename - Updated to handle card 3
-                $columnName = match($cardSlot) {
+                $columnName = match ($cardSlot) {
                     '1' => 'instructioncard',
                     '2' => 'instructioncard2',
                     '3' => 'instructioncard3', // Added card 3 support
@@ -982,7 +1010,7 @@ public function generateMsku(Request $request)
                 // Process each uploaded card
                 foreach ($request->file('instruction_cards', []) as $cardSlot => $file) {
                     $cardNumber = $cardSlot + 1; // Convert 0,1,2 to 1,2,3
-                    
+
                     try {
                         // Generate filename: {ASIN}_card{slot}.{extension}
                         $extension = $file->getClientOriginalExtension();
@@ -999,9 +1027,9 @@ public function generateMsku(Request $request)
                         // Copy file to destination (we need to copy since multiple ASINs use same file)
                         if (copy($file->getPathname(), $uploadPath . '/' . $filename)) {
                             $relativePath = 'images/instructioncard/' . $filename;
-                            
+
                             // Update database
-                            $columnName = match($cardNumber) {
+                            $columnName = match ($cardNumber) {
                                 1 => 'instructioncard',
                                 2 => 'instructioncard2',
                                 3 => 'instructioncard3',
@@ -1068,5 +1096,12 @@ public function generateMsku(Request $request)
             ], 500);
         }
     }
+
+
+
+
+
+
+    
 
 }

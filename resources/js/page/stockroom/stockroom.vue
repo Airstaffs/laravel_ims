@@ -1,3 +1,4 @@
+
 <template>
     <div class="vue-container stockroom-module">
         <!-- Top header bar with blue background -->
@@ -12,14 +13,14 @@
                     <span>FBA Inbound Shipment</span>
                 </button>
 
-                <button class="btn" @click="showNewScannedModal = true">
-                    <i class="fas fa-barcode"></i>
-                    <span>New Scanned</span>
-                    <span v-if="shouldShowBadge" class="notification-badge" :class="badgeClasses"
-                        :title="`${newScannedCount} new items scanned today (US time)`">
-                        {{ displayCount }}
-                    </span>
-                </button>
+          <button class="btn" @click="showNewScannedModal = true">
+                <i class="fas fa-barcode"></i>
+                <span>New Scanned</span>
+                <span v-if="shouldShowBadge" class="notification-badge" :class="badgeClasses"
+                    :title="`${newScannedCount} new items scanned today (US time)`">
+                    {{ displayCount }}
+                </span>
+            </button>
                 <button class="btn" @click="openDs7Oos">Open DS7 & OOS</button>
             </div>
 
@@ -51,7 +52,6 @@
             :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
             @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
             @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
-            <!-- Define custom input fields for Stockroom module -->
             <template #input-fields>
                 <div class="input-group">
                     <label>Serial Number:</label>
@@ -82,7 +82,6 @@
                     </div>
                 </div>
 
-                <!-- Submit button (only in manual mode) -->
                 <button v-if="showManualInput" @click="processScan()" class="submit-button">
                     Submit
                 </button>
@@ -93,7 +92,7 @@
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
             <TitlePage title="Stockroom Management"
                 subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock." />
-            <div class="d-flex justify-content-center gap-4 me-4 flex-wrap">
+            <div class="d-flex justify-content-center gap-4 mx-4 flex-wrap desktop-view">
                 <Button size="small" severity="secondary" outlined @click="openScannerModal" label="Scan Items"
                     icon="pi pi-barcode" />
                 <Button size="small" severity="secondary" outlined @click="loadFBAInboundShipment"
@@ -112,10 +111,28 @@
                 </Button>
                 <Button size="small" severity="secondary" outlined @click="openDs7Oos" label="Open DS7 & OO" />
             </div>
+
+            <div class="mobile-view w-100 ms-2">
+                <OverlayBadge v-if="shouldShowBadge" class=" w-100" severity="danger">
+                    <Button label="More Actions" fluid size="small" severity="secondary" outlined icon="pi pi-list"
+                        @click="toggle($event)" aria-haspopup="true" aria-controls="overlay_menu" />
+                </OverlayBadge>
+                <Button v-else label="More Actions" fluid size="small" severity="secondary" outlined icon="pi pi-list"
+                    @click="toggle($event)" aria-haspopup="true" aria-controls="overlay_menu" />
+                <Menu ref="menu" id="overlay_menu" :model="menuActions" :popup="true">
+                    <template #item="{ item, props }">
+                        <a v-ripple class="flex align-items-center" v-bind="props.action">
+                            <span :class="item.icon" />
+                            <span class="ml-2">{{ item.label }}</span>
+                            <Badge v-if="item.badge && shouldShowBadge" :value="item.badge" class="ml-auto"
+                                severity="danger" />
+                        </a>
+                    </template>
+                </Menu>
+            </div>
         </div>
 
         <div class="stats-container px-4">
-
             <div class="stat-card bg-primary-light">
                 <div class="stat-icon bg-primary">
                     <i class="pi pi-hashtag text-white"></i>
@@ -155,11 +172,7 @@
                     <h5 class="mb-0">{{ inventoryCounts?.fba || 0 }}</h5>
                 </div>
             </div>
-
         </div>
-
-
-
 
         <!-- Desktop Table Container -->
         <div class="px-4">
@@ -176,7 +189,7 @@
                 </fieldset>
             </div>
             <XDataTable :value="sortedInventory" :columns="columns" :paginator="false" tableClass="desktop-view"
-                :loading="loading">
+                :loading="loading" selectionMode="multiple" dataKey="ProductID">
                 <template #productName="{ data }">
                     <div class="product-container">
                         <div class="product-image-container clickable">
@@ -193,7 +206,6 @@
                             </p>
                         </div>
                     </div>
-
                 </template>
                 <template #fnskus="{ data }">
                     <div>
@@ -217,7 +229,6 @@
                         {{ data.item_count }}
                         <i v-if="!data.countValid" class="fas fa-exclamation-circle"
                             title="Item count doesn't match serial numbers"></i>
-
                     </div>
                 </template>
                 <template #actions="{ data }">
@@ -235,10 +246,6 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <!-- <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button> -->
-
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
@@ -275,38 +282,6 @@
                                 item.ASIN
                                 }}</span>
                         </div>
-                        <!-- Hidden details -->
-                        <!-- <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">FBM:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.FBMAvailable }}</span>
-                        </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">FBA:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.FbaAvailable }}</span>
-                        </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">Outbound:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.Outbound }}</span>
-                        </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">Inbound:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.Inbound }}</span>
-                        </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">Unfulfillable:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.Unfulfillable }}</span>
-                        </div>
-                        <div class="mobile-detail-row" v-if="showDetails">
-                            <span class="mobile-detail-label">Reserved:</span>
-                            <span class="mobile-detal-value">
-                                {{ item.Reserved }}</span>
-                        </div> -->
-                        <!-- End hidden details -->
                         <div>
                             <span class="mobile-detail-label">Store: </span>
                             <span class="mobile-detail-value">{{
@@ -342,12 +317,6 @@
                     <div class="d-flex flex-nowrap overflow-auto gap-2 pb-3">
                         <Button @click="printLabel(item.ProductID)" icon="pi pi-print" label="Print"
                             class="flex-shrink-0" size="small" />
-                        <!-- <button class="btn btn-expand" @click="toggleDetails(index)">
-                            <i class="fas fa-list"></i>
-                            <span>{{
-                                expandedRows[index] ? "Hide" : "Details"
-                            }}</span>
-                        </button> -->
                         <Button @click="viewProductDetails(item)" icon="pi pi-info-circle" label="More Details"
                             severity="info" class="flex-shrink-0" size="small" />
                         <Button @click="openProcessModal(item)" icon="pi pi-cog" label="Process" class="flex-shrink-0"
@@ -362,11 +331,15 @@
                             <div class="mobile-serial-list">
                                 <div v-for="serial in item.serials" :key="serial.ProductID" class="mobile-serial-item">
                                     <div class="mobile-serial-detail">
+                                        <span class="mobile-serial-label">Store:</span>
+                                        <span class="mobile-serial-value">{{ serial.storename }}</span>
+                                    </div>
+                                    <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">RT#:</span>
                                         <span class="mobile-serial-value">{{
                                             formatRTNumber(
                                                 serial.rtcounter,
-                                                item.storename
+                                                serial.storename
                                             )
                                         }}</span>
                                     </div>
@@ -400,7 +373,7 @@
                                             serial.display_grading ||
                                             getDisplayGrading(
                                                 serial,
-                                                item.storename
+                                                serial.storename
                                             )
                                         }}</span>
                                     </div>
@@ -418,7 +391,7 @@
             </div>
         </div>
 
-        <!-- Pagination with centered layout -->
+        <!-- Pagination -->
         <div class="pagination-container">
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
@@ -451,7 +424,6 @@
                     <label>Shipment Type:</label>
                     <Select v-model="processShipmentType" :options="processShipmentTypeOptions" optionLabel="label"
                         optionValue="value" fluid size="small" />
-
                 </div>
                 <div class="form-group">
                     <label>Tracking Number:</label>
@@ -479,19 +451,16 @@
                             class="process-item-row">
                             <label class="process-item-checkbox">
                                 <input type="checkbox" v-model="selectedItems" :value="serial.ProductID" />
-                                <span>{{
+                                <span>[{{ serial.storename }}] {{
                                     formatRTNumber(
                                         serial.rtcounter,
-                                        currentProcessItem.storename
+                                        serial.storename
                                     )
-                                }}
-                                    - {{ serial.serialnumber }} -
-                                    {{ serial.FNSKUviewer }} -
-                                    {{
+                                }} - {{ serial.serialnumber }} - {{ serial.FNSKUviewer }} - {{
                                         serial.display_grading ||
                                         getDisplayGrading(
                                             serial,
-                                            currentProcessItem.storename
+                                            serial.storename
                                         )
                                     }}</span>
                             </label>
@@ -504,7 +473,6 @@
                 <div class="flex-shrink-0"><Button @click="printSelectedItems" :disabled="!hasSelectedItems"
                         label="Print Selected" icon="pi pi-print" size="small" severity="info" />
                 </div>
-
                 <div class="flex-shrink-0"><Button @click="updateSelectedLocation" :disabled="!hasSelectedItems"
                         label="Update Location" icon="pi pi-map-marker" size="small" severity="warn" /></div>
                 <div class="flex-shrink-0"> <Button @click="mergeSelectedItems" :disabled="selectedItems.length < 2"
@@ -517,103 +485,12 @@
                 </div>
             </div>
         </Dialog>
-        <!-- <div v-if="showProcessModal" class="process-modal">
-            <div class="process-modal-content">
-                <div class="process-modal-header">
-                    <h2>Process Items</h2>
-                    <button class="process-modal-close" @click="closeProcessModal">
-                        &times;
-                    </button>
-                </div>
-                <div class="process-modal-body">
-                    <div class="process-form">
-                        <div class="form-group">
-                            <label>Shipment Type:</label>
-                            <select v-model="processShipmentType" class="form-control">
-                                <option value="For Dispense">
-                                    For Dispense
-                                </option>
-                                <option value="For Replacement">
-                                    For Replacement
-                                </option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Tracking Number:</label>
-                            <input type="text" v-model="processTrackingNumber" class="form-control"
-                                placeholder="Enter tracking number..." />
-                        </div>
-                        <div class="form-group">
-                            <label>Notes (optional):</label>
-                            <textarea v-model="processNotes" class="form-control"
-                                placeholder="Add notes about this process..."></textarea>
-                        </div>
-                        <div class="form-group" v-if="singleItemSelected">
-                            <label>New Location (optional):</label>
-                            <input type="text" v-model="processLocation" class="form-control"
-                                placeholder="e.g., L123A or Floor" />
-                        </div>
-                    </div>
-                    <div class="process-item-list">
-                        <h3>Items to Process</h3>
-                        <div class="process-item-selector">
-                            <label class="select-all-checkbox">
-                                <input type="checkbox" v-model="selectAllItems" @change="toggleAllItems" />
-                                <span>Select All</span>
-                            </label>
-                            <div class="process-items-container">
-                                <div v-for="serial in currentProcessItem.serials" :key="serial.ProductID"
-                                    class="process-item-row">
-                                    <label class="process-item-checkbox">
-                                        <input type="checkbox" v-model="selectedItems" :value="serial.ProductID" />
-                                        <span>{{
-                                            formatRTNumber(
-                                                serial.rtcounter,
-                                                currentProcessItem.storename
-                                            )
-                                        }}
-                                            - {{ serial.serialnumber }} -
-                                            {{ serial.FNSKUviewer }} -
-                                            {{
-                                                serial.display_grading ||
-                                                getDisplayGrading(
-                                                    serial,
-                                                    currentProcessItem.storename
-                                                )
-                                            }}</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="process-modal-footer">
-
-                    <Button @click="printSelectedItems" :disabled="!hasSelectedItems" label="Print Selected"
-                        icon="pi pi-print" size="small" severity="info" />
-
-                    <Button @click="updateSelectedLocation" :disabled="!hasSelectedItems" label="Update Location"
-                        icon="pi pi-map-marker" size="small" severity="warn" />
-
-                    <Button class="btn-merge" @click="mergeSelectedItems" :disabled="selectedItems.length < 2"
-                        label="Merge Items" icon="pi pi-arrow-down-left-and-arrow-up-right-to-center" size="small"
-                        severity="info" />
-
-                    <Button class="btn-merge" @click="submitProcess" :disabled="!isProcessFormValid"
-                        label="Submit Process" icon="pi pi-check" size="small" severity="help" />
-
-                    <Button class="btn-merge" @click="openPostAmazonModal" :disabled="!hasSelectedItems"
-                        label="Post to Amazon" icon="pi pi-check" size="small" severity="secondary" />
-                </div>
-            </div>
-        </div> -->
 
         <!-- Product Details Modal -->
         <Dialog v-model:visible="showProductDetailsModal" modal :style="{ width: '95%' }" header="Product Details" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
         }">
             <div class="product-details-layout">
-
                 <div class="product-details-left">
                     <div class="product-details-image clickable" @click="enlargeImage = !enlargeImage">
                         <img :src="selectedProduct.useDefaultImage
@@ -628,8 +505,6 @@
                                     selectedProduct
                                 )
                                 " />
-
-
                     </div>
                     <div class="product-details-info">
                         <h3 class="product-details-title">
@@ -714,6 +589,10 @@
                                             {{ fnsku.FNSKU || fnsku }}
                                         </div>
                                         <div class="fnsku-details">
+                                            <span class="fnsku-detail">Store:
+                                                {{
+                                                    fnsku.storename || "-"
+                                                }}</span>
                                             <span class="fnsku-detail">MSKU:
                                                 {{
                                                     fnsku.MSKU || "-"
@@ -723,7 +602,7 @@
                                                     fnsku.display_grading ||
                                                     getDisplayGrading(
                                                         fnsku,
-                                                        selectedProduct.storename
+                                                        fnsku.storename
                                                     )
                                                 }}</span>
                                         </div>
@@ -747,7 +626,7 @@
                             <template #rtcounter="{ data }">
                                 <p>{{ formatRTNumber(
                                     data.rtcounter,
-                                    selectedProduct.storename
+                                    data.storename
                                 ) }}</p>
                             </template>
                             <template #grading="{ data }">
@@ -755,8 +634,8 @@
                                     {{
                                         data.display_grading ||
                                         getDisplayGrading(
-                                            serial,
-                                            selectedProduct.storename
+                                            data,
+                                            data.storename
                                         )
                                     }}
                                 </p>
@@ -774,190 +653,6 @@
                 </div>
             </template>
         </Dialog>
-        <!-- <div v-if="showProductDetailsModal" class="product-details-modal">
-            <div class="product-details-content">
-                <div class="product-details-header">
-                    <h2>Product Details</h2>
-                    <button class="product-details-close" @click="closeProductDetailsModal">
-                        &times;
-                    </button>
-                </div>
-
-                <div class="product-details-body" v-if="selectedProduct">
-                    <div class="product-details-layout">
-                        <div class="product-details-left">
-                            <div class="product-details-image clickable" @click="enlargeImage = !enlargeImage">
-                                <img :src="selectedProduct.useDefaultImage
-                                    ? defaultImagePath
-                                    : getImagePath(selectedProduct.ASIN)
-                                    " :alt="selectedProduct.AStitle" :class="[
-                                        'product-details-thumbnail',
-                                        enlargeImage ? 'enlarged' : '',
-                                    ]" @error="
-                                        handleImageError(
-                                            $event,
-                                            selectedProduct
-                                        )
-                                        " />
-                            </div>
-                            <div class="product-details-info">
-                                <h3 class="product-details-title">
-                                    {{ selectedProduct.AStitle }}
-                                </h3>
-                                <div class="product-details-row">
-                                    <span class="product-details-label">ASIN:</span>
-                                    <span class="product-details-value">{{
-                                        selectedProduct.ASIN
-                                    }}</span>
-                                </div>
-                                <div class="product-details-row">
-                                    <span class="product-details-label">Store:</span>
-                                    <span class="product-details-value">{{
-                                        selectedProduct.storename
-                                    }}</span>
-                                </div>
-                                <div class="product-details-row">
-                                    <span class="product-details-label">FBM Available:</span>
-                                    <span class="product-details-value">{{
-                                        selectedProduct.FBMAvailable
-                                    }}</span>
-                                </div>
-                                <div class="product-details-row">
-                                    <span class="product-details-label">FBA Available:</span>
-                                    <span class="product-details-value">{{
-                                        selectedProduct.FbaAvailable
-                                    }}</span>
-                                </div>
-                                <div class="product-details-row">
-                                    <span class="product-details-label">Quantity Inside:</span>
-                                    <span :class="{
-                                        'product-details-value': true,
-                                        'item-count-warning':
-                                            !selectedProduct.countValid,
-                                    }">
-                                        {{ selectedProduct.item_count }}
-                                        <i v-if="!selectedProduct.countValid" class="fas fa-exclamation-circle"
-                                            title="Item count doesn't match serial numbers"></i>
-                                    </span>
-                                </div>
-
-                                <div class="product-details-fnskus-section">
-                                    <h4>FNSKUs</h4>
-                                    <div class="product-details-fnskus">
-                                        <div v-for="fnsku in selectedProduct.fnskus" :key="fnsku.FNSKU"
-                                            class="product-details-fnsku-item">
-                                            <div class="fnsku-main">
-                                                {{ fnsku.FNSKU || fnsku }}
-                                            </div>
-                                            <div class="fnsku-details">
-                                                <span class="fnsku-detail">MSKU:
-                                                    {{
-                                                        fnsku.MSKU || "-"
-                                                    }}</span>
-                                                <span class="fnsku-detail">Grade:
-                                                    {{
-                                                        fnsku.display_grading ||
-                                                        getDisplayGrading(
-                                                            fnsku,
-                                                            selectedProduct.storename
-                                                        )
-                                                    }}</span>
-                                            </div>
-                                        </div>
-                                        <div v-if="
-                                            !selectedProduct.fnskus ||
-                                            selectedProduct.fnskus
-                                                .length === 0
-                                        " class="product-details-empty">
-                                            No FNSKUs found
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="product-details-right">
-                            <div class="product-details-section serial-section">
-                                <h4>Serial Numbers & Locations</h4>
-                                <div class="product-details-serials">
-                                    <table class="product-details-table">
-                                        <thead>
-                                            <tr>
-                                                <th>RT#</th>
-                                                <th>Serial Number</th>
-                                                <th>Location</th>
-                                                <th>FNSKU</th>
-                                                <th>MSKU</th>
-                                                <th>Grading</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="serial in selectedProduct.serials" :key="serial.ProductID">
-                                                <td>
-                                                    {{
-                                                        formatRTNumber(
-                                                            serial.rtcounter,
-                                                            selectedProduct.storename
-                                                        )
-                                                    }}
-                                                </td>
-                                                <td>
-                                                    {{ serial.serialnumber }}
-                                                </td>
-                                                <td>
-                                                    {{
-                                                        serial.warehouselocation
-                                                    }}
-                                                </td>
-                                                <td>
-                                                    {{
-                                                        serial.FNSKUviewer ||
-                                                        "-"
-                                                    }}
-                                                </td>
-                                                <td>
-                                                    {{ serial.MSKU || "-" }}
-                                                </td>
-                                                <td>
-                                                    {{
-                                                        serial.display_grading ||
-                                                        getDisplayGrading(
-                                                            serial,
-                                                            selectedProduct.storename
-                                                        )
-                                                    }}
-                                                </td>
-                                            </tr>
-                                            <tr v-if="
-                                                !selectedProduct.serials ||
-                                                selectedProduct.serials
-                                                    .length === 0
-                                            ">
-                                                <td colspan="6" class="text-center">
-                                                    No serial numbers found
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="product-details-footer">
-                    <button class="btn-print-details" @click="printLabel(selectedProduct.ProductID)">
-                        <i class="fas fa-print"></i> Print Label
-                    </button>
-                    <button class="btn-process-details" @click="openProcessModalFromDetails(selectedProduct)">
-                        <i class="fas fa-cogs"></i> Process Items
-                    </button>
-                    <button class="btn-close-details" @click="closeProductDetailsModal">
-                        Close
-                    </button>
-                </div>
-            </div>
-        </div> -->
 
         <!-- Post to Amazon Modal -->
         <div v-if="showPostAmazonModal" class="modal postAmazon-modal">
@@ -1006,8 +701,8 @@
         </div>
 
         <!-- New Scanned Items Modal -->
-        <NewScannedItemModal :show="showNewScannedModal" @close="closeNewScannedModal"
-            @update-count="handleCountUpdate" />
+        <NewScannedItemModal ref="newScannedModal" :show="showNewScannedModal"
+            @close="closeNewScannedModal" @update-count="handleCountUpdate" />
 
         <!-- DS7oos Modal -->
         <ds7-oos-modal :show="showDs7Oos" :store-options="distinctStores" :initial="dsFilters"
@@ -1019,17 +714,17 @@
 <script>
 import Stockroom from "./stockroom.js";
 import XDataTable from '../../components/DataTable/XDataTable.vue'
-import { Button, Card, Dialog, Divider, Drawer, InputText, OverlayBadge, ScrollTop, Select, Textarea } from "primevue";
+import { Badge, Button, Card, Dialog, Divider, Drawer, InputText, Menu, OverlayBadge, ScrollTop, Select, Textarea } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         field: "AStitle",
         header: "Product Name",
@@ -1040,12 +735,6 @@ const TABLE_COLUMNS = [
     {
         field: "ASIN",
         header: "ASIN",
-        sortable: true,
-        bodyStyle: "font-size: 14px",
-    },
-    {
-        field: "storename",
-        header: "Store",
         sortable: true,
         bodyStyle: "font-size: 14px",
     },
@@ -1082,6 +771,12 @@ const SERIAL_TABLE_COLUMNS = [
         field: "rtcounter",
         header: "TR#",
         slot: "rtcounter",
+        headerStyle: "backgroundColor: #0C81FF; color: #fff",
+        bodyStyle: "fontSize: 14px"
+    },
+    {
+        field: "storename",
+        header: "Store",
         headerStyle: "backgroundColor: #0C81FF; color: #fff",
         bodyStyle: "fontSize: 14px"
     },
@@ -1131,7 +826,10 @@ export default {
         Textarea,
         ScrollTop,
         TitlePage,
-        OverlayBadge
+        OverlayBadge,
+        Menu,
+        OverlayBadge,
+        Badge
     },
     data() {
         return {
@@ -1143,8 +841,43 @@ export default {
                 { value: "fba", label: "FBA Only" },
                 { value: "both", label: "Both FBM & FBA" },
                 { value: "none", label: "No Availability" }
-            ]
+            ],
+            menuActions: [],
         }
+    },
+    methods: {
+        toggle(event) {
+            this.menuActions = this.getMoreActionItems(this.currentActionItem);
+            if (this.$refs.menu) {
+                this.$refs.menu.toggle(event);
+            }
+        },
+        getMoreActionItems() {
+            return [
+                {
+                    label: 'Scan Items',
+                    icon: 'pi pi-barcode',
+                    command: () => this.openScannerModal(),
+                },
+                {
+                    label: 'FBA Inbound Shipment',
+                    icon: 'pi pi-truck',
+                    command: () => this.loadFBAInboundShipment(),
+                },
+                {
+                    label: 'New Scanned',
+                    icon: 'pi pi-barcode',
+                    badge: this.displayCount,
+                    badgeClass: "p-badge-danger",
+                    command: () => this.showNewScannedModal = true,
+                },
+                {
+                    label: 'Open DS7 & OO',
+                    icon: 'pi pi-file',
+                    command: () => this.openDs7Oos(),
+                }
+            ];
+        },
     },
     computed: {
         processShipmentTypeOptions() {
@@ -1161,6 +894,12 @@ export default {
 </script>
 
 <style scoped>
+.p-badge-danger {
+    background-color: #ef4444;
+    /* or #dc3545 depending on theme */
+    color: #ffffff;
+}
+
 .inventory-counts-section {
     display: flex;
     align-items: center;
@@ -1790,6 +1529,8 @@ export default {
 /* Ensure parent containers don't clip the badge */
 .top-header {
     overflow: visible !important;
+    position: relative !important;
+    z-index: 100 !important;
 }
 
 .btn-new-scanned {
@@ -1805,34 +1546,32 @@ export default {
     border-color: #1e7e34 !important;
 }
 
+.header-buttons .btn {
+    position: relative !important;
+    overflow: visible !important;
+}
+
+/* Force badge to show */
 .notification-badge {
-    position: absolute;
-    top: -12px;
-    /* Moved up more to prevent cutting */
-    right: -12px;
-    /* Moved right more to prevent cutting */
+    position: absolute !important;
+    top: -8px !important;
+    right: -8px !important;
     background-color: #ff0000 !important;
-    /* BRIGHT RED background - highly visible */
     color: white !important;
-    border-radius: 50%;
-    min-width: 22px;
-    /* Minimum width to accommodate numbers */
-    height: 22px;
-    font-size: 11px;
-    font-weight: bold;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 2px solid white;
-    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.6);
-    /* Bright red shadow */
-    z-index: 10;
-    /* Ensure it appears above other elements */
-    animation: pulse-red 2s infinite;
-    padding: 0 4px;
-    /* Add padding for larger numbers */
-    line-height: 1;
-    /* Better line height */
+    border-radius: 50% !important;
+    min-width: 22px !important;
+    height: 22px !important;
+    font-size: 11px !important;
+    font-weight: bold !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border: 2px solid white !important;
+    box-shadow: 0 2px 8px rgba(255, 0, 0, 0.6) !important;
+    z-index: 999 !important;
+    animation: pulse-red 2s infinite !important;
+    padding: 0 4px !important;
+    line-height: 1 !important;
 }
 
 /* Updated pulse animation with bright red color */

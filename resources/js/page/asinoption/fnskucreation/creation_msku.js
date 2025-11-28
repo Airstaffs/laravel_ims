@@ -10,7 +10,7 @@ export default {
     name: "IMSListing",
     data() {
         return {
-            allowedUserIds: ["Jundell", "Admin", "Julius", "Fries"],
+            allowedUserIds: ["Jundell", "Admin", "Julius", "Glen"],
             selectedStore: "",
             storeOptions: [],
             searchInput: "",
