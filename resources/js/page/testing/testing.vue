@@ -11,7 +11,7 @@
         <!-- Desktop Table Container -->
         <div class="px-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="visibleColumns" :paginator="false"
-                tableClass="desktop-view">
+                tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
 
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
@@ -821,13 +821,13 @@ import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         field: "gallery",
         header: "Gallery",

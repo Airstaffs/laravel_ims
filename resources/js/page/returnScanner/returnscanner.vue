@@ -113,7 +113,8 @@
         <div class="desktop-view">
             <div class="px-4">
 
-                <XDataTable :value="returnHistory" :columns="columns" :paginator="false">
+                <XDataTable :value="returnHistory" :columns="columns" :paginator="false" selectionMode="multiple"
+                    dataKey="ProductID">
                     <template #gallery="{ data }">
                         <div class="d-flex justify-content-center align-items-center">
                             <TableGallery :data="data" :openImageModal="openImageModal"
@@ -146,7 +147,7 @@
                             data.BuyerName ||
                             data.costumer_name ||
                             "Unknown"
-                            }}</p>
+                        }}</p>
                     </template>
                     <template #actions="{ data }">
                         <div>
@@ -194,25 +195,25 @@
                             <span class="fw-semibold">RT#:</span>
                             <span class="mobile-detail-value">{{
                                 formatRTNumber(item.rtcounter, item.storename)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumber
-                                }}</span>
+                            }}</span>
                         </div>
                         <div v-if="item.serialnumberb" class="mobile-detail-row">
                             <span class="fw-semibold">Second Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumberb
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Location:</span>
                             <span class="mobile-detail-value">{{
                                 item.warehouselocation || "Floor"
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Status:</span>
@@ -230,7 +231,7 @@
                                 item.BuyerName ||
                                 item.costumer_name ||
                                 "Unknown"
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
                     <Divider />
@@ -367,13 +368,13 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         header: "Gallery",
         slot: "gallery",

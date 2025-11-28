@@ -92,7 +92,7 @@
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
             <TitlePage title="Stockroom Management"
                 subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock." />
-            <div class="d-flex justify-content-center gap-4 me-4 flex-wrap">
+            <div class="d-flex justify-content-center gap-4 mx-4 flex-wrap desktop-view">
                 <Button size="small" severity="secondary" outlined @click="openScannerModal" label="Scan Items"
                     icon="pi pi-barcode" />
                 <Button size="small" severity="secondary" outlined @click="loadFBAInboundShipment"
@@ -110,6 +110,25 @@
                     label="New Scanned">
                 </Button>
                 <Button size="small" severity="secondary" outlined @click="openDs7Oos" label="Open DS7 & OO" />
+            </div>
+
+            <div class="mobile-view w-100 ms-2">
+                <OverlayBadge v-if="shouldShowBadge" class=" w-100" severity="danger">
+                    <Button label="More Actions" fluid size="small" severity="secondary" outlined icon="pi pi-list"
+                        @click="toggle($event)" aria-haspopup="true" aria-controls="overlay_menu" />
+                </OverlayBadge>
+                <Button v-else label="More Actions" fluid size="small" severity="secondary" outlined icon="pi pi-list"
+                    @click="toggle($event)" aria-haspopup="true" aria-controls="overlay_menu" />
+                <Menu ref="menu" id="overlay_menu" :model="menuActions" :popup="true">
+                    <template #item="{ item, props }">
+                        <a v-ripple class="flex align-items-center" v-bind="props.action">
+                            <span :class="item.icon" />
+                            <span class="ml-2">{{ item.label }}</span>
+                            <Badge v-if="item.badge && shouldShowBadge" :value="item.badge" class="ml-auto"
+                                severity="danger" />
+                        </a>
+                    </template>
+                </Menu>
             </div>
         </div>
 
@@ -170,7 +189,7 @@
                 </fieldset>
             </div>
             <XDataTable :value="sortedInventory" :columns="columns" :paginator="false" tableClass="desktop-view"
-                :loading="loading">
+                :loading="loading" selectionMode="multiple" dataKey="ProductID">
                 <template #productName="{ data }">
                     <div class="product-container">
                         <div class="product-image-container clickable">
@@ -695,17 +714,17 @@
 <script>
 import Stockroom from "./stockroom.js";
 import XDataTable from '../../components/DataTable/XDataTable.vue'
-import { Button, Card, Dialog, Divider, Drawer, InputText, OverlayBadge, ScrollTop, Select, Textarea } from "primevue";
+import { Badge, Button, Card, Dialog, Divider, Drawer, InputText, Menu, OverlayBadge, ScrollTop, Select, Textarea } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         field: "AStitle",
         header: "Product Name",
@@ -807,7 +826,10 @@ export default {
         Textarea,
         ScrollTop,
         TitlePage,
-        OverlayBadge
+        OverlayBadge,
+        Menu,
+        OverlayBadge,
+        Badge
     },
     data() {
         return {
@@ -819,8 +841,43 @@ export default {
                 { value: "fba", label: "FBA Only" },
                 { value: "both", label: "Both FBM & FBA" },
                 { value: "none", label: "No Availability" }
-            ]
+            ],
+            menuActions: [],
         }
+    },
+    methods: {
+        toggle(event) {
+            this.menuActions = this.getMoreActionItems(this.currentActionItem);
+            if (this.$refs.menu) {
+                this.$refs.menu.toggle(event);
+            }
+        },
+        getMoreActionItems() {
+            return [
+                {
+                    label: 'Scan Items',
+                    icon: 'pi pi-barcode',
+                    command: () => this.openScannerModal(),
+                },
+                {
+                    label: 'FBA Inbound Shipment',
+                    icon: 'pi pi-truck',
+                    command: () => this.loadFBAInboundShipment(),
+                },
+                {
+                    label: 'New Scanned',
+                    icon: 'pi pi-barcode',
+                    badge: this.displayCount,
+                    badgeClass: "p-badge-danger",
+                    command: () => this.showNewScannedModal = true,
+                },
+                {
+                    label: 'Open DS7 & OO',
+                    icon: 'pi pi-file',
+                    command: () => this.openDs7Oos(),
+                }
+            ];
+        },
     },
     computed: {
         processShipmentTypeOptions() {
@@ -837,6 +894,12 @@ export default {
 </script>
 
 <style scoped>
+.p-badge-danger {
+    background-color: #ef4444;
+    /* or #dc3545 depending on theme */
+    color: #ffffff;
+}
+
 .inventory-counts-section {
     display: flex;
     align-items: center;
