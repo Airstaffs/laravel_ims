@@ -1,14 +1,22 @@
 <template>
-    <AnimateDiv class="section-header-page">
+    <div class="section-header-page d-flex align-items-center gap-3">
         <h1 class="section-title-page">{{ title }}</h1>
-        <p class="section-subtitle text-secondary" v-if="subtitle">
-            {{ subtitle }}
-        </p>
-    </AnimateDiv>
+        <div v-if="subtitle">
+            <i class="pi pi-info-circle text-secondary" @click="togglePopover" style="cursor: pointer;">
+            </i>
+            <Popover ref="popover">
+                <div class="p-3" style="max-width: 300px;">
+                    {{ subtitle }}
+                </div>
+            </Popover>
+        </div>
+    </div>
 </template>
 
 <script setup>
-import AnimateDiv from '../AnimationDiv/AnimateDiv.vue';
+import Popover from 'primevue/popover';
+import { ref } from 'vue';
+
 defineProps({
     title: {
         type: String,
@@ -19,6 +27,12 @@ defineProps({
         default: ""
     }
 });
+
+const popover = ref();
+
+const togglePopover = (event) => {
+    popover.value.toggle(event);
+};
 </script>
 
 <style scoped>

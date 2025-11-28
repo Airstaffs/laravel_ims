@@ -1255,10 +1255,13 @@
                                             />
                                         </template>
                                     </Column>
-                                    <Column
-                                        field="printerip"
-                                        header="IP Address"
-                                    ></Column>
+                                    <Column header="IP Address:Port">
+                                        <template #body="slotProps">
+                                            {{ slotProps.data.printerip }}:{{
+                                                slotProps.data.port || "9100"
+                                            }}
+                                        </template>
+                                    </Column>
                                     <Column field="status" header="Status">
                                         <template #body="slotProps">
                                             <Tag
@@ -1350,17 +1353,20 @@
                                 stripedRows
                                 :paginator="smallLabelPrinters.length > 10"
                                 :rows="10"
+                                class="printers-table"
                             >
                                 <Column
                                     field="printername"
                                     header="Printer Name"
                                     sortable
                                 ></Column>
-                                <Column
-                                    field="printerip"
-                                    header="IP Address"
-                                ></Column>
-                                <Column field="port" header="Port"></Column>
+                                <Column header="IP Address:Port">
+                                    <template #body="slotProps">
+                                        {{ slotProps.data.printerip }}:{{
+                                            slotProps.data.port || "9100"
+                                        }}
+                                    </template>
+                                </Column>
                                 <Column field="status" header="Status">
                                     <template #body="slotProps">
                                         <Tag
@@ -1421,17 +1427,20 @@
                                 stripedRows
                                 :paginator="instructionCardPrinters.length > 10"
                                 :rows="10"
+                                class="printers-table"
                             >
                                 <Column
                                     field="printername"
                                     header="Printer Name"
                                     sortable
                                 ></Column>
-                                <Column
-                                    field="printerip"
-                                    header="IP Address"
-                                ></Column>
-                                <Column field="port" header="Port"></Column>
+                                <Column header="IP Address:Port">
+                                    <template #body="slotProps">
+                                        {{ slotProps.data.printerip }}:{{
+                                            slotProps.data.port || "9100"
+                                        }}
+                                    </template>
+                                </Column>
                                 <Column field="status" header="Status">
                                     <template #body="slotProps">
                                         <Tag
@@ -1646,8 +1655,9 @@
                                     <i class="bi bi-plug me-1"></i>
                                     Port
                                 </label>
-                                <InputNumber
-                                    v-model="printerForm.port"
+                                <InputText
+                                    v-model.number="printerForm.port"
+                                    type="number"
                                     :min="1"
                                     :max="65535"
                                     placeholder="9100"
@@ -1687,7 +1697,7 @@
                     </form>
                 </Dialog>
 
-                <!-- Edit Printer Dialog -->
+                <!-- Edit Printer Dialog - FIXED FIELD NAMES -->
                 <Dialog
                     v-model:visible="showEditPrinterDialog"
                     modal
@@ -1718,7 +1728,7 @@
                                 <span class="text-danger">*</span>
                             </label>
                             <InputText
-                                v-model="editPrinterForm.printername"
+                                v-model="editPrinterForm.printer_name"
                                 required
                                 class="w-full"
                             />
@@ -1748,7 +1758,7 @@
                                     <span class="text-danger">*</span>
                                 </label>
                                 <InputText
-                                    v-model="editPrinterForm.printerip"
+                                    v-model="editPrinterForm.ip_address"
                                     required
                                     class="w-full"
                                 />
@@ -1759,10 +1769,12 @@
                                     <i class="bi bi-plug me-1"></i>
                                     Port
                                 </label>
-                                <InputNumber
-                                    v-model="editPrinterForm.port"
+                                <InputText
+                                    v-model.number="editPrinterForm.port"
+                                    type="number"
                                     :min="1"
                                     :max="65535"
+                                    placeholder="9100"
                                     class="w-full"
                                 />
                             </div>
@@ -1946,6 +1958,7 @@ import RadioButton from "primevue/radiobutton";
 import Checkbox from "primevue/checkbox";
 import MultiSelect from "primevue/multiselect";
 import Calendar from "primevue/calendar";
+import Textarea from "primevue/textarea";
 
 import Swal from "sweetalert2";
 
@@ -1972,6 +1985,7 @@ export default {
         Checkbox,
         MultiSelect,
         Calendar,
+        Textarea,
     },
     props: {
         settingsVisible: {
@@ -2131,9 +2145,9 @@ export default {
 
             editPrinterForm: {
                 printerid: null,
-                printername: "",
+                printer_name: "",
                 printer_type: "",
-                printerip: "",
+                ip_address: "",
                 port: 9100,
                 status: "active",
                 description: "",
@@ -3458,9 +3472,9 @@ export default {
         editPrinter(printer) {
             this.editPrinterForm = {
                 printerid: printer.printerid,
-                printername: printer.printername,
+                printer_name: printer.printername,
                 printer_type: printer.printer_type,
-                printerip: printer.printerip,
+                ip_address: printer.printerip,
                 port: printer.port || 9100,
                 status: printer.status || "active",
                 description: printer.description || "",
@@ -3593,15 +3607,17 @@ export default {
         // ==================== MARRIED PRINTERS ====================
 
         async fetchMarriedPrinters() {
-            this.loadingMarriages = true;
+            this.isLoadingMarriedPrinters = true;
+            this.marriedPrintersError = "";
+
             try {
+                // FIX: Changed from 'married-printers' to 'get-married-printers'
                 const response = await fetch(
                     "/api/printer-management/get-married-printers",
                     {
                         method: "GET",
                         headers: {
                             Accept: "application/json",
-                            "X-Requested-With": "XMLHttpRequest",
                             "X-CSRF-TOKEN": document.querySelector(
                                 'meta[name="csrf-token"]'
                             ).content,
@@ -3609,15 +3625,42 @@ export default {
                     }
                 );
 
+                if (!response.ok) {
+                    throw new Error(
+                        `HTTP ${response.status}: Failed to load married printers`
+                    );
+                }
+
                 const data = await response.json();
 
-                if (response.ok) {
-                    this.marriedPrinters = data.marriages || [];
+                if (!data.success) {
+                    throw new Error(
+                        data.message || "Failed to load married printers"
+                    );
                 }
+
+                // Map the data to match your template structure
+                this.marriedPrinters = data.marriages.map((marriage) => ({
+                    marriage_name: marriage.marriage_name,
+                    description: marriage.description,
+                    small_label_id: marriage.small_label_printer.printer_id,
+                    small_label_printer_name:
+                        marriage.small_label_printer.printer_name,
+                    small_label_ip: marriage.small_label_printer.ip_address,
+                    instruction_card_id:
+                        marriage.instruction_card_printer.printer_id,
+                    instruction_card_printer_name:
+                        marriage.instruction_card_printer.printer_name,
+                    instruction_card_ip:
+                        marriage.instruction_card_printer.ip_address,
+                }));
             } catch (error) {
                 console.error("Fetch married printers error:", error);
+                this.marriedPrintersError =
+                    error.message || "Failed to load married printers";
+                this.marriedPrinters = [];
             } finally {
-                this.loadingMarriages = false;
+                this.isLoadingMarriedPrinters = false;
             }
         },
 
@@ -3637,7 +3680,14 @@ export default {
                                 'meta[name="csrf-token"]'
                             ).content,
                         },
-                        body: JSON.stringify(this.marriageForm),
+                        body: JSON.stringify({
+                            small_label_printer_id:
+                                this.marriageForm.small_label_printer_id,
+                            instruction_card_printer_id:
+                                this.marriageForm.instruction_card_printer_id,
+                            marriage_name: this.marriageForm.marriage_name,
+                            description: this.marriageForm.description,
+                        }),
                     }
                 );
 
@@ -3666,6 +3716,7 @@ export default {
 
                 this.showMarryPrinterDialog = false;
                 await this.fetchMarriedPrinters();
+                await this.fetchPrinters(); // Refresh all printers to show updated marriage status
             } catch (error) {
                 console.error("Marry printers error:", error);
                 await Swal.fire({
@@ -3682,24 +3733,25 @@ export default {
         async confirmDeleteMarriage(marriage) {
             const result = await Swal.fire({
                 title: "Delete marriage?",
-                text: `Are you sure you want to delete the marriage "${marriage.marriage_name}"?`,
+                html: `Are you sure you want to delete the marriage <strong>"${marriage.marriage_name}"</strong>?<br><br>This will unlink:<br>• ${marriage.small_label_printer_name}<br>• ${marriage.instruction_card_printer_name}`,
                 icon: "warning",
                 showCancelButton: true,
                 confirmButtonColor: "#d33",
                 cancelButtonColor: "#6c757d",
-                confirmButtonText: "Delete",
+                confirmButtonText: "Yes, delete it!",
                 cancelButtonText: "Cancel",
             });
 
             if (result.isConfirmed) {
-                await this.deleteMarriage(marriage.id);
+                await this.deleteMarriage(marriage);
             }
         },
 
-        async deleteMarriage(marriageId) {
+        async deleteMarriage(marriage) {
             try {
+                // FIX: Changed from 'unmarry-printers' to 'divorce-printers'
                 const response = await fetch(
-                    `/api/printer-management/delete-marriage/${marriageId}`,
+                    `/api/printer-management/divorce-printers/${marriage.small_label_id}`,
                     {
                         method: "DELETE",
                         headers: {
@@ -3722,11 +3774,12 @@ export default {
                 await Swal.fire({
                     icon: "success",
                     title: "Deleted",
-                    text: "Marriage has been deleted.",
+                    text: "Marriage has been deleted successfully.",
                     confirmButtonText: "OK",
                 });
 
                 await this.fetchMarriedPrinters();
+                await this.fetchPrinters(); // Refresh all printers to show updated status
             } catch (error) {
                 console.error("Delete marriage error:", error);
                 Swal.fire({
@@ -3748,7 +3801,10 @@ export default {
     .p-dialog.p-component.add-user-dialog,
     .p-dialog.p-component.edit-user-dialog,
     .p-dialog.p-component.add-store-dialog,
-    .p-dialog.p-component.edit-store-dialog {
+    .p-dialog.p-component.edit-store-dialog,
+    .p-dialog.p-component.add-printer-dialog,
+    .p-dialog.p-component.edit-printer-dialog,
+    .p-dialog.p-component.marry-printer-dialog {
         width: 100vw !important;
         height: 100vh !important;
         top: 0px !important;
@@ -3763,7 +3819,10 @@ export default {
     .add-user-dialog .p-dialog-header,
     .edit-user-dialog .p-dialog-header,
     .add-store-dialog .p-dialog-header,
-    .edit-store-dialog .p-dialog-header {
+    .edit-store-dialog .p-dialog-header,
+    .add-printer-dialog .p-dialog-header,
+    .edit-printer-dialog .p-dialog-header,
+    .marry-printer-dialog .p-dialog-header {
         border-radius: 0 !important;
     }
 
@@ -3771,7 +3830,10 @@ export default {
     .add-user-dialog .p-dialog-content,
     .edit-user-dialog .p-dialog-content,
     .add-store-dialog .p-dialog-content,
-    .edit-store-dialog .p-dialog-content {
+    .edit-store-dialog .p-dialog-content,
+    .add-printer-dialog .p-dialog-content,
+    .edit-printer-dialog .p-dialog-content,
+    .marry-printer-dialog .p-dialog-content {
         border-radius: 0 !important;
         height: calc(100vh - 60px) !important;
         overflow-y: auto !important;
@@ -4807,8 +4869,6 @@ export default {
     gap: 0.75rem;
 }
 
-/* ==================== USER LOGS TAB ==================== */
-
 .user-logs-form :deep(.p-dropdown),
 .user-logs-form :deep(.p-calendar) {
     width: 200px;
@@ -4852,10 +4912,12 @@ export default {
 
 /* ==================== PRINTERS TAB ==================== */
 
+/* Printers Content */
 .printers-content {
     padding: 1rem;
 }
 
+/* Printer Sub-tabs */
 .printer-subtabs {
     display: flex;
     gap: 0.5rem;
@@ -4863,6 +4925,7 @@ export default {
     flex-wrap: wrap;
     border-bottom: 2px solid #e9ecef;
     padding-bottom: 0.5rem;
+    overflow-x: visible;
 }
 
 .printer-subtab-btn {
@@ -4873,6 +4936,8 @@ export default {
     padding: 0.75rem 1.5rem;
     border-bottom: 3px solid transparent !important;
     transition: all 0.3s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .printer-subtab-btn:hover {
@@ -4886,12 +4951,18 @@ export default {
     font-weight: 600;
 }
 
+/* Printer Tab Content */
 .printer-tab-content {
     padding: 1rem 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    max-height: calc(100vh - 350px);
 }
 
+/* Printer Actions Header */
 .printer-actions-header {
     margin-bottom: 1.5rem;
+    flex-shrink: 0;
 }
 
 .add-printer-btn,
@@ -4899,105 +4970,357 @@ export default {
     font-weight: 600;
 }
 
-/* Printer Form Styles */
-.add-printer-form,
-.marry-printer-form {
-    background: #f8f9fa;
-    border: 2px solid #e9ecef;
-    border-radius: 12px;
+/* Printers Table */
+.printers-table-wrapper {
+    overflow: visible;
+}
+
+.printers-table {
+    width: 100%;
+}
+
+.printers-table :deep(.p-datatable-wrapper) {
+    overflow-x: auto;
+}
+
+.printers-table :deep(.p-datatable-table) {
+    min-width: 800px;
+}
+
+/* ==================== PRINTER FORM DIALOGS ==================== */
+
+/* Add Printer and Edit Printer Dialog Headers */
+.add-printer-dialog :deep(.p-dialog-header),
+.edit-printer-dialog :deep(.p-dialog-header) {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+}
+
+.add-printer-dialog :deep(.p-dialog-title),
+.edit-printer-dialog :deep(.p-dialog-title) {
+    color: white;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.add-printer-dialog :deep(.p-dialog-header-icon),
+.edit-printer-dialog :deep(.p-dialog-header-icon) {
+    color: white !important;
+}
+
+/* Printer Form Header */
+.printer-form-header {
+    display: flex;
+    align-items: center;
     padding: 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    color: white;
+}
+
+.printer-icon-wrapper {
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.printer-icon-wrapper i {
+    font-size: 1.75rem;
+    color: white;
+}
+
+.printer-form-header h6 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.printer-form-header small {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+/* Form Grid */
+.printer-form .form-grid,
+.edit-printer-form .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+}
+
+/* Ensure form-grid exists in forms */
+.printer-form,
+.edit-printer-form {
+    width: 100%;
+}
+
+/* Form Fields */
+.printer-form .form-field,
+.edit-printer-form .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: 100%;
+    margin: 0;
+}
+
+.printer-form .form-field.full-width,
+.edit-printer-form .form-field.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Form Labels */
+.printer-form .form-label,
+.edit-printer-form .form-label {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.printer-form .form-label i,
+.edit-printer-form .form-label i {
+    color: #667eea;
+}
+
+.printer-form .form-label .text-danger,
+.edit-printer-form .form-label .text-danger {
+    color: #dc3545;
+    margin-left: 0.25rem;
+}
+
+.printer-form .form-label .text-muted,
+.edit-printer-form .form-label .text-muted {
+    font-weight: 400;
+    color: #6c757d;
+    margin-left: 0.25rem;
+    font-size: 0.75rem;
+}
+
+/* InputNumber Styling */
+.printer-form :deep(.p-inputnumber),
+.edit-printer-form :deep(.p-inputnumber),
+.add-printer-dialog :deep(.p-inputnumber),
+.edit-printer-dialog :deep(.p-inputnumber) {
+    width: 100% !important;
+    display: block !important;
+}
+
+.printer-form :deep(.p-inputnumber-input),
+.edit-printer-form :deep(.p-inputnumber-input),
+.add-printer-dialog :deep(.p-inputnumber-input),
+.edit-printer-dialog :deep(.p-inputnumber-input) {
+    width: 100% !important;
+    padding: 0.75rem !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 6px !important;
+    font-size: 1rem !important;
+    display: block !important;
+    box-sizing: border-box !important;
+}
+
+.printer-form :deep(.p-inputnumber-input:focus),
+.edit-printer-form :deep(.p-inputnumber-input:focus),
+.add-printer-dialog :deep(.p-inputnumber-input:focus),
+.edit-printer-dialog :deep(.p-inputnumber-input:focus) {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+    outline: none !important;
+}
+
+/* Force InputNumber buttons to be hidden if they're interfering */
+.printer-form :deep(.p-inputnumber-button-group),
+.edit-printer-form :deep(.p-inputnumber-button-group),
+.add-printer-dialog :deep(.p-inputnumber-button-group),
+.edit-printer-dialog :deep(.p-inputnumber-button-group) {
+    display: none !important;
+}
+
+/* InputText Styling */
+.printer-form :deep(.p-inputtext),
+.edit-printer-form :deep(.p-inputtext) {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.printer-form :deep(.p-inputtext:focus),
+.edit-printer-form :deep(.p-inputtext:focus) {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    outline: none;
+}
+
+/* Dropdown Styling */
+.printer-form :deep(.p-dropdown),
+.edit-printer-form :deep(.p-dropdown) {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+}
+
+.printer-form :deep(.p-dropdown:not(.p-disabled):hover),
+.edit-printer-form :deep(.p-dropdown:not(.p-disabled):hover) {
+    border-color: #667eea;
+}
+
+.printer-form :deep(.p-dropdown:not(.p-disabled).p-focus),
+.edit-printer-form :deep(.p-dropdown:not(.p-disabled).p-focus) {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+}
+
+/* Textarea Styling */
+.printer-form :deep(.p-inputtextarea),
+.edit-printer-form :deep(.p-inputtextarea),
+.add-printer-dialog :deep(.p-inputtextarea),
+.edit-printer-dialog :deep(.p-inputtextarea),
+.marry-printer-dialog :deep(.p-inputtextarea),
+.add-printer-dialog :deep(textarea),
+.edit-printer-dialog :deep(textarea),
+.marry-printer-dialog :deep(textarea) {
+    width: 100% !important;
+    padding: 0.75rem !important;
+    border: 1px solid #ced4da !important;
+    border-radius: 6px !important;
+    font-size: 1rem !important;
+    resize: vertical !important;
+    font-family: inherit !important;
+    line-height: 1.5 !important;
+    min-height: 80px !important;
+}
+
+.printer-form :deep(.p-inputtextarea:focus),
+.edit-printer-form :deep(.p-inputtextarea:focus),
+.add-printer-dialog :deep(.p-inputtextarea:focus),
+.edit-printer-dialog :deep(.p-inputtextarea:focus),
+.marry-printer-dialog :deep(.p-inputtextarea:focus),
+.add-printer-dialog :deep(textarea:focus),
+.edit-printer-dialog :deep(textarea:focus),
+.marry-printer-dialog :deep(textarea:focus) {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25) !important;
+    outline: none !important;
+}
+
+/* Form Row for Edit Form */
+.edit-printer-form .form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
     margin-bottom: 1.5rem;
 }
 
-.printer-form-header,
+/* Form Footer */
+.printer-form .form-footer,
+.edit-printer-form .form-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e9ecef;
+}
+
+/* ==================== MARRY PRINTERS DIALOG ==================== */
+
+/* Marriage Info Card */
 .marriage-info-card {
     display: flex;
     align-items: center;
     gap: 1rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
     margin-bottom: 1.5rem;
-    padding: 1rem;
-    background: white;
-    border-radius: 8px;
-    border: 1px solid #dee2e6;
+    color: white;
 }
 
-.printer-icon-wrapper,
 .marriage-icon-wrapper {
-    width: 50px;
-    height: 50px;
+    width: 60px;
+    height: 60px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #007bff;
+    flex-shrink: 0;
+}
+
+.marriage-icon-wrapper i {
+    font-size: 1.75rem;
     color: white;
-    border-radius: 50%;
-    font-size: 1.5rem;
 }
 
-.marriage-icon-wrapper {
-    background: #28a745;
+.marriage-info-card h6 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
 }
 
-.form-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    margin-bottom: 1.5rem;
+.marriage-info-card p {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    margin: 0;
 }
 
-.form-field.full-width {
-    grid-column: 1 / -1;
-}
+/* ==================== MARRIED PRINTERS LIST ==================== */
 
-.form-row {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 1rem;
-}
-
-.form-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-    margin-top: 1.5rem;
-}
-
-/* Married Printers List */
 .married-printers-list {
     display: flex;
     flex-direction: column;
     gap: 1rem;
 }
 
+/* Married Printer Card */
 .married-printer-card {
     background: white;
-    border: 2px solid #e9ecef;
+    border: 1px solid #e9ecef;
     border-radius: 12px;
     padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     transition: all 0.3s ease;
 }
 
 .married-printer-card:hover {
-    border-color: #28a745;
-    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.1);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
 }
 
+/* Marriage Header */
 .marriage-header {
     display: flex;
     align-items: center;
     gap: 1rem;
     margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e9ecef;
 }
 
 .marriage-icon {
     width: 40px;
     height: 40px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #28a745;
+    flex-shrink: 0;
+}
+
+.marriage-icon i {
     color: white;
-    border-radius: 50%;
     font-size: 1.2rem;
 }
 
@@ -5009,8 +5332,15 @@ export default {
     margin: 0;
     font-weight: 600;
     color: #2c3e50;
+    font-size: 1rem;
 }
 
+.marriage-title small {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+/* Marriage Printers */
 .marriage-printers {
     padding: 1rem;
     background: #f8f9fa;
@@ -5033,20 +5363,37 @@ export default {
     border: 1px solid #dee2e6;
     border-radius: 6px;
     font-weight: 500;
+    color: #2c3e50;
 }
 
 .printer-box i {
     font-size: 1.2rem;
-    color: #007bff;
+    color: #667eea;
 }
 
-.mr-1 {
-    margin-right: 0.25rem;
+.printer-pair > i.bi-arrow-left-right {
+    color: #6c757d;
+    font-size: 1.5rem;
 }
 
 /* ==================== RESPONSIVE DESIGN ==================== */
 
-/* Tablet and Mobile */
+/* Tablet */
+@media (max-width: 992px) {
+    .printer-subtabs {
+        overflow-x: auto;
+        overflow-y: hidden;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .printer-subtab-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
+    }
+}
+
+/* Mobile */
 @media (max-width: 768px) {
     .settings-modal.p-dialog {
         width: 100vw !important;
@@ -5349,31 +5696,157 @@ export default {
         max-width: 100%;
     }
 
+    /* Printers Tab Mobile */
+    .printers-content {
+        padding: 0.5rem;
+    }
+
+    .printer-tab-content {
+        max-height: calc(100vh - 250px);
+        padding: 0.5rem 0;
+    }
+
     .printer-subtabs {
-        overflow-x: auto;
-        overflow-y: hidden;
-        white-space: nowrap;
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+        overflow-x: visible;
+        overflow-y: visible;
+        white-space: normal;
+        flex-wrap: wrap;
     }
 
     .printer-subtab-btn {
-        padding: 0.5rem 1rem;
-        font-size: 0.875rem;
+        padding: 0.75rem 0.5rem;
+        font-size: 0.75rem;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 0.25rem;
+        white-space: normal;
+        word-wrap: break-word;
+        min-height: 70px;
     }
 
-    .form-grid {
-        grid-template-columns: 1fr;
+    .printer-subtab-btn i {
+        font-size: 1.25rem;
+        margin: 0;
     }
 
-    .form-row {
+    .printer-subtab-btn span {
+        display: block;
+        font-size: 0.75rem;
+        white-space: normal;
+        line-height: 1.2;
+        word-break: break-word;
+    }
+
+    .printer-form .form-grid,
+    .edit-printer-form .form-grid,
+    .edit-printer-form .form-row {
         grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .printer-form :deep(.p-inputnumber-input),
+    .printer-form :deep(.p-inputtext),
+    .printer-form :deep(.p-inputtextarea),
+    .edit-printer-form :deep(.p-inputnumber-input),
+    .edit-printer-form :deep(.p-inputtext),
+    .edit-printer-form :deep(.p-inputtextarea) {
+        font-size: 16px; /* Prevents iOS zoom */
+    }
+
+    .printer-form .form-footer,
+    .edit-printer-form .form-footer {
+        flex-direction: column;
+    }
+
+    .printer-form .form-footer :deep(.p-button),
+    .edit-printer-form .form-footer :deep(.p-button) {
+        width: 100%;
+    }
+
+    .printer-form-header,
+    .marriage-info-card {
+        padding: 1rem;
+    }
+
+    .printer-icon-wrapper,
+    .marriage-icon-wrapper {
+        width: 50px;
+        height: 50px;
+    }
+
+    .printer-icon-wrapper i,
+    .marriage-icon-wrapper i {
+        font-size: 1.5rem;
     }
 
     .printer-pair {
         flex-direction: column;
     }
 
-    .printer-pair i.bi-arrow-left-right {
+    .printer-pair > i.bi-arrow-left-right {
         transform: rotate(90deg);
+    }
+
+    .married-printer-card {
+        padding: 1rem;
+    }
+
+    .printers-table :deep(.p-datatable-table) {
+        min-width: auto;
+    }
+
+    /* Stacked Table for All Printers Tables */
+    .printers-table :deep(.p-datatable-wrapper) {
+        overflow-x: visible;
+    }
+
+    .printers-table :deep(.p-datatable-thead) {
+        display: none;
+    }
+
+    .printers-table :deep(.p-datatable-tbody > tr) {
+        display: block;
+        margin-bottom: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .printers-table :deep(.p-datatable-tbody > tr > td) {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        text-align: left;
+        border: none;
+        padding: 0.75rem 1rem;
+        position: relative;
+    }
+
+    .printers-table :deep(.p-datatable-tbody > tr > td:first-child) {
+        background: #f8f9fa;
+        border-radius: 6px 6px 0 0;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .printers-table :deep(.p-datatable-tbody > tr > td::nth-child(n + 2)) {
+        padding: 0.25rem 0.75rem;
+    }
+
+    .printers-table :deep(.p-datatable-tbody > tr > td:last-child) {
+        border-radius: 0 0 6px 6px;
+        justify-content: flex-start;
+        gap: 0.5rem;
     }
 }
 
@@ -5401,6 +5874,33 @@ export default {
     .design-form :deep(.p-button) {
         padding: 0.6rem 1.5rem;
         font-size: 0.9rem;
+    }
+
+    .printer-subtab-btn {
+        padding: 0.5rem 0.5rem;
+        font-size: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 0.25rem;
+    }
+
+    .printer-icon-wrapper,
+    .marriage-icon-wrapper {
+        width: 40px;
+        height: 40px;
+    }
+
+    .printer-icon-wrapper i,
+    .marriage-icon-wrapper i {
+        font-size: 1.2rem;
+    }
+
+    .printer-box {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
     }
 }
 </style>

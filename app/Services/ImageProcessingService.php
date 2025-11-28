@@ -673,141 +673,28 @@ class ImageProcessingService
      * Enhances an image with QR code and basket number, then converts it to ZPL
      */
     public function enhanceAndConvertToZPL($imagePath, $asinfind, $basketnumber)
-    {
-        try {
-            // Check if input file exists
-            if (!file_exists($imagePath)) {
-                Log::warning('Input file does not exist: ' . $imagePath);
-                return "^XA^FO50,50^ADN,18,18^FDInput file not found^FS^XZ";
-            }
-            
-            // Get file extension
-            $fileParts = pathinfo($imagePath);
-            $extension = strtolower($fileParts['extension']);
-            
-            // Load the image
-            if ($extension == 'png') {
-                $image = @\imagecreatefrompng($imagePath);
-            } elseif ($extension == 'jpg' || $extension == 'jpeg') {
-                $image = @\imagecreatefromjpeg($imagePath);
-            } else {
-                Log::warning('Unsupported image type: ' . $extension);
-                return "^XA^FO50,50^ADN,18,18^FDUnsupported image type^FS^XZ";
-            }
-            
-            if (!$image) {
-                Log::warning('Failed to load image: ' . $imagePath);
-                return "^XA^FO50,50^ADN,18,18^FDFailed to load image^FS^XZ";
-            }
-            
-            // Get image dimensions
-            $width = \imagesx($image);
-            $height = \imagesy($image);
-            
-            // Create QR code
-            $manual = url('storage/User_manual/ASIN_PDF/' . $asinfind . '.pdf');
-            $qrCodePath = $this->imagesPath . '/qrcode/' . $asinfind . '.png';
-            
-            // Generate QR code
-            if (class_exists('QRcode')) {
-                \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 3);
-            } else {
-                Log::warning('QRcode class not available');
-                \imagedestroy($image);
-                return "^XA^FO50,50^ADN,18,18^FDQRcode class not available^FS^XZ";
-            }
-            
-            if (!file_exists($qrCodePath)) {
-                Log::warning('Failed to create QR code at: ' . $qrCodePath);
-                \imagedestroy($image);
-                return "^XA^FO50,50^ADN,18,18^FDFailed to create QR code^FS^XZ";
-            }
-            
-            // Load QR code image
-            $qrCodeImage = @\imagecreatefrompng($qrCodePath);
-            if (!$qrCodeImage) {
-                Log::warning('Failed to load QR code image: ' . $qrCodePath);
-                \imagedestroy($image);
-                return "^XA^FO50,50^ADN,18,18^FDFailed to load QR code^FS^XZ";
-            }
-            
-            // Get QR code dimensions
-            $qrCodeWidth = \imagesx($qrCodeImage);
-            $qrCodeHeight = \imagesy($qrCodeImage);
-            
-            // Position QR code at top right
-            $dstX = $width - $qrCodeWidth - 10;
-            $dstY = 10;
-            
-            // Add QR code to image
-            \imagecopy($image, $qrCodeImage, $dstX, $dstY, 0, 0, $qrCodeWidth, $qrCodeHeight);
-            \imagedestroy($qrCodeImage);
-            
-            // Add "Scan for Manual" text
-            $text = "Scan for Manual";
-            $fontSize = 5;
-            
-            $textColor = \imagecolorallocate($image, 0, 0, 0);
-            
-            $textWidth = \imagefontwidth($fontSize) * strlen($text);
-            $textHeight = \imagefontheight($fontSize);
-            
-            $textImage = \imagecreatetruecolor($textWidth, $textHeight);
-            $bgColor = \imagecolorallocate($textImage, 255, 255, 255);
-            \imagefill($textImage, 0, 0, $bgColor);
-            \imagestring($textImage, $fontSize, 0, 0, $text, $textColor);
-            
-            $rotatedTextImage = \imagerotate($textImage, 90, 0);
-            \imagedestroy($textImage);
-            
-            $textX = (int)($dstX - \imagesx($rotatedTextImage) - 10);
-            $textY = (int)($dstY + ($qrCodeHeight - \imagesy($rotatedTextImage)) / 2);
-            
-            \imagecopy($image, $rotatedTextImage, $textX, $textY, 0, 0, \imagesx($rotatedTextImage), \imagesy($rotatedTextImage));
-            \imagedestroy($rotatedTextImage);
-            
-            // Add basket number
-            $basketText = $basketnumber;
-            $basketFontSize = 5;
-            
-            $basketTextColor = \imagecolorallocate($image, 0, 0, 0);
-            
-            $basketTextWidth = \imagefontwidth($basketFontSize) * strlen($basketText);
-            $basketTextX = (int)($dstX + ($qrCodeWidth - $basketTextWidth) / 2);
-            $basketTextY = $dstY + $qrCodeHeight + \imagefontheight($basketFontSize) + 10;
-            
-            \imagestring($image, $basketFontSize, $basketTextX, $basketTextY, $basketText, $basketTextColor);
-            
-            // Save enhanced image to temp file
-            $tempFile = $this->imagesPath . '/temp/' . basename($imagePath);
-            
-            if ($extension == 'png') {
-                \imagepng($image, $tempFile);
-            } else {
-                \imagejpeg($image, $tempFile);
-            }
-            
-            \imagedestroy($image);
-            
-            // Now use the convertImageLayout function to convert to ZPL
-            $zpl = $this->convertImageLayout($tempFile, $asinfind, $basketnumber);
-            
-            // Clean up temp file
-            if (file_exists($tempFile)) {
-                unlink($tempFile);
-            }
-            
-            return $zpl;
-            
-        } catch (Exception $e) {
-            Log::error('Error in enhanceAndConvertToZPL:', [
-                'error' => $e->getMessage(),
-                'imagePath' => $imagePath
-            ]);
-            
-            return "^XA^FO50,50^ADN,18,18^FDError enhancing image^FS^XZ";
+{
+    try {
+        // Check if input file exists
+        if (!file_exists($imagePath)) {
+            Log::warning('Input file does not exist: ' . $imagePath);
+            return "^XA^FO50,50^ADN,18,18^FDInput file not found^FS^XZ";
         }
+        
+        // Convert image to ZPL using the existing convertImageLayout function
+        $zpl = $this->convertImageLayout($imagePath, $asinfind, $basketnumber);
+        
+        return $zpl;
+        
+    } catch (Exception $e) {
+        Log::error('Error in enhanceAndConvertToZPL:', [
+            'error' => $e->getMessage(),
+            'imagePath' => $imagePath
+        ]);
+        
+        return "^XA^FO50,50^ADN,18,18^FDError converting image^FS^XZ";
     }
+  }
     
     /**
      * Generate serial-specific images from template images
@@ -885,7 +772,7 @@ class ImageProcessingService
                         \imagestring($canvas, 5, $width - 200, $height - 250, $details, $blue);
                     }
                 } elseif ($index == 1) { // Second page
-                    $textX = $width - 500; // Changed from -500 to -500 (consistent)
+                    $textX = $width - 570; // Changed from -500 to -500 (consistent)
                     $textY = $height - 300;
                     if (file_exists($this->fontsPath)) {
                         \imagettftext($canvas, 28, 90, $textX, $textY, $blue, $this->fontsPath, $details); // Changed from size 18 to 28

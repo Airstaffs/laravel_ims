@@ -12,7 +12,7 @@
         <!-- Desktop Table Container -->
         <div class="px-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
-                tableClass="desktop-view">
+                selectionMode="multiple" selection="multiple" tableClass="desktop-view" dataKey="ProductID">
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
@@ -786,13 +786,13 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 // export default Orders;
 
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         field: "gallery",
         header: "Gallery",
@@ -870,6 +870,7 @@ export default {
     },
     data() {
         return {
+            selectedRows: [],
             columns: TABLE_COLUMNS,
             sourceTypeOptions: [
                 { label: "ES", value: "ES" },
