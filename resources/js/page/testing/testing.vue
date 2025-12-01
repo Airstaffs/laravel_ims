@@ -5,11 +5,11 @@
         </div> -->
 
         <!-- <h2 class="module-title">Testing Module</h2> -->
-        <TitlePage title="Product Testing Management"
+        <TitlePage title="Testing Module"
             subtitle="Manage and log quality assurance and functional testing results for products prior to inventory staging." />
 
         <!-- Desktop Table Container -->
-        <div class="px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="visibleColumns" :paginator="false"
                 tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
 
@@ -36,7 +36,7 @@
                         icon="pi pi-exclamation-circle" @click="openEditModal(data)" />
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
         <!-- <div class="table-container desktop-view">
             <table>
                 <thead>
@@ -531,7 +531,10 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="modal image-modal">
+        <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
+            :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
+            @close="closeImageModal" />
+        <!-- <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
 
             <div class="modal-content">
@@ -573,7 +576,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <Dialog v-model:visible="showEditModal" class="view-modal" modal
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;" :pt="{
@@ -819,6 +822,8 @@ import TableGallery from "../../components/Gallery/tableGallery.vue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -869,7 +874,9 @@ export default {
         XDataTable,
         MobileCard1,
         ScrollTop,
-        TitlePage
+        TitlePage,
+        ViewImageModal,
+        AnimateDiv
     },
     data() {
         return {

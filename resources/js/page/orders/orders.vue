@@ -4,13 +4,13 @@
             <span>Top Header</span>
         </div> -->
 
-        <TitlePage title="Order Management"
+        <TitlePage title="Order Module"
             subtitle="View and manage all current and past shipment orders, including tracking information and status." />
 
 
 
         <!-- Desktop Table Container -->
-        <div class="px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
                 selectionMode="multiple" selection="multiple" tableClass="desktop-view" dataKey="ProductID">
                 <template #gallery="{ data }">
@@ -44,7 +44,7 @@
                         @click="openEditModal(data)" label="Edit" />
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
         <!-- <div class="table-container desktop-view">
             <table>
                 <thead>
@@ -390,7 +390,10 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="modal image-modal">
+        <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
+            :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
+            @close="closeImageModal" />
+        <!-- <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
 
             <div class="modal-content">
@@ -432,7 +435,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
         <Dialog v-model:visible="showEditModal" modal :style="{ width: '90%' }" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
         }">
@@ -783,6 +786,8 @@ import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import { Badge, Button, Card, Dialog, Divider, InputText, Textarea, DatePicker, Select, ScrollTop } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 // export default Orders;
 
 const TABLE_COLUMNS = [
@@ -866,7 +871,9 @@ export default {
         DatePicker,
         Select,
         ScrollTop,
-        TitlePage
+        TitlePage,
+        ViewImageModal,
+        AnimateDiv
     },
     data() {
         return {

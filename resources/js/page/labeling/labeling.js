@@ -364,7 +364,8 @@ export default {
             // Load captured images (capturedimg1 - capturedimg12)
             if (
                 item.capturedImages &&
-                typeof item.capturedImages === "object"
+                typeof item.capturedImages === "object" &&
+                  Object.values(item.capturedImages || {}).some(v => v)
             ) {
                 for (let i = 1; i <= 12; i++) {
                     const filename = `${item.rtcounter}_img${i}.jpg`;

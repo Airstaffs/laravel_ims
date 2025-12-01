@@ -537,7 +537,7 @@ Route::prefix('api/asinlist')->group(function () {
 
     // Get ASIN products list
     Route::get('products', [ASINlistController::class, 'index']);
-
+    Route::get('/asin/conditions', [ASINlistController::class, 'getAllowedConditions']);
     // Get stores for dropdown
     Route::get('stores', [ASINlistController::class, 'getStores']);
     Route::get('/asin/search', [ASINlistController::class, 'searchAsin']);
@@ -568,6 +568,8 @@ Route::prefix('api/asinlist')->group(function () {
 
     // Bulk Upload asin instruction card
     Route::post('bulk-upload-instruction-cards', [ASINlistController::class, 'bulkUploadInstructionCards']);
+
+    Route::post('update-quantity-inside', [ASINlistController::class, 'updateQuantityInside']);
 });
 
 // Routes for Houseage Function

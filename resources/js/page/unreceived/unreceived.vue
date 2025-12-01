@@ -7,7 +7,7 @@
         </div> -->
 
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Unreceived Management"
+            <TitlePage title="Unreceived Module"
                 subtitle="Track and manage all inbound inventory shipments that have not yet been received or confirmed." />
             <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode" />
         </div>
@@ -42,7 +42,7 @@
         </scanner-component>
 
         <!-- Desktop Table Container -->
-        <div class="px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="visibleColumns" :paginator="false"
                 selectionMode="multiple" dataKey="ProductID" tableClass="desktop-view">
                 <template #gallery="{ data }">
@@ -68,7 +68,7 @@
                         icon="pi pi-exclamation-circle" @click="openEditModal(data)" />
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
         <!-- <div class="table-container desktop-view">
             <table>
                 <thead>
@@ -401,7 +401,10 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="modal image-modal">
+        <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
+            :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
+            @close="closeImageModal" />
+        <!-- <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
 
             <div class="modal-content">
@@ -443,7 +446,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <Dialog class="view-modal" v-model:visible="showEditModal" modal
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" :style="{ width: '95%' }" :pt="{
@@ -951,6 +954,8 @@ import TableGallery from "../../components/Gallery/tableGallery.vue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -1001,7 +1006,9 @@ export default {
         XDataTable,
         MobileCard1,
         ScrollTop,
-        TitlePage
+        TitlePage,
+        ViewImageModal,
+        AnimateDiv
     },
     data() {
         return {

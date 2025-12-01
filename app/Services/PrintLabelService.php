@@ -1438,7 +1438,21 @@ class PrintLabelService extends BasetablesController
             Log::info('Generating warranty cards from templates');
             $this->imageProcessingService->generateSerialImagesFromTemplates($Wserial, $templatePath1, $templatePath2);
             
-            // Process warranty card page 1
+
+          // Process warranty card page 1
+            if (file_exists($serialCard2Path)) {
+                if ($this->imageProcessingService->safeConvertImage($serialCard2Path, $monochromeBasePath, 800, 1200)) {
+                    $monochromeImagePath = $monochromeBasePath . $serialCard2FileName;
+                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
+                    Log::info('Successfully generated warranty card page 2 ZPL');
+                } else {
+                    Log::error('Failed to convert warranty card page 2 to monochrome');
+                }
+            } else {
+                Log::error('Warranty card page 2 not found at: ' . $serialCard2Path);
+            }
+            
+            // Process warranty card page 2
             if (file_exists($serialCard1Path)) {
                 if ($this->imageProcessingService->safeConvertImage($serialCard1Path, $monochromeBasePath, 800, 1200)) {
                     $monochromeImagePath = $monochromeBasePath . $serialCard1FileName;
@@ -1451,18 +1465,7 @@ class PrintLabelService extends BasetablesController
                 Log::error('Warranty card page 1 not found at: ' . $serialCard1Path);
             }
             
-            // Process warranty card page 2
-            if (file_exists($serialCard2Path)) {
-                if ($this->imageProcessingService->safeConvertImage($serialCard2Path, $monochromeBasePath, 800, 1200)) {
-                    $monochromeImagePath = $monochromeBasePath . $serialCard2FileName;
-                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
-                    Log::info('Successfully generated warranty card page 2 ZPL');
-                } else {
-                    Log::error('Failed to convert warranty card page 2 to monochrome');
-                }
-            } else {
-                Log::error('Warranty card page 2 not found at: ' . $serialCard2Path);
-            }
+        
 
                 Log::info('Completed all warranty cards and labels for serial: ' . $Wserial);
         } else {

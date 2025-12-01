@@ -59,7 +59,7 @@
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{
                     persistentSelectedOrderIds.length > 1 ? "s" : ""
-                    }}
+                }}
                     selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
@@ -69,9 +69,9 @@
 
         <!-- <h2 class="module-title">FBM Order Module</h2> -->
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="FBM Orders Management"
+            <TitlePage title="FBM Orders Module"
                 subtitle="Manage all orders fulfilled directly by the merchant. Process shipments, generate labels, and track the status of FBM orders." />
-            <div class="d-flex justify-content-center gap-2 me-4 flex-wrap">
+            <div class="d-flex justify-content-center gap-2 me-4 flex-wrap desktop-view">
                 <Button severity="secondary" size="small" outlined @click="openWorkHistoryModal" label="Work History"
                     icon="pi pi-chart-line" />
                 <Button size="small" severity="secondary" outlined v-if="persistentSelectedOrderIds.length > 0"
@@ -85,11 +85,17 @@
                 <Button size="small" severity="secondary" outlined @click="openManualShipmentLabelModal"
                     label="Manual Shipment Label" />
             </div>
+            <div class="mobile-view w-100 ms-2">
+                <Button label="More Actions" fluid size="small" severity="secondary" outlined icon="pi pi-list"
+                    @click="toggleUpperMenuButton($event)" aria-haspopup="true" aria-controls="overlay_menu" />
+            </div>
+
+            <Menu ref="upperMenu" id="overlay_menu" :model="upperMenuActions" :popup="true" />
         </div>
 
 
         <!-- Desktop Table Container -->
-        <div class="px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <div class="search-container">
                 <fieldset class="d-flex align-items-center gap-3 ">
                     <label for="moduleFilter">Store</label>
@@ -124,7 +130,7 @@
                             <span>Fulfillment Channel: </span>
                             <span class="text-danger fw-bolder">{{
                                 data.FulfillmentChannel
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="detail-item-container">
                             <span>Amazon Order: </span>
@@ -195,6 +201,83 @@
                                     }}
                                     </span>
                                 </div>
+                                <!-- Enhanced dispensed products display for multiple quantities -->
+                                <div v-if="isItemDispensed(subdata)" class="dispensed-item-details">
+                                    <div class="dispensed-header">
+                                        <span class="product-id-badge">
+                                            Dispensed Products ({{
+                                                getDispensedProductCount(
+                                                    subdata
+                                                )
+                                            }}/{{ subdata.quantity_ordered }})
+                                        </span>
+                                    </div>
+
+                                    <!-- Display all dispensed products -->
+                                    <div v-for="(
+dispensedProduct, dpIndex
+                                            ) in getDispensedProductsDisplay(
+    subdata
+)" :key="'dp-' + dpIndex" class="dispensed-product-item">
+                                        <div class="dispensed-detail">
+                                            <strong>Title:</strong>
+                                            {{
+                                                dispensedProduct.title ||
+                                                "N/A"
+                                            }}
+                                        </div>
+                                        <div class="dispensed-detail">
+                                            <strong>ASIN:</strong>
+                                            {{
+                                                dispensedProduct.asin ||
+                                                "N/A"
+                                            }}
+                                        </div>
+                                        <div class="dispensed-detail">
+                                            <strong>Location:</strong>
+                                            {{
+                                                dispensedProduct.warehouseLocation ||
+                                                "N/A"
+                                            }}
+                                        </div>
+                                        <div v-if="
+                                            dispensedProduct.serialNumber
+                                        " class="dispensed-detail">
+                                            <strong>Serial #:</strong>
+                                            {{
+                                                dispensedProduct.serialNumber
+                                            }}
+                                        </div>
+                                        <div v-if="
+                                            dispensedProduct.rtCounter
+                                        " class="dispensed-detail">
+                                            <strong>RT Counter:</strong>
+                                            {{ dispensedProduct.rtCounter }}
+                                        </div>
+                                        <div v-if="dispensedProduct.FNSKU" class="dispensed-detail">
+                                            <strong>FNSKU:</strong>
+                                            {{ dispensedProduct.FNSKU }}
+                                        </div>
+                                        <div class="dispensed-actions">
+                                            <button class="btn-not-found" @click="
+                                                markProductNotFound(
+                                                    dispensedProduct.product_id,
+                                                    subdata
+                                                )
+                                                " title="Mark product as not found and auto-select replacement">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                Not Found
+                                            </button>
+                                        </div>
+                                        <hr v-if="
+                                            dpIndex <
+                                            getDispensedProductsDisplay(
+                                                subdata
+                                            ).length -
+                                            1
+                                        " class="dispensed-separator" />
+                                    </div>
+                                </div>
                             </div>
                             <!-- <Divider /> -->
                         </div>
@@ -224,7 +307,7 @@
                         <div class="detail-item-container">
                             <span>Delivered by Date: </span>
                             <span> {{ formatDeliveryDate(data.delivery_date)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div v-if="hasTrackingNumber(data)">
                             <span>Tracking Status:</span>
@@ -272,7 +355,7 @@
                     </div>
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -346,7 +429,7 @@
                                 <span class="mobile-detail-label">Condition: </span>
                                 <span class="mobile-detail-value">{{ item.condition }} | Price: ${{
                                     parseFloat(item.unit_price || 0).toFixed(2)
-                                    }}</span>
+                                }}</span>
                             </div>
 
                             <!-- Enhanced mobile dispensed products display -->
@@ -409,19 +492,19 @@ dispensedProduct, dpIndex
                             <span class="mobile-detail-label">Purchase Date: </span>
                             <span class="mobile-detail-value">{{
                                 formatDate(order.purchase_date)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Order Type: </span>
                             <span class="mobile-detail-value">{{
                                 order.order_type
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Shipment: </span>
                             <span class="mobile-detail-value">{{
                                 order.shipment_service
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
 
@@ -651,12 +734,12 @@ dispensedProduct, dpIndex
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -667,17 +750,17 @@ dispensedProduct, dpIndex
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                            }}</span>
+                                                        }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -750,7 +833,7 @@ dispensedProduct, dpIndex
                                         </div>
                                         <div><strong>Order Item ID:</strong> {{
                                             dispenseItem.ordered_item.platform_order_item_id
-                                            }}</div>
+                                        }}</div>
                                     </div>
                                     <Tag :value="`Qty: ${dispenseItem.quantity_ordered} (${dispenseItem.quantity_dispensed} dispensed, ${dispenseItem.quantity_remaining} remaining)`"
                                         severity="info" class="mt-2" />
@@ -855,7 +938,7 @@ dispensedProduct, dpIndex
                                                 dispensedProduct.rtCounter }}</div>
                                             <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong> {{
                                                 dispensedProduct.FNSKU
-                                                }}</div>
+                                            }}</div>
                                         </div>
                                         <Button label="Not Found" icon="pi pi-exclamation-triangle" severity="warning"
                                             size="small" text
@@ -1152,7 +1235,7 @@ dispensedProduct, dpIndex
                         <!-- Search -->
                         <fieldset class="filter-field">
                             <label>Total Orders: <span class="text-primary">{{ workHistoryStats.totalOrders
-                            }}</span></label>
+                                    }}</span></label>
                             <InputText type="text" size="small" placeholder="Search Order ID or ..."
                                 v-model="workHistoryFilters.searchQuery" class="search-input" fluid
                                 @input="fetchWorkHistory" />
@@ -1227,7 +1310,7 @@ dispensedProduct, dpIndex
                                     <li>
                                         <strong>{{
                                             item.Title
-                                        }}</strong>
+                                            }}</strong>
                                     </li>
                                     <li>{{ item.ASIN }}</li>
                                     <li>{{ item.MSKU }}</li>
@@ -1481,6 +1564,7 @@ import { Badge, Button, Dialog, Divider, InputText, Menu, Message, Panel, Scroll
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import fbmorder from "./fbmOrders.js";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 const TABLE_COLUMNS = [
     // {
     //     selectionMode: "multiple",
@@ -1598,14 +1682,17 @@ export default {
         Tooltip,
         Menu,
         TitlePage,
-        Tag
+        Tag,
+        AnimateDiv
     },
     data() {
         return {
             columns: TABLE_COLUMNS,
             historyColumns: TABLE_HISTORY_COLUMNS,
             menuActions: [],
+            upperMenuActions: [],
             currentActionItem: null,
+            currentUpperActionItem: null,
             storeOptions: [
                 {
                     "label": "All Stores",
@@ -1674,6 +1761,12 @@ export default {
                 this.$refs.menu.toggle(event);
             }
         },
+        toggleUpperMenuButton(event) {
+            this.upperMenuActions = this.getMoreUpperActionItems(this.currentUpperActionItem);
+            if (this.$refs.upperMenu) {
+                this.$refs.upperMenu.toggle(event);
+            }
+        },
         getMoreActionItems(item) {
             return [
                 {
@@ -1684,6 +1777,40 @@ export default {
                     label: 'Tracking History',
                     icon: 'pi pi-history',
                 }
+            ]
+        },
+        getMoreUpperActionItems() {
+            return [
+                {
+                    label: 'Work History',
+                    icon: 'pi pi-chart-line',
+                    command: () => this.openWorkHistoryModal(),
+                },
+                {
+                    label: 'Purchase Shipping Label',
+                    icon: 'pi pi-truck',
+                    command: () => this.PurchaseShippingLabel(),
+                    visible: this.persistentSelectedOrderIds.length > 0
+                },
+                {
+                    label: 'Process Selected',
+                    icon: 'pi pi-truck',
+                    command: () => this.processSelectedOrders(),
+                },
+                {
+                    label: 'Print Labels',
+                    icon: 'pi pi-tag',
+                    command: () => this.printShippingLabels(),
+                },
+                {
+                    label: 'Generate Packing Slips',
+                    icon: 'pi pi-file',
+                    command: () => this.generatePackingSlips(),
+                },
+                {
+                    label: 'Manual Shipment Label',
+                    command: () => this.openManualShipmentLabelModal(),
+                },
             ]
         },
         getStatusColor(status) {
