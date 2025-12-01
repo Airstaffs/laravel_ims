@@ -182,7 +182,10 @@
         </div>
 
         <!-- Image Modal with Tabs -->
-        <div v-if="showImageModal" class="modal image-modal">
+        <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
+            :handleImageError="handleImageError" />
+        <!-- <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
 
             <div class="modal-content">
@@ -243,7 +246,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <!-- Edit Modal -->
         <Dialog v-model:visible="showEditModal" modal header="Edit Product" :style="{ width: '95%' }" :pt="{
@@ -993,6 +996,7 @@ import RTS from "./rts.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -1061,7 +1065,8 @@ export default {
     mixins: [RTS],
     components: {
         XDataTable,
-        Dialog, Button, TableGallery, Card, InputText, Select, Divider, Textarea, ScrollTop, TitlePage, AnimateDiv
+        Dialog, Button, TableGallery, Card, InputText, Select, Divider, Textarea, ScrollTop, TitlePage, AnimateDiv,
+        ViewImageGalleryModal
     },
     data() {
         return {

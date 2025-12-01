@@ -382,10 +382,9 @@ export default {
                  for (let i = 1; i <= 12; i++) {
                     const field = `capturedimg${i}`;
                     const value = item.capturedImages[field];
-
                     //dont include null value
                     if (value && value.trim()) {
-                        const path = `/images/thumbnails/${value}`;
+                        const path = `/images/product_images/${companyFolder}/${value}`;
                         this.capturedImages.push(path);
                     }
                 }

@@ -265,10 +265,19 @@ export default {
                 item.capturedImages &&
                 typeof item.capturedImages === "object"
             ) {
-                for (let i = 1; i <= 12; i++) {
-                    const filename = `${item.rtcounter}_img${i}.jpg`;
-                    const path = `/images/product_images/${companyFolder}/${filename}`;
-                    this.capturedImages.push(path);
+                // for (let i = 1; i <= 12; i++) {
+                //     const filename = `${item.rtcounter}_img${i}.jpg`;
+                //     const path = `/images/product_images/${companyFolder}/${filename}`;
+                //     this.capturedImages.push(path);
+                // }
+                 for (let i = 1; i <= 12; i++) {
+                    const field = `${item.rtcounter}_img${i}.jpg`;
+                    const value = item.capturedImages[field];
+                    //dont include null value
+                    if (value && value.trim()) {
+                        const path = `/images/product_images/${companyFolder}/${value}`;
+                        this.capturedImages.push(path);
+                    }
                 }
             }
 

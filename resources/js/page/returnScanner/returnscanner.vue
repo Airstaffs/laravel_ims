@@ -149,7 +149,7 @@
                             data.BuyerName ||
                             data.costumer_name ||
                             "Unknown"
-                            }}</p>
+                        }}</p>
                     </template>
                     <template #actions="{ data }">
                         <div>
@@ -197,25 +197,25 @@
                             <span class="fw-semibold">RT#:</span>
                             <span class="mobile-detail-value">{{
                                 formatRTNumber(item.rtcounter, item.storename)
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumber
-                                }}</span>
+                            }}</span>
                         </div>
                         <div v-if="item.serialnumberb" class="mobile-detail-row">
                             <span class="fw-semibold">Second Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumberb
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Location:</span>
                             <span class="mobile-detail-value">{{
                                 item.warehouselocation || "Floor"
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Status:</span>
@@ -233,7 +233,7 @@
                                 item.BuyerName ||
                                 item.costumer_name ||
                                 "Unknown"
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
                     <Divider />
@@ -256,7 +256,7 @@
         <!---DETAILS MODAL--->
         <Dialog v-model:visible="viewDetailsModal" modal header="Product Details" class="view-details-dialog" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
-        }">
+        }" style="width: 50%;">
             <div class="row">
                 <div class="col-md-6 mb-4">
                     <Gallery :item="item" />

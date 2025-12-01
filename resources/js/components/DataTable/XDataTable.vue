@@ -26,19 +26,18 @@
             <!-- Header checkbox for multiple select -->
             <template #header>
                 <div v-if="selectionMode === 'multiple' && displayValue.length" class="select-all-wrapper">
-                    <input type="checkbox" :checked="allSelectableSelected"
-                        :indeterminate.prop="someSelectableSelected && !allSelectableSelected"
-                        :disabled="allCheckboxesDisabled" @change="toggleSelectAll($event.target.checked)"
+                    <Checkbox :modelValue="allSelectableSelected"
+                        :indeterminate="someSelectableSelected && !allSelectableSelected"
+                        :disabled="allCheckboxesDisabled" @update:modelValue="toggleSelectAll" binary
                         aria-label="Select all rows" />
                 </div>
             </template>
             <!-- Body checkbox per row -->
             <template #body="{ data }">
                 <div class="row-checkbox-wrapper">
-                    <input type="checkbox" :checked="isSelected(data)" :disabled="isDisabled(data) || loading"
-                        @change="onCheckboxChange($event.target.checked, data)"
+                    <Checkbox :modelValue="isSelected(data)" :disabled="isDisabled(data) || loading"
+                        @update:modelValue="onCheckboxChange($event, data)" binary
                         :aria-label="`Select row ${String(data[autoDataKey] ?? '')}`" />
-
                 </div>
             </template>
         </Column>
@@ -67,7 +66,8 @@
 <script>
 import {
     DataTable,
-    Column
+    Column,
+    Checkbox
 }
     from "primevue";
 export default {
@@ -75,7 +75,9 @@ export default {
         "ReusableDataTable",
     components: {
         DataTable,
-        Column
+        Column,
+        Checkbox
+
     },
     props: {
         value: {

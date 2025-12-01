@@ -18,7 +18,7 @@
         <!-- Desktop Table Container -->
         <div class="px-4">
             <XDataTable :value="inventory" :columns="columns" :loading="loading" :paginator="false"
-                tableClass="desktop-view">
+                tableClass="desktop-view" dataKey="FNSKUID" selectionMode="multiple">
                 <template #grading="{ data }">
                     <Tag :value="data.grading" :severity="getGradingSeverity(data.grading)"
                         style="font-size: 0.7rem;" />
@@ -370,13 +370,13 @@ import XDataTable from '../../components/DataTable/XDataTable.vue'
 import { Button, Tag, InputText, Select, Dialog } from "primevue";
 import TitlePage from '../../components/TitlePage/TitlePage.vue'
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         header: "ASIN",
         field: "ASIN",
