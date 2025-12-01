@@ -42,6 +42,17 @@
                             class="nav-button with-label"
                         />
                     </OverlayBadge>
+
+                    <Button
+                        icon="pi pi-megaphone"
+                        @click="openAnnouncementModal"
+                        severity="secondary"
+                        text
+                        rounded
+                        size="small"
+                        aria-label="Profile"
+                    />
+
                     <Button
                         icon="pi pi-pause-circle"
                         @click="openBreakModal"
@@ -246,6 +257,7 @@
         @open-modal="handleModalOpen"
         @custom-action="handleCustomAction"
     />
+    <AnnouncementModal v-model:visible="announcementVisible" />
 </template>
 
 <script>
@@ -256,6 +268,7 @@ import Sidebar from "./Sidebar.vue";
 import NotificationModal from "./NotificationModal.vue";
 import ProfileModal from "./ProfileModal.vue";
 import SettingsModal from "./SettingsModal.vue";
+import AnnouncementModal from "./AnnouncementModal.vue";
 import { OverlayBadge } from "primevue";
 
 export default {
@@ -268,6 +281,7 @@ export default {
         NotificationModal,
         ProfileModal,
         SettingsModal,
+        AnnouncementModal,
         OverlayBadge,
     },
     data() {
@@ -279,6 +293,7 @@ export default {
             notificationCount: 0,
             profileVisible: false,
             settingsVisible: false,
+            announcementVisible: false,
             kanbanCount: 0,
             userId: null,
         };
@@ -330,14 +345,18 @@ export default {
         },
 
         openAnnouncementModal() {
-            if (typeof ANN !== "undefined" && ANN.onOpenManage) {
-                ANN.onOpenManage();
-            }
-            const modal = new bootstrap.Modal(
-                document.getElementById("annManageModal")
-            );
-            modal.show();
+            this.announcementVisible = true;
         },
+
+        // openAnnouncementModal() {
+        //     if (typeof ANN !== "undefined" && ANN.onOpenManage) {
+        //         ANN.onOpenManage();
+        //     }
+        //     const modal = new bootstrap.Modal(
+        //         document.getElementById("annManageModal")
+        //     );
+        //     modal.show();
+        // },
 
         openBreakModal(event) {
             if (event) event.preventDefault();
