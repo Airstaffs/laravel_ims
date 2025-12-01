@@ -568,6 +568,8 @@ Route::prefix('api/asinlist')->group(function () {
 
     // Bulk Upload asin instruction card
     Route::post('bulk-upload-instruction-cards', [ASINlistController::class, 'bulkUploadInstructionCards']);
+
+    Route::post('update-quantity-inside', [ASINlistController::class, 'updateQuantityInside']);
 });
 
 // Routes for Houseage Function

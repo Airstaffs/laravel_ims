@@ -95,6 +95,27 @@
                     </div>
                 </template>
 
+
+
+                <!-- ADD THIS NEW TEMPLATE SLOT -->
+               <template #quantityInside="{ data }">
+                <div class="quantity-inside-cell">
+                    <Select 
+                        v-model="data.QuantityInside" 
+                        :options="[1, 2, 3, 4]" 
+                        @change="updateQuantityInside(data)"
+                        :disabled="savingQuantityFor === data.ASIN"
+                        placeholder="-"
+                        :pt="{
+                            root: { style: 'width: 80px; font-size: 14px;' }
+                        }"
+                    />
+                    <i v-if="savingQuantityFor === data.ASIN" 
+                    class="pi pi-spin pi-spinner" 
+                    style="margin-left: 8px; color: #007bff;"></i>
+                </div>
+            </template>
+
                 <template #FNSKU="{ data }">
                     <div class="fnsku-count">
                         {{ data.fnsku_count }} FNSKUs
@@ -2025,6 +2046,11 @@ const TABLE_COLUMNS = [
     {
         header: "Related ASINs",
         slot: "relatedAsins",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        header: "Qty Inside",
+        slot: "quantityInside",
         bodyStyle: "font-size: 14px"
     },
     {
