@@ -8,6 +8,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
+
+require base_path('app/Helpers/aws_helpers.php');
 
 class ASINlistController extends BasetablesController
 {
@@ -189,7 +192,6 @@ class ASINlistController extends BasetablesController
             ], 500);
         }
     }
-
     /**
      * Get list of store names for the dropdown
      */
@@ -250,6 +252,80 @@ class ASINlistController extends BasetablesController
 
         return response()->json($results);
     }
+
+    public function getAllowedConditions(Request $request)
+    {
+        $request->validate([
+            'asin' => 'required|string',
+            'storename' => 'required|string',
+        ]);
+
+        $asin = strtoupper(trim($request->input('asin')));
+        $storename = trim($request->input('storename'));
+
+        $marketplaceId = $this->getMarketplaceIdForStore($storename) ?? 'ATVPDKIKX0DER';
+
+        $allConditions = [
+            'new_new',
+            'new_open_box',
+            'new_oem',
+            'refurbished_refurbished',
+            'used_like_new',
+            'used_very_good',
+            'used_good',
+            'used_acceptable',
+            'collectible_like_new',
+            'collectible_very_good',
+            'collectible_good',
+            'collectible_acceptable',
+            'club_club',
+        ];
+
+        $allowed = [];
+        $blocked = [];
+        $conditionsDebug = [];   // 👈 new
+
+        foreach ($allConditions as $cond) {
+            $restriction = $this->checkListingRestriction(
+                $storename,
+                $asin,
+                $cond,
+                $marketplaceId
+            );
+
+            $isRestricted = !empty($restriction['restricted']);
+            $reason = $restriction['reason'] ?? null;
+            $raw = $restriction['raw'] ?? null; // this should contain callListingsRestrictions result
+
+            if ($isRestricted) {
+                $blocked[] = [
+                    'condition' => $cond,
+                    'reason' => $reason,
+                ];
+            } else {
+                $allowed[] = $cond;
+            }
+
+            // Store per-condition debug info
+            $conditionsDebug[] = [
+                'condition' => $cond,
+                'restricted' => $isRestricted,
+                'reason' => $reason,
+                'amazon_raw' => $raw, // includes success, data, parsed, errors
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'asin' => $asin,
+            'storename' => $storename,
+            'allowed_conditions' => $allowed,
+            'blocked_conditions' => $blocked,
+            'conditions_debug' => $conditionsDebug,   // 👈 Amazon responses per condition
+        ]);
+    }
+
+
 
     public function saveMsku(Request $request)
     {
@@ -333,17 +409,18 @@ class ASINlistController extends BasetablesController
         $condition = $request->condition;
         $storeInput = trim($request->storename);
 
-        // 1. Query the abbreviation from tblstores
-        $abbreviation = DB::table('tblstores') // adjust table name if it's different
+        // 1) Get store abbreviation
+        $abbreviation = DB::table('tblstores')
             ->where('storename', $storeInput)
             ->value('abbreviation');
 
         if (!$abbreviation) {
             return response()->json([
-                'error' => "No abbreviation found for store: {$storeInput}"
+                'error' => "No abbreviation found for store: {$storeInput}",
             ], 404);
         }
 
+        // 2) Condition → short code map
         $prefixMap = [
             "new_new" => "NN",
             "new_open_box" => "NOB",
@@ -357,16 +434,16 @@ class ASINlistController extends BasetablesController
             "collectible_very_good" => "CVG",
             "collectible_good" => "CG",
             "collectible_acceptable" => "CA",
-            "club_club" => "CLUB"
+            "club_club" => "CLUB",
         ];
 
         $code = $prefixMap[$condition] ?? 'UNK';
 
+        // 3) Generate unique MSKU
         $attempt = 0;
         $maxAttempts = 30;
         $msku = null;
 
-        // 2. Generate MSKU with abbreviation instead of store name
         do {
             $rand4 = strtoupper(Str::random(4));
             $msku = "{$asin}-{$abbreviation}-{$code}-{$rand4}";
@@ -378,21 +455,234 @@ class ASINlistController extends BasetablesController
             Log::warning('Failed to generate unique MSKU after multiple attempts', [
                 'asin' => $asin,
                 'storename' => $storeInput,
-                'condition' => $condition
+                'condition' => $condition,
             ]);
 
             return response()->json([
-                'error' => 'Unable to generate unique MSKU after multiple attempts.'
+                'error' => 'Unable to generate unique MSKU after multiple attempts.',
             ], 422);
         }
 
         Log::info('Generated MSKU', ['msku' => $msku]);
 
+        // 🔙 Back to the “former” response shape
         return response()->json([
             'msku' => $msku,
-            'condition' => $condition
+            'condition' => $condition,
         ]);
     }
+
+
+    private function getMarketplaceIdForStore(string $store): string
+    {
+        // Adjust to your real mapping if needed
+        return 'ATVPDKIKX0DER'; // Amazon US
+    }
+
+    private function callListingsRestrictions(string $store, string $asin, ?string $conditionType, string $marketplaceId = 'ATVPDKIKX0DER'): array
+    {
+        $endpoint = 'https://sellingpartnerapi-na.amazon.com';
+        $canonicalHeaders = "host:sellingpartnerapi-na.amazon.com";
+        $path = '/listings/2021-08-01/restrictions';
+
+        if ($conditionType) {
+            $customParams['conditionType'] = $conditionType;
+        }
+
+        $nextToken = null;
+
+        // 1) Credentials
+        $credentials = AWSCredentials($store);
+
+        $customParams = [
+            'asin' => $asin,
+            'marketplaceIds' => $marketplaceId,
+            'reasonLocale' => 'en_US',
+            'sellerId' => $credentials['MerchantID']
+        ];
+        if (!$credentials) {
+            return [
+                'success' => false,
+                'message' => "No AWS credentials found for store {$store}",
+                'status' => 500,
+                'data' => null,
+                'errors' => [],
+            ];
+        }
+
+        $accessToken = fetchAccessToken($credentials, $returnRaw = false);
+        if (!$accessToken) {
+            return [
+                'success' => false,
+                'message' => "Failed to fetch access token for store {$store}",
+                'status' => 500,
+                'data' => null,
+                'errors' => [],
+            ];
+        }
+
+        // 2) Build headers & query
+        $headers = buildHeaders(
+            $credentials,
+            $accessToken,
+            'GET',
+            'execute-api',
+            'us-east-1',
+            $path,
+            $nextToken,
+            $customParams,
+            $endpoint,
+            $canonicalHeaders
+        );
+
+        $headers['accept'] = 'application/json';
+
+        $queryString = buildQueryString($nextToken, $customParams);
+        $url = "{$endpoint}{$path}?{$queryString}";
+
+        Log::info('GetListingsRestrictions request', [
+            'url' => $url,
+            'headers' => $headers,
+            'query' => $customParams,
+        ]);
+
+        try {
+            $response = Http::timeout(30)
+                ->withHeaders($headers)
+                ->get($url);
+
+            $curlInfo = $response->handlerStats();
+            Log::info('GetListingsRestrictions curl info', $curlInfo);
+
+            $rawBody = $response->body(); // <-- raw text from Amazon
+            $parsed = null;
+
+            try {
+                $parsed = $response->json();
+            } catch (\Throwable $e) {
+                $parsed = null;
+            }
+
+            if ($response->successful()) {
+                return [
+                    'success' => true,
+                    'message' => 'Data fetched successfully',
+                    'status' => $response->status(),
+                    'data' => $rawBody,   // string, like your example
+                    'parsed' => $parsed,    // array|null
+                    'errors' => [],         // no SP error array in success
+                ];
+            }
+
+            // Handle Amazon error format: {"errors":[{code,message,details}]}
+            $errorsFromAmazon = [];
+            if (is_array($parsed)) {
+                if (isset($parsed['errors']) && is_array($parsed['errors'])) {
+                    $errorsFromAmazon = $parsed['errors'];
+                } elseif (array_keys($parsed) === range(0, count($parsed) - 1)) {
+                    // If it's just a bare array (like your example [ {code, message, details} ])
+                    $errorsFromAmazon = $parsed;
+                }
+            }
+
+            return [
+                'success' => false,
+                'message' => 'Amazon returned an error for GetListingsRestrictions.',
+                'status' => $response->status(),
+                'data' => $rawBody,
+                'parsed' => $parsed,
+                'errors' => $errorsFromAmazon,
+            ];
+        } catch (\Throwable $e) {
+            Log::error('GetListingsRestrictions exception', [
+                'asin' => $asin,
+                'condition' => $conditionType,
+                'store' => $store,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Exception during GetListingsRestrictions call.',
+                'status' => 500,
+                'data' => null,
+                'parsed' => null,
+                'errors' => [
+                    [
+                        'code' => 'EXCEPTION',
+                        'message' => $e->getMessage(),
+                        'details' => '',
+                    ]
+                ],
+            ];
+        }
+    }
+
+    private function checkListingRestriction(
+        string $store,
+        string $asin,
+        string $conditionType,
+        string $marketplaceId = 'ATVPDKIKX0DER'
+    ): array {
+        $result = $this->callListingsRestrictions($store, $asin, $conditionType, $marketplaceId);
+
+        // 1️⃣ If the SP-API call itself failed → treat as restricted
+        // (this is where your 403 "Unauthorized" lives)
+        if (!($result['success'] ?? false)) {
+            $errors = $result['errors'] ?? [];
+
+            $reason = $result['message'] ?? 'GetListingsRestrictions call failed.';
+            if (!empty($errors)) {
+                $reason = $errors[0]['message'] ?? $reason;
+            }
+
+            return [
+                'restricted' => true,      // 🔴 FAIL-CLOSED HERE
+                'reason' => $reason,
+                'raw' => $result,
+            ];
+        }
+
+        // 2️⃣ SP-API call succeeded → inspect restrictions
+        $parsed = $result['parsed'];
+        if (!is_array($parsed)) {
+            $parsed = json_decode($result['data'] ?? '', true);
+        }
+
+        $restrictions = $parsed['restrictions'] ?? [];
+
+        if (empty($restrictions)) {
+            // No restrictions returned → allowed
+            return [
+                'restricted' => false,
+                'reason' => null,
+                'raw' => $result,
+            ];
+        }
+
+        // 3️⃣ If any restriction entry has reasons, treat as restricted
+        foreach ($restrictions as $restriction) {
+            $reasons = $restriction['reasons'] ?? [];
+            if (!empty($reasons)) {
+                $firstReason = $reasons[0] ?? [];
+                $reasonText = $firstReason['message'] ?? ($firstReason['reasonCode'] ?? 'Restricted by Amazon');
+
+                return [
+                    'restricted' => true,
+                    'reason' => $reasonText,
+                    'raw' => $result,
+                ];
+            }
+        }
+
+        // If we somehow reach here, treat as not restricted
+        return [
+            'restricted' => false,
+            'reason' => null,
+            'raw' => $result,
+        ];
+    }
+
 
     public function fetchStores()
     {
@@ -1103,6 +1393,6 @@ class ASINlistController extends BasetablesController
 
 
 
-    
+
 
 }
