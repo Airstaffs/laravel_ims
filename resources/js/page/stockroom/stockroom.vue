@@ -279,13 +279,13 @@
                             <span class="mobile-detail-label">ASIN: </span>
                             <span class="mobile-detail-value">{{
                                 item.ASIN
-                                }}</span>
+                            }}</span>
                         </div>
                         <div>
                             <span class="mobile-detail-label">Store: </span>
                             <span class="mobile-detail-value">{{
                                 item.storename
-                                }}</span>
+                            }}</span>
                         </div>
                         <div>
                             <span class="mobile-detail-label">Quantity Inside: </span>
@@ -307,7 +307,7 @@
                             <span class="mobile-detail-label">FNSKUs: </span>
                             <span class="mobile-detail-value">{{
                                 item.fnskus ? item.fnskus.length : 0
-                                }}</span>
+                            }}</span>
                         </div>
                     </div>
 
@@ -346,25 +346,25 @@
                                         <span class="mobile-serial-label">Serial:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.serialnumber
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Location:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.warehouselocation
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">FNSKU:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.FNSKUviewer
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">MSKU:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.MSKU
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Grading:</span>
@@ -515,49 +515,49 @@
                             <span class="product-details-label">ASIN: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.ASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBM: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.FBMAvailable
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBA: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.FbaAvailable
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Outbound: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Outbound
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Inbound: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Inbound
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Unfulfillable: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Unfulfillable
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Reserved: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Reserved
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Store: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.storename
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Quantity Inside: </span>
@@ -758,7 +758,7 @@ const TABLE_COLUMNS = [
         bodyStyle: "font-size: 14px",
     },
     {
-        field: "FbaAvailable",
+        field: "item_count",
         header: "Quantity Inside",
         slot: "quantity",
         sortable: true,
