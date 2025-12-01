@@ -16,10 +16,10 @@
         </div> -->
 
         <!-- <h2 class="module-title">Validation Module</h2> -->
-        <TitlePage title="Validation Management"
+        <TitlePage title="Validation Module"
             subtitle="Review and validate critical order and inventory data to ensure all records are complete and accurate before processing." />
 
-        <div class="px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <div class="search-container">
                 <fieldset class="d-flex align-items-center gap-3 ">
                     <label for="moduleFilter">Status:</label>
@@ -89,7 +89,7 @@
                     </div>
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
 
         <!-- Desktop Table Container -->
         <!-- <div class="table-container desktop-view">
@@ -1410,6 +1410,7 @@ import { Badge, Button, Divider, Dialog, Card, InputText, Select, ScrollTop } fr
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 // export default Validation;
 
 const TABLE_COLUMNS = [
@@ -1484,7 +1485,8 @@ export default {
         InputText,
         Select,
         ScrollTop,
-        TitlePage
+        TitlePage,
+        AnimateDiv
     },
     data() {
         return {

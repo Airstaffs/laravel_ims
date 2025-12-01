@@ -5,11 +5,11 @@
         </div> -->
 
         <!-- <h1 class="module-title">Packaging Module</h1> -->
-        <TitlePage title="Packing Management"
+        <TitlePage title="Packing Module"
             subtitle="Manage and finalize products by preparing packaging, ensuring all components are included, and staging for final shipment." />
 
         <!-- Desktop Table Container -->
-        <div class="p-4">
+        <AnimateDiv :delay="200" class="p-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
                 tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
                 <template #gallery="{ data }">
@@ -34,7 +34,7 @@
                         class="text-primary" @click="openEditModal(data)" />
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -180,7 +180,10 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="modal image-modal">
+        <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
+            :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
+            @close="closeImageModal" />
+        <!-- <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
 
             <div class="modal-content">
@@ -222,7 +225,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <Dialog class="view-modal" v-model:visible="showEditModal" modal
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;">
@@ -463,6 +466,8 @@ import Packing from "./packing.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import Gallery from "../../components/Gallery/gallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 const TABLE_COLUMNS = [
     // {
     //     selectionMode: "multiple",
@@ -535,7 +540,9 @@ export default {
         TableGallery,
         Gallery,
         ScrollTop,
-        TitlePage
+        TitlePage,
+        ViewImageModal,
+        AnimateDiv
     },
     data() {
         return {
