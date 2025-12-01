@@ -5,11 +5,11 @@
         </div> -->
 
         <!-- <h2 class="module-title">Labeling Module</h2> -->
-        <TitlePage title="Labeling Management"
+        <TitlePage title="Labeling Module"
             subtitle="Prepare and manage the details required to generate inventory, shipment, or fulfillment labels for products." />
 
         <!-- Desktop Table Container -->
-        <div class="px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <XDataTable :value="sortedInventory" :loading=loading :columns="columns" :paginator="false"
                 tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
                 <template #gallery="{ data }">
@@ -46,7 +46,7 @@
                     </div>
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -174,7 +174,10 @@
         </div>
 
         <!-- Image Modal with Tabs -->
-        <div v-if="showImageModal" class="modal image-modal">
+        <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
+            :handleImageError="handleImageError" />
+        <!-- <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
             <div class="modal-content">
                 <div class="modal-header">
@@ -187,7 +190,7 @@
                 </div>
 
                 <div class="modal-body">
-                    <!-- Tabs for switching between regular and captured images -->
+        
                     <div class="image-tabs">
                         <button class="tab-button" :class="{ active: activeTab === 'regular' }"
                             @click="switchTab('regular')" :disabled="regularImages.length === 0">
@@ -205,12 +208,11 @@
                         </button>
                     </div>
 
-                    <!-- Display message if no images in current category -->
+         
                     <div v-if="currentImageSet.length === 0" class="no-images-message">
                         No images available in this category
                     </div>
 
-                    <!-- Main image display (only shown if we have images) -->
                     <div v-if="currentImageSet.length > 0" class="main-image-container">
                         <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
                             <i class="bi bi-arrow-left-short"></i>
@@ -227,7 +229,7 @@
                         {{ currentImageSet.length }}
                     </div>
 
-                    <!-- Thumbnails for the current image set -->
+               
                     <div class="thumbnails-container" v-if="currentImageSet.length > 1">
                         <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
                             :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
@@ -236,7 +238,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <Dialog v-model:visible="showEditModal" header="Edit Product" modal :style="{ width: '90%' }" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
@@ -1067,6 +1069,8 @@ import XDataTable from "../../components/DataTable/XDataTable.vue";
 import { Button, Menu, SplitButton, Divider, Dialog, InputText, Select, Card, Textarea, ScrollTop } from "primevue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -1182,7 +1186,24 @@ const FNSKU_COLUMN = [
 
 export default {
     mixins: [Labeling],
-    components: { XDataTable, Button, SplitButton, TableGallery, Menu, Divider, Dialog, Divider, InputText, Select, Card, Textarea, ScrollTop, TitlePage },
+    components: {
+        XDataTable,
+        Button,
+        SplitButton,
+        TableGallery,
+        Menu,
+        Divider,
+        Dialog,
+        Divider,
+        InputText,
+        Select,
+        Card,
+        Textarea,
+        ScrollTop,
+        TitlePage,
+        ViewImageGalleryModal,
+        AnimateDiv
+    },
     data() {
         return {
             columns: TABLE_COLUMNS,

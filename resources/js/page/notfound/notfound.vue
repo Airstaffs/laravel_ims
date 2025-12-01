@@ -5,10 +5,10 @@
         </div> -->
 
         <!-- <h1 class="module-title">NotFound Items</h1> -->
-        <TitlePage title="Missing Inventory Management"
+        <TitlePage title="Not Found Module"
             subtitle="Track and manage inventory items that have been flagged as missing or not found during cycle counting or system reconciliation." />
         <!-- Desktop Table Container -->
-        <div class="p-4">
+        <AnimateDiv :delay="200" class="p-4">
             <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
                 tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
                 <template #gallery="{ data }">
@@ -33,7 +33,7 @@
                         class="text-primary" @click="openEditModal(data)" />
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -462,6 +462,7 @@ import notFound from "./notfound.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import Gallery from "../../components/Gallery/gallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -528,7 +529,7 @@ const TABLE_COLUMNS = [
 ]
 export default {
     mixins: [notFound],
-    components: { XDataTable, Dialog, Button, TableGallery, Gallery, ScrollTop, TitlePage },
+    components: { XDataTable, Dialog, Button, TableGallery, Gallery, ScrollTop, TitlePage, AnimateDiv },
     data() {
         return {
             columns: TABLE_COLUMNS

@@ -18,9 +18,10 @@
             </div>
         </div> -->
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Return Scanner Management"
+            <TitlePage title="Return Scanner Module"
                 subtitle="View and manage the status of all incoming customer product returns for processing." />
-            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode" />
+            <Button class="mx-4" @click="openScannerModal" severity="secondary" outlined label="Scan Items" size="small"
+                icon="pi pi-barcode" />
         </div>
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
@@ -102,19 +103,20 @@
                 </button>
             </template>
         </scanner-component>
-        <div class="search-container px-4">
-            <fieldset class="d-flex align-items-center gap-1">
-                <label for="store-select">Store:</label>
-                <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small" class="select-form"
-                    v-model="selectedStore" @change="changeStore" placeholder="Select a Store" />
-            </fieldset>
-        </div>
-        <!-- Returns History Table -->
-        <div class="desktop-view">
-            <div class="px-4">
 
+        <!-- Returns History Table -->
+        <AnimateDiv :delay="200" class=" px-4">
+            <div class="search-container px-4">
+                <fieldset class="d-flex align-items-center gap-1">
+                    <label for="store-select">Store:</label>
+                    <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small"
+                        class="select-form" v-model="selectedStore" @change="changeStore"
+                        placeholder="Select a Store" />
+                </fieldset>
+            </div>
+            <div class="desktop-view">
                 <XDataTable :value="returnHistory" :columns="columns" :paginator="false" selectionMode="multiple"
-                    dataKey="ProductID">
+                    dataKey="ProductID" :loading="loading">
                     <template #gallery="{ data }">
                         <div class="d-flex justify-content-center align-items-center">
                             <TableGallery :data="data" :openImageModal="openImageModal"
@@ -157,7 +159,7 @@
                     </template>
                 </XDataTable>
             </div>
-        </div>
+        </AnimateDiv>
 
 
         <!-- Mobile Cards View -->
@@ -254,7 +256,7 @@
         <!---DETAILS MODAL--->
         <Dialog v-model:visible="viewDetailsModal" modal header="Product Details" class="view-details-dialog" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
-        }">
+        }" style="width: 50%;">
             <div class="row">
                 <div class="col-md-6 mb-4">
                     <Gallery :item="item" />
@@ -326,7 +328,9 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="image-modal">
+        <ViewImageModal v-model:visible="showImageModal" :title="'Images'" :imageList="modalImages" :basePath="basePath"
+            :onImageErrorMain="handleImageError" :onThumbnailError="onThumbnailError" @close="closeImageModal" />
+        <!-- <div v-if="showImageModal" class="image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
             <div class="modal-content">
                 <button class="close-button" @click="closeImageModal">
@@ -354,7 +358,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 </template>
 
@@ -366,6 +370,7 @@ import Gallery from "../../components/Gallery/gallery.vue";
 import { Button, Dialog, Divider, Select, Tag } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -437,7 +442,8 @@ export default {
         Divider,
         Select,
         TitlePage,
-        AnimateDiv
+        AnimateDiv,
+        ViewImageModal
     },
     data() {
         return {

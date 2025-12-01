@@ -45,6 +45,7 @@ class ASINlistController extends BasetablesController
                     'asin.asinimg',
                     'asin.vectorimage',
                     'asin.TRANSPARENCY_QR_STATUS',
+                    'asin.QuantityInside',
                     // Amazon dimensions (read-only)
                     'asin.dimension_length',
                     'asin.dimension_width',
@@ -96,6 +97,7 @@ class ASINlistController extends BasetablesController
                 'asin.asinimg',
                 'asin.vectorimage',
                 'asin.TRANSPARENCY_QR_STATUS',
+                'asin.QuantityInside',
                 'asin.dimension_length',
                 'asin.dimension_width',
                 'asin.dimension_height',
@@ -718,7 +720,8 @@ class ASINlistController extends BasetablesController
                 'upc' => 'nullable|string|max:20',
                 'instruction_link' => 'nullable|string|max:1000',
                 'metakeyword' => 'nullable|string|max:500',
-                'transparency_qr_status' => 'nullable|string|max:1000'
+                'transparency_qr_status' => 'nullable|string|max:1000',
+                'quantity_inside' => 'nullable|integer|min:1|max:4'
             ]);
 
             // Check if ASIN exists
@@ -739,7 +742,8 @@ class ASINlistController extends BasetablesController
                 'UPC' => $validated['upc'],
                 'instructionlink' => $validated['instruction_link'],
                 'metakeyword' => $validated['metakeyword'],
-                'TRANSPARENCY_QR_STATUS' => $validated['transparency_qr_status']
+                'TRANSPARENCY_QR_STATUS' => $validated['transparency_qr_status'],
+                'QuantityInside' => $validated['quantity_inside']
             ];
 
             // Update ASIN details
@@ -1391,7 +1395,51 @@ class ASINlistController extends BasetablesController
 
 
 
+   /**
+ * Update Quantity Inside for a specific ASIN
+ */
+public function updateQuantityInside(Request $request)
+{
+    try {
+        $validated = $request->validate([
+            'asin' => 'required|string',
+            'quantity_inside' => 'nullable|integer|min:1|max:4'
+        ]);
 
+        $asin = DB::table($this->asinTable)
+            ->where('ASIN', $validated['asin'])
+            ->first();
+
+        if (!$asin) {
+            return response()->json([
+                'success' => false,
+                'message' => 'ASIN not found'
+            ], 404);
+        }
+
+        DB::table($this->asinTable)
+            ->where('ASIN', $validated['asin'])
+            ->update(['QuantityInside' => $validated['quantity_inside']]);
+
+        Log::info("Quantity Inside updated for: {$validated['asin']}", [
+            'quantity' => $validated['quantity_inside']
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Quantity Inside updated successfully'
+        ]);
+
+    } catch (\Exception $e) {
+        Log::error('Error updating Quantity Inside: ' . $e->getMessage());
+
+        return response()->json([
+            'success' => false,
+            'message' => 'An error occurred while updating Quantity Inside',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 
 
 
