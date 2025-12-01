@@ -92,8 +92,8 @@
                             row
                         )
                         " :label="row.is_active
-                                ? 'Deactivate'
-                                : 'Activate'" />
+                            ? 'Deactivate'
+                            : 'Activate'" />
                 </div>
             </div>
         </div>
@@ -275,12 +275,12 @@
 
                         <fieldset>
                             <label>Status</label>
-                            <Select :options="statusEditOptions" v-model="$parent.announcementForm.status"
-                                optionLabel="label" optionValue="value" size="small" fluid />
-                            <!-- <select class="form-select" v-model="$parent.announcementForm.status">
+                            <!-- <Select :options="statusEditOptions" v-model="$parent.announcementForm.status"
+                                optionLabel="label" optionValue="value" size="small" fluid /> -->
+                            <select class="form-select" v-model="$parent.announcementForm.status">
                                 <option value="draft">Draft</option>
                                 <option value="active">Active</option>
-                            </select> -->
+                            </select>
                         </fieldset>
 
                         <fieldset class="isCheckbox-container">

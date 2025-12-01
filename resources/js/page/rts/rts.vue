@@ -5,11 +5,11 @@
         </div> -->
 
         <!-- <h2 class="module-title">RTS Module</h2> -->
-        <TitlePage title="Return to Seller Management"
+        <TitlePage title="RTS Module"
             subtitle="Manage products designated for return to the original seller or supplier. Finalize shipment details and confirm the return status." />
 
         <!-- Desktop Table Container -->
-        <div class="px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <XDataTable :value="sortedInventory" :columns="column" :pagination="false" :loading="loading"
                 tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
 
@@ -41,7 +41,7 @@
 
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -992,6 +992,7 @@ import XDataTable from "../../components/DataTable/XDataTable.vue";
 import RTS from "./rts.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -1060,7 +1061,7 @@ export default {
     mixins: [RTS],
     components: {
         XDataTable,
-        Dialog, Button, TableGallery, Card, InputText, Select, Divider, Textarea, ScrollTop, TitlePage
+        Dialog, Button, TableGallery, Card, InputText, Select, Divider, Textarea, ScrollTop, TitlePage, AnimateDiv
     },
     data() {
         return {

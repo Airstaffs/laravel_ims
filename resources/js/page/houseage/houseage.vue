@@ -10,21 +10,21 @@
         </div> -->
 
         <!-- <h2 class="module-title">Houseage Module</h2> -->
-        <TitlePage title="Houseage Management"
+        <TitlePage title="Houseage Module"
             subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment." />
         <!-- Desktop Table Container -->
 
 
-        <div class="px-4">
+        <AnimateDiv :delay="200" class="px-4">
             <div class="search-container">
                 <fieldset class="d-flex align-items-center gap-3 ">
                     <label for="moduleFilter">Module:</label>
                     <Select v-model="moduleFilter" :options="uniqueModuleOptions" optionLabel="label"
-                        optionValue="value" placeholder="Select condition" size="small" class="select-form" />
+                        optionValue="value" placeholder="Select module" size="small" class="select-form" />
                 </fieldset>
             </div>
             <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
-                tableClass="desktop-view">
+                tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
                         <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
@@ -59,7 +59,7 @@
                     </div>
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -190,7 +190,10 @@
         </div>
 
         <!-- Image Modal with Tabs -->
-        <div v-if="showImageModal" class="modal image-modal">
+        <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
+            :handleImageError="handleImageError" />
+        <!-- <div v-if="showImageModal" class="modal image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
 
             <div class="modal-content">
@@ -211,23 +214,23 @@
                                 <span>Product Images</span>
                                 <span class="badge img-badge">{{
                                     regularImages.length
-                                }}</span>
+                                    }}</span>
                             </button>
                             <button class="tab-button" :class="{ active: activeTab === 'captured' }"
                                 @click="switchTab('captured')" :disabled="capturedImages.length === 0">
                                 <span>Captured Images</span>
                                 <span class="badge img-badge">{{
                                     capturedImages.length
-                                }}</span>
+                                    }}</span>
                             </button>
                         </div>
 
-                        <!-- Display message if no images in current category -->
+                 
                         <div v-if="currentImageSet.length === 0" class="no-images-message">
                             No images available in this category
                         </div>
 
-                        <!-- Main image display (only shown if we have images) -->
+                      
                         <div v-if="currentImageSet.length > 0" class="main-image-container">
                             <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
                                 <i class="bi bi-arrow-left-short"></i>
@@ -244,7 +247,7 @@
                             {{ currentImageSet.length }}
                         </div>
 
-                        <!-- Thumbnails for the current image set -->
+                    
                         <div class="thumbnails-container" v-if="currentImageSet.length > 1">
                             <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
                                 :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
@@ -254,7 +257,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
 
         <Dialog v-model:visible="showEditModal" modal :style="{ width: '95%' }" header="Edit Product" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
@@ -690,15 +693,17 @@ import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Houseage from "./houseage.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
-    {
-        selectionMode: "multiple",
-        header: "",
-        style: { width: "3rem", minWidth: "3rem" },
-        headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-        bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    },
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
     {
         field: "gallery",
         header: "Gallery",
@@ -771,7 +776,7 @@ const TABLE_COLUMNS = [
 export default {
     mixins: [Houseage],
     components: {
-        XDataTable, Dialog, Divider, Card, Select, InputText, TableGallery, Button, Textarea, ScrollTop, TitlePage
+        XDataTable, Dialog, Divider, Card, Select, InputText, TableGallery, Button, Textarea, ScrollTop, TitlePage, ViewImageGalleryModal, AnimateDiv
     },
     data() {
         return {

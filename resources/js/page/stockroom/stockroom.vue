@@ -1,4 +1,3 @@
-
 <template>
     <div class="vue-container stockroom-module">
         <!-- Top header bar with blue background -->
@@ -90,7 +89,7 @@
 
         <!-- <h2 class="module-title">Stockroom Module</h2> -->
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Stockroom Management"
+            <TitlePage title="Stockroom Module"
                 subtitle="View and manage current inventory data, product details, and fulfillment methods for items in stock." />
             <div class="d-flex justify-content-center gap-4 mx-4 flex-wrap desktop-view">
                 <Button size="small" severity="secondary" outlined @click="openScannerModal" label="Scan Items"
@@ -132,7 +131,7 @@
             </div>
         </div>
 
-        <div class="stats-container px-4">
+        <AnimateDiv :delay="200" class="stats-container px-4">
             <div class="stat-card bg-primary-light">
                 <div class="stat-icon bg-primary">
                     <i class="pi pi-hashtag text-white"></i>
@@ -172,10 +171,10 @@
                     <h5 class="mb-0">{{ inventoryCounts?.fba || 0 }}</h5>
                 </div>
             </div>
-        </div>
+        </AnimateDiv>
 
         <!-- Desktop Table Container -->
-        <div class="px-4">
+        <AnimateDiv :delay="300" class="px-4">
             <div class="search-container">
                 <fieldset class="d-flex align-items-center gap-1">
                     <label for="moduleFilter">Store</label>
@@ -242,7 +241,7 @@
                     </div>
                 </template>
             </XDataTable>
-        </div>
+        </AnimateDiv>
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -701,8 +700,8 @@
         </div>
 
         <!-- New Scanned Items Modal -->
-        <NewScannedItemModal ref="newScannedModal" :show="showNewScannedModal"
-            @close="closeNewScannedModal" @update-count="handleCountUpdate" />
+        <NewScannedItemModal ref="newScannedModal" :show="showNewScannedModal" @close="closeNewScannedModal"
+            @update-count="handleCountUpdate" />
 
         <!-- DS7oos Modal -->
         <ds7-oos-modal :show="showDs7Oos" :store-options="distinctStores" :initial="dsFilters"
@@ -716,6 +715,7 @@ import Stockroom from "./stockroom.js";
 import XDataTable from '../../components/DataTable/XDataTable.vue'
 import { Badge, Button, Card, Dialog, Divider, Drawer, InputText, Menu, OverlayBadge, ScrollTop, Select, Textarea } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -829,7 +829,8 @@ export default {
         OverlayBadge,
         Menu,
         OverlayBadge,
-        Badge
+        Badge,
+        AnimateDiv
     },
     data() {
         return {

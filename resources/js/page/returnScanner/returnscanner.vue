@@ -18,9 +18,10 @@
             </div>
         </div> -->
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Return Scanner Management"
+            <TitlePage title="Return Scanner Module"
                 subtitle="View and manage the status of all incoming customer product returns for processing." />
-            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode" />
+            <Button class="mx-4" @click="openScannerModal" severity="secondary" outlined label="Scan Items" size="small"
+                icon="pi pi-barcode" />
         </div>
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
@@ -102,19 +103,20 @@
                 </button>
             </template>
         </scanner-component>
-        <div class="search-container px-4">
-            <fieldset class="d-flex align-items-center gap-1">
-                <label for="store-select">Store:</label>
-                <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small" class="select-form"
-                    v-model="selectedStore" @change="changeStore" placeholder="Select a Store" />
-            </fieldset>
-        </div>
-        <!-- Returns History Table -->
-        <div class="desktop-view">
-            <div class="px-4">
 
+        <!-- Returns History Table -->
+        <AnimateDiv :delay="200" class=" px-4">
+            <div class="search-container px-4">
+                <fieldset class="d-flex align-items-center gap-1">
+                    <label for="store-select">Store:</label>
+                    <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small"
+                        class="select-form" v-model="selectedStore" @change="changeStore"
+                        placeholder="Select a Store" />
+                </fieldset>
+            </div>
+            <div class="desktop-view">
                 <XDataTable :value="returnHistory" :columns="columns" :paginator="false" selectionMode="multiple"
-                    dataKey="ProductID">
+                    dataKey="ProductID" :loading="loading">
                     <template #gallery="{ data }">
                         <div class="d-flex justify-content-center align-items-center">
                             <TableGallery :data="data" :openImageModal="openImageModal"
@@ -147,7 +149,7 @@
                             data.BuyerName ||
                             data.costumer_name ||
                             "Unknown"
-                        }}</p>
+                            }}</p>
                     </template>
                     <template #actions="{ data }">
                         <div>
@@ -157,7 +159,7 @@
                     </template>
                 </XDataTable>
             </div>
-        </div>
+        </AnimateDiv>
 
 
         <!-- Mobile Cards View -->
@@ -195,25 +197,25 @@
                             <span class="fw-semibold">RT#:</span>
                             <span class="mobile-detail-value">{{
                                 formatRTNumber(item.rtcounter, item.storename)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumber
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="item.serialnumberb" class="mobile-detail-row">
                             <span class="fw-semibold">Second Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumberb
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Location:</span>
                             <span class="mobile-detail-value">{{
                                 item.warehouselocation || "Floor"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Status:</span>
@@ -231,7 +233,7 @@
                                 item.BuyerName ||
                                 item.costumer_name ||
                                 "Unknown"
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
                     <Divider />
@@ -326,7 +328,9 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="image-modal">
+        <ViewImageModal v-model:visible="showImageModal" :title="'Images'" :imageList="modalImages" :basePath="basePath"
+            :onImageErrorMain="handleImageError" :onThumbnailError="onThumbnailError" @close="closeImageModal" />
+        <!-- <div v-if="showImageModal" class="image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
             <div class="modal-content">
                 <button class="close-button" @click="closeImageModal">
@@ -354,7 +358,7 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 </template>
 
@@ -366,6 +370,7 @@ import Gallery from "../../components/Gallery/gallery.vue";
 import { Button, Dialog, Divider, Select, Tag } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 
 const TABLE_COLUMNS = [
     // {
@@ -437,7 +442,8 @@ export default {
         Divider,
         Select,
         TitlePage,
-        AnimateDiv
+        AnimateDiv,
+        ViewImageModal
     },
     data() {
         return {

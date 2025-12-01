@@ -333,6 +333,7 @@ export default {
                 if (
                     item.capturedImages &&
                     item.capturedImages[fieldName] &&
+                    // item.capturedImages[fieldName] !== null &&
                     item.capturedImages[fieldName] !== "NULL" &&
                     item.capturedImages[fieldName].trim() !== ""
                 ) {
@@ -368,16 +369,25 @@ export default {
                     this.regularImages.push(path);
                 }
             }
-
             // Load captured images (capturedimg1 - capturedimg12)
             if (
                 item.capturedImages &&
                 typeof item.capturedImages === "object"
             ) {
-                for (let i = 1; i <= 12; i++) {
-                    const filename = `${item.rtcounter}_img${i}.jpg`;
-                    const path = `/images/product_images/${companyFolder}/${filename}`;
-                    this.capturedImages.push(path);
+                // for (let i = 1; i <= 12; i++) {
+                //     const filename = `${item.rtcounter}_img${i}.jpg`;
+                //     const path = `/images/product_images/${companyFolder}/${filename}`;
+                //     this.capturedImages.push(path);
+                // }
+                 for (let i = 1; i <= 12; i++) {
+                    const field = `capturedimg${i}`;
+                    const value = item.capturedImages[field];
+
+                    //dont include null value
+                    if (value && value.trim()) {
+                        const path = `/images/thumbnails/${value}`;
+                        this.capturedImages.push(path);
+                    }
                 }
             }
 
