@@ -258,6 +258,7 @@
         @custom-action="handleCustomAction"
     />
     <AnnouncementModal v-model:visible="announcementVisible" />
+    <BreakModal v-model:visible="breakVisible" />
 </template>
 
 <script>
@@ -269,6 +270,7 @@ import NotificationModal from "./NotificationModal.vue";
 import ProfileModal from "./ProfileModal.vue";
 import SettingsModal from "./SettingsModal.vue";
 import AnnouncementModal from "./AnnouncementModal.vue";
+import BreakModal from "./BreakModal.vue";
 import { OverlayBadge } from "primevue";
 
 export default {
@@ -282,6 +284,7 @@ export default {
         ProfileModal,
         SettingsModal,
         AnnouncementModal,
+        BreakModal,
         OverlayBadge,
     },
     data() {
@@ -294,6 +297,7 @@ export default {
             profileVisible: false,
             settingsVisible: false,
             announcementVisible: false,
+            breakVisible: false,
             kanbanCount: 0,
             userId: null,
         };
@@ -358,12 +362,16 @@ export default {
         //     modal.show();
         // },
 
-        openBreakModal(event) {
-            if (event) event.preventDefault();
-            if (typeof openBreakModal === "function") {
-                openBreakModal(event);
-            }
+        openBreakModal() {
+            this.breakVisible = true;
         },
+
+        // openBreakModal(event) {
+        //     if (event) event.preventDefault();
+        //     if (typeof openBreakModal === "function") {
+        //         openBreakModal(event);
+        //     }
+        // },
 
         openNotificationModal() {
             this.notificationVisible = true;

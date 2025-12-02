@@ -1,22 +1,3 @@
-<div id="announcementModal" class="modal-overlay-announcement">
-    <div class="modal-box-announce">
-        <div class="modal-header-announce">
-            <h2 id="announcementTitle">Announcement</h2>
-            <button class="close-btn-announce" onclick="closeAnnouncement()">×</button>
-        </div>
-        <div class="modal-body-announce">
-            <p id="announcementMessage"></p>
-            <small id="announcementDuration"></small>
-            <div class="readby-announce">
-                <strong>Read by:</strong> <span id="announcementReadBy">None</span>
-            </div>
-        </div>
-        <div class="modal-footer-announce">
-            <button id="ackBtn-announce" onclick="acknowledgeAnnouncement()">Acknowledge</button>
-        </div>
-    </div>
-</div>
-
 <!-- Manage Announcements Modal -->
 <div class="modal fade" id="annManageModal" tabindex="-1" aria-hidden="true">
     <div class="ann-modal-underlay" id="annManageUnderlay" aria-hidden="true"></div>
