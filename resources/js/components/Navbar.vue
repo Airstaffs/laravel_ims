@@ -28,12 +28,7 @@
 
                 <!-- Mobile Icons -->
                 <div class="navbar-mobile">
-                    <OverlayBadge
-                        v-if="kanbanCount > 0"
-                        :value="kanbanCount"
-                        size="small"
-                        severity="danger"
-                    >
+                    <div class="notification-wrapper">
                         <Button
                             icon="pi pi-list-check"
                             @click="goToKanban('kanban')"
@@ -41,27 +36,13 @@
                             text
                             class="nav-button with-label"
                         />
-                    </OverlayBadge>
-
-                    <Button
-                        icon="pi pi-megaphone"
-                        @click="openAnnouncementModal"
-                        severity="secondary"
-                        text
-                        rounded
-                        size="small"
-                        aria-label="Profile"
-                    />
-
-                    <Button
-                        icon="pi pi-pause-circle"
-                        @click="openBreakModal"
-                        severity="secondary"
-                        text
-                        rounded
-                        size="small"
-                        aria-label="Break"
-                    />
+                        <Badge
+                            v-if="kanbanCount > 0"
+                            :value="kanbanCount"
+                            severity="danger"
+                            class="kanban-badge-mobile"
+                        />
+                    </div>
 
                     <div class="notification-wrapper">
                         <Button
@@ -147,12 +128,8 @@
                 <!-- Right Section -->
                 <div class="navbar-right">
                     <!-- Announcements -->
-                    <OverlayBadge
-                        v-if="kanbanCount > 0"
-                        :value="kanbanCount"
-                        size="small"
-                        severity="danger"
-                    >
+
+                    <div class="notification-wrapper">
                         <Button
                             icon="pi pi-list-check"
                             label="Todo List"
@@ -161,16 +138,14 @@
                             text
                             class="nav-button with-label"
                         />
-                    </OverlayBadge>
-                    <Button
-                        v-else
-                        icon="pi pi-list-check"
-                        label="Todo List"
-                        @click="goToKanban('kanban')"
-                        severity="secondary"
-                        text
-                        class="nav-button with-label"
-                    />
+
+                        <Badge
+                            v-if="kanbanCount > 0"
+                            :value="kanbanCount"
+                            severity="danger"
+                            class="notification-badge-desktop"
+                        />
+                    </div>
 
                     <Button
                         icon="pi pi-megaphone"
@@ -538,6 +513,15 @@ export default {
 .notification-badge-mobile {
     position: absolute;
     top: -2px;
+    right: -2px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+}
+
+.kanban-badge-mobile {
+    position: absolute;
+    top: -4px;
     right: -2px;
     min-width: 18px;
     height: 18px;

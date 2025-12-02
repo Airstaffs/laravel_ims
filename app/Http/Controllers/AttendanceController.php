@@ -412,7 +412,7 @@ class AttendanceController extends Controller
             ->where('userid', $uid)
             ->value('phone_number');
         */
-        $phone = '9168720618';
+        $phone = '+19163705657';
 
         if ($phone) {
             $smsBody = "Hi {$uname} clocked in at ".$now->format('h:i A').' (LA). Test Value Rawr';
@@ -420,9 +420,11 @@ class AttendanceController extends Controller
             $smsResult = $this->twilioService->sendSystemSms($phone, $smsBody);
 
             // (Optional) log or attach SMS result
-            if (! $smsResult['success']) {
-                \Log::warning('Clock-in SMS failed for user '.$uid.': '.$smsResult['error']);
+            /*
+            if (!$smsResult['success']) {
+                \Log::warning('Clock-in SMS failed for user ' . $uid . ': ' . $smsResult[]);
             }
+                */
         }
 
         return response()->json([
