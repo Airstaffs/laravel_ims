@@ -5,7 +5,6 @@
       <Navbar />
       <main class="flex-1 p-6 bg-[#1e1e2f] text-gray-200">
         <RouterView />
-        <!-- <Training /> -->
       </main>
     </div>
   </div>

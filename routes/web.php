@@ -49,6 +49,17 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
+use App\Http\Controllers\AsinMappingController;
+
+// ASIN Mappings Routes
+// ✅ Public API routes
+Route::group(['middleware' => []], function () {
+    Route::get('/asin-mappings', [AsinMappingController::class, 'index']);
+    Route::get('/asin-mappings/{className}', [AsinMappingController::class, 'show']); // optional
+    Route::post('/asin-mappings', [AsinMappingController::class, 'store']);
+    Route::delete('/asin-mappings/{asin_code}', [AsinMappingController::class, 'destroy']);
+    // Route::delete('/asin-mappings/class/{className}', [AsinMappingController::class, 'destroyByClass']);
+});
 
 Route::get('/', function () {
     return redirect()->route('login');
@@ -809,3 +820,5 @@ Route::middleware(['auth'])->get('/account/complete', function () {
 Route::get('/aiTraining', function () {
     return view('aiTraining'); // Blade file wrapper for Vue
 })->middleware(['auth']); // if you want it only for logged users
+
+

@@ -354,7 +354,7 @@ import ASINList from "./page/asinlist/asinlist.vue";
 import PrinterModule from "./page/printer/printer.vue";
 import HumanResource from "./page/hr/hr.vue";
 import RTS from "./page/rts/rts.vue";
-import Training from "./page/aiTraining/training.vue";
+import Training from "./page/aiTraining/pages/training.vue";
 
 // Async component map
 const asyncComponentMap = {
