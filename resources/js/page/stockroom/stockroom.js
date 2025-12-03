@@ -353,30 +353,21 @@ export default {
 
         // Format the item count to show pack information
         formatItemCount(item) {
-            if (!item) return "0";
+        if (!item) return "0";
 
-            // Check if this is a pack item
-            if (item.pack_size && item.pack_size > 1) {
-                // For pack items, show both the box count and the total units
-                return `${item.box_count} boxes (${item.item_count} units)`;
-            }
+        // New logic based on QuantityInside from tblasin
+        const quantityInside = item.quantity_inside || 1;
+        const unitCount = item.unit_count || item.box_count || 0;
+        const totalQuantity = item.item_count || 0;
 
-            // For regular items, just show the count
-            return item.item_count.toString();
-        },
+        if (quantityInside > 1) {
+            // Show units and total quantity
+            return `${unitCount} units (${totalQuantity} qty)`;
+        }
 
-        // Extract and display pack information
-        getPackInfo(item) {
-            if (!item || !item.AStitle) return "";
-
-            // Check for pack information in the title
-            const packMatch = item.AStitle.match(/(\d+)-Pack/i);
-            if (packMatch && packMatch[1]) {
-                return `${packMatch[1]}-Pack`;
-            }
-
-            return "";
-        },
+        // For single quantity items, just show the count
+        return totalQuantity.toString();
+    },
 
         // Add a separate method for viewing product image
         viewProductImage(item) {
@@ -494,24 +485,19 @@ export default {
 
         // Validate the item count against serials
         validateItemCount(item) {
-            if (!item) return true;
+        if (!item) return true;
 
-            // If no serials, just return true
-            if (!item.serials || item.serials.length === 0) {
-                return true;
-            }
+        // If no serials, just return true
+        if (!item.serials || item.serials.length === 0) {
+            return true;
+        }
 
-            // For pack items, we need to check if the actual serial count matches the box count
-            // rather than the total item count (which includes the multiplication by pack size)
-            if (item.pack_size && item.pack_size > 1) {
-                const serialCount = item.serials.length;
-                return serialCount === item.box_count;
-            }
-
-            // For regular items, compare serials count with item_count directly
-            const serialCount = item.serials.length;
-            return serialCount === item.item_count;
-        },
+        // Check if the number of serials matches the unit_count
+        const serialCount = item.serials.length;
+        const unitCount = item.unit_count || item.box_count || 0;
+        
+        return serialCount === unitCount;
+    },
 
         convertItemCondition(
             itemCondition,
@@ -683,37 +669,39 @@ export default {
 
         // Add this method to your methods section:
         calculateInventoryCounts() {
-            let totalCount = 0;
-            let qohCount = 0;
-            let fbmCount = 0;
-            let fbaCount = 0;
+    let totalCount = 0;  // Number of rows/records
+    let qohCount = 0;    // Sum of all quantities in stockroom
+    let fbmCount = 0;    // Amazon FBM
+    let fbaCount = 0;    // Amazon FBA
 
-            // Make sure inventory exists and is an array
-            if (Array.isArray(this.inventory) && this.inventory.length > 0) {
-                this.inventory.forEach((item) => {
-                    // Add to total count
-                    totalCount += parseInt(item.item_count || 0);
+    if (Array.isArray(this.inventory) && this.inventory.length > 0) {
+        this.inventory.forEach((item) => {
+            // ✅ CORRECT: Count each product row
+            totalCount += 1;
 
-                    // Calculate QOH (Quantity on Hand) - sum of FBM and FBA
-                    const fbmAvailable = parseInt(item.FBMAvailable || 0);
-                    const fbaAvailable = parseInt(item.FbaAvailable || 0);
+            // ✅ CORRECT: Sum of all item_count (which includes QuantityInside)
+            qohCount += parseInt(item.item_count || 0);
 
-                    fbmCount += fbmAvailable;
-                    fbaCount += fbaAvailable;
-                    qohCount += fbmAvailable + fbaAvailable;
-                });
-            }
+            // Amazon inventory counts (separate from stockroom)
+            const fbmAvailable = parseInt(item.FBMAvailable || 0);
+            const fbaAvailable = parseInt(item.FbaAvailable || 0);
 
-            // Update the counts object
-            this.inventoryCounts = {
-                total: totalCount,
-                qoh: qohCount,
-                fbm: fbmCount,
-                fba: fbaCount,
-            };
+            fbmCount += fbmAvailable;
+            fbaCount += fbaAvailable;
+        });
+    }
 
-            console.log("Inventory counts calculated:", this.inventoryCounts);
-        },
+    this.inventoryCounts = {
+        total: totalCount,      // Number of product records in table
+        qoh: qohCount,          // Total quantity in stockroom (with QuantityInside)
+        fbm: fbmCount,          // Amazon FBM inventory
+        fba: fbaCount,          // Amazon FBA inventory
+    };
+
+    console.log("Inventory counts calculated:", this.inventoryCounts);
+    console.log("- Total product records:", totalCount);
+    console.log("- Total QOH (quantity with QuantityInside):", qohCount);
+},
 
         // Modified fetchInventory with count validation
         // Update your fetchInventory method to call calculateInventoryCounts:
@@ -746,13 +734,17 @@ export default {
                         fnskus: item.fnskus || [],
                         useDefaultImage: false,
                         countValid: true,
-                        pack_size: item.pack_size || 1,
-                        box_count: item.box_count || item.item_count,
+                       
+
+                        quantity_inside: item.quantity_inside || 1,
+                        unit_count: item.unit_count || item.box_count || 0,
+                        item_count: item.item_count || 0,
+                        box_count: item.box_count || item.unit_count || 0,
                     };
 
+               
                     // Validate the item count
-                    itemWithFlags.countValid =
-                        this.validateItemCount(itemWithFlags);
+                    itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
 
                     return itemWithFlags;
                 });

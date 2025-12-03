@@ -287,17 +287,27 @@
                                 item.storename
                             }}</span>
                         </div>
+                        
+                        
                         <div>
                             <span class="mobile-detail-label">Quantity Inside: </span>
                             <span :class="{
                                 'mobile-detail-value': true,
                                 'item-count-warning': !item.countValid,
                             }">
-                                {{ item.item_count }}
+                                <!-- UPDATED: Use the new display logic -->
+                                <template v-if="item.quantity_inside > 1">
+                                    {{ item.unit_count }} units ({{ item.item_count }} qty)
+                                </template>
+                                <template v-else>
+                                    {{ item.item_count }}
+                                </template>
                                 <i v-if="!item.countValid" class="fas fa-exclamation-circle"
-                                    title="Item count doesn't match serial numbers"></i>
+                                    title="Unit count doesn't match serial numbers"></i>
                             </span>
                         </div>
+
+
                         <div>
                             <span class="mobile-detail-label">FBM/FBA: </span>
                             <span class="mobile-detail-value">{{ item.FBMAvailable }} /

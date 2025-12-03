@@ -219,68 +219,160 @@ class StockroomController extends BasetablesController
      * MODIFIED to handle prefixed FNSKUs in joins - SIMPLIFIED VERSION
      */
     public function index(Request $request)
-    {
-        try {
-            $perPage = min($request->input('per_page', 15), 100);
-            $search = $request->input('search', '');
-            $store = $request->input('store', '');
-            $page = $request->input('page', 1);
+{
+    try {
+        $perPage = min($request->input('per_page', 15), 100);
+        $search = $request->input('search', '');
+        $store = $request->input('store', '');
+        $page = $request->input('page', 1);
 
-            $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_" . md5($search);
+        $cacheKey = "stockroom_inventory_{$page}_{$perPage}_{$store}_" . md5($search);
 
-            if (empty($search)) {
-                $cachedResult = Cache::get($cacheKey);
-                if ($cachedResult) {
-                    return response()->json($cachedResult);
-                }
+        if (empty($search)) {
+            $cachedResult = Cache::get($cacheKey);
+            if ($cachedResult) {
+                return response()->json($cachedResult);
             }
+        }
 
-            // SIMPLIFIED: Get products first, then match FNSKUs in PHP
-            $productsQuery = DB::table($this->productTable . ' as prod')
-                ->select([
-                    'prod.ProductID',
-                    'prod.serialnumber',
-                    'prod.rtcounter',
-                    'prod.warehouselocation',
-                    'prod.FNSKUviewer',
-                    'prod.FBMAvailable',
-                    'prod.FbaAvailable',
-                    'prod.Outbound',
-                    'prod.Inbound',
-                    'prod.Unfulfillable',
-                    'prod.Reserved'
-                ])
-                ->where('prod.ProductModuleLoc', 'Stockroom');
+        // Get products first
+        $productsQuery = DB::table($this->productTable . ' as prod')
+            ->select([
+                'prod.ProductID',
+                'prod.serialnumber',
+                'prod.rtcounter',
+                'prod.warehouselocation',
+                'prod.FNSKUviewer',
+                'prod.FBMAvailable',
+                'prod.FbaAvailable',
+                'prod.Outbound',
+                'prod.Inbound',
+                'prod.Unfulfillable',
+                'prod.Reserved'
+            ])
+            ->where('prod.ProductModuleLoc', 'Stockroom');
 
-            $products = $productsQuery->get();
+        $products = $productsQuery->get();
 
-            // Extract all unique base FNSKUs
-            $baseFnskus = [];
-            $fnskuProductMap = [];
+        // Extract all unique base FNSKUs
+        $baseFnskus = [];
+        $fnskuProductMap = [];
+        
+        foreach ($products as $product) {
+            $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+            $baseFnskus[] = $baseFnsku;
             
-            foreach ($products as $product) {
-                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                $baseFnskus[] = $baseFnsku;
-                
-                if (!isset($fnskuProductMap[$baseFnsku])) {
-                    $fnskuProductMap[$baseFnsku] = [];
-                }
-                $fnskuProductMap[$baseFnsku][] = $product;
+            if (!isset($fnskuProductMap[$baseFnsku])) {
+                $fnskuProductMap[$baseFnsku] = [];
             }
+            $fnskuProductMap[$baseFnsku][] = $product;
+        }
 
-            $baseFnskus = array_unique($baseFnskus);
+        $baseFnskus = array_unique($baseFnskus);
 
-            // Get FNSKU data for base FNSKUs
-            $fnskuData = DB::table($this->fnskuTable)
-                ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
+        // Get FNSKU data for base FNSKUs
+        $fnskuData = DB::table($this->fnskuTable)
+            ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
+            ->whereIn('FNSKU', $baseFnskus)
+            ->get()
+            ->keyBy('FNSKU');
+
+        // Get ASIN data with QuantityInside
+        $asinList = $fnskuData->pluck('ASIN')->unique()->toArray();
+        
+        if (empty($asinList)) {
+            return response()->json([
+                'data' => [],
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => $perPage,
+                'total' => 0
+            ]);
+        }
+
+        // Modified query to include QuantityInside
+        $asinQuery = DB::table($this->asinTable . ' as asin')
+            ->select([
+                'asin.ASIN',
+                'asin.internal as AStitle',
+                'asin.asinStatus',
+                'asin.QuantityInside'  // NEW: Include QuantityInside column
+            ])
+            ->whereIn('asin.ASIN', $asinList)
+            ->where('asin.ASIN', '!=', '')
+            ->whereNotNull('asin.ASIN');
+
+        // Apply search functionality
+        if (!empty($search)) {
+            $asinQuery->where(function ($query) use ($search, $baseFnskus, $products) {
+                $query->where('asin.ASIN', 'like', "%{$search}%");
+
+                if (strlen($search) > 3) {
+                    $query->orWhere('asin.internal', 'like', "%{$search}%")
+                        ->orWhere('asin.metakeyword', 'like', "%{$search}%");
+                }
+
+                // Search in FNSKUs
+                $matchingFnskus = array_filter($baseFnskus, function($fnsku) use ($search) {
+                    return strpos($fnsku, $search) !== false;
+                });
+                if (!empty($matchingFnskus)) {
+                    $matchingAsins = DB::table($this->fnskuTable)
+                        ->whereIn('FNSKU', $matchingFnskus)
+                        ->pluck('ASIN')
+                        ->toArray();
+                    if (!empty($matchingAsins)) {
+                        $query->orWhereIn('asin.ASIN', $matchingAsins);
+                    }
+                }
+
+                // Search in serial numbers
+                $matchingSerials = $products->filter(function($product) use ($search) {
+                    return strpos($product->serialnumber, $search) !== false;
+                });
+                if ($matchingSerials->count() > 0) {
+                    $matchingFnskusFromSerials = $matchingSerials->pluck('FNSKUviewer')
+                        ->map(function($fnsku) {
+                            return $this->extractBaseFnsku($fnsku);
+                        })
+                        ->unique()
+                        ->toArray();
+                    
+                    $matchingAsinsFromSerials = DB::table($this->fnskuTable)
+                        ->whereIn('FNSKU', $matchingFnskusFromSerials)
+                        ->pluck('ASIN')
+                        ->toArray();
+                    if (!empty($matchingAsinsFromSerials)) {
+                        $query->orWhereIn('asin.ASIN', $matchingAsinsFromSerials);
+                    }
+                }
+
+                if (preg_match('/^B0[A-Z0-9]{8}$/i', $search)) {
+                    $relatedAsins = $this->findRelatedAsins($search);
+                    if (!empty($relatedAsins)) {
+                        $relatedAsins = array_filter($relatedAsins, function ($asin) {
+                            return !empty($asin) && $asin !== null;
+                        });
+
+                        if (!empty($relatedAsins)) {
+                            $query->orWhereIn('asin.ASIN', $relatedAsins);
+                        }
+                    }
+                }
+            });
+        }
+
+        // Apply store filter
+        if (!empty($store)) {
+            $storeFilteredFnskus = DB::table($this->fnskuTable)
+                ->where('storename', $store)
                 ->whereIn('FNSKU', $baseFnskus)
-                ->get()
-                ->keyBy('FNSKU');
-
-            // Get ASIN data
-            $asinList = $fnskuData->pluck('ASIN')->unique()->toArray();
+                ->pluck('ASIN')
+                ->toArray();
             
-            if (empty($asinList)) {
+            if (!empty($storeFilteredFnskus)) {
+                $asinQuery->whereIn('asin.ASIN', $storeFilteredFnskus);
+            } else {
                 return response()->json([
                     'data' => [],
                     'current_page' => 1,
@@ -289,233 +381,124 @@ class StockroomController extends BasetablesController
                     'total' => 0
                 ]);
             }
+        }
 
-            $asinQuery = DB::table($this->asinTable . ' as asin')
-                ->select([
-                    'asin.ASIN',
-                    'asin.internal as AStitle',
-                    'asin.asinStatus'
-                ])
-                ->whereIn('asin.ASIN', $asinList)
-                ->where('asin.ASIN', '!=', '')
-                ->whereNotNull('asin.ASIN');
+        $asins = $asinQuery->get();
 
-            // Apply search functionality
-            if (!empty($search)) {
-                $asinQuery->where(function ($query) use ($search, $baseFnskus, $products) {
-                    $query->where('asin.ASIN', 'like', "%{$search}%");
-
-                    if (strlen($search) > 3) {
-                        $query->orWhere('asin.internal', 'like', "%{$search}%")
-                            ->orWhere('asin.metakeyword', 'like', "%{$search}%");
-                    }
-
-                    // Search in FNSKUs
-                    $matchingFnskus = array_filter($baseFnskus, function($fnsku) use ($search) {
-                        return strpos($fnsku, $search) !== false;
-                    });
-                    if (!empty($matchingFnskus)) {
-                        $matchingAsins = DB::table($this->fnskuTable)
-                            ->whereIn('FNSKU', $matchingFnskus)
-                            ->pluck('ASIN')
-                            ->toArray();
-                        if (!empty($matchingAsins)) {
-                            $query->orWhereIn('asin.ASIN', $matchingAsins);
-                        }
-                    }
-
-                    // Search in serial numbers
-                    $matchingSerials = $products->filter(function($product) use ($search) {
-                        return strpos($product->serialnumber, $search) !== false;
-                    });
-                    if ($matchingSerials->count() > 0) {
-                        $matchingFnskusFromSerials = $matchingSerials->pluck('FNSKUviewer')
-                            ->map(function($fnsku) {
-                                return $this->extractBaseFnsku($fnsku);
-                            })
-                            ->unique()
-                            ->toArray();
-                        
-                        $matchingAsinsFromSerials = DB::table($this->fnskuTable)
-                            ->whereIn('FNSKU', $matchingFnskusFromSerials)
-                            ->pluck('ASIN')
-                            ->toArray();
-                        if (!empty($matchingAsinsFromSerials)) {
-                            $query->orWhereIn('asin.ASIN', $matchingAsinsFromSerials);
-                        }
-                    }
-
-                    if (preg_match('/^B0[A-Z0-9]{8}$/i', $search)) {
-                        $relatedAsins = $this->findRelatedAsins($search);
-                        if (!empty($relatedAsins)) {
-                            $relatedAsins = array_filter($relatedAsins, function ($asin) {
-                                return !empty($asin) && $asin !== null;
-                            });
-
-                            if (!empty($relatedAsins)) {
-                                $query->orWhereIn('asin.ASIN', $relatedAsins);
-                            }
-                        }
-                    }
-                });
+        // Process results and aggregate data
+        $results = [];
+        foreach ($asins as $asin) {
+            // Get FNSKUs for this ASIN
+            $asinFnskus = $fnskuData->where('ASIN', $asin->ASIN);
+            
+            if ($asinFnskus->isEmpty()) {
+                continue;
             }
 
-            // Apply store filter
+            // Get products for these FNSKUs
+            $asinProducts = collect();
+            foreach ($asinFnskus as $fnskuRecord) {
+                if (isset($fnskuProductMap[$fnskuRecord->FNSKU])) {
+                    foreach ($fnskuProductMap[$fnskuRecord->FNSKU] as $product) {
+                        $asinProducts->push($product);
+                    }
+                }
+            }
+
+            if ($asinProducts->isEmpty()) {
+                continue;
+            }
+
+            // Apply store filter at product level if needed
             if (!empty($store)) {
-                $storeFilteredFnskus = DB::table($this->fnskuTable)
-                    ->where('storename', $store)
-                    ->whereIn('FNSKU', $baseFnskus)
-                    ->pluck('ASIN')
-                    ->toArray();
-                
-                if (!empty($storeFilteredFnskus)) {
-                    $asinQuery->whereIn('asin.ASIN', $storeFilteredFnskus);
-                } else {
-                    // No matching ASINs for this store
-                    return response()->json([
-                        'data' => [],
-                        'current_page' => 1,
-                        'last_page' => 1,
-                        'per_page' => $perPage,
-                        'total' => 0
-                    ]);
-                }
-            }
-
-            $asins = $asinQuery->get();
-
-            // Process results and aggregate data
-            $results = [];
-            foreach ($asins as $asin) {
-                // Get FNSKUs for this ASIN
-                $asinFnskus = $fnskuData->where('ASIN', $asin->ASIN);
-                
-                if ($asinFnskus->isEmpty()) {
+                $storeAsinFnskus = $asinFnskus->where('storename', $store);
+                if ($storeAsinFnskus->isEmpty()) {
                     continue;
                 }
+            }
 
-                // Get products for these FNSKUs
-                $asinProducts = collect();
-                foreach ($asinFnskus as $fnskuRecord) {
-                    if (isset($fnskuProductMap[$fnskuRecord->FNSKU])) {
-                        foreach ($fnskuProductMap[$fnskuRecord->FNSKU] as $product) {
-                            $asinProducts->push($product);
-                        }
-                    }
-                }
+            // Aggregate the data
+            $item = new \stdClass();
+            $item->ASIN = $asin->ASIN;
+            $item->AStitle = $asin->AStitle;
+            $item->asinStatus = $asin->asinStatus;
+            $item->storename = $asinFnskus->first()->storename ?? '';
+            
+            // Aggregate inventory numbers
+            $item->FBMAvailable = $asinProducts->sum('FBMAvailable');
+            $item->FbaAvailable = $asinProducts->sum('FbaAvailable');
+            $item->Outbound = $asinProducts->sum('Outbound');
+            $item->Inbound = $asinProducts->sum('Inbound');
+            $item->Unfulfillable = $asinProducts->sum('Unfulfillable');
+            $item->Reserved = $asinProducts->sum('Reserved');
 
-                if ($asinProducts->isEmpty()) {
-                    continue;
-                }
+            // NEW: Calculate quantity based on QuantityInside
+            $quantityInside = $asin->QuantityInside ?? 1; // Default to 1 if NULL
+            $quantityInside = max(1, min(4, (int)$quantityInside)); // Ensure it's between 1-4
+            
+            $unitCount = $asinProducts->count(); // Number of units in stockroom
+            $item->item_count = $unitCount * $quantityInside; // Total quantity
+            $item->unit_count = $unitCount; // Keep track of actual units
+            $item->quantity_inside = $quantityInside; // Store the QuantityInside value
 
-                // Apply store filter at product level if needed
-                if (!empty($store)) {
-                    $storeAsinFnskus = $asinFnskus->where('storename', $store);
-                    if ($storeAsinFnskus->isEmpty()) {
-                        continue;
-                    }
-                }
-
-                // Aggregate the data
-                $item = new \stdClass();
-                $item->ASIN = $asin->ASIN;
-                $item->AStitle = $asin->AStitle;
-                $item->asinStatus = $asin->asinStatus;
-                $item->storename = $asinFnskus->first()->storename ?? '';
+            // Add FNSKUs and serials
+            $item->fnskus = $asinFnskus->toArray();
+            $item->serials = $asinProducts->map(function($product) use ($fnskuData) {
+                $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
+                $fnskuRecord = $fnskuData->get($baseFnsku);
                 
-                // Aggregate inventory numbers
-                $item->FBMAvailable = $asinProducts->sum('FBMAvailable');
-                $item->FbaAvailable = $asinProducts->sum('FbaAvailable');
-                $item->Outbound = $asinProducts->sum('Outbound');
-                $item->Inbound = $asinProducts->sum('Inbound');
-                $item->Unfulfillable = $asinProducts->sum('Unfulfillable');
-                $item->Reserved = $asinProducts->sum('Reserved');
-                $item->item_count = $asinProducts->count();
+                return (object)[
+                    'ProductID' => $product->ProductID,
+                    'serialnumber' => $product->serialnumber,
+                    'rtcounter' => $product->rtcounter,
+                    'warehouselocation' => $product->warehouselocation,
+                    'FNSKUviewer' => $product->FNSKUviewer,
+                    'MSKU' => $fnskuRecord->MSKU ?? '',
+                    'grading' => $fnskuRecord->grading ?? '',
+                    'storename' => $fnskuRecord->storename ?? ''
+                ];
+            })->toArray();
 
-                // Add FNSKUs and serials
-                $item->fnskus = $asinFnskus->toArray();
-                $item->serials = $asinProducts->map(function($product) use ($fnskuData) {
-                    $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
-                    $fnskuRecord = $fnskuData->get($baseFnsku);
-                    
-                    return (object)[
-                        'ProductID' => $product->ProductID,
-                        'serialnumber' => $product->serialnumber,
-                        'rtcounter' => $product->rtcounter,
-                        'warehouselocation' => $product->warehouselocation,
-                        'FNSKUviewer' => $product->FNSKUviewer,
-                        'MSKU' => $fnskuRecord->MSKU ?? '',
-                        'grading' => $fnskuRecord->grading ?? ''
-                    ];
-                })->toArray();
+            // No longer using pack_size from title
+            $item->pack_size = $quantityInside;
+            $item->box_count = $unitCount;
 
-                // Handle pack sizes
-                $packSize = $this->extractPackSizeFromTitle($item->AStitle);
-                if ($packSize > 1) {
-                    $item->box_count = $item->item_count;
-                    $item->item_count = $item->item_count * $packSize;
-                    $item->pack_size = $packSize;
-                } else {
-                    $item->box_count = $item->item_count;
-                    $item->pack_size = 1;
-                }
-
-                $results[] = $item;
-            }
-
-            // Manual pagination
-            $total = count($results);
-            $totalPages = ceil($total / $perPage);
-            $offset = ($page - 1) * $perPage;
-            $paginatedResults = array_slice($results, $offset, $perPage);
-
-            $result = [
-                'data' => $paginatedResults,
-                'current_page' => $page,
-                'last_page' => $totalPages,
-                'per_page' => $perPage,
-                'total' => $total
-            ];
-
-            if (empty($search)) {
-                Cache::put($cacheKey, $result, 30);
-            }
-
-            return response()->json($result);
-
-        } catch (\Exception $e) {
-            Log::error('Error in StockroomController@index: ' . $e->getMessage());
-            Log::error($e->getTraceAsString());
-
-            return response()->json([
-                'error' => 'An error occurred while retrieving stockroom data',
-                'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ], 500);
+            $results[] = $item;
         }
+
+        // Manual pagination
+        $total = count($results);
+        $totalPages = ceil($total / $perPage);
+        $offset = ($page - 1) * $perPage;
+        $paginatedResults = array_slice($results, $offset, $perPage);
+
+        $result = [
+            'data' => $paginatedResults,
+            'current_page' => $page,
+            'last_page' => $totalPages,
+            'per_page' => $perPage,
+            'total' => $total
+        ];
+
+        if (empty($search)) {
+            Cache::put($cacheKey, $result, 30);
+        }
+
+        return response()->json($result);
+
+    } catch (\Exception $e) {
+        Log::error('Error in StockroomController@index: ' . $e->getMessage());
+        Log::error($e->getTraceAsString());
+
+        return response()->json([
+            'error' => 'An error occurred while retrieving stockroom data',
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ], 500);
     }
+}
 
-    /**
-     * Helper function to extract pack size from product title with caching
-     */
-    private function extractPackSizeFromTitle($title)
-    {
-        static $packSizeCache = [];
 
-        if (isset($packSizeCache[$title])) {
-            return $packSizeCache[$title];
-        }
-
-        $packSize = 1;
-        if (preg_match('/(\d+)-Pack/i', $title, $matches)) {
-            if (isset($matches[1]) && is_numeric($matches[1])) {
-                $packSize = (int) $matches[1];
-            }
-        }
-
-        $packSizeCache[$title] = $packSize;
-        return $packSize;
-    }
 
     /**
      * Get list of store names for the dropdown with caching
