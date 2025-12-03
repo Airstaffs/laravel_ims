@@ -241,11 +241,13 @@ import Button from "primevue/button";
 import Badge from "primevue/badge";
 import Searching from "../page/searching/searching.vue";
 import Sidebar from "./Sidebar.vue";
-import NotificationModal from "./NotificationModal.vue";
-import ProfileModal from "./ProfileModal.vue";
-import SettingsModal from "./SettingsModal.vue";
-import AnnouncementModal from "./AnnouncementModal.vue";
-import BreakModal from "./BreakModal.vue";
+
+import AnnouncementModal from "./AnnouncementModal/AnnouncementModal.vue";
+import BreakModal from "./BreakModal/BreakModal.vue";
+import NotificationModal from "./NotificationModal/NotificationModal.vue";
+import ProfileModal from "./ProfileModal/ProfileModal.vue";
+import SettingsModal from "./SettingsModal/SettingsModal.vue";
+
 import { OverlayBadge } from "primevue";
 
 export default {
