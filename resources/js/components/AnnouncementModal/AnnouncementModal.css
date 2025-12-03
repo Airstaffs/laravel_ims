@@ -1,0 +1,109 @@
+.announcement-content {
+    padding: 1rem 0;
+}
+
+.readby-section {
+    padding: 0.75rem;
+    background-color: var(--surface-50);
+    border-radius: 6px;
+}
+
+.recipients-list {
+    border: 1px solid var(--surface-border);
+    border-radius: 6px;
+}
+
+.compose-form :deep(.p-inputtext),
+.compose-form :deep(.p-textarea),
+.compose-form :deep(.p-select),
+.compose-form :deep(.p-datepicker) {
+    width: 100%;
+}
+
+/* Filters container */
+.filters-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    width: 100%;
+}
+
+.filters-group {
+    display: flex;
+    gap: 1rem;
+    flex: 1;
+}
+
+.filter-item {
+    flex: 1;
+}
+
+.filter-item label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.filter-item :deep(.p-inputtext),
+.filter-item :deep(.p-select) {
+    width: 100%;
+}
+
+.actions-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .filters-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .filters-group {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .actions-group {
+        width: 100%;
+        justify-content: flex-end;
+    }
+}
+
+/* Button colors */
+.filters-container .p-button:not(.p-button-outlined),
+.announcements-table
+    .p-button:not(.p-button-outlined):not(.p-button-warning):not(
+        .p-button-success
+    ) {
+    background-color: #007bff;
+    border-color: #007bff;
+}
+
+.filters-container .p-button:not(.p-button-outlined):hover,
+.announcements-table
+    .p-button:not(.p-button-outlined):not(.p-button-warning):not(
+        .p-button-success
+    ):hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+/* Outlined buttons with #007bff */
+.filters-container .p-button-outlined,
+.announcements-table .p-button-outlined {
+    color: #007bff;
+    border-color: #007bff;
+}
+
+.filters-container .p-button-outlined:hover,
+.announcements-table .p-button-outlined:hover {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: white;
+}

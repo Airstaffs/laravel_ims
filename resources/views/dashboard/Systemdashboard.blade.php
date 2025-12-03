@@ -1199,21 +1199,6 @@
         };
     </script>
 
-    <script src="{{ asset('js/profiles-modal.js') }}" defer></script>
-    <script src="{{ asset('js/break-modal.js') }}" defer></script>
-    <script src="{{ asset('js/attendance.js') }}" defer></script>
-    <script src="{{ asset('js/account-record.js') }}" defer></script>
-    <script src="{{ asset('js/account-privilege.js') }}" defer></script>
-
-    <script src="{{ asset('js/settings-modal.js') }}" defer></script>
-    <script src="{{ asset('js/setting-design.js') }}" defer></script>
-    <script src="{{ asset('js/setting-user.js') }}" defer></script>
-    <script src="{{ asset('js/setting-store.js') }}" defer></script>
-    <script src="{{ asset('js/setting-privileges.js') }}" defer></script>
-    <script src="{{ asset('js/setting-timerecord.js') }}" defer></script>
-    <script src="{{ asset('js/setting-userlogs.js') }}" defer></script>
-    <script src="{{ asset('js/setting-printer.js') }}" defer></script>
-
 </body>
 
 </html>

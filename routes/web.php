@@ -268,6 +268,11 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     Route::post('/attendance/auto-clockout', [AttendanceController::class, 'autoClockOut'])->name('auto-clockout');
     Route::post('/update-notes/{id}', [AttendanceController::class, 'updateNotes'])->name('update-notes');
 
+    // Add these routes with your other attendance routes
+    Route::get('/attendance/break/status', [AttendanceController::class, 'status'])->name('attendance.break.status');
+    Route::post('/attendance/break/start', [AttendanceController::class, 'start'])->name('attendance.break.start');
+    Route::post('/attendance/break/end', [AttendanceController::class, 'end'])->name('attendance.break.end');
+
     Route::get('/api/attendance/profile', [AttendanceController::class, 'getProfileData'])->name('attendance.profile.data');
 
     Route::get('/account/details', [LoginController::class, 'getUserProfileDetails'])->name('account.details');
@@ -518,7 +523,6 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::get('/detail', [FbmOrderController::class, 'getOrderDetail']);
     Route::post('/mark-not-found', [FbmOrderController::class, 'markProductNotFound']);
     Route::get('/shipping-label-selected-items', [FbmOrderController::class, 'shippinglabelselecteditem']);
-
 
     Route::post('/auto-dispense-with-merge', [FbmOrderController::class, 'autoDispenseWithMerge']);
 

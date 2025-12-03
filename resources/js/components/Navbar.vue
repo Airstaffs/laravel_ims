@@ -7,42 +7,90 @@
                 <div class="navbar-left">
                     <!-- <Button icon="pi pi-bars" @click="toggleSidebar" severity="secondary" text rounded
                         class="burger-menu" aria-label="Toggle Menu" /> -->
-                    <Button icon="pi pi-bars" class="border-0" size="small" @click="visible = true"
-                        style="background-color: #007bff" />
+                    <Button
+                        icon="pi pi-bars"
+                        class="border-0"
+                        size="small"
+                        @click="visible = true"
+                        style="background-color: #007bff"
+                    />
 
                     <div class="navbar-brand">
-                        <img v-if="logo" :src="logo" alt="Logo" class="brand-logo" />
+                        <img
+                            v-if="logo"
+                            :src="logo"
+                            alt="Logo"
+                            class="brand-logo"
+                        />
                         <span class="brand-title">{{ siteTitle }}</span>
                     </div>
                 </div>
 
                 <!-- Mobile Icons -->
                 <div class="navbar-mobile">
-
                     <div class="notification-wrapper">
-                        <Button icon="pi pi-list-check" @click="goToKanban('kanban')" severity="secondary" text
-                            class="nav-button with-label" />
-                        <Badge v-if="kanbanCount > 0" :value="kanbanCount" severity="danger"
-                            class="kanban-badge-mobile" />
+                        <Button
+                            icon="pi pi-list-check"
+                            @click="goToKanban('kanban')"
+                            severity="secondary"
+                            text
+                            class="nav-button with-label"
+                        />
+                        <Badge
+                            v-if="kanbanCount > 0"
+                            :value="kanbanCount"
+                            severity="danger"
+                            class="kanban-badge-mobile"
+                        />
                     </div>
 
-
-
                     <div class="notification-wrapper">
-                        <Button icon="pi pi-bell" @click="openNotificationModal" severity="secondary" text rounded
-                            size="small" aria-label="Notifications" />
-                        <Badge v-if="notificationCount > 0" :value="notificationCount" severity="danger"
-                            class="notification-badge-mobile" />
+                        <Button
+                            icon="pi pi-bell"
+                            @click="openNotificationModal"
+                            severity="secondary"
+                            text
+                            rounded
+                            size="small"
+                            aria-label="Notifications"
+                        />
+                        <Badge
+                            v-if="notificationCount > 0"
+                            :value="notificationCount"
+                            severity="danger"
+                            class="notification-badge-mobile"
+                        />
                     </div>
 
-                    <Button icon="pi pi-user" @click="openProfileModal" severity="secondary" text rounded size="small"
-                        aria-label="Profile" />
+                    <Button
+                        icon="pi pi-user"
+                        @click="openProfileModal"
+                        severity="secondary"
+                        text
+                        rounded
+                        size="small"
+                        aria-label="Profile"
+                    />
 
-                    <Button icon="pi pi-cog" @click="openSettingModal" severity="secondary" text rounded size="small"
-                        aria-label="Settings" />
+                    <Button
+                        icon="pi pi-cog"
+                        @click="openSettingModal"
+                        severity="secondary"
+                        text
+                        rounded
+                        size="small"
+                        aria-label="Settings"
+                    />
 
-                    <Button icon="pi pi-sign-out" @click="showLogoutModal" severity="danger" text rounded size="small"
-                        aria-label="Logout" />
+                    <Button
+                        icon="pi pi-sign-out"
+                        @click="showLogoutModal"
+                        severity="danger"
+                        text
+                        rounded
+                        size="small"
+                        aria-label="Logout"
+                    />
                 </div>
             </div>
 
@@ -53,11 +101,21 @@
                     <!-- <Button icon="pi pi-bars" @click="toggleSidebar" severity="secondary" text rounded
                         class="burger-menu" aria-label="Toggle Menu" /> -->
 
-                    <Button icon="pi pi-bars" class="border-0" size="small" @click="visible = true"
-                        style="background-color: #007bff" />
+                    <Button
+                        icon="pi pi-bars"
+                        class="border-0"
+                        size="small"
+                        @click="visible = true"
+                        style="background-color: #007bff"
+                    />
 
                     <div class="navbar-brand">
-                        <img v-if="logo" :src="logo" alt="Logo" class="brand-logo" />
+                        <img
+                            v-if="logo"
+                            :src="logo"
+                            alt="Logo"
+                            class="brand-logo"
+                        />
                         <span class="brand-title">{{ siteTitle }}</span>
                     </div>
                 </div>
@@ -72,40 +130,89 @@
                     <!-- Announcements -->
 
                     <div class="notification-wrapper">
-                        <Button icon="pi pi-list-check" label="Todo List" @click="goToKanban('kanban')"
-                            severity="secondary" text class="nav-button with-label" />
+                        <Button
+                            icon="pi pi-list-check"
+                            label="Todo List"
+                            @click="goToKanban('kanban')"
+                            severity="secondary"
+                            text
+                            class="nav-button with-label"
+                        />
 
-                        <Badge v-if="kanbanCount > 0" :value="kanbanCount" severity="danger"
-                            class="notification-badge-desktop" />
+                        <Badge
+                            v-if="kanbanCount > 0"
+                            :value="kanbanCount"
+                            severity="danger"
+                            class="notification-badge-desktop"
+                        />
                     </div>
 
-
-                    <Button icon="pi pi-megaphone" label="Announcements" @click="openAnnouncementModal"
-                        severity="secondary" text class="nav-button with-label" />
+                    <Button
+                        icon="pi pi-megaphone"
+                        label="Announcements"
+                        @click="openAnnouncementModal"
+                        severity="secondary"
+                        text
+                        class="nav-button with-label"
+                    />
 
                     <!-- Break -->
-                    <Button icon="pi pi-pause-circle" label="Break" @click="openBreakModal" severity="secondary" text
-                        class="nav-button with-label" />
+                    <Button
+                        icon="pi pi-pause-circle"
+                        label="Break"
+                        @click="openBreakModal"
+                        severity="secondary"
+                        text
+                        class="nav-button with-label"
+                    />
 
                     <!-- Notifications -->
                     <div class="notification-wrapper">
-                        <Button icon="pi pi-bell" label="Notifications" @click="openNotificationModal"
-                            severity="secondary" text class="nav-button with-label" />
-                        <Badge v-if="notificationCount > 0" :value="notificationCount" severity="danger"
-                            class="notification-badge-desktop" />
+                        <Button
+                            icon="pi pi-bell"
+                            label="Notifications"
+                            @click="openNotificationModal"
+                            severity="secondary"
+                            text
+                            class="nav-button with-label"
+                        />
+                        <Badge
+                            v-if="notificationCount > 0"
+                            :value="notificationCount"
+                            severity="danger"
+                            class="notification-badge-desktop"
+                        />
                     </div>
 
                     <!-- Profile -->
-                    <Button icon="pi pi-user" label="Profile" @click="profileVisible = true" severity="secondary" text
-                        class="nav-button with-label" />
+                    <Button
+                        icon="pi pi-user"
+                        label="Profile"
+                        @click="profileVisible = true"
+                        severity="secondary"
+                        text
+                        class="nav-button with-label"
+                    />
 
                     <!-- Settings -->
-                    <Button icon="pi pi-cog" label="Settings" @click="settingsVisible = true" severity="secondary" text
-                        class="nav-button with-label" />
+                    <Button
+                        icon="pi pi-cog"
+                        label="Settings"
+                        @click="settingsVisible = true"
+                        severity="secondary"
+                        text
+                        class="nav-button with-label"
+                    />
 
                     <!-- Logout -->
-                    <Button icon="pi pi-sign-out" label="Logout" @click="showLogoutModal" severity="danger" text
-                        class="nav-button with-label" />
+                    <Button
+                        icon="pi pi-sign-out"
+                        label="Logout"
+                        @click="showLogoutModal"
+                        severity="danger"
+                        text
+                        class="nav-button with-label"
+                    />
                 </div>
             </div>
 
@@ -118,8 +225,15 @@
     <Sidebar v-model:visible="visible" />
     <ProfileModal v-model:visible="profileVisible" />
     <SettingsModal v-model:visible="settingsVisible" />
-    <NotificationModal v-model:visible="notificationVisible" :user-id="userId" @update-badge="updateNotificationCount"
-        @open-modal="handleModalOpen" @custom-action="handleCustomAction" />
+    <NotificationModal
+        v-model:visible="notificationVisible"
+        :user-id="userId"
+        @update-badge="updateNotificationCount"
+        @open-modal="handleModalOpen"
+        @custom-action="handleCustomAction"
+    />
+    <AnnouncementModal v-model:visible="announcementVisible" />
+    <BreakModal v-model:visible="breakVisible" />
 </template>
 
 <script>
@@ -127,10 +241,13 @@ import Button from "primevue/button";
 import Badge from "primevue/badge";
 import Searching from "../page/searching/searching.vue";
 import Sidebar from "./Sidebar.vue";
-import NotificationModal from "./NotificationModal.vue";
-import ProfileModal from "./ProfileModal.vue";
-import SettingsModal from "./SettingsModal.vue";
-import AnnouncementModal from "./AnnouncementModal.vue";
+
+import AnnouncementModal from "./AnnouncementModal/AnnouncementModal.vue";
+import BreakModal from "./BreakModal/BreakModal.vue";
+import NotificationModal from "./NotificationModal/NotificationModal.vue";
+import ProfileModal from "./ProfileModal/ProfileModal.vue";
+import SettingsModal from "./SettingsModal/SettingsModal.vue";
+
 import { OverlayBadge } from "primevue";
 
 export default {
@@ -144,6 +261,7 @@ export default {
         ProfileModal,
         SettingsModal,
         AnnouncementModal,
+        BreakModal,
         OverlayBadge,
     },
     data() {
@@ -156,6 +274,7 @@ export default {
             profileVisible: false,
             settingsVisible: false,
             announcementVisible: false,
+            breakVisible: false,
             kanbanCount: 0,
             userId: null,
         };
@@ -220,12 +339,16 @@ export default {
         //     modal.show();
         // },
 
-        openBreakModal(event) {
-            if (event) event.preventDefault();
-            if (typeof openBreakModal === "function") {
-                openBreakModal(event);
-            }
+        openBreakModal() {
+            this.breakVisible = true;
         },
+
+        // openBreakModal(event) {
+        //     if (event) event.preventDefault();
+        //     if (typeof openBreakModal === "function") {
+        //         openBreakModal(event);
+        //     }
+        // },
 
         openNotificationModal() {
             this.notificationVisible = true;
