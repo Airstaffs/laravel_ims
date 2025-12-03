@@ -532,7 +532,7 @@ import RTS from "./page/rts/rts.vue";
 import Training from "./page/aiTraining/training.vue";
 import Kanban from "./page/kanban/kanban.vue";
 
-import Navbar from "./components/Navbar.vue";
+import Navbar from "./components/Navbar/Navbar.vue";
 
 const asyncComponentMap = {
     printcustominvoice: () =>
@@ -907,7 +907,7 @@ app.mixin({
 import PrimeVue from "primevue/config";
 import Aura from "@primevue/themes/aura";
 import ToastService from "primevue/toastservice";
-import Tooltip  from "primevue/tooltip";
+import Tooltip from "primevue/tooltip";
 
 // Configure main app with PrimeVue
 app.use(PrimeVue, {
@@ -919,7 +919,7 @@ app.use(PrimeVue, {
     },
 });
 app.use(ToastService);
-app.directive('tooltip', Tooltip);
+app.directive("tooltip", Tooltip);
 
 // Mount main app
 window.appInstance = app.mount("#app");
