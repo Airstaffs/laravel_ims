@@ -407,6 +407,7 @@ export default {
 
             // Time Record
             timeRecords: [],
+            loadingTimeRecords: false,
             filters: { employee: "", dateFrom: "", dateTo: "" },
             sortKey: "DateToday",
             sortOrder: "desc",
@@ -1007,6 +1008,7 @@ export default {
 
         // Time Records
         async fetchRecords() {
+            this.loadingTimeRecords = true
             try {
                 const res = await axios.get(`${API_BASE_URL}/hr/time-records`, {
                     params: {
@@ -1042,6 +1044,8 @@ export default {
                 }
             } catch (err) {
                 console.error("Failed to fetch records", err);
+            } finally {
+                this.loadingTimeRecords = false
             }
         },
 
@@ -1095,7 +1099,7 @@ export default {
             }
         },
 
-        toggleHistory(clockId) {
+        async toggleHistory(clockId) {
             // collapse if clicking the same row
             if (this.expandedClockId === clockId) {
                 this.expandedClockId = null;
@@ -1107,7 +1111,7 @@ export default {
             this.historyLoading = true;
 
             // reuse your existing API call
-            this.fetchClockEditHistoryByClock(clockId)
+            await this.fetchClockEditHistoryByClock(clockId)
                 .catch((e) => console.error("load history error", e))
                 .finally(() => {
                     this.historyLoading = false;

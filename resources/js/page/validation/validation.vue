@@ -455,14 +455,11 @@
         </div>
 
         <!-- Image Modal with Tabs -->
-        <div v-if="showImageModal" class="image-modal">
-            <div class="modal-overlay" @click="closeImageModal"></div>
-            <div class="modal-content">
-                <button class="close-button" @click="closeImageModal">
-                    &times;
-                </button>
+        <!-- <Dialog v-model:visible="showImageModal" modal :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
+            <div>
 
-                <!-- Tabs for switching between regular, captured, and ASIN images -->
                 <div class="image-tabs">
                     <button class="tab-button" :class="{ active: activeTab === 'regular' }"
                         @click="switchTab('regular')" :disabled="regularImages.length === 0">
@@ -478,12 +475,10 @@
                     </button>
                 </div>
 
-                <!-- Display message if no images in current category -->
                 <div v-if="currentImageSet.length === 0" class="no-images-message">
                     No images available in this category
                 </div>
 
-                <!-- Main image display (only shown if we have images) -->
                 <div v-if="currentImageSet.length > 0" class="main-image-container">
                     <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
                         &lt;
@@ -499,7 +494,6 @@
                     {{ currentImageIndex + 1 }} / {{ currentImageSet.length }}
                 </div>
 
-                <!-- Thumbnails for the current image set -->
                 <div class="thumbnails-container" v-if="currentImageSet.length > 1">
                     <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
                         :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
@@ -507,7 +501,61 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </Dialog> -->
+
+        <Dialog v-model:visible="showImageModal" modal :pt="{ root: { class: 'mobile-fullscreen-dialog' } }">
+            <div class="modal-wrapper-image">
+
+                <!-- Tabs -->
+                <Tabs v-model:value="activeTab" class="tabs-container">
+                    <TabList>
+                        <Tab value="regular" :disabled="regularImages.length === 0">
+                            Product Images ({{ regularImages.length }})
+                        </Tab>
+                        <Tab value="captured" :disabled="capturedImages.length === 0">
+                            Captured Images ({{ capturedImages.length }})
+                        </Tab>
+                        <Tab value="asin" :disabled="asinImages.length === 0">
+                            ASIN Images ({{ asinImages.length }})
+                        </Tab>
+                    </TabList>
+                </Tabs>
+
+                <!-- Empty State -->
+                <div v-if="currentImageSet.length === 0" class="no-images-message">
+                    No images available
+                </div>
+
+                <!-- MAIN IMAGE AREA -->
+                <div v-if="currentImageSet.length > 0" class="main-image-area">
+                    <!-- Prev Button -->
+                    <Button v-if="currentImageSet.length > 1" icon="pi pi-chevron-left" class="nav-btn prev-btn"
+                        @click="prevImage" rounded text />
+
+                    <!-- MAIN IMAGE -->
+                    <img :src="currentImageSet[currentImageIndex]" class="main-image" @error="handleImageError" />
+
+                    <!-- Next Button -->
+                    <Button v-if="currentImageSet.length > 1" icon="pi pi-chevron-right" class="nav-btn next-btn"
+                        @click="nextImage" rounded text />
+                </div>
+
+                <!-- Counter -->
+                <div class="image-counter">
+                    {{ currentImageIndex + 1 }} / {{ currentImageSet.length }}
+                </div>
+
+                <!-- THUMBNAILS -->
+                <div v-if="currentImageSet.length > 1" class="thumbs-wrapper">
+                    <div v-for="(image, i) in currentImageSet" :key="i"
+                        :class="['thumb-item', { active: i === currentImageIndex }]" @click="currentImageIndex = i">
+                        <img :src="image" @error="handleImageError" />
+                    </div>
+                </div>
+
+            </div>
+        </Dialog>
+
 
         <Dialog v-model:visible="showValidationModal" modal header="Product Details" :style="{ width: '90vw' }" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
@@ -1406,7 +1454,7 @@ image, index
 
 <script>
 import Validation from "./validation.js";
-import { Badge, Button, Divider, Dialog, Card, InputText, Select, ScrollTop } from "primevue";
+import { Badge, Button, Divider, Dialog, Card, InputText, Select, ScrollTop, Tab, TabList, Tabs, TabPanels, TabPanel, Galleria } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
@@ -1414,13 +1462,6 @@ import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 // export default Validation;
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         header: "Product Name",
         field: 'astitle',
@@ -1486,7 +1527,13 @@ export default {
         Select,
         ScrollTop,
         TitlePage,
-        AnimateDiv
+        AnimateDiv,
+        Tab,
+        TabList,
+        Tabs,
+        TabPanel,
+        TabPanels,
+        Galleria
     },
     data() {
         return {
@@ -1523,5 +1570,98 @@ export default {
     .select-form {
         width: 100%;
     }
+}
+
+.modal-wrapper-image {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.tabs-container {
+    padding: 0 1rem;
+}
+
+/* Main viewing area */
+.main-image-area {
+    flex: 1;
+    min-height: 60vh;
+    max-height: 70vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    /* REQUIRED FOR ABSOLUTE BUTTONS */
+    padding: 1px;
+}
+
+
+/* Centered main image */
+.main-image {
+    max-width: 100%;
+    max-height: 75vh;
+    object-fit: cover;
+}
+
+/* Nav buttons */
+.nav-btn {
+    position: absolute !important;
+    /* FORCE POSITIONING */
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 9999 !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    color: white !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    backdrop-filter: blur(2px);
+}
+
+/* left and right positioning */
+.prev-btn {
+    left: 10px !important;
+}
+
+.next-btn {
+    right: 10px !important;
+}
+
+/* Counter */
+.image-counter {
+    text-align: center;
+    font-weight: 600;
+    margin: 8px 0;
+}
+
+/* Thumbnails */
+.thumbs-wrapper {
+    display: flex;
+    gap: 10px;
+    padding: 10px 1rem;
+    overflow-x: auto;
+}
+
+.thumb-item {
+    width: 60px;
+    height: 60px;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.thumb-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumb-item.active {
+    border-color: #3b82f6;
 }
 </style>

@@ -1,5 +1,6 @@
 <template>
     <div class="time-record-wrapper">
+        <h4>Time Records</h4>
         <button class="btn btn-toggle d-md-none" @click="$parent.toggleFilters()">
             <i class="fas fa-sliders-h"></i>
         </button>
@@ -43,32 +44,27 @@
             <div class="tr-card shadow-sm rounded-3 mb-2 p-3" v-for="record in $parent.timeRecords"
                 :key="record?.ID || record?.id">
                 <!-- Header -->
-                <div class="d-flex justify-content-between align-items-start">
-                    <div class="me-2">
-                        <div class="small text-secondary">Clock ID</div>
-                        <div class="fw-semibold">
-                            {{ record?.ID || record?.id || "-" }}
+                <div class="d-flex justify-content-between">
+
+
+                    <!-- Employee + Date -->
+                    <div>
+                        <div class="fw-semibold text-truncate">
+                            {{ record?.Employee || "-" }}
+                        </div>
+                        <div class="text-secondary small">
+                            {{ record?.DateToday || "-" }}
                         </div>
                     </div>
-                    <button class="btn btn-light btn-sm border" @click="$parent.toggleHistory(record?.ID || record?.id)"
-                        :aria-expanded="$parent.expandedClockId ===
-                            (record?.ID || record?.id)
-                            ">
-                        <span v-if="
-                            $parent.expandedClockId ===
-                            (record?.ID || record?.id)
-                        ">Hide</span>
-                        <span v-else>History</span>
-                    </button>
-                </div>
 
-                <!-- Employee + Date -->
-                <div class="mt-2">
-                    <div class="fw-semibold text-truncate">
-                        {{ record?.Employee || "-" }}
-                    </div>
-                    <div class="text-secondary small">
-                        {{ record?.DateToday || "-" }}
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="me-2">
+                            <div class="small text-secondary">Clock ID</div>
+                            <div class="fw-semibold">
+                                {{ record?.ID || record?.id || "-" }}
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
@@ -76,13 +72,13 @@
                 <div class="row g-2 mt-3">
                     <div class="col-6">
                         <div class="label text-secondary small">Time In</div>
-                        <div class="value fw-semibold">
+                        <div class="value-history-text fw-semibold">
                             {{ $parent.formatDate(record?.TimeIn) }}
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="label text-secondary small">Time Out</div>
-                        <div class="value fw-semibold">
+                        <div class="value-history-text fw-semibold">
                             {{ $parent.formatDate(record?.TimeOut) }}
                         </div>
                     </div>
@@ -90,13 +86,13 @@
                         <div class="label text-secondary small">
                             Break Start
                         </div>
-                        <div class="value fw-semibold">
+                        <div class="value-history-text fw-semibold">
                             {{ $parent.formatDate(record?.shortbreak_start) }}
                         </div>
                     </div>
                     <div class="col-6">
                         <div class="label text-secondary small">Break End</div>
-                        <div class="value fw-semibold">
+                        <div class="value-history-text fw-semibold">
                             {{ $parent.formatDate(record?.shortbreak_end) }}
                         </div>
                     </div>
@@ -104,7 +100,7 @@
                         <div class="label text-secondary small">
                             Total Break
                         </div>
-                        <div class="value fw-semibold">
+                        <div class="value-history-text fw-semibold">
                             {{ record?.shortbreak_totaltime || 0 }} mins
                         </div>
                     </div>
@@ -113,14 +109,22 @@
                 <!-- Notes -->
                 <div class="mt-2">
                     <div class="label text-secondary small">Notes</div>
-                    <div class="value">{{ record?.Notes || "-" }}</div>
+                    <div class="value-history-text">{{ record?.Notes || "-" }}</div>
                 </div>
 
                 <!-- Actions -->
-                <div class="d-grid mt-3">
-                    <button class="btn btn-primary btn-sm" @click="$parent.openEdit(record)">
-                        Edit
-                    </button>
+                <div class="d-grid mt-3 gap-2">
+                    <Button size="small" severity="info" @click="$parent.openEdit(record)" label="Edit" />
+                    <Button size="small" severity="success" @click="$parent.toggleHistory(record?.ID || record?.id)"
+                        :aria-expanded="$parent.expandedClockId ===
+                            (record?.ID || record?.id)
+                            ">
+                        <span v-if="
+                            $parent.expandedClockId ===
+                            (record?.ID || record?.id)
+                        ">Hide</span>
+                        <span v-else>History</span>
+                    </Button>
                 </div>
 
                 <!-- Inline history (mobile) -->
@@ -196,172 +200,37 @@ chg, i
         </div>
 
         <!-- Desktop / Medium+ screens: Enhanced table view -->
-        <div class="table-responsive d-none d-md-block">
-            <table class="table align-middle table-hover mb-0">
-                <thead class="table-light sticky-top">
-                    <tr>
-                        <th role="button" @click="$parent.sort('ID')">
-                            Clock ID
-                        </th>
-                        <th role="button" @click="$parent.sort('Employee')">
-                            Employee
-                        </th>
-                        <th role="button" @click="$parent.sort('DateToday')">
-                            Date
-                        </th>
-                        <th>Time In</th>
-                        <th>Time Out</th>
-                        <th>Break Start</th>
-                        <th>Break End</th>
-                        <th>Total</th>
-                        <th>Notes</th>
-                        <th style="width: 120px">Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template v-for="record in $parent.timeRecords" :key="record?.ID || record?.id">
-                        <!-- Clickable data row -->
-                        <tr class="tr-clickable" @click="
-                            $parent.toggleHistory(record?.ID || record?.id)
-                            ">
-                            <td class="text-secondary">
-                                {{ record?.ID || record?.id || "-" }}
-                            </td>
-                            <td class="fw-semibold">
-                                {{ record?.Employee || "-" }}
-                            </td>
-                            <td class="text-secondary">
-                                {{ record?.DateToday || "-" }}
-                            </td>
-                            <td>
-                                {{ $parent.formatDate(record?.TimeIn) }}
-                            </td>
-                            <td>
-                                {{ $parent.formatDate(record?.TimeOut) }}
-                            </td>
-                            <td>
-                                {{
-                                    $parent.formatDate(record?.shortbreak_start)
-                                }}
-                            </td>
-                            <td>
-                                {{ $parent.formatDate(record?.shortbreak_end) }}
-                            </td>
-                            <td>
-                                {{ record?.shortbreak_totaltime || 0 }} mins
-                            </td>
-                            <td class="text-truncate" style="max-width: 240px">
-                                {{ record?.Notes || "-" }}
-                            </td>
-                            <td>
-                                <button class="btn btn-sm btn-outline-primary" @click.stop="$parent.openEdit(record)">
-                                    Edit
-                                </button>
-                            </td>
-                        </tr>
+        <XDataTable :value="$parent.timeRecords" :columns="columns" tableClass="d-none d-md-block"
+            :loading="$parent.loadingTimeRecords" :actionsFrozen="true">
+            <template #TimeIn="{ data }">
+                <p>{{ $parent.formatDate(data.TimeIn) }}</p>
+            </template>
+            <template #TimeOut="{ data }">
+                <p>{{ $parent.formatDate(data.TimeOut) }}</p>
+            </template>
+            <template #shortbreakStart="{ data }">
+                <p>{{ $parent.formatDate(data.shortbreak_start) }}</p>
+            </template>
+            <template #shortbreakEnd="{ data }">
+                <p>{{ $parent.formatDate(data.shortbreak_end) }}</p>
+            </template>
+            <template #shortbreakTotaltime="{ data }">
+                <p> {{ data.shortbreak_totaltime || 0 }} mins</p>
+            </template>
+            <template #notes="{ data }">
+                <p>{{
+                    data.Notes }}</p>
+            </template>
+            <template #actions="{ data }">
+                <div class="d-flex flex-column gap-2 align-items-start">
+                    <Button label="Edit" size="small" variant="text" severity="contrast" class="text-primary"
+                        icon="pi pi-pencil" @click.stop="$parent.openEdit(data)" />
+                    <Button label="Edit History" size="small" variant="text" severity="contrast" class="text-success"
+                        icon="pi pi-history" @click="handleOpenEditHistoryModal(data.ID)" />
+                </div>
+            </template>
+        </XDataTable>
 
-                        <!-- Inline history row -->
-                        <tr v-if="
-                            $parent.expandedClockId ===
-                            (record?.ID || record?.id)
-                        " class="bg-light">
-                            <td :colspan="10">
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <strong class="me-2">Edit History</strong>
-                                    <span v-if="$parent.historyLoading" class="spinner-border spinner-border-sm"></span>
-                                </div>
-
-                                <!-- No history -->
-                                <div v-if="
-                                    !$parent.historyLoading &&
-                                    (!$parent.clockEditHistory ||
-                                        !$parent.clockEditHistory.length)
-                                " class="text-muted small">
-                                    No edits recorded for this clock.
-                                </div>
-
-                                <!-- History table -->
-                                <div v-else class="table-responsive">
-                                    <table class="table table-sm table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 180px">
-                                                    Edited At
-                                                </th>
-                                                <th style="width: 160px">
-                                                    Edited By
-                                                </th>
-                                                <th>Changes</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr v-for="(
-h, idx
-                                                ) in $parent.clockEditHistory" :key="idx">
-                                                <td>
-                                                    {{
-                                                        h.edited_at ||
-                                                        h.created_at ||
-                                                        "-"
-                                                    }}
-                                                </td>
-                                                <td>
-                                                    {{
-                                                        h.edited_by ||
-                                                        h.user ||
-                                                        h.username ||
-                                                        "-"
-                                                    }}
-                                                </td>
-                                                <td>
-                                                    <template v-if="
-                                                        h.before && h.after
-                                                    ">
-                                                        <ul class="mb-0 small">
-                                                            <li v-for="(
-chg, i
-                                                                ) in $parent.prettyDiff(
-    h.before,
-    h.after
-)" :key="i">
-                                                                <code>{{
-                                                                    chg.key
-                                                                }}</code>:
-                                                                <span class="text-decoration-line-through text-muted">{{
-                                                                    chg.from
-                                                                    }}</span>
-                                                                →
-                                                                <strong>{{
-                                                                    chg.to
-                                                                }}</strong>
-                                                            </li>
-                                                        </ul>
-                                                    </template>
-                                                    <template v-else-if="
-                                                        h.changes ||
-                                                        h.delta ||
-                                                        h.after
-                                                    ">
-                                                        <pre class="small mb-0">{{
-                                                            h.changes ||
-                                                            h.delta ||
-                                                            h.after
-                                                        }}</pre>
-                                                    </template>
-                                                    <template v-else>
-                                                        <span class="text-muted small">—</span>
-                                                    </template>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </div>
 
         <!-- Pagination -->
         <div class="d-flex justify-content-between align-items-center mt-3">
@@ -377,6 +246,75 @@ chg, i
             </button>
         </div>
     </div>
+
+    <Dialog v-model:visible="showEditHistoryModal" modal header="Edit History" :style="{ width: '50%' }" :pt="{
+        root: { class: 'mobile-fullscreen-dialog' }
+    }">
+        <!-- No history -->
+        <!-- <div v-if="
+            !$parent.historyLoading &&
+            (!$parent.clockEditHistory ||
+                !$parent.clockEditHistory.length)
+        " class="text-muted small">
+            No edits recorded for this clock.
+        </div> -->
+
+        <div>
+            <XDataTable :value="$parent.clockEditHistory" :columns="editHistoryColumns">
+                <template #editedAt="{ data }">
+                    <div>
+                        <p>{{
+                            data.edited_at ||
+                            data.created_at ||
+                            "-"
+                            }}</p>
+                    </div>
+                </template>
+                <template #editedBy="{ data }">
+                    <p> {{
+                        data.edited_by ||
+                        data.user ||
+                        data.username ||
+                        "-"
+                    }}</p>
+                </template>
+                <template #changes="{ data }">
+                    <template v-if="
+                        data.before && data.after
+                    ">
+                        <ul class="mb-0 small">
+                            <li v-for="(chg, i) in $parent.prettyDiff(data.before, data.after)" :key="i">
+                                <code>{{
+                                    chg.key
+                                }}</code>:
+                                <span class="text-decoration-line-through text-muted">{{
+                                    chg.from
+                                    }}</span>
+                                →
+                                <strong>{{
+                                    chg.to
+                                    }}</strong>
+                            </li>
+                        </ul>
+                    </template>
+                    <template v-else-if="
+                        data.changes ||
+                        data.delta ||
+                        data.after
+                    ">
+                        <pre class="small mb-0">{{
+                            data.changes ||
+                            data.delta ||
+                            data.after
+                        }}</pre>
+                    </template>
+                    <template v-else>
+                        <span class="text-muted small">—</span>
+                    </template>
+                </template>
+            </XDataTable>
+        </div>
+    </Dialog>
 
     <!-- Edit Modal -->
     <div v-if="$parent.showEditModal" class="modal modal-editRecord">
@@ -459,12 +397,105 @@ chg, i
 </template>
 
 <script>
-import { Select, DatePicker, Button } from 'primevue'
+import { Select, DatePicker, Button, Dialog } from 'primevue'
+import XDataTable from '../../../components/DataTable/XDataTable.vue';
+
+const TABLE_COLUMNS = [
+    {
+        header: "Clock Id",
+        field: "ID",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        header: "Employee",
+        field: "Employee",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        header: "Date",
+        field: "DateToday",
+        bodyStyle: "font-size: 14px"
+    },
+    {
+        header: "Time In",
+        slot: "TimeIn",
+        bodyStyle: "font-size: 14px;word-break: break-word; white-space: normal;",
+        style: { minWidth: '7rem' }
+    },
+    {
+        header: "Time Out",
+        slot: "TimeOut",
+        bodyStyle: "font-size: 14px;word-break: break-word; white-space: normal;",
+        style: { minWidth: '7rem' }
+    },
+    {
+        header: "Break Start",
+        slot: "shortbreakStart",
+        bodyStyle: "font-size: 14px;word-break: break-word; white-space: normal;",
+        style: { minWidth: '7rem' }
+    },
+    {
+        header: "Break End",
+        slot: "shortbreakEnd",
+        bodyStyle: "font-size: 14px;word-break: break-word; white-space: normal;",
+        style: { minWidth: '7rem' }
+    },
+    {
+        header: "Total",
+        slot: "shortbreakTotaltime",
+        bodyStyle: "font-size: 14px;word-break: break-word; white-space: normal;",
+        style: { minWidth: '10rem' }
+    },
+    {
+        header: "Notes",
+        slot: "notes",
+        bodyStyle: "font-size: 14px; word-break: break-word; white-space: normal;",
+        style: { minWidth: '20rem' }
+    }
+]
+
+const TABLE_EDIT_HISTORY_COLUMNS = [
+    {
+        header: "Edited At",
+        slot: "editedAt",
+        style: { verticalAlign: 'top' }
+    },
+    {
+        header: "Edited By",
+        slot: "editedBy",
+        style: { verticalAlign: 'top' }
+    },
+    {
+        header: "Changes",
+        slot: "changes",
+        style: { fontSize: '14px' }
+    }
+]
 
 export default {
     components: {
         Select,
-        DatePicker, Button
+        DatePicker,
+        Button,
+        XDataTable,
+        Dialog
+    },
+    data() {
+        return {
+            columns: TABLE_COLUMNS,
+            editHistoryColumns: TABLE_EDIT_HISTORY_COLUMNS,
+            showEditHistoryModal: false
+        }
+    },
+    methods: {
+        async handleOpenEditHistoryModal(id) {
+            try {
+                await this.$parent.toggleHistory(id)
+                this.showEditHistoryModal = true
+            } catch (error) {
+                console.log(error)
+            }
+        }
     },
     mounted() {
         console.log(this.$parent.timeRecords)

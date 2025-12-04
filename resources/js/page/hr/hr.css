@@ -251,7 +251,7 @@ table tbody tr td {
 
 /* --------- */
 .hr-module {
-    max-width: 1260px;
+    max-width: 1560px;
     margin: 40px auto;
     display: flex;
     justify-content: space-between;
@@ -405,6 +405,10 @@ table tbody tr td {
     justify-content: flex-start;
     align-items: stretch;
     gap: 20px;
+}
+
+.value-history-text {
+    font-size: 14px;
 }
 
 /* Time Record History */
