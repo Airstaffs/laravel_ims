@@ -1,10 +1,6 @@
 <template>
     <div class="vue-container production-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
 
-        <!-- <h1 class="module-title">Production Module</h1> -->
         <TitlePage title="Production Module"
             subtitle="Track and manage products through the internal assembly, manufacturing, or customization process before final staging." />
         <!-- Desktop Table Container -->
@@ -182,49 +178,7 @@
         <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
             :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
             @close="closeImageModal" />
-        <!-- <div v-if="showImageModal" class="modal image-modal">
-            <div class="modal-overlay" @click="closeImageModal"></div>
 
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div class="productTitle">
-                        <h2>{{ ProductTitle }}</h2>
-                    </div>
-                    <button class="btn btn-modal-close" @click="closeImageModal">
-                        &times;
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="main-image-container">
-                        <button class="nav-button prev" @click="prevImage" v-if="imageList.length > 1">
-                            <i class="bi bi-arrow-left-short"></i>
-                        </button>
-                        <img :src="activeImageUrl" alt="Main Product Image" class="modal-main-image" loading="lazy"
-                            width="100%" @error="onImageErrorMain" />
-                        <button class="nav-button next" @click="nextImage" v-if="imageList.length > 1">
-                            <i class="bi bi-arrow-right-short"></i>
-                        </button>
-                    </div>
-
-                    <div class="image-counter">
-                        {{ activeIndex + 1 }} / {{ imageList.length }}
-                    </div>
-
-                    <div class="thumbnail-container" v-if="imageList.length > 1">
-                        <div v-for="(img, index) in imageList" :key="index" class="modal-thumbnail" :class="[
-                            'thumbnail',
-                            {
-                                active: index === activeIndex,
-                            },
-                        ]" @click="activeIndex = index" @mouseenter="activeIndex = index">
-                            <img :src="basePath + img" alt="Thumbnail" loading="lazy"
-                                @error="onThumbnailError($event)" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div> -->
 
         <Dialog class="view-modal" v-model:visible="showEditModal" modal
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;">
@@ -469,13 +423,6 @@ import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         field: "gallery",
         header: "Gallery",

@@ -1,10 +1,6 @@
 <template>
     <div class="vue-container production-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
 
-        <!-- <h1 class="module-title">NotFound Items</h1> -->
         <TitlePage title="Not Found Module"
             subtitle="Track and manage inventory items that have been flagged as missing or not found during cycle counting or system reconciliation." />
         <!-- Desktop Table Container -->
@@ -465,13 +461,6 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         field: "gallery",
         header: "Gallery",

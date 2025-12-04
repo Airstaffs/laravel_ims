@@ -1,49 +1,6 @@
 <template>
     <div class="vue-container stockroom-module">
-        <!-- Top header bar with blue background -->
-        <!-- <div class="top-header">
-            <div class="header-buttons">
-                <button class="btn" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i>
-                    <span>Scan Items</span>
-                </button>
-                <button class="btn" @click="loadFBAInboundShipment">
-                    <i class="fas fa-truck"></i>
-                    <span>FBA Inbound Shipment</span>
-                </button>
 
-          <button class="btn" @click="showNewScannedModal = true">
-                <i class="fas fa-barcode"></i>
-                <span>New Scanned</span>
-                <span v-if="shouldShowBadge" class="notification-badge" :class="badgeClasses"
-                    :title="`${newScannedCount} new items scanned today (US time)`">
-                    {{ displayCount }}
-                </span>
-            </button>
-                <button class="btn" @click="openDs7Oos">Open DS7 & OOS</button>
-            </div>
-
-            <div class="store-filter">
-                <label for="store-select">Store:</label>
-                <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
-                    <option value="">All Stores</option>
-                    <option v-for="store in stores" :key="store" :value="store">
-                        {{ store }}
-                    </option>
-                </select>
-            </div>
-
-            <div class="availability-filter">
-                <label for="availability-select">Fullfilment:</label>
-                <select id="availabilityFilter" v-model="availabilityFilter" class="avail-select">
-                    <option value="all">All Items</option>
-                    <option value="fbm">FBM Only</option>
-                    <option value="fba">FBA Only</option>
-                    <option value="both">Both FBM & FBA</option>
-                    <option value="none">No Availability</option>
-                </select>
-            </div>
-        </div> -->
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
         <scanner-component scanner-title="Stockroom Scanner" storage-prefix="stockroom" :enable-camera="true"
@@ -287,8 +244,8 @@
                                 item.storename
                             }}</span>
                         </div>
-                        
-                        
+
+
                         <div>
                             <span class="mobile-detail-label">Quantity Inside: </span>
                             <span :class="{
@@ -728,13 +685,6 @@ import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         field: "AStitle",
         header: "Product Name",

@@ -9,11 +9,7 @@
                 <button class="btn btn-manual" @click="openDetectSerialModal">
                     <i class="fas fa-keyboard"></i> Detect Serial Numbers
                 </button>
-                <a
-                    href="{{ url('/aiTraining') }}"
-                    target="_blank"
-                    class="btn btn-training"
-                >
+                <a href="{{ url('/aiTraining') }}" target="_blank" class="btn btn-training">
                     <i class="fas fa-robot"></i> Detection Training
                 </a>
             </div>
@@ -23,9 +19,21 @@
             <TitlePage title="Received Module"
                 subtitle="View and log inbound inventory items as they are physically received and added to stock." />
 
-            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode" />
+            <div class="d-flex gap-4 me-4 desktop-view">
+                <Button @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode"
+                    severity="secondary" outlined />
+                <Button @click="openDetectSerialModal" label="Detect Serial Numbers" size="small" icon="pi pi-hashtag"
+                    severity="secondary" outlined />
+                <Button label="Detection Training" target="_blank" href="url('/aiTraining')" rel="noopener"
+                    icon="pi pi-search" outlined severity="secondary" size="small" />
+            </div>
         </div>
 
+        <div class="mobile-view w-100 mb-4">
+            <Button label="More Actions" fluid size="small" severity="secondary" outlined icon="pi pi-list"
+                @click="toggle($event)" aria-haspopup="true" aria-controls="overlay_menu" />
+            <Menu ref="menu" id="overlay_menu" :model="menuActions" :popup="true" />
+        </div>
 
         <!-- Detect Serial Numbers Modal -->
         <detect-serial-modal v-if="showDetectSerialModal" @close="closeDetectSerialModal"
@@ -239,281 +247,6 @@
                 </template>
             </XDataTable>
         </AnimateDiv>
-        <!-- <div class="table-container desktop-view">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="sticky-header first-col">
-                            <input type="checkbox" @click="toggleAll" v-model="selectAll" />
-                        </th>
-                        <th class="sticky-header second-sticky">
-                            <div class="product-name">
-                                <span class="sortable" @click="sortBy('ProductTitle')">
-                                    Product Name
-                                    <i v-if="sortColumn === 'ProductTitle'" :class="sortOrder === 'asc'
-                                        ? 'fas fa-sort-up'
-                                        : 'fas fa-sort-down'
-                                        "></i>
-                                </span>
-                            </div>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('warehouselocation')">
-                                Location
-                                <i v-if="sortColumn === 'warehouselocation'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('datedelivered')">
-                                Added date
-                                <i v-if="sortColumn === 'datedelivered'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('lastDateUpdate')">
-                                Updated date
-                                <i v-if="sortColumn === 'lastDateUpdate'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('FNSKUviewer')">
-                                Fnsku
-                                <i v-if="sortColumn === 'FNSKUviewer'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('MSKUviewer')">
-                                Msku
-                                <i v-if="sortColumn === 'MSKUviewer'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('ASINviewer')">
-                                Asin
-                                <i v-if="sortColumn === 'ASINviewer'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite" v-if="showDetails">
-                            <span class="sortable" @click="sortBy('FBMAvailable')">
-                                FBM
-                                <i v-if="sortColumn === 'FBMAvailable'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite" v-if="showDetails">
-                            <span class="sortable" @click="sortBy('FbaAvailable')">
-                                FBA
-                                <i v-if="sortColumn === 'FbaAvailable'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite" v-if="showDetails">
-                            <span class="sortable" @click="sortBy('Outbound')">
-                                Outbound
-                                <i v-if="sortColumn === 'Outbound'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite" v-if="showDetails">
-                            <span class="sortable" @click="sortBy('Inbound')">
-                                Inbound
-                                <i v-if="sortColumn === 'Inbound'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite" v-if="showDetails">
-                            <span class="sortable" @click="sortBy('Reserved')">
-                                Reserved
-                                <i v-if="sortColumn === 'Reserved'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th class="bg-warning-subtle" style="background-color: antiquewhite" v-if="showDetails">
-                            <span class="sortable" @click="sortBy('Unfulfillable')">
-                                Unfulfillable
-                                <i v-if="sortColumn === 'Unfulfillable'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('Fulfilledby')">
-                                Fulfillment
-                                <i v-if="sortColumn === 'Fulfilledby'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('Status')">
-                                Status
-                                <i v-if="sortColumn === 'Status'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th>
-                            <span class="sortable" @click="sortBy('serialnumber')">
-                                Serialnumber
-                                <i v-if="sortColumn === 'serialnumber'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </span>
-                        </th>
-                        <th class="">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="loading">
-                        <td colspan="12" class="text-center">
-                            <div class="loading-spinner">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Loading...
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-else-if="sortedInventory.length === 0">
-                        <td colspan="12" class="text-center">No data found</td>
-                    </tr>
-                    <template v-else v-for="(item, index) in sortedInventory" :key="item.id">
-                        <tr>
-                            <td class="sticky-col first-col">
-                                <input type="checkbox" v-model="item.checked" />
-                                <span class="placeholder-date">{{
-                                    item.shipBy || ""
-                                    }}</span>
-                            </td>
-                            <td class="sticky-col second-sticky">
-                                <div class="product-container">
-                                    <div class="product-image-container" @click="openImageModal(item)">
-                                        <img :src="'/images/thumbnails/' +
-                                            item.img1
-                                            " :alt="item.ProductTitle || 'Product'
-                                                " class="product-thumbnail clickable-image"
-                                            @error="handleImageError($event)" />
-                                        <div class="image-count-badge" v-if="
-                                            countAdditionalImages(item) > 0
-                                        ">
-                                            +{{ countAdditionalImages(item) }}
-                                        </div>
-                                    </div>
-                                    <div class="product-info">
-                                        <p>RT# : {{ item.rtcounter }}</p>
-                                        <p>{{ item.ProductTitle }}</p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td>
-                                <span><strong></strong>
-                                    {{ item.warehouselocation }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong>
-                                    {{ item.datedelivered }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong>
-                                    {{ item.lastDateUpdate }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong>
-                                    {{ item.FNSKUviewer }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong>
-                                    {{ item.MSKUviewer }}</span>
-                            </td>
-                            <td>
-                                <span><strong></strong>
-                                    {{ item.ASINviewer }}</span>
-                            </td>
-                       
-                            <td v-if="showDetails">
-                                <span><strong></strong>
-                                    {{ item.FBMAvailable }}</span>
-                            </td>
-                            <td v-if="showDetails">
-                                <span><strong></strong>
-                                    {{ item.FbaAvailable }}</span>
-                            </td>
-                            <td v-if="showDetails">
-                                <span><strong></strong> {{ item.Outbound }}</span>
-                            </td>
-                            <td v-if="showDetails">
-                                <span><strong></strong> {{ item.Inbound }}</span>
-                            </td>
-                            <td v-if="showDetails">
-                                <span><strong></strong> {{ item.Reserved }}</span>
-                            </td>
-                            <td v-if="showDetails">
-                                <span><strong></strong>
-                                    {{ item.Unfulfillable }}</span>
-                            </td>
-            
-                            <td>
-                                <span><strong></strong>
-                                    {{ item.Fulfilledby }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong> {{ item.Status }}</span>
-                            </td>
-
-                            <td>
-                                <span><strong></strong>
-                                    {{ item.serialnumber }}</span>
-                            </td>
-
-              
-                            <td>
-                                <div class="action-buttons">
-                                    <button class="btn btn-edit" @click="openEditModal(item)">
-                                        <i class="fas fa-info-circle"></i>
-                                        View Details
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </div> -->
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -550,49 +283,7 @@
         <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
             :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
             @close="closeImageModal" />
-        <!-- <div v-if="showImageModal" class="modal image-modal ">
-            <div class="modal-overlay" @click="closeImageModal"></div>
 
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div class="productTitle">
-                        <h2>{{ ProductTitle }}</h2>
-                    </div>
-                    <button class="btn btn-modal-close" @click="closeImageModal">
-                        &times;
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="main-image-container">
-                        <button class="nav-button prev" @click="prevImage" v-if="imageList.length > 1">
-                            <i class="bi bi-arrow-left-short"></i>
-                        </button>
-                        <img :src="activeImageUrl" alt="Main Product Image" class="modal-main-image" loading="lazy"
-                            width="100%" @error="onImageErrorMain" />
-                        <button class="nav-button next" @click="nextImage" v-if="imageList.length > 1">
-                            <i class="bi bi-arrow-right-short"></i>
-                        </button>
-                    </div>
-
-                    <div class="image-counter">
-                        {{ activeIndex + 1 }} / {{ imageList.length }}
-                    </div>
-
-                    <div class="thumbnail-container" v-if="imageList.length > 1">
-                        <div v-for="(img, index) in imageList" :key="index" class="modal-thumbnail" :class="[
-                            'thumbnail',
-                            {
-                                active: index === activeIndex,
-                            },
-                        ]" @click="activeIndex = index" @mouseenter="activeIndex = index">
-                            <img :src="basePath + img" alt="Thumbnail" loading="lazy"
-                                @error="onThumbnailError($event)" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div> -->
 
         <Dialog v-model:visible="showEditModal" modal :style="{ width: '95%' }" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
@@ -1161,7 +852,7 @@
 </style>
 
 <script>
-import { Button, Dialog, Card, ScrollTop } from "primevue";
+import { Button, Dialog, Card, ScrollTop, Menu } from "primevue";
 import Received from "./receiving.js";
 import gallery from "../../components/Gallery/gallery.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -1222,12 +913,41 @@ export default {
         ScrollTop,
         TitlePage,
         ViewImageModal,
-        AnimateDiv
+        AnimateDiv,
+        Menu
     },
     data() {
         return {
             columns: TABLE_COLUMNS,
+            menuActions: [],
         };
+    },
+    methods: {
+        toggle(event) {
+            this.menuActions = this.getMoreActionItems(this.currentActionItem);
+            if (this.$refs.menu) {
+                this.$refs.menu.toggle(event);
+            }
+        },
+        getMoreActionItems() {
+            return [
+                {
+                    label: "Scan Items",
+                    icon: "pi pi-barcode",
+                    command: () => this.openScannerModal()
+                },
+                {
+                    label: "Detect Serial Numbers",
+                    icon: "pi pi-hashtag",
+                    command: () => this.openDetectSerialModal()
+                },
+                {
+                    label: "Detection Training",
+                    icon: "pi pi-search",
+                    command: () => url('/aiTraining')
+                }
+            ]
+        }
     },
     computed: {
         visibleColumns() {
