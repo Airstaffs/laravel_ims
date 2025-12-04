@@ -529,8 +529,8 @@ import ASINList from "./page/asinlist/asinlist.vue";
 import PrinterModule from "./page/printer/printer.vue";
 import HumanResource from "./page/hr/hr.vue";
 import RTS from "./page/rts/rts.vue";
-import Training from "./page/aiTraining/training.vue";
 import Kanban from "./page/kanban/kanban.vue";
+import Training from "./page/aiTraining/training.vue";
 
 import Navbar from "./components/Navbar/Navbar.vue";
 
