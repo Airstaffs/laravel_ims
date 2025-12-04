@@ -906,20 +906,43 @@ dispensedProduct, dpIndex
                         <h5 class="m-0">Order Items</h5>
                         <div class="flex flex-column gap-2">
                             <div v-for="(item, idx) in (currentProcessOrder && currentProcessOrder.items ? currentProcessOrder.items : [])"
-                                :key="idx" class="border-round surface-border border-1 mt-3">
+                                :key="idx" 
+                                class="border-round surface-border border-1 mt-3 p-3">
+                                
                                 <div class="flex justify-content-between align-items-start mb-2">
-                                    <div>
+                                    <div class="flex-1">
                                         <div class="font-semibold">{{ item.platform_title }}</div>
                                         <div class="text-sm text-surface-600 mt-1">
-                                            ASIN: {{ item.platform_asin }} | SKU: {{ item.platform_sku }} | Qty: {{
-                                                item.quantity_ordered }}
+                                            ASIN: {{ item.platform_asin }} | SKU: {{ item.platform_sku }} | 
+                                            Qty: {{ item.quantity_ordered }}
                                         </div>
                                         <div class="text-sm text-surface-600">
                                             Order Item ID: {{ item.platform_order_item_id }}
                                         </div>
+                                        <div class="text-sm text-surface-600 mt-1">
+                                            <strong>Condition:</strong> {{ getConditionDisplay(item) }}
+                                        </div>
                                     </div>
-                                    <Tag v-if="isItemDispensed(item)"
-                                        :value="`${getDispensedProductCount(item)} dispensed`" severity="success" />
+                                    
+                                    <!-- Status Badge and Manual Dispense Button -->
+                                    <div class="flex flex-column gap-2 align-items-end">
+                                        <Tag v-if="isItemDispensed(item)"
+                                            :value="`${getDispensedProductCount(item)}/${item.quantity_ordered} dispensed`" 
+                                            severity="success" />
+                                        <Tag v-else
+                                            value="Not dispensed" 
+                                            severity="warning" />
+                                        
+                                        <!-- Manual Dispense Button - ONLY if item needs more products -->
+                                        <Button 
+                                            v-if="itemNeedsMoreProducts(item)"
+                                            label="Manual Dispense" 
+                                            icon="pi pi-plus-circle" 
+                                            severity="info"
+                                            size="small"
+                                            @click="openManualDispenseForItem(item)"
+                                            class="mt-2" />
+                                    </div>
                                 </div>
 
                                 <!-- Dispensed Products Display -->
@@ -1554,6 +1577,13 @@ dispensedProduct, dpIndex
 
         <!-- Manual Shipment Label Modal -->
         <ManualShipmentLabelModal :visible="manualShipmentLabelVisible" @close="closeManualShipmentLabelModal" />
+
+              <!-- Manual Dispense Modal Component -->
+        <ManualDispenseModal 
+            v-model:visible="showManualDispenseModal"
+            :item="currentManualDispenseItem"
+            :order-id="currentProcessOrder ? currentProcessOrder.outboundorderid : 0"
+            @dispense-complete="handleManualDispenseComplete" />
 
         <ScrollTop />
     </div>

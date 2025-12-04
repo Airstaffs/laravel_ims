@@ -1212,15 +1212,35 @@ private function findMatchingProductsForItem($item, $storeName, $normalizedStore
         
         // CRITICAL FIX: Apply flexible condition matching based on store type
         if ($normalizedStoreName === 'allrenewed') {
-            Log::info("Applying AllRenewed-specific filters");
+             Log::info("Applying AllRenewed-specific filters");
             
-            // For AllRenewed, match specific store name patterns and "New" condition
+            // Match All Renewed store name patterns
             $asinQuery->where(function($q) {
                 $q->where('tblfnsku.storename', 'All Renewed')
-                    ->orWhere('tblfnsku.storename', 'AllRenewed')
-                    ->orWhere('tblfnsku.storename', 'Allrenewed');
+                  ->orWhere('tblfnsku.storename', 'AllRenewed')
+                  ->orWhere('tblfnsku.storename', 'Allrenewed');
             });
-            $asinQuery->where('tblfnsku.grading', 'New');
+            
+            // ✅ NEW: Support both New (Refurbished) AND Used conditions
+            if ($originalConditionId === 'New') {
+                // For New items, only match New products (existing behavior)
+                $asinQuery->where('tblfnsku.grading', 'New');
+            } else {
+                // For Used/other items, use flexible condition matching
+                $possibleConditions = $this->getPossibleConditionVariations(
+                    $originalConditionId, 
+                    $originalSubtypeId
+                );
+                
+                Log::info("AllRenewed with non-New condition - possible variations: " . 
+                         implode(', ', $possibleConditions));
+                
+                if (!empty($possibleConditions)) {
+                    $asinQuery->whereIn('tblfnsku.grading', $possibleConditions);
+                } else {
+                    $asinQuery->where('tblfnsku.grading', $originalConditionId);
+                }
+            }
         } else {
             Log::info("Applying flexible condition matching for: {$storeName}");
             
@@ -1853,13 +1873,15 @@ public function debugStoreNames(Request $request)
      * @param string $storeName The store name for store-specific formatting (optional)
      * @return string The formatted condition
      */
-    private function formatCondition($conditionId, $conditionSubtypeId, $storeName = null)
-    {
-        // Normalize store name for consistent comparison
-        $normalizedStoreName = $this->normalizeStoreName($storeName);
-        
-        // Special handling for AllRenewed store (now matches both "All Renewed" and "Allrenewed")
-        if ($normalizedStoreName === 'allrenewed') {
+ private function formatCondition($conditionId, $conditionSubtypeId, $storeName = null)
+  {
+    // Normalize store name for consistent comparison
+    $normalizedStoreName = $this->normalizeStoreName($storeName);
+    
+    // ✅ UPDATED: Special handling for AllRenewed store
+    if ($normalizedStoreName === 'allrenewed') {
+        // Only apply Refurbished mapping for New items
+        if ($conditionId === 'New') {
             $combinedCondition = $conditionId . $conditionSubtypeId;
             
             switch ($combinedCondition) {
@@ -1870,33 +1892,43 @@ public function debugStoreNames(Request $request)
                 case 'NewAcceptable':
                     return 'Refurbished - Acceptable';
                 default:
-                    // Fallback to normal formatting if condition combination is not recognized
-                    break;
+                    // Fallback for unexpected New combinations
+                    return $combinedCondition;
             }
+        } else {
+            // ✅ NEW: For Used or other conditions, use standard formatting
+            // This will display as "Used Very Good", "Used Good", etc.
+            $condition = $conditionId;
+            $subtype = $conditionSubtypeId;
+            
+            // Format with space if subtype exists
+            if (!empty($subtype)) {
+                return $condition . ' ' . $subtype;
+            }
+            return $condition;
         }
-        
-        // Default condition mapping (used for other stores or fallback)
-        $conditionMap = [
-            'New' => 'New',
-            'Used' => 'Used',
-            'Refurbished' => 'Refurbished',
-            // Add other conditions as needed
-        ];
-        
-        $subtypeMap = [
-            'New' => 'New',
-            'Like New' => 'LikeNew',
-            'Very Good' => 'VeryGood',
-            'Good' => 'Good',
-            'Acceptable' => 'Acceptable',
-            // Add other subtypes as needed
-        ];
-        
-        $condition = $conditionMap[$conditionId] ?? $conditionId;
-        $subtype = $subtypeMap[$conditionSubtypeId] ?? $conditionSubtypeId;
-        
-        return $condition . $subtype;
     }
+    
+    // Default condition mapping for other stores (unchanged)
+    $conditionMap = [
+        'New' => 'New',
+        'Used' => 'Used',
+        'Refurbished' => 'Refurbished',
+    ];
+    
+    $subtypeMap = [
+        'New' => 'New',
+        'Like New' => 'LikeNew',
+        'Very Good' => 'VeryGood',
+        'Good' => 'Good',
+        'Acceptable' => 'Acceptable',
+    ];
+    
+    $condition = $conditionMap[$conditionId] ?? $conditionId;
+    $subtype = $subtypeMap[$conditionSubtypeId] ?? $conditionSubtypeId;
+    
+    return $condition . $subtype;
+  }
 
 public function shippinglabelselecteditem(Request $request)
 {
