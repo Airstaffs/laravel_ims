@@ -1,0 +1,44 @@
+/* Global styles for mobile fullscreen - NOT scoped */
+@media (max-width: 768px) {
+    .p-dialog.p-component.settings-modal,
+    .p-dialog.p-component.add-user-dialog,
+    .p-dialog.p-component.edit-user-dialog,
+    .p-dialog.p-component.add-store-dialog,
+    .p-dialog.p-component.edit-store-dialog,
+    .p-dialog.p-component.add-printer-dialog,
+    .p-dialog.p-component.edit-printer-dialog,
+    .p-dialog.p-component.marry-printer-dialog {
+        width: 100vw !important;
+        height: 100vh !important;
+        top: 0px !important;
+        left: 0px !important;
+        max-height: 100% !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        transform: none !important;
+    }
+
+    .settings-modal .p-dialog-header,
+    .add-user-dialog .p-dialog-header,
+    .edit-user-dialog .p-dialog-header,
+    .add-store-dialog .p-dialog-header,
+    .edit-store-dialog .p-dialog-header,
+    .add-printer-dialog .p-dialog-header,
+    .edit-printer-dialog .p-dialog-header,
+    .marry-printer-dialog .p-dialog-header {
+        border-radius: 0 !important;
+    }
+
+    .settings-modal .p-dialog-content,
+    .add-user-dialog .p-dialog-content,
+    .edit-user-dialog .p-dialog-content,
+    .add-store-dialog .p-dialog-content,
+    .edit-store-dialog .p-dialog-content,
+    .add-printer-dialog .p-dialog-content,
+    .edit-printer-dialog .p-dialog-content,
+    .marry-printer-dialog .p-dialog-content {
+        border-radius: 0 !important;
+        height: calc(100vh - 60px) !important;
+        overflow-y: auto !important;
+    }
+}

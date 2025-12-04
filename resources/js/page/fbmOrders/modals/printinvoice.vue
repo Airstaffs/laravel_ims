@@ -1,177 +1,101 @@
 <template>
-    <div v-if="visible" class="modal printInvoice">
-        <div class="modal-overlay" @click="closeModal"></div>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>
-                    <i class="fas fa-shipping-fast"></i>
-                    <span>Print</span>
-                </h2>
-                <button class="btn btn-modal-close" @click="closeModal">
-                    &times;
-                </button>
-            </div>
-
-            <div class="modal-body">
-                <div class="tab-container">
-                    <button
-                        :class="{ active: activeTab === 1 }"
-                        @click="activeTab = 1"
-                    >
-                        Invoice
-                    </button>
-                    <button
-                        :class="{ active: activeTab === 2 }"
-                        @click="activeTab = 2"
-                    >
-                        Shipping Label
-                    </button>
-                </div>
-
-                <div class="tab-content">
-                    <div class="invoice" v-if="activeTab === 1">
-                        <p
-                            class="d-flex flex-column justify-content-start align-items-stretch"
-                        >
-                            <span
-                                >Are you sure you want to print the invoice
-                                for</span
-                            >
-                            <strong>
-                                Order ID: {{ order?.platform_order_id }} (Store:
-                                {{ order?.storename || "N/A" }})?
+    <Dialog :visible="visible" @update:visible="$emit('close')" header="Print Documents" :modal="true" :pt="{
+        root: { class: 'mobile-fullscreen-dialog' }
+    }">
+        <TabView v-model:activeIndex="activeTabIndex" class="w-full">
+            <TabPanel header="Invoice" leftIcon="pi pi-file-pdf">
+                <div class="flex flex-column gap-4">
+                    <div class="mb-4 surface-ground border-round">
+                        <p class="text-base m-0">
+                            <span class="block mb-2">Are you sure you want to print the invoice for</span>
+                            <strong class="text-lg text-primary">
+                                Order ID: {{ order?.platform_order_id }}
                             </strong>
+                            <span class="block text-sm text-surface-600 mt-1">
+                                Store: {{ order?.storename || "N/A" }}
+                            </span>
                         </p>
+                    </div>
 
-                        <div class="toggle-container">
-                            <label class="toggle-label">
-                                <label class="switch">
-                                    <input
-                                        type="checkbox"
-                                        v-model="displayPrice"
-                                    />
-                                    <span class="slider">
-                                        <span>OFF</span>
-                                        <span>ON</span>
-                                    </span>
-                                </label>
-                                <span class="switch-text">Display Price</span>
-                            </label>
-
-                            <label class="toggle-label">
-                                <label class="switch">
-                                    <input
-                                        type="checkbox"
-                                        v-model="testPrint"
-                                    />
-                                    <span class="slider">
-                                        <span>OFF</span>
-                                        <span>ON</span>
-                                    </span>
-                                </label>
-                                <span class="switch-text">Test Print</span>
-                            </label>
-
-                            <label class="toggle-label">
-                                <label class="switch">
-                                    <input
-                                        type="checkbox"
-                                        v-model="signatureRequired"
-                                    />
-                                    <span class="slider">
-                                        <span>OFF</span>
-                                        <span>ON</span>
-                                    </span>
-                                </label>
-                                <span class="switch-text"
-                                    >Signature Required</span
-                                >
-                            </label>
+                    <div class="d-flex flex-column gap-3">
+                        <div class="d-flex align-items-center gap-2">
+                            <ToggleSwitch v-model="displayPrice" onLabel="On" offLabel="Off" />
+                            <label class="font-semibold cursor-pointer">Display Price</label>
                         </div>
-
-                        <div class="button-container">
-                            <button class="btn btn-edit">Edit Price</button>
-                            <button
-                                class="btn btn-view"
-                                @click="handleInvoiceAction('ViewInvoice')"
-                            >
-                                View Pdf
-                            </button>
-                            <button
-                                :disabled="loading"
-                                class="btn btn-print"
-                                @click="handleInvoiceAction('PrintInvoice')"
-                            >
-                                Yes, Print
-                            </button>
+                        <div class="d-flex align-items-center gap-2">
+                            <ToggleSwitch v-model="testPrint" onLabel="On" offLabel="Off" />
+                            <label class="font-semibold cursor-pointer">Test Print</label>
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            <ToggleSwitch v-model="signatureRequired" onLabel="On" offLabel="Off" />
+                            <label class="font-semibold cursor-pointer">Signature Required</label>
                         </div>
                     </div>
 
-                    <div class="shipping-label" v-if="activeTab === 2">
-                        <input
-                            v-model="note"
-                            placeholder="Enter label note"
-                            class="form-control"
-                        />
-
-                        <div class="toggle-container">
-                            <label class="toggle-label">
-                                <label class="switch">
-                                    <input
-                                        type="checkbox"
-                                        v-model="testPrint"
-                                    />
-                                    <span class="slider">
-                                        <span>OFF</span>
-                                        <span>ON</span>
-                                    </span>
-                                </label>
-                                <span class="switch-text">Test Print</span>
-                            </label>
-                        </div>
-
-                        <div class="button-container">
-                            <button
-                                class="btn btn-primary"
-                                @click="
-                                    handleShippingLabelAction(
-                                        'ViewShipmentLabel'
-                                    )
-                                "
-                            >
-                                View Shipping Label
-                            </button>
-
-                            <!-- Print Shipping Label -->
-                            <button
-                                class="btn btn-success"
-                                @click="
-                                    handleShippingLabelAction(
-                                        'PrintShipmentLabel'
-                                    )
-                                "
-                            >
-                                Print Shipping Label
-                            </button>
-                        </div>
+                    <div class="button-group mt-4">
+                        <Button label="Edit Price" icon="pi pi-pencil" severity="info" size="small" />
+                        <Button label="View PDF" icon="pi pi-eye" severity="warning" size="small"
+                            @click="handleInvoiceAction('ViewInvoice')" />
+                        <Button label="Print" icon="pi pi-print" severity="success" size="small" :loading="loading"
+                            @click="handleInvoiceAction('PrintInvoice')" />
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
+            </TabPanel>
+
+            <TabPanel header="Shipping Label" leftIcon="pi pi-box">
+                <div class="d-flex flex-column gap-4">
+                    <div class="field">
+                        <InputText id="label-note" fluid size="small" v-model="note" placeholder="Enter label note"
+                            class="w-full" />
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                        <ToggleSwitch v-model="testPrint" />
+                        <label class="font-semibold cursor-pointer">Test Print</label>
+                    </div>
+
+                    <div class="button-group pt-2">
+                        <Button label="View Shipping Label" icon="pi pi-eye" severity="info" size="small"
+                            @click="handleShippingLabelAction('ViewShipmentLabel')" />
+                        <Button label="Print Shipping Label" icon="pi pi-print" severity="success" size="small"
+                            @click="handleShippingLabelAction('PrintShipmentLabel')" />
+                    </div>
+                </div>
+            </TabPanel>
+        </TabView>
+
+        <template #footer>
+            <Button label="Close" icon="pi pi-times" severity="secondary" @click="closeModal" />
+        </template>
+    </Dialog>
 </template>
 
 <script>
+import Dialog from 'primevue/dialog';
+import TabView from 'primevue/tabview';
+import TabPanel from 'primevue/tabpanel';
+import Button from 'primevue/button';
+import InputText from 'primevue/inputtext';
+import ToggleSwitch from 'primevue/toggleswitch';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
+    components: {
+        Dialog,
+        TabView,
+        TabPanel,
+        Button,
+        InputText,
+        ToggleSwitch,
+    },
     props: {
         visible: Boolean,
         order: Object,
     },
     data() {
         return {
-            activeTab: 1,
+            activeTabIndex: 0,
             displayPrice: false,
             testPrint: false,
             signatureRequired: false,
@@ -199,6 +123,7 @@ export default {
             };
 
             try {
+                this.loading = true;
                 const res = await axios.post(
                     `${API_BASE_URL}/fbm-orders-invoice`,
                     payload,
@@ -215,7 +140,6 @@ export default {
                     if (action === "ViewInvoice" && res.data.results?.length) {
                         const pdfUrl = res.data.results[0].pdf_url;
                         if (pdfUrl) {
-                            // Create and click a link element
                             const a = document.createElement("a");
                             a.href = pdfUrl;
                             a.target = "_blank";
@@ -224,17 +148,22 @@ export default {
                             a.click();
                             document.body.removeChild(a);
                         } else {
-                            alert("PDF not available.");
+                            this.$toast.add({ severity: 'error', summary: 'Error', detail: 'PDF not available.', life: 3000 });
                         }
+                    } else if (action === "PrintInvoice") {
+                        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Invoice sent to printer!', life: 3000 });
                     }
                 } else {
-                    alert("Failed: " + (res.data.message || "Unknown error."));
+                    this.$toast.add({ severity: 'error', summary: 'Failed', detail: res.data.message || 'Unknown error.', life: 3000 });
                 }
             } catch (err) {
                 console.error(err);
-                alert("Error occurred while processing invoice.");
+                this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Error occurred while processing invoice.', life: 3000 });
+            } finally {
+                this.loading = false;
             }
         },
+
         async handleShippingLabelAction(action) {
             const payload = {
                 platform_order_ids: [this.order.platform_order_id],
@@ -256,13 +185,9 @@ export default {
                 );
 
                 if (res.data.success) {
-                    const result = res.data.results?.[0];
-
                     if (action === "ViewShipmentLabel") {
-                        const pdfUrl = res.data.results[0].pdf_url;
-
+                        const pdfUrl = res.data.results?.[0]?.pdf_url;
                         if (pdfUrl) {
-                            // Create and click a link element
                             const a = document.createElement("a");
                             a.href = pdfUrl;
                             a.target = "_blank";
@@ -271,17 +196,17 @@ export default {
                             a.click();
                             document.body.removeChild(a);
                         } else {
-                            alert("PDF not available.");
+                            this.$toast.add({ severity: 'error', summary: 'Error', detail: 'PDF not available.', life: 3000 });
                         }
                     } else {
-                        alert("Shipping label sent to printer!");
+                        this.$toast.add({ severity: 'success', summary: 'Success', detail: 'Shipping label sent to printer!', life: 3000 });
                     }
                 } else {
-                    alert("Failed: " + (res.data.message || "Unknown error"));
+                    this.$toast.add({ severity: 'error', summary: 'Failed', detail: res.data.message || 'Unknown error.', life: 3000 });
                 }
             } catch (err) {
                 console.error(err);
-                alert("Error occurred while processing shipping label.");
+                this.$toast.add({ severity: 'error', summary: 'Error', detail: 'Error occurred while processing shipping label.', life: 3000 });
             }
         },
     },
@@ -289,176 +214,57 @@ export default {
 </script>
 
 <style scoped>
-.modal.printInvoice {
-    display: flex !important;
-    align-items: center;
-    justify-content: center;
+:deep(.p-dialog) {
+    border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }
 
-.printInvoice .modal-content {
-    max-width: 500px;
+:deep(.p-tabview) {
+    background: transparent;
 }
 
-.printInvoice .modal-body {
-    padding: 20px;
+:deep(.p-tabview .p-tabview-nav) {
+    background: transparent;
+    border-bottom: 2px solid var(--surface-border);
+}
+
+:deep(.p-tabview .p-tabview-panels) {
+    background: transparent;
+    padding: 1.5rem 0;
+}
+
+:deep(.p-button) {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.2s ease-in-out;
+}
+
+:deep(.p-button:hover) {
+    transform: translateY(-2px);
+}
+
+:deep(.p-toggleswitch) {
+    scale: 1.1;
+}
+
+.button-group {
     display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    gap: 10px;
+    gap: 0.5rem;
+    flex-wrap: wrap;
 }
 
-.printInvoice .modal-footer {
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
+.button-group :deep(.p-button) {
+    flex: 1;
+    min-width: 100px;
 }
 
-.printInvoice .modal-footer button {
-    height: 40px;
-    width: calc(100% / 2 - 5px);
-    margin: 0;
-    justify-content: center;
-}
+@media (max-width: 640px) {
+    .button-group {
+        flex-direction: column;
+    }
 
-.order-info {
-    margin: 10px 0 20px;
-    font-size: 16px;
-    line-height: 1.4;
-}
-
-.btn-edit {
-    background: #007bff;
-}
-
-.btn-view {
-    background: #17a2b8;
-}
-
-.btn-print {
-    background: #28a745;
-}
-
-.btn-cancel {
-    background: #dc3545;
-}
-
-.btn:hover {
-    opacity: 0.9;
-}
-
-.switch {
-    position: relative;
-    display: inline-block;
-    width: 72px;
-    height: 30px;
-}
-
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #ccc;
-    transition: background-color 0.4s;
-    border-radius: 30px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 8px;
-    font-size: 12px;
-    font-weight: bold;
-    color: white;
-    box-sizing: border-box;
-}
-
-.slider:before {
-    content: "";
-    position: absolute;
-    height: 24px;
-    width: 30px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    border-radius: 50%;
-    transition: transform 0.4s;
-}
-
-input:checked + .slider {
-    background-color: #4caf50;
-}
-
-input:checked + .slider:before {
-    transform: translateX(36px);
-}
-
-.toggle-container {
-    display: flex;
-    flex-direction: column;
-    gap: 1em;
-    font-family: sans-serif;
-    margin: 20px;
-}
-
-.toggle-label {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.switch-text {
-    font-weight: 600;
-}
-
-.tab-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-}
-
-.tab-container button {
-    width: calc(100% / 2);
-    height: 40px;
-    cursor: pointer;
-    border: none;
-    background-color: #eee;
-    font-weight: bold;
-    transition: background-color 0.2s;
-}
-
-.tab-container button.active {
-    background-color: #4285f4;
-    color: white;
-}
-
-.button-container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-}
-
-.button-container button {
-    height: 40px;
-    justify-content: center;
-    margin: 0;
-    color: white;
-}
-
-.invoice .button-container button {
-    width: calc(100% / 3 - 7px);
-}
-
-.shipping-label .button-container button {
-    width: calc(100% / 2);
+    .button-group :deep(.p-button) {
+        width: 100%;
+    }
 }
 </style>

@@ -673,141 +673,28 @@ class ImageProcessingService
      * Enhances an image with QR code and basket number, then converts it to ZPL
      */
     public function enhanceAndConvertToZPL($imagePath, $asinfind, $basketnumber)
-    {
-        try {
-            // Check if input file exists
-            if (!file_exists($imagePath)) {
-                Log::warning('Input file does not exist: ' . $imagePath);
-                return "^XA^FO50,50^ADN,18,18^FDInput file not found^FS^XZ";
-            }
-            
-            // Get file extension
-            $fileParts = pathinfo($imagePath);
-            $extension = strtolower($fileParts['extension']);
-            
-            // Load the image
-            if ($extension == 'png') {
-                $image = @\imagecreatefrompng($imagePath);
-            } elseif ($extension == 'jpg' || $extension == 'jpeg') {
-                $image = @\imagecreatefromjpeg($imagePath);
-            } else {
-                Log::warning('Unsupported image type: ' . $extension);
-                return "^XA^FO50,50^ADN,18,18^FDUnsupported image type^FS^XZ";
-            }
-            
-            if (!$image) {
-                Log::warning('Failed to load image: ' . $imagePath);
-                return "^XA^FO50,50^ADN,18,18^FDFailed to load image^FS^XZ";
-            }
-            
-            // Get image dimensions
-            $width = \imagesx($image);
-            $height = \imagesy($image);
-            
-            // Create QR code
-            $manual = url('storage/User_manual/ASIN_PDF/' . $asinfind . '.pdf');
-            $qrCodePath = $this->imagesPath . '/qrcode/' . $asinfind . '.png';
-            
-            // Generate QR code
-            if (class_exists('QRcode')) {
-                \QRcode::png($manual, $qrCodePath, QR_ECLEVEL_L, 3);
-            } else {
-                Log::warning('QRcode class not available');
-                \imagedestroy($image);
-                return "^XA^FO50,50^ADN,18,18^FDQRcode class not available^FS^XZ";
-            }
-            
-            if (!file_exists($qrCodePath)) {
-                Log::warning('Failed to create QR code at: ' . $qrCodePath);
-                \imagedestroy($image);
-                return "^XA^FO50,50^ADN,18,18^FDFailed to create QR code^FS^XZ";
-            }
-            
-            // Load QR code image
-            $qrCodeImage = @\imagecreatefrompng($qrCodePath);
-            if (!$qrCodeImage) {
-                Log::warning('Failed to load QR code image: ' . $qrCodePath);
-                \imagedestroy($image);
-                return "^XA^FO50,50^ADN,18,18^FDFailed to load QR code^FS^XZ";
-            }
-            
-            // Get QR code dimensions
-            $qrCodeWidth = \imagesx($qrCodeImage);
-            $qrCodeHeight = \imagesy($qrCodeImage);
-            
-            // Position QR code at top right
-            $dstX = $width - $qrCodeWidth - 10;
-            $dstY = 10;
-            
-            // Add QR code to image
-            \imagecopy($image, $qrCodeImage, $dstX, $dstY, 0, 0, $qrCodeWidth, $qrCodeHeight);
-            \imagedestroy($qrCodeImage);
-            
-            // Add "Scan for Manual" text
-            $text = "Scan for Manual";
-            $fontSize = 5;
-            
-            $textColor = \imagecolorallocate($image, 0, 0, 0);
-            
-            $textWidth = \imagefontwidth($fontSize) * strlen($text);
-            $textHeight = \imagefontheight($fontSize);
-            
-            $textImage = \imagecreatetruecolor($textWidth, $textHeight);
-            $bgColor = \imagecolorallocate($textImage, 255, 255, 255);
-            \imagefill($textImage, 0, 0, $bgColor);
-            \imagestring($textImage, $fontSize, 0, 0, $text, $textColor);
-            
-            $rotatedTextImage = \imagerotate($textImage, 90, 0);
-            \imagedestroy($textImage);
-            
-            $textX = (int)($dstX - \imagesx($rotatedTextImage) - 10);
-            $textY = (int)($dstY + ($qrCodeHeight - \imagesy($rotatedTextImage)) / 2);
-            
-            \imagecopy($image, $rotatedTextImage, $textX, $textY, 0, 0, \imagesx($rotatedTextImage), \imagesy($rotatedTextImage));
-            \imagedestroy($rotatedTextImage);
-            
-            // Add basket number
-            $basketText = $basketnumber;
-            $basketFontSize = 5;
-            
-            $basketTextColor = \imagecolorallocate($image, 0, 0, 0);
-            
-            $basketTextWidth = \imagefontwidth($basketFontSize) * strlen($basketText);
-            $basketTextX = (int)($dstX + ($qrCodeWidth - $basketTextWidth) / 2);
-            $basketTextY = $dstY + $qrCodeHeight + \imagefontheight($basketFontSize) + 10;
-            
-            \imagestring($image, $basketFontSize, $basketTextX, $basketTextY, $basketText, $basketTextColor);
-            
-            // Save enhanced image to temp file
-            $tempFile = $this->imagesPath . '/temp/' . basename($imagePath);
-            
-            if ($extension == 'png') {
-                \imagepng($image, $tempFile);
-            } else {
-                \imagejpeg($image, $tempFile);
-            }
-            
-            \imagedestroy($image);
-            
-            // Now use the convertImageLayout function to convert to ZPL
-            $zpl = $this->convertImageLayout($tempFile, $asinfind, $basketnumber);
-            
-            // Clean up temp file
-            if (file_exists($tempFile)) {
-                unlink($tempFile);
-            }
-            
-            return $zpl;
-            
-        } catch (Exception $e) {
-            Log::error('Error in enhanceAndConvertToZPL:', [
-                'error' => $e->getMessage(),
-                'imagePath' => $imagePath
-            ]);
-            
-            return "^XA^FO50,50^ADN,18,18^FDError enhancing image^FS^XZ";
+{
+    try {
+        // Check if input file exists
+        if (!file_exists($imagePath)) {
+            Log::warning('Input file does not exist: ' . $imagePath);
+            return "^XA^FO50,50^ADN,18,18^FDInput file not found^FS^XZ";
         }
+        
+        // Convert image to ZPL using the existing convertImageLayout function
+        $zpl = $this->convertImageLayout($imagePath, $asinfind, $basketnumber);
+        
+        return $zpl;
+        
+    } catch (Exception $e) {
+        Log::error('Error in enhanceAndConvertToZPL:', [
+            'error' => $e->getMessage(),
+            'imagePath' => $imagePath
+        ]);
+        
+        return "^XA^FO50,50^ADN,18,18^FDError converting image^FS^XZ";
     }
+  }
     
     /**
      * Generate serial-specific images from template images
@@ -885,7 +772,7 @@ class ImageProcessingService
                         \imagestring($canvas, 5, $width - 200, $height - 250, $details, $blue);
                     }
                 } elseif ($index == 1) { // Second page
-                    $textX = $width - 500; // Changed from -500 to -500 (consistent)
+                    $textX = $width - 570; // Changed from -500 to -500 (consistent)
                     $textY = $height - 300;
                     if (file_exists($this->fontsPath)) {
                         \imagettftext($canvas, 28, 90, $textX, $textY, $blue, $this->fontsPath, $details); // Changed from size 18 to 28
@@ -980,7 +867,7 @@ class ImageProcessingService
         }
         
         // Create the QR code URL
-        $manual = url('storage/serial_qr/' . $serialNumber . '.png');
+         $manual = $serialNumber;
         
         // Generate QR code in temp directory
         $qrCodePath = $this->imagesPath . '/temp/qr_' . $serialNumber . '.png';
@@ -1139,9 +1026,9 @@ class ImageProcessingService
      * Generate QR code for small label card (2" x 1" label)
      * This creates a compact label with serial number and QR code
      */
-  public function generateQRforSmallLabelCard($serialNumber, $returnCount = 0)
+public function generateQRforSmallLabelCard($serialNumber, $returnCount = 0)
 {
-     try {
+    try {
         if (empty($serialNumber)) {
             Log::error("Serial number is required for small label card");
             return "";
@@ -1156,7 +1043,7 @@ class ImageProcessingService
         }
         
         // Create the QR code URL
-        $manual = "https://www.google.com/search?q=" . urlencode($serialNumber);
+        $manual = $serialNumber;
 
         // Generate QR code in temp directory
         $qrCodePath = $this->imagesPath . '/temp/qr_small_' . $serialNumber . '.png';
@@ -1215,9 +1102,9 @@ class ImageProcessingService
                 // Height multiplier - adjust this to make text taller (1.5 = 50% taller)
                 $heightMultiplier = 1.5;
                 
-                // Create temporary image for the text
-                $tempImgWidth = $textWidth + 20;
-                $tempImgHeight = ($textHeight + 20) * $heightMultiplier;
+                // Create temporary image for the text - cast to int to fix deprecation
+                $tempImgWidth = (int)($textWidth + 20);
+                $tempImgHeight = (int)(($textHeight + 20) * $heightMultiplier);
                 $tempImg = \imagecreatetruecolor($tempImgWidth, $tempImgHeight);
                 $tempWhite = \imagecolorallocate($tempImg, 255, 255, 255);
                 $tempBlack = \imagecolorallocate($tempImg, 0, 0, 0);
@@ -1229,16 +1116,16 @@ class ImageProcessingService
                 \imagettftext($tempImg, $fontSize, 0, 10, $fontSize + 11, $tempBlack, $this->fontsPath, $serialNumber);
                 \imagettftext($tempImg, $fontSize, 0, 11, $fontSize + 11, $tempBlack, $this->fontsPath, $serialNumber);
                 
-                // Calculate stretched dimensions
-                $stretchedHeight = ($textHeight + 20) * $heightMultiplier;
+                // Calculate stretched dimensions - cast to int
+                $stretchedHeight = (int)(($textHeight + 20) * $heightMultiplier);
                 
-                // Copy with vertical stretch onto main image
+                // Copy with vertical stretch onto main image - cast all float calculations to int
                 \imagecopyresampled(
                     $image, $tempImg,
-                    $serialTextX, $serialTextY - ($textHeight * $heightMultiplier),
-                    0, 0,
-                    $tempImgWidth, $stretchedHeight,
-                    $tempImgWidth, $textHeight + 20
+                    $serialTextX, (int)($serialTextY - ($textHeight * $heightMultiplier)), // destination position
+                    0, 0, // source position
+                    $tempImgWidth, $stretchedHeight, // destination dimensions (width stays same, height stretched)
+                    $tempImgWidth, (int)($textHeight + 20) // source dimensions
                 );
                 
                 // Clean up temporary image
@@ -1247,6 +1134,11 @@ class ImageProcessingService
                 // Add return count BELOW the serial number - ALWAYS show it
                 $returnText = "R: " . $returnCount;
                 $returnFontSize = 16; // Slightly smaller font for return count
+                
+                // Calculate return text dimensions
+                $returnTextBox = \imagettfbbox($returnFontSize, 0, $this->fontsPath, $returnText);
+                $returnTextWidth = abs($returnTextBox[4] - $returnTextBox[0]);
+                $returnTextHeight = abs($returnTextBox[5] - $returnTextBox[1]);
                 
                 // Position return count BELOW the serial number
                 $returnTextX = $serialTextX + 140;
@@ -1274,9 +1166,10 @@ class ImageProcessingService
                 $qrCodeImage = \imagecreatefrompng($qrCodePath);
                 if ($qrCodeImage) {
                     // Position QR code on the right side of the label
-                    $qrSize = 90;
-                    $qrX = 310;
-                    $qrY = 70;
+                    // Increased size for better scannability
+                    $qrSize = 90; // Slightly larger for better scanning
+                    $qrX = 310; // Position on right side
+                    $qrY = 70; // Center vertically in lower portion
                     
                     // Resize and place QR code
                     \imagecopyresampled($image, $qrCodeImage, $qrX, $qrY, 0, 0, $qrSize, $qrSize, \imagesx($qrCodeImage), \imagesy($qrCodeImage));
@@ -1342,6 +1235,429 @@ class ImageProcessingService
         return "";
     }
 }
+
+
+  /**
+ * Generate QR code label for restocking with serial number parameter
+ * Uses "RESTOCKING FEE IF RETURNED?" template
+ */
+public function generateRestockingLabel($serialNumber)
+{
+    try {
+        if (empty($serialNumber)) {
+            Log::error("Serial number is required for restocking label");
+            return "";
+        }
+        
+        // Template path for restocking label
+        $templatePath = public_path('images/warranty/templates/RestockingLabelTemplate.png');
+        
+        if (!file_exists($templatePath)) {
+            Log::error("Restocking label template file does not exist: " . $templatePath);
+            return "";
+        }
+        
+        // Load the template
+        $imageData = base64_encode(file_get_contents($templatePath));
+        $decodedImage = base64_decode($imageData);
+        
+        if (!$decodedImage) {
+            Log::error("Failed to decode restocking label template image");
+            return "";
+        }
+        
+        // Set dimensions for instruction card printer - 4" x 6" at 203dpi (portrait)
+        $outputImageWidth = 800;
+        $outputImageHeight = 1200;
+        
+        // Create a blank image with the specified dimensions
+        $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+        
+        // Fill the background with white color
+        $white = \imagecolorallocate($image, 255, 255, 255);
+        $black = \imagecolorallocate($image, 0, 0, 0);
+        \imagefill($image, 0, 0, $white);
+        
+        // Load and scale the template
+        if ($templateImage = @\imagecreatefromstring($decodedImage)) {
+            // Rotate the template image 90 degrees counter-clockwise to landscape orientation
+            $rotatedTemplate = \imagerotate($templateImage, 90, $white);
+            \imagedestroy($templateImage);
+            
+            $scaledImage = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            \imagefill($scaledImage, 0, 0, $white);
+            \imagecopyresampled($scaledImage, $rotatedTemplate, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight, \imagesx($rotatedTemplate), \imagesy($rotatedTemplate));
+            \imagecopy($image, $scaledImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight);
+            \imagedestroy($scaledImage);
+            \imagedestroy($rotatedTemplate);
+            
+            // Add serial number - adjusted for rotated template
+            $serialTextY = 950; // Moved down for rotated layout sideways
+            $serialTextX = 730; // Adjusted for rotated layout downward/upward
+            
+            if (file_exists($this->fontsPath)) {
+                // Create bold effect by drawing the text multiple times with slight offsets
+                \imagettftext($image, 55, 90, $serialTextX, $serialTextY, $black, $this->fontsPath, $serialNumber);
+                \imagettftext($image, 55, 90, $serialTextX + 1, $serialTextY, $black, $this->fontsPath, $serialNumber);
+                \imagettftext($image, 55, 90, $serialTextX, $serialTextY + 1, $black, $this->fontsPath, $serialNumber);
+                \imagettftext($image, 55, 90, $serialTextX + 1, $serialTextY + 1, $black, $this->fontsPath, $serialNumber);
+            } else {
+                // Fallback if TTF font not available
+                \imagestring($image, 5, $serialTextX, $serialTextY, $serialNumber, $black);
+                Log::warning('TTF font not available for restocking label');
+            }
+            
+        } else {
+            Log::error("Failed to create image from restocking label template data");
+            \imagedestroy($image);
+            return "";
+        }
+        
+        // Convert image to binary string for ZPL
+        $binaryString = "";
+        
+        for ($y = 0; $y < $outputImageHeight; $y++) {
+            for ($x = 0; $x < $outputImageWidth; $x++) {
+                $color = \imagecolorat($image, $x, $y);
+                $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
+            }
+        }
+        
+        // Free up memory
+        \imagedestroy($image);
+        
+        // Convert binary string to hexadecimal string
+        $hexString = '';
+        for ($i = 0; $i < strlen($binaryString); $i += 8) {
+            $byteString = substr($binaryString, $i, 8);
+            $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
+        }
+        
+        // Calculate bytes per row
+        $bytesPerRow = ceil($outputImageWidth / 8);
+        
+        // Construct ZPL command for instruction card printer
+        $zplCommand = "^XA\n";
+        $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
+        $zplCommand .= "^XZ";
+        
+        Log::info('Generated restocking label ZPL successfully for serial: ' . $serialNumber);
+        
+        return $zplCommand;
+        
+    } catch (Exception $e) {
+        Log::error('Error in generateRestockingLabel:', [
+            'error' => $e->getMessage(),
+            'serial_number' => $serialNumber,
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return "";
+    }
+}
+
+/**
+ * Generate QR code label for requesting replacement
+ * Uses "ISSUES? Scan QR code to request for a replacement" template
+ * NO parameters - just the template with QR code
+ */
+public function generateRequestReplacementLabel()
+{
+    try {
+        // Template path for replacement request label
+        $templatePath = public_path('images/warranty/templates/ReplacementRequestTemplate.png');
+        
+        if (!file_exists($templatePath)) {
+            Log::error("Replacement request label template file does not exist: " . $templatePath);
+            return "";
+        }
+        
+        // Load the template
+        $imageData = base64_encode(file_get_contents($templatePath));
+        $decodedImage = base64_decode($imageData);
+        
+        if (!$decodedImage) {
+            Log::error("Failed to decode replacement request label template image");
+            return "";
+        }
+        
+        // Set dimensions for instruction card printer - 4" x 6" at 203dpi (portrait)
+        $outputImageWidth = 800;
+        $outputImageHeight = 1200;
+        
+        // Create a blank image with the specified dimensions
+        $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+        
+        // Fill the background with white color
+        $white = \imagecolorallocate($image, 255, 255, 255);
+        \imagefill($image, 0, 0, $white);
+        
+        // Load and scale the template (template already contains QR code and all text)
+        if ($templateImage = @\imagecreatefromstring($decodedImage)) {
+            // Rotate the template image 90 degrees counter-clockwise to landscape orientation
+            $rotatedTemplate = \imagerotate($templateImage, 90, $white);
+            \imagedestroy($templateImage);
+            
+            $scaledImage = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            \imagefill($scaledImage, 0, 0, $white);
+            \imagecopyresampled($scaledImage, $rotatedTemplate, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight, \imagesx($rotatedTemplate), \imagesy($rotatedTemplate));
+            \imagecopy($image, $scaledImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight);
+            \imagedestroy($scaledImage);
+            \imagedestroy($rotatedTemplate);
+            
+        } else {
+            Log::error("Failed to create image from replacement request label template data");
+            \imagedestroy($image);
+            return "";
+        }
+        
+        // Convert image to binary string for ZPL
+        $binaryString = "";
+        
+        for ($y = 0; $y < $outputImageHeight; $y++) {
+            for ($x = 0; $x < $outputImageWidth; $x++) {
+                $color = \imagecolorat($image, $x, $y);
+                $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
+            }
+        }
+        
+        // Free up memory
+        \imagedestroy($image);
+        
+        // Convert binary string to hexadecimal string
+        $hexString = '';
+        for ($i = 0; $i < strlen($binaryString); $i += 8) {
+            $byteString = substr($binaryString, $i, 8);
+            $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
+        }
+        
+        // Calculate bytes per row
+        $bytesPerRow = ceil($outputImageWidth / 8);
+        
+        // Construct ZPL command for instruction card printer
+        $zplCommand = "^XA\n";
+        $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
+        $zplCommand .= "^XZ";
+        
+        Log::info('Generated replacement request label ZPL successfully');
+        
+        return $zplCommand;
+        
+    } catch (Exception $e) {
+        Log::error('Error in generateRequestReplacementLabel:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return "";
+    }
+}
+
+/**
+ * Generate recycle request label
+ * Uses "RecycleRequstTemplate.png" template
+ * NO parameters - just the template
+ */
+public function generateRecycleRequestLabel()
+{
+    try {
+        // Template path for recycle request label
+        $templatePath = public_path('images/warranty/templates/RecycleRequstTemplate.png');
+        
+        if (!file_exists($templatePath)) {
+            Log::error("Recycle request label template file does not exist: " . $templatePath);
+            return "";
+        }
+        
+        // Load the template
+        $imageData = base64_encode(file_get_contents($templatePath));
+        $decodedImage = base64_decode($imageData);
+        
+        if (!$decodedImage) {
+            Log::error("Failed to decode recycle request label template image");
+            return "";
+        }
+        
+        // Set dimensions for instruction card printer - 4" x 6" at 203dpi (portrait)
+        $outputImageWidth = 800;
+        $outputImageHeight = 1200;
+        
+        // Create a blank image with the specified dimensions
+        $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+        
+        // Fill the background with white color
+        $white = \imagecolorallocate($image, 255, 255, 255);
+        \imagefill($image, 0, 0, $white);
+        
+        // Load and scale the template (template already contains all content)
+        if ($templateImage = @\imagecreatefromstring($decodedImage)) {
+            // Rotate the template image 90 degrees counter-clockwise to landscape orientation
+            $rotatedTemplate = \imagerotate($templateImage, 90, $white);
+            \imagedestroy($templateImage);
+            
+            $scaledImage = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            \imagefill($scaledImage, 0, 0, $white);
+            \imagecopyresampled($scaledImage, $rotatedTemplate, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight, \imagesx($rotatedTemplate), \imagesy($rotatedTemplate));
+            \imagecopy($image, $scaledImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight);
+            \imagedestroy($scaledImage);
+            \imagedestroy($rotatedTemplate);
+            
+        } else {
+            Log::error("Failed to create image from recycle request label template data");
+            \imagedestroy($image);
+            return "";
+        }
+        
+        // Convert image to binary string for ZPL
+        $binaryString = "";
+        
+        for ($y = 0; $y < $outputImageHeight; $y++) {
+            for ($x = 0; $x < $outputImageWidth; $x++) {
+                $color = \imagecolorat($image, $x, $y);
+                $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
+            }
+        }
+        
+        // Free up memory
+        \imagedestroy($image);
+        
+        // Convert binary string to hexadecimal string
+        $hexString = '';
+        for ($i = 0; $i < strlen($binaryString); $i += 8) {
+            $byteString = substr($binaryString, $i, 8);
+            $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
+        }
+        
+        // Calculate bytes per row
+        $bytesPerRow = ceil($outputImageWidth / 8);
+        
+        // Construct ZPL command for instruction card printer
+        $zplCommand = "^XA\n";
+        $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
+        $zplCommand .= "^XZ";
+        
+        Log::info('Generated recycle request label ZPL successfully');
+        
+        return $zplCommand;
+        
+    } catch (Exception $e) {
+        Log::error('Error in generateRecycleRequestLabel:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString()
+        ]);
+        
+        return "";
+    }
+}
+
+
+
+ /**
+     * Generate condition auxiliary small label (2" x 1" label)
+     * Creates a small label showing item condition (Renewed or Used)
+     * 
+     * @param string $condition The condition to display ('Renewed' or 'Used')
+     * @return string ZPL command string
+     */
+    public function generateConditionAuxSmallLabel($condition)
+    {
+        try {
+            if (empty($condition)) {
+                Log::error("Condition is required for condition label");
+                return "";
+            }
+            
+            // Determine which template to use based on condition
+            if ($condition === 'Renewed') {
+                $templatePath = public_path('images/warranty/templates/AUXrenewed.png');
+            } else {
+                $templatePath = public_path('images/warranty/templates/AUXUsed.png');
+            }
+            
+            if (!file_exists($templatePath)) {
+                Log::error("Condition label template file does not exist: " . $templatePath);
+                return "";
+            }
+            
+            // Load the template
+            $imageData = base64_encode(file_get_contents($templatePath));
+            $decodedImage = base64_decode($imageData);
+            
+            if (!$decodedImage) {
+                Log::error("Failed to decode condition label template image");
+                return "";
+            }
+            
+            // Set dimensions for the smaller label - 2" x 1" at 203dpi
+            $outputImageWidth = 400;
+            $outputImageHeight = 220;
+            
+            // Create a blank image with the specified dimensions
+            $image = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+            
+            // Fill the background with white color
+            $white = \imagecolorallocate($image, 255, 255, 255);
+            \imagefill($image, 0, 0, $white);
+            
+            // Load and scale the template
+            if ($templateImage = @\imagecreatefromstring($decodedImage)) {
+                $scaledImage = \imagecreatetruecolor($outputImageWidth, $outputImageHeight);
+                \imagefill($scaledImage, 0, 0, $white);
+                \imagecopyresampled($scaledImage, $templateImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight, \imagesx($templateImage), \imagesy($templateImage));
+                \imagecopy($image, $scaledImage, 0, 0, 0, 0, $outputImageWidth, $outputImageHeight);
+                \imagedestroy($scaledImage);
+                \imagedestroy($templateImage);
+            } else {
+                Log::error("Failed to create image from condition label template data");
+                \imagedestroy($image);
+                return "";
+            }
+            
+            // Convert image to binary string for ZPL
+            $binaryString = "";
+            
+            // Convert image pixels to binary string
+            for ($y = 0; $y < $outputImageHeight; $y++) {
+                for ($x = 0; $x < $outputImageWidth; $x++) {
+                    $color = \imagecolorat($image, $x, $y);
+                    $binaryString .= ($color & 0xFF) > 128 ? '0' : '1';
+                }
+            }
+            
+            // Free up memory
+            \imagedestroy($image);
+            
+            // Convert binary string to hexadecimal string
+            $hexString = '';
+            for ($i = 0; $i < strlen($binaryString); $i += 8) {
+                $byteString = substr($binaryString, $i, 8);
+                $hexString .= str_pad(dechex(bindec($byteString)), 2, '0', STR_PAD_LEFT);
+            }
+            
+            // Calculate bytes per row
+            $bytesPerRow = ceil($outputImageWidth / 8);
+            
+            // Construct ZPL command for smaller label
+            $zplCommand = "^XA\n";
+            $zplCommand .= "^FO20,20^GFA," . strlen($hexString) / 2 . "," . strlen($hexString) / 2 . "," . $bytesPerRow . "," . $hexString . "^FS\n";
+            $zplCommand .= "^XZ";
+            
+            Log::info('Generated condition label ZPL successfully', [
+                'condition' => $condition
+            ]);
+            
+            return $zplCommand;
+            
+        } catch (Exception $e) {
+            Log::error('Error generating condition label:', [
+                'error' => $e->getMessage(),
+                'condition' => $condition,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return "";
+        }
+    }
     
     /**
      * Get port IP from database

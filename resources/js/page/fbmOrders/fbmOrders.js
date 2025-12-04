@@ -160,13 +160,6 @@ export default {
             );
         },
 
-        // Check if an order can be selected (has dispensed items)
-        canSelectOrder() {
-            return (order) => {
-                return this.hasDispensedItems(order);
-            };
-        },
-
         // Get only valid dispensed items
         validDispenseItems() {
             return this.dispenseItemsSelected.filter((itemId) => {
@@ -214,6 +207,11 @@ export default {
         },
     },
     methods: {
+                // Check if an order can be selected (has dispensed items)
+        canSelectOrder(order) {
+            return this.hasDispensedItems(order);
+        },
+
         toggleFilters() {
             this.showFilters = !this.showFilters;
         },

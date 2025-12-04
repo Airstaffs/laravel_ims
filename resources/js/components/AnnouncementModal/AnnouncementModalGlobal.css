@@ -1,0 +1,124 @@
+/* Global styles for mobile fullscreen - NOT scoped */
+@media (max-width: 768px) {
+    .p-dialog.p-component.announcement-manage-modal {
+        width: 100vw !important;
+        height: 100vh !important;
+        top: 0px !important;
+        left: 0px !important;
+        max-height: 100% !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        transform: none !important;
+    }
+
+    .announcement-manage-modal .p-dialog-header {
+        border-radius: 0 !important;
+    }
+
+    .announcement-manage-modal .p-dialog-content {
+        border-radius: 0 !important;
+    }
+
+    .p-dialog.p-component.announcement-compose-modal {
+        width: 100vw !important;
+        height: 100vh !important;
+        top: 0px !important;
+        left: 0px !important;
+        max-height: 100% !important;
+        border-radius: 0 !important;
+        margin: 0 !important;
+        transform: none !important;
+    }
+
+    .announcement-compose-modal .p-dialog-header {
+        border-radius: 0 !important;
+    }
+
+    .announcement-compose-modal .p-dialog-content {
+        border-radius: 0 !important;
+    }
+
+    /* DataTable stacked layout for mobile */
+    .announcements-table .p-datatable-table {
+        display: block;
+    }
+
+    .announcements-table .p-datatable-thead {
+        display: none !important;
+    }
+
+    .announcements-table .p-datatable-tbody {
+        display: block;
+    }
+
+    .announcements-table .p-datatable-tbody > tr {
+        display: block;
+        margin-bottom: 1rem;
+        border: 1px solid var(--surface-border);
+        border-radius: 8px;
+        padding: 1rem;
+        background: var(--surface-card);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td {
+        display: grid;
+        grid-template-columns: 120px 1fr;
+        gap: 0.5rem;
+        padding: 0.75rem 0;
+        border: none !important;
+        border-bottom: 1px solid var(--surface-border) !important;
+        text-align: left;
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:last-child {
+        border-bottom: none !important;
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-color-secondary);
+        text-align: left;
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(1)::before {
+        content: "#";
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(2)::before {
+        content: "Title";
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(3)::before {
+        content: "Status";
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(4)::before {
+        content: "Window";
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(5)::before {
+        content: "Recipients";
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(6) {
+        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(6)::before {
+        content: "Actions";
+        margin-bottom: 0.25rem;
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(6) .p-button {
+        width: 100%;
+    }
+
+    .announcements-table .p-datatable-tbody > tr > td:nth-child(6) .mr-2 {
+        margin-right: 0 !important;
+    }
+}

@@ -31,6 +31,9 @@ export default {
             // For ASIN image management modal
             showAsinImageModal: false,
 
+            // Quantity Inside
+             savingQuantityFor: null,
+
             // For bulk instruction card upload modal
             showBulkInstructionCardModal: false,
             bulkUploadData: {
@@ -367,7 +370,6 @@ export default {
 
         // Store management
         async fetchStores() {
-            this.loading = true;
             try {
                 const response = await axios.get(
                     `${API_BASE_URL}/api/asinlist/stores`,
@@ -379,9 +381,7 @@ export default {
             } catch (error) {
                 console.error("Error fetching stores:", error);
                 this.stores = [];
-            } finally {
-                this.loading = false;
-            }
+            } 
         },
 
         changeStore() {
@@ -540,8 +540,8 @@ export default {
                     UPC: this.selectedAsin.UPC || "",
                     instructionlink: this.selectedAsin.instructionlink || "",
                     metakeyword: this.selectedAsin.metakeyword || "",
-                    TRANSPARENCY_QR_STATUS:
-                        this.selectedAsin.TRANSPARENCY_QR_STATUS || "",
+                    TRANSPARENCY_QR_STATUS:this.selectedAsin.TRANSPARENCY_QR_STATUS || "",
+                    QuantityInside: this.selectedAsin.QuantityInside || null,    
                     ParentAsin: this.selectedAsin.ParentAsin || "",
                     CousinASIN: this.selectedAsin.CousinASIN || "",
                     UpgradeASIN: this.selectedAsin.UpgradeASIN || "",
@@ -588,6 +588,7 @@ export default {
                         metakeyword: this.editedAsin.metakeyword || null,
                         transparency_qr_status:
                             this.editedAsin.TRANSPARENCY_QR_STATUS || null,
+                         quantity_inside: this.editedAsin.QuantityInside || null,     
                     },
                     {
                         withCredentials: true,
@@ -609,6 +610,7 @@ export default {
                     this.selectedAsin.metakeyword = this.editedAsin.metakeyword;
                     this.selectedAsin.TRANSPARENCY_QR_STATUS =
                         this.editedAsin.TRANSPARENCY_QR_STATUS;
+                 this.selectedAsin.QuantityInside = this.editedAsin.QuantityInside;    
 
                     // Update the main data array
                     const asinIndex = this.asinData.findIndex(
@@ -623,6 +625,7 @@ export default {
                             this.editedAsin.metakeyword;
                         this.asinData[asinIndex].TRANSPARENCY_QR_STATUS =
                             this.editedAsin.TRANSPARENCY_QR_STATUS;
+                        this.asinData[asinIndex].QuantityInside = this.editedAsin.QuantityInside;    
                     }
 
                     alert("ASIN details updated successfully");
@@ -1334,7 +1337,43 @@ export default {
         clearImageCache() {
             this.imageCacheBuster = {};
             this.$forceUpdate();
-        }
+        },
+
+        async updateQuantityInside(item) {
+            const originalValue = item.QuantityInside;
+            this.savingQuantityFor = item.ASIN; // Show loading
+            
+            try {
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/asinlist/update-quantity-inside`,
+                    {
+                        asin: item.ASIN,
+                        quantity_inside: item.QuantityInside || null,
+                    },
+                    {
+                        withCredentials: true,
+                        headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json",
+                        },
+                    }
+                );
+
+                if (response.data.success) {
+                    console.log(`✓ Quantity Inside updated for ${item.ASIN}: ${item.QuantityInside}`);
+                } else {
+                    throw new Error(response.data.message || "Failed to update quantity");
+                }
+            } catch (error) {
+                console.error("Error updating Quantity Inside:", error);
+                item.QuantityInside = originalValue;
+                this.$forceUpdate();
+                alert("Failed to update Quantity Inside: " + (error.response?.data?.message || error.message));
+            } finally {
+                this.savingQuantityFor = null; // Hide loading
+            }
+        },
+
     },
     watch: {
         searchQuery() {

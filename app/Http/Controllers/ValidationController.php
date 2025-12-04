@@ -53,6 +53,7 @@ class ValidationController extends BasetablesController
                     return $query->where(function ($q) use ($search) {
                         $q->where('prod.serialnumber', 'like', "%{$search}%")
                             ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
+                            ->orWhere('trackingnumber', 'like', "%{$search}%")
                             ->orWhere('prod.rtcounter', 'like', "%{$search}%");
                     });
                 })

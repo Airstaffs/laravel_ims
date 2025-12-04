@@ -1,36 +1,70 @@
 import { createApp } from "vue";
 
-// Import Bootstrap CSS & JS
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.bundle.min.js";
+
+// Add PrimeVue CSS
+import "primeicons/primeicons.css";
+
 import axios from "axios";
 
+import Swal from "sweetalert2";
+window.Swal = Swal;
+
 // ============================================
-// ENHANCED CSRF HANDLER
+// CONFIGURATION
 // ============================================
 
-// Configuration
 const CSRF_CONFIG = {
-    DEBUG: import.meta.env.DEV ?? false, // Auto-detects dev mode
+    DEBUG: import.meta.env.DEV ?? false,
     MAX_RETRY_ATTEMPTS: 2,
     TOKEN_REFRESH_ENDPOINT: "/csrf-token",
     KEEP_ALIVE_ENDPOINT: "/keep-alive",
 };
 
-// Logging helper
+const SESSION_DEBUG = import.meta.env.DEV ?? false;
+const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const SESSION_ALWAYS_REFRESH = true;
+
+// ⭐ NEW: Idle detection configuration
+const IDLE_CONFIG = {
+    SESSION_LIFETIME: 8 * 60 * 60 * 1000, // 8 hours
+    WARNING_BEFORE_EXPIRY: 10 * 60 * 1000, // 10 minutes
+    MAX_IDLE_TIME: 30 * 60 * 1000, // 30 minutes = idle
+    TOKEN_REFRESH_ON_ACTIVITY: true, // Refresh token when user returns
+};
+
+// ============================================
+// LOGGING HELPERS
+// ============================================
+
 function logCsrf(message, data) {
     if (CSRF_CONFIG.DEBUG) {
         console.log(`[CSRF] ${message}`, data || "");
     }
 }
 
-// Initialize Axios
+function logSession(message, data) {
+    if (SESSION_DEBUG) {
+        if (data) {
+            console.log(`[Session] ${message}`, data);
+        } else {
+            console.log(`[Session] ${message}`);
+        }
+    }
+}
+
+// ============================================
+// AXIOS INITIALIZATION
+// ============================================
+
 window.axios = axios;
 axios.defaults.withCredentials = true;
 axios.defaults.headers.common["X-Requested-With"] = "XMLHttpRequest";
 
-// Load initial CSRF token
 const tokenMeta = document.head.querySelector('meta[name="csrf-token"]');
 if (tokenMeta) {
     const token = tokenMeta.content;
@@ -42,7 +76,10 @@ if (tokenMeta) {
     console.error("❌ CSRF meta tag missing from page head");
 }
 
-// Token refresh logic
+// ============================================
+// CSRF TOKEN MANAGEMENT
+// ============================================
+
 let csrfRefreshPromise = null;
 let refreshAttempts = 0;
 
@@ -97,88 +134,6 @@ async function refreshCsrf() {
     return csrfRefreshPromise;
 }
 
-// Response interceptor
-axios.interceptors.response.use(
-    (response) => response,
-    async (error) => {
-        const originalRequest = error.config;
-        const status = error.response?.status;
-
-        if ((status === 419 || status === 401) && originalRequest) {
-            originalRequest.__retryCount = originalRequest.__retryCount || 0;
-
-            if (originalRequest.__retryCount >= CSRF_CONFIG.MAX_RETRY_ATTEMPTS) {
-                logCsrf(`❌ Max retries exceeded for request`);
-                
-                // After max retries, the session might be completely dead
-                console.error('Session appears to be invalid. Consider reloading the page.');
-                
-                // Show user-friendly message
-                if (status === 419 && !sessionStorage.getItem('csrf_error_shown')) {
-                    sessionStorage.setItem('csrf_error_shown', 'true');
-                    setTimeout(() => {
-                        if (confirm('Your session may have expired. Would you like to reload the page?')) {
-                            window.location.reload();
-                        }
-                    }, 500);
-                }
-                
-                return Promise.reject(error);
-            }
-
-            originalRequest.__retryCount++;
-            logCsrf(`Retrying request (attempt ${originalRequest.__retryCount})`);
-
-            try {
-                // Wait a bit before retrying to avoid race conditions
-                if (originalRequest.__retryCount > 1) {
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                }
-                
-                await refreshCsrf();
-                
-                // Make sure the new token is in the request
-                originalRequest.headers['X-CSRF-TOKEN'] = axios.defaults.headers.common['X-CSRF-TOKEN'];
-                
-                return axios(originalRequest);
-            } catch (refreshError) {
-                console.error("❌ Failed to refresh token and retry request:", refreshError);
-                return Promise.reject(error);
-            }
-        }
-
-        return Promise.reject(error);
-    }
-);
-
-// Request interceptor
-axios.interceptors.request.use(
-    (config) => {
-        const hasToken =
-            config.headers?.["X-CSRF-TOKEN"] ||
-            config.headers?.common?.["X-CSRF-TOKEN"];
-
-        if (!hasToken) {
-            const metaToken = document.querySelector(
-                'meta[name="csrf-token"]'
-            )?.content;
-            const backupToken = localStorage.getItem("csrf_token_backup");
-            const token = metaToken || backupToken;
-
-            if (token) {
-                config.headers = config.headers || {};
-                config.headers["X-CSRF-TOKEN"] = token;
-            } else {
-                console.warn("⚠️ No CSRF token available for request");
-            }
-        }
-
-        return config;
-    },
-    (error) => Promise.reject(error)
-);
-
-// Token validation
 function validateCsrfToken() {
     const metaToken = document.querySelector(
         'meta[name="csrf-token"]'
@@ -200,7 +155,6 @@ function validateCsrfToken() {
     return { valid: !!metaToken, synchronized: allMatch, tokens };
 }
 
-// Session expired notification
 function showSessionExpiredNotification() {
     const lastShown = localStorage.getItem("last_session_expired_notification");
     const now = Date.now();
@@ -248,7 +202,6 @@ function showSessionExpiredNotification() {
     }
 }
 
-// Token health check
 function startTokenHealthCheck(intervalMinutes = 10) {
     setInterval(() => {
         const validation = validateCsrfToken();
@@ -270,22 +223,238 @@ function startTokenHealthCheck(intervalMinutes = 10) {
 }
 
 // ============================================
-// SESSION MANAGEMENT
+// AXIOS INTERCEPTORS
 // ============================================
 
-const SESSION_DEBUG = import.meta.env.DEV ?? false; // Auto-detects dev mode
-const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
-const SESSION_ALWAYS_REFRESH = true;
+axios.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const originalRequest = error.config;
+        const status = error.response?.status;
 
-function logSession(message, data) {
-    if (SESSION_DEBUG) {
-        if (data) {
-            console.log(`[Session] ${message}`, data);
-        } else {
-            console.log(`[Session] ${message}`);
+        if ((status === 419 || status === 401) && originalRequest) {
+            originalRequest.__retryCount = originalRequest.__retryCount || 0;
+
+            if (
+                originalRequest.__retryCount >= CSRF_CONFIG.MAX_RETRY_ATTEMPTS
+            ) {
+                logCsrf(`❌ Max retries exceeded for request`);
+                console.error(
+                    "Session appears to be invalid. Consider reloading the page."
+                );
+
+                if (
+                    status === 419 &&
+                    !sessionStorage.getItem("csrf_error_shown")
+                ) {
+                    sessionStorage.setItem("csrf_error_shown", "true");
+                    setTimeout(() => {
+                        if (
+                            confirm(
+                                "Your session may have expired. Would you like to reload the page?"
+                            )
+                        ) {
+                            window.location.reload();
+                        }
+                    }, 500);
+                }
+
+                return Promise.reject(error);
+            }
+
+            originalRequest.__retryCount++;
+            logCsrf(
+                `Retrying request (attempt ${originalRequest.__retryCount})`
+            );
+
+            try {
+                if (originalRequest.__retryCount > 1) {
+                    await new Promise((resolve) => setTimeout(resolve, 500));
+                }
+
+                await refreshCsrf();
+                originalRequest.headers["X-CSRF-TOKEN"] =
+                    axios.defaults.headers.common["X-CSRF-TOKEN"];
+
+                return axios(originalRequest);
+            } catch (refreshError) {
+                console.error(
+                    "❌ Failed to refresh token and retry request:",
+                    refreshError
+                );
+                return Promise.reject(error);
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
+
+axios.interceptors.request.use(
+    (config) => {
+        const hasToken =
+            config.headers?.["X-CSRF-TOKEN"] ||
+            config.headers?.common?.["X-CSRF-TOKEN"];
+
+        if (!hasToken) {
+            const metaToken = document.querySelector(
+                'meta[name="csrf-token"]'
+            )?.content;
+            const backupToken = localStorage.getItem("csrf_token_backup");
+            const token = metaToken || backupToken;
+
+            if (token) {
+                config.headers = config.headers || {};
+                config.headers["X-CSRF-TOKEN"] = token;
+            } else {
+                console.warn("⚠️ No CSRF token available for request");
+            }
+        }
+
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
+
+// ============================================
+// ⭐ NEW: IDLE DETECTION & MANAGEMENT
+// ============================================
+
+let lastActivityTime = Date.now();
+let lastHeartbeat = Date.now();
+let sessionStartTime = Date.now();
+let heartbeatTimer = null;
+let isUserIdle = false;
+
+localStorage.setItem("session_start_time", sessionStartTime.toString());
+
+function updateActivity() {
+    const now = Date.now();
+    const wasIdle = isUserIdle;
+
+    lastActivityTime = now;
+    isUserIdle = false;
+
+    // If user was idle and now active, refresh token
+    if (wasIdle && IDLE_CONFIG.TOKEN_REFRESH_ON_ACTIVITY) {
+        logSession("👤 User returned from idle, refreshing token...");
+        refreshTokenAfterIdle();
+    }
+
+    localStorage.setItem("last_activity_time", now.toString());
+}
+
+// Listen for all user activity
+const activityEvents = [
+    "mousedown",
+    "mousemove",
+    "keypress",
+    "scroll",
+    "touchstart",
+    "click",
+];
+activityEvents.forEach((event) => {
+    document.addEventListener(event, updateActivity, { passive: true });
+});
+
+function checkIdleState() {
+    const now = Date.now();
+    const idleTime = now - lastActivityTime;
+
+    if (idleTime > IDLE_CONFIG.MAX_IDLE_TIME && !isUserIdle) {
+        isUserIdle = true;
+        logSession("😴 User is idle");
+
+        // Stop heartbeat when idle to save resources
+        if (heartbeatTimer) {
+            clearInterval(heartbeatTimer);
+            heartbeatTimer = null;
         }
     }
 }
+
+// Check idle state every minute
+setInterval(checkIdleState, 60 * 1000);
+
+async function refreshTokenAfterIdle() {
+    try {
+        const sessionAge =
+            Date.now() -
+            parseInt(localStorage.getItem("session_start_time") || Date.now());
+
+        if (sessionAge > IDLE_CONFIG.SESSION_LIFETIME * 0.95) {
+            console.warn("⚠️ Session is about to expire, reloading page...");
+            showSessionExpiredNotification();
+            return;
+        }
+
+        await refreshCsrf();
+        logSession("✅ Token refreshed after idle");
+
+        startHeartbeat();
+        await keepSessionAlive();
+    } catch (error) {
+        console.error("❌ Failed to refresh after idle:", error);
+
+        if (error.response?.status === 401 || error.response?.status === 419) {
+            showSessionExpiredNotification();
+        }
+    }
+}
+
+function startHeartbeat() {
+    if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+    }
+
+    heartbeatTimer = setInterval(async () => {
+        const now = Date.now();
+        const idleTime = now - lastActivityTime;
+
+        // Only send heartbeat if user was active recently
+        if (idleTime < IDLE_CONFIG.MAX_IDLE_TIME) {
+            try {
+                await keepSessionAlive();
+                lastHeartbeat = now;
+                logSession("💓 Heartbeat sent");
+            } catch (error) {
+                console.error("❌ Heartbeat failed:", error);
+
+                if (error.response?.status === 419) {
+                    logSession("🔄 Attempting recovery...");
+                    await refreshTokenAfterIdle();
+                }
+            }
+        } else {
+            logSession("😴 User idle, skipping heartbeat");
+        }
+    }, SESSION_HEARTBEAT_INTERVAL);
+}
+
+// Handle page visibility (tab switching)
+document.addEventListener("visibilitychange", async () => {
+    if (document.visibilityState === "visible") {
+        logSession("👁️ Tab visible again");
+
+        const now = Date.now();
+        const awayTime = now - lastActivityTime;
+
+        if (awayTime > IDLE_CONFIG.MAX_IDLE_TIME) {
+            logSession(
+                `🔄 Was away for ${Math.round(
+                    awayTime / 60000
+                )} minutes, refreshing...`
+            );
+            await refreshTokenAfterIdle();
+        } else {
+            updateActivity();
+        }
+    }
+});
+
+// ============================================
+// SESSION MANAGEMENT
+// ============================================
 
 async function keepSessionAlive(forceRefresh = false) {
     logSession("Keeping session alive" + (forceRefresh ? " (forced)" : ""));
@@ -295,9 +464,15 @@ async function keepSessionAlive(forceRefresh = false) {
             await refreshCsrf();
         }
 
-        const response = await axios.get(CSRF_CONFIG.KEEP_ALIVE_ENDPOINT, {
-            headers: { "Cache-Control": "no-cache" },
-        });
+        const response = await axios.post(
+            CSRF_CONFIG.KEEP_ALIVE_ENDPOINT,
+            {
+                timestamp: Date.now(),
+            },
+            {
+                headers: { "Cache-Control": "no-cache" },
+            }
+        );
 
         logSession("✅ Session kept alive successfully", response.data);
         localStorage.setItem("last_session_ping", Date.now().toString());
@@ -354,9 +529,11 @@ import ASINList from "./page/asinlist/asinlist.vue";
 import PrinterModule from "./page/printer/printer.vue";
 import HumanResource from "./page/hr/hr.vue";
 import RTS from "./page/rts/rts.vue";
-import Training from "./page/aiTraining/pages/training.vue";
+import Kanban from "./page/kanban/kanban.vue";
+import Training from "./page/aiTraining/training.vue";
 
-// Async component map
+import Navbar from "./components/Navbar.vue";
+
 const asyncComponentMap = {
     printcustominvoice: () =>
         import("./page/stockroom/print_invoice/print_custom_invoice.vue"),
@@ -367,7 +544,6 @@ const asyncComponentMap = {
 
 window.asyncComponentMap = asyncComponentMap;
 
-// Component mapping
 const componentMapping = {
     received: "receiving",
     "return scanner": "returnscanner",
@@ -385,10 +561,11 @@ const componentMapping = {
     "Human Resource": "humanresource",
     Training: "training",
     RTS: "rts",
+    Kanban: "kanban",
 };
 
 // ============================================
-// SESSION MIXIN
+// SESSION MIXIN (Updated to use new activity tracking)
 // ============================================
 
 const sessionMixin = {
@@ -396,11 +573,7 @@ const sessionMixin = {
         this.$nextTick(() => {
             if (this.$el && this.$el.addEventListener) {
                 const activityHandler = () => {
-                    if (window.sessionManager) {
-                        window.sessionManager.activityDetected();
-                    } else {
-                        keepSessionAlive();
-                    }
+                    updateActivity(); // Use new activity tracker
                 };
 
                 this.$el.addEventListener("click", activityHandler);
@@ -425,17 +598,13 @@ const sessionMixin = {
     },
     methods: {
         extendSession() {
-            if (window.sessionManager) {
-                window.sessionManager.extendSession();
-            } else {
-                keepSessionAlive();
-            }
+            keepSessionAlive();
         },
     },
 };
 
 // ============================================
-// CREATE VUE APP
+// CREATE VUE APP (Simplified - removed duplicate activity tracking)
 // ============================================
 
 const app = createApp({
@@ -444,8 +613,6 @@ const app = createApp({
         return {
             currentComponent: window.defaultComponent,
             collapses: {},
-            lastActivityTime: Date.now(),
-            sessionHeartbeatTimer: null,
         };
     },
     mounted() {
@@ -454,8 +621,10 @@ const app = createApp({
             logSession("App mounted with component:", this.currentComponent);
         }
 
-        this.startSessionHeartbeat();
+        // Start heartbeat
+        startHeartbeat();
 
+        // Handle tab visibility
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "visible") {
                 logSession("Tab visible - extending session");
@@ -463,35 +632,9 @@ const app = createApp({
             }
         });
     },
-    beforeUnmount() {
-        if (this.sessionHeartbeatTimer) {
-            clearInterval(this.sessionHeartbeatTimer);
-        }
-    },
     methods: {
-        startSessionHeartbeat() {
-            this.sessionHeartbeatTimer = setInterval(() => {
-                if (SESSION_ALWAYS_REFRESH) {
-                    keepSessionAlive();
-                    this.lastActivityTime = Date.now();
-                    logSession("Heartbeat sent (continuous mode)");
-                } else {
-                    const idleTime = Date.now() - this.lastActivityTime;
-                    if (idleTime < 10 * 60 * 1000) {
-                        keepSessionAlive();
-                    } else {
-                        logSession(
-                            "User inactive for over 10 minutes, skipping heartbeat"
-                        );
-                    }
-                }
-            }, SESSION_HEARTBEAT_INTERVAL);
-
-            keepSessionAlive();
-        },
-
         mapToComponentName(navName) {
-            this.lastActivityTime = Date.now();
+            updateActivity();
 
             if (componentMapping[navName]) {
                 return componentMapping[navName];
@@ -518,11 +661,19 @@ const app = createApp({
         },
 
         loadContent(module) {
-            this.lastActivityTime = Date.now();
+            updateActivity();
             this.extendSession();
 
             const navName = String(module).toLowerCase();
 
+            // Handle Kanban directly without permission check
+            if (navName === "kanban") {
+                const componentName = this.mapToComponentName(navName);
+                this.safeComponentUpdate(componentName, navName);
+                return;
+            }
+
+            // Handle Printer modal
             if (navName === "printer") {
                 if (typeof showPrinterModal === "function") {
                     showPrinterModal();
@@ -541,6 +692,7 @@ const app = createApp({
                 return;
             }
 
+            // Handle ASIN Option modal
             if (navName === "asinoption") {
                 if (typeof showAsinOptionModal === "function") {
                     showAsinOptionModal();
@@ -550,6 +702,7 @@ const app = createApp({
                 return;
             }
 
+            // Permission check for other modules
             const allowedModules = window.allowedModules
                 ? window.allowedModules.map((m) => m.toLowerCase())
                 : [];
@@ -587,7 +740,7 @@ const app = createApp({
 
         safeComponentUpdate(componentName, originalNavName = null) {
             try {
-                this.lastActivityTime = Date.now();
+                updateActivity();
                 const name = String(componentName).toLowerCase();
 
                 if (!this.$options.components[name]) {
@@ -666,7 +819,7 @@ const app = createApp({
         },
 
         toggleCollapse(id) {
-            this.lastActivityTime = Date.now();
+            updateActivity();
             const element = document.getElementById(id);
             if (!element) return;
 
@@ -700,6 +853,7 @@ const app = createApp({
         humanresource: HumanResource,
         rts: RTS,
         training: Training,
+        kanban: Kanban,
     },
 });
 
@@ -714,9 +868,7 @@ app.mixin({
                 "touchstart",
             ];
             const activityHandler = () => {
-                if (window.appInstance && window.appInstance.lastActivityTime) {
-                    window.appInstance.lastActivityTime = Date.now();
-                }
+                updateActivity(); // Use new unified activity tracker
             };
 
             if (this.$el && this.$el.addEventListener) {
@@ -748,10 +900,34 @@ app.mixin({
     },
 });
 
+// ============================================
+// PRIMEVUE SETUP FOR BLADE APPS
+// ============================================
+
+import PrimeVue from "primevue/config";
+import Aura from "@primevue/themes/aura";
+import ToastService from "primevue/toastservice";
+import Tooltip  from "primevue/tooltip";
+
+// Configure main app with PrimeVue
+app.use(PrimeVue, {
+    theme: {
+        preset: Aura,
+        options: {
+            darkModeSelector: false, // Keep it light to match Bootstrap
+        },
+    },
+});
+app.use(ToastService);
+app.directive('tooltip', Tooltip);
+
 // Mount main app
 window.appInstance = app.mount("#app");
 
-// Expose globally
+// ============================================
+// EXPOSE GLOBALLY
+// ============================================
+
 window.Vue = { createApp };
 window.createApp = createApp;
 window.loadContent = (module) => {
@@ -775,25 +951,32 @@ window.csrfHandler = {
 window.keepSessionAlive = keepSessionAlive;
 window.refreshCsrf = refreshCsrf;
 
+// Idle Handler API
+window.idleHandler = {
+    updateActivity,
+    checkIdleState,
+    refreshTokenAfterIdle,
+    getIdleTime: () => Date.now() - lastActivityTime,
+    getSessionAge: () => Date.now() - sessionStartTime,
+};
+
 // ============================================
-// SEARCH APP
+// SEARCH APP WITH PRIMEVUE
 // ============================================
 
 const searchApp = createApp({
     mixins: [sessionMixin],
-    components: { searching: Searching },
+    components: {
+        searching: Searching,
+        navbar: Navbar,
+    },
     mounted() {
         this.$nextTick(() => {
             const searchElement = document.getElementById("appsearch");
             if (searchElement) {
                 ["input", "focus", "click"].forEach((event) => {
                     searchElement.addEventListener(event, () => {
-                        if (
-                            window.appInstance &&
-                            window.appInstance.lastActivityTime
-                        ) {
-                            window.appInstance.lastActivityTime = Date.now();
-                        }
+                        updateActivity();
                     });
                 });
             }
@@ -801,7 +984,35 @@ const searchApp = createApp({
     },
 });
 
+// Add PrimeVue to search app too
+searchApp.use(PrimeVue, {
+    theme: {
+        preset: Aura,
+        options: {
+            darkModeSelector: false,
+        },
+    },
+});
+searchApp.use(ToastService);
+
 searchApp.mount("#appsearch");
+
+if (document.getElementById("navbar-app")) {
+    const navbarApp = createApp({
+        components: { navbar: Navbar },
+    });
+
+    navbarApp.use(PrimeVue, {
+        theme: {
+            preset: Aura,
+            options: {
+                darkModeSelector: false,
+            },
+        },
+    });
+
+    navbarApp.mount("#navbar-app");
+}
 
 // ============================================
 // DOCUMENT READY INITIALIZATION
@@ -815,196 +1026,63 @@ document.addEventListener("DOMContentLoaded", function () {
     // Create session status indicator
     createSessionIndicator();
 
-    // Global activity monitoring
-    const activityEvents = [
-        "mousedown",
-        "mousemove",
-        "keypress",
-        "scroll",
-        "touchstart",
-        "click",
-    ];
+    // Initialize activity tracking
+    updateActivity();
 
-    function globalActivityHandler() {
-        if (window.appInstance && window.appInstance.lastActivityTime) {
-            window.appInstance.lastActivityTime = Date.now();
-        }
-    }
+    // Start heartbeat
+    startHeartbeat();
 
-    activityEvents.forEach((event) => {
-        document.addEventListener(event, globalActivityHandler, {
-            passive: true,
-        });
-    });
-
-    // Session warning
-    let sessionWarningTimeout = null;
-    const sessionLifetime = 8 * 60 * 60 * 1000; // 8 hours
-    const warningTime = 30 * 60 * 1000; // 30 minutes
-
-    function scheduleSessionWarning() {
-        if (sessionWarningTimeout) {
-            clearTimeout(sessionWarningTimeout);
-        }
-
-        sessionWarningTimeout = setTimeout(() => {
-            showSessionWarning();
-        }, sessionLifetime - warningTime);
-    }
-
-    function showSessionWarning() {
-        if (
-            window.appInstance &&
-            window.appInstance.lastActivityTime &&
-            Date.now() - window.appInstance.lastActivityTime < warningTime
-        ) {
-            keepSessionAlive();
-            scheduleSessionWarning();
-            return;
-        }
-
-        if (
-            typeof bootstrap !== "undefined" &&
-            typeof bootstrap.Modal !== "undefined"
-        ) {
-            let warningModal = document.getElementById("session-warning-modal");
-
-            if (!warningModal) {
-                const modalHTML = `
-                <div class="modal fade" id="session-warning-modal" tabindex="-1">
-                    <div class="modal-dialog modal-dialog-centered">
-                        <div class="modal-content">
-                            <div class="modal-header bg-warning">
-                                <h5 class="modal-title">Session Expiring Soon</h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                            </div>
-                            <div class="modal-body">
-                                <p>Your session will expire soon due to inactivity.</p>
-                                <p>Do you want to continue working?</p>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Log Out</button>
-                                <button type="button" class="btn btn-primary" id="extend-session-btn">Continue Working</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-
-                document.body.insertAdjacentHTML("beforeend", modalHTML);
-                warningModal = document.getElementById("session-warning-modal");
-
-                document
-                    .getElementById("extend-session-btn")
-                    .addEventListener("click", () => {
-                        keepSessionAlive();
-                        scheduleSessionWarning();
-                        const modalInstance =
-                            bootstrap.Modal.getInstance(warningModal);
-                        if (modalInstance) modalInstance.hide();
-                    });
-            }
-
-            const modal = new bootstrap.Modal(warningModal);
-            modal.show();
-        } else {
-            const response = confirm(
-                "Your session will expire soon. Click OK to continue working."
-            );
-            if (response) {
-                keepSessionAlive();
-                scheduleSessionWarning();
-            }
-        }
-    }
-
-    function createSessionIndicator() {
-        if (SESSION_DEBUG) {
-            const indicator = document.createElement("div");
-            indicator.id = "session-status";
-            indicator.className = "session-indicator session-init";
-            indicator.title = "Session Status";
-            indicator.innerHTML = "●";
-            indicator.style.cssText = `
-                position: fixed;
-                bottom: 10px;
-                right: 10px;
-                z-index: 9999;
-                font-size: 14px;
-                width: 20px;
-                height: 20px;
-                border-radius: 50%;
-                text-align: center;
-                line-height: 20px;
-                cursor: pointer;
-                opacity: 0.8;
-                color: transparent;
-                text-shadow: 0 0 0 #fff;
-                background-color: #aaa;
-            `;
-
-            const style = document.createElement("style");
-            style.textContent = `
-                .session-indicator.session-active { background-color: #28a745; }
-                .session-indicator.session-warning { background-color: #ffc107; }
-                .session-indicator.session-error { background-color: #dc3545; }
-            `;
-            document.head.appendChild(style);
-
-            indicator.addEventListener("click", () => {
-                keepSessionAlive();
-                indicator.classList.add("session-active");
-                setTimeout(
-                    () => indicator.classList.remove("session-active"),
-                    1000
-                );
-            });
-
-            document.body.appendChild(indicator);
-        }
-    }
-
-    scheduleSessionWarning();
+    // Initial session keep-alive
     keepSessionAlive();
 
-    // Background token refresh
-    if (SESSION_ALWAYS_REFRESH) {
-        setInterval(() => {
-            logSession("Background token refresh running");
-
-            fetch("/csrf-token", {
-                method: "GET",
-                credentials: "same-origin",
-                headers: {
-                    "X-Requested-With": "XMLHttpRequest",
-                    "Cache-Control": "no-cache",
-                },
-            })
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.token) {
-                        const metaToken = document.querySelector(
-                            'meta[name="csrf-token"]'
-                        );
-                        if (metaToken)
-                            metaToken.setAttribute("content", data.token);
-
-                        axios.defaults.headers.common["X-CSRF-TOKEN"] =
-                            data.token;
-                        localStorage.setItem("csrf_token_backup", data.token);
-                        localStorage.setItem(
-                            "last_background_refresh",
-                            Date.now().toString()
-                        );
-
-                        logSession("Background token refresh successful");
-                    }
-                })
-                .catch((error) => {
-                    console.error("Background token refresh failed:", error);
-                });
-        }, 20 * 60 * 1000); // Every 20 minutes
-    }
+    logSession("✅ App initialized successfully");
 });
+
+function createSessionIndicator() {
+    if (SESSION_DEBUG) {
+        const indicator = document.createElement("div");
+        indicator.id = "session-status";
+        indicator.className = "session-indicator session-init";
+        indicator.title = "Session Status";
+        indicator.innerHTML = "●";
+        indicator.style.cssText = `
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            z-index: 9999;
+            font-size: 14px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 20px;
+            cursor: pointer;
+            opacity: 0.8;
+            color: transparent;
+            text-shadow: 0 0 0 #fff;
+            background-color: #aaa;
+        `;
+
+        const style = document.createElement("style");
+        style.textContent = `
+            .session-indicator.session-active { background-color: #28a745; }
+            .session-indicator.session-warning { background-color: #ffc107; }
+            .session-indicator.session-error { background-color: #dc3545; }
+        `;
+        document.head.appendChild(style);
+
+        indicator.addEventListener("click", () => {
+            keepSessionAlive();
+            indicator.classList.add("session-active");
+            setTimeout(
+                () => indicator.classList.remove("session-active"),
+                1000
+            );
+        });
+
+        document.body.appendChild(indicator);
+    }
+}
 
 // AI App (if exists)
 if (document.getElementById("ai-app")) {
@@ -1012,3 +1090,8 @@ if (document.getElementById("ai-app")) {
     aiApp.component("training", Training);
     aiApp.mount("#ai-app");
 }
+
+// Log successful initialization
+console.log("✅ CSRF Handler loaded");
+console.log("✅ Idle Handler loaded");
+console.log("✅ Session Management loaded");

@@ -66,8 +66,13 @@
         gap: 10px;
     }
 
+    .mobile-detal-value {
+        font-size: 14px;
+    }
+
     .mobile-detail-label {
         font-weight: 600;
+        font-size: 14px;
     }
 
     .mobile-card-actions {
@@ -94,5 +99,20 @@
     .btn-print,
     .btn-example {
         border: 1px solid;
+    }
+
+    /*FULL SCREEN MODAL IN MOBILE DEVICE*/
+    :deep(.mobile-fullscreen-dialog.p-dialog) {
+        width: 100vw !important;
+        height: 100vh !important;
+        max-width: 100vw !important;
+        max-height: 100vh !important;
+        margin: 0 !important;
+        border-radius: 0 !important;
+    }
+
+    :deep(.mobile-fullscreen-dialog.p-dialog .p-dialog-content) {
+        max-height: calc(100vh - 140px) !important;
+        overflow-y: auto;
     }
 }

@@ -48,7 +48,7 @@ class PrintLabelService extends BasetablesController
      * NEW: Print label with married printer system support
      * This method handles printing to married printers automatically
      */
-    public function printLabelWithMarriedPrinters($productId, $username, $selectedPrinter)
+    public function printLabelWithMarriedPrinters($productId, $username, $selectedPrinter, $smallLabelOnly = false)
     {
         try {
             Log::info('Starting print with married printer system:', [
@@ -71,9 +71,9 @@ class PrintLabelService extends BasetablesController
 
             // Check if the selected printer is married
             if (!empty($selectedPrinter->married_to_printer_id)) {
-                return $this->printToMarriedPrinters($enrichedProduct, $username, $selectedPrinter);
+                return $this->printToMarriedPrinters($enrichedProduct, $username, $selectedPrinter, $smallLabelOnly);
             } else {
-                return $this->printToSinglePrinter($enrichedProduct, $username, $selectedPrinter);
+                return $this->printToSinglePrinter($enrichedProduct, $username, $selectedPrinter, $smallLabelOnly);
             }
 
         } catch (Exception $e) {
@@ -93,7 +93,7 @@ class PrintLabelService extends BasetablesController
     /**
      * NEW: Print to married printers (synchronized printing)
      */
-    protected function printToMarriedPrinters($product, $username, $selectedPrinter)
+    protected function printToMarriedPrinters($product, $username, $selectedPrinter, $smallLabelOnly = false)
     {
         try {
             // Get the married printer details
@@ -156,7 +156,7 @@ class PrintLabelService extends BasetablesController
             }
 
             // Print instruction cards to instruction card printer
-            if (!empty($zplData['instructionCardZpl'])) {
+            if (!$smallLabelOnly && !empty($zplData['instructionCardZpl'])) {
                 Log::info('Sending instruction cards to instruction card printer:', [
                     'printer_name' => $instructionCardPrinter->printername,
                     'printer_ip' => $instructionCardPrinter->printerip
@@ -217,7 +217,7 @@ class PrintLabelService extends BasetablesController
     /**
      * NEW: Print to single printer (non-married)
      */
-    protected function printToSinglePrinter($product, $username, $selectedPrinter)
+    protected function printToSinglePrinter($product, $username, $selectedPrinter, $smallLabelOnly = false)
     {
         try {
             Log::info('Printing to single printer:', [
@@ -249,8 +249,14 @@ class PrintLabelService extends BasetablesController
             } else {
                 // Unknown printer type - generate all labels
                 $zplData = $this->generateCompleteZplCode($product, $condition, $returnCounts, $username);
-                $zpl = $zplData['mainZpl'] . $zplData['instructionCardZpl'];
-                $labelTypes = 'all labels';
+                    if ($smallLabelOnly) {
+                        $zpl = $zplData['mainZpl'];
+                        $labelTypes = 'small labels only';
+                        Log::info('⭐ SMALL LABELS ONLY - skipping instruction cards');
+                    } else {
+                        $zpl = $zplData['mainZpl'] . $zplData['instructionCardZpl'];
+                        $labelTypes = 'all labels';
+                    }
             }
 
             if (empty($zpl)) {
@@ -651,8 +657,31 @@ class PrintLabelService extends BasetablesController
             ]);
 
             switch ($labelType) {
-                case 'serial_labels':
-                    return $this->generateAllSerialLabels($product, $condition, $returnCounts);
+             //   case 'serial_labels':
+             //       return $this->generateAllSerialLabels($product, $condition, $returnCounts);
+
+              
+                  case 'serial_labels':
+                    if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
+                        $Wserial = trim($product->serialnumber);
+                        $smallCardCopies = 1;
+                        $zpl = '';
+                         // Get return count for serial A from the passed parameter
+                        $returnCountA = $returnCounts['a'] ?? 0;
+                        
+                        Log::info('Reprinting small label cards:', [
+                            'serial' => $Wserial,
+                            'copies' => $smallCardCopies
+                        ]);
+                        
+                        // Generate 3 copies
+                        for ($i = 0; $i < $smallCardCopies; $i++) {
+                            $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
+                        }
+                        
+                        return $zpl;
+                    }
+                    return '';   
                     
                 case 'fnsku_label':
                     return !empty($product->FNSKUviewer) ? 
@@ -705,28 +734,7 @@ class PrintLabelService extends BasetablesController
                 case 'print_count':
                     return (isset($product->printCount) && $product->printCount > 0) ? 
                         $this->generatePrintCountLabel($product->printCount + 1) : '';
-
-                case 'small_label_card':
-                    if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
-                        $Wserial = trim($product->serialnumber);
-                        $smallCardCopies = 1;
-                        $zpl = '';
-                         // Get return count for serial A from the passed parameter
-                        $returnCountA = $returnCounts['a'] ?? 0;
-                        
-                        Log::info('Reprinting small label cards:', [
-                            'serial' => $Wserial,
-                            'copies' => $smallCardCopies
-                        ]);
-                        
-                        // Generate 3 copies
-                        for ($i = 0; $i < $smallCardCopies; $i++) {
-                            $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
-                        }
-                        
-                        return $zpl;
-                    }
-                    return '';        
+     
                     
                 default:
                     Log::warning('Unknown label type for reprint:', ['labelType' => $labelType]);
@@ -767,7 +775,7 @@ class PrintLabelService extends BasetablesController
                 }
             }
 
-            // Serial number labels (A and B)
+            /* Serial number labels (A and B)
             if (!empty($product->serialnumber) && !empty($product->serialnumberb)) {
                 $nonNullCount++;
                 $zpl .= $this->generateDualSerialLabels($product->serialnumber, $product->serialnumberb, $condition);
@@ -784,7 +792,25 @@ class PrintLabelService extends BasetablesController
             } else if (!empty($product->serialnumberc) && empty($product->serialnumberd)) {
                 $nonNullCount++;
                 $zpl .= $this->generateSingleSerialLabels($product->serialnumberc, $condition, "");
-            }
+            }*/
+            //NEW SERIAL LABEL QR FORMAT
+
+               if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
+                    $Wserial = trim($product->serialnumber);
+                    $smallCardCopies = 5;
+                    $returnCountA = $returnCounts['a'] ?? 0;
+                    
+                    Log::info('Generating small label cards:', [
+                        'serial' => $Wserial,
+                        'copies' => $smallCardCopies
+                    ]);
+                    
+                    // Print small label card multiple times
+                    for ($i = 0; $i < $smallCardCopies; $i++) {
+                        $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
+                    }
+                }
+
 
             // FNSKU label with special prefix handling
             if (!empty($product->FNSKUviewer)) {
@@ -808,6 +834,11 @@ class PrintLabelService extends BasetablesController
             if (!empty($product->itemnumber)) {
                 $nonNullCount++;
                 $zpl .= $this->generateItemNumberLabel($product);
+            }
+
+            if (!empty($product->serialnumber)) {
+                $nonNullCount++;
+                $zpl .= $this->imageProcessingService->convertImageQRserial($product->serialnumber);
             }
 
             // Timestamp and priority label
@@ -840,15 +871,12 @@ class PrintLabelService extends BasetablesController
                 $zpl .= $this->generateTransparencyQRLabel($product->TRANSPARENCY_QR_STATUS);
             }
 
-            // QR codes for manual and serial
+            /* QR codes for manual and serial
             if (!empty($product->ASINviewer)) {
                 $zpl .= $this->imageProcessingService->convertImageQRmanual($product->ASINviewer, $product->AStitle ?? '');
-            }
-
-            if (!empty($product->serialnumber)) {
-                $nonNullCount++;
-                $zpl .= $this->imageProcessingService->convertImageQRserial($product->serialnumber);
-            }
+            }*/
+            
+       
 
             // Print count
             if (isset($product->printCount) && $product->printCount > 0) {
@@ -856,11 +884,42 @@ class PrintLabelService extends BasetablesController
                 $zpl .= $this->generatePrintCountLabel($product->printCount + 1);
             }
 
+
+            // Condition auxiliary labels (Renewed or Used)
+            if (!empty($product->ASINviewer)) {
+                $nonNullCount++;
+                
+                // Determine item condition based on condition string
+                $itemCondition = 'Used'; // Default
+                if ($isRenewed || 
+                    stripos($condition, 'Refurbished') !== false || 
+                    stripos($condition, 'Renewed') !== false) {
+                    $itemCondition = 'Renewed';
+                }
+                
+                Log::info('Generating condition auxiliary labels:', [
+                    'condition' => $condition,
+                    'item_condition' => $itemCondition,
+                    'copies' => 3
+                ]);
+                
+                // Print condition label 3 times
+                $conditionCopies = 1;
+                for ($i = 0; $i < $conditionCopies; $i++) {
+                    $zpl .= $this->imageProcessingService->generateConditionAuxSmallLabel($itemCondition);
+                }
+            }
+
             // Additional renewed labels
             if (!empty($product->ProductID) && $isRenewed) {
                 $nonNullCount++;
                 $zpl .= "^XA^FO5,70^ADN,200,42^FW^FD RENEWED ^FS^XZ";
                 $zpl .= "^XA^FO5,70^ADN,200,42^FW^FD RENEWED ^FS^XZ";
+            }else{
+                    $nonNullCount++;
+                $zpl .= "^XA^FO5,70^ADN,200,42^FW^FD Used ^FS^XZ";
+                $zpl .= "^XA^FO5,70^ADN,200,42^FW^FD Used ^FS^XZ";
+
             }
 
             // Warehouse location
@@ -886,22 +945,7 @@ class PrintLabelService extends BasetablesController
                 $zpl .= $this->generateValidationStatusLabel($product->validation_status);
             }
 
-            if (!empty($product->ASINviewer) && !empty($product->serialnumber)) {
-                    $Wserial = trim($product->serialnumber);
-                    $smallCardCopies = 3;
-                    $returnCountA = $returnCounts['a'] ?? 0;
-                    
-                    Log::info('Generating small label cards:', [
-                        'serial' => $Wserial,
-                        'copies' => $smallCardCopies
-                    ]);
-                    
-                    // Print small label card multiple times
-                    for ($i = 0; $i < $smallCardCopies; $i++) {
-                        $zpl .= $this->imageProcessingService->generateQRforSmallLabelCard($Wserial, $returnCountA);
-                    }
-                }
-
+         
             // Instruction card processing - Generate separately for different printer
             if (!empty($product->ASINviewer)) {
                 Log::info('Generating instruction cards for married printer system');
@@ -1340,138 +1384,211 @@ class PrintLabelService extends BasetablesController
      * Generate instruction card labels - UPDATED for married printer system
      */
     protected function generateInstructionCardLabels($product)
-    {
-        try {
-            $zplIC = '';
-            $asinfind = $product->ASINviewer ?? '';
-            $basketnumber = $product->basketnumber ?? '';
-            $Wserial = $product->serialnumber ?? '';
-            
-            // Check if we have instruction card data
-            $hasInstructionCard1 = !empty($product->instructioncard) && 
-                ($product->instructioncard == 1 || !is_numeric($product->instructioncard));
-            $hasInstructionCard2 = !empty($product->instructioncard2) && 
-                ($product->instructioncard2 == 1 || !is_numeric($product->instructioncard2));
-            $hasInstructionCard3 = !empty($product->instructioncard3) && 
-                ($product->instructioncard3 == 1 || !is_numeric($product->instructioncard3));
-            
-            if (!$hasInstructionCard1 && !$hasInstructionCard2 && !$hasInstructionCard3) {
-                Log::info('No instruction cards to process - all conditions false');
-                return '';
-            }
-            
-            Log::info('Processing instruction cards for married printer:', [
-                'asin' => $asinfind,
-                'card1' => $hasInstructionCard1 ? 'yes' : 'no',
-                'card2' => $hasInstructionCard2 ? 'yes' : 'no',
-                'card3' => $hasInstructionCard3 ? 'yes' : 'no',
-                'serial' => $Wserial
-            ]);
-            
-            // Generate file paths based on ASIN naming convention
-            $card1FileName = $asinfind . '_card1.png';
-            $card2FileName = $asinfind . '_card2.png';
-            $card3FileName = $asinfind . '_card3.png';
-            
-            // Define base paths
-            $instructionCardBasePath = public_path('images/instructioncard/');
-            $monochromeBasePath = storage_path('app/public/images/monochrome/');
-            
-            // Process Card 1 if enabled
-            if ($hasInstructionCard1) {
-                $card1Path = $instructionCardBasePath . $card1FileName;
-                
-                if (file_exists($card1Path)) {
-                    if ($this->imageProcessingService->safeConvertImage($card1Path, $monochromeBasePath, 800, 1200)) {
-                        $monochromeImagePath = $monochromeBasePath . $card1FileName;
-                        $zplIC .= $this->imageProcessingService->enhanceAndConvertToZPL($monochromeImagePath, $asinfind, $basketnumber);
-                        Log::info('Successfully processed card 1 for married printer');
-                    }
-                } else {
-                    Log::warning('Card 1 file not found for married printer', ['path' => $card1Path]);
-                    $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 1 not found: " . $card1FileName . "^FS^XZ";
-                }
-            }
-            
-            // Process Card 2 if enabled
-            if ($hasInstructionCard2) {
-                $card2Path = $instructionCardBasePath . $card2FileName;
-                
-                if (file_exists($card2Path)) {
-                    if ($this->imageProcessingService->safeConvertImage($card2Path, $monochromeBasePath, 800, 1200)) {
-                        $monochromeImagePath = $monochromeBasePath . $card2FileName;
-                        $zplIC .= $this->imageProcessingService->enhanceAndConvertToZPL($monochromeImagePath, $asinfind, $basketnumber);
-                        Log::info('Successfully processed card 2 for married printer');
-                    }
-                } else {
-                    Log::warning('Card 2 file not found for married printer', ['path' => $card2Path]);
-                    $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 2 not found: " . $card2FileName . "^FS^XZ";
-                }
-            }
-            
-            // Process Card 3 if enabled
-            if ($hasInstructionCard3) {
-                $card3Path = $instructionCardBasePath . $card3FileName;
-                
-                if (file_exists($card3Path)) {
-                    if ($this->imageProcessingService->safeConvertImage($card3Path, $monochromeBasePath, 800, 1200)) {
-                        $monochromeImagePath = $monochromeBasePath . $card3FileName;
-                        $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
-                        Log::info('Successfully processed card 3 for married printer');
-                    }
-                } else {
-                    Log::warning('Card 3 file not found for married printer', ['path' => $card3Path]);
-                    $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 3 not found: " . $card3FileName . "^FS^XZ";
-                }
-            }
-            
-            // Process serial-specific warranty cards if serial number exists
-            if (!empty($Wserial)) {
-                $serialCard1FileName = $Wserial . "_page_1.png";
-                $serialCard2FileName = $Wserial . "_page_2.png";
-                
-                $templatePath1 = public_path('images/warranty/templates/6_1st.png');
-                $templatePath2 = public_path('images/warranty/templates/6_2nd.png');
-                $generatedImagesPath = storage_path('app/public/images/warranty/generated_images/');
-                
-                $serialCard1Path = $generatedImagesPath . $serialCard1FileName;
-                $serialCard2Path = $generatedImagesPath . $serialCard2FileName;
-                
-             //   if (!file_exists($serialCard1Path) || !file_exists($serialCard2Path)) {
-                    $this->imageProcessingService->generateSerialImagesFromTemplates($Wserial, $templatePath1, $templatePath2);
-            //    }
-                
-                // Process serial cards
-                if (file_exists($serialCard1Path)) {
-                    if ($this->imageProcessingService->safeConvertImage($serialCard1Path, $monochromeBasePath, 800, 1200)) {
-                        $monochromeImagePath = $monochromeBasePath . $serialCard1FileName;
-                        $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
-                    }
-                }
-                
-                if (file_exists($serialCard2Path)) {
-                    if ($this->imageProcessingService->safeConvertImage($serialCard2Path, $monochromeBasePath, 800, 1200)) {
-                        $monochromeImagePath = $monochromeBasePath . $serialCard2FileName;
-                        $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
-                    }
-                }
+{
+    try {
+        $zplIC = '';
+        $asinfind = $product->ASINviewer ?? '';
+        $basketnumber = $product->basketnumber ?? '';
+        $Wserial = $product->serialnumber ?? '';
+        
+        // Check if we have instruction card data
+        $hasInstructionCard1 = !empty($product->instructioncard) && 
+            ($product->instructioncard == 1 || !is_numeric($product->instructioncard));
+        $hasInstructionCard2 = !empty($product->instructioncard2) && 
+            ($product->instructioncard2 == 1 || !is_numeric($product->instructioncard2));
+        $hasInstructionCard3 = !empty($product->instructioncard3) && 
+            ($product->instructioncard3 == 1 || !is_numeric($product->instructioncard3));
+        
+        // ✅ REMOVED EARLY RETURN - Warranty cards will print regardless
+        Log::info('Processing instruction cards for married printer:', [
+            'asin' => $asinfind,
+            'card1' => $hasInstructionCard1 ? 'yes' : 'no',
+            'card2' => $hasInstructionCard2 ? 'yes' : 'no',
+            'card3' => $hasInstructionCard3 ? 'yes' : 'no',
+            'serial' => $Wserial,
+            'will_print_warranty_cards' => !empty($Wserial)
+        ]);
+        
+        // Generate file paths based on ASIN naming convention
+        $card1FileName = $asinfind . '_card1.png';
+        $card2FileName = $asinfind . '_card2.png';
+        $card3FileName = $asinfind . '_card3.png';
+        
+        // Define base paths
+        $instructionCardBasePath = public_path('images/instructioncard/');
+        $monochromeBasePath = storage_path('app/public/images/monochrome/');
 
-                     $zplIC .= $this->imageProcessingService->generateQRforInstructionCard($Wserial);
+
+            // ✅ ALWAYS PROCESS WARRANTY CARDS IF SERIAL EXISTS (NOT OPTIONAL)
+        // This section runs regardless of instruction card 1-3 flags
+        if (!empty($Wserial)) {
+            Log::info('Processing warranty cards and labels for serial: ' . $Wserial);
+            
+            $serialCard1FileName = $Wserial . "_page_1.png";
+            $serialCard2FileName = $Wserial . "_page_2.png";
+            
+            $templatePath1 = public_path('images/warranty/templates/6_1st.png');
+            $templatePath2 = public_path('images/warranty/templates/6_2nd.png');
+            $generatedImagesPath = storage_path('app/public/images/warranty/generated_images/');
+            
+            $serialCard1Path = $generatedImagesPath . $serialCard1FileName;
+            $serialCard2Path = $generatedImagesPath . $serialCard2FileName;
+            
+            // Always regenerate warranty cards from templates
+            Log::info('Generating warranty cards from templates');
+            $this->imageProcessingService->generateSerialImagesFromTemplates($Wserial, $templatePath1, $templatePath2);
+            
+
+          // Process warranty card page 1
+            if (file_exists($serialCard2Path)) {
+                if ($this->imageProcessingService->safeConvertImage($serialCard2Path, $monochromeBasePath, 800, 1200)) {
+                    $monochromeImagePath = $monochromeBasePath . $serialCard2FileName;
+                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
+                    Log::info('Successfully generated warranty card page 2 ZPL');
+                } else {
+                    Log::error('Failed to convert warranty card page 2 to monochrome');
+                }
+            } else {
+                Log::error('Warranty card page 2 not found at: ' . $serialCard2Path);
             }
             
-            Log::info('Final instruction card ZPL for married printer:', ['length' => strlen($zplIC)]);
-            return $zplIC;
+            // Process warranty card page 2
+            if (file_exists($serialCard1Path)) {
+                if ($this->imageProcessingService->safeConvertImage($serialCard1Path, $monochromeBasePath, 800, 1200)) {
+                    $monochromeImagePath = $monochromeBasePath . $serialCard1FileName;
+                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
+                    Log::info('Successfully generated warranty card page 1 ZPL');
+                } else {
+                    Log::error('Failed to convert warranty card page 1 to monochrome');
+                }
+            } else {
+                Log::error('Warranty card page 1 not found at: ' . $serialCard1Path);
+            }
             
-        } catch (Exception $e) {
-            Log::error('Error generating instruction card labels for married printer:', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'product_id' => $product->ProductID ?? 'unknown'
-            ]);
-            
-            return "^XA^FO50,50^ADN,18,18^FDError processing instruction cards^FS^XZ";
+        
+
+                Log::info('Completed all warranty cards and labels for serial: ' . $Wserial);
+        } else {
+            Log::info('No serial number provided - skipping warranty cards');
         }
+        
+        // Process Card 1 if enabled (OPTIONAL - only if flag is set)
+        if ($hasInstructionCard1) {
+            $card1Path = $instructionCardBasePath . $card1FileName;
+            
+            if (file_exists($card1Path)) {
+                if ($this->imageProcessingService->safeConvertImage($card1Path, $monochromeBasePath, 800, 1200)) {
+                    $monochromeImagePath = $monochromeBasePath . $card1FileName;
+                    $zplIC .= $this->imageProcessingService->enhanceAndConvertToZPL($monochromeImagePath, $asinfind, $basketnumber);
+                    Log::info('Successfully processed card 1 for married printer');
+                }
+            } else {
+                Log::warning('Card 1 file not found for married printer', ['path' => $card1Path]);
+                $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 1 not found: " . $card1FileName . "^FS^XZ";
+            }
+        }
+        
+        // Process Card 2 if enabled (OPTIONAL - only if flag is set)
+        if ($hasInstructionCard2) {
+            $card2Path = $instructionCardBasePath . $card2FileName;
+            
+            if (file_exists($card2Path)) {
+                if ($this->imageProcessingService->safeConvertImage($card2Path, $monochromeBasePath, 800, 1200)) {
+                    $monochromeImagePath = $monochromeBasePath . $card2FileName;
+                    $zplIC .= $this->imageProcessingService->enhanceAndConvertToZPL($monochromeImagePath, $asinfind, $basketnumber);
+                    Log::info('Successfully processed card 2 for married printer');
+                }
+            } else {
+                Log::warning('Card 2 file not found for married printer', ['path' => $card2Path]);
+                $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 2 not found: " . $card2FileName . "^FS^XZ";
+            }
+        }
+        
+        // Process Card 3 if enabled (OPTIONAL - only if flag is set)
+        if ($hasInstructionCard3) {
+            $card3Path = $instructionCardBasePath . $card3FileName;
+            
+            if (file_exists($card3Path)) {
+                if ($this->imageProcessingService->safeConvertImage($card3Path, $monochromeBasePath, 800, 1200)) {
+                    $monochromeImagePath = $monochromeBasePath . $card3FileName;
+                    $zplIC .= $this->imageProcessingService->convertImageLayout($monochromeImagePath, $asinfind, $basketnumber);
+                    Log::info('Successfully processed card 3 for married printer');
+                }
+            } else {
+                Log::warning('Card 3 file not found for married printer', ['path' => $card3Path]);
+                $zplIC .= "^XA^FO50,50^ADN,18,18^FDCard 3 not found: " . $card3FileName . "^FS^XZ";
+            }
+        }
+        
+    
+            // Add restocking label
+            Log::info('Generating restocking label');
+            $restockingZpl = $this->imageProcessingService->generateRestockingLabel($Wserial);
+            if (!empty($restockingZpl)) {
+                $zplIC .= $restockingZpl;
+                Log::info('Successfully generated restocking label ZPL');
+            } else {
+                Log::warning('Restocking label ZPL is empty');
+            }
+    
+            // Add replacement request label  
+            Log::info('Generating replacement request label');
+            $replacementZpl = $this->imageProcessingService->generateRequestReplacementLabel();
+            if (!empty($replacementZpl)) {
+                $zplIC .= $replacementZpl;
+                Log::info('Successfully generated replacement request label ZPL');
+            } else {
+                Log::warning('Replacement request label ZPL is empty');
+            }
+
+            // Add recycle request label
+            Log::info('Generating recycle request label');
+            $recycleZpl = $this->imageProcessingService->generateRecycleRequestLabel();
+            if (!empty($recycleZpl)) {
+                $zplIC .= $recycleZpl;
+                Log::info('Successfully generated recycle request label ZPL');
+            } else {
+                Log::warning('Recycle request label ZPL is empty');
+            }
+            
+            
+               // Add QR code instruction card
+           $numberOfCopies = 2;
+
+            for ($copy = 1; $copy <= $numberOfCopies; $copy++) {
+                $qrZpl = $this->imageProcessingService->generateQRforInstructionCard($Wserial);
+                
+                if (!empty($qrZpl)) {
+                    $zplIC .= $qrZpl;
+                    Log::info("Successfully generated QR instruction card ZPL (Copy {$copy} of {$numberOfCopies})");
+                } else {
+                    Log::warning("QR instruction card ZPL is empty (Copy {$copy} of {$numberOfCopies})");
+                }
+            }
+
+
+
+     
+        
+        Log::info('Final instruction card ZPL for married printer:', [
+            'length' => strlen($zplIC),
+            'has_content' => !empty($zplIC),
+            'zpl_preview' => substr($zplIC, 0, 100) . '...'
+        ]);
+        
+        return $zplIC;
+        
+    } catch (Exception $e) {
+        Log::error('Error generating instruction card labels for married printer:', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'product_id' => $product->ProductID ?? 'unknown',
+            'serial_number' => $product->serialnumber ?? 'none'
+        ]);
+        
+        return "^XA^FO50,50^ADN,18,18^FDError processing instruction cards^FS^XZ";
     }
+}
 
     /**
      * Process vector image - EXACT replication from original with proper Laravel paths
@@ -1603,7 +1720,7 @@ class PrintLabelService extends BasetablesController
         try {
             $isAllRenewed = (stripos($storeName, 'Allrenewed') !== false || 
                               stripos($storeName, 'All renewed') !== false ||
-                              stripos($storeName, 'All Renewed') !== false);
+                              stripos($storeName, 'AllRenewed') !== false);
             
             switch ($grading) {
                 case 'UsedLikeNew':

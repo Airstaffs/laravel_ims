@@ -24,6 +24,7 @@ class BasetablesController extends Controller
     protected $rpnStickerTable;   // Added for image management
     protected $systemSettingsTable; // System settings table
     protected $recipientsTable;     // Recipients/email table
+    protected $unvalidatedItemTable;
     
     /**
      * Constructor to set up company from the authenticated user
@@ -74,6 +75,7 @@ class BasetablesController extends Controller
             $this->rpnStickerTable = $this->getTableName('rpnsticker');
             $this->systemSettingsTable = $this->getTableName('system_settings'); // System settings table
             $this->recipientsTable = $this->getTableName('recipients'); // Recipients table
+            $this->unvalidatedItemTable = $this->getTableName('UnvalidatedItem'); // Recipients table
             
             // Log table names for debugging
             Log::debug('Table names: ', [
@@ -83,7 +85,8 @@ class BasetablesController extends Controller
                 'capturedImagesTable' => $this->capturedImagesTable,
                 'rpnStickerTable' => $this->rpnStickerTable,
                 'systemSettingsTable' => $this->systemSettingsTable,
-                'recipientsTable' => $this->recipientsTable
+                'recipientsTable' => $this->recipientsTable,
+                'unvalidatedItemTable' => $this->unvalidatedItemTable
             ]);
             
         } catch (\Exception $e) {

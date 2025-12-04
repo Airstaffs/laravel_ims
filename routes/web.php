@@ -7,7 +7,6 @@ use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelControll
 use App\Http\Controllers\ASINlistController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AwsInventoryController;
-use App\Http\Controllers\DaysSupplyController;
 use App\Http\Controllers\Ebay\EbayController;
 use App\Http\Controllers\EmployeeClockController;
 use App\Http\Controllers\FbmOrderController;
@@ -18,6 +17,10 @@ use App\Http\Controllers\Fbmorders\WorkhistoryController;
 use App\Http\Controllers\FnskuController;
 use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\HrController;
+use App\Http\Controllers\KanbanActivityLogController;
+use App\Http\Controllers\KanbanCommentController;
+use App\Http\Controllers\KanbanTaskController;
+use App\Http\Controllers\KanbanUserPermissionController;
 use App\Http\Controllers\LabelingController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\notfoundController;
@@ -65,7 +68,7 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// 🚧 TEMPORARY DEV-ONLY LOGIN BYPASS
+//🚧 TEMPORARY DEV-ONLY LOGIN BYPASS
 Route::get('/dev-login', function () {
     // Never allow this in production
     if (app()->environment('production')) {
@@ -225,7 +228,7 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
         }
     })->name('session.keepalive');
 
-     Route::get('/check-session', function () {
+    Route::get('/check-session', function () {
         return response()->json([
             'session_driver' => config('session.driver'),
             'session_lifetime' => config('session.lifetime'),
@@ -275,6 +278,16 @@ Route::middleware(['auth', PreventBackHistory::class])->group(function () {
     Route::post('/attendance/filter', [AttendanceController::class, 'filterAttendanceAjax'])->name('attendance.filter.ajax');
     Route::post('/attendance/auto-clockout', [AttendanceController::class, 'autoClockOut'])->name('auto-clockout');
     Route::post('/update-notes/{id}', [AttendanceController::class, 'updateNotes'])->name('update-notes');
+
+    // Add these routes with your other attendance routes
+    Route::get('/attendance/break/status', [AttendanceController::class, 'status'])->name('attendance.break.status');
+    Route::post('/attendance/break/start', [AttendanceController::class, 'start'])->name('attendance.break.start');
+    Route::post('/attendance/break/end', [AttendanceController::class, 'end'])->name('attendance.break.end');
+
+    Route::get('/api/attendance/profile', [AttendanceController::class, 'getProfileData'])->name('attendance.profile.data');
+
+    Route::get('/account/details', [LoginController::class, 'getUserProfileDetails'])->name('account.details');
+    Route::post('/account/update-details', [LoginController::class, 'updateUserProfileDetails'])->name('account.update-details');
 
     Route::get('/get-user-logs', [UserLogsController::class, 'getUserLogs']);
     Route::get('/get-time-records/{user_id}', [EmployeeClockController::class, 'getUserTimeRecords']);
@@ -522,6 +535,8 @@ Route::prefix('api/fbm-orders')->group(function () {
     Route::post('/mark-not-found', [FbmOrderController::class, 'markProductNotFound']);
     Route::get('/shipping-label-selected-items', [FbmOrderController::class, 'shippinglabelselecteditem']);
 
+    Route::post('/auto-dispense-with-merge', [FbmOrderController::class, 'autoDispenseWithMerge']);
+
     Route::post('/work-history', [WorkhistoryController::class, 'fetchWorkHistory']);
     Route::post('/export-work-history', [WorkhistoryController::class, 'exportWorkHistory']);
 });
@@ -537,7 +552,7 @@ Route::prefix('api/asinlist')->group(function () {
 
     // Get ASIN products list
     Route::get('products', [ASINlistController::class, 'index']);
-
+    Route::get('/asin/conditions', [ASINlistController::class, 'getAllowedConditions']);
     // Get stores for dropdown
     Route::get('stores', [ASINlistController::class, 'getStores']);
     Route::get('/asin/search', [ASINlistController::class, 'searchAsin']);
@@ -568,6 +583,8 @@ Route::prefix('api/asinlist')->group(function () {
 
     // Bulk Upload asin instruction card
     Route::post('bulk-upload-instruction-cards', [ASINlistController::class, 'bulkUploadInstructionCards']);
+
+    Route::post('update-quantity-inside', [ASINlistController::class, 'updateQuantityInside']);
 });
 
 // Routes for Houseage Function
@@ -696,6 +713,22 @@ Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, '
 Route::post('/update-timezone', [UserController::class, 'updateTimezone'])->name('update-timezone');
 Route::get('/user/settings/timezone', [UserController::class, 'showTimezoneSettings'])->name('timezone.settings');
 
+// user accounts
+Route::get('/user/getAllUsers', [UserController::class, 'getAllUsers']);
+
+// kanban
+Route::post('/user/kanban/addTask', [KanbanTaskController::class, 'addTask']);
+Route::post('user/kanban/getTasks', [KanbanTaskController::class, 'getTasks']);
+Route::post('/user/kanban/deleteTask', [KanbanTaskController::class, 'deleteTask']);
+Route::post('/user/kanban/editTask', [KanbanTaskController::class, 'editTask']);
+Route::post('/user/kanban/notification', [KanbanTaskController::class, 'kanbanNotif']);
+Route::post('/user/kanban/readNotif', [KanbanTaskController::class, 'readNotif']);
+Route::post('/user/kanban/getUserPermissions', [KanbanUserPermissionController::class, 'getUserPermissions']);
+Route::post('/user/kanban/saveUserPermissions', [KanbanUserPermissionController::class, 'saveUserPermissions']);
+Route::post('/user/kanban/getTaskComments', [KanbanCommentController::class, 'getTaskComments']);
+Route::post('/user/kanban/addTaskComment', [KanbanCommentController::class, 'addTaskComment']);
+Route::post('/user/kanban/getActivityLogs', [KanbanActivityLogController::class, 'getActivityLogs']);
+
 Route::get('/fbm-orders-shippinglabel-test', function () {
     $controller = new PrintShippingLabelController;
 
@@ -820,5 +853,3 @@ Route::middleware(['auth'])->get('/account/complete', function () {
 Route::get('/aiTraining', function () {
     return view('aiTraining'); // Blade file wrapper for Vue
 })->middleware(['auth']); // if you want it only for logged users
-
-

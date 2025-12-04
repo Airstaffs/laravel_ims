@@ -1,6 +1,6 @@
 {
-  "_print_custom_invoice-C4thPJvu.js": {
-    "file": "assets/print_custom_invoice-C4thPJvu.js",
+  "_print_custom_invoice-BT_s98GC.js": {
+    "file": "assets/print_custom_invoice-BT_s98GC.js",
     "name": "print_custom_invoice",
     "isDynamicEntry": true,
     "imports": [
@@ -20,13 +20,13 @@
     "src": "_print_custom_invoice-aA5-wC_4.css"
   },
   "node_modules/canvg/lib/index.es.js": {
-    "file": "assets/index.es-BZ0IZTHr.js",
+    "file": "assets/index.es-B_odGu6b.js",
     "name": "index.es",
     "src": "node_modules/canvg/lib/index.es.js",
     "isDynamicEntry": true,
     "imports": [
       "resources/js/app.js",
-      "_print_custom_invoice-C4thPJvu.js"
+      "_print_custom_invoice-BT_s98GC.js"
     ]
   },
   "node_modules/dompurify/dist/purify.es.mjs": {
@@ -41,33 +41,57 @@
     "src": "node_modules/html2canvas/dist/html2canvas.esm.js",
     "isDynamicEntry": true
   },
+  "node_modules/primeicons/fonts/primeicons.eot": {
+    "file": "assets/primeicons-DMOk5skT.eot",
+    "src": "node_modules/primeicons/fonts/primeicons.eot"
+  },
+  "node_modules/primeicons/fonts/primeicons.svg": {
+    "file": "assets/primeicons-Dr5RGzOO.svg",
+    "src": "node_modules/primeicons/fonts/primeicons.svg"
+  },
+  "node_modules/primeicons/fonts/primeicons.ttf": {
+    "file": "assets/primeicons-MpK4pl85.ttf",
+    "src": "node_modules/primeicons/fonts/primeicons.ttf"
+  },
+  "node_modules/primeicons/fonts/primeicons.woff": {
+    "file": "assets/primeicons-WjwUDZjB.woff",
+    "src": "node_modules/primeicons/fonts/primeicons.woff"
+  },
+  "node_modules/primeicons/fonts/primeicons.woff2": {
+    "file": "assets/primeicons-C6QP2o4f.woff2",
+    "src": "node_modules/primeicons/fonts/primeicons.woff2"
+  },
   "public/images/chevron-down.png": {
     "file": "assets/chevron-down-BtOrH9m3.png",
     "src": "public/images/chevron-down.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DjCgsftv.css",
+    "file": "assets/app-BUMJbhcb.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/js/app.js": {
-    "file": "assets/app-BDs4Mpf2.js",
+    "file": "assets/app-Dynu-qyU.js",
     "name": "app",
     "src": "resources/js/app.js",
     "isEntry": true,
     "dynamicImports": [
-      "_print_custom_invoice-C4thPJvu.js",
+      "_print_custom_invoice-BT_s98GC.js",
       "resources/js/page/asinoption/fnskucreation/creation_msku.vue"
     ],
     "css": [
-      "assets/app-wxXus-ew.css"
+      "assets/app-C1wc0SjL.css"
     ],
     "assets": [
-      "assets/chevron-down-BtOrH9m3.png"
+      "assets/primeicons-DMOk5skT.eot",
+      "assets/primeicons-C6QP2o4f.woff2",
+      "assets/primeicons-WjwUDZjB.woff",
+      "assets/primeicons-MpK4pl85.ttf",
+      "assets/primeicons-Dr5RGzOO.svg"
     ]
   },
   "resources/js/page/asinoption/fnskucreation/creation_msku.vue": {
-    "file": "assets/creation_msku-CfcukTZ9.js",
+    "file": "assets/creation_msku-CZ4bxEjN.js",
     "name": "creation_msku",
     "src": "resources/js/page/asinoption/fnskucreation/creation_msku.vue",
     "isDynamicEntry": true,

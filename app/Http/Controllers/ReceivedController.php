@@ -31,6 +31,7 @@ class ReceivedController extends BasetablesController
                     $q->where('ProductTitle', 'like', "%{$search}%")
                        ->orWhere('rtid', 'like', "%{$search}%")
                       ->orWhere('itemnumber', 'like', "%{$search}%")
+                      ->orWhere('trackingnumber', 'like', "%{$search}%")
                       ->orWhere('rtcounter', 'like', "%{$search}%");
                 });
             })

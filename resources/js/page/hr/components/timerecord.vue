@@ -1,67 +1,47 @@
 <template>
     <div class="time-record-wrapper">
-        <button
-            class="btn btn-toggle d-md-none"
-            @click="$parent.toggleFilters()"
-        >
+        <button class="btn btn-toggle d-md-none" @click="$parent.toggleFilters()">
             <i class="fas fa-sliders-h"></i>
         </button>
 
-        <form
-            class="filter-controls"
-            v-show="$parent.showFilters"
-            @submit.prevent="$parent.fetchRecords()"
-        >
+        <form class="filter-controls" v-show="$parent.showFilters" @submit.prevent="$parent.fetchRecords()">
             <fieldset>
-                <label>Filber By Employee</label>
-                <select v-model="$parent.filters.employee" class="form-control">
-                    <option value="">All</option>
-                    <option
-                        v-for="name in $parent.employeeNames"
-                        :key="name"
-                        :value="name"
-                    >
-                        {{ name }}
-                    </option>
-                </select>
+                <label>Filter By Employee</label>
+                <Select v-model="$parent.filters.employee" :options="['', ...$parent.employeeNames]" placeholder="All"
+                    size="small" fluid optionLabel="" optionValue="" class="w-full">
+                    <template #value="{ value }">
+                        {{ value || 'All' }}
+                    </template>
+                    <template #option="{ option }">
+                        {{ option || 'All' }}
+                    </template>
+                </Select>
             </fieldset>
 
             <fieldset>
                 <label>Date From</label>
-                <input
-                    type="date"
-                    v-model="$parent.filters.dateFrom"
-                    class="form-control"
-                />
+                <DatePicker v-model="$parent.filters.dateFrom" dateFormat="dd/mm/yy" showIcon placeholder="Select date"
+                    class="w-full" size="small" fluid />
             </fieldset>
 
             <fieldset>
                 <label>Date To</label>
-                <input
-                    type="date"
-                    v-model="$parent.filters.dateTo"
-                    class="form-control"
-                />
+                <DatePicker v-model="$parent.filters.dateTo" dateFormat="dd/mm/yy" showIcon placeholder="Select date"
+                    class="w-full" size="small" fluid />
             </fieldset>
 
             <fieldset>
                 <label></label>
-                <button
-                    class="btn btn-primary w-100"
-                    @click="$parent.fetchRecords"
-                >
+                <Button class="w-100" @click="$parent.fetchRecords" size="small" severity="info">
                     Apply Filters
-                </button>
+                </Button>
             </fieldset>
         </form>
 
         <!-- Mobile / Small screens: Card list -->
         <div class="d-md-none">
-            <div
-                class="tr-card shadow-sm rounded-3 mb-2 p-3"
-                v-for="record in $parent.timeRecords"
-                :key="record?.ID || record?.id"
-            >
+            <div class="tr-card shadow-sm rounded-3 mb-2 p-3" v-for="record in $parent.timeRecords"
+                :key="record?.ID || record?.id">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="me-2">
@@ -70,21 +50,14 @@
                             {{ record?.ID || record?.id || "-" }}
                         </div>
                     </div>
-                    <button
-                        class="btn btn-light btn-sm border"
-                        @click="$parent.toggleHistory(record?.ID || record?.id)"
-                        :aria-expanded="
+                    <button class="btn btn-light btn-sm border" @click="$parent.toggleHistory(record?.ID || record?.id)"
+                        :aria-expanded="$parent.expandedClockId ===
+                            (record?.ID || record?.id)
+                            ">
+                        <span v-if="
                             $parent.expandedClockId ===
                             (record?.ID || record?.id)
-                        "
-                    >
-                        <span
-                            v-if="
-                                $parent.expandedClockId ===
-                                (record?.ID || record?.id)
-                            "
-                            >Hide</span
-                        >
+                        ">Hide</span>
                         <span v-else>History</span>
                     </button>
                 </div>
@@ -145,48 +118,32 @@
 
                 <!-- Actions -->
                 <div class="d-grid mt-3">
-                    <button
-                        class="btn btn-primary btn-sm"
-                        @click="$parent.openEdit(record)"
-                    >
+                    <button class="btn btn-primary btn-sm" @click="$parent.openEdit(record)">
                         Edit
                     </button>
                 </div>
 
                 <!-- Inline history (mobile) -->
-                <div
-                    class="mt-3 border-top pt-3"
-                    v-if="
-                        $parent.expandedClockId === (record?.ID || record?.id)
-                    "
-                >
+                <div class="mt-3 border-top pt-3" v-if="
+                    $parent.expandedClockId === (record?.ID || record?.id)
+                ">
                     <div class="d-flex align-items-center gap-2 mb-2">
                         <strong class="me-2">Edit History</strong>
-                        <span
-                            v-if="$parent.historyLoading"
-                            class="spinner-border spinner-border-sm"
-                        ></span>
+                        <span v-if="$parent.historyLoading" class="spinner-border spinner-border-sm"></span>
                     </div>
 
                     <!-- No history -->
-                    <div
-                        v-if="
-                            !$parent.historyLoading &&
-                            (!$parent.clockEditHistory ||
-                                !$parent.clockEditHistory.length)
-                        "
-                        class="text-muted small"
-                    >
+                    <div v-if="
+                        !$parent.historyLoading &&
+                        (!$parent.clockEditHistory ||
+                            !$parent.clockEditHistory.length)
+                    " class="text-muted small">
                         No edits recorded for this clock.
                     </div>
 
                     <!-- History list -->
                     <div v-else class="history-list">
-                        <div
-                            class="history-item py-2"
-                            v-for="(h, idx) in $parent.clockEditHistory"
-                            :key="idx"
-                        >
+                        <div class="history-item py-2" v-for="(h, idx) in $parent.clockEditHistory" :key="idx">
                             <div class="d-flex justify-content-between">
                                 <div class="small">
                                     <div class="text-secondary">Edited At</div>
@@ -209,29 +166,20 @@
                             <div class="mt-2">
                                 <template v-if="h.before && h.after">
                                     <ul class="mb-0 small ps-3">
-                                        <li
-                                            v-for="(
-                                                chg, i
+                                        <li v-for="(
+chg, i
                                             ) in $parent.prettyDiff(
-                                                h.before,
-                                                h.after
-                                            )"
-                                            :key="i"
-                                        >
-                                            <code>{{ chg.key }}</code
-                                            >:
-                                            <span
-                                                class="text-decoration-line-through text-muted"
-                                                >{{ chg.from }}</span
-                                            >
+    h.before,
+    h.after
+)" :key="i">
+                                            <code>{{ chg.key }}</code>:
+                                            <span class="text-decoration-line-through text-muted">{{ chg.from }}</span>
                                             →
                                             <strong>{{ chg.to }}</strong>
                                         </li>
                                     </ul>
                                 </template>
-                                <template
-                                    v-else-if="h.changes || h.delta || h.after"
-                                >
+                                <template v-else-if="h.changes || h.delta || h.after">
                                     <pre class="small mb-0">{{
                                         h.changes || h.delta || h.after
                                     }}</pre>
@@ -271,17 +219,11 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <template
-                        v-for="record in $parent.timeRecords"
-                        :key="record?.ID || record?.id"
-                    >
+                    <template v-for="record in $parent.timeRecords" :key="record?.ID || record?.id">
                         <!-- Clickable data row -->
-                        <tr
-                            class="tr-clickable"
-                            @click="
-                                $parent.toggleHistory(record?.ID || record?.id)
-                            "
-                        >
+                        <tr class="tr-clickable" @click="
+                            $parent.toggleHistory(record?.ID || record?.id)
+                            ">
                             <td class="text-secondary">
                                 {{ record?.ID || record?.id || "-" }}
                             </td>
@@ -312,43 +254,29 @@
                                 {{ record?.Notes || "-" }}
                             </td>
                             <td>
-                                <button
-                                    class="btn btn-sm btn-outline-primary"
-                                    @click.stop="$parent.openEdit(record)"
-                                >
+                                <button class="btn btn-sm btn-outline-primary" @click.stop="$parent.openEdit(record)">
                                     Edit
                                 </button>
                             </td>
                         </tr>
 
                         <!-- Inline history row -->
-                        <tr
-                            v-if="
-                                $parent.expandedClockId ===
-                                (record?.ID || record?.id)
-                            "
-                            class="bg-light"
-                        >
+                        <tr v-if="
+                            $parent.expandedClockId ===
+                            (record?.ID || record?.id)
+                        " class="bg-light">
                             <td :colspan="10">
-                                <div
-                                    class="d-flex align-items-center gap-2 mb-2"
-                                >
+                                <div class="d-flex align-items-center gap-2 mb-2">
                                     <strong class="me-2">Edit History</strong>
-                                    <span
-                                        v-if="$parent.historyLoading"
-                                        class="spinner-border spinner-border-sm"
-                                    ></span>
+                                    <span v-if="$parent.historyLoading" class="spinner-border spinner-border-sm"></span>
                                 </div>
 
                                 <!-- No history -->
-                                <div
-                                    v-if="
-                                        !$parent.historyLoading &&
-                                        (!$parent.clockEditHistory ||
-                                            !$parent.clockEditHistory.length)
-                                    "
-                                    class="text-muted small"
-                                >
+                                <div v-if="
+                                    !$parent.historyLoading &&
+                                    (!$parent.clockEditHistory ||
+                                        !$parent.clockEditHistory.length)
+                                " class="text-muted small">
                                     No edits recorded for this clock.
                                 </div>
 
@@ -367,12 +295,9 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <tr
-                                                v-for="(
-                                                    h, idx
-                                                ) in $parent.clockEditHistory"
-                                                :key="idx"
-                                            >
+                                            <tr v-for="(
+h, idx
+                                                ) in $parent.clockEditHistory" :key="idx">
                                                 <td>
                                                     {{
                                                         h.edited_at ||
@@ -389,31 +314,22 @@
                                                     }}
                                                 </td>
                                                 <td>
-                                                    <template
-                                                        v-if="
-                                                            h.before && h.after
-                                                        "
-                                                    >
+                                                    <template v-if="
+                                                        h.before && h.after
+                                                    ">
                                                         <ul class="mb-0 small">
-                                                            <li
-                                                                v-for="(
-                                                                    chg, i
+                                                            <li v-for="(
+chg, i
                                                                 ) in $parent.prettyDiff(
-                                                                    h.before,
-                                                                    h.after
-                                                                )"
-                                                                :key="i"
-                                                            >
+    h.before,
+    h.after
+)" :key="i">
                                                                 <code>{{
                                                                     chg.key
-                                                                }}</code
-                                                                >:
-                                                                <span
-                                                                    class="text-decoration-line-through text-muted"
-                                                                    >{{
-                                                                        chg.from
-                                                                    }}</span
-                                                                >
+                                                                }}</code>:
+                                                                <span class="text-decoration-line-through text-muted">{{
+                                                                    chg.from
+                                                                    }}</span>
                                                                 →
                                                                 <strong>{{
                                                                     chg.to
@@ -421,27 +337,19 @@
                                                             </li>
                                                         </ul>
                                                     </template>
-                                                    <template
-                                                        v-else-if="
+                                                    <template v-else-if="
+                                                        h.changes ||
+                                                        h.delta ||
+                                                        h.after
+                                                    ">
+                                                        <pre class="small mb-0">{{
                                                             h.changes ||
                                                             h.delta ||
                                                             h.after
-                                                        "
-                                                    >
-                                                        <pre
-                                                            class="small mb-0"
-                                                            >{{
-                                                                h.changes ||
-                                                                h.delta ||
-                                                                h.after
-                                                            }}</pre
-                                                        >
+                                                        }}</pre>
                                                     </template>
                                                     <template v-else>
-                                                        <span
-                                                            class="text-muted small"
-                                                            >—</span
-                                                        >
+                                                        <span class="text-muted small">—</span>
                                                     </template>
                                                 </td>
                                             </tr>
@@ -457,21 +365,14 @@
 
         <!-- Pagination -->
         <div class="d-flex justify-content-between align-items-center mt-3">
-            <button
-                class="btn btn-outline-secondary"
-                :disabled="$parent.page === 1"
-                @click="$parent.prevPage()"
-            >
+            <button class="btn btn-outline-secondary" :disabled="$parent.page === 1" @click="$parent.prevPage()">
                 Previous
             </button>
 
             <span>Page {{ $parent.page }} / {{ $parent.totalPages }}</span>
 
-            <button
-                class="btn btn-outline-secondary"
-                :disabled="$parent.page >= $parent.totalPages"
-                @click="$parent.nextPage()"
-            >
+            <button class="btn btn-outline-secondary" :disabled="$parent.page >= $parent.totalPages"
+                @click="$parent.nextPage()">
                 Next
             </button>
         </div>
@@ -488,80 +389,47 @@
                     {{ $parent.editOriginal?.ID }})
                 </h5>
 
-                <button
-                    type="button"
-                    class="btn-close"
-                    @click="$parent.closeEdit"
-                ></button>
+                <button type="button" class="btn-close" @click="$parent.closeEdit"></button>
             </div>
 
             <div class="modal-body">
                 <form>
                     <fieldset>
                         <label>Employee</label>
-                        <input
-                            type="text"
-                            class="form-control"
-                            v-model="$parent.editForm.Employee"
-                            disabled
-                        />
+                        <input type="text" class="form-control" v-model="$parent.editForm.Employee" disabled />
                     </fieldset>
 
                     <fieldset>
                         <label>Date</label>
-                        <input
-                            type="date"
-                            class="form-control"
-                            v-model="$parent.editForm.DateToday"
-                        />
+                        <input type="date" class="form-control" v-model="$parent.editForm.DateToday" />
                     </fieldset>
 
                     <fieldset>
                         <label>Time In</label>
-                        <input
-                            type="datetime-local"
-                            class="form-control"
-                            v-model="$parent.editForm.TimeIn_local"
-                        />
+                        <input type="datetime-local" class="form-control" v-model="$parent.editForm.TimeIn_local" />
                     </fieldset>
 
                     <fieldset>
                         <label>Time Out</label>
-                        <input
-                            type="datetime-local"
-                            class="form-control"
-                            v-model="$parent.editForm.TimeOut_local"
-                        />
+                        <input type="datetime-local" class="form-control" v-model="$parent.editForm.TimeOut_local" />
                     </fieldset>
 
                     <fieldset>
                         <label>Break Start</label>
-                        <input
-                            type="datetime-local"
-                            class="form-control"
-                            v-model="$parent.editForm.shortbreak_start_local"
-                        />
+                        <input type="datetime-local" class="form-control"
+                            v-model="$parent.editForm.shortbreak_start_local" />
                     </fieldset>
 
                     <fieldset>
                         <label>Break End</label>
-                        <input
-                            type="datetime-local"
-                            class="form-control"
-                            v-model="$parent.editForm.shortbreak_end_local"
-                        />
+                        <input type="datetime-local" class="form-control"
+                            v-model="$parent.editForm.shortbreak_end_local" />
                     </fieldset>
 
                     <fieldset>
                         <label>Break Total (mins)</label>
-                        <input
-                            type="number"
-                            min="0"
-                            class="form-control"
-                            v-model.number="
-                                $parent.editForm.shortbreak_totaltime
-                            "
-                        />
+                        <input type="number" min="0" class="form-control" v-model.number="$parent.editForm.shortbreak_totaltime
+                            " />
                     </fieldset>
 
                     <fieldset>
@@ -570,34 +438,38 @@
 
                     <fieldset>
                         <label>Notes</label>
-                        <textarea
-                            class="form-control"
-                            rows="3"
-                            v-model="$parent.editForm.Notes"
-                        >
-                        </textarea>
+                        <textarea class="form-control" rows="3" v-model="$parent.editForm.Notes">
+                    </textarea>
                     </fieldset>
                 </form>
             </div>
 
             <div class="modal-footer">
-                <button
-                    class="btn btn-primary text-white m-0"
-                    @click="$parent.submitEdit"
-                    :disabled="$parent.submittingEdit"
-                >
+                <button class="btn btn-primary text-white m-0" @click="$parent.submitEdit"
+                    :disabled="$parent.submittingEdit">
                     Save changes
                 </button>
 
-                <button
-                    class="btn btn-secondary text-white m-0"
-                    @click="$parent.closeEdit"
-                >
+                <button class="btn btn-secondary text-white m-0" @click="$parent.closeEdit">
                     Cancel
                 </button>
             </div>
         </div>
     </div>
 </template>
+
+<script>
+import { Select, DatePicker, Button } from 'primevue'
+
+export default {
+    components: {
+        Select,
+        DatePicker, Button
+    },
+    mounted() {
+        console.log(this.$parent.timeRecords)
+    }
+}
+</script>
 
 <style scoped src="../hr.css"></style>

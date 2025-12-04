@@ -57,6 +57,9 @@ export default {
             showImageModal: false,
             modalImages: [],
             currentImageIndex: 0,
+            viewDetailsModal: false,
+            item: {},
+            basePath: "/images/thumbnails/",
         };
     },
     computed: {
@@ -99,6 +102,13 @@ export default {
             event.target.onerror = null; // Prevent infinite error loop
         },
 
+        onImageErrorMain(event) {
+            event.target.src = this.defaultImagePath;
+        },
+        onThumbnailError(event, index) {
+            event.target.src = this.defaultImagePath;
+        },
+
         // Count additional images based on the image fields (img2-img15)
         countAdditionalImages(item) {
             if (!item) return 0;
@@ -129,7 +139,8 @@ export default {
 
             // Add the main image first (img1)
             if (item.img1) {
-                const mainImagePath = `/images/thumbnails/${item.img1}`;
+                // const mainImagePath = `/images/thumbnails/${item.img1}`;
+                 const mainImagePath = item.img1;
                 this.modalImages.push(mainImagePath);
             } else {
                 // If no main image, use a default or product ID based image
@@ -148,7 +159,7 @@ export default {
                     item[fieldName].trim() !== ""
                 ) {
                     const imagePath = `/images/thumbnails/${item[fieldName]}`;
-                    this.modalImages.push(imagePath);
+                    this.modalImages.push(item[fieldName]);
                 }
             }
 
@@ -165,6 +176,11 @@ export default {
 
             // Re-enable scrolling
             document.body.style.overflow = "auto";
+        },
+
+        handleShowDetailsModal(item) {
+            this.item = item
+            this.viewDetailsModal = true
         },
 
         nextImage() {

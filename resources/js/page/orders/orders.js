@@ -246,7 +246,7 @@ export default {
         async openEditModal(item) {
             if (!item) return;
 
-            await this.fetchItems();
+            // await this.fetchItems();
 
             const freshItem = this.items.find(
                 (i) => i.itemnumber === item.itemnumber

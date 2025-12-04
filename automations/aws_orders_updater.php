@@ -20,7 +20,7 @@ if (true) {
 
     $row = array();
 
-    $stores = ['Renovar Tech', 'All Renewed'];
+    $stores = ['RenovarTech', 'AllRenewed'];
 
     foreach ($stores as $store) {
 
@@ -1163,9 +1163,9 @@ function headers_orders_items($credentials, $accessToken)
 
 function getAWSCredentials($db, $store)
 {
-    if ($store == 'Renovar Tech') {
+    if ($store == 'RenovarTech') {
         $id = 6; // The id you want to retrieve
-    } else if ($store == 'All Renewed') {
+    } else if ($store == 'AllRenewed') {
         $id = 10;
     }
     $sql = "SELECT client_id, client_secret, refresh_token FROM tblstores WHERE store_id = $id";

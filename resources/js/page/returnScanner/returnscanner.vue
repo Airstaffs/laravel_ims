@@ -1,6 +1,6 @@
 <template>
     <div class="vue-container return-module">
-        <div class="top-header">
+        <!-- <div class="top-header">
             <div class="header-buttons">
                 <button class="btn btn-scan" @click="openScannerModal">
                     <i class="fas fa-barcode"></i> Scan Items
@@ -9,54 +9,37 @@
 
             <div class="store-filter">
                 <label for="store-select">Store:</label>
-                <select
-                    id="store-select"
-                    v-model="selectedStore"
-                    @change="changeStore"
-                    class="store-select"
-                >
+                <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
                     <option value="">All Stores</option>
                     <option v-for="store in stores" :key="store" :value="store">
                         {{ store }}
                     </option>
                 </select>
             </div>
+        </div> -->
+        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
+            <TitlePage title="Return Scanner Module"
+                subtitle="View and manage the status of all incoming customer product returns for processing." />
+            <Button class="mx-4" @click="openScannerModal" severity="secondary" outlined label="Scan Items" size="small"
+                icon="pi pi-barcode" />
         </div>
 
-        <h2 class="module-title">Return List</h2>
-
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
-        <scanner-component
-            scanner-title="Return Scanner"
-            storage-prefix="returnscanner"
-            :enable-camera="true"
-            :display-fields="['ReturnID', 'Serial', 'Location']"
-            :api-endpoint="'/api/returns/process-scan'"
-            :hide-button="true"
-            @process-scan="handleScanProcess"
-            @hardware-scan="handleHardwareScan"
-            @scanner-opened="handleScannerOpened"
-            @scanner-closed="handleScannerClosed"
-            @scanner-reset="handleScannerReset"
-            @mode-changed="handleModeChange"
-            ref="scanner"
-        >
+        <scanner-component scanner-title="Return Scanner" storage-prefix="returnscanner" :enable-camera="true"
+            :display-fields="['ReturnID', 'Serial', 'Location']" :api-endpoint="'/api/returns/process-scan'"
+            :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
+            @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
+            @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
             <!-- Define custom input fields for Return Scanner module -->
             <template #input-fields>
                 <!-- ReturnID toggle button -->
                 <div class="toggle-container">
-                    <button
-                        type="button"
-                        class="toggle-return-id"
-                        @click="toggleReturnIdField"
-                        :class="{ 'return-id-active': showReturnIdField }"
-                    >
-                        <i
-                            :class="[
-                                'fas',
-                                showReturnIdField ? 'fa-eye-slash' : 'fa-eye',
-                            ]"
-                        ></i>
+                    <button type="button" class="toggle-return-id" @click="toggleReturnIdField"
+                        :class="{ 'return-id-active': showReturnIdField }">
+                        <i :class="[
+                            'fas',
+                            showReturnIdField ? 'fa-eye-slash' : 'fa-eye',
+                        ]"></i>
                         {{
                             showReturnIdField
                                 ? "Hide Return ID"
@@ -68,63 +51,38 @@
                 <!-- ReturnID field (optional) -->
                 <div class="input-group" v-if="showReturnIdField">
                     <label>Return ID:</label>
-                    <input
-                        type="text"
-                        v-model="returnId"
-                        placeholder="Enter Return ID..."
-                        @input="handleReturnIdInput"
+                    <input type="text" v-model="returnId" placeholder="Enter Return ID..." @input="handleReturnIdInput"
                         @keyup.enter="
                             showManualInput
                                 ? focusNextField('serialNumberInput')
                                 : processScan()
-                        "
-                        ref="returnIdInput"
-                    />
+                            " ref="returnIdInput" />
                 </div>
 
                 <div class="input-group">
                     <label>Serial Number:</label>
-                    <input
-                        type="text"
-                        v-model="serialNumber"
-                        placeholder="Enter Serial Number..."
-                        @input="handleSerialInput"
-                        @keyup.enter="
+                    <input type="text" v-model="serialNumber" placeholder="Enter Serial Number..."
+                        @input="handleSerialInput" @keyup.enter="
                             dualSerialProduct && showSecondSerialInput
                                 ? focusNextField('secondSerialInput')
                                 : showManualInput
-                                ? focusNextField('locationInput')
-                                : processScan()
-                        "
-                        ref="serialNumberInput"
-                    />
+                                    ? focusNextField('locationInput')
+                                    : processScan()
+                            " ref="serialNumberInput" />
                 </div>
 
                 <!-- Second Serial Number field (appears when a dual serial product is detected) -->
-                <div
-                    class="input-group"
-                    v-if="dualSerialProduct && showSecondSerialInput"
-                >
+                <div class="input-group" v-if="dualSerialProduct && showSecondSerialInput">
                     <label>{{ secondSerialLabel || "Second Serial" }}:</label>
                     <div class="input-with-clear">
-                        <input
-                            type="text"
-                            v-model="secondSerialNumber"
-                            placeholder="Enter Second Serial Number..."
-                            @input="handleSecondSerialInput"
-                            @keyup.enter="
+                        <input type="text" v-model="secondSerialNumber" placeholder="Enter Second Serial Number..."
+                            @input="handleSecondSerialInput" @keyup.enter="
                                 showManualInput
                                     ? focusNextField('locationInput')
                                     : processScan()
-                            "
-                            ref="secondSerialInput"
-                        />
-                        <button
-                            type="button"
-                            class="clear-input-btn"
-                            @click="hideSecondSerial"
-                            title="Remove second serial"
-                        >
+                                " ref="secondSerialInput" />
+                        <button type="button" class="clear-input-btn" @click="hideSecondSerial"
+                            title="Remove second serial">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -132,238 +90,145 @@
 
                 <div class="input-group">
                     <label>Location:</label>
-                    <input
-                        type="text"
-                        v-model="locationInput"
-                        placeholder="Enter Location..."
-                        @input="handleLocationInput"
-                        @keyup.enter="processScan()"
-                        ref="locationInput"
-                    />
+                    <input type="text" v-model="locationInput" placeholder="Enter Location..."
+                        @input="handleLocationInput" @keyup.enter="processScan()" ref="locationInput" />
                     <div class="container-type-hint">
                         Format: L###X (e.g., L123A) or 'Floor'
                     </div>
                 </div>
 
                 <!-- Submit button (only in manual mode) -->
-                <button
-                    v-if="showManualInput"
-                    @click="processScan()"
-                    class="submit-button"
-                >
+                <button v-if="showManualInput" @click="processScan()" class="submit-button">
                     Submit
                 </button>
             </template>
         </scanner-component>
 
         <!-- Returns History Table -->
-        <div class="table-container desktop-view">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="sticky-col first-sticky">Image</th>
-                        <th
-                            class="sticky-col second-sticky"
-                            @click="sortBy('LPNDATE')"
-                        >
-                            Date
-                        </th>
-                        <th @click="sortBy('LPN')">Return ID</th>
-                        <th @click="sortBy('rtcounter')">RT#</th>
-                        <th @click="sortBy('serialnumber')">Serial</th>
-                        <th @click="sortBy('serialnumberb')">Second Serial</th>
-                        <th @click="sortBy('returnstatus')">Status</th>
-                        <th @click="sortBy('BuyerName')">Buyer</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="loading">
-                        <td colspan="9" class="text-center">
-                            <div class="loading-spinner">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Loading...
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-else-if="returnHistory.length === 0">
-                        <td colspan="9" class="text-center">No data found</td>
-                    </tr>
-                    <template
-                        v-else
-                        v-for="(item, index) in returnHistory"
-                        :key="index"
-                    >
-                        <tr>
-                            <td class="sticky-col first-col">
-                                <div class="product-container">
-                                    <div
-                                        class="product-image-container"
-                                        @click="openImageModal(item)"
-                                    >
-                                        <!-- Use direct image path like in Production module -->
-                                        <img
-                                            :src="
-                                                '/images/thumbnails/' +
-                                                (item.img1 || 'default.jpg')
-                                            "
-                                            :alt="
-                                                item.ProductTitle || 'Product'
-                                            "
-                                            class="product-thumbnail clickable-image"
-                                            @error="handleImageError($event)"
-                                        />
-                                        <div
-                                            class="image-count-badge"
-                                            v-if="
-                                                countAdditionalImages(item) > 0
-                                            "
-                                        >
-                                            +{{ countAdditionalImages(item) }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td class="sticky-col second-sticky">
-                                {{ formatDate(item.LPNDATE) }}
-                            </td>
-                            <td>{{ item.LPN || "N/A" }}</td>
-                            <td>
-                                {{
-                                    formatRTNumber(
-                                        item.rtcounter,
-                                        item.storename
-                                    )
-                                }}
-                            </td>
-                            <td>{{ item.serialnumber }}</td>
-                            <td>{{ item.serialnumberb || "-" }}</td>
-                            <td>
-                                <span
-                                    :class="
-                                        'status-badge status-' +
-                                        item.returnstatus
-                                    "
-                                >
-                                    {{ formatStatus(item.returnstatus) }}
-                                </span>
-                            </td>
-                            <td>
-                                {{
-                                    item.BuyerName ||
-                                    item.costumer_name ||
-                                    "Unknown"
-                                }}
-                            </td>
-                            <td>
-                                <button
-                                    class="btn-details"
-                                    @click="viewReturnDetails(item)"
-                                >
-                                    <i class="fas fa-info-circle"></i> Details
-                                </button>
-                            </td>
-                        </tr>
+        <AnimateDiv :delay="200" class=" px-4">
+            <div class="search-container px-4">
+                <fieldset class="d-flex align-items-center gap-1">
+                    <label for="store-select">Store:</label>
+                    <Select :options="storeOptions" optionLabel="label" optionValue="value" size="small"
+                        class="select-form" v-model="selectedStore" @change="changeStore"
+                        placeholder="Select a Store" />
+                </fieldset>
+            </div>
+            <div class="desktop-view">
+                <XDataTable :value="returnHistory" :columns="columns" :paginator="false" selectionMode="multiple"
+                    dataKey="ProductID" :loading="loading">
+                    <template #gallery="{ data }">
+                        <div class="d-flex justify-content-center align-items-center">
+                            <TableGallery :data="data" :openImageModal="openImageModal"
+                                :handleImageError="handleImageError" :countAdditionalImages="countAdditionalImages" />
+                        </div>
                     </template>
-                </tbody>
-            </table>
-        </div>
+                    <template #date="{ data }">
+                        <p>{{ formatDate(data.LPNDATE) }}</p>
+                    </template>
+                    <template #returnId="{ data }">
+                        {{ data.LPN || "N/A" }}
+                    </template>
+                    <template #rtNumber="{ data }">
+                        {{
+                            formatRTNumber(
+                                data.rtcounter,
+                                data.storename
+                            )
+                        }}
+                    </template>
+                    <template #serialnumberb="{ data }">
+                        <p>{{ data.serialnumberb || "-" }}</p>
+                    </template>
+                    <template #status="{ data }">
+                        <Tag :value="data.returnstatus"
+                            :severity="data.returnstatus === 'Returned' ? 'success' : 'secondary'" />
+                    </template>
+                    <template #buyer="{ data }">
+                        <p>{{
+                            data.BuyerName ||
+                            data.costumer_name ||
+                            "Unknown"
+                        }}</p>
+                    </template>
+                    <template #actions="{ data }">
+                        <div>
+                            <Button label="More Details" severity="contrast" icon="pi pi-info-circle" variant="text"
+                                class="text-primary" size="small" @click="handleShowDetailsModal(data)" />
+                        </div>
+                    </template>
+                </XDataTable>
+            </div>
+        </AnimateDiv>
+
 
         <!-- Mobile Cards View -->
-        <div class="mobile-view">
+        <AnimateDiv :delay="200" class="mobile-view">
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div
-                    v-else-if="sortedInventory.length === 0"
-                    class="no-data-mobile"
-                >
+                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
                     No data found
                 </div>
-                <div
-                    v-else
-                    v-for="(item, index) in returnHistory"
-                    :key="index"
-                    class="mobile-card"
-                >
+                <AnimateDiv v-else v-for="(item, index) in returnHistory" :key="index" class="mobile-card"
+                    :delay="index * 100">
                     <div class="mobile-card-header">
-                        <div
-                            class="mobile-product-image clickable"
-                            @click="openImageModal(item)"
-                        >
-                            <!-- Use direct image path like in Production module -->
-                            <img
-                                :src="
-                                    '/images/thumbnails/' +
-                                    (item.img1 || 'default.jpg')
-                                "
-                                :alt="item.ProductTitle || 'Product'"
-                                class="product-thumbnail clickable-image"
-                                @error="handleImageError($event)"
-                            />
-                            <div
-                                class="image-count-badge"
-                                v-if="countAdditionalImages(item) > 0"
-                            >
-                                +{{ countAdditionalImages(item) }}
-                            </div>
-                        </div>
+                        <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
+                            :countAdditionalImages="countAdditionalImages" />
                         <div class="mobile-return-info">
-                            <h3 class="mobile-return-title">
-                                Return #{{ item.LPN || "N/A" }}
-                            </h3>
+                            <h5 class="mobile-return-title">
+                                Return {{
+                                    formatRTNumber(
+                                        item.rtcounter,
+                                        item.storename
+                                    )
+                                }}
+                            </h5>
                             <div class="mobile-return-date">
                                 {{ formatDate(item.LPNDATE) }}
                             </div>
                         </div>
                     </div>
-
-                    <div class="mobile-card-details">
+                    <Divider />
+                    <div class="mobile-card-details" :style="{ fontSize: '14px' }">
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">RT#:</span>
+                            <span class="fw-semibold">RT#:</span>
                             <span class="mobile-detail-value">{{
                                 formatRTNumber(item.rtcounter, item.storename)
                             }}</span>
                         </div>
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Serial:</span>
+                            <span class="fw-semibold">Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumber
                             }}</span>
                         </div>
-                        <div
-                            v-if="item.serialnumberb"
-                            class="mobile-detail-row"
-                        >
-                            <span class="mobile-detail-label"
-                                >Second Serial:</span
-                            >
+                        <div v-if="item.serialnumberb" class="mobile-detail-row">
+                            <span class="fw-semibold">Second Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumberb
                             }}</span>
                         </div>
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Location:</span>
+                            <span class="fw-semibold">Location:</span>
                             <span class="mobile-detail-value">{{
                                 item.warehouselocation || "Floor"
                             }}</span>
                         </div>
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Status:</span>
-                            <span
-                                :class="[
-                                    'mobile-detail-value',
-                                    'status-badge',
-                                    'status-' + item.returnstatus,
-                                ]"
-                            >
+                            <span class="fw-semibold">Status:</span>
+                            <span :class="[
+                                'mobile-detail-value',
+                                'status-badge',
+                                'status-' + item.returnstatus,
+                            ]">
                                 {{ formatStatus(item.returnstatus) }}
                             </span>
                         </div>
                         <div class="mobile-detail-row">
-                            <span class="mobile-detail-label">Buyer:</span>
+                            <span class="fw-semibold">Buyer:</span>
                             <span class="mobile-detail-value">{{
                                 item.BuyerName ||
                                 item.costumer_name ||
@@ -371,16 +236,12 @@
                             }}</span>
                         </div>
                     </div>
-
+                    <Divider />
                     <div class="mobile-card-actions">
-                        <button
-                            class="mobile-btn mobile-btn-details"
-                            @click="viewReturnDetails(item)"
-                        >
-                            <i class="fas fa-info-circle"></i> Details
-                        </button>
+                        <Button @click="handleShowDetailsModal(item)" icon="pi pi-info-circle" label="More Details"
+                            size="small" />
                     </div>
-                </div>
+                </AnimateDiv>
 
                 <div v-if="returnHistory.length === 0" class="mobile-card">
                     <div class="mobile-card-details">
@@ -390,27 +251,76 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </AnimateDiv>
 
+        <!---DETAILS MODAL--->
+        <Dialog v-model:visible="viewDetailsModal" modal header="Product Details" class="view-details-dialog" :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }" style="width: 50%;">
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    <Gallery :item="item" />
+                    <!-- <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
+                        :countAdditionalImages="countAdditionalImages" /> -->
+                </div>
+                <div class="col-md-6">
+                    <div class="details-container">
+                        <div class="item-container">
+                            <span>RT#: </span>
+                            <span>{{ item.rtcounter
+                                ? this.formatRTNumber(item.rtcounter, item.storename || "")
+                                : "N/A" }}</span>
+                        </div>
+                        <div class="item-container">
+                            <span>Return ID: </span>
+                            <span>{{ item.LPN || "N/A" }}</span>
+                        </div>
+                        <div class="item-container">
+                            <span>Return Date: </span>
+                            <span>{{ formatDate(item.LPNDATE || null) }}</span>
+                        </div>
+                        <div class="item-container">
+                            <span>Serial Number: </span>
+                            <span>{{ item.serialnumber || "N/A" }}</span>
+                        </div>
+                        <div class="item-container">
+                            <span>Second Serial Number: </span>
+                            <span>{{ item.serialnumberb || "N/A" }}</span>
+                        </div>
+                        <div class="item-container">
+                            <span>Location: </span>
+                            <span>{{ item.warehouselocation || "Floor" }}</span>
+                        </div>
+                        <div class="item-container">
+                            <span>Status: </span>
+                            <Tag :value="item.returnstatus"
+                                :severity="item.returnstatus === 'Returned' ? 'success' : 'secondary'" />
+                        </div>
+                        <div class="item-container">
+                            <span>FNSKU: </span>
+                            <span>{{ item.FNSKUviewer || "N/A" }}</span>
+                        </div>
+                        <div class="item-container">
+                            <span>ASIN: </span>
+                            <span>{{ item.ASINviewer || "N/A" }}</span>
+                        </div>
+                        <div class="item-container">
+                            <span>Buyer: </span>
+                            <span>{{ item.BuyerName || item.costumer_name || "Unknown" }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Dialog>
         <!-- Bottom pagination (also centered) -->
         <div class="pagination-container">
             <div class="pagination-wrapper">
                 <div class="pagination">
-                    <button
-                        @click="prevPage"
-                        :disabled="currentPage === 1"
-                        class="pagination-button"
-                    >
+                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
                         <i class="fas fa-chevron-left"></i> Back
                     </button>
-                    <span class="pagination-info"
-                        >Page {{ currentPage }} of {{ totalPages }}</span
-                    >
-                    <button
-                        @click="nextPage"
-                        :disabled="currentPage === totalPages"
-                        class="pagination-button"
-                    >
+                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
+                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
                         Next <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -418,7 +328,9 @@
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="image-modal">
+        <ViewImageModal v-model:visible="showImageModal" :title="'Images'" :imageList="modalImages" :basePath="basePath"
+            :onImageErrorMain="handleImageError" :onThumbnailError="onThumbnailError" @close="closeImageModal" />
+        <!-- <div v-if="showImageModal" class="image-modal">
             <div class="modal-overlay" @click="closeImageModal"></div>
             <div class="modal-content">
                 <button class="close-button" @click="closeImageModal">
@@ -426,23 +338,11 @@
                 </button>
 
                 <div class="main-image-container">
-                    <button
-                        class="nav-button prev"
-                        @click="prevImage"
-                        v-if="modalImages.length > 1"
-                    >
+                    <button class="nav-button prev" @click="prevImage" v-if="modalImages.length > 1">
                         &lt;
                     </button>
-                    <img
-                        :src="modalImages[currentImageIndex]"
-                        alt="Product Image"
-                        class="modal-main-image"
-                    />
-                    <button
-                        class="nav-button next"
-                        @click="nextImage"
-                        v-if="modalImages.length > 1"
-                    >
+                    <img :src="modalImages[currentImageIndex]" alt="Product Image" class="modal-main-image" />
+                    <button class="nav-button next" @click="nextImage" v-if="modalImages.length > 1">
                         &gt;
                     </button>
                 </div>
@@ -452,24 +352,111 @@
                 </div>
 
                 <div class="thumbnails-container" v-if="modalImages.length > 1">
-                    <div
-                        v-for="(image, index) in modalImages"
-                        :key="index"
-                        class="modal-thumbnail"
-                        :class="{ active: index === currentImageIndex }"
-                        @click="currentImageIndex = index"
-                    >
+                    <div v-for="(image, index) in modalImages" :key="index" class="modal-thumbnail"
+                        :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
                         <img :src="image" :alt="`Thumbnail ${index + 1}`" />
                     </div>
                 </div>
             </div>
-        </div>
+        </div> -->
     </div>
 </template>
 
 <script>
 import returnsScanner from "./returnscanner.js";
-export default returnsScanner;
+import TableGallery from '../../components/Gallery/tableGallery.vue'
+import XDataTable from "../../components/DataTable/XDataTable.vue";
+import Gallery from "../../components/Gallery/gallery.vue";
+import { Button, Dialog, Divider, Select, Tag } from "primevue";
+import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
+
+const TABLE_COLUMNS = [
+    // {
+    //     selectionMode: "multiple",
+    //     header: "",
+    //     style: { width: "3rem", minWidth: "3rem" },
+    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
+    // },
+    {
+        header: "Gallery",
+        slot: "gallery",
+        style: { width: "4rem", minWidth: "4rem" }
+    },
+    {
+        header: "Date",
+        slot: "date",
+        bodyStyle: "font-size: 14px",
+        sortable: true
+    },
+    {
+        header: "Return ID",
+        slot: "returnId",
+        bodyStyle: "font-size: 14px",
+        sortable: true
+    },
+    {
+        header: "RT#",
+        slot: "rtNumber",
+        bodyStyle: "font-size: 14px",
+        sortable: true
+    },
+    {
+        field: "serialnumber",
+        header: "Serial Number",
+        bodyStyle: "font-size: 14px",
+        sortable: true
+    },
+    {
+        field: "serialnumberb",
+        header: "Second Serial Number",
+        slot: "serialnumberb",
+        bodyStyle: "font-size: 14px",
+        sortable: true
+    },
+    {
+        field: "returnstatus",
+        header: "Status",
+        slot: "status",
+        bodyStyle: "font-size: 14px",
+        sortable: true
+    },
+    {
+        header: "Buyer",
+        slot: "buyer",
+        bodyStyle: "font-size: 14px",
+        sortable: true
+    }
+]
+export default {
+    mixins: [returnsScanner],
+    components: {
+        XDataTable,
+        TableGallery,
+        Tag,
+        Button,
+        Dialog,
+        Gallery,
+        Divider,
+        Select,
+        TitlePage,
+        AnimateDiv,
+        ViewImageModal
+    },
+    data() {
+        return {
+            columns: TABLE_COLUMNS
+        }
+    },
+    computed: {
+        storeOptions() {
+            const options = this.stores.map((store) => ({ value: store, label: store }))
+            return [{ value: "", label: "All Stores" }, ...options]
+        }
+    }
+};
 </script>
 
 <style scoped>
@@ -741,5 +728,42 @@ export default returnsScanner;
 .return-id-active:hover {
     background-color: #d6f0ff;
     border-color: #69c0ff;
+}
+
+.details-container {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-size: 14px !important;
+}
+
+.item-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid rgb(213, 213, 213);
+    padding: 6px 0;
+
+}
+
+.search-container {
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.select-form {
+    width: 200px;
+}
+
+.view-details-dialog {
+    width: 100% !important;
+}
+
+@media (min-width: 768px) {
+    .view-details-dialog {
+        width: 50% !important;
+    }
 }
 </style>

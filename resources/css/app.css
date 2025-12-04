@@ -28,8 +28,7 @@ select::-ms-expand {
 }
 
 select {
-    background: url("/public/images/chevron-down.png") center right 15px
-        no-repeat #ffffff !important;
+    background: url("/public/images/chevron-down.png") center right 15px no-repeat #ffffff !important;
 }
 
 /* Loading Spinner */
@@ -66,12 +65,14 @@ select {
 .sidebar {
     height: 100vh;
     width: 260px;
-    background-color: #212529; /* Darker and cleaner */
+    background-color: #212529;
+    /* Darker and cleaner */
     padding: 1.5rem 1rem;
     color: #f8f9fa;
     position: fixed;
     top: 0;
-    left: -260px; /* Hidden by default */
+    left: -260px;
+    /* Hidden by default */
     transition: left 0.3s ease-in-out;
     z-index: 1050;
     box-shadow: 2px 0 6px rgba(0, 0, 0, 0.3);
@@ -118,7 +119,8 @@ select {
     width: 4px;
     left: 0;
     top: 0;
-    background-color: #0d6efd; /* Bootstrap primary or any accent */
+    background-color: #0d6efd;
+    /* Bootstrap primary or any accent */
     border-radius: 4px;
 }
 
@@ -137,6 +139,7 @@ select {
 .sidebar::-webkit-scrollbar {
     width: 6px;
 }
+
 .sidebar::-webkit-scrollbar-thumb {
     background-color: rgba(255, 255, 255, 0.1);
     border-radius: 3px;
@@ -472,7 +475,7 @@ select {
 .module-select,
 .valid-select,
 .avail-select {
-    width: 120px;
+    width: 220px;
     padding: 4px 8px;
     border-radius: 4px;
     border: 1px solid #ccc;
@@ -688,7 +691,7 @@ a:active {
     padding: 20px;
 }
 
-.modal .tab-content > .active {
+.modal .tab-content>.active {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -696,7 +699,7 @@ a:active {
     gap: 10px;
 }
 
-.modal .tab-content > .active {
+.modal .tab-content>.active {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
@@ -752,6 +755,7 @@ a:active {
 .btn-clockin:hover {
     background-color: #6c757d;
 }
+
 .modal .notes-column {
     width: 100px;
 }
@@ -914,12 +918,12 @@ hr.dashed {
     gap: 10px;
 }
 
-#userprofile ul > li {
+#userprofile ul>li {
     width: calc(100% / 3 - 7.5px);
     height: 40px;
 }
 
-#userprofile ul > li button {
+#userprofile ul>li button {
     width: 100%;
     height: 100%;
     justify-content: center;
@@ -930,7 +934,7 @@ hr.dashed {
     transition: background-color 0.2s;
 }
 
-#userprofile ul > li button.active {
+#userprofile ul>li button.active {
     background-color: #4285f4;
     color: white;
 }
@@ -1099,7 +1103,8 @@ i#togglePassword {
 .tab-button.active {
     background-color: #fff;
     color: #222;
-    border-bottom: 3px solid #007bff; /* blue highlight */
+    border-bottom: 3px solid #007bff;
+    /* blue highlight */
     font-weight: 600;
 }
 
@@ -1183,12 +1188,13 @@ form.fnskuForm .btn-process {
 .product-gallery {
     text-align: center;
     position: relative;
-    padding-bottom: 60px; /* Ensure space for thumbnails */
+    padding-bottom: 60px;
+    /* Ensure space for thumbnails */
 }
 
 .main-image img {
     width: 100%;
-    max-width: 300px;
+    max-width: 400px;
     height: auto;
     object-fit: contain;
     border-radius: 8px;
@@ -1263,13 +1269,13 @@ form.fnskuForm .btn-process {
     margin-bottom: 32px;
 }
 
-.form-col-left,
+/* .form-col-left,
 .form-col-center,
 .form-col-right {
     display: flex;
     flex-direction: column;
     gap: 16px;
-}
+} */
 
 /* ==== SECTION STYLES ==== */
 .form-section {
@@ -1358,23 +1364,27 @@ form.fnskuForm .btn-process {
     width: 300px;
     white-space: pre-wrap;
 }
+
 /* Overlay + show helper */
 .modal-overlay-announcement {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6); /* <-- backdrop */
+    background: rgba(0, 0, 0, 0.6);
+    /* <-- backdrop */
     justify-content: center;
     align-items: center;
     z-index: 9999;
 }
+
 .modal-overlay-announcement.show {
     display: flex;
 }
 
 /* Modal card */
 .modal-box-announce {
-    background: #fff; /* <-- the white background */
+    background: #fff;
+    /* <-- the white background */
     border-radius: 10px;
     width: 420px;
     max-width: 92%;
@@ -1390,6 +1400,7 @@ form.fnskuForm .btn-process {
     align-items: center;
     margin-bottom: 10px;
 }
+
 .close-btn-announce {
     background: transparent;
     border: none;
@@ -1397,13 +1408,16 @@ form.fnskuForm .btn-process {
     line-height: 1;
     cursor: pointer;
 }
+
 .modal-body-announce {
     max-height: 55vh;
     overflow: auto;
 }
+
 .modal-body-announce p {
     margin: 10px 0;
 }
+
 .modal-footer-announce {
     text-align: right;
     margin-top: 12px;
@@ -1417,6 +1431,7 @@ form.fnskuForm .btn-process {
     border-radius: 6px;
     cursor: pointer;
 }
+
 #ackBtn-announce:hover {
     background: #0056b3;
 }
@@ -1439,7 +1454,7 @@ form.fnskuForm .btn-process {
     gap: 10px;
 }
 
-#printer ul > li button {
+#printer ul>li button {
     width: 100%;
     height: 100%;
     justify-content: center;
@@ -1450,12 +1465,12 @@ form.fnskuForm .btn-process {
     transition: background-color 0.2s;
 }
 
-#printer ul > li button.active {
+#printer ul>li button.active {
     background-color: #4285f4;
     color: white;
 }
 
-#printer ul > li {
+#printer ul>li {
     width: calc(100% / 4 - 7.5px);
     height: 40px;
 }
@@ -1579,7 +1594,7 @@ form#addPrinterForm fieldset:last-child {
     width: 100%;
     font-weight: 600;
     color: #343a40;
-    border-bottom: 2px solid #f1f3f4;
+    /* border-bottom: 2px solid #f1f3f4; */
     font-size: 1.1rem;
 }
 
@@ -1622,9 +1637,9 @@ form#editPrinterForm {
 }
 
 .view-modal .form-col-right {
-    background-color: #f9f9f9;
+    /* background-color: #f9f9f9; */
     padding: 16px 20px;
-    border: 1px solid #ddd;
+    /* border: 1px solid #ddd; */
     border-radius: 6px;
 }
 
@@ -1643,9 +1658,9 @@ form#editPrinterForm {
 
 /* Info Sections */
 .info-section {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.5rem;
-    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    /* border-bottom: 1px solid #e9ecef; */
 }
 
 .info-section:last-child {
@@ -1668,7 +1683,7 @@ form#editPrinterForm {
     grid-template-columns: 140px 1fr;
     gap: 0.5rem;
     padding: 0.4rem 0;
-    border-bottom: 1px solid #f8f9fa;
+    border-bottom: 1px solid #d6d6d6;
 }
 
 .info-item:last-child {
@@ -1683,15 +1698,17 @@ form#editPrinterForm {
 
 .info-item dd {
     margin: 0;
-    color: #212529;
+    color: #727374;
     word-break: break-word;
+    font-size: .9rem;
 }
 
 /* Description Section */
 .description-section {
     padding: 1rem;
-    background-color: #f8f9fa;
+    background-color: #fff;
     border-radius: 0.375rem;
+    word-break: break-all;
 }
 
 .description-section h3 {
@@ -1757,17 +1774,19 @@ form#editPrinterForm {
 }
 
 .total-line {
-    border-top: 2px solid #495057;
+    /* border-top: 2px solid #495057; */
     border-bottom: 2px solid #495057;
-    padding: 1rem 0;
+    padding: 1rem .5rem;
     margin-top: 0.5rem;
+    background-color: #0D6EFD;
+    border-radius: 10px;
 }
 
 .total-line dt,
 .total-line dd {
     font-size: 1.1rem;
     font-weight: 700;
-    color: #212529;
+    color: #fff;
 }
 
 .total-amount {
@@ -1804,6 +1823,7 @@ form#editPrinterForm {
         opacity: 0;
         transform: translateY(6px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1914,7 +1934,7 @@ form#editPrinterForm {
         position: relative;
     }
 
-    .modal .card-body > div:nth-child(-n + 4) {
+    .modal .card-body>div:nth-child(-n + 4) {
         display: flex;
         justify-content: flex-start;
         align-items: center;
@@ -1922,7 +1942,7 @@ form#editPrinterForm {
         margin: 0;
     }
 
-    .modal .card-body > div > h6 {
+    .modal .card-body>div>h6 {
         width: 150px;
         font-weight: 600;
         text-align: left;
@@ -2077,7 +2097,7 @@ form#editPrinterForm {
         justify-content: center;
     }
 
-    #printer ul > li {
+    #printer ul>li {
         width: calc(100% / 2 - 5px);
     }
 

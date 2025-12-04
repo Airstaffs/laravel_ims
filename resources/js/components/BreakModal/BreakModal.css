@@ -1,0 +1,172 @@
+.break-content {
+    padding: 2rem 1rem;
+}
+
+/* Idle State */
+.break-idle {
+    text-align: center;
+}
+
+.break-icon {
+    color: #007bff;
+    margin-bottom: 1.5rem;
+}
+
+.break-idle h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+}
+
+.break-idle p {
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+}
+
+.break-info {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    background-color: #e7f3ff;
+    border-radius: 8px;
+    color: #0066cc;
+    font-size: 0.9rem;
+}
+
+/* Active State */
+.break-active {
+    text-align: center;
+}
+
+.timer-circle {
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 2rem;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 20px rgba(0, 123, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.timer-circle.warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+    box-shadow: 0 4px 20px rgba(255, 193, 7, 0.3);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+
+.timer-text {
+    color: white;
+}
+
+.time-display {
+    font-size: 3rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+}
+
+.time-label {
+    font-size: 0.9rem;
+    opacity: 0.9;
+}
+
+.break-progress {
+    margin-bottom: 1.5rem;
+}
+
+.break-progress :deep(.p-progressbar) {
+    height: 8px;
+    background-color: #e9ecef;
+}
+
+.break-progress :deep(.p-progressbar-value) {
+    background-color: #007bff;
+}
+
+.break-progress.warning-progress :deep(.p-progressbar-value) {
+    background-color: #ffc107;
+}
+
+.break-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: #6c757d;
+}
+
+/* Completed State */
+.break-completed {
+    text-align: center;
+}
+
+.completed-icon {
+    font-size: 5rem;
+    color: #28a745;
+    margin-bottom: 1.5rem;
+}
+
+.break-completed h3 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+}
+
+.break-completed p {
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+}
+
+.break-stats {
+    padding: 1rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+}
+
+.stat-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: #495057;
+}
+
+/* Footer */
+.break-footer {
+    width: 100%;
+}
+
+.break-footer :deep(.p-button) {
+    justify-content: center;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .break-content {
+        padding: 1rem 0.5rem;
+    }
+
+    .timer-circle {
+        width: 180px;
+        height: 180px;
+    }
+
+    .time-display {
+        font-size: 2.5rem;
+    }
+}

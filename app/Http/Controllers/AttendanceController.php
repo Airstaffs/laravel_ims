@@ -2,24 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\TwilioService;
+use App\Services\UserLogService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
-use Carbon\CarbonPeriod;
-use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
-
-use App\Services\UserLogService;
+use PHPMailer\PHPMailer\PHPMailer;
 
 class AttendanceController extends Controller
 {
-
     protected $userLogService;
 
-    public function __construct(UserLogService $userLogService)
+    protected $twilioService;
+
+    public function __construct(UserLogService $userLogService, TwilioService $twilioService)
     {
         $this->userLogService = $userLogService;
+        $this->twilioService = $twilioService;
     }
 
     public function attendance()
@@ -42,7 +43,6 @@ class AttendanceController extends Controller
             ->where('tblemployeeclocks.userid', $currentUserId) // Filter by the current user's ID
             ->orderBy('tblemployeeclocks.TimeIn', 'desc') // Order by TimeIn (descending)
             ->get();
-
 
         // Query the attendance data for the logged-in user, where TimeIn is in the current week
         $employeeClocksThisweek = DB::table('tblemployeeclocks')
@@ -80,13 +80,13 @@ class AttendanceController extends Controller
         $todayHours = DB::table('tblemployeeclocks')
             ->where('userid', $currentUserId)
             ->whereDate('TimeIn', Carbon::today('America/Los_Angeles'))
-            ->sum(DB::raw("
+            ->sum(DB::raw('
             TIMESTAMPDIFF(
                 MINUTE,
                 TimeIn,
                 COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR))
             )
-        "));
+        '));
 
         // Calculate This Week's Hours
         $weekHours = DB::table('tblemployeeclocks')
@@ -95,14 +95,13 @@ class AttendanceController extends Controller
                 Carbon::now('America/Los_Angeles')->startOfWeek(),
                 Carbon::now('America/Los_Angeles')->endOfWeek(),
             ])
-            ->sum(DB::raw("
+            ->sum(DB::raw('
                 TIMESTAMPDIFF(
                     MINUTE,
                     TimeIn,
                     COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR))
                 )
-            "));
-
+            '));
 
         // Format hours as H:mm
         $todayHoursFormatted = sprintf('%d hrs %02d mins', intdiv($todayHours, 60), $todayHours % 60);
@@ -171,6 +170,7 @@ class AttendanceController extends Controller
             }
 
             $mail->send();
+
             return response()->json(['success' => true, 'message' => 'Emails sent']);
         } catch (Exception $e) {
             return response()->json(['success' => false, 'message' => "Mailer Error: {$mail->ErrorInfo}"]);
@@ -250,20 +250,25 @@ class AttendanceController extends Controller
             ], 403);
         }
 
-        $maskHas = function (int $mask = null, int $dow) {
+        $maskHas = function (?int $mask, int $dow) {
             $mask = (int) ($mask ?? 0);
-            if ($mask <= 0)
+            if ($mask <= 0) {
                 return false;
+            }
             $bit = 1 << ($dow - 1);            // Mon=1 -> bit 0
-            return (($mask & $bit) !== 0);
+
+            return ($mask & $bit) !== 0;
         };
 
         // user override > template default > hard default
         $resolveMins = function ($userVal, $tmplVal, $default = 5) {
-            if (is_numeric($userVal))
+            if (is_numeric($userVal)) {
                 return (int) $userVal;
-            if (is_numeric($tmplVal))
+            }
+            if (is_numeric($tmplVal)) {
                 return (int) $tmplVal;
+            }
+
             return (int) $default;
         };
 
@@ -289,13 +294,14 @@ class AttendanceController extends Controller
             // ---- Case A: today-anchored window
             $todayMatchesDay =
                 ($hasMask && $maskHas((int) $r->days_mask, $dowToday)) ||
-                (!$hasMask && (((int) $r->day_of_week === $dowToday) || $isEveryLegacy));
+                (! $hasMask && (((int) $r->day_of_week === $dowToday) || $isEveryLegacy));
 
             if ($todayMatchesDay) {
-                $start = Carbon::parse($today . ' ' . $r->start_time, $tz);
-                $end = Carbon::parse($today . ' ' . $r->end_time, $tz);
-                if ((int) $r->end_next_day === 1)
+                $start = Carbon::parse($today.' '.$r->start_time, $tz);
+                $end = Carbon::parse($today.' '.$r->end_time, $tz);
+                if ((int) $r->end_next_day === 1) {
                     $end->addDay();
+                }
 
                 $startWithEarly = $start->copy()->subMinutes($effEarlyClockIn);
 
@@ -308,7 +314,7 @@ class AttendanceController extends Controller
                     break;
                 } elseif ($now->lt($startWithEarly)) {
                     // too early for this valid window → keep the soonest allowed
-                    if (!$tooEarly || $startWithEarly->lt($tooEarly['allowedAt'])) {
+                    if (! $tooEarly || $startWithEarly->lt($tooEarly['allowedAt'])) {
                         $tooEarly = [
                             'title' => $r->title,
                             'allowedAt' => $startWithEarly,
@@ -324,11 +330,11 @@ class AttendanceController extends Controller
             if ((int) $r->end_next_day === 1) {
                 $yesterdayMatchesDay =
                     ($hasMask && $maskHas((int) $r->days_mask, $dowYesterday)) ||
-                    (!$hasMask && (((int) $r->day_of_week === $dowYesterday) || $isEveryLegacy));
+                    (! $hasMask && (((int) $r->day_of_week === $dowYesterday) || $isEveryLegacy));
 
                 if ($yesterdayMatchesDay) {
-                    $startY = Carbon::parse($yesterday . ' ' . $r->start_time, $tz);
-                    $endY = Carbon::parse($yesterday . ' ' . $r->end_time, $tz)->addDay();
+                    $startY = Carbon::parse($yesterday.' '.$r->start_time, $tz);
+                    $endY = Carbon::parse($yesterday.' '.$r->end_time, $tz)->addDay();
 
                     $startYWithEarly = $startY->copy()->subMinutes($effEarlyClockIn);
 
@@ -346,15 +352,15 @@ class AttendanceController extends Controller
         }
 
         // No matching open window right now
-        if (!$match) {
+        if (! $match) {
             if ($tooEarly) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Too early to clock in. Earliest allowed: ' .
-                        $tooEarly['allowedAt']->format('h:i A') .
-                        ' (LA). Your shift: ' . $tooEarly['start']->format('h:i A') .
-                        ' – ' . $tooEarly['end']->format('h:i A') .
-                        ($tooEarly['title'] ? (' • ' . $tooEarly['title']) : ''),
+                    'message' => 'Too early to clock in. Earliest allowed: '.
+                        $tooEarly['allowedAt']->format('h:i A').
+                        ' (LA). Your shift: '.$tooEarly['start']->format('h:i A').
+                        ' – '.$tooEarly['end']->format('h:i A').
+                        ($tooEarly['title'] ? (' • '.$tooEarly['title']) : ''),
                     'meta' => [
                         'allowedAt' => $tooEarly['allowedAt']->toDateTimeString(),
                         'schedule' => [
@@ -395,16 +401,35 @@ class AttendanceController extends Controller
             'day_status' => $day['status'],
             'holidayID' => $day['holidayID'],
             'schedId' => $match->schedId ?? null,
-            'Notes' => ($match->title ? ('Matched schedule: ' . $match->title . ' • ') : '')
-                . 'early_clockin_mins=' . $effective['early_clockin_mins'],
+            'Notes' => ($match->title ? ('Matched schedule: '.$match->title.' • ') : '')
+                .'early_clockin_mins='.$effective['early_clockin_mins'],
         ]);
 
         $this->userLogService->log('Clockin');
-        $this->sendClockinMail($uname, $currentDatetimeStr, "Clock In");
+        $this->sendClockinMail($uname, $currentDatetimeStr, 'Clock In');
+        /*
+        $phone = DB::table('tbluser')
+            ->where('userid', $uid)
+            ->value('phone_number');
+        */
+        $phone = '+19163705657';
+
+        if ($phone) {
+            $smsBody = "Hi {$uname} clocked in at ".$now->format('h:i A').' (LA). Test Value Rawr';
+
+            $smsResult = $this->twilioService->sendSystemSms($phone, $smsBody);
+
+            // (Optional) log or attach SMS result
+            /*
+            if (!$smsResult['success']) {
+                \Log::warning('Clock-in SMS failed for user ' . $uid . ': ' . $smsResult[]);
+            }
+                */
+        }
 
         return response()->json([
             'success' => true,
-            'message' => 'Clocked in at ' . $now->format('h:i A') . ' (LA) • ' . $day['holidayTitle'],
+            'message' => 'Clocked in at '.$now->format('h:i A').' (LA) • '.$day['holidayTitle'],
             'meta' => [
                 'holiday' => $day['holidayTitle'],
                 'date' => $day['date'],
@@ -420,6 +445,7 @@ class AttendanceController extends Controller
                 'earlyByMinutes' => $earlyByMinutes,
                 'late' => $isLate,
                 'lateByMinutes' => $lateByMinutes,
+                'Data' => $smsResult,
             ],
         ]);
     }
@@ -438,7 +464,7 @@ class AttendanceController extends Controller
             ->orderByDesc('ID')
             ->first();
 
-        if (!$open) {
+        if (! $open) {
             return response()->json([
                 'success' => false,
                 'message' => 'No open clock-in record found.',
@@ -451,15 +477,19 @@ class AttendanceController extends Controller
 
         $maskHas = function ($mask, $dow) {
             $m = (int) ($mask ?? 0);
+
             return $m > 0 && (($m & (1 << ($dow - 1))) !== 0);
         };
 
         // user override > template > default
         $resolveMins = function ($userVal, $tmplVal, $default = 0) {
-            if (is_numeric($userVal))
+            if (is_numeric($userVal)) {
                 return (int) $userVal;
-            if (is_numeric($tmplVal))
+            }
+            if (is_numeric($tmplVal)) {
                 return (int) $tmplVal;
+            }
+
             return (int) $default;
         };
 
@@ -507,13 +537,14 @@ class AttendanceController extends Controller
         ];
 
         // Prefer the exact schedId stored on clock-in (keeps overrides)
-        if (!empty($open->schedId)) {
-            $linkForId = $links->first(fn($r) => (int) $r->schedId === (int) $open->schedId);
+        if (! empty($open->schedId)) {
+            $linkForId = $links->first(fn ($r) => (int) $r->schedId === (int) $open->schedId);
             if ($linkForId) {
-                $start = \Carbon\Carbon::parse($anchorDate . ' ' . $linkForId->start_time, $tz);
-                $end = \Carbon\Carbon::parse($anchorDate . ' ' . $linkForId->end_time, $tz);
-                if ((int) $linkForId->end_next_day === 1)
+                $start = \Carbon\Carbon::parse($anchorDate.' '.$linkForId->start_time, $tz);
+                $end = \Carbon\Carbon::parse($anchorDate.' '.$linkForId->end_time, $tz);
+                if ((int) $linkForId->end_next_day === 1) {
                     $end->addDay();
+                }
 
                 $matchedSched = (object) [
                     'start' => $start,
@@ -529,10 +560,11 @@ class AttendanceController extends Controller
                 // Template only (no overrides)
                 $sched = DB::table('tbltimesched')->where('timeschedId', $open->schedId)->first();
                 if ($sched) {
-                    $start = \Carbon\Carbon::parse($anchorDate . ' ' . $sched->start_time, $tz);
-                    $end = \Carbon\Carbon::parse($anchorDate . ' ' . $sched->end_time, $tz);
-                    if ((int) $sched->end_next_day === 1)
+                    $start = \Carbon\Carbon::parse($anchorDate.' '.$sched->start_time, $tz);
+                    $end = \Carbon\Carbon::parse($anchorDate.' '.$sched->end_time, $tz);
+                    if ((int) $sched->end_next_day === 1) {
                         $end->addDay();
+                    }
 
                     $matchedSched = (object) [
                         'start' => $start,
@@ -549,20 +581,22 @@ class AttendanceController extends Controller
         }
 
         // Fallback: infer the schedule by day/mask that contained TimeIn
-        if (!$matchedSched) {
+        if (! $matchedSched) {
             foreach ($links as $r) {
                 $hasMask = ((int) ($r->days_mask ?? 0) > 0);
                 $isEveryLegacy = ((int) $r->day_of_week) === 0;
 
                 $dayOk = ($hasMask && $maskHas($r->days_mask, $dowAnchor))
-                    || (!$hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowAnchor));
-                if (!$dayOk)
+                    || (! $hasMask && ($isEveryLegacy || (int) $r->day_of_week === $dowAnchor));
+                if (! $dayOk) {
                     continue;
+                }
 
-                $schedStart = \Carbon\Carbon::parse($anchorDate . ' ' . $r->start_time, $tz);
-                $schedEnd = \Carbon\Carbon::parse($anchorDate . ' ' . $r->end_time, $tz);
-                if ((int) $r->end_next_day === 1)
+                $schedStart = \Carbon\Carbon::parse($anchorDate.' '.$r->start_time, $tz);
+                $schedEnd = \Carbon\Carbon::parse($anchorDate.' '.$r->end_time, $tz);
+                if ((int) $r->end_next_day === 1) {
                     $schedEnd->addDay();
+                }
 
                 if ($timeIn->between($schedStart, $schedEnd, true)) {
                     $matchedSched = (object) [
@@ -633,7 +667,7 @@ class AttendanceController extends Controller
 
         $update = ['TimeOut' => $now];
 
-        if (!empty($notes)) {
+        if (! empty($notes)) {
             $joined = implode(' • ', $notes);
             $quoted = DB::getPdo()->quote($joined);
             $update['systemNotes'] = DB::raw(
@@ -650,11 +684,11 @@ class AttendanceController extends Controller
 
         $uname = Auth::user()->username;
         $currentDatetimeStr = $now->format('Y-m-d H:i:s');
-        $this->sendClockinMail($uname, $currentDatetimeStr, "Clock Out");
+        $this->sendClockinMail($uname, $currentDatetimeStr, 'Clock Out');
 
         return response()->json([
             'success' => true,
-            'message' => 'Clocked out at ' . $now->format('h:i A') . ' (LA)' . ($isAuto ? ' • Auto-clockout noted' : ''),
+            'message' => 'Clocked out at '.$now->format('h:i A').' (LA)'.($isAuto ? ' • Auto-clockout noted' : ''),
             'meta' => [
                 'scheduledStart' => $matchedSched ? $matchedSched->start->toDateTimeString() : null,
                 'scheduledEnd' => $matchedSched ? $matchedSched->end->toDateTimeString() : null,
@@ -667,7 +701,6 @@ class AttendanceController extends Controller
             ],
         ]);
     }
-
 
     /**
      * Tiny helper to safely quote a string for DB::raw() usage.
@@ -709,7 +742,7 @@ class AttendanceController extends Controller
                     ->where('ID', $record->ID)
                     ->update([
                         'TimeOut' => $record->TimeIn,
-                        'Notes' => 'System Auto Clock-out applied. TimeOut matched TimeIn at ' . $record->TimeIn,
+                        'Notes' => 'System Auto Clock-out applied. TimeOut matched TimeIn at '.$record->TimeIn,
                     ]);
 
                 $this->userLogService->log("Auto Clockout: User ID {$currentUserId} clocked out record ID {$record->ID} at {$record->TimeIn}");
@@ -747,7 +780,7 @@ class AttendanceController extends Controller
         return response()->json([
             'hours' => $hours,
             'minutes' => $minutes,
-            'message' => !$request->timeOut ? 'Calculated until now' : null,
+            'message' => ! $request->timeOut ? 'Calculated until now' : null,
         ]);
     }
 
@@ -760,13 +793,13 @@ class AttendanceController extends Controller
         $todayHours = DB::table('tblemployeeclocks')
             ->where('userid', $currentUserId)
             ->whereDate('TimeIn', Carbon::today('America/Los_Angeles'))
-            ->sum(DB::raw("
+            ->sum(DB::raw('
                 TIMESTAMPDIFF(
                     MINUTE,
                     TimeIn,
                     COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR))
                 )
-            "));
+            '));
 
         // Calculate This Week's Hours
         $weekHours = DB::table('tblemployeeclocks')
@@ -775,13 +808,13 @@ class AttendanceController extends Controller
                 Carbon::now('America/Los_Angeles')->startOfWeek(),
                 Carbon::now('America/Los_Angeles')->endOfWeek(),
             ])
-            ->sum(DB::raw("
+            ->sum(DB::raw('
                 TIMESTAMPDIFF(
                     MINUTE,
                     TimeIn,
                     COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR))
                 )
-            "));
+            '));
 
         // Format hours as H:mm
         $todayHoursFormatted = sprintf('%d hrs %02d mins', intdiv($todayHours, 60), $todayHours % 60);
@@ -899,12 +932,14 @@ class AttendanceController extends Controller
             ->orderByDesc('userschedId')
             ->first();
 
-        if (!$link)
+        if (! $link) {
             return 0;
+        }
 
         $ts = DB::table('tbltimesched')->where('timeschedId', $link->schedId)->first();
-        if (!$ts)
+        if (! $ts) {
             return 0;
+        }
 
         // Enforce day-of-week match: 0=Everyday, 1=Mon..7=Sun
         $dow = (int) $shiftDateLA->dayOfWeekIso; // 1-7
@@ -918,9 +953,11 @@ class AttendanceController extends Controller
     /** Seconds elapsed for an ongoing break (server clock). */
     private function currentBreakElapsedSeconds($clock, Carbon $nowLA): int
     {
-        if (!$clock || !$clock->shortbreak_start || ($clock->shortbreak_status ?? null) !== 'on_break')
+        if (! $clock || ! $clock->shortbreak_start || ($clock->shortbreak_status ?? null) !== 'on_break') {
             return 0;
+        }
         $start = Carbon::parse($clock->shortbreak_start, self::LA_TZ);
+
         return max(0, $start->diffInSeconds($nowLA));
     }
 
@@ -934,7 +971,7 @@ class AttendanceController extends Controller
         // 0) Fetch open clock (if none, short-circuit)
         // ------------------------------
         $clock = $this->getOpenClock($userId);
-        if (!$clock) {
+        if (! $clock) {
             return response()->json([
                 'hasOpenClock' => false,
                 'message' => 'No open shift.',
@@ -957,8 +994,9 @@ class AttendanceController extends Controller
             DB::transaction(function () use ($userId, $allowed) {
                 $nowLA = Carbon::now(self::LA_TZ);
                 $row = $this->getOpenClockForUpdate($userId);
-                if (!$row)
+                if (! $row) {
                     return;
+                }
 
                 $prior = (float) ($row->shortbreak_totaltime ?? 0.0);
                 $capMin = max(0.0, $allowed - $prior);
@@ -971,7 +1009,7 @@ class AttendanceController extends Controller
                         'shortbreak_end' => $end,
                         'shortbreak_totaltime' => $allowed,
                         'shortbreak_status' => 'done',
-                        'systemNotes' => trim(($row->systemNotes ?? '') . ' [auto-end break at allowance]'),
+                        'systemNotes' => trim(($row->systemNotes ?? '').' [auto-end break at allowance]'),
                     ]);
             });
 
@@ -1022,6 +1060,7 @@ class AttendanceController extends Controller
 
         $maskHas = function ($mask, $dow) {
             $m = (int) ($mask ?? 0);
+
             return $m > 0 && (($m & (1 << ($dow - 1))) !== 0);
         };
 
@@ -1032,15 +1071,17 @@ class AttendanceController extends Controller
             $isEveryLegacy = ((int) $r->day_of_week) === 0;
 
             $dayOk = ($hasMask && $maskHas($r->days_mask, $anchorDay))
-                || (!$hasMask && ($isEveryLegacy || (int) $r->day_of_week === $anchorDay));
+                || (! $hasMask && ($isEveryLegacy || (int) $r->day_of_week === $anchorDay));
 
-            if (!$dayOk)
+            if (! $dayOk) {
                 continue;
+            }
 
-            $schedStart = Carbon::parse($anchorDateStr . ' ' . $r->start_time, self::LA_TZ);
-            $schedEnd = Carbon::parse($anchorDateStr . ' ' . $r->end_time, self::LA_TZ);
-            if ((int) $r->end_next_day === 1)
+            $schedStart = Carbon::parse($anchorDateStr.' '.$r->start_time, self::LA_TZ);
+            $schedEnd = Carbon::parse($anchorDateStr.' '.$r->end_time, self::LA_TZ);
+            if ((int) $r->end_next_day === 1) {
                 $schedEnd->addDay();
+            }
 
             if ($timeIn->between($schedStart, $schedEnd, true)) {
                 $match = (object) [
@@ -1075,15 +1116,15 @@ class AttendanceController extends Controller
                 ->where('nu.userid', $userId)
                 ->where('n.action_made', 'auto_clockout_soon')
                 ->whereDate('n.created_at', Carbon::now('UTC')->toDateString())
-                ->where('n.link_data', 'like', '%"clock_id":' . ((int) $clock->ID) . '%')
+                ->where('n.link_data', 'like', '%"clock_id":'.((int) $clock->ID).'%')
                 ->exists();
 
-            if (!$existingNotif) {
+            if (! $existingNotif) {
                 $notifId = DB::table('tblnotifications')->insertGetId([
                     'module' => 'HR',
                     'title' => 'You will be auto-clocked out soon',
                     'subtitle' => null,
-                    'content' => 'You have about ' . $minsToCap . ' minute(s) before auto clockout.',
+                    'content' => 'You have about '.$minsToCap.' minute(s) before auto clockout.',
                     'severity' => 'warning',
                     'action_made' => 'auto_clockout_soon',
                     'link_data' => json_encode([
@@ -1130,7 +1171,7 @@ class AttendanceController extends Controller
         // 3) Response
         // ------------------------------
         return response()->json([
-            'hasOpenClock' => !$autoClockedOut, // if auto-clocked out, no open shift anymore
+            'hasOpenClock' => ! $autoClockedOut, // if auto-clocked out, no open shift anymore
             'status' => $clock ? ($clock->shortbreak_status ?? 'idle') : 'idle',
             'allowedMin' => (float) $allowed,
             'usedMin' => (float) $usedMinutes + $elapsedMin,
@@ -1155,11 +1196,13 @@ class AttendanceController extends Controller
     public function start(Request $request)
     {
         $userId = Auth::id();
+
         return DB::transaction(function () use ($userId) {
             $nowLA = Carbon::now(self::LA_TZ);
             $row = $this->getOpenClockForUpdate($userId);
-            if (!$row)
+            if (! $row) {
                 return response()->json(['error' => 'No open shift.'], 422);
+            }
 
             if (($row->shortbreak_status ?? null) === 'on_break') {
                 return response()->json(['error' => 'Already on break.'], 409);
@@ -1186,13 +1229,15 @@ class AttendanceController extends Controller
     public function end(Request $request)
     {
         $userId = Auth::id();
+
         return DB::transaction(function () use ($userId) {
             $nowLA = Carbon::now(self::LA_TZ);
             $row = $this->getOpenClockForUpdate($userId);
-            if (!$row)
+            if (! $row) {
                 return response()->json(['error' => 'No open shift.'], 422);
+            }
 
-            if (($row->shortbreak_status ?? null) !== 'on_break' || !$row->shortbreak_start) {
+            if (($row->shortbreak_status ?? null) !== 'on_break' || ! $row->shortbreak_start) {
                 return response()->json(['error' => 'Not currently on break.'], 409);
             }
 
@@ -1228,7 +1273,7 @@ class AttendanceController extends Controller
     {
         $userId = Auth::id();
         $ym = $req->query('ym'); // YYYY-MM
-        if (!$ym || !preg_match('/^\d{4}-\d{2}$/', $ym)) {
+        if (! $ym || ! preg_match('/^\d{4}-\d{2}$/', $ym)) {
             return response()->json(['error' => 'Invalid ym'], 400);
         }
 
@@ -1275,10 +1320,11 @@ class AttendanceController extends Controller
                     'start_time',
                     'end_time',
                     'end_next_day',
-                    'title'
+                    'title',
                 ]);
-            foreach ($blocks as $b)
+            foreach ($blocks as $b) {
                 $bySched[$b->schedId] = $b;
+            }
         }
 
         // holidays
@@ -1333,16 +1379,17 @@ class AttendanceController extends Controller
             // holidays
             $hols = array_merge($holidayAbs[$iso] ?? [], $holidayByMD[$md] ?? []);
             $holiday_full = $hols
-                ? ('Holiday: ' . implode(' / ', array_map(
-                    fn($h) => ($h['status'] ? ($h['status'] . ': ') : '') . $h['title'],
+                ? ('Holiday: '.implode(' / ', array_map(
+                    fn ($h) => ($h['status'] ? ($h['status'].': ') : '').$h['title'],
                     $hols
                 )))
                 : '';
 
             // active link for this date
             $active = $links->first(function ($lnk) use ($d) {
-                $fromOk = !$lnk->effective_from || \Carbon\Carbon::parse($lnk->effective_from)->startOfDay() <= $d;
-                $toOk = !$lnk->effective_to || \Carbon\Carbon::parse($lnk->effective_to)->endOfDay() >= $d;
+                $fromOk = ! $lnk->effective_from || \Carbon\Carbon::parse($lnk->effective_from)->startOfDay() <= $d;
+                $toOk = ! $lnk->effective_to || \Carbon\Carbon::parse($lnk->effective_to)->endOfDay() >= $d;
+
                 return $fromOk && $toOk;
             });
 
@@ -1372,8 +1419,8 @@ class AttendanceController extends Controller
                     ];
 
                     // schedule window anchored to this date
-                    $scheduledStartDT = \Carbon\Carbon::parse($iso . ' ' . $row->start_time);
-                    $scheduledEndDT = \Carbon\Carbon::parse($iso . ' ' . $row->end_time);
+                    $scheduledStartDT = \Carbon\Carbon::parse($iso.' '.$row->start_time);
+                    $scheduledEndDT = \Carbon\Carbon::parse($iso.' '.$row->end_time);
                     if ((int) $row->end_next_day === 1) {
                         $scheduledEndDT->addDay();
                     }
@@ -1384,8 +1431,8 @@ class AttendanceController extends Controller
             $timeLabel = '—';
             if ($entries) {
                 $timeLabel = count($entries) === 1
-                    ? ($entries[0]['start'] . '–' . $entries[0]['end'])
-                    : (count($entries) . ' shifts');
+                    ? ($entries[0]['start'].'–'.$entries[0]['end'])
+                    : (count($entries).' shifts');
             }
             $label = $timeLabel;
 
@@ -1445,7 +1492,84 @@ class AttendanceController extends Controller
         return response()->json(['ym' => $ym, 'byDate' => $byDate]);
     }
 
+    public function getProfileData(Request $request)
+    {
+        $currentUserId = Auth::id();
+        $tz = 'America/Los_Angeles';
 
+        // Get this week's attendance records
+        $employeeClocksThisweek = DB::table('tblemployeeclocks')
+            ->join('tbluser', 'tblemployeeclocks.userid', '=', 'tbluser.id')
+            ->select(
+                'tblemployeeclocks.ID as id',
+                'tblemployeeclocks.userid',
+                'tblemployeeclocks.Employee',
+                'tblemployeeclocks.TimeIn as timeIn',
+                'tblemployeeclocks.TimeOut as timeOut',
+                'tblemployeeclocks.Notes as notes',
+                'tbluser.username'
+            )
+            ->where('tblemployeeclocks.userid', $currentUserId)
+            ->whereBetween('tblemployeeclocks.TimeIn', [
+                Carbon::now($tz)->startOfWeek(),
+                Carbon::now($tz)->endOfWeek(),
+            ])
+            ->orderBy('tblemployeeclocks.TimeIn', 'desc')
+            ->get();
 
+        // Get the most recent record
+        $lastRecord = DB::table('tblemployeeclocks')
+            ->where('userid', $currentUserId)
+            ->orderBy('ID', 'desc')
+            ->first();
 
+        $verylastRecord = DB::table('tblemployeeclocks')
+            ->where('userid', $currentUserId)
+            ->orderBy('ID', 'desc')
+            ->first();
+
+        // Calculate Today's Hours
+        $todayHours = DB::table('tblemployeeclocks')
+            ->where('userid', $currentUserId)
+            ->whereDate('TimeIn', Carbon::today($tz))
+            ->sum(DB::raw('
+            TIMESTAMPDIFF(
+                MINUTE,
+                TimeIn,
+                COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR))
+            )
+        '));
+
+        // Calculate This Week's Hours
+        $weekHours = DB::table('tblemployeeclocks')
+            ->where('userid', $currentUserId)
+            ->whereBetween('TimeIn', [
+                Carbon::now($tz)->startOfWeek(),
+                Carbon::now($tz)->endOfWeek(),
+            ])
+            ->sum(DB::raw('
+            TIMESTAMPDIFF(
+                MINUTE,
+                TimeIn,
+                COALESCE(TimeOut, DATE_SUB(NOW(), INTERVAL 8 HOUR))
+            )
+        '));
+
+        // Format hours
+        $todayHoursFormatted = sprintf('%d hrs %02d mins', intdiv($todayHours, 60), $todayHours % 60);
+        $weekHoursFormatted = sprintf('%d hrs %02d mins', intdiv($weekHours, 60), $weekHours % 60);
+
+        // Determine clock in/out button states
+        $canClockIn = ! $lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut);
+        $canClockOut = $lastRecord && $lastRecord->TimeIn && ! $lastRecord->TimeOut;
+
+        return response()->json([
+            'records' => $employeeClocksThisweek,
+            'todayHours' => $todayHoursFormatted,
+            'weekHours' => $weekHoursFormatted,
+            'lastRecordTimeIn' => $verylastRecord ? Carbon::parse($verylastRecord->TimeIn)->toIso8601String() : '',
+            'canClockIn' => $canClockIn,
+            'canClockOut' => $canClockOut,
+        ]);
+    }
 }

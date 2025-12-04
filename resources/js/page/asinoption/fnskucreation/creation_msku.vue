@@ -82,27 +82,57 @@
                 <strong>Selected ASIN:</strong>
                 {{ selectedAsin.ASIN }} – {{ selectedAsin.title }}
             </div>
+            <h4 class="section-title">Step 3: Generate MSKU</h4>
+            <button
+                type="button"
+                class="button-secondary bypass-toggle"
+                @click="toggleBypassMode"
+            >
+                Bypass Amzn Condition: {{ bypassMode ? "ON" : "OFF" }}
+            </button>
         </div>
 
         <!-- Step 3: MSKU Generation -->
         <div class="step" v-if="selectedAsin">
-            <h4 class="section-title">Step 3: Generate MSKU</h4>
+            <div class="section-title-row"></div>
 
             <label class="input-label">Condition</label>
-            <select v-model="selectedCondition" class="search-input">
+            <select
+                v-model="selectedCondition"
+                class="search-input"
+                :disabled="allowedConditionsLoading || !hasAvailableConditions"
+            >
+                <option disabled value="">Select Condition</option>
                 <option
-                    v-for="(label, key) in conditionMap"
-                    :value="key"
+                    v-for="(label, key) in currentConditionMap"
                     :key="key"
+                    :value="key"
                 >
                     {{ label }}
                 </option>
             </select>
 
+            <!-- Only show Amazon restriction text when NOT bypassing -->
+            <div
+                v-if="!bypassMode && allowedConditionsLoading"
+                class="small-hint"
+            >
+                Checking conditions with Amazon…
+            </div>
+            <div
+                v-if="!bypassMode && allowedConditionsError"
+                class="small-error"
+            >
+                {{ allowedConditionsError }}
+            </div>
+
             <button
                 @click="generateMSKU"
                 :disabled="
-                    !selectedAsin || !selectedCondition || !selectedStore
+                    !selectedAsin ||
+                    !selectedCondition ||
+                    !selectedStore ||
+                    !hasAvailableConditions
                 "
                 class="button-primary"
             >

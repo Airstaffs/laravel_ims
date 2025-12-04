@@ -5,7 +5,8 @@ import { SoundService } from "../../components/Sound_service";
 import "../../../css/modules.css";
 import Ds7OosModal from "./modals/ds7oos.vue";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+// Fallback to current origin if VITE_API_URL is not set to avoid undefined requests
+const API_BASE_URL = import.meta.env.VITE_API_URL || window.location.origin;
 
 export default {
     name: "StockroomModule",
@@ -62,6 +63,16 @@ export default {
             selectedItems: [],
             selectAllItems: false,
             isProcessing: false,
+
+
+            //printing function 
+            showPrinterSelectionModal: false,
+            selectedPrinterForPrint: null,
+            availablePrinters: [],
+            loadingPrinters: false,
+            selectedItemsForPrint: [],
+            printSmallLabelOnly: false,
+            rememberedPrinterId: null,
 
             //scanned newly items - Updated for modal integration
             newScannedCount: 0,
@@ -183,14 +194,17 @@ export default {
             );
         },
         shouldShowBadge() {
-            // FIXED: More robust badge visibility logic
-            return (
-                this.newScannedCount > 0 &&
-                this.newScannedCount !== null &&
-                this.newScannedCount !== undefined &&
-                !isNaN(this.newScannedCount)
-            );
-        },
+        console.log('🔍 Badge visibility check:', {
+            count: this.newScannedCount,
+            type: typeof this.newScannedCount,
+            isNumber: !isNaN(this.newScannedCount),
+            isGreaterThanZero: this.newScannedCount > 0
+        });
+        
+        // Simple, clear logic
+        const count = Number(this.newScannedCount);
+        return !isNaN(count) && count > 0;
+       },
 
         badgeClasses() {
             const count = this.newScannedCount || 0;
@@ -209,6 +223,50 @@ export default {
             const uniq = Array.from(new Set(this.stores || []));
             return uniq.sort((a, b) => String(a).localeCompare(String(b)));
         },
+
+        singlePrinters() {
+                return this.availablePrinters.filter(printer => !printer.is_married);
+            },
+
+            marriedPrinters() {
+                return this.availablePrinters.filter(printer => printer.is_married);
+            },
+
+            // Group married printers into pairs
+            marriedPrinterGroups() {
+                const married = this.marriedPrinters;
+                const groups = [];
+                const processed = new Set();
+                
+                for (let i = 0; i < married.length; i++) {
+                    const printer = married[i];
+                    
+                    // Skip if already processed
+                    if (processed.has(printer.printerid)) continue;
+                    
+                    // Find its partner (next married printer or itself)
+                    const partner = married[i + 1];
+                    
+                    if (partner && !processed.has(partner.printerid)) {
+                        // Found a pair
+                        groups.push({
+                            label: `${printer.printername_short} & ${partner.printername_short}`,
+                            value: `${printer.printerid},${partner.printerid}` // Store both IDs
+                        });
+                        processed.add(printer.printerid);
+                        processed.add(partner.printerid);
+                    } else {
+                        // Single married printer (no partner found)
+                        groups.push({
+                            label: printer.printername_short,
+                            value: printer.printerid.toString()
+                        });
+                        processed.add(printer.printerid);
+                    }
+                }
+                
+                return groups;
+            },
     },
     methods: {
         setupDailyReset() {
@@ -247,27 +305,26 @@ export default {
         },
 
         // Add this method for better error recovery new scan count
-        async fetchCountWithRetry(maxRetries = 3) {
+       async fetchCountWithRetry(maxRetries = 3) {
             for (let attempt = 1; attempt <= maxRetries; attempt++) {
                 try {
-                    await this.fetchNewScannedCount();
+                    console.log(`🔄 Fetch attempt ${attempt}/${maxRetries}`);
+                    
+                    // CRITICAL FIX: Call refreshNewScannedCount instead of fetchNewScannedCount
+                    await this.refreshNewScannedCount();
+                    
+                    console.log(`✅ Success on attempt ${attempt}, count:`, this.newScannedCount);
                     return; // Success, exit retry loop
                 } catch (error) {
-                    console.log(
-                        `Count fetch attempt ${attempt} failed:`,
-                        error.message
-                    );
+                    console.log(`⚠️ Attempt ${attempt} failed:`, error.message);
 
                     if (attempt === maxRetries) {
-                        console.error(
-                            "All retry attempts failed for count fetch"
-                        );
-                        // Don't reset count to 0 - keep existing value
+                        console.error("❌ All retry attempts failed");
                         return;
                     }
 
                     // Wait before retrying (exponential backoff)
-                    const delay = Math.pow(2, attempt) * 1000;
+                    const delay = Math.pow(2, attempt) * 500; // 500ms, 1s, 2s
                     await new Promise((resolve) => setTimeout(resolve, delay));
                 }
             }
@@ -296,30 +353,21 @@ export default {
 
         // Format the item count to show pack information
         formatItemCount(item) {
-            if (!item) return "0";
+        if (!item) return "0";
 
-            // Check if this is a pack item
-            if (item.pack_size && item.pack_size > 1) {
-                // For pack items, show both the box count and the total units
-                return `${item.box_count} boxes (${item.item_count} units)`;
-            }
+        // New logic based on QuantityInside from tblasin
+        const quantityInside = item.quantity_inside || 1;
+        const unitCount = item.unit_count || item.box_count || 0;
+        const totalQuantity = item.item_count || 0;
 
-            // For regular items, just show the count
-            return item.item_count.toString();
-        },
+        if (quantityInside > 1) {
+            // Show units and total quantity
+            return `${unitCount} units (${totalQuantity} qty)`;
+        }
 
-        // Extract and display pack information
-        getPackInfo(item) {
-            if (!item || !item.AStitle) return "";
-
-            // Check for pack information in the title
-            const packMatch = item.AStitle.match(/(\d+)-Pack/i);
-            if (packMatch && packMatch[1]) {
-                return `${packMatch[1]}-Pack`;
-            }
-
-            return "";
-        },
+        // For single quantity items, just show the count
+        return totalQuantity.toString();
+    },
 
         // Add a separate method for viewing product image
         viewProductImage(item) {
@@ -330,10 +378,12 @@ export default {
 
         // Regular product details modal
         viewProductDetails(item) {
-            const processedItem = this.applyGradeConversion([item])[0];
-            this.selectedProduct = processedItem;
-            this.showProductDetailsModal = true;
-        },
+    const processedItem = this.applyGradeConversion([item])[0];
+    this.selectedProduct = processedItem;
+    this.showProductDetailsModal = true;
+
+},
+
 
         // Close product details modal
         closeProductDetailsModal() {
@@ -435,24 +485,19 @@ export default {
 
         // Validate the item count against serials
         validateItemCount(item) {
-            if (!item) return true;
+        if (!item) return true;
 
-            // If no serials, just return true
-            if (!item.serials || item.serials.length === 0) {
-                return true;
-            }
+        // If no serials, just return true
+        if (!item.serials || item.serials.length === 0) {
+            return true;
+        }
 
-            // For pack items, we need to check if the actual serial count matches the box count
-            // rather than the total item count (which includes the multiplication by pack size)
-            if (item.pack_size && item.pack_size > 1) {
-                const serialCount = item.serials.length;
-                return serialCount === item.box_count;
-            }
-
-            // For regular items, compare serials count with item_count directly
-            const serialCount = item.serials.length;
-            return serialCount === item.item_count;
-        },
+        // Check if the number of serials matches the unit_count
+        const serialCount = item.serials.length;
+        const unitCount = item.unit_count || item.box_count || 0;
+        
+        return serialCount === unitCount;
+    },
 
         convertItemCondition(
             itemCondition,
@@ -624,37 +669,39 @@ export default {
 
         // Add this method to your methods section:
         calculateInventoryCounts() {
-            let totalCount = 0;
-            let qohCount = 0;
-            let fbmCount = 0;
-            let fbaCount = 0;
+    let totalCount = 0;  // Number of rows/records
+    let qohCount = 0;    // Sum of all quantities in stockroom
+    let fbmCount = 0;    // Amazon FBM
+    let fbaCount = 0;    // Amazon FBA
 
-            // Make sure inventory exists and is an array
-            if (Array.isArray(this.inventory) && this.inventory.length > 0) {
-                this.inventory.forEach((item) => {
-                    // Add to total count
-                    totalCount += parseInt(item.item_count || 0);
+    if (Array.isArray(this.inventory) && this.inventory.length > 0) {
+        this.inventory.forEach((item) => {
+            // ✅ CORRECT: Count each product row
+            totalCount += 1;
 
-                    // Calculate QOH (Quantity on Hand) - sum of FBM and FBA
-                    const fbmAvailable = parseInt(item.FBMAvailable || 0);
-                    const fbaAvailable = parseInt(item.FbaAvailable || 0);
+            // ✅ CORRECT: Sum of all item_count (which includes QuantityInside)
+            qohCount += parseInt(item.item_count || 0);
 
-                    fbmCount += fbmAvailable;
-                    fbaCount += fbaAvailable;
-                    qohCount += fbmAvailable + fbaAvailable;
-                });
-            }
+            // Amazon inventory counts (separate from stockroom)
+            const fbmAvailable = parseInt(item.FBMAvailable || 0);
+            const fbaAvailable = parseInt(item.FbaAvailable || 0);
 
-            // Update the counts object
-            this.inventoryCounts = {
-                total: totalCount,
-                qoh: qohCount,
-                fbm: fbmCount,
-                fba: fbaCount,
-            };
+            fbmCount += fbmAvailable;
+            fbaCount += fbaAvailable;
+        });
+    }
 
-            console.log("Inventory counts calculated:", this.inventoryCounts);
-        },
+    this.inventoryCounts = {
+        total: totalCount,      // Number of product records in table
+        qoh: qohCount,          // Total quantity in stockroom (with QuantityInside)
+        fbm: fbmCount,          // Amazon FBM inventory
+        fba: fbaCount,          // Amazon FBA inventory
+    };
+
+    console.log("Inventory counts calculated:", this.inventoryCounts);
+    console.log("- Total product records:", totalCount);
+    console.log("- Total QOH (quantity with QuantityInside):", qohCount);
+},
 
         // Modified fetchInventory with count validation
         // Update your fetchInventory method to call calculateInventoryCounts:
@@ -687,13 +734,17 @@ export default {
                         fnskus: item.fnskus || [],
                         useDefaultImage: false,
                         countValid: true,
-                        pack_size: item.pack_size || 1,
-                        box_count: item.box_count || item.item_count,
+                       
+
+                        quantity_inside: item.quantity_inside || 1,
+                        unit_count: item.unit_count || item.box_count || 0,
+                        item_count: item.item_count || 0,
+                        box_count: item.box_count || item.unit_count || 0,
                     };
 
+               
                     // Validate the item count
-                    itemWithFlags.countValid =
-                        this.validateItemCount(itemWithFlags);
+                    itemWithFlags.countValid = this.validateItemCount(itemWithFlags);
 
                     return itemWithFlags;
                 });
@@ -991,19 +1042,348 @@ export default {
             }
         },
 
-        // Print selected items
-        printSelectedItems() {
-            if (!this.hasSelectedItems) {
-                alert("Please select at least one item to print.");
-                return;
+         // printer functions 
+
+    savePrinterPreference(printerId) {
+    try {
+        // Convert to string to ensure consistency
+        const printerIdString = printerId.toString();
+        localStorage.setItem('preferred_printer_id', printerIdString);
+        this.rememberedPrinterId = printerIdString;
+        console.log('Saved printer preference:', printerIdString);
+    } catch (error) {
+        console.error('Error saving printer preference:', error);
+    }
+},
+
+    /**
+     * Load printer preference from localStorage
+     */
+    loadPrinterPreference() {
+        try {
+            const savedPrinterId = localStorage.getItem('preferred_printer_id');
+            if (savedPrinterId) {
+                this.rememberedPrinterId = savedPrinterId;
+                console.log('Loaded printer preference:', savedPrinterId);
+                return savedPrinterId;
+            }
+        } catch (error) {
+            console.error('Error loading printer preference:', error);
+        }
+        return null;
+    },
+
+    /**
+     * Clear printer preference
+     */
+   clearPrinterPreference() {
+        try {
+            localStorage.removeItem('preferred_printer_id');
+            this.rememberedPrinterId = null;
+            this.selectedPrinterForPrint = null; // Clear the dropdown selection
+            console.log('Cleared printer preference');
+            
+            // Don't show alert if called automatically due to invalid printer
+            if (this.showPrinterSelectionModal) {
+                alert('Printer preference cleared. Please select a printer.');
+            }
+        } catch (error) {
+            console.error('Error clearing printer preference:', error);
+        }
+    },
+
+   // Print selected items
+  async printSelectedItems() {
+    if (!this.hasSelectedItems) {
+        alert("Please select at least one item to print.");
+        return;
+    }
+
+    // Get serial numbers for selected items
+    this.selectedItemsForPrint = [];
+    
+    for (const itemId of this.selectedItems) {
+        const serial = this.currentProcessItem.serials.find(
+            s => s.ProductID === itemId
+        );
+        
+        if (serial && serial.serialnumber) {
+            this.selectedItemsForPrint.push({
+                productId: itemId,
+                serialNumber: serial.serialnumber,
+                rtCounter: serial.rtcounter,
+                fnsku: serial.FNSKUviewer
+            });
+        }
+    }
+
+    if (this.selectedItemsForPrint.length === 0) {
+        alert("No valid serial numbers found for selected items.");
+        return;
+    }
+
+    console.log('Items to print:', this.selectedItemsForPrint);
+
+    // IMPORTANT: Fetch available printers FIRST
+    await this.fetchAvailablePrinters();
+    
+    // THEN auto-select remembered printer AFTER printers are loaded
+    const rememberedPrinterId = this.loadPrinterPreference();
+    
+    if (rememberedPrinterId) {
+        console.log('Checking for remembered printer:', rememberedPrinterId);
+        
+        // Check if remembered printer exists in available printers
+        // Handle both single printer IDs and married printer pairs (comma-separated)
+        const printerExists = this.availablePrinters.some(p => {
+            // Check single printer ID
+            if (p.printerid == rememberedPrinterId) {
+                return true;
+            }
+            // Check married printer pair
+            if (rememberedPrinterId.includes(',')) {
+                const ids = rememberedPrinterId.split(',');
+                return ids.includes(p.printerid.toString());
+            }
+            return false;
+        });
+        
+        // Also check married printer groups
+        const groupExists = this.marriedPrinterGroups.some(g => g.value === rememberedPrinterId);
+        
+        if (printerExists || groupExists) {
+            this.selectedPrinterForPrint = rememberedPrinterId;
+            console.log('Auto-selected remembered printer:', rememberedPrinterId);
+            
+            // Use Vue's nextTick to ensure the DOM is updated
+            this.$nextTick(() => {
+                console.log('Selected printer in dropdown:', this.selectedPrinterForPrint);
+            });
+        } else {
+            console.log('Remembered printer not found in available printers:', rememberedPrinterId);
+            // Clear invalid remembered printer
+            this.clearPrinterPreference();
+        }
+    } else {
+        console.log('No remembered printer found');
+    }
+    
+    // Show printer selection modal
+    this.showPrinterSelectionModal = true;
+},
+
+    // Close printer selection modal
+    closePrinterSelectionModal() {
+        this.showPrinterSelectionModal = false;
+        this.selectedPrinterForPrint = null;
+        this.selectedItemsForPrint = [];
+        this.printSmallLabelOnly = false;
+    },
+
+        // Confirm and execute print with selected printer
+  async confirmPrintSelected() {
+        if (!this.selectedPrinterForPrint) {
+            alert("Please select a printer first.");
+            return;
+        }
+
+        if (this.selectedItemsForPrint.length === 0) {
+            alert("No items to print.");
+            return;
+        }
+
+        this.isProcessing = true;
+
+        try {
+            let successCount = 0;
+            let failCount = 0;
+            const errors = [];
+
+            // Extract the first printer ID as an integer
+            const printerIds = this.selectedPrinterForPrint.includes(',') 
+                ? this.selectedPrinterForPrint.split(',')
+                : [this.selectedPrinterForPrint];
+
+            const primaryPrinterId = parseInt(printerIds[0]);
+
+            // Save printer preference after successful selection
+            this.savePrinterPreference(this.selectedPrinterForPrint);
+
+            // Get printer names for display
+            const printerNames = printerIds.map(id => {
+                const printer = this.availablePrinters.find(p => p.printerid == id);
+                return printer ? printer.printername_short : id;
+            }).join(' & ');
+
+            console.log(`Starting batch print to ${printerNames}...`);
+            console.log(`Print mode: ${this.printSmallLabelOnly ? 'Small Label Only' : 'Full Label with Instruction Card'}`);
+
+            // Print each selected item
+            for (const item of this.selectedItemsForPrint) {
+                try {
+                    const result = await this.printLabelWithSerial(
+                        item.serialNumber, 
+                        primaryPrinterId,
+                        this.printSmallLabelOnly
+                    );
+                    
+                    if (result.success) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                        errors.push(`${item.serialNumber}: ${result.message}`);
+                    }
+                } catch (error) {
+                    failCount++;
+                    errors.push(`${item.serialNumber}: ${error.message}`);
+                }
             }
 
-            this.selectedItems.forEach((itemId) => {
-                this.printLabel(itemId);
+            let message = `Printing completed to ${printerNames}:\n${successCount} successful`;
+            if (failCount > 0) {
+                message += `\n${failCount} failed`;
+                if (errors.length > 0) {
+                    message += `\n\nErrors:\n${errors.slice(0, 3).join('\n')}`;
+                    if (errors.length > 3) {
+                        message += `\n...and ${errors.length - 3} more`;
+                    }
+                }
+            }
+
+            alert(message);
+
+            this.closePrinterSelectionModal();
+            
+            if (failCount === 0) {
+                this.closeProcessModal();
+            }
+            
+            this.fetchInventory();
+
+        } catch (error) {
+            console.error('Error printing selected items:', error);
+            alert('Error printing items: ' + error.message);
+        } finally {
+            this.isProcessing = false;
+        }
+    },
+
+        // Print label using serial number (uses existing printer controller)
+       async printLabelWithSerial(serialNumber, printerId, smallLabelOnly = false) {
+        try {
+            console.log('🖨️ printLabelWithSerial called with:', {
+                serialNumber,
+                printerId,
+                smallLabelOnly,
+                smallLabelOnlyType: typeof smallLabelOnly
             });
 
-            alert(`Printing ${this.selectedItems.length} labels...`);
-        },
+            const checkResponse = await axios.post(
+                `${API_BASE_URL}/api/printer/check-serial`,
+                { serial_number: serialNumber },
+                {
+                    withCredentials: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                    },
+                }
+            );
+
+            if (!checkResponse.data.success || !checkResponse.data.meets_print_conditions) {
+                return {
+                    success: false,
+                    message: checkResponse.data.message || 'Item not ready for printing'
+                };
+            }
+
+            const printPayload = {
+                serial_number: serialNumber,
+                printer_id: printerId,
+                print_data: checkResponse.data,
+                small_label_only: smallLabelOnly
+            };
+
+            console.log('✅ Check passed, sending to print with payload:', printPayload);
+            console.log('📦 small_label_only value being sent:', smallLabelOnly, '(type:', typeof smallLabelOnly, ')');
+
+            const printResponse = await axios.post(
+                `${API_BASE_URL}/api/printer/print-label`,
+                printPayload,
+                {
+                    withCredentials: true,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content,
+                    },
+                }
+            );
+
+            console.log('✅ Print response received:', printResponse.data);
+
+            return printResponse.data;
+
+        } catch (error) {
+            console.error('❌ Error printing label:', error);
+            return {
+                success: false,
+                message: error.response?.data?.message || error.message
+            };
+        }
+    },
+
+// Fetch available printers
+async fetchAvailablePrinters() {
+    this.loadingPrinters = true;
+    try {
+        console.log('Fetching printers from API...');
+        
+            const response = await axios.get(
+            `${API_BASE_URL}/api/printer/get-printers`,
+            {
+                withCredentials: true,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
+            }
+        );
+
+        console.log('Printer API response:', response.data);
+
+        if (response.data && response.data.success && response.data.printers) {
+            this.availablePrinters = response.data.printers;
+            console.log('Available printers loaded:', this.availablePrinters.length);
+            
+            if (this.availablePrinters.length === 0) {
+                alert('No active printers found. Please check printer configuration.');
+            }
+        } else {
+            console.error('Unexpected printer API response format:', response.data);
+            this.availablePrinters = [];
+            alert('No printers available. Please check printer settings.');
+        }
+        
+    } catch (error) {
+        console.error('Error fetching printers:', error);
+        console.error('Error response:', error.response?.data);
+        
+        if (error.response) {
+            alert(`Failed to fetch printers: ${error.response.data.message || error.response.statusText}`);
+        } else {
+            alert('Failed to fetch printers. Please check your connection.');
+        }
+        
+        this.availablePrinters = [];
+    } finally {
+        this.loadingPrinters = false;
+    }
+},
 
         // Validate serial number
         validateSerialNumber() {
@@ -1277,184 +1657,177 @@ export default {
 
         // Process scan with validation - UPDATED with notification count refresh
         async processScan(scannedCode = null) {
-            try {
-                // Use either the scanned code or input fields
-                let scanSerial, scanFnsku, scanLocation;
+    try {
+        // Use either the scanned code or input fields
+        let scanSerial, scanFnsku, scanLocation;
 
-                if (scannedCode) {
-                    // External code passed (from hardware scanner)
-                    scanSerial = "";
-                    scanFnsku = this.normalizeFnsku(scannedCode);
-                    this.fnsku = scanFnsku;
-                    scanLocation = this.locationInput || "";
-                } else {
-                    // Use the input fields
-                    scanSerial = this.serialNumber;
-                    scanFnsku = this.fnsku;
-                    scanLocation = this.locationInput;
-                    console.log("Scanned code normalized to:", scanFnsku);
-
-                    // Basic validation - need at least one of serial or FNSKU
-                    if (!scanFnsku && !scanSerial) {
-                        this.$refs.scanner.showScanError(
-                            "Serial Number or FNSKU is required"
-                        );
-                        SoundService.error();
-                        this.focusNextField("serialNumberInput");
-                        return;
-                    }
-                }
-
-                // Validate serial number if provided
-                if (
-                    scanSerial &&
-                    (!/^[a-zA-Z0-9]+$/.test(scanSerial) ||
-                        scanSerial.includes("X00"))
-                ) {
-                    this.$refs.scanner.showScanError(
-                        "Invalid Serial Number - must be alphanumeric and not contain X00"
-                    );
-                    SoundService.error();
-                    return;
-                }
-
-                // Check if FNSKU is actually a location
-                if (scanFnsku && /^L\d{3}[A-G]$/i.test(scanFnsku)) {
-                    this.$refs.scanner.showScanError(
-                        "FNSKU appears to be a location. Please enter it in the Location field."
-                    );
-                    SoundService.error();
-                    return;
-                }
-
-                // Validate location format - this should happen for both auto and manual mode at submission time
-                const locationRegex = /^L\d{3}[A-G]$/i;
-                if (
-                    scanLocation &&
-                    !locationRegex.test(scanLocation) &&
-                    scanLocation !== "Floor" &&
-                    scanLocation !== "L800G"
-                ) {
-                    this.$refs.scanner.showScanError(
-                        "Invalid Location Format (use L###X, Floor, or L800G)"
-                    );
-                    SoundService.error();
-                    return;
-                }
-
-                // Get images from scanner
-                const imageData = this.$refs.scanner.capturedImages.map(
-                    (img) => img.data
+        if (scannedCode) {
+            scanSerial = "";
+            scanFnsku = this.normalizeFnsku(scannedCode);
+            this.fnsku = scanFnsku;
+            scanLocation = this.locationInput || "";
+        } else {
+            scanSerial = this.serialNumber;
+            scanFnsku = this.fnsku;
+            scanLocation = this.locationInput;
+            
+            if (!scanFnsku && !scanSerial) {
+                this.$refs.scanner.showScanError(
+                    "Serial Number or FNSKU is required"
                 );
+                SoundService.error();
+                this.focusNextField("serialNumberInput");
+                return;
+            }
+        }
 
-                // Send data to server
-                const scanData = {
-                    SerialNumber: scanSerial,
+        // Validation checks...
+        if (scanSerial && (!/^[a-zA-Z0-9]+$/.test(scanSerial) || scanSerial.includes("X00"))) {
+            this.$refs.scanner.showScanError(
+                "Invalid Serial Number - must be alphanumeric and not contain X00"
+            );
+            SoundService.error();
+            return;
+        }
+
+        if (scanFnsku && /^L\d{3}[A-G]$/i.test(scanFnsku)) {
+            this.$refs.scanner.showScanError(
+                "FNSKU appears to be a location. Please enter it in the Location field."
+            );
+            SoundService.error();
+            return;
+        }
+
+        const locationRegex = /^L\d{3}[A-G]$/i;
+        if (scanLocation && !locationRegex.test(scanLocation) && 
+            scanLocation !== "Floor" && scanLocation !== "L800G") {
+            this.$refs.scanner.showScanError(
+                "Invalid Location Format (use L###X, Floor, or L800G)"
+            );
+            SoundService.error();
+            return;
+        }
+
+        const imageData = this.$refs.scanner.capturedImages.map(
+            (img) => img.data
+        );
+
+        const scanData = {
+            SerialNumber: scanSerial,
+            FNSKU: scanFnsku,
+            Location: scanLocation,
+            Images: imageData,
+        };
+
+        this.$refs.scanner.startLoading("Processing Scan");
+
+        const response = await axios.post(
+            "/api/stockroom/process-scan",
+            scanData,
+            {
+                withCredentials: true,
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-CSRF-TOKEN": document.querySelector(
+                        'meta[name="csrf-token"]'
+                    )?.content,
+                },
+            }
+        );
+
+        this.$refs.scanner.stopLoading();
+        const data = response.data;
+
+        if (data.success) {
+    this.$refs.scanner.showScanSuccess(data.item || "Item scanned successfully");
+    SoundService.successScan(true);
+
+    this.$refs.scanner.addSuccessScan({
+        Serial: scanSerial,
+        FNSKU: scanFnsku,
+        Location: scanLocation,
+    });
+
+    this.$refs.scanner.capturedImages = [];
+
+    // ============================================
+    // CRITICAL FIX: Real-time updates after scan
+    // ============================================
+    console.log('🎯 Scan successful - triggering updates...');
+    
+    try {
+        // 1. Update badge count with retry
+        console.log('🔄 Refreshing badge count...');
+        await this.fetchCountWithRetry(3);
+        console.log('✅ Badge count updated:', this.newScannedCount);
+        
+        // 2. Refresh inventory table
+        console.log('🔄 Refreshing inventory table...');
+        await this.fetchInventory();
+        console.log('✅ Inventory table refreshed');
+        
+        // 3. If modal is open, refresh it
+        if (this.showNewScannedModal && this.$refs.newScannedModal?.fetchItems) {
+            console.log('🔄 Refreshing modal...');
+            await this.$refs.newScannedModal.fetchItems();
+            console.log('✅ Modal refreshed');
+        }
+        
+        // 4. Force Vue to re-render
+        this.$nextTick(() => {
+            this.$forceUpdate();
+            console.log('✅ UI re-rendered - Final count:', this.newScannedCount);
+        });
+    } catch (error) {
+        console.error('⚠️ Error during refresh:', error);
+    }
+
+    if (data.needReprint && data.productId) {
+        if (confirm("Different FNSKU found in the database. Do you want to reprint the label?")) {
+            this.printLabel(data.productId);
+        }
+    }
+} else {
+            this.$refs.scanner.showScanError(
+                data.message || "Error processing scan"
+            );
+            SoundService.scanRejected(true);
+
+            this.$refs.scanner.addErrorScan(
+                {
+                    Serial: scanSerial,
                     FNSKU: scanFnsku,
                     Location: scanLocation,
-                    Images: imageData,
-                };
+                },
+                data.reason || "error"
+            );
 
-                // Show loading state
-                this.$refs.scanner.startLoading("Processing Scan");
+            this.$refs.scanner.capturedImages = [];
+        }
 
-                // Send to API
-                const response = await axios.post(
-                    "/api/stockroom/process-scan",
-                    scanData,
-                    {
-                        withCredentials: true,
-                        headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json",
-                            "X-CSRF-TOKEN": document.querySelector(
-                                'meta[name="csrf-token"]'
-                            )?.content,
-                        },
-                    }
-                );
+        // Clear input fields and focus first field
+        this.serialNumber = "";
+        this.fnsku = "";
+        this.locationInput = "";
+        this.focusNextField("serialNumberInput");
+        
+    } catch (error) {
+        this.$refs.scanner.stopLoading();
+        console.error("Error processing scan:", error);
+        this.$refs.scanner.showScanError("Network or server error");
+        SoundService.scanRejected(true);
 
-                // Hide loading
-                this.$refs.scanner.stopLoading();
-
-                const data = response.data;
-
-                if (data.success) {
-                    // Success case
-                    this.$refs.scanner.showScanSuccess(
-                        data.item || "Item scanned successfully"
-                    );
-                    SoundService.successScan(true);
-
-                    // Add to scan history
-                    this.$refs.scanner.addSuccessScan({
-                        Serial: scanSerial,
-                        FNSKU: scanFnsku,
-                        Location: scanLocation,
-                    });
-
-                    // Clear images
-                    this.$refs.scanner.capturedImages = [];
-
-                    // IMPORTANT: Refresh the notification count after successful scan
-                    await this.refreshNewScannedCount();
-
-                    // Check if we need to handle reprint
-                    if (data.needReprint && data.productId) {
-                        // Confirm reprint label
-                        if (
-                            confirm(
-                                "Different FNSKU found in the database. Do you want to reprint the label?"
-                            )
-                        ) {
-                            this.printLabel(data.productId);
-                        }
-                    }
-                } else {
-                    // Error case
-                    this.$refs.scanner.showScanError(
-                        data.message || "Error processing scan"
-                    );
-                    SoundService.scanRejected(true);
-
-                    // Add to error scan history
-                    this.$refs.scanner.addErrorScan(
-                        {
-                            Serial: scanSerial,
-                            FNSKU: scanFnsku,
-                            Location: scanLocation,
-                        },
-                        data.reason || "error"
-                    );
-
-                    // Clear images
-                    this.$refs.scanner.capturedImages = [];
-                }
-
-                // Clear input fields and focus first field
-                this.serialNumber = "";
-                this.fnsku = "";
-                this.locationInput = "";
-                this.focusNextField("serialNumberInput");
-            } catch (error) {
-                // Hide loading
-                this.$refs.scanner.stopLoading();
-
-                console.error("Error processing scan:", error);
-                this.$refs.scanner.showScanError("Network or server error");
-                SoundService.scanRejected(true);
-
-                // Add failed scan to history
-                this.$refs.scanner.addErrorScan(
-                    {
-                        Serial: this.serialNumber || "",
-                        FNSKU: this.fnsku || "",
-                        Location: this.locationInput || "",
-                    },
-                    "network_error"
-                );
-            }
-        },
+        this.$refs.scanner.addErrorScan(
+            {
+                Serial: this.serialNumber || "",
+                FNSKU: this.fnsku || "",
+                Location: this.locationInput || "",
+            },
+            "network_error"
+        );
+    }
+  },
 
         // Updated mergeSelectedItems function with correct API URL format
         async mergeSelectedItems() {
@@ -1848,57 +2221,57 @@ export default {
 
         // NEW SCANNED ITEMS METHODS - Updated for modal integration
         async fetchNewScannedCount() {
-            try {
-                // FIXED: Use US timezone for date calculation
-                const now = new Date();
-                const usDate = new Date(
-                    now.toLocaleString("en-US", {
-                        timeZone: "America/Los_Angeles",
-                    })
-                );
-                const today = usDate.toISOString().split("T")[0];
+    try {
+        const now = new Date();
+        const usDate = new Date(
+            now.toLocaleString("en-US", {
+                timeZone: "America/Los_Angeles",
+            })
+        );
+        const today = usDate.toISOString().split("T")[0];
 
-                console.log("Fetching new scanned count for US date:", today);
+        console.log("🔄 Fetching new scanned count for US date:", today);
 
-                const response = await axios.get(
-                    `${API_BASE_URL}/api/stockroom/new-scanned-count`,
-                    {
-                        params: { date: today },
-                        withCredentials: true,
-                        timeout: 10000, // Add timeout to prevent hanging requests
-                    }
-                );
-
-                // FIXED: Ensure count is always a number, never undefined/null
-                const newCount = parseInt(response.data.count) || 0;
-
-                console.log(
-                    "New scanned count received:",
-                    newCount,
-                    "Previous count:",
-                    this.newScannedCount
-                );
-
-                // Only update if the value actually changed to prevent unnecessary re-renders
-                if (this.newScannedCount !== newCount) {
-                    this.newScannedCount = newCount;
-                    console.log(
-                        "Updated new scanned count to:",
-                        this.newScannedCount
-                    );
-                }
-            } catch (error) {
-                console.error("Error fetching new scanned count:", error);
-                // FIXED: Don't reset count to 0 on error - keep existing count
-                // This prevents the badge from disappearing due to network issues
-                if (
-                    this.newScannedCount === undefined ||
-                    this.newScannedCount === null
-                ) {
-                    this.newScannedCount = 0;
-                }
+        const response = await axios.get(
+            `${API_BASE_URL}/api/stockroom/new-scanned-count`,
+            {
+                params: { 
+                    date: today,
+                    _t: Date.now() // Cache buster
+                },
+                withCredentials: true,
+                timeout: 10000,
             }
-        },
+        );
+
+        console.log("📦 API Response:", response.data);
+
+        // CRITICAL: Ensure it's a number
+        const newCount = parseInt(response.data.count, 10) || 0;
+        
+        console.log("✅ Parsed count:", newCount, "Type:", typeof newCount);
+
+        // Force Vue to detect the change
+        this.$set(this, 'newScannedCount', newCount);
+        
+        console.log("🎯 After $set, newScannedCount =", this.newScannedCount);
+        
+        // Double-force the update
+        this.$nextTick(() => {
+            this.$forceUpdate();
+            console.log("🔄 Force update complete, count is now:", this.newScannedCount);
+        });
+
+        return newCount;
+    } catch (error) {
+        console.error("❌ Error fetching new scanned count:", error);
+        // Don't reset to 0 on error
+        if (this.newScannedCount === undefined || this.newScannedCount === null) {
+            this.$set(this, 'newScannedCount', 0);
+        }
+        return this.newScannedCount;
+    }
+},
 
         // Add this method to refresh the notification count after scanning
         async refreshNewScannedCount() {
