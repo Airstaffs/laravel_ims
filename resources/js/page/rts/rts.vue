@@ -635,7 +635,7 @@ key, index
             :style="{ maxWidth: '200rem' }" :pt="{
                 root: { class: 'mobile-fullscreen-dialog' }
             }">
-            <div class="modal-body">
+            <div>
                 <div class="rts-form-container">
                     <form @submit.prevent="saveRTSModal" class="rts-form">
                         <!-- Product Info Header -->
