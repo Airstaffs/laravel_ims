@@ -57,11 +57,6 @@
             transition: background-color 0.3s ease;
         }
     </style>
-
-    <!--
-        ⚠️ IMPORTANT: Scripts are loaded at the end of <body> for better performance
-        See the optimized body structure below
-    -->
 </head>
 
 <body class="d-flex flex-column min-vh-100">
@@ -168,6 +163,7 @@
             window.defaultComponent = "{{ $defaultModule }}";
             window.mainModule = "{{ $mainModule }}";
             window.allowedModules = @json($subModules);
+            window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation', 'scheduling'];
 
             console.log('Session Modules:', {
                 defaultComponent: window.defaultComponent,
@@ -213,126 +209,6 @@
         </nav>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const burgerMenu = document.getElementById('burger-menu');
-            const sidebar = document.getElementById('sidebar');
-            const content = document.getElementById('main-content');
-            const navbarBrand = document.querySelector('.navbar-brand');
-
-            console.log('Elements found:', {
-                burgerMenu: !!burgerMenu,
-                sidebar: !!sidebar,
-                content: !!content,
-                navbarBrand: !!navbarBrand
-            });
-
-            //get notification for kanban
-            getKanbanNotif()
-
-            if (burgerMenu) {
-                burgerMenu.addEventListener('click', function (e) {
-                    e.preventDefault();
-                    console.log('Burger menu clicked');
-                    console.log('Sidebar current classes:', sidebar?.className);
-
-                    if (sidebar) {
-                        if (sidebar.classList.contains('visible')) {
-                            // Close sidebar
-                            console.log('Closing sidebar');
-                            sidebar.classList.remove('visible');
-                            if (content) content.classList.remove('sidebar-visible');
-                            burgerMenu.classList.remove('hidden');
-                            if (navbarBrand) navbarBrand.classList.remove('shifted');
-                        } else {
-                            // Open sidebar
-                            console.log('Opening sidebar');
-                            sidebar.classList.add('visible');
-                            if (content) content.classList.add('sidebar-visible');
-                            burgerMenu.classList.add('hidden');
-                            if (navbarBrand) navbarBrand.classList.add('shifted');
-                        }
-
-                        console.log('Sidebar classes after toggle:', sidebar.className);
-                    } else {
-                        console.error('Sidebar element not found!');
-                    }
-                });
-            } else {
-                console.error('Burger menu button not found!');
-            }
-
-            // Rest of your existing DOMContentLoaded code...
-            function setActiveNavLink() {
-                const currentPath = window.location.pathname;
-                const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
-
-                navLinks.forEach(link => {
-                    link.classList.remove('active');
-                });
-
-                const mainModule = window.mainModule;
-                if (mainModule) {
-                    const mainModuleLink = document.querySelector(`[data-module="${mainModule}"]`);
-                    if (mainModuleLink) {
-                        mainModuleLink.classList.add('active');
-                        return;
-                    }
-                }
-
-                navLinks.forEach(link => {
-                    if (link.getAttribute('href') === currentPath) {
-                        link.classList.add('active');
-                    }
-                });
-            }
-
-            setActiveNavLink();
-
-            const closeBtn = document.getElementById('close-btn');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', closeSidebar);
-            }
-
-            setTimeout(() => {
-                const nav = document.querySelector('nav.nav.flex-column');
-                if (nav && window.mainModule) {
-                    const mainModuleLink = nav.querySelector(`[data-module="${window.mainModule}"]`);
-                    if (mainModuleLink && mainModuleLink !== nav.firstElementChild) {
-                        nav.insertBefore(mainModuleLink, nav.firstElementChild);
-                        mainModuleLink.classList.add('active');
-                    }
-                }
-            }, 100);
-        });
-
-        // Keep your existing functions
-        function highlightNavLink(element) {
-            const navLinks = document.querySelectorAll('.sidebar-nav .nav-link');
-            navLinks.forEach(link => link.classList.remove('active'));
-            element.classList.add('active');
-        }
-
-        function closeSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const content = document.getElementById('main-content');
-            const burgerMenu = document.getElementById('burger-menu');
-            const navbarBrand = document.querySelector('.navbar-brand');
-
-            if (sidebar) sidebar.classList.remove('visible');
-            if (content) content.classList.remove('sidebar-visible');
-            if (burgerMenu) burgerMenu.classList.remove('hidden');
-            if (navbarBrand) navbarBrand.classList.remove('shifted');
-        }
-    </script>
-
-    <script>
-        window.defaultComponent = "{{ strtolower(session('main_module', 'dashboard')) }}";
-        window.allowedModules = @json(array_map('strtolower', session('sub_modules', [])));
-        window.mainModule = "{{ strtolower(session('main_module', 'dashboard')) }}";
-        window.customModules = ['printcustominvoice', 'fbashipmentinbound', 'mskucreation', 'scheduling'];
-    </script>
-
     <div id="main-content" class="content flex-grow-1">
         <div id="app">
             <!-- Hidden component triggers -->
@@ -353,46 +229,6 @@
     </div>
 
     @include('dashboard.modals.asinoption')
-    @include('dashboard.modals.printer')
-    @include('dashboard.modals.settings.settings-modal')
-    @include('dashboard.modals.profiles.profiles-modal')
-    @include('dashboard.modals.break')
-    @include('dashboard.modals.announcement-modal')
-    @include('dashboard.modals.notification-modal')
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const profileModal = document.getElementById('profileModal');
-
-            profileModal.addEventListener('shown.bs.modal', function () {
-                const defaultTab = document.querySelector('#attendance-tab');
-                const defaultTabPane = document.querySelector('#attendance');
-
-                // Ensure Bootstrap properly activates the tab
-                if (defaultTab && defaultTabPane) {
-                    new bootstrap.Tab(defaultTab).show();
-                }
-            });
-
-            profileModal.addEventListener('hidden.bs.modal', function () {
-                // Reset all tabs
-                document.querySelectorAll('#profileTab .nav-link').forEach(tab => {
-                    tab.classList.remove('active');
-                    tab.setAttribute('aria-selected', 'false');
-                });
-
-                document.querySelectorAll('#profileTabContent .tab-pane').forEach(tabPane => {
-                    tabPane.classList.remove('show', 'active');
-                });
-
-                // Reapply the default tab using Bootstrap's method
-                const defaultTab = document.querySelector('#attendance-tab');
-                if (defaultTab) {
-                    new bootstrap.Tab(defaultTab).show();
-                }
-            });
-        });
-    </script>
 
     <!-- NOTES Modal -->
     <div class="modal fade" id="editNotesModal" tabindex="-1" aria-labelledby="editNotesModalLabel" aria-hidden="true">
@@ -605,10 +441,37 @@
     @endenv
 
     <script>
+        // ============================================
+        // CONFIGURATION
+        // ============================================
+        const SESSION_CONFIG = {
+            CHECK_AUTH_INTERVAL: 120000, // 2 minutes
+            KEEP_ALIVE_INTERVAL: 300000, // 5 minutes
+        };
+
+        // ============================================
+        // INITIALIZATION
+        // ============================================
         document.addEventListener('DOMContentLoaded', function () {
             console.log('Dashboard loaded - initializing security measures...');
 
             // Check for CSRF token on page load
+            validateCsrfToken();
+
+            // PREVENT BACK BUTTON ACCESS AFTER LOGOUT
+            preventBackButtonAccess();
+
+            // Initialize logout system
+            initializeLogoutSystem();
+
+            // Start session management (managed by app.js)
+            console.log('✅ Session management delegated to app.js');
+        });
+
+        // ============================================
+        // CSRF TOKEN VALIDATION
+        // ============================================
+        function validateCsrfToken() {
             let csrfToken = document.querySelector('meta[name="csrf-token"]');
             if (!csrfToken) {
                 console.error('CSRF token meta tag missing from page head');
@@ -620,22 +483,12 @@
                 head.appendChild(meta);
                 csrfToken = meta;
             }
-
             console.log('CSRF token found:', csrfToken.getAttribute('content').substring(0, 10) + '...');
+        }
 
-            // PREVENT BACK BUTTON ACCESS AFTER LOGOUT
-            preventBackButtonAccess();
-
-            // Initialize logout system
-            initializeLogoutSystem();
-
-            // Start session management
-            startSessionManagement();
-        });
-
-
-
-        // PREVENT BACK BUTTON ACCESS - MULTIPLE METHODS
+        // ============================================
+        // PREVENT BACK BUTTON ACCESS
+        // ============================================
         function preventBackButtonAccess() {
             console.log('Setting up back button prevention...');
 
@@ -643,105 +496,27 @@
             history.pushState(null, null, window.location.href);
             window.addEventListener('popstate', function (event) {
                 console.log('Back button pressed - checking authentication...');
-
-                // Check if user is still authenticated
-                fetch('/check-auth', {
-                    method: 'GET',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                })
-                    .then(response => {
-                        if (response.status === 401 || response.status === 419) {
-                            console.log('User not authenticated - redirecting to login');
-                            window.location.replace('/login');
-                        } else {
-                            // User is authenticated, push state again
-                            history.pushState(null, null, window.location.href);
-                        }
-                    })
-                    .catch(() => {
-                        console.log('Auth check failed - redirecting to login');
-                        window.location.replace('/login');
-                    });
+                checkAuthStatus();
+                history.pushState(null, null, window.location.href);
             });
 
             // Method 2: Page show event (handles browser cache)
             window.addEventListener('pageshow', function (event) {
                 if (event.persisted) {
                     console.log('Page loaded from cache - checking authentication...');
-                    // Page was loaded from cache (back button)
-                    fetch('/check-auth', {
-                        method: 'GET',
-                        headers: {
-                            'X-Requested-With': 'XMLHttpRequest'
-                        }
-                    })
-                        .then(response => {
-                            if (response.status === 401 || response.status === 419) {
-                                console.log('User not authenticated - clearing cache and redirecting');
-                                // Clear browser cache and redirect
-                                if ('caches' in window) {
-                                    caches.keys().then(names => {
-                                        names.forEach(name => {
-                                            caches.delete(name);
-                                        });
-                                    });
-                                }
-                                window.location.replace('/login');
-                            }
-                        })
-                        .catch(() => {
-                            window.location.replace('/login');
-                        });
+                    checkAuthStatus();
                 }
             });
 
             // Method 3: Visibility change (tab switching)
             document.addEventListener('visibilitychange', function () {
                 if (!document.hidden) {
-                    // Page became visible again
                     console.log('Page became visible - checking authentication...');
-                    setTimeout(() => {
-                        fetch('/check-auth', {
-                            method: 'GET',
-                            headers: {
-                                'X-Requested-With': 'XMLHttpRequest'
-                            }
-                        })
-                            .then(response => {
-                                if (response.status === 401 || response.status === 419) {
-                                    console.log('Session expired - redirecting to login');
-                                    window.location.replace('/login');
-                                }
-                            })
-                            .catch(() => {
-                                // Network error or auth failed
-                                console.log('Auth check failed on visibility change');
-                            });
-                    }, 1000);
+                    setTimeout(checkAuthStatus, 1000);
                 }
             });
 
-            // Method 4: Disable browser navigation buttons via CSS (add to your CSS)
-            const style = document.createElement('style');
-            style.textContent = `
-            /* Only disable selection for UI elements, not content */
-            .sidebar, .navbar, .btn, .modal-header, .nav-link {
-                -webkit-user-select: none;
-                -moz-user-select: none;
-                -ms-user-select: none;
-                user-select: none;
-            }
-            
-            /* Disable right-click context menu but keep text selection */
-            body {
-                -webkit-touch-callout: none;
-            }
-        `;
-            document.head.appendChild(style);
-
-            // Method 5: Keyboard shortcuts prevention
+            // Method 4: Keyboard shortcuts prevention
             document.addEventListener('keydown', function (e) {
                 // Prevent Alt + Left Arrow (back)
                 if (e.altKey && e.keyCode === 37) {
@@ -765,17 +540,17 @@
 
                 // Prevent F5 refresh in some cases
                 if (e.keyCode === 116) {
-                    // Allow refresh but check auth after
                     setTimeout(checkAuthStatus, 100);
                 }
             });
         }
 
+        // ============================================
         // LOGOUT SYSTEM
+        // ============================================
         function initializeLogoutSystem() {
             console.log('Initializing logout system...');
 
-            // Set up confirm logout button
             const confirmBtn = document.getElementById('confirmLogout');
             if (confirmBtn) {
                 // Remove any existing listeners first
@@ -800,7 +575,9 @@
             }
         }
 
+        // ============================================
         // MAIN LOGOUT FUNCTION
+        // ============================================
         function performLogout() {
             console.log('Logout initiated...');
 
@@ -847,7 +624,9 @@
                 });
         }
 
+        // ============================================
         // ACTUAL LOGOUT EXECUTION
+        // ============================================
         function doLogoutWithToken(token) {
             console.log('Executing logout with token:', token.substring(0, 10) + '...');
 
@@ -894,7 +673,9 @@
             }, 3000);
         }
 
+        // ============================================
         // MODAL FUNCTIONS
+        // ============================================
         function showLogoutModal() {
             console.log('Showing logout modal...');
 
@@ -916,86 +697,9 @@
             }
         }
 
-        // SESSION MANAGEMENT
-        /*
-        function startSessionManagement() {
-            console.log('Starting session management...');
-
-            // Refresh token immediately on page load
-            setTimeout(refreshCsrfToken, 1000);
-
-            // Set up intervals
-            setInterval(keepSessionAlive, 300000); // Every 5 minutes
-            setInterval(refreshCsrfToken, 900000); // Every 15 minutes
-            setInterval(checkAuthStatus, 120000); // Every 2 minutes
-
-            console.log('Session management intervals started');
-        }
-        */
-
-        // new session management
-        function startSessionManagement() {
-            // Let Vue/axios own the logic if exposed by app.js
-            if (window.keepSessionAlive) {
-                setInterval(window.keepSessionAlive, 5 * 60 * 1000); // every 5 min
-            }
-            // Remove or comment out refreshCsrfToken interval — app.js already refreshes.
-            // setInterval(refreshCsrfToken, 900000);
-            setInterval(checkAuthStatus, 120000);
-        }
-
-        function keepSessionAlive() {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]');
-            if (!csrfToken) return;
-
-            fetch('/keep-alive', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': csrfToken.getAttribute('content')
-                }
-            })
-                .then(response => {
-                    if (response.status === 419 || response.status === 401) {
-                        console.log('Session expired, redirecting to login');
-                        window.location.replace('/login');
-                    }
-                })
-                .catch(error => {
-                    console.log('Keep-alive failed:', error);
-                });
-        }
-
-        function refreshCsrfToken() {
-            console.log('Refreshing CSRF token...');
-
-            fetch('/csrf-token', {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.token) {
-                        // Update meta tag
-                        const metaTag = document.querySelector('meta[name="csrf-token"]');
-                        if (metaTag) {
-                            metaTag.setAttribute('content', data.token);
-                            console.log('CSRF token refreshed successfully');
-                        }
-
-                        // Update all forms
-                        document.querySelectorAll('form input[name="_token"]').forEach(input => {
-                            input.value = data.token;
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Token refresh failed:', error);
-                });
-        }
-
+        // ============================================
+        // SESSION MANAGEMENT (Delegated to app.js)
+        // ============================================
         function checkAuthStatus() {
             fetch('/check-auth', {
                 method: 'GET',
@@ -1015,29 +719,9 @@
                 });
         }
 
-        // FORCE CACHE CLEAR ON LOGOUT
-        function clearBrowserCache() {
-            // Clear service worker caches
-            if ('caches' in window) {
-                caches.keys().then(function (names) {
-                    for (let name of names) {
-                        caches.delete(name);
-                    }
-                });
-            }
-
-            // Clear session storage
-            if (typeof sessionStorage !== 'undefined') {
-                sessionStorage.clear();
-            }
-
-            // Clear local storage
-            if (typeof localStorage !== 'undefined') {
-                localStorage.clear();
-            }
-        }
-
+        // ============================================
         // GLOBAL ERROR HANDLER
+        // ============================================
         window.addEventListener('error', function (e) {
             if (e.message && e.message.includes('419')) {
                 console.log('Caught 419 error globally');
@@ -1056,6 +740,9 @@
             }
         });
 
+        // ============================================
+        // KANBAN NOTIFICATION
+        // ============================================
         function getKanbanNotif() {
             const user = @json(Auth::user());
 
@@ -1088,81 +775,11 @@
                 .catch(error => console.error('Error fetching notifications:', error));
         }
 
-
-        console.log('Complete security system loaded successfully');
+        console.log('✅ Complete security system loaded successfully');
     </script>
 
     <!-- Footer -->
     <x-footer></x-footer>
-
-    <script>
-        const sidebar = document.getElementById('sidebar');
-        const mainContent = document.getElementById('main-content');
-        const burgerMenu = document.getElementById('burger-menu');
-        const closeBtn = document.getElementById('close-btn');
-        const navbarBrand = document.querySelector('.navbar-brand');
-        const dynamicContent = document.getElementById('dynamic-content');
-        const searchContainer = document.getElementById('top-search');
-        const searchInput = document.getElementById('search-input');
-        let showSearch = false; // Initially hide search for dashboard
-
-        // Function to toggle sidebar visibility
-        burgerMenu.addEventListener('click', () => {
-            const isMobile = window.innerWidth <= 768;
-            if (isMobile) {
-                sidebar.classList.toggle('visible');
-            } else {
-                sidebar.classList.toggle('visible');
-                mainContent.classList.toggle('sidebar-visible');
-                navbarBrand.classList.toggle('shifted');
-                burgerMenu.classList.toggle('hidden');
-            }
-        });
-
-        // Hide sidebar when close button is clicked
-        closeBtn.addEventListener('click', () => {
-            sidebar.classList.remove('visible');
-            if (window.innerWidth > 768) {
-                mainContent.classList.remove('sidebar-visible');
-                navbarBrand.classList.remove('shifted');
-                burgerMenu.classList.remove('hidden');
-            }
-        });
-
-        function initSearch(module) {
-            const searchInput = document.querySelector('#top-search input');
-            const dataTable = document.querySelector('.custom-table tbody'); // For table view
-            const mobileView = document.querySelector('.mobile-view'); // For mobile view
-
-            if (searchInput && (dataTable || mobileView)) {
-                searchInput.addEventListener("input", function () {
-                    const filter = searchInput.value.toLowerCase();
-
-                    if (dataTable) {
-                        // Handle search for table view
-                        const rows = dataTable.querySelectorAll("tr");
-                        rows.forEach(row => {
-                            const cells = row.querySelectorAll("td");
-                            let rowText = '';
-                            cells.forEach(cell => {
-                                rowText += cell.textContent.toLowerCase();
-                            });
-                            row.style.display = rowText.includes(filter) ? "" : "none";
-                        });
-                    }
-
-                    if (mobileView) {
-                        // Handle search for mobile view (card layout)
-                        const rows = mobileView.querySelectorAll(".custom-table-row");
-                        rows.forEach(row => {
-                            let rowText = row.textContent.toLowerCase();
-                            row.style.display = rowText.includes(filter) ? "" : "none";
-                        });
-                    }
-                });
-            }
-        }
-    </script>
 
     {{-- Scripts --}}
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
@@ -1189,31 +806,6 @@
             [...tooltipTriggerList].forEach(el => new bootstrap.Tooltip(el));
         });
     </script>
-
-    <script>
-        window.routes = {
-            fetchUsers: "{{ route('user') }}",
-            addUser: "{{ route('add-user') }}",
-            updateUser: "{{ url('/update-user') }}",
-            deleteUser: "{{ url('/delete-user') }}"
-        };
-    </script>
-
-    <script src="{{ asset('js/profiles-modal.js') }}" defer></script>
-    <script src="{{ asset('js/break-modal.js') }}" defer></script>
-    <script src="{{ asset('js/attendance.js') }}" defer></script>
-    <script src="{{ asset('js/account-record.js') }}" defer></script>
-    <script src="{{ asset('js/account-privilege.js') }}" defer></script>
-
-    <script src="{{ asset('js/settings-modal.js') }}" defer></script>
-    <script src="{{ asset('js/setting-design.js') }}" defer></script>
-    <script src="{{ asset('js/setting-user.js') }}" defer></script>
-    <script src="{{ asset('js/setting-store.js') }}" defer></script>
-    <script src="{{ asset('js/setting-privileges.js') }}" defer></script>
-    <script src="{{ asset('js/setting-timerecord.js') }}" defer></script>
-    <script src="{{ asset('js/setting-userlogs.js') }}" defer></script>
-    <script src="{{ asset('js/setting-printer.js') }}" defer></script>
-
 </body>
 
 </html>
