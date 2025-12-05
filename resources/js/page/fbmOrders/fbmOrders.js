@@ -6,6 +6,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL;
 import ScrollFab from "../../components/ScrollFab.vue";
 import PrintInvoiceModal from "./modals/printinvoice.vue";
 import ManualShipmentLabelModal from "./modals/manualshipmentlabel.vue";
+import ManualDispenseModal from './modals/manualdispense.vue';
 
 export default {
     name: "FbmOrderModule",
@@ -14,6 +15,8 @@ export default {
         PrintInvoiceModal,
         ScrollFab,
         ManualShipmentLabelModal,
+        ManualDispenseModal,
+     
     },
     data() {
         return {
@@ -69,6 +72,10 @@ export default {
             selectedDispenseProducts: {},
             loadingDispenseProducts: false,
             processingAutoDispense: false,
+
+             // Manual Dispense State
+            showManualDispenseModal: false,
+            currentManualDispenseItem: null,
 
             // For persistent order selection across pagination
             persistentSelectedOrderIds: [],
@@ -1009,30 +1016,36 @@ export default {
         },
 
         // Format store-specific condition
-        formatStoreSpecificCondition(
-            conditionId,
-            conditionSubtypeId,
-            storeName
-        ) {
-            const normalizedStore = this.normalizeStoreName(storeName);
-
-            if (normalizedStore === "allrenewed") {
-                const combinedCondition = conditionId + conditionSubtypeId;
-
-                switch (combinedCondition) {
-                    case "NewNew":
-                        return "Refurbished - Excellent";
-                    case "NewGood":
-                        return "Refurbished - Good";
-                    case "NewAcceptable":
-                        return "Refurbished - Acceptable";
-                    default:
-                        return combinedCondition;
-                }
+       formatStoreSpecificCondition(conditionId, conditionSubtypeId, storeName) {
+    const normalizedStore = this.normalizeStoreName(storeName);
+    
+    if (normalizedStore === 'allrenewed') {
+        // Only apply Refurbished mapping for New items
+        if (conditionId === 'New') {
+            const combinedCondition = conditionId + conditionSubtypeId;
+            
+            switch (combinedCondition) {
+                case 'NewNew':
+                    return 'Refurbished - Excellent';
+                case 'NewGood':
+                    return 'Refurbished - Good';
+                case 'NewAcceptable':
+                    return 'Refurbished - Acceptable';
+                default:
+                    return combinedCondition;
             }
-
-            return conditionId + conditionSubtypeId;
-        },
+        } else {
+            // ✅ NEW: For Used conditions, display as-is
+            if (conditionSubtypeId) {
+                return conditionId + ' ' + conditionSubtypeId;
+            }
+            return conditionId;
+        }
+    }
+    
+    // Default for other stores
+    return conditionId + conditionSubtypeId;
+},
 
         // Open scanner modal method
         openScannerModal() {
@@ -2810,6 +2823,79 @@ export default {
         closeManualShipmentLabelModal() {
             this.manualShipmentLabelVisible = false;
         },
+
+        openManualDispenseForItem(item) {
+        if (!item) return;
+        
+        console.log('🔧 Opening manual dispense for item:', item.outboundorderitemid);
+        
+        this.currentManualDispenseItem = item;
+        this.showManualDispenseModal = true;
+       },
+
+      async handleManualDispenseComplete(data) {
+        console.log('✅ Manual dispense completed:', data);
+        
+        // Comprehensive refresh
+        await this.refreshAfterManualDispense(data.orderId);
+     },
+
+     async refreshAfterManualDispense(orderId) {
+        console.log('🔄 Starting refresh after manual dispense for order:', orderId);
+        
+        // Step 1: Refresh main orders list
+        await this.fetchOrders();
+        
+        // Step 2: Update process modal if open
+        if (this.currentProcessOrder && this.currentProcessOrder.outboundorderid === orderId) {
+            const updatedOrder = this.orders.find(o => o.outboundorderid === orderId);
+            if (updatedOrder) {
+                this.currentProcessOrder = {
+                    ...updatedOrder,
+                    checked: this.currentProcessOrder.checked
+                };
+                
+                this.selectedItems = this.currentProcessOrder.items
+                    ? this.currentProcessOrder.items.map(item => item.outboundorderitemid)
+                    : [];
+            }
+        }
+        
+        // Step 3: Update details modal if open
+        if (this.selectedOrder && this.selectedOrder.outboundorderid === orderId) {
+            const updatedOrder = this.orders.find(o => o.outboundorderid === orderId);
+            if (updatedOrder) {
+                this.selectedOrder = { ...updatedOrder };
+            }
+        }
+        
+        // Step 4: Reinitialize dispense items
+        this.initializeDispenseItems();
+        
+        // Step 5: Force update
+        this.$nextTick(() => {
+            this.$forceUpdate();
+        });
+        
+        console.log('✅ Manual dispense refresh completed');
+     },
+
+     /**
+     * Get remaining quantity needed for an item
+     */
+    getRemainingQuantityNeeded(item) {
+        if (!item) return 0;
+        const dispensed = this.getDispensedProductCount(item);
+        return Math.max(0, item.quantity_ordered - dispensed);
+    },
+    
+    /**
+     * Check if item needs more products
+     */
+    itemNeedsMoreProducts(item) {
+        return this.getRemainingQuantityNeeded(item) > 0;
+    }
+
     },
     watch: {
         searchQuery() {

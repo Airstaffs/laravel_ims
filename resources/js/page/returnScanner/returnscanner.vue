@@ -149,7 +149,7 @@
                             data.BuyerName ||
                             data.costumer_name ||
                             "Unknown"
-                        }}</p>
+                            }}</p>
                     </template>
                     <template #actions="{ data }">
                         <div>
@@ -197,25 +197,25 @@
                             <span class="fw-semibold">RT#:</span>
                             <span class="mobile-detail-value">{{
                                 formatRTNumber(item.rtcounter, item.storename)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumber
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="item.serialnumberb" class="mobile-detail-row">
                             <span class="fw-semibold">Second Serial:</span>
                             <span class="mobile-detail-value">{{
                                 item.serialnumberb
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Location:</span>
                             <span class="mobile-detail-value">{{
                                 item.warehouselocation || "Floor"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="fw-semibold">Status:</span>
@@ -233,7 +233,7 @@
                                 item.BuyerName ||
                                 item.costumer_name ||
                                 "Unknown"
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
                     <Divider />
@@ -330,35 +330,7 @@
         <!-- Image Modal -->
         <ViewImageModal v-model:visible="showImageModal" :title="'Images'" :imageList="modalImages" :basePath="basePath"
             :onImageErrorMain="handleImageError" :onThumbnailError="onThumbnailError" @close="closeImageModal" />
-        <!-- <div v-if="showImageModal" class="image-modal">
-            <div class="modal-overlay" @click="closeImageModal"></div>
-            <div class="modal-content">
-                <button class="close-button" @click="closeImageModal">
-                    &times;
-                </button>
 
-                <div class="main-image-container">
-                    <button class="nav-button prev" @click="prevImage" v-if="modalImages.length > 1">
-                        &lt;
-                    </button>
-                    <img :src="modalImages[currentImageIndex]" alt="Product Image" class="modal-main-image" />
-                    <button class="nav-button next" @click="nextImage" v-if="modalImages.length > 1">
-                        &gt;
-                    </button>
-                </div>
-
-                <div class="image-counter">
-                    {{ currentImageIndex + 1 }} / {{ modalImages.length }}
-                </div>
-
-                <div class="thumbnails-container" v-if="modalImages.length > 1">
-                    <div v-for="(image, index) in modalImages" :key="index" class="modal-thumbnail"
-                        :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
-                        <img :src="image" :alt="`Thumbnail ${index + 1}`" />
-                    </div>
-                </div>
-            </div>
-        </div> -->
     </div>
 </template>
 
@@ -373,13 +345,7 @@ import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
+
     {
         header: "Gallery",
         slot: "gallery",

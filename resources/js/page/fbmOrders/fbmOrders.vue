@@ -59,7 +59,7 @@
                 <i class="fas fa-check-square"></i>
                 <span>{{ persistentSelectedOrderIds.length }} order{{
                     persistentSelectedOrderIds.length > 1 ? "s" : ""
-                }}
+                    }}
                     selected across all pages</span>
                 <button class="btn-clear-selection" @click="clearAllSelections">
                     <i class="fas fa-times"></i> Clear Selection
@@ -130,7 +130,7 @@
                             <span>Fulfillment Channel: </span>
                             <span class="text-danger fw-bolder">{{
                                 data.FulfillmentChannel
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="detail-item-container">
                             <span>Amazon Order: </span>
@@ -202,7 +202,57 @@
                                     </span>
                                 </div>
                                 <!-- Enhanced dispensed products display for multiple quantities -->
-                                <div v-if="isItemDispensed(subdata)" class="dispensed-item-details">
+                                <Panel v-if="isItemDispensed(subdata)"
+                                    :header="`Dispensed Products (${getDispensedProductCount(subdata)}/${subdata.quantity_ordered})`"
+                                    class="dispensed-item-details dispensed-panel" toggleable :collapsed="true">
+                                    <!-- Display all dispensed products -->
+                                    <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(subdata)"
+                                        :key="'dp-' + dpIndex" class="dispensed-product-item">
+                                        <div class="dispensed-detail">
+                                            <strong>Title:</strong>
+                                            {{ dispensedProduct.title || 'N/A' }}
+                                        </div>
+
+                                        <div class="dispensed-detail">
+                                            <strong>ASIN:</strong>
+                                            {{ dispensedProduct.asin || 'N/A' }}
+                                        </div>
+
+                                        <div class="dispensed-detail">
+                                            <strong>Location:</strong>
+                                            {{ dispensedProduct.warehouseLocation || 'N/A' }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.serialNumber" class="dispensed-detail">
+                                            <strong>Serial #:</strong>
+                                            {{ dispensedProduct.serialNumber }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.rtCounter" class="dispensed-detail">
+                                            <strong>RT Counter:</strong>
+                                            {{ dispensedProduct.rtCounter }}
+                                        </div>
+
+                                        <div v-if="dispensedProduct.FNSKU" class="dispensed-detail">
+                                            <strong>FNSKU:</strong>
+                                            {{ dispensedProduct.FNSKU }}
+                                        </div>
+
+                                        <div class="dispensed-actions">
+                                            <button class="btn-not-found"
+                                                @click="markProductNotFound(dispensedProduct.product_id, subdata)"
+                                                title="Mark product as not found and auto-select replacement">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                                Not Found
+                                            </button>
+                                        </div>
+
+                                        <hr v-if="dpIndex < getDispensedProductsDisplay(subdata).length - 1"
+                                            class="dispensed-separator" />
+                                    </div>
+                                </Panel>
+
+                                <!-- <div v-if="isItemDispensed(subdata)" class="dispensed-item-details">
                                     <div class="dispensed-header">
                                         <span class="product-id-badge">
                                             Dispensed Products ({{
@@ -213,12 +263,8 @@
                                         </span>
                                     </div>
 
-                                    <!-- Display all dispensed products -->
-                                    <div v-for="(
-dispensedProduct, dpIndex
-                                            ) in getDispensedProductsDisplay(
-    subdata
-)" :key="'dp-' + dpIndex" class="dispensed-product-item">
+                                    <div v-for="(dispensedProduct, dpIndex) in getDispensedProductsDisplay(subdata)"
+                                        :key="'dp-' + dpIndex" class="dispensed-product-item">
                                         <div class="dispensed-detail">
                                             <strong>Title:</strong>
                                             {{
@@ -277,9 +323,8 @@ dispensedProduct, dpIndex
                                             1
                                         " class="dispensed-separator" />
                                     </div>
-                                </div>
+                                </div> -->
                             </div>
-                            <!-- <Divider /> -->
                         </div>
                     </div>
                 </template>
@@ -307,7 +352,7 @@ dispensedProduct, dpIndex
                         <div class="detail-item-container">
                             <span>Delivered by Date: </span>
                             <span> {{ formatDeliveryDate(data.delivery_date)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="hasTrackingNumber(data)">
                             <span>Tracking Status:</span>
@@ -429,7 +474,7 @@ dispensedProduct, dpIndex
                                 <span class="mobile-detail-label">Condition: </span>
                                 <span class="mobile-detail-value">{{ item.condition }} | Price: ${{
                                     parseFloat(item.unit_price || 0).toFixed(2)
-                                }}</span>
+                                    }}</span>
                             </div>
 
                             <!-- Enhanced mobile dispensed products display -->
@@ -492,19 +537,19 @@ dispensedProduct, dpIndex
                             <span class="mobile-detail-label">Purchase Date: </span>
                             <span class="mobile-detail-value">{{
                                 formatDate(order.purchase_date)
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Order Type: </span>
                             <span class="mobile-detail-value">{{
                                 order.order_type
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail">
                             <span class="mobile-detail-label">Shipment: </span>
                             <span class="mobile-detail-value">{{
                                 order.shipment_service
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
 
@@ -734,12 +779,12 @@ dispensedProduct, dpIndex
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Title:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.title || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">ASIN:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.asin || 'N/A'
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Location:</span>
@@ -750,17 +795,17 @@ dispensedProduct, dpIndex
                                                     <div v-if="dispensedProduct.serialNumber" class="dispensed-row">
                                                         <span class="dispensed-label">Serial #:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.serialNumber
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.rtCounter" class="dispensed-row">
                                                         <span class="dispensed-label">RT Counter:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.rtCounter
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div v-if="dispensedProduct.FNSKU" class="dispensed-row">
                                                         <span class="dispensed-label">FNSKU:</span>
                                                         <span class="dispensed-value">{{ dispensedProduct.FNSKU
-                                                        }}</span>
+                                                            }}</span>
                                                     </div>
                                                     <div class="dispensed-row">
                                                         <span class="dispensed-label">Action:</span>
@@ -798,10 +843,9 @@ dispensedProduct, dpIndex
 
         <!-- Process Order Modal with Integrated Auto Dispense -->
         <Dialog v-model:visible="showProcessModal"
-            :header="`Process Order: ${currentProcessOrder ? currentProcessOrder.platform_order_id : ''}`" modal
-            :style="{ width: '100%', maxWidth: '1000px' }" :pt="{
+            :header="`Process Orders: ${currentProcessOrder ? currentProcessOrder.platform_order_id : ''}`" modal :pt="{
                 root: { class: 'mobile-fullscreen-dialog' }
-            }">
+            }" :style="{ width: '50%' }">
             <div class="flex flex-column gap-4">
                 <!-- Auto Dispense Section -->
                 <div v-if="processingAutoDispense" class="auto-dispense-section">
@@ -833,7 +877,7 @@ dispensedProduct, dpIndex
                                         </div>
                                         <div><strong>Order Item ID:</strong> {{
                                             dispenseItem.ordered_item.platform_order_item_id
-                                        }}</div>
+                                            }}</div>
                                     </div>
                                     <Tag :value="`Qty: ${dispenseItem.quantity_ordered} (${dispenseItem.quantity_dispensed} dispensed, ${dispenseItem.quantity_remaining} remaining)`"
                                         severity="info" class="mt-2" />
@@ -904,22 +948,46 @@ dispensedProduct, dpIndex
                     <!-- Order Items -->
                     <div>
                         <h5 class="m-0">Order Items</h5>
-                        <div class="flex flex-column gap-2">
+                        <Divider />
+                        <div class="flex  gap-2">
                             <div v-for="(item, idx) in (currentProcessOrder && currentProcessOrder.items ? currentProcessOrder.items : [])"
-                                :key="idx" class="border-round surface-border border-1 mt-3">
+                                :key="idx" 
+                                class="border-round surface-border border-1 mt-3 p-3">
+                                
                                 <div class="flex justify-content-between align-items-start mb-2">
-                                    <div>
+                                    <div class="flex-1">
                                         <div class="font-semibold">{{ item.platform_title }}</div>
                                         <div class="text-sm text-surface-600 mt-1">
-                                            ASIN: {{ item.platform_asin }} | SKU: {{ item.platform_sku }} | Qty: {{
-                                                item.quantity_ordered }}
+                                            ASIN: {{ item.platform_asin }} | SKU: {{ item.platform_sku }} | 
+                                            Qty: {{ item.quantity_ordered }}
                                         </div>
                                         <div class="text-sm text-surface-600">
                                             Order Item ID: {{ item.platform_order_item_id }}
                                         </div>
+                                        <div class="text-sm text-surface-600 mt-1">
+                                            <strong>Condition:</strong> {{ getConditionDisplay(item) }}
+                                        </div>
                                     </div>
-                                    <Tag v-if="isItemDispensed(item)"
-                                        :value="`${getDispensedProductCount(item)} dispensed`" severity="success" />
+                                    
+                                    <!-- Status Badge and Manual Dispense Button -->
+                                    <div class="flex flex-column gap-2 align-items-end">
+                                        <Tag v-if="isItemDispensed(item)"
+                                            :value="`${getDispensedProductCount(item)}/${item.quantity_ordered} dispensed`" 
+                                            severity="success" />
+                                        <Tag v-else
+                                            value="Not dispensed" 
+                                            severity="warning" />
+                                        
+                                        <!-- Manual Dispense Button - ONLY if item needs more products -->
+                                        <Button 
+                                            v-if="itemNeedsMoreProducts(item)"
+                                            label="Manual Dispense" 
+                                            icon="pi pi-plus-circle" 
+                                            severity="info"
+                                            size="small"
+                                            @click="openManualDispenseForItem(item)"
+                                            class="mt-2" />
+                                    </div>
                                 </div>
 
                                 <!-- Dispensed Products Display -->
@@ -938,7 +1006,7 @@ dispensedProduct, dpIndex
                                                 dispensedProduct.rtCounter }}</div>
                                             <div v-if="dispensedProduct.FNSKU"><strong>FNSKU:</strong> {{
                                                 dispensedProduct.FNSKU
-                                            }}</div>
+                                                }}</div>
                                         </div>
                                         <Button label="Not Found" icon="pi pi-exclamation-triangle" severity="warning"
                                             size="small" text
@@ -952,7 +1020,7 @@ dispensedProduct, dpIndex
                     </div>
 
                     <!-- Process Form -->
-                    <Panel header="Shipment Details" class="w-full">
+                    <Panel header="Shipment Details" class="w-full mt-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="field">
                                 <label class="font-semibold mb-2 block">Shipment Type</label>
@@ -994,7 +1062,7 @@ dispensedProduct, dpIndex
                     <!-- Regular Process Mode Buttons -->
                     <template v-else>
                         <Button v-if="hasDispensedItems(currentProcessOrder)" label="Cancel Dispense" icon="pi pi-times"
-                            severity="danger" size="small" @click="cancelDispense(currentProcessOrder)" />
+                            severity="danger" size="small" @click="cancelDispense(currentProcessOrder)" class="me-2" />
                         <Button v-if="currentOrderHasUnassignedItems" label="Auto Dispense Items" icon="pi pi-inbox"
                             severity="info" size="small" @click="startAutoDispenseInProcess" />
                     </template>
@@ -1235,7 +1303,7 @@ dispensedProduct, dpIndex
                         <!-- Search -->
                         <fieldset class="filter-field">
                             <label>Total Orders: <span class="text-primary">{{ workHistoryStats.totalOrders
-                                    }}</span></label>
+                            }}</span></label>
                             <InputText type="text" size="small" placeholder="Search Order ID or ..."
                                 v-model="workHistoryFilters.searchQuery" class="search-input" fluid
                                 @input="fetchWorkHistory" />
@@ -1310,7 +1378,7 @@ dispensedProduct, dpIndex
                                     <li>
                                         <strong>{{
                                             item.Title
-                                            }}</strong>
+                                        }}</strong>
                                     </li>
                                     <li>{{ item.ASIN }}</li>
                                     <li>{{ item.MSKU }}</li>
@@ -1554,6 +1622,13 @@ dispensedProduct, dpIndex
 
         <!-- Manual Shipment Label Modal -->
         <ManualShipmentLabelModal :visible="manualShipmentLabelVisible" @close="closeManualShipmentLabelModal" />
+
+              <!-- Manual Dispense Modal Component -->
+        <ManualDispenseModal 
+            v-model:visible="showManualDispenseModal"
+            :item="currentManualDispenseItem"
+            :order-id="currentProcessOrder ? currentProcessOrder.outboundorderid : 0"
+            @dispense-complete="handleManualDispenseComplete" />
 
         <ScrollTop />
     </div>
@@ -1836,19 +1911,34 @@ export default {
 </script>
 
 <style>
-@media (max-width: 600px) {
-    .mobile-fullscreen-dialog.p-dialog {
-        width: 100vw !important;
-        height: 100vh !important;
-        max-width: none !important;
-        max-height: none !important;
-        border-radius: 0 !important;
-
-        top: 0 !important;
-        left: 0 !important;
-        transform: none !important;
-    }
+.dispensed-panel {
+    width: 100%;
+    /* adjust as needed */
+    margin: 0 auto;
+    /* center it */
 }
+
+.dispensed-panel .p-panel-content {
+    padding: 0.75rem;
+    /* default is 1.25rem */
+}
+
+.dispensed-panel .p-panel-header {
+    padding: 0 !important;
+}
+
+.dispensed-panel .p-panel-header .p-panel-title {
+    font-size: 0.85rem;
+    /* smaller header text */
+}
+
+.dispensed-panel {
+    transform: scale(0.95);
+    /* make panel slightly smaller */
+    transform-origin: top left;
+}
+
+
 
 .detail-item-container span:nth-child(1) {
     font-weight: 500;

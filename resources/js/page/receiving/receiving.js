@@ -3,6 +3,7 @@ import ScannerComponent from "../../components/Scanner.vue";
 import { SoundService } from "../../components/Sound_service";
 import DetectSerialModal from "./modal-detect/modal-detect.vue";
 import "../../../css/modules.css";
+import { DEFAULT_IMAGE } from "../../constant";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -46,8 +47,7 @@ export default {
             autoVerifyTimeout: null,
             showManualInput: false, // Track manual mode state
 
-            defaultImage:
-                "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=",
+            defaultImage: DEFAULT_IMAGE,
             // Modal state
             showImageModal: false,
             modalImages: [],

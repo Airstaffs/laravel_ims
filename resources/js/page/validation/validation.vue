@@ -45,7 +45,7 @@
                                 ">RT {{ data.rtcounter }}</span>
                                 <span v-else>{{
                                     data.rtcounter
-                                    }}</span>
+                                }}</span>
                             </div>
                             <p class="fw-semibold">{{ data.astitle }}</p>
                         </div>
@@ -455,14 +455,11 @@
         </div>
 
         <!-- Image Modal with Tabs -->
-        <div v-if="showImageModal" class="image-modal">
-            <div class="modal-overlay" @click="closeImageModal"></div>
-            <div class="modal-content">
-                <button class="close-button" @click="closeImageModal">
-                    &times;
-                </button>
+        <!-- <Dialog v-model:visible="showImageModal" modal :pt="{
+            root: { class: 'mobile-fullscreen-dialog' }
+        }">
+            <div>
 
-                <!-- Tabs for switching between regular, captured, and ASIN images -->
                 <div class="image-tabs">
                     <button class="tab-button" :class="{ active: activeTab === 'regular' }"
                         @click="switchTab('regular')" :disabled="regularImages.length === 0">
@@ -478,12 +475,10 @@
                     </button>
                 </div>
 
-                <!-- Display message if no images in current category -->
                 <div v-if="currentImageSet.length === 0" class="no-images-message">
                     No images available in this category
                 </div>
 
-                <!-- Main image display (only shown if we have images) -->
                 <div v-if="currentImageSet.length > 0" class="main-image-container">
                     <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
                         &lt;
@@ -499,7 +494,6 @@
                     {{ currentImageIndex + 1 }} / {{ currentImageSet.length }}
                 </div>
 
-                <!-- Thumbnails for the current image set -->
                 <div class="thumbnails-container" v-if="currentImageSet.length > 1">
                     <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
                         :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
@@ -507,7 +501,61 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </Dialog> -->
+
+        <Dialog v-model:visible="showImageModal" modal :pt="{ root: { class: 'mobile-fullscreen-dialog' } }">
+            <div class="modal-wrapper-image">
+
+                <!-- Tabs -->
+                <Tabs v-model:value="activeTab" class="tabs-container">
+                    <TabList>
+                        <Tab value="regular" :disabled="regularImages.length === 0">
+                            Product Images ({{ regularImages.length }})
+                        </Tab>
+                        <Tab value="captured" :disabled="capturedImages.length === 0">
+                            Captured Images ({{ capturedImages.length }})
+                        </Tab>
+                        <Tab value="asin" :disabled="asinImages.length === 0">
+                            ASIN Images ({{ asinImages.length }})
+                        </Tab>
+                    </TabList>
+                </Tabs>
+
+                <!-- Empty State -->
+                <div v-if="currentImageSet.length === 0" class="no-images-message">
+                    No images available
+                </div>
+
+                <!-- MAIN IMAGE AREA -->
+                <div v-if="currentImageSet.length > 0" class="main-image-area">
+                    <!-- Prev Button -->
+                    <Button v-if="currentImageSet.length > 1" icon="pi pi-chevron-left" class="nav-btn prev-btn"
+                        @click="prevImage" rounded text />
+
+                    <!-- MAIN IMAGE -->
+                    <img :src="currentImageSet[currentImageIndex]" class="main-image" @error="handleImageError" />
+
+                    <!-- Next Button -->
+                    <Button v-if="currentImageSet.length > 1" icon="pi pi-chevron-right" class="nav-btn next-btn"
+                        @click="nextImage" rounded text />
+                </div>
+
+                <!-- Counter -->
+                <div class="image-counter">
+                    {{ currentImageIndex + 1 }} / {{ currentImageSet.length }}
+                </div>
+
+                <!-- THUMBNAILS -->
+                <div v-if="currentImageSet.length > 1" class="thumbs-wrapper">
+                    <div v-for="(image, i) in currentImageSet" :key="i"
+                        :class="['thumb-item', { active: i === currentImageIndex }]" @click="currentImageIndex = i">
+                        <img :src="image" @error="handleImageError" />
+                    </div>
+                </div>
+
+            </div>
+        </Dialog>
+
 
         <Dialog v-model:visible="showValidationModal" modal header="Product Details" :style="{ width: '90vw' }" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
@@ -1054,294 +1102,9 @@
                 </div>
             </template>
         </Dialog>
-        <!-- <div class=" confirmation-modal modal" v-if="showConfirmationModal">
-            <div class="modal-overlay" @click="cancelConfirmation"></div>
-            <div class="confirmation-modal-content">
-                <div class="confirmation-modal-header">
-                    <h3>{{ confirmationTitle }}</h3>
-                    <button class="close-button" @click="cancelConfirmation">
-                        &times;
-                    </button>
-                </div>
-                <div class="confirmation-modal-body">
-                    <p>{{ confirmationMessage }}</p>
-                </div>
-                <div class="confirmation-modal-footer">
-                    <button class="btn-cancel" @click="cancelConfirmation">
-                        Cancel
-                    </button>
-                    <button class="btn-confirm" @click="confirmAction" :class="{
-                        'btn-validation':
-                            confirmationActionType === 'validation',
-                        'btn-stockroom':
-                            confirmationActionType === 'stockroom',
-                    }">
-                        Yes, Proceed
-                    </button>
-                </div>
-            </div>
-        </div> -->
-
-        <!-- Validation Modal -->
-        <!-- <div class="validation-modal" v-if="showValidationModal && currentValidationItem">
-            <div class="modal-overlay" @click="closeValidationModal"></div>
-            <div class="validation-modal-content">
-                <div class="validation-modal-header">
-                    <h3>
-                        Validate Item #
-
-                        <span v-if="
-                            currentValidationItem.storename === 'Allrenewed'
-                        ">AR {{ currentValidationItem.rtcounter }}</span>
-                        <span v-else-if="
-                            currentValidationItem.storename ===
-                            'Renovartech'
-                        ">RT {{ currentValidationItem.rtcounter }}</span>
-                        <span v-else>{{
-                            currentValidationItem.rtcounter
-                            }}</span>
-                    </h3>
-                    <button class="close-button" @click="closeValidationModal">
-                        &times;
-                    </button>
-                </div>
-
-                <div class="validation-modal-body">
-
-                    <div class="validation-product-details">
-                        <h4>Product Details</h4>
-                        <div class="validation-detail-row">
-                            <strong>ID Number:</strong>
-                            <span>
-                                <span v-if="
-                                    currentValidationItem.storename ===
-                                    'Allrenewed'
-                                ">AR
-                                    {{ currentValidationItem.rtcounter }}</span>
-                                <span v-else-if="
-                                    currentValidationItem.storename ===
-                                    'Renovartech'
-                                ">RT
-                                    {{ currentValidationItem.rtcounter }}</span>
-                                <span v-else>{{
-                                    currentValidationItem.rtcounter
-                                    }}</span>
-                            </span>
-                        </div>
-                        <div class="validation-detail-row">
-                            <strong>Product Name:</strong>
-                            <span>{{ currentValidationItem.astitle }}</span>
-                        </div>
-                        <div class="validation-detail-row">
-                            <strong>External Title:</strong>
-                            <span>{{
-                                currentValidationItem.ProductTitle
-                                }}</span>
-                        </div>
-                        <div class="validation-detail-row">
-                            <strong>FNSKU:</strong>
-                            <span>
-                                {{ currentValidationItem.FNSKUviewer }}
-                                <template v-if="currentValidationItem.asin">
-                                    <br />[ASIN:
-                                    {{ currentValidationItem.asin }}]
-                                </template>
-                            </span>
-                        </div>
-                        <div class="validation-detail-row">
-                            <strong>Serial Number:</strong>
-                            <span>{{
-                                currentValidationItem.serialnumber
-                                }}</span>
-                        </div>
-                        <div class="validation-detail-row">
-                            <strong>Location:</strong>
-                            <span>{{
-                                currentValidationItem.warehouselocation
-                                }}</span>
-                        </div>
-                        <div class="validation-detail-row">
-                            <strong>Current Status:</strong>
-                            <span :style="{
-                                color:
-                                    currentValidationItem.validation_status ===
-                                        'validated'
-                                        ? 'green'
-                                        : 'orange',
-                            }">
-                                {{ currentValidationItem.validation_status }}
-                            </span>
-                        </div>
-                    </div>
-
-       
-                    <div class="validation-images-section">
-                        <h4>Product Images</h4>
 
 
-                        <div class="compare-gallery">
-                            <h5>Image Comparison</h5>
-                            <div class="compare-container">
-                                <div class="compare-item">
-                                    <div class="compare-title">
-                                        Supplier Image
-                                    </div>
-                                    <div class="compare-subtitle">
-                                        {{ currentValidationItem.ProductTitle }}
-                                    </div>
-                                    <div class="compare-image-container">
-                                        <img :src="'/images/thumbnails/' +
-                                            currentValidationItem.img1
-                                            " :alt="currentValidationItem.ProductTitle ||
-                                                'Supplier Image'
-                                                " @error="handleImageError($event)" class="compare-image" />
-                                    </div>
-                                </div>
-                                <div class="compare-item">
-                                    <div class="compare-title">
-                                        From IMS fetch from Amazon
-                                    </div>
-                                    <div class="compare-subtitle">
-                                        {{ currentValidationItem.astitle }}
-                                    </div>
-                                    <div class="compare-image-container">
-                                        <img v-if="currentValidationItem.asin"
-                                            :src="`/images/asinimg/${currentValidationItem.asin}.png`" :alt="currentValidationItem.astitle ||
-                                                'Amazon Image'
-                                                " @error="handleImageError($event)" class="compare-image" />
-                                        <div v-else class="no-asin-image">
-                                            No ASIN image available
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="validation-image-tabs">
-                            <button class="validation-tab-button" :class="{
-                                active: validationActiveTab === 'product',
-                            }" @click="switchValidationTab('product')">
-                                Product Images
-                            </button>
-                            <button class="validation-tab-button" :class="{
-                                active: validationActiveTab === 'captured',
-                            }" @click="switchValidationTab('captured')">
-                                Captured Images
-                            </button>
-                            <button class="validation-tab-button" :class="{
-                                active: validationActiveTab === 'asin',
-                            }" @click="switchValidationTab('asin')">
-                                ASIN Images
-                            </button>
-                        </div>
-
-              
-                        <div v-if="validationActiveTab === 'product'" class="validation-images-grid">
-              
-                            <div class="validation-main-image">
-                                <img :src="'/images/thumbnails/' +
-                                    currentValidationItem.img1
-                                    " :alt="currentValidationItem.astitle" @error="handleImageError($event)" />
-                            </div>
-
-              
-                            <div class="validation-thumbnails">
-                        
-                                <template v-for="i in 15" :key="`img-${i}`">
-                                    <div v-if="
-                                        i > 1 &&
-                                        currentValidationItem['img' + i] &&
-                                        currentValidationItem['img' + i] !==
-                                        'NULL'
-                                    " class="validation-thumbnail">
-                                        <img :src="'/images/thumbnails/' +
-                                            currentValidationItem['img' + i]
-                                            " :alt="`Image ${i}`" @error="handleImageError($event)" />
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-
-                        <div v-if="validationActiveTab === 'captured'" class="validation-images-grid">
-                            <div class="validation-no-images" v-if="!hasValidationCapturedImages">
-                                No captured images available
-                            </div>
-                            <div v-else class="validation-thumbnails-full">
-                                <template v-if="currentValidationItem.capturedImages">
-                                    <template v-for="i in 12" :key="`captured-${i}`">
-                                        <div v-if="
-                                            currentValidationItem
-                                                .capturedImages[
-                                            'capturedimg' + i
-                                            ] &&
-                                            currentValidationItem
-                                                .capturedImages[
-                                            'capturedimg' + i
-                                            ] !== 'NULL'
-                                        " class="validation-thumbnail captured">
-                                            <img :src="'/images/product_images/' +
-                                                (currentValidationItem.company ||
-                                                    'Airstaffs') +
-                                                '/' +
-                                                currentValidationItem
-                                                    .capturedImages[
-                                                'capturedimg' + i
-                                                ]
-                                                " :alt="`Captured ${i}`" @error="
-                                                    handleImageError($event)
-                                                    " />
-                                        </div>
-                                    </template>
-                                </template>
-                            </div>
-                        </div>
-
-                        <div v-if="validationActiveTab === 'asin'" class="validation-images-grid">
-                            <div class="validation-no-images" v-if="!currentValidationItem.asin">
-                                No ASIN information available
-                            </div>
-                            <div v-else-if="!currentValidationItemAsinLoaded" class="validation-loading">
-                                Loading ASIN images...
-                            </div>
-                            <div v-else-if="
-                                currentValidationItemAsinImages.length === 0
-                            " class="validation-no-images">
-                                No ASIN images available
-                            </div>
-                            <div v-else class="validation-thumbnails-full">
-                                <div v-for="(
-image, index
-                                    ) in currentValidationItemAsinImages" :key="`asin-${index}`"
-                                    class="validation-thumbnail asin">
-                                    <img :src="image" :alt="`ASIN Image ${index + 1}`"
-                                        @error="handleImageError($event)" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-  
-                    <div class="validation-notes-section">
-
-                        <div class="validation-error" v-if="validationErrors">
-                            {{ validationErrors }}
-                        </div>
-                    </div>
-                </div>
-
-                <div class="validation-modal-footer">
-                    <button class="btn-cancel" @click="closeValidationModal" :disabled="isProcessingValidation">
-                        Cancel
-                    </button>
-                    <button class="btn-invalid" @click="confirmMarkAsInvalid" :disabled="isProcessingValidation">
-                        <i class="bi bi-x-circle"></i> Mark as Invalid
-                    </button>
-                    <button class="btn-valid" @click="confirmMarkAsValid" :disabled="isProcessingValidation">
-                        <i class="bi bi-check-circle"></i> Mark as Valid
-                    </button>
-                </div>
-            </div>
-        </div> -->
 
         <!-- Validation Confirmation Modal -->
         <div class="validation-confirmation-modal" v-if="showConfirmationModal && confirmationActionType">
@@ -1406,7 +1169,7 @@ image, index
 
 <script>
 import Validation from "./validation.js";
-import { Badge, Button, Divider, Dialog, Card, InputText, Select, ScrollTop } from "primevue";
+import { Badge, Button, Divider, Dialog, Card, InputText, Select, ScrollTop, Tab, TabList, Tabs, TabPanels, TabPanel, Galleria } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
@@ -1414,13 +1177,6 @@ import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 // export default Validation;
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         header: "Product Name",
         field: 'astitle',
@@ -1486,7 +1242,13 @@ export default {
         Select,
         ScrollTop,
         TitlePage,
-        AnimateDiv
+        AnimateDiv,
+        Tab,
+        TabList,
+        Tabs,
+        TabPanel,
+        TabPanels,
+        Galleria
     },
     data() {
         return {
@@ -1523,5 +1285,98 @@ export default {
     .select-form {
         width: 100%;
     }
+}
+
+.modal-wrapper-image {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.tabs-container {
+    padding: 0 1rem;
+}
+
+/* Main viewing area */
+.main-image-area {
+    flex: 1;
+    min-height: 60vh;
+    max-height: 70vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    /* REQUIRED FOR ABSOLUTE BUTTONS */
+    padding: 1px;
+}
+
+
+/* Centered main image */
+.main-image {
+    max-width: 100%;
+    max-height: 75vh;
+    object-fit: cover;
+}
+
+/* Nav buttons */
+.nav-btn {
+    position: absolute !important;
+    /* FORCE POSITIONING */
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 9999 !important;
+    background: rgba(0, 0, 0, 0.45) !important;
+    color: white !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    backdrop-filter: blur(2px);
+}
+
+/* left and right positioning */
+.prev-btn {
+    left: 10px !important;
+}
+
+.next-btn {
+    right: 10px !important;
+}
+
+/* Counter */
+.image-counter {
+    text-align: center;
+    font-weight: 600;
+    margin: 8px 0;
+}
+
+/* Thumbnails */
+.thumbs-wrapper {
+    display: flex;
+    gap: 10px;
+    padding: 10px 1rem;
+    overflow-x: auto;
+}
+
+.thumb-item {
+    width: 60px;
+    height: 60px;
+    border-radius: 6px;
+    overflow: hidden;
+    cursor: pointer;
+    border: 2px solid transparent;
+}
+
+.thumb-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumb-item.active {
+    border-color: #3b82f6;
 }
 </style>

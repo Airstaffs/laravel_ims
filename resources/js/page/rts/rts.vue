@@ -1,10 +1,6 @@
 <template>
     <div class="vue-container houseage-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
 
-        <!-- <h2 class="module-title">RTS Module</h2> -->
         <TitlePage title="RTS Module"
             subtitle="Manage products designated for return to the original seller or supplier. Finalize shipment details and confirm the return status." />
 
@@ -45,9 +41,7 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <!-- <button class="btn-showDetailsM" @click="toggleDetailsVisibility">
-                {{ showDetails ? "Hide extra columns" : "Show extra columns" }}
-            </button> -->
+
 
             <div class="mobile-cards">
                 <div v-if="loading" class="loading-spinner-mobile">
@@ -185,68 +179,7 @@
         <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
             :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
             :handleImageError="handleImageError" />
-        <!-- <div v-if="showImageModal" class="modal image-modal">
-            <div class="modal-overlay" @click="closeImageModal"></div>
 
-            <div class="modal-content">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <div class="productTitle">
-                            <h2>{{ ProductTitle }}</h2>
-                        </div>
-                        <button class="btn btn-modal-close" @click="closeImageModal">
-                            &times;
-                        </button>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="image-tabs">
-                            <button class="tab-button" :class="{ active: activeTab === 'regular' }"
-                                @click="switchTab('regular')" :disabled="regularImages.length === 0">
-                                <span>Product Images</span>
-                                <span class="badge img-badge">{{
-                                    regularImages.length
-                                    }}</span>
-                            </button>
-                            <button class="tab-button" :class="{ active: activeTab === 'captured' }"
-                                @click="switchTab('captured')" :disabled="capturedImages.length === 0">
-                                <span>Captured Images</span>
-                                <span class="badge img-badge">{{
-                                    capturedImages.length
-                                    }}</span>
-                            </button>
-                        </div>
-
-                        <div v-if="currentImageSet.length === 0" class="no-images-message">
-                            No images available in this category
-                        </div>
-
-                        <div v-if="currentImageSet.length > 0" class="main-image-container">
-                            <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
-                                <i class="bi bi-arrow-left-short"></i>
-                            </button>
-                            <img :src="currentImageSet[currentImageIndex]" alt="Product Image" class="modal-main-image"
-                                @error="handleImageError" />
-                            <button class="nav-button next" @click="nextImage" v-if="currentImageSet.length > 1">
-                                <i class="bi bi-arrow-right-short"></i>
-                            </button>
-                        </div>
-
-                        <div class="image-counter" v-if="currentImageSet.length > 0">
-                            {{ currentImageIndex + 1 }} /
-                            {{ currentImageSet.length }}
-                        </div>
-
-                        <div class="thumbnails-container" v-if="currentImageSet.length > 1">
-                            <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
-                                :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
-                                <img :src="image" :alt="`Thumbnail ${index + 1}`" @error="handleImageError" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div> -->
 
         <!-- Edit Modal -->
         <Dialog v-model:visible="showEditModal" modal header="Edit Product" :style="{ width: '98%' }" :pt="{
@@ -702,7 +635,7 @@ key, index
             :style="{ maxWidth: '200rem' }" :pt="{
                 root: { class: 'mobile-fullscreen-dialog' }
             }">
-            <div class="modal-body">
+            <div>
                 <div class="rts-form-container">
                     <form @submit.prevent="saveRTSModal" class="rts-form">
                         <!-- Product Info Header -->
@@ -1057,13 +990,6 @@ import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         field: "gallery",
         header: "Gallery",
