@@ -9,7 +9,8 @@
         <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
             <TitlePage title="Unreceived Module"
                 subtitle="Track and manage all inbound inventory shipments that have not yet been received or confirmed." />
-            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode" />
+            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode"
+                severity="secondary" outlined />
         </div>
 
 

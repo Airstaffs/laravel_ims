@@ -355,6 +355,17 @@ img, index
 
                                                 </template>
                                             </Card>
+
+                                            <Card class="mt-2">
+                                                <template #content>
+                                                    <fieldset>
+                                                        <label><span>Description:</span></label>
+                                                        <Textarea ref="descriptionarea" class="no-resize"
+                                                            v-model="item.description" placeholder="Description"
+                                                            rows="6" fluid size="small" @input="autoResize"></Textarea>
+                                                    </fieldset>
+                                                </template>
+                                            </Card>
                                         </div>
                                         <div class="col-md-3 mb-2">
 
@@ -522,15 +533,9 @@ key, index
                                         </div>
                                     </div>
                                 </div>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <fieldset>
-                                            <label><span>Description:</span></label>
-                                            <Textarea ref="descriptionarea" class="no-resize" v-model="item.description"
-                                                placeholder="Description" rows="3" fluid size="small"
-                                                @input="autoResize"></Textarea>
-                                        </fieldset>
 
+                                <div class="row mobile-view">
+                                    <div class="col-md-4">
                                         <fieldset>
                                             <label><span>Supplier Notes:</span></label>
                                             <Textarea ref="supplierNotesarea" class="no-resize"
@@ -538,14 +543,15 @@ key, index
                                                 size="small" @input="autoResize"></Textarea>
                                         </fieldset>
                                     </div>
-                                    <div class="col-md-6">
+                                    <div class="col-md-4">
                                         <fieldset>
                                             <label><span>Employee Notes:</span></label>
                                             <Textarea ref="employeeNotesarea" class="no-resize"
                                                 v-model="item.employeeNotes" placeholder="Employee Notes" rows="3" fluid
                                                 size="small" @input="autoResize"></Textarea>
                                         </fieldset>
-
+                                    </div>
+                                    <div class="col-md-4">
                                         <fieldset>
                                             <label><span>Sticker Notes:</span></label>
                                             <Textarea ref="stickerNotesarea" class="no-resize"
@@ -554,8 +560,6 @@ key, index
                                         </fieldset>
                                     </div>
                                 </div>
-
-
 
                             </div>
 
@@ -622,6 +626,35 @@ key, index
                                         </fieldset>
                                     </template>
                                 </Card>
+                            </div>
+
+
+
+                        </div>
+                        <div class="row desktop-view">
+                            <div class="col-md-4">
+                                <fieldset>
+                                    <label><span>Supplier Notes:</span></label>
+                                    <Textarea ref="supplierNotesarea" class="no-resize" v-model="item.supplierNotes"
+                                        placeholder="Supplier Notes" rows="3" fluid size="small"
+                                        @input="autoResize"></Textarea>
+                                </fieldset>
+                            </div>
+                            <div class="col-md-4">
+                                <fieldset>
+                                    <label><span>Employee Notes:</span></label>
+                                    <Textarea ref="employeeNotesarea" class="no-resize" v-model="item.employeeNotes"
+                                        placeholder="Employee Notes" rows="3" fluid size="small"
+                                        @input="autoResize"></Textarea>
+                                </fieldset>
+                            </div>
+                            <div class="col-md-4">
+                                <fieldset>
+                                    <label><span>Sticker Notes:</span></label>
+                                    <Textarea ref="stickerNotesarea" class="no-resize" v-model="item.stickerNotes"
+                                        placeholder="Employee Notes" rows="3" fluid size="small"
+                                        @input="autoResize"></Textarea>
+                                </fieldset>
                             </div>
                         </div>
                     </form>

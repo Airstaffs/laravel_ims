@@ -17,7 +17,7 @@
                 </fieldset>
             </div>
             <XDataTable :value="sortedAsinData" :columns="columns" :loading="loading" :paginator="false"
-                tableClass="desktop-view">
+                tableClass="desktop-view" selectionMode="multiple" dataKey="ASIN">
                 <template #image="{ data }">
                     <div class="product-image-container clickable" @click="viewAsinDetails(data)">
                         <img :src="data.useDefaultImage
