@@ -161,21 +161,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
+                        optionLabel="label" optionValue="value" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -622,6 +622,7 @@ import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
     {
@@ -721,7 +722,8 @@ export default {
                 { label: "Cash", value: "Cash" },
                 { label: "Bank Transfer", value: "Bank Transfer" },
                 { label: "Check", value: "Check" }
-            ]
+            ],
+            rowsPerPage: ROWS_PER_PAGE
         }
     },
     computed: {

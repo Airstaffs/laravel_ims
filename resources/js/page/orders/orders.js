@@ -379,6 +379,7 @@ export default {
 
         // Fetch inventory data from the API
         async fetchInventory() {
+            this.loading = true
             try {
                 const response = await axios.get(
                     `${API_BASE_URL}/api/orders/products`,
@@ -398,6 +399,8 @@ export default {
                 console.log(this.inventory);
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
+            } finally {
+                this.loading = false
             }
         },
 

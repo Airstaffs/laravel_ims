@@ -154,21 +154,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" size="small" :options="rowsPerPage"
+                        optionLabel="label" optionValue="value" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -781,21 +781,22 @@ key, index
                         </div>
 
                         <div class="d-flex align-items-center gap-3">
-                            <select v-model="pageSize" @change="changePageSize" class="form-select form-select-sm"
+                            <Select v-model="pageSize" @change="changePageSize"
+                                :options="[{ label: '5', value: 5 }, ...rowsPerPage]" size="small" optionLabel="label"
+                                optionValue="value" />
+                            <!-- <select v-model="pageSize" @change="changePageSize" class="form-select form-select-sm"
                                 style="width: 80px">
                                 <option value="5">5</option>
                                 <option value="10">10</option>
                                 <option value="25">25</option>
                                 <option value="50">50</option>
-                            </select>
+                            </select> -->
 
                             <nav>
                                 <ul class="pagination pagination-sm mb-0">
                                     <li class="page-item" :class="{ disabled: currentPage === 1 }">
                                         <Button @click="prevPage" :disabled="currentPage === 1" size="small"
-                                            severity="info">
-                                            Previous
-                                        </Button>
+                                            label="Previous" icon="pi pi-angle-left" severity="info" />
                                     </li>
 
                                     <li class="page-item active">
@@ -803,10 +804,8 @@ key, index
                                     </li>
 
                                     <li class="page-item" :class="{ disabled: !hasMorePages }">
-                                        <Button @click="nextPage" :disabled="!hasMorePages" size="small"
-                                            severity="info">
-                                            Next
-                                        </Button>
+                                        <Button @click="nextPage" :disabled="!hasMorePages" size="small" severity="info"
+                                            label="Next" icon="pi pi-angle-right" iconPos="right" />
                                     </li>
                                 </ul>
                             </nav>
@@ -925,6 +924,7 @@ import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
     // {
@@ -1069,7 +1069,8 @@ export default {
                 loading: false,
                 info: {},
                 errorMessage: ""
-            }
+            },
+            rowsPerPage: ROWS_PER_PAGE
         }
     },
     methods: {

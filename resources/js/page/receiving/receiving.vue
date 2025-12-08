@@ -260,21 +260,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" optionLabel="label"
+                        optionValue="value" size="small" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -852,7 +852,7 @@
 </style>
 
 <script>
-import { Button, Dialog, Card, ScrollTop, Menu } from "primevue";
+import { Button, Dialog, Card, ScrollTop, Menu, Select } from "primevue";
 import Received from "./receiving.js";
 import gallery from "../../components/Gallery/gallery.vue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -861,6 +861,7 @@ import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
     // {
@@ -914,12 +915,14 @@ export default {
         TitlePage,
         ViewImageModal,
         AnimateDiv,
-        Menu
+        Menu,
+        Select
     },
     data() {
         return {
             columns: TABLE_COLUMNS,
             menuActions: [],
+            rowsPerPage: ROWS_PER_PAGE
         };
     },
     methods: {

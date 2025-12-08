@@ -43,13 +43,13 @@
                             <span class="code-label">EAN:</span>
                             <span class="code-value">{{
                                 data.EAN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="data.UPC" class="code-item">
                             <span class="code-label">UPC:</span>
                             <span class="code-value">{{
                                 data.UPC
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="!data.EAN && !data.UPC" class="no-codes">
                             -
@@ -64,25 +64,25 @@
                             <span class="related-label">Parent:</span>
                             <span class="related-value">{{
                                 data.ParentAsin
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="data.CousinASIN" class="related-item">
                             <span class="related-label">Cousin:</span>
                             <span class="related-value">{{
                                 data.CousinASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="data.UpgradeASIN" class="related-item">
                             <span class="related-label">Upgrade:</span>
                             <span class="related-value">{{
                                 data.UpgradeASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="data.GrandASIN" class="related-item">
                             <span class="related-label">Grand:</span>
                             <span class="related-value">{{
                                 data.GrandASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div v-if="
                             !data.ParentAsin &&
@@ -164,25 +164,25 @@
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detail-value text-secondary">{{
                                 item.ASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">EAN:</span>
                             <span class="mobile-detail-value text-secondary">{{
                                 item.EAN || "-"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">UPC:</span>
                             <span class="mobile-detail-value text-secondary">{{
                                 item.UPC || "-"
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">FNSKUs:</span>
                             <span class="mobile-detail-value text-secondary">{{
                                 item.fnsku_count
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
 
@@ -213,25 +213,25 @@
                                         <span class="mobile-fnsku-label">MSKU:</span>
                                         <span class="mobile-fnsku-value">{{
                                             fnsku.MSKU || "-"
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-fnsku-detail">
                                         <span class="mobile-fnsku-label">Store:</span>
                                         <span class="mobile-fnsku-value">{{
                                             fnsku.storename
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-fnsku-detail">
                                         <span class="mobile-fnsku-label">Units:</span>
                                         <span class="mobile-fnsku-value">{{
                                             fnsku.Units || 0
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-fnsku-detail">
                                         <span class="mobile-fnsku-label">Grade:</span>
                                         <span class="mobile-fnsku-value">{{
                                             fnsku.grading || "-"
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                 </div>
                                 <div v-if="
@@ -251,21 +251,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
+                        optionLabel="label" optionValue="value" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -504,7 +504,7 @@
                                 <span class="asin-details-label">ASIN:</span>
                                 <span class="asin-details-value">{{
                                     selectedAsin.ASIN
-                                    }}</span>
+                                }}</span>
                             </div>
                             <div class="asin-details-row">
                                 <span class="asin-details-label">Meta Keyword:</span>
@@ -512,7 +512,7 @@
                                     placeholder="Enter meta keywords" rows="2"></textarea>
                                 <span v-else class="asin-details-value">{{
                                     selectedAsin.metakeyword || "-"
-                                    }}</span>
+                                }}</span>
                             </div>
                             <div class="asin-details-row">
                                 <span class="asin-details-label">EAN:</span>
@@ -550,7 +550,7 @@
                                 <span v-else class="asin-details-value">{{
                                     selectedAsin.TRANSPARENCY_QR_STATUS ||
                                     "-"
-                                    }}</span>
+                                }}</span>
                             </div>
                             <div class="asin-details-row">
                                 <span class="asin-details-label">User Manual:</span>
@@ -573,7 +573,7 @@
                                 <span class="asin-details-label">Total FNSKUs:</span>
                                 <span class="asin-details-value">{{
                                     selectedAsin.fnsku_count
-                                    }}</span>
+                                }}</span>
                             </div>
 
                             <!-- Save button for ASIN details -->
@@ -616,7 +616,7 @@
                                             <span v-else>{{
                                                 selectedAsin.white_length ||
                                                 "-"
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                     </div>
                                     <div class="dimension-item">
@@ -630,7 +630,7 @@
                                             <span v-else>{{
                                                 selectedAsin.white_width ||
                                                 "-"
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                     </div>
                                     <div class="dimension-item">
@@ -644,7 +644,7 @@
                                             <span v-else>{{
                                                 selectedAsin.white_height ||
                                                 "-"
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                     </div>
                                     <div class="dimension-item">
@@ -717,7 +717,7 @@
                                         <span v-else class="related-asin-value">{{
                                             selectedAsin.ParentAsin ||
                                             "-"
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="related-asin-item">
                                         <span class="related-asin-label">Cousin ASIN:</span>
@@ -726,7 +726,7 @@
                                         <span v-else class="related-asin-value">{{
                                             selectedAsin.CousinASIN ||
                                             "-"
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="related-asin-item">
                                         <span class="related-asin-label">Upgrade ASIN:</span>
@@ -735,7 +735,7 @@
                                         <span v-else class="related-asin-value">{{
                                             selectedAsin.UpgradeASIN ||
                                             "-"
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="related-asin-item">
                                         <span class="related-asin-label">Grand ASIN:</span>
@@ -744,7 +744,7 @@
                                         <span v-else class="related-asin-value">{{
                                             selectedAsin.GrandASIN ||
                                             "-"
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                 </div>
 
@@ -773,19 +773,19 @@
                                 <p> {{
                                     data.MSKU ||
                                     "-"
-                                }}
+                                    }}
                                 </p>
                             </template>
                             <template #Units="{ data }">
                                 <p class="text-primary"> {{
                                     data.Units || 0
-                                }}</p>
+                                    }}</p>
                             </template>
                             <template #grading="{ data }">
                                 <p>{{
                                     data.grading ||
                                     "-"
-                                }}</p>
+                                    }}</p>
                             </template>
                         </XDataTable>
                     </div>
@@ -976,7 +976,7 @@
                                         <span class="asin-details-label">ASIN:</span>
                                         <span class="asin-details-value">{{
                                             selectedAsin.ASIN
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="asin-details-row">
                                         <span class="asin-details-label">Meta Keyword:</span>
@@ -985,7 +985,7 @@
                                             rows="2"></textarea>
                                         <span v-else class="asin-details-value">{{
                                             selectedAsin.metakeyword || "-"
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="asin-details-row">
                                         <span class="asin-details-label">EAN:</span>
@@ -1023,7 +1023,7 @@
                                         <span v-else class="asin-details-value">{{
                                             selectedAsin.TRANSPARENCY_QR_STATUS ||
                                             "-"
-                                            }}</span>
+                                        }}</span>
                                     </div>
                                     <div class="asin-details-row">
                                         <span class="asin-details-label">User Manual:</span>
@@ -1046,7 +1046,7 @@
                                         <span class="asin-details-label">Total FNSKUs:</span>
                                         <span class="asin-details-value">{{
                                             selectedAsin.fnsku_count
-                                        }}</span>
+                                            }}</span>
                                     </div>
 
                                     <!-- Save button for ASIN details -->
@@ -1082,7 +1082,7 @@
                                                 <span v-else>{{
                                                     selectedAsin.white_length ||
                                                     "-"
-                                                }}</span>
+                                                    }}</span>
                                             </div>
                                         </div>
                                         <div class="dimension-item">
@@ -1096,7 +1096,7 @@
                                                 <span v-else>{{
                                                     selectedAsin.white_width ||
                                                     "-"
-                                                }}</span>
+                                                    }}</span>
                                             </div>
                                         </div>
                                         <div class="dimension-item">
@@ -1110,7 +1110,7 @@
                                                 <span v-else>{{
                                                     selectedAsin.white_height ||
                                                     "-"
-                                                }}</span>
+                                                    }}</span>
                                             </div>
                                         </div>
                                         <div class="dimension-item">
@@ -1195,7 +1195,7 @@
                                             <span v-else class="related-asin-value">{{
                                                 selectedAsin.ParentAsin ||
                                                 "-"
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                         <div class="related-asin-item">
                                             <span class="related-asin-label">Cousin ASIN:</span>
@@ -1204,7 +1204,7 @@
                                             <span v-else class="related-asin-value">{{
                                                 selectedAsin.CousinASIN ||
                                                 "-"
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                         <div class="related-asin-item">
                                             <span class="related-asin-label">Upgrade ASIN:</span>
@@ -1213,7 +1213,7 @@
                                             <span v-else class="related-asin-value">{{
                                                 selectedAsin.UpgradeASIN ||
                                                 "-"
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                         <div class="related-asin-item">
                                             <span class="related-asin-label">Grand ASIN:</span>
@@ -1222,7 +1222,7 @@
                                             <span v-else class="related-asin-value">{{
                                                 selectedAsin.GrandASIN ||
                                                 "-"
-                                                }}</span>
+                                            }}</span>
                                         </div>
                                     </div>
 
@@ -1800,6 +1800,7 @@ import asinlist from "./asinlist.js";
 import XDataTable from "../../components/DataTable/XDataTable.vue"
 import { Button, Dialog, InputText, Select, Textarea, ScrollTop } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
     {
@@ -1881,7 +1882,8 @@ export default {
     data() {
         return {
             columns: TABLE_COLUMNS,
-            fnsku_columns: FNSKU_COLUMNS
+            fnsku_columns: FNSKU_COLUMNS,
+            rowsPerPage: ROWS_PER_PAGE
         }
     },
     computed: {

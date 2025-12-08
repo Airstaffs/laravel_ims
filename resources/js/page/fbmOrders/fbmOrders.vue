@@ -583,21 +583,16 @@ dispensedProduct, dpIndex
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select>
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPageOptions" size="small"
+                        optionLabel="label" optionValue="value" />
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" size="small"
+                        label="Back" icon="pi pi-angle-left" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        size="small" label="Next" icon="pi pi-angle-right" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -951,14 +946,13 @@ dispensedProduct, dpIndex
                         <Divider />
                         <div class="flex  gap-2">
                             <div v-for="(item, idx) in (currentProcessOrder && currentProcessOrder.items ? currentProcessOrder.items : [])"
-                                :key="idx" 
-                                class="border-round surface-border border-1 mt-3 p-3">
-                                
+                                :key="idx" class="border-round surface-border border-1 mt-3 p-3">
+
                                 <div class="flex justify-content-between align-items-start mb-2">
                                     <div class="flex-1">
                                         <div class="font-semibold">{{ item.platform_title }}</div>
                                         <div class="text-sm text-surface-600 mt-1">
-                                            ASIN: {{ item.platform_asin }} | SKU: {{ item.platform_sku }} | 
+                                            ASIN: {{ item.platform_asin }} | SKU: {{ item.platform_sku }} |
                                             Qty: {{ item.quantity_ordered }}
                                         </div>
                                         <div class="text-sm text-surface-600">
@@ -968,25 +962,18 @@ dispensedProduct, dpIndex
                                             <strong>Condition:</strong> {{ getConditionDisplay(item) }}
                                         </div>
                                     </div>
-                                    
+
                                     <!-- Status Badge and Manual Dispense Button -->
                                     <div class="flex flex-column gap-2 align-items-end">
                                         <Tag v-if="isItemDispensed(item)"
-                                            :value="`${getDispensedProductCount(item)}/${item.quantity_ordered} dispensed`" 
+                                            :value="`${getDispensedProductCount(item)}/${item.quantity_ordered} dispensed`"
                                             severity="success" />
-                                        <Tag v-else
-                                            value="Not dispensed" 
-                                            severity="warning" />
-                                        
+                                        <Tag v-else value="Not dispensed" severity="warning" />
+
                                         <!-- Manual Dispense Button - ONLY if item needs more products -->
-                                        <Button 
-                                            v-if="itemNeedsMoreProducts(item)"
-                                            label="Manual Dispense" 
-                                            icon="pi pi-plus-circle" 
-                                            severity="info"
-                                            size="small"
-                                            @click="openManualDispenseForItem(item)"
-                                            class="mt-2" />
+                                        <Button v-if="itemNeedsMoreProducts(item)" label="Manual Dispense"
+                                            icon="pi pi-plus-circle" severity="info" size="small"
+                                            @click="openManualDispenseForItem(item)" class="mt-2" />
                                     </div>
                                 </div>
 
@@ -1623,10 +1610,8 @@ dispensedProduct, dpIndex
         <!-- Manual Shipment Label Modal -->
         <ManualShipmentLabelModal :visible="manualShipmentLabelVisible" @close="closeManualShipmentLabelModal" />
 
-              <!-- Manual Dispense Modal Component -->
-        <ManualDispenseModal 
-            v-model:visible="showManualDispenseModal"
-            :item="currentManualDispenseItem"
+        <!-- Manual Dispense Modal Component -->
+        <ManualDispenseModal v-model:visible="showManualDispenseModal" :item="currentManualDispenseItem"
             :order-id="currentProcessOrder ? currentProcessOrder.outboundorderid : 0"
             @dispense-complete="handleManualDispenseComplete" />
 
@@ -1640,14 +1625,8 @@ import XDataTable from "../../components/DataTable/XDataTable.vue";
 import fbmorder from "./fbmOrders.js";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         header: "Order Details",
         slot: "orderDetails",
@@ -1816,7 +1795,8 @@ export default {
                 { value: "", label: "All Orders" },
                 { value: "TestStore", label: "TestStore" },
                 { value: "AllRenewed", label: "AllRenewed" },
-            ]
+            ],
+            rowsPerPageOptions: ROWS_PER_PAGE,
         }
 
     },
