@@ -1567,6 +1567,11 @@ export default {
                 this.lastRecordTimeIn = data.lastRecordTimeIn || "";
                 this.canClockIn = data.canClockIn || false;
                 this.canClockOut = data.canClockOut || false;
+
+                // Check for auto clock-out after loading data
+                if (data.hasPreviousDayOpenRecord) {
+                    await this.checkAndAutoClockOut();
+                }
             } catch (error) {
                 console.error("Error loading attendance data:", error);
                 Swal.fire({
@@ -1717,6 +1722,128 @@ export default {
                         });
                     }
                 }
+            }
+        },
+
+        async checkAndAutoClockOut() {
+            try {
+                if (!this.lastRecordTimeIn) return;
+
+                const lastClockIn = new Date(this.lastRecordTimeIn);
+                const today = new Date();
+
+                lastClockIn.setHours(0, 0, 0, 0);
+                today.setHours(0, 0, 0, 0);
+
+                if (lastClockIn < today) {
+                    console.log(
+                        "Detected open clock-in from previous day, triggering auto clock-out..."
+                    );
+
+                    const clockInDate = new Date(
+                        this.lastRecordTimeIn
+                    ).toLocaleDateString("en-US", {
+                        weekday: "long",
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                    });
+
+                    const clockInTime = this.formatTime(this.lastRecordTimeIn);
+
+                    const result = await Swal.fire({
+                        title: "Open Clock-In Detected",
+                        html: `
+                    <div style="text-align: left;">
+                        <p>You have an open clock-in from:</p>
+                        <p><strong>Date:</strong> ${clockInDate}</p>
+                        <p><strong>Time:</strong> ${clockInTime}</p>
+                        <br>
+                        <p style="color: #dc3545;">⚠️ You forgot to clock out!</p>
+                        <br>
+                        <p>The system will automatically set your clock-out time to <strong>match your clock-in time</strong> for that day.</p>
+                        <p style="font-size: 0.9em; color: #6c757d;">This means 0 hours will be recorded for that shift.</p>
+                    </div>
+                `,
+                        icon: "warning",
+                        showCancelButton: true,
+                        confirmButtonColor: "#3085d6",
+                        cancelButtonColor: "#6c757d",
+                        confirmButtonText:
+                            '<i class="pi pi-check"></i> Yes, auto clock-out',
+                        cancelButtonText: '<i class="pi pi-times"></i> Cancel',
+                        allowOutsideClick: false,
+                        width: "600px",
+                    });
+
+                    if (result.isConfirmed) {
+                        await this.performAutoClockOut();
+                    }
+                }
+            } catch (error) {
+                console.error("Error in checkAndAutoClockOut:", error);
+            }
+        },
+
+        async performAutoClockOut() {
+            try {
+                const response = await axios.post("/attendance/auto-clockout", {
+                    last_clock_in: this.lastRecordTimeIn,
+                });
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        title: "Auto Clock-Out Successful!",
+                        html: `
+                    <div style="text-align: left;">
+                        <p>${response.data.message}</p>
+                        <hr>
+                        <p><strong>Date:</strong> ${response.data.date}</p>
+                        <p><strong>Clock-in:</strong> ${this.formatTime(
+                            response.data.time_in
+                        )}</p>
+                        <p><strong>Auto Clock-out:</strong> ${this.formatTime(
+                            response.data.time_out
+                        )}</p>
+                        <hr>
+                        <p style="color: #dc3545;"><strong>Hours Worked:</strong> 0h 0m</p>
+                        <p style="font-size: 0.9em; color: #6c757d;">Note: TimeOut was set to match TimeIn as per system policy.</p>
+                    </div>
+                `,
+                        icon: "success",
+                        confirmButtonText: "OK",
+                        width: "600px",
+                    });
+
+                    await this.loadAttendanceData();
+                }
+            } catch (error) {
+                console.error("Error performing auto clock-out:", error);
+
+                const errorData = error.response?.data;
+                const status = error.response?.status;
+
+                let errorMessage =
+                    "Failed to perform auto clock-out. Please try again.";
+
+                if (status === 404) {
+                    errorMessage = "No open clock-in record found to process.";
+                } else if (status === 400) {
+                    errorMessage =
+                        errorData?.message ||
+                        "Cannot process auto clock-out for today's records.";
+                } else if (errorData?.message) {
+                    errorMessage = errorData.message;
+                }
+
+                await Swal.fire({
+                    title: "Error!",
+                    text: errorMessage,
+                    icon: "error",
+                    confirmButtonText: "OK",
+                });
+
+                await this.loadAttendanceData();
             }
         },
 
