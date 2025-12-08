@@ -102,6 +102,42 @@
                             <div class="row">
                                 <!-- Left Column -->
                                 <div class="col-md-6">
+                                    <!-- Warehouse & Tracking -->
+                                    <section class="info-section">
+                                        <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
+                                        <dl class="info-list">
+                                            <div class="info-item">
+                                                <dt>Module:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.ProductModuleLoc
+                                                    }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Warehouse Location:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.warehouselocation
+                                                    }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Serial Number:</dt>
+                                                <dd>
+                                                    {{ item.serialnumber }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Tracking Number:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.trackingnumber
+                                                    }}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                    </section>
                                     <!-- Product Identifiers -->
                                     <section class="info-section">
                                         <h3 class="text-primary fw-bolder">Product Identifiers</h3>
@@ -182,42 +218,7 @@
                                         </dl>
                                     </section>
 
-                                    <!-- Warehouse & Tracking -->
-                                    <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
-                                        <dl class="info-list">
-                                            <div class="info-item">
-                                                <dt>Module:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.ProductModuleLoc
-                                                    }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Warehouse Location:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.warehouselocation
-                                                    }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Serial Number:</dt>
-                                                <dd>
-                                                    {{ item.serialnumber }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Tracking Number:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.trackingnumber
-                                                    }}
-                                                </dd>
-                                            </div>
-                                        </dl>
-                                    </section>
+
 
                                     <!-- Additional Info -->
                                     <section class="info-section" v-if="item.grading || item.notes">
@@ -323,13 +324,6 @@ import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         field: "gallery",
         header: "Gallery",

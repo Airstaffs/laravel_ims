@@ -206,6 +206,43 @@
                                 <div class="col-lg-6">
 
                                     <section class="info-section">
+                                        <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
+                                        <dl class="info-list">
+                                            <div class="info-item">
+                                                <dt>Module:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.ProductModuleLoc
+                                                    }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Warehouse Location:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.warehouselocation
+                                                    }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Serial Number:</dt>
+                                                <dd>
+                                                    {{ item.serialnumber }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Tracking Number:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.trackingnumber
+                                                    }}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                    </section>
+
+
+                                    <section class="info-section">
                                         <h3 class="text-primary fw-bolder">Product Identifiers</h3>
                                         <dl class="info-list">
                                             <div class="info-item">
@@ -283,44 +320,6 @@
                                             </div>
                                         </dl>
                                     </section>
-
-
-                                    <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
-                                        <dl class="info-list">
-                                            <div class="info-item">
-                                                <dt>Module:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.ProductModuleLoc
-                                                    }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Warehouse Location:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.warehouselocation
-                                                    }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Serial Number:</dt>
-                                                <dd>
-                                                    {{ item.serialnumber }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Tracking Number:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.trackingnumber
-                                                    }}
-                                                </dd>
-                                            </div>
-                                        </dl>
-                                    </section>
-
 
                                     <section class="info-section" v-if="item.grading || item.notes">
                                         <h3 class="text-primary fw-bolder">Additional Info</h3>

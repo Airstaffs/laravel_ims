@@ -10,94 +10,47 @@
             </div>
 
             <div class="modal-body">
-                <form
-                    @submit.prevent="submitLabel"
-                    enctype="multipart/form-data"
-                >
+                <form @submit.prevent="submitLabel" enctype="multipart/form-data">
                     <fieldset>
                         <label>Amazon Order ID</label>
-                        <input
-                            v-model="form.AmazonOrderId"
-                            type="text"
-                            class="form-control"
-                            required
-                        />
+                        <input v-model="form.AmazonOrderId" type="text" class="form-control" required />
                     </fieldset>
 
                     <!-- New Input -->
                     <div class="mb-3">
                         <label class="form-label">Order Item IDs</label>
-                        <div
-                            v-for="(item, index) in form.OrderItemIds"
-                            :key="index"
-                            class="input-group mb-2"
-                        >
-                            <input
-                                v-model="form.OrderItemIds[index]"
-                                type="text"
-                                class="form-control"
-                                placeholder="Enter OrderItemId"
-                                required
-                                style="width: 100%"
-                            />
-                            <button
-                                type="button"
-                                class="btn btn-danger"
-                                @click="removeOrderItemId(index)"
-                                v-if="form.OrderItemIds.length > 1"
-                                style="width: 35px"
-                            >
+                        <div v-for="(item, index) in form.OrderItemIds" :key="index" class="input-group mb-2">
+                            <input v-model="form.OrderItemIds[index]" type="text" class="form-control"
+                                placeholder="Enter OrderItemId" required style="width: 100%" />
+                            <button type="button" class="btn btn-danger" @click="removeOrderItemId(index)"
+                                v-if="form.OrderItemIds.length > 1" style="width: 35px">
                                 X
                             </button>
                         </div>
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-outline-primary mt-2"
-                            @click="addOrderItemId"
-                        >
+                        <button type="button" class="btn btn-sm btn-outline-primary mt-2" @click="addOrderItemId">
                             + Add OrderItemId
                         </button>
                     </div>
 
                     <fieldset>
                         <label>LCode</label>
-                        <input
-                            v-model.number="form.LCode"
-                            type="number"
-                            class="form-control"
-                            step="0.01"
-                            min="00.00"
-                            required
-                        />
+                        <input v-model.number="form.LCode" type="number" class="form-control" step="0.01" min="00.00"
+                            required />
                     </fieldset>
 
                     <fieldset>
                         <label>Ship Date</label>
-                        <input
-                            v-model="form.ShipDate"
-                            type="datetime-local"
-                            class="form-control"
-                            required
-                        />
+                        <input v-model="form.ShipDate" type="datetime-local" class="form-control" required />
                     </fieldset>
 
                     <fieldset>
                         <label>Tracking Number</label>
-                        <input
-                            v-model="form.TrackingNumber"
-                            type="text"
-                            class="form-control"
-                            required
-                        />
+                        <input v-model="form.TrackingNumber" type="text" class="form-control" required />
                     </fieldset>
 
                     <fieldset>
                         <label>Carrier</label>
-                        <select
-                            v-model="form.Carrier"
-                            class="form-select"
-                            required
-                        >
+                        <select v-model="form.Carrier" class="form-select" required>
                             <option value="Other">Other</option>
                             <option value="USPS">USPS</option>
                             <option value="UPS">UPS</option>
@@ -108,87 +61,45 @@
                     <!-- New Input -->
 
                     <fieldset>
-                        <label
-                            class="form-label d-flex justify-content-between align-items-center"
-                        >
-                            <span
-                                >Carrier Description
-                                <i
-                                    class="bi bi-info-circle-fill ms-1 text-primary"
-                                    data-bs-toggle="tooltip"
+                        <label class="form-label d-flex justify-content-between align-items-center">
+                            <span>Carrier Description
+                                <i class="bi bi-info-circle-fill ms-1 text-primary" data-bs-toggle="tooltip"
                                     data-bs-placement="top"
                                     title="Choose from existing options or input manually, additionally you can click add to options to add your input to the options!"
-                                    style="cursor: pointer"
-                                ></i
-                            ></span>
-                            <div
-                                class="btn-group btn-group-sm ms-2"
-                                role="group"
-                            >
-                                <button
-                                    type="button"
-                                    class="btn"
-                                    :class="
-                                        carrierMode === 'input'
-                                            ? 'btn-primary'
-                                            : 'btn-outline-secondary'
-                                    "
-                                    @click="carrierMode = 'input'"
-                                >
+                                    style="cursor: pointer"></i></span>
+                            <div class="btn-group btn-group-sm ms-2" role="group">
+                                <button type="button" class="btn" :class="carrierMode === 'input'
+                                    ? 'btn-primary'
+                                    : 'btn-outline-secondary'
+                                    " @click="carrierMode = 'input'">
                                     Input
                                 </button>
-                                <button
-                                    type="button"
-                                    class="btn"
-                                    :class="
-                                        carrierMode === 'select'
-                                            ? 'btn-primary'
-                                            : 'btn-outline-secondary'
-                                    "
-                                    @click="carrierMode = 'select'"
-                                >
+                                <button type="button" class="btn" :class="carrierMode === 'select'
+                                    ? 'btn-primary'
+                                    : 'btn-outline-secondary'
+                                    " @click="carrierMode = 'select'">
                                     Select
                                 </button>
                             </div>
                         </label>
 
                         <!-- Input with embedded add button -->
-                        <div
-                            v-if="carrierMode === 'input'"
-                            class="position-relative"
-                        >
-                            <input
-                                v-model="form.CarrierDescription"
-                                type="text"
-                                class="form-control pe-5"
-                                placeholder="Enter carrier description"
-                                required
-                            />
-                            <button
-                                type="button"
+                        <div v-if="carrierMode === 'input'" class="position-relative">
+                            <input v-model="form.CarrierDescription" type="text" class="form-control pe-5"
+                                placeholder="Enter carrier description" required />
+                            <button type="button"
                                 class="btn btn-outline-success position-absolute top-50 end-0 translate-middle-y"
-                                style="z-index: 10"
-                                @click="addCarrierDescription"
-                            >
+                                style="z-index: 10" @click="addCarrierDescription">
                                 Add to Option
                             </button>
                         </div>
 
                         <!-- Select dropdown -->
-                        <select
-                            v-else
-                            v-model="form.CarrierDescription"
-                            class="form-select"
-                            required
-                        >
+                        <select v-else v-model="form.CarrierDescription" class="form-select" required>
                             <option disabled value="">
                                 -- Select carrier description --
                             </option>
-                            <option
-                                v-for="desc in carrierDescriptions"
-                                :key="desc"
-                                :value="desc"
-                            >
+                            <option v-for="desc in carrierDescriptions" :key="desc" :value="desc">
                                 {{ desc }}
                             </option>
                         </select>
@@ -196,22 +107,14 @@
 
                     <fieldset>
                         <label>Shipping Delivery Experience</label>
-                        <select
-                            v-model="form.DeliveryExperience"
-                            class="form-select"
-                            required
-                        >
-                            <option
-                                value="DeliveryConfirmationWithoutSignature"
-                            >
+                        <select v-model="form.DeliveryExperience" class="form-select" required>
+                            <option value="DeliveryConfirmationWithoutSignature">
                                 DeliveryConfirmationWithoutSignature
                             </option>
                             <option value="DeliveryConfirmationWithSignature">
                                 DeliveryConfirmationWithSignature
                             </option>
-                            <option
-                                value="DeliveryConfirmationWithAdultSignature"
-                            >
+                            <option value="DeliveryConfirmationWithAdultSignature">
                                 DeliveryConfirmationWithAdultSignature
                             </option>
                             <option value="NoTracking">NoTracking</option>
@@ -220,26 +123,14 @@
 
                     <fieldset>
                         <label>Shipping Label PDF</label>
-                        <input
-                            @change="handleFileUpload"
-                            type="file"
-                            accept="application/pdf"
-                            class="form-control"
-                            required
-                        />
-                        <small class="text-danger mt-1 d-block"
-                            >⚠ Please upload a valid PDF file only. Other file
-                            types are not supported.</small
-                        >
+                        <input @change="handleFileUpload" type="file" accept="application/pdf" class="form-control"
+                            required />
+                        <small class="text-danger mt-1 d-block">⚠ Please upload a valid PDF file only. Other file
+                            types are not supported.</small>
                     </fieldset>
 
                     <div class="button-container">
-                        <button
-                            type="button"
-                            class="btn btn-secondary"
-                            data-bs-dismiss="modal"
-                            @click="resetForm"
-                        >
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" @click="resetForm">
                             Cancel
                         </button>
                         <button type="submit" class="btn btn-primary">
@@ -253,6 +144,8 @@
 </template>
 
 <script>
+import Swal from 'sweetalert2';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export default {
@@ -311,7 +204,13 @@ export default {
         async addCarrierDescription() {
             const value = this.form.CarrierDescription.trim();
             if (!value) {
-                alert("Carrier description is empty.");
+                // alert("Carrier description is empty.");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Ooops',
+                    text: 'Carrier description is empty.',
+                    confirmButtonText: 'Ok'
+                })
                 return;
             }
 
@@ -327,15 +226,33 @@ export default {
                     if (!this.carrierDescriptions.includes(value)) {
                         this.carrierDescriptions.push(value);
                     }
-                    alert("Carrier description added.");
+                    // alert("Carrier description added.");
+                    Swal.alert({
+                        icon: 'success',
+                        title: 'Operation Success',
+                        text: 'Carrier description added.',
+                        confirmButtonText: 'Ok'
+                    })
                 } else {
-                    alert(
-                        res.data.error || "Failed to save carrier description."
-                    );
+                    // alert(
+                    //     res.data.error || "Failed to save carrier description."
+                    // );
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Operation Failed',
+                        text: res.data.error || "Failed to save carrier description.",
+                        confirmButtonText: 'Ok'
+                    })
                 }
             } catch (err) {
                 console.error(err);
-                alert("Server error saving carrier description.");
+                // alert("Server error saving carrier description.");
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Operation Failed',
+                    text: 'Server error saving carrier description.',
+                    confirmButtonText: 'Ok'
+                })
             }
         },
         addOrderItemId() {
@@ -352,7 +269,13 @@ export default {
         },
         async submitLabel() {
             if (!this.form.shippinglabelpdf) {
-                alert("Please upload a PDF file.");
+                // alert("Please upload a PDF file.");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Ooops',
+                    text: 'Please upload a PDF file.',
+                    confirmButtonText: 'Ok'
+                })
                 return;
             }
 
@@ -380,15 +303,33 @@ export default {
                 );
 
                 if (res.data.success) {
-                    alert("Label submitted successfully!");
+                    // alert("Label submitted successfully!");
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Operation Success',
+                        text: 'Label submitted successfully!',
+                        confirmButtonText: 'Ok'
+                    })
                     this.resetForm();
                     window.closeManualShipmentLabel();
                 } else {
-                    alert("Submission failed: " + res.data.error);
+                    // alert("Submission failed: " + res.data.error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Operation Failed',
+                        text: "Submission failed: " + res.data.error,
+                        confirmButtonText: 'Ok'
+                    })
                 }
             } catch (err) {
                 console.error(err);
-                alert("Error occurred during submission.");
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Operation Failed',
+                    text: "Error occurred during submission.",
+                    confirmButtonText: 'Ok'
+                })
+                // alert("Error occurred during submission.");
             }
         },
         resetForm() {

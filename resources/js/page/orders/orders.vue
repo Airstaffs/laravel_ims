@@ -186,47 +186,38 @@ img, index
                                     </div>
                                 </div>
                             </div>
+                            <Card>
+                                <template #title>
+                                    <div>
+                                        <h6 class="text-primary">General Information</h6>
+                                        <Divider />
+                                    </div>
+                                </template>
+                                <template #content>
+                                    <div>
+                                        <fieldset>
+                                            <label>External Title</label>
+                                            <Textarea size="small" fluid v-model="item.ProductTitle" rows="5" />
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>RT:</label>
+                                            <InputText size="small" v-model="item.rtcounter" fluid />
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>Order Number:</label>
+                                            <InputText size="small" v-model="item.rtid" fluid />
+                                        </fieldset>
+                                        <fieldset>
+                                            <label>Item Number:</label>
+                                            <InputText size="small" v-model="item.itemnumber" fluid />
+                                        </fieldset>
+                                    </div>
+                                </template>
+                            </Card>
                         </div>
 
                         <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
                         <div class="form-col-center">
-                            <Card>
-                                <template #title>
-                                    <h6 class="text-primary">General Information</h6>
-                                    <Divider />
-                                </template>
-                                <template #content>
-                                    <div>
-                                        <fieldset class=" md-mb-2">
-                                            <label>External Title</label>
-                                            <Textarea size="small" fluid v-model="item.ProductTitle" />
-                                        </fieldset>
-                                        <div class="row">
-                                            <div class="col-md-4">
-                                                <fieldset>
-                                                    <label>RT:</label>
-                                                    <InputText size="small" v-model="item.rtcounter" fluid />
-                                                </fieldset>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <fieldset>
-                                                    <label>Order Number:</label>
-                                                    <InputText size="small" v-model="item.rtid" fluid />
-                                                </fieldset>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <fieldset>
-                                                    <label>Item Number:</label>
-                                                    <InputText size="small" v-model="item.itemnumber" fluid />
-                                                </fieldset>
-                                            </div>
-
-                                        </div>
-                                    </div>
-                                </template>
-
-
-                            </Card>
                             <div class="form-section other-section bg-white border-0">
 
                                 <!-- SECTION: Dates -->
@@ -260,6 +251,25 @@ img, index
                                                     <label>Delivered Date:</label>
                                                     <input type="date" class="form-control"
                                                         v-model="item.datedelivered" />
+                                                </fieldset>
+                                            </div>
+                                        </template>
+                                    </Card>
+
+                                    <Card class="mt-2">
+                                        <template #content>
+                                            <div>
+                                                <fieldset>
+                                                    <label>Description:</label>
+                                                    <Textarea ref="descriptionarea" size="small" fluid
+                                                        v-model="item.description" placeholder="Description" rows="4"
+                                                        @input="autoResize" class="no-resize"></Textarea>
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Supplier Notes:</label>
+                                                    <Textarea ref="supplierNotesarea" size="small" fluid
+                                                        v-model="item.supplierNotes" placeholder="Supplier Notes"
+                                                        rows="4" @input="autoResize" class="no-resize"></Textarea>
                                                 </fieldset>
                                             </div>
                                         </template>
@@ -359,26 +369,21 @@ key, index
                                             </div>
                                         </template>
                                     </Card>
+
+                                    <Card class="mt-2">
+                                        <template #content>
+                                            <div>
+                                                <fieldset>
+                                                    <label>Employee Notes:</label>
+                                                    <Textarea ref="employeeNotesarea" size="small" fluid
+                                                        v-model="item.employeeNotes" placeholder="Employee Notes"
+                                                        rows="4" @input="autoResize" class="no-resize"></Textarea>
+                                                </fieldset>
+                                            </div>
+                                        </template>
+                                    </Card>
                                 </div>
                             </div>
-                            <fieldset>
-                                <label>Description:</label>
-                                <Textarea ref="descriptionarea" fluid v-model="item.description"
-                                    placeholder="Description" rows="4" @input="autoResize" class="no-resize"></Textarea>
-                            </fieldset>
-                            <fieldset>
-                                <label>Supplier Notes:</label>
-                                <Textarea ref="supplierNotesarea" fluid v-model="item.supplierNotes"
-                                    placeholder="Supplier Notes" rows="4" @input="autoResize"
-                                    class="no-resize"></Textarea>
-                            </fieldset>
-                            <fieldset>
-                                <label>Employee Notes:</label>
-                                <Textarea ref="employeeNotesarea" fluid v-model="item.employeeNotes"
-                                    placeholder="Employee Notes" rows="4" @input="autoResize"
-                                    class="no-resize"></Textarea>
-                            </fieldset>
-
                         </div>
 
                         <!-- RIGHT: PRICING -->
