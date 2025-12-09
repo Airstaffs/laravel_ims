@@ -861,6 +861,8 @@ const app = createApp({
 // Note: Activity tracking now handled at document level
 // No need for per-component listeners
 
+import './../css/dark-theme.css'
+
 // ============================================
 // PRIMEVUE SETUP FOR BLADE APPS
 // ============================================
@@ -875,7 +877,7 @@ app.use(PrimeVue, {
     theme: {
         preset: Aura,
         options: {
-            darkModeSelector: false,
+            darkModeSelector: 'none',
         },
     },
 });
@@ -941,7 +943,7 @@ searchApp.use(PrimeVue, {
     theme: {
         preset: Aura,
         options: {
-            darkModeSelector: false,
+            darkModeSelector: 'none',
         },
     },
 });
@@ -958,7 +960,7 @@ if (document.getElementById("navbar-app")) {
         theme: {
             preset: Aura,
             options: {
-                darkModeSelector: false,
+                darkModeSelector: 'none',
             },
         },
     });
