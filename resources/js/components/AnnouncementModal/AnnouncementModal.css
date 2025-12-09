@@ -57,6 +57,14 @@
     align-items: center;
 }
 
+/* Vertical action buttons */
+.announcements-table .action-buttons {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .filters-container {
@@ -75,34 +83,34 @@
     }
 }
 
-/* Button colors */
-.filters-container .p-button:not(.p-button-outlined),
+/* Button colors - exclude text buttons */
+.filters-container .p-button:not(.p-button-outlined):not(.p-button-text),
 .announcements-table
-    .p-button:not(.p-button-outlined):not(.p-button-warning):not(
-        .p-button-success
-    ) {
+    .p-button:not(.p-button-outlined):not(.p-button-text):not(
+        .p-button-warning
+    ):not(.p-button-success) {
     background-color: #007bff;
     border-color: #007bff;
 }
 
-.filters-container .p-button:not(.p-button-outlined):hover,
+.filters-container .p-button:not(.p-button-outlined):not(.p-button-text):hover,
 .announcements-table
-    .p-button:not(.p-button-outlined):not(.p-button-warning):not(
-        .p-button-success
-    ):hover {
+    .p-button:not(.p-button-outlined):not(.p-button-text):not(
+        .p-button-warning
+    ):not(.p-button-success):hover {
     background-color: #0056b3;
     border-color: #0056b3;
 }
 
-/* Outlined buttons with #007bff */
-.filters-container .p-button-outlined,
-.announcements-table .p-button-outlined {
+/* Outlined buttons with #007bff - exclude text buttons */
+.filters-container .p-button-outlined:not(.p-button-text),
+.announcements-table .p-button-outlined:not(.p-button-text) {
     color: #007bff;
     border-color: #007bff;
 }
 
-.filters-container .p-button-outlined:hover,
-.announcements-table .p-button-outlined:hover {
+.filters-container .p-button-outlined:not(.p-button-text):hover,
+.announcements-table .p-button-outlined:not(.p-button-text):hover {
     background-color: #007bff;
     border-color: #007bff;
     color: white;

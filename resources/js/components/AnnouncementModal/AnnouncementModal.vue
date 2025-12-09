@@ -115,24 +115,29 @@
                     {{ formatRecipients(data.recipients) }}
                 </template>
             </Column>
-            <Column header="Actions" style="min-width: 250px">
+            <Column header="Actions" style="min-width: 150px">
                 <template #body="{ data }">
-                    <Button
-                        icon="pi pi-pencil"
-                        label="Edit"
-                        size="small"
-                        outlined
-                        class="mr-2"
-                        @click="openComposeModal(data.id)"
-                    />
-                    <Button
-                        :icon="data.is_active ? 'pi pi-pause' : 'pi pi-play'"
-                        :label="data.is_active ? 'Deactivate' : 'Activate'"
-                        :severity="data.is_active ? 'warning' : 'success'"
-                        size="small"
-                        outlined
-                        @click="toggleActive(data.id, !data.is_active)"
-                    />
+                    <div class="action-buttons">
+                        <Button
+                            icon="pi pi-pencil"
+                            label="Edit"
+                            size="small"
+                            text
+                            severity="contrast"
+                            class="text-primary"
+                            @click="openComposeModal(data.id)"
+                        />
+                        <Button
+                            :icon="
+                                data.is_active ? 'pi pi-pause' : 'pi pi-play'
+                            "
+                            :label="data.is_active ? 'Deactivate' : 'Activate'"
+                            :severity="data.is_active ? 'warning' : 'success'"
+                            size="small"
+                            text
+                            @click="toggleActive(data.id, !data.is_active)"
+                        />
+                    </div>
                 </template>
             </Column>
         </DataTable>
