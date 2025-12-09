@@ -62,6 +62,15 @@ app.include_router(update_model_router)
 from asin_assign_training.upload_bulk_dataset import router as upload_bulk_router
 app.include_router(upload_bulk_router)
 
+from asin_assign_training.remote_dataset_upload import router as remote_dataset_router
+app.include_router(remote_dataset_router)
+
+from asin_assign_training.remote_training.remote_train_model import router as remote_train_router
+app.include_router(remote_train_router)
+
+from asin_assign_training.remote_training.remote_train_stream import router as remote_train_stream_router
+app.include_router(remote_train_stream_router)
+
 
 # ✅ 4️⃣ Existing endpoints
 

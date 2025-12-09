@@ -856,7 +856,7 @@ Route::middleware(['auth'])->get('/account/complete', function () {
 })->name('account.complete.view');
 
 // Add this BEFORE the fallback route
-Route::get('/aiTraining', function () {
+Route::get('/aitraining', function () {
     return view('aiTraining'); // Blade file wrapper for Vue
 })->middleware(['auth']); // if you want it only for logged users
 
