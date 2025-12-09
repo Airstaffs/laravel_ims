@@ -994,6 +994,26 @@
     margin-bottom: 1.5rem;
 }
 
+/* ==================== TIME RECORD TAB ==================== */
+
+.time-record-form .inline-filters {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.time-record-form .filter-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.time-record-form :deep(.p-dropdown),
+.time-record-form :deep(.p-calendar) {
+    width: 200px;
+}
+
 /* ==================== USER LOGS TAB ==================== */
 
 .user-logs-content {
