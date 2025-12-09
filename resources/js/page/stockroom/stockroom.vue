@@ -526,18 +526,25 @@
                                 selectedProduct.storename
                             }}</span>
                         </div>
+
                         <div class="product-details-row">
                             <span class="product-details-label">Quantity Inside: </span>
                             <span :class="{
                                 'product-details-value': true,
-                                'item-count-warning':
-                                    !selectedProduct.countValid,
+                                'item-count-warning': !selectedProduct.countValid,
                             }">
-                                {{ selectedProduct.item_count }}
+                                <!-- UPDATED: Use the new display logic -->
+                                <template v-if="selectedProduct.quantity_inside > 1">
+                                    {{ selectedProduct.unit_count }} units ({{ selectedProduct.item_count }} qty)
+                                </template>
+                                <template v-else>
+                                    {{ selectedProduct.item_count }}
+                                </template>
                                 <i v-if="!selectedProduct.countValid" class="fas fa-exclamation-circle"
-                                    title="Item count doesn't match serial numbers"></i>
+                                    title="Unit count doesn't match serial numbers"></i>
                             </span>
                         </div>
+                                                
                     </div>
                 </div>
                 <div class="product-details-right">
