@@ -2,6 +2,7 @@ import { eventBus } from "../../components/eventBus";
 import "../../../css/modules.css";
 import "./orders.css";
 import Swal from "sweetalert2";
+import { DEFAULT_IMAGE } from "../../constant";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -18,8 +19,7 @@ export default {
             sortColumn: "",
             sortOrder: "asc",
             showDetails: false,
-            defaultImage:
-                "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZWVlIj48L3JlY3Q+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTIiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGFsaWdubWVudC1iYXNlbGluZT0ibWlkZGxlIiBmb250LWZhbWlseT0ibW9ub3NwYWNlLCBzYW5zLXNlcmlmIiBmaWxsPSIjOTk5Ij5JbWFnZTwvdGV4dD48L3N2Zz4=",
+            defaultImage: DEFAULT_IMAGE,
             // Modal state
             showImageModal: false,
             modalImages: [],
@@ -379,6 +379,7 @@ export default {
 
         // Fetch inventory data from the API
         async fetchInventory() {
+            this.loading = true
             try {
                 const response = await axios.get(
                     `${API_BASE_URL}/api/orders/products`,
@@ -398,6 +399,8 @@ export default {
                 console.log(this.inventory);
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
+            } finally {
+                this.loading = false
             }
         },
 

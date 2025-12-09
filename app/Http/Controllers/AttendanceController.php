@@ -713,53 +713,85 @@ class AttendanceController extends Controller
 
     public function autoClockOut(Request $request)
     {
-        $currentUserId = Auth::user()->id;
-        $timezone = 'America/Los_Angeles';
+        $userId = Auth::id();
+        $tz = 'America/Los_Angeles';
+        $now = Carbon::now($tz);
 
-        // Get all unclosed records
-        $unclosedRecords = DB::table('tblemployeeclocks')
-            ->where('userid', $currentUserId)
-            ->whereNotNull('TimeIn')
+        // Validate the request
+        $validated = $request->validate([
+            'last_clock_in' => 'required|date',
+        ]);
+
+        $lastClockInDate = Carbon::parse($validated['last_clock_in'], $tz);
+
+        // Find the open attendance record from the previous day
+        $openRecord = DB::table('tblemployeeclocks')
+            ->where('userid', $userId)
             ->whereNull('TimeOut')
-            ->orderBy('ID', 'asc')
-            ->get();
+            ->whereDate('TimeIn', $lastClockInDate->toDateString())
+            ->orderBy('ID', 'desc')
+            ->first();
 
-        if ($unclosedRecords->isEmpty()) {
+        if (! $openRecord) {
             return response()->json([
                 'success' => false,
-                'message' => 'No unclosed clock-in records found.',
-            ]);
+                'message' => 'No open clock-in record found for the specified date.',
+            ], 404);
         }
 
-        $updatedCount = 0;
-        foreach ($unclosedRecords as $record) {
-            $timeIn = \Carbon\Carbon::parse($record->TimeIn)->setTimezone($timezone);
-            $now = now()->setTimezone($timezone);
+        $timeIn = Carbon::parse($openRecord->TimeIn, $tz);
 
-            // Only close records older than 8 hours
-            if ($timeIn->diffInHours($now) >= 8) {
-                DB::table('tblemployeeclocks')
-                    ->where('ID', $record->ID)
-                    ->update([
-                        'TimeOut' => $record->TimeIn,
-                        'Notes' => 'System Auto Clock-out applied. TimeOut matched TimeIn at '.$record->TimeIn,
-                    ]);
+        // Check if the clock-in is from a previous day
+        $timeInDate = $timeIn->copy()->startOfDay();
+        $todayDate = $now->copy()->startOfDay();
 
-                $this->userLogService->log("Auto Clockout: User ID {$currentUserId} clocked out record ID {$record->ID} at {$record->TimeIn}");
-                $updatedCount++;
-            }
-        }
-
-        if ($updatedCount > 0) {
+        if ($timeInDate->greaterThanOrEqualTo($todayDate)) {
             return response()->json([
-                'success' => true,
-                'message' => "{$updatedCount} record(s) auto clocked out successfully.",
-            ]);
+                'success' => false,
+                'message' => 'The clock-in record is from today. Auto clock-out only applies to previous days.',
+            ], 400);
         }
+
+        // Set TimeOut to match TimeIn (same timestamp)
+        $autoClockOutTime = $timeIn->copy();
+
+        // Prepare notes
+        $autoNote = 'IMS: Auto Clock-out applied. TimeOut set to match TimeIn at '.$autoClockOutTime->format('Y-m-d h:i A');
+
+        $existingNotes = $openRecord->Notes ?? '';
+        $existingSystemNotes = $openRecord->systemNotes ?? '';
+
+        $newNotes = $existingNotes
+            ? $existingNotes.' | '.$autoNote
+            : $autoNote;
+
+        $newSystemNotes = $existingSystemNotes
+            ? $existingSystemNotes."\n".$autoNote
+            : $autoNote;
+
+        // Update the record
+        DB::table('tblemployeeclocks')
+            ->where('ID', $openRecord->ID)
+            ->update([
+                'TimeOut' => $autoClockOutTime,
+                'Notes' => $newNotes,
+                'systemNotes' => $newSystemNotes,
+            ]);
+
+        // Log the action
+        $this->userLogService->log('Auto Clockout: Record ID '.$openRecord->ID.' from '.$timeIn->format('Y-m-d'));
+
+        // Send notification email
+        $uname = Auth::user()->username;
+        $this->sendClockinMail($uname, $autoClockOutTime->format('Y-m-d H:i:s'), 'Auto Clock Out');
 
         return response()->json([
-            'success' => false,
-            'message' => 'No eligible records found (less than 8 hours old).',
+            'success' => true,
+            'message' => 'Successfully auto-clocked out from previous day.',
+            'time_in' => $timeIn->toIso8601String(),
+            'time_out' => $autoClockOutTime->toIso8601String(),
+            'date' => $timeIn->toDateString(),
+            'attendance_id' => $openRecord->ID,
         ]);
     }
 
@@ -1496,6 +1528,7 @@ class AttendanceController extends Controller
     {
         $currentUserId = Auth::id();
         $tz = 'America/Los_Angeles';
+        $now = Carbon::now($tz);
 
         // Get this week's attendance records
         $employeeClocksThisweek = DB::table('tblemployeeclocks')
@@ -1563,6 +1596,24 @@ class AttendanceController extends Controller
         $canClockIn = ! $lastRecord || ($lastRecord && $lastRecord->TimeIn && $lastRecord->TimeOut);
         $canClockOut = $lastRecord && $lastRecord->TimeIn && ! $lastRecord->TimeOut;
 
+        // ============================================
+        // NEW SECTION: Check for previous day open clock-in
+        // ============================================
+        $hasPreviousDayOpenRecord = false;
+        if ($verylastRecord && $verylastRecord->TimeIn && ! $verylastRecord->TimeOut) {
+            $lastTimeIn = Carbon::parse($verylastRecord->TimeIn, $tz);
+            $lastTimeInDate = $lastTimeIn->copy()->startOfDay();
+            $todayDate = $now->copy()->startOfDay();
+
+            // If last clock-in is from a previous day, flag it
+            if ($lastTimeInDate->lessThan($todayDate)) {
+                $hasPreviousDayOpenRecord = true;
+            }
+        }
+        // ============================================
+        // END NEW SECTION
+        // ============================================
+
         return response()->json([
             'records' => $employeeClocksThisweek,
             'todayHours' => $todayHoursFormatted,
@@ -1570,6 +1621,7 @@ class AttendanceController extends Controller
             'lastRecordTimeIn' => $verylastRecord ? Carbon::parse($verylastRecord->TimeIn)->toIso8601String() : '',
             'canClockIn' => $canClockIn,
             'canClockOut' => $canClockOut,
+            'hasPreviousDayOpenRecord' => $hasPreviousDayOpenRecord, // NEW LINE
         ]);
     }
 }

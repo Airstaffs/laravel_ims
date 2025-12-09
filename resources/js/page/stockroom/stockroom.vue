@@ -1,49 +1,6 @@
 <template>
     <div class="vue-container stockroom-module">
-        <!-- Top header bar with blue background -->
-        <!-- <div class="top-header">
-            <div class="header-buttons">
-                <button class="btn" @click="openScannerModal">
-                    <i class="fas fa-barcode"></i>
-                    <span>Scan Items</span>
-                </button>
-                <button class="btn" @click="loadFBAInboundShipment">
-                    <i class="fas fa-truck"></i>
-                    <span>FBA Inbound Shipment</span>
-                </button>
 
-          <button class="btn" @click="showNewScannedModal = true">
-                <i class="fas fa-barcode"></i>
-                <span>New Scanned</span>
-                <span v-if="shouldShowBadge" class="notification-badge" :class="badgeClasses"
-                    :title="`${newScannedCount} new items scanned today (US time)`">
-                    {{ displayCount }}
-                </span>
-            </button>
-                <button class="btn" @click="openDs7Oos">Open DS7 & OOS</button>
-            </div>
-
-            <div class="store-filter">
-                <label for="store-select">Store:</label>
-                <select id="store-select" v-model="selectedStore" @change="changeStore" class="store-select">
-                    <option value="">All Stores</option>
-                    <option v-for="store in stores" :key="store" :value="store">
-                        {{ store }}
-                    </option>
-                </select>
-            </div>
-
-            <div class="availability-filter">
-                <label for="availability-select">Fullfilment:</label>
-                <select id="availabilityFilter" v-model="availabilityFilter" class="avail-select">
-                    <option value="all">All Items</option>
-                    <option value="fbm">FBM Only</option>
-                    <option value="fba">FBA Only</option>
-                    <option value="both">Both FBM & FBA</option>
-                    <option value="none">No Availability</option>
-                </select>
-            </div>
-        </div> -->
 
         <!-- Scanner Component (with hideButton prop to hide the scanner button) -->
         <scanner-component scanner-title="Stockroom Scanner" storage-prefix="stockroom" :enable-camera="true"
@@ -279,15 +236,15 @@
                             <span class="mobile-detail-label">ASIN: </span>
                             <span class="mobile-detail-value">{{
                                 item.ASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div>
                             <span class="mobile-detail-label">Store: </span>
                             <span class="mobile-detail-value">{{
                                 item.storename
-                            }}</span>
+                                }}</span>
                         </div>
-                        
+
 
                         <div>
                             <span class="mobile-detail-label">Quantity Inside: </span>
@@ -317,7 +274,7 @@
                             <span class="mobile-detail-label">FNSKUs: </span>
                             <span class="mobile-detail-value">{{
                                 item.fnskus ? item.fnskus.length : 0
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
 
@@ -356,25 +313,25 @@
                                         <span class="mobile-serial-label">Serial:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.serialnumber
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Location:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.warehouselocation
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">FNSKU:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.FNSKUviewer
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">MSKU:</span>
                                         <span class="mobile-serial-value">{{
                                             serial.MSKU
-                                        }}</span>
+                                            }}</span>
                                     </div>
                                     <div class="mobile-serial-detail">
                                         <span class="mobile-serial-label">Grading:</span>
@@ -405,21 +362,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
+                        optionLabel="label" optionValue="value" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -525,49 +482,49 @@
                             <span class="product-details-label">ASIN: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.ASIN
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBM: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.FBMAvailable
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">FBA: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.FbaAvailable
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Outbound: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Outbound
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Inbound: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Inbound
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Unfulfillable: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Unfulfillable
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Reserved: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.Reserved
-                                }}</span>
+                            }}</span>
                         </div>
                         <div class="product-details-row">
                             <span class="product-details-label">Store: </span>
                             <span class="product-details-value"> {{
                                 selectedProduct.storename
-                                }}</span>
+                            }}</span>
                         </div>
 
                         <div class="product-details-row">
@@ -733,15 +690,9 @@ import XDataTable from '../../components/DataTable/XDataTable.vue'
 import { Badge, Button, Card, Dialog, Divider, Drawer, InputText, Menu, OverlayBadge, ScrollTop, Select, Textarea } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         field: "AStitle",
         header: "Product Name",
@@ -861,6 +812,7 @@ export default {
                 { value: "none", label: "No Availability" }
             ],
             menuActions: [],
+            rowsPerPage: ROWS_PER_PAGE
         }
     },
     methods: {

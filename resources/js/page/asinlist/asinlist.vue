@@ -17,7 +17,7 @@
                 </fieldset>
             </div>
             <XDataTable :value="sortedAsinData" :columns="columns" :loading="loading" :paginator="false"
-                tableClass="desktop-view">
+                tableClass="desktop-view" selectionMode="multiple" dataKey="ASIN">
                 <template #image="{ data }">
                     <div class="product-image-container clickable" @click="viewAsinDetails(data)">
                         <img :src="data.useDefaultImage
@@ -98,23 +98,17 @@
 
 
                 <!-- ADD THIS NEW TEMPLATE SLOT -->
-               <template #quantityInside="{ data }">
-                <div class="quantity-inside-cell">
-                    <Select 
-                        v-model="data.QuantityInside" 
-                        :options="[1, 2, 3, 4]" 
-                        @change="updateQuantityInside(data)"
-                        :disabled="savingQuantityFor === data.ASIN"
-                        placeholder="-"
-                        :pt="{
-                            root: { style: 'width: 80px; font-size: 14px;' }
-                        }"
-                    />
-                    <i v-if="savingQuantityFor === data.ASIN" 
-                    class="pi pi-spin pi-spinner" 
-                    style="margin-left: 8px; color: #007bff;"></i>
-                </div>
-            </template>
+                <template #quantityInside="{ data }">
+                    <div class="quantity-inside-cell">
+                        <Select v-model="data.QuantityInside" :options="[1, 2, 3, 4]"
+                            @change="updateQuantityInside(data)" :disabled="savingQuantityFor === data.ASIN"
+                            placeholder="-" :pt="{
+                                root: { style: 'width: 80px; font-size: 14px;' }
+                            }" />
+                        <i v-if="savingQuantityFor === data.ASIN" class="pi pi-spin pi-spinner"
+                            style="margin-left: 8px; color: #007bff;"></i>
+                    </div>
+                </template>
 
                 <template #FNSKU="{ data }">
                     <div class="fnsku-count">
@@ -135,220 +129,7 @@
             </XDataTable>
         </div>
         <!-- Desktop Table Container -->
-        <!-- <div class="table-container desktop-view">
-            <table>
-                <thead>
-                    <tr>
-                        <th class="sticky-header first-col" style="width: 350px; min-width: 350px">
-                            <div class="product-name">
-                                <span class="sortable" @click="sortBy('AStitle')">
-                                    Product Name
-                                    <i v-if="sortColumn === 'AStitle'" :class="sortOrder === 'asc'
-                                        ? 'fas fa-sort-up'
-                                        : 'fas fa-sort-down'
-                                        "></i>
-                                </span>
-                            </div>
-                        </th>
-                        <th style="width: 120px; min-width: 120px">
-                            <div class="sortable" @click="sortBy('ASIN')">
-                                ASIN
-                                <i v-if="sortColumn === 'ASIN'" :class="sortOrder === 'asc'
-                                    ? 'fas fa-sort-up'
-                                    : 'fas fa-sort-down'
-                                    "></i>
-                            </div>
-                        </th>
-                        <th style="width: 180px; min-width: 180px">
-                            <div class="">EAN / UPC</div>
-                        </th>
-                        <th style="width: 250px; min-width: 250px">
-                            <div class="">Related ASINs</div>
-                        </th>
-                        <th style="width: 120px; min-width: 120px">
-                            <div class="">FNSKUs</div>
-                        </th>
-                        <th style="width: 200px; min-width: 200px">
-                            <div class="th-content">Actions</div>
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-if="loading">
-                        <td colspan="6" class="text-center">
-                            <div class="loading-spinner">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Loading...
-                            </div>
-                        </td>
-                    </tr>
-                    <tr v-else-if="sortedAsinData.length === 0">
-                        <td colspan="6" class="text-center">No data found</td>
-                    </tr>
-                    <template v-else v-for="(item, index) in sortedAsinData" :key="item.ASIN">
-                        <tr>
-                            <td class="sticky-col first-col" style="width: 350px; min-width: 350px">
-                                <div class="product-container">
-                                    <div class="product-image-container clickable" @click="viewAsinDetails(item)">
-                                        <img :src="item.useDefaultImage
-                                            ? defaultImagePath
-                                            : getImagePath(item.ASIN)
-                                            " :alt="item.AStitle" class="product-thumbnail" @error="
-                                                handleImageError($event, item)
-                                                " />
-                                    </div>
-                                    <div class="product-info">
-                                        <p class="product-name clickable" @click="viewAsinDetails(item)">
-                                            {{ item.AStitle }}
-                                        </p>
-                                        <p class="product-title" v-if="item.metakeyword">
-                                            {{ item.metakeyword }}
-                                        </p>
-                                    </div>
-                                </div>
-                            </td>
-                            <td style="width: 120px">{{ item.ASIN }}</td>
-                            <td style="width: 180px">
-                                <div class="codes-container">
-                                    <div v-if="item.EAN" class="code-item">
-                                        <span class="code-label">EAN:</span>
-                                        <span class="code-value">{{
-                                            item.EAN
-                                            }}</span>
-                                    </div>
-                                    <div v-if="item.UPC" class="code-item">
-                                        <span class="code-label">UPC:</span>
-                                        <span class="code-value">{{
-                                            item.UPC
-                                            }}</span>
-                                    </div>
-                                    <div v-if="!item.EAN && !item.UPC" class="no-codes">
-                                        -
-                                    </div>
-                                </div>
-                            </td>
-                            <td style="width: 250px">
-                                <div class="related-asins">
-                                    <div v-if="item.ParentAsin" class="related-item">
-                                        <span class="related-label">Parent:</span>
-                                        <span class="related-value">{{
-                                            item.ParentAsin
-                                            }}</span>
-                                    </div>
-                                    <div v-if="item.CousinASIN" class="related-item">
-                                        <span class="related-label">Cousin:</span>
-                                        <span class="related-value">{{
-                                            item.CousinASIN
-                                            }}</span>
-                                    </div>
-                                    <div v-if="item.UpgradeASIN" class="related-item">
-                                        <span class="related-label">Upgrade:</span>
-                                        <span class="related-value">{{
-                                            item.UpgradeASIN
-                                            }}</span>
-                                    </div>
-                                    <div v-if="item.GrandASIN" class="related-item">
-                                        <span class="related-label">Grand:</span>
-                                        <span class="related-value">{{
-                                            item.GrandASIN
-                                            }}</span>
-                                    </div>
-                                    <div v-if="
-                                        !item.ParentAsin &&
-                                        !item.CousinASIN &&
-                                        !item.UpgradeASIN &&
-                                        !item.GrandASIN
-                                    " class="no-related">
-                                        -
-                                    </div>
-                                </div>
-                            </td>
-                            <td style="width: 120px">
-                                <div class="fnsku-count">
-                                    {{ item.fnsku_count }} FNSKUs
-                                </div>
-                            </td>
-                            <td style="width: 200px">
-                                <div class="action-buttons">
-                                    <button class="btn-expand" @click="toggleDetails(index)">
-                                        {{
-                                            expandedRows[index]
-                                                ? "Hide FNSKUs"
-                                                : "Show FNSKUs"
-                                        }}
-                                    </button>
-                                    <button class="btn-details" @click="viewAsinDetails(item)">
-                                        <i class="fas fa-info-circle"></i> Full
-                                        Details
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
 
-                        <tr v-if="expandedRows[index]" class="expanded-row">
-                            <td colspan="6">
-                                <div class="expanded-content">
-                                    <div class="expanded-fnskus">
-                                        <strong>FNSKUs for {{ item.ASIN }}:</strong>
-                                        <div class="fnsku-table-container">
-                                            <table class="fnsku-detail-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>FNSKU</th>
-                                                        <th>MSKU</th>
-                                                        <th>Store</th>
-                                                        <th>Units</th>
-                                                        <th>Grade</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr v-for="fnsku in item.fnskus" :key="fnsku.FNSKU">
-                                                        <td class="fnsku-code">
-                                                            {{ fnsku.FNSKU }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                fnsku.MSKU ||
-                                                                "-"
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                fnsku.storename
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                fnsku.Units || 0
-                                                            }}
-                                                        </td>
-                                                        <td>
-                                                            {{
-                                                                fnsku.grading ||
-                                                                "-"
-                                                            }}
-                                                        </td>
-                                                    </tr>
-                                                    <tr v-if="
-                                                        !item.fnskus ||
-                                                        item.fnskus
-                                                            .length === 0
-                                                    ">
-                                                        <td colspan="5" class="text-center">
-                                                            No FNSKUs found
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
-        </div> -->
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
@@ -470,21 +251,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
+                        optionLabel="label" optionValue="value" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -2019,6 +1800,7 @@ import asinlist from "./asinlist.js";
 import XDataTable from "../../components/DataTable/XDataTable.vue"
 import { Button, Dialog, InputText, Select, Textarea, ScrollTop } from "primevue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
     {
@@ -2100,7 +1882,8 @@ export default {
     data() {
         return {
             columns: TABLE_COLUMNS,
-            fnsku_columns: FNSKU_COLUMNS
+            fnsku_columns: FNSKU_COLUMNS,
+            rowsPerPage: ROWS_PER_PAGE
         }
     },
     computed: {

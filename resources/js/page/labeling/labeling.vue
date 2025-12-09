@@ -154,21 +154,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" size="small" :options="rowsPerPage"
+                        optionLabel="label" optionValue="value" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -177,68 +177,7 @@
         <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
             :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
             :handleImageError="handleImageError" />
-        <!-- <div v-if="showImageModal" class="modal image-modal">
-            <div class="modal-overlay" @click="closeImageModal"></div>
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div class="productTitle">
-                        <h2>{{ ProductTitle }}</h2>
-                    </div>
-                    <button class="btn btn-modal-close" @click="closeImageModal">
-                        &times;
-                    </button>
-                </div>
 
-                <div class="modal-body">
-        
-                    <div class="image-tabs">
-                        <button class="tab-button" :class="{ active: activeTab === 'regular' }"
-                            @click="switchTab('regular')" :disabled="regularImages.length === 0">
-                            <span>Product Images</span>
-                            <span class="badge img-badge">{{
-                                regularImages.length
-                                }}</span>
-                        </button>
-                        <button class="tab-button" :class="{ active: activeTab === 'captured' }"
-                            @click="switchTab('captured')" :disabled="capturedImages.length === 0">
-                            <span>Captured Images</span>
-                            <span class="badge img-badge">{{
-                                capturedImages.length
-                                }}</span>
-                        </button>
-                    </div>
-
-         
-                    <div v-if="currentImageSet.length === 0" class="no-images-message">
-                        No images available in this category
-                    </div>
-
-                    <div v-if="currentImageSet.length > 0" class="main-image-container">
-                        <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
-                            <i class="bi bi-arrow-left-short"></i>
-                        </button>
-                        <img :src="currentImageSet[currentImageIndex]" alt="Product Image" class="modal-main-image"
-                            @error="handleImageError" />
-                        <button class="nav-button next" @click="nextImage" v-if="currentImageSet.length > 1">
-                            <i class="bi bi-arrow-right-short"></i>
-                        </button>
-                    </div>
-
-                    <div class="image-counter" v-if="currentImageSet.length > 0">
-                        {{ currentImageIndex + 1 }} /
-                        {{ currentImageSet.length }}
-                    </div>
-
-               
-                    <div class="thumbnails-container" v-if="currentImageSet.length > 1">
-                        <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
-                            :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
-                            <img :src="image" :alt="`Thumbnail ${index + 1}`" @error="handleImageError" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div> -->
 
         <Dialog v-model:visible="showEditModal" header="Edit Product" modal :style="{ width: '90%' }" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
@@ -273,119 +212,84 @@ img, index
                                             " />
                                     </div>
                                 </div>
+
                             </div>
-
-                            <!-- <div class="form-section general-info-section">
-                                <div class="general-info-section">
-                                    <h3 class="form-section-heading">
-                                        General Info
-                                    </h3>
-
-                                    <fieldset>
-                                        <label><span>RT:</span></label>
-                                        <input type="text" class="form-control" :value="item.rtcounter"
-                                            placeholder="RT Counter" />
-                                    </fieldset>
-                                    <fieldset>
-                                        <label>
-                                            <span>ASIN:</span>
-                                            <span>*</span>
-                                        </label>
-                                        <input type="text" class="form-control" :value="item.ASIN" readonly disabled />
-                                    </fieldset>
-                                    <fieldset>
-                                        <label><span>External Title:</span></label>
-                                        <textarea ref="productTextarea" class="form-control no-resize"
-                                            v-model="item.ProductTitle" placeholder="Product Title" rows="1"
-                                            @input="autoResize"></textarea>
-                                    </fieldset>
-                                    <fieldset>
-                                        <label><span>Internal Title:</span></label>
-                                        <textarea ref="productTextarea" class="form-control no-resize"
-                                            v-model="item.ProductTitle" placeholder="Product Title" rows="1"
-                                            @input="autoResize" readonly disabled></textarea>
-                                    </fieldset>
-                                </div>
-                            </div> -->
-                        </div>
-
-                        <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
-                        <div class="form-col-center">
                             <Card>
                                 <template #title>
                                     <div>
-                                        <h6 class="text-primary">General Information</h6>
+                                        <h6 class="text-primary">Dates</h6>
                                         <Divider />
                                     </div>
                                 </template>
                                 <template #content>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <fieldset>
-                                                <label>External Title</label>
-                                                <Textarea ref="productTextarea" class="form-control no-resize"
-                                                    v-model="item.ProductTitle" placeholder="Product Title" rows="1"
-                                                    @input="autoResize" fluid size="small" />
-                                            </fieldset>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <fieldset>
-                                                <label>Internal Title</label>
-                                                <Textarea ref="productTextarea" class="form-control no-resize"
-                                                    v-model="item.ProductTitle" placeholder="Product Title" rows="1"
-                                                    @input="autoResize" fluid size="small" disabled />
-                                            </fieldset>
-                                        </div>
-                                    </div>
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <fieldset>
-                                                <label>RT:</label>
-                                                <InputText type="text" size="small" fluid :value="item.rtcounter"
-                                                    placeholder="RT Counter" />
-                                            </fieldset>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <fieldset>
-                                                <label>
-                                                    <span>ASIN:</span>
-                                                    <span>*</span>
-                                                </label>
-                                                <InputText type="text" :value="item.ASIN" size="small" fluid readonly
-                                                    disabled />
-                                            </fieldset>
-                                        </div>
-                                    </div>
+                                    <fieldset>
+                                        <label>Order Date:</label>
+                                        <InputText type="date" v-model="item.orderdate" size="small" fluid />
+                                    </fieldset>
+                                    <fieldset>
+                                        <label>Payment Date:</label>
+                                        <InputText type="date" v-model="item.paymentdate" size="small" fluid />
+                                    </fieldset>
+                                    <fieldset>
+                                        <label>Shipped Date:</label>
+                                        <InputText type="date" v-model="item.shipdate" size="small" fluid />
+                                    </fieldset>
+                                    <fieldset>
+                                        <label>Delivered Date:</label>
+                                        <InputText type="date" v-model="item.datedelivered" size="small" fluid />
+                                    </fieldset>
                                 </template>
                             </Card>
+                        </div>
+
+                        <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
+                        <div class="form-col-center">
+
                             <div class="form-section other-section bg-white border-0">
                                 <!-- SECTION: Dates -->
                                 <div class="dates-section">
                                     <Card>
                                         <template #title>
                                             <div>
-                                                <h6 class="text-primary">Dates</h6>
+                                                <h6 class="text-primary">General Information</h6>
                                                 <Divider />
                                             </div>
                                         </template>
                                         <template #content>
-                                            <fieldset>
-                                                <label>Order Date:</label>
-                                                <InputText type="date" v-model="item.orderdate" size="small" fluid />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label>Payment Date:</label>
-                                                <InputText type="date" v-model="item.paymentdate" size="small" fluid />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label>Shipped Date:</label>
-                                                <InputText type="date" v-model="item.shipdate" size="small" fluid />
-                                            </fieldset>
-                                            <fieldset>
-                                                <label>Delivered Date:</label>
-                                                <InputText type="date" v-model="item.datedelivered" size="small"
-                                                    fluid />
-                                            </fieldset>
+                                            <div>
+                                                <fieldset>
+                                                    <label>External Title</label>
+                                                    <Textarea ref="productTextarea" class="form-control no-resize"
+                                                        v-model="item.ProductTitle" placeholder="Product Title"
+                                                        @input="autoResize" fluid size="small" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>Internal Title</label>
+                                                    <Textarea ref="productTextarea" class="form-control no-resize"
+                                                        v-model="item.ProductTitle" placeholder="Product Title" rows="1"
+                                                        @input="autoResize" fluid size="small" disabled />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>RT:</label>
+                                                    <InputText type="text" size="small" fluid v-model="item.rtcounter"
+                                                        placeholder="RT Counter" />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label>
+                                                        <span>ASIN:</span>
+                                                        <span>*</span>
+                                                    </label>
+                                                    <InputText type="text" :value="item.ASIN" size="small" fluid
+                                                        readonly disabled />
+                                                </fieldset>
+                                                <fieldset>
+                                                    <label><span>Description</span></label>
+                                                    <Textarea ref="descriptionarea" class="no-resize" fluid
+                                                        v-model="item.description" placeholder="Description" rows="11"
+                                                        @input="autoResize" size="small" />
+                                                </fieldset>
+                                            </div>
+
                                         </template>
                                     </Card>
                                 </div>
@@ -444,8 +348,8 @@ key, index
                                             <div>
                                                 <fieldset>
                                                     <label>Order Number</label>
-                                                    <InputText type="text" :value="item.rtid" placeholder="Order Number"
-                                                        size="small" fluid />
+                                                    <InputText type="text" v-model="item.rtid"
+                                                        placeholder="Order Number" size="small" fluid />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>Item Number</label>
@@ -496,91 +400,41 @@ key, index
                                         </template>
                                     </Card>
 
-                                    <!-- <fieldset>
-                                        <label><span>Order Number</span></label>
-                                        <input type="text" class="form-control" :value="item.rtid"
-                                            placeholder="Order Number" />
-                                    </fieldset>
-                                    <fieldset>
-                                        <label><span>Item Number</span></label>
-                                        <input type="text" class="form-control" v-model="item.itemnumber" />
-                                    </fieldset>
-                                    <fieldset>
-                                        <label>
-                                            <span>Basket Number</span>
-                                            <span>*</span>
-                                        </label>
-                                        <input type="text" class="form-control" v-model="item.basketnumber" />
-                                    </fieldset>
-                                    <fieldset>
-                                        <label>
-                                            <span>RPN</span>
-                                            <span>*</span>
-                                        </label>
-                                        <input type="text" class="form-control" v-model="item.RPN" />
-                                    </fieldset>
-                                    <fieldset>
-                                        <label>
-                                            <span>PRD</span>
-                                            <span>*</span>
-                                        </label>
-                                        <input type="text" class="form-control" v-model="item.PRD" />
-                                    </fieldset>
-                                    <fieldset>
-                                        <label>
-                                            <span>PCN</span>
-                                            <span>*</span>
-                                        </label>
-                                        <input type="text" class="form-control" v-model="item.PCN" />
-                                    </fieldset>
-                                    <fieldset>
-                                        <label><span>Priority Rank</span></label>
-                                        <select class="form-control" v-model="item.priorityrank">
-                                            <option disabled value="">
-                                                Select Priority Rank
-                                            </option>
-                                            <option v-for="type in priorityRanks" :key="type" :value="type">
-                                                {{ type }}
-                                            </option>
-                                        </select>
-                                    </fieldset>
-                                    <fieldset>
-                                        <label><span>Return Status</span></label>
-                                        <input type="text" class="form-control" v-model="item.returnstatus" readonly
-                                            disabled />
-                                    </fieldset> -->
+
                                 </div>
                             </div>
                             <Card>
                                 <template #content>
-                                    <div>
-                                        <fieldset>
-                                            <label><span>Description</span></label>
-                                            <Textarea ref="descriptionarea" class="no-resize" fluid
-                                                v-model="item.description" placeholder="Description" rows="2"
-                                                @input="autoResize" size="small" />
-                                        </fieldset>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <fieldset>
+                                                <label><span>Supplier Notes</span></label>
+                                                <Textarea ref="supplierNotesarea" class="no-resize" fluid
+                                                    v-model="item.supplierNotes" placeholder="Supplier Notes" rows="2"
+                                                    @input="autoResize" size="small" />
+                                            </fieldset>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <fieldset>
+                                                <label><span>Employee Notes</span></label>
+                                                <Textarea ref="employeeNotesarea" class="no-resize" fluid
+                                                    v-model="item.employeeNotes" placeholder="Employee Notes" rows="2"
+                                                    @input="autoResize" size="small" />
+                                            </fieldset>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <fieldset>
+                                                <label><span>Sticker Notes</span></label>
+                                                <Textarea ref="stickerNotesarea" class="no-resize" fluid
+                                                    v-model="item.stickerNotes" placeholder="Sticker Notes" rows="2"
+                                                    @input="autoResize" size="small" />
+                                            </fieldset>
+                                        </div>
 
-                                        <fieldset>
-                                            <label><span>Supplier Notes</span></label>
-                                            <Textarea ref="supplierNotesarea" class="no-resize" fluid
-                                                v-model="item.supplierNotes" placeholder="Supplier Notes" rows="2"
-                                                @input="autoResize" size="small" />
-                                        </fieldset>
 
-                                        <fieldset>
-                                            <label><span>Employee Notes</span></label>
-                                            <Textarea ref="employeeNotesarea" class="no-resize" fluid
-                                                v-model="item.employeeNotes" placeholder="Employee Notes" rows="2"
-                                                @input="autoResize" size="small" />
-                                        </fieldset>
 
-                                        <fieldset>
-                                            <label><span>Sticker Notes</span></label>
-                                            <Textarea ref="stickerNotesarea" class="no-resize" fluid
-                                                v-model="item.stickerNotes" placeholder="Sticker Notes" rows="2"
-                                                @input="autoResize" size="small" />
-                                        </fieldset>
+
+
                                     </div>
                                 </template>
                             </Card>
@@ -927,21 +781,22 @@ key, index
                         </div>
 
                         <div class="d-flex align-items-center gap-3">
-                            <select v-model="pageSize" @change="changePageSize" class="form-select form-select-sm"
+                            <Select v-model="pageSize" @change="changePageSize"
+                                :options="[{ label: '5', value: 5 }, ...rowsPerPage]" size="small" optionLabel="label"
+                                optionValue="value" />
+                            <!-- <select v-model="pageSize" @change="changePageSize" class="form-select form-select-sm"
                                 style="width: 80px">
                                 <option value="5">5</option>
                                 <option value="10">10</option>
                                 <option value="25">25</option>
                                 <option value="50">50</option>
-                            </select>
+                            </select> -->
 
                             <nav>
                                 <ul class="pagination pagination-sm mb-0">
                                     <li class="page-item" :class="{ disabled: currentPage === 1 }">
                                         <Button @click="prevPage" :disabled="currentPage === 1" size="small"
-                                            severity="info">
-                                            Previous
-                                        </Button>
+                                            label="Previous" icon="pi pi-angle-left" severity="info" />
                                     </li>
 
                                     <li class="page-item active">
@@ -949,10 +804,8 @@ key, index
                                     </li>
 
                                     <li class="page-item" :class="{ disabled: !hasMorePages }">
-                                        <Button @click="nextPage" :disabled="!hasMorePages" size="small"
-                                            severity="info">
-                                            Next
-                                        </Button>
+                                        <Button @click="nextPage" :disabled="!hasMorePages" size="small" severity="info"
+                                            label="Next" icon="pi pi-angle-right" iconPos="right" />
                                     </li>
                                 </ul>
                             </nav>
@@ -1071,6 +924,7 @@ import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
     // {
@@ -1215,7 +1069,8 @@ export default {
                 loading: false,
                 info: {},
                 errorMessage: ""
-            }
+            },
+            rowsPerPage: ROWS_PER_PAGE
         }
     },
     methods: {

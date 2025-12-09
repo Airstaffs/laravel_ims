@@ -158,19 +158,19 @@
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detail-value">{{
                                 item.ASIN
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">FNSKU:</span>
                             <span class="mobile-detail-value">{{
                                 item.FNSKU
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">MSKU:</span>
                             <span class="mobile-detail-value">{{
                                 item.MSKU
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Grading:</span>
@@ -193,13 +193,13 @@
                             <span class="mobile-detail-label">Store name:</span>
                             <span class="mobile-detail-value">{{
                                 item.storename
-                            }}</span>
+                                }}</span>
                         </div>
                         <div class="mobile-detail-row">
                             <span class="mobile-detail-label">Units:</span>
                             <span class="mobile-detail-value">{{
                                 item.Units
-                            }}</span>
+                                }}</span>
                         </div>
                     </div>
 
@@ -233,21 +233,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
+                        optionLabel="label" optionValue="value" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        size="small" icon="pi pi-angle-left" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" size="small" icon="pi pi-angle-right" iconPos="right" severity="info" />
                 </div>
             </div>
         </div>
@@ -369,6 +369,7 @@ import FNSKU from "./fnsku.js";
 import XDataTable from '../../components/DataTable/XDataTable.vue'
 import { Button, Tag, InputText, Select, Dialog } from "primevue";
 import TitlePage from '../../components/TitlePage/TitlePage.vue'
+import { ROWS_PER_PAGE } from "../../constant.js";
 const TABLE_COLUMNS = [
     // {
     //     selectionMode: "multiple",
@@ -438,7 +439,8 @@ export default {
             storeOptions: [
                 { value: "Allrenewed", label: "Allrenewed" },
                 { value: "Renovartech", label: "Renovartech" }
-            ]
+            ],
+            rowsPerPage: ROWS_PER_PAGE
         }
     },
     methods: {

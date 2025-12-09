@@ -1,10 +1,6 @@
 <template>
     <div class="vue-container packaging-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
 
-        <!-- <h1 class="module-title">Packaging Module</h1> -->
         <TitlePage title="Packing Module"
             subtitle="Manage and finalize products by preparing packaging, ensuring all components are included, and staging for final shipment." />
 
@@ -160,21 +156,16 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select>
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
+                        optionLabel="label" optionValue="value" />
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -183,49 +174,7 @@
         <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
             :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
             @close="closeImageModal" />
-        <!-- <div v-if="showImageModal" class="modal image-modal">
-            <div class="modal-overlay" @click="closeImageModal"></div>
 
-            <div class="modal-content">
-                <div class="modal-header">
-                    <div class="productTitle">
-                        <h2>{{ ProductTitle }}</h2>
-                    </div>
-                    <button class="btn btn-modal-close" @click="closeImageModal">
-                        &times;
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="main-image-container">
-                        <button class="nav-button prev" @click="prevImage" v-if="imageList.length > 1">
-                            <i class="bi bi-arrow-left-short"></i>
-                        </button>
-                        <img :src="activeImageUrl" alt="Main Product Image" class="modal-main-image" loading="lazy"
-                            width="100%" @error="onImageErrorMain" />
-                        <button class="nav-button next" @click="nextImage" v-if="imageList.length > 1">
-                            <i class="bi bi-arrow-right-short"></i>
-                        </button>
-                    </div>
-
-                    <div class="image-counter">
-                        {{ activeIndex + 1 }} / {{ imageList.length }}
-                    </div>
-
-                    <div class="thumbnail-container" v-if="imageList.length > 1">
-                        <div v-for="(img, index) in imageList" :key="index" class="modal-thumbnail" :class="[
-                            'thumbnail',
-                            {
-                                active: index === activeIndex,
-                            },
-                        ]" @click="activeIndex = index" @mouseenter="activeIndex = index">
-                            <img :src="basePath + img" alt="Thumbnail" loading="lazy"
-                                @error="onThumbnailError($event)" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div> -->
 
         <Dialog class="view-modal" v-model:visible="showEditModal" modal
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;">
@@ -250,7 +199,41 @@
                         <div class="form-col-right">
                             <div class="row">
                                 <div class="col-lg-6">
-
+                                    <section class="info-section">
+                                        <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
+                                        <dl class="info-list">
+                                            <div class="info-item">
+                                                <dt>Module:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.ProductModuleLoc
+                                                    }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Warehouse Location:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.warehouselocation
+                                                    }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Serial Number:</dt>
+                                                <dd>
+                                                    {{ item.serialnumber }}
+                                                </dd>
+                                            </div>
+                                            <div class="info-item">
+                                                <dt>Tracking Number:</dt>
+                                                <dd>
+                                                    {{
+                                                        item.trackingnumber
+                                                    }}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                    </section>
                                     <section class="info-section">
                                         <h3 class="text-primary fw-bolder">Product Identifiers</h3>
                                         <dl class="info-list">
@@ -329,44 +312,6 @@
                                             </div>
                                         </dl>
                                     </section>
-
-
-                                    <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
-                                        <dl class="info-list">
-                                            <div class="info-item">
-                                                <dt>Module:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.ProductModuleLoc
-                                                    }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Warehouse Location:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.warehouselocation
-                                                    }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Serial Number:</dt>
-                                                <dd>
-                                                    {{ item.serialnumber }}
-                                                </dd>
-                                            </div>
-                                            <div class="info-item">
-                                                <dt>Tracking Number:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.trackingnumber
-                                                    }}
-                                                </dd>
-                                            </div>
-                                        </dl>
-                                    </section>
-
 
                                     <section class="info-section" v-if="item.grading || item.notes">
                                         <h3 class="text-primary fw-bolder">Additional Info</h3>
@@ -460,7 +405,7 @@
 </template>
 
 <script>
-import { Button, Dialog, ScrollTop } from "primevue";
+import { Button, Dialog, ScrollTop, Select } from "primevue";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
 import Packing from "./packing.js";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
@@ -468,14 +413,8 @@ import Gallery from "../../components/Gallery/gallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         field: "gallery",
         header: "Gallery",
@@ -542,11 +481,13 @@ export default {
         ScrollTop,
         TitlePage,
         ViewImageModal,
-        AnimateDiv
+        AnimateDiv,
+        Select
     },
     data() {
         return {
-            columns: TABLE_COLUMNS
+            columns: TABLE_COLUMNS,
+            rowsPerPage: ROWS_PER_PAGE
         }
     }
 };

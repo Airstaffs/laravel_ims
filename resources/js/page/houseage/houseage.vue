@@ -1,15 +1,6 @@
 <template>
     <div class="vue-container houseage-module">
-        <!-- <div class="top-header">
-            <div class="header-buttons"></div>
-            <div class="module-filter">
-                <label for="moduleFilter">Module:</label>
-                <Select v-model="moduleFilter" :options="uniqueModuleOptions" optionLabel="label" optionValue="value"
-                    placeholder="Select condition" size="small" fluid />
-            </div>
-        </div> -->
 
-        <!-- <h2 class="module-title">Houseage Module</h2> -->
         <TitlePage title="Houseage Module"
             subtitle="Manage all products in the internal processing flow, including grading, return status, and next module assignment." />
         <!-- Desktop Table Container -->
@@ -170,21 +161,21 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <select v-model="perPage" @change="changePerPage" class="per-page-select">
+                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
+                        optionLabel="label" optionValue="value" />
+                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
                         </option>
-                    </select>
+                    </select> -->
                 </div>
 
                 <div class="pagination">
-                    <button @click="prevPage" :disabled="currentPage === 1" class="pagination-button">
-                        <i class="fas fa-chevron-left"></i> Back
-                    </button>
+                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
+                        icon="pi pi-angle-left" size="small" severity="info" />
                     <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button">
-                        Next <i class="fas fa-chevron-right"></i>
-                    </button>
+                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
+                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
                 </div>
             </div>
         </div>
@@ -193,71 +184,7 @@
         <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
             :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
             :handleImageError="handleImageError" />
-        <!-- <div v-if="showImageModal" class="modal image-modal">
-            <div class="modal-overlay" @click="closeImageModal"></div>
 
-            <div class="modal-content">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <div class="productTitle">
-                            <h2>{{ ProductTitle }}</h2>
-                        </div>
-                        <button class="btn btn-modal-close" @click="closeImageModal">
-                            &times;
-                        </button>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="image-tabs">
-                            <button class="tab-button" :class="{ active: activeTab === 'regular' }"
-                                @click="switchTab('regular')" :disabled="regularImages.length === 0">
-                                <span>Product Images</span>
-                                <span class="badge img-badge">{{
-                                    regularImages.length
-                                    }}</span>
-                            </button>
-                            <button class="tab-button" :class="{ active: activeTab === 'captured' }"
-                                @click="switchTab('captured')" :disabled="capturedImages.length === 0">
-                                <span>Captured Images</span>
-                                <span class="badge img-badge">{{
-                                    capturedImages.length
-                                    }}</span>
-                            </button>
-                        </div>
-
-                 
-                        <div v-if="currentImageSet.length === 0" class="no-images-message">
-                            No images available in this category
-                        </div>
-
-                      
-                        <div v-if="currentImageSet.length > 0" class="main-image-container">
-                            <button class="nav-button prev" @click="prevImage" v-if="currentImageSet.length > 1">
-                                <i class="bi bi-arrow-left-short"></i>
-                            </button>
-                            <img :src="currentImageSet[currentImageIndex]" alt="Product Image" class="modal-main-image"
-                                @error="handleImageError" />
-                            <button class="nav-button next" @click="nextImage" v-if="currentImageSet.length > 1">
-                                <i class="bi bi-arrow-right-short"></i>
-                            </button>
-                        </div>
-
-                        <div class="image-counter" v-if="currentImageSet.length > 0">
-                            {{ currentImageIndex + 1 }} /
-                            {{ currentImageSet.length }}
-                        </div>
-
-                    
-                        <div class="thumbnails-container" v-if="currentImageSet.length > 1">
-                            <div v-for="(image, index) in currentImageSet" :key="index" class="modal-thumbnail"
-                                :class="{ active: index === currentImageIndex }" @click="currentImageIndex = index">
-                                <img :src="image" :alt="`Thumbnail ${index + 1}`" @error="handleImageError" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div> -->
 
         <Dialog v-model:visible="showEditModal" modal :style="{ width: '95%' }" header="Edit Product" :pt="{
             root: { class: 'mobile-fullscreen-dialog' }
@@ -695,15 +622,9 @@ import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
-    // {
-    //     selectionMode: "multiple",
-    //     header: "",
-    //     style: { width: "3rem", minWidth: "3rem" },
-    //     headerStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    //     bodyStyle: "width: 3rem; min-width: 3rem; max-width: 3rem; padding: 0.25rem;",
-    // },
     {
         field: "gallery",
         header: "Gallery",
@@ -801,7 +722,8 @@ export default {
                 { label: "Cash", value: "Cash" },
                 { label: "Bank Transfer", value: "Bank Transfer" },
                 { label: "Check", value: "Check" }
-            ]
+            ],
+            rowsPerPage: ROWS_PER_PAGE
         }
     },
     computed: {

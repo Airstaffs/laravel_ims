@@ -3,9 +3,6 @@ import { createApp } from "vue";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap/dist/js/bootstrap.bundle.min.js";
 
-import "bootstrap/dist/css/bootstrap.min.css";
-import "bootstrap/dist/js/bootstrap.bundle.min.js";
-
 // Add PrimeVue CSS
 import "primeicons/primeicons.css";
 
@@ -29,12 +26,13 @@ const SESSION_DEBUG = import.meta.env.DEV ?? false;
 const SESSION_HEARTBEAT_INTERVAL = 5 * 60 * 1000; // 5 minutes
 const SESSION_ALWAYS_REFRESH = true;
 
-// ⭐ NEW: Idle detection configuration
+// ⭐ Idle detection configuration
 const IDLE_CONFIG = {
     SESSION_LIFETIME: 8 * 60 * 60 * 1000, // 8 hours
     WARNING_BEFORE_EXPIRY: 10 * 60 * 1000, // 10 minutes
     MAX_IDLE_TIME: 30 * 60 * 1000, // 30 minutes = idle
     TOKEN_REFRESH_ON_ACTIVITY: true, // Refresh token when user returns
+    ACTIVITY_DEBOUNCE: 1000, // Debounce activity updates to 1 second
 };
 
 // ============================================
@@ -58,6 +56,22 @@ function logSession(message, data) {
 }
 
 // ============================================
+// UTILITY: DEBOUNCE
+// ============================================
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// ============================================
 // AXIOS INITIALIZATION
 // ============================================
 
@@ -69,8 +83,8 @@ const tokenMeta = document.head.querySelector('meta[name="csrf-token"]');
 if (tokenMeta) {
     const token = tokenMeta.content;
     axios.defaults.headers.common["X-CSRF-TOKEN"] = token;
-    localStorage.setItem("csrf_token_backup", token);
-    localStorage.setItem("csrf_token_timestamp", Date.now().toString());
+    sessionStorage.setItem("csrf_token_backup", token);
+    sessionStorage.setItem("csrf_token_timestamp", Date.now().toString());
     logCsrf("Initial CSRF token loaded");
 } else {
     console.error("❌ CSRF meta tag missing from page head");
@@ -116,8 +130,11 @@ async function refreshCsrf() {
             const meta = document.querySelector('meta[name="csrf-token"]');
             if (meta) meta.setAttribute("content", newToken);
 
-            localStorage.setItem("csrf_token_backup", newToken);
-            localStorage.setItem("csrf_token_timestamp", Date.now().toString());
+            sessionStorage.setItem("csrf_token_backup", newToken);
+            sessionStorage.setItem(
+                "csrf_token_timestamp",
+                Date.now().toString()
+            );
 
             logCsrf("✅ CSRF token refreshed successfully");
             refreshAttempts = 0;
@@ -138,12 +155,12 @@ function validateCsrfToken() {
     const metaToken = document.querySelector(
         'meta[name="csrf-token"]'
     )?.content;
-    const backupToken = localStorage.getItem("csrf_token_backup");
+    const backupToken = sessionStorage.getItem("csrf_token_backup");
     const axiosToken = axios.defaults.headers.common["X-CSRF-TOKEN"];
 
     const tokens = {
         meta: metaToken,
-        localStorage: backupToken,
+        sessionStorage: backupToken,
         axios: axiosToken,
     };
     const allMatch = metaToken === backupToken && backupToken === axiosToken;
@@ -156,14 +173,16 @@ function validateCsrfToken() {
 }
 
 function showSessionExpiredNotification() {
-    const lastShown = localStorage.getItem("last_session_expired_notification");
+    const lastShown = sessionStorage.getItem(
+        "last_session_expired_notification"
+    );
     const now = Date.now();
 
     if (lastShown && now - parseInt(lastShown) < 30000) {
         return;
     }
 
-    localStorage.setItem("last_session_expired_notification", now.toString());
+    sessionStorage.setItem("last_session_expired_notification", now.toString());
 
     if (typeof bootstrap !== "undefined" && bootstrap.Modal) {
         let modal = document.getElementById("csrf-expired-modal");
@@ -216,7 +235,7 @@ function startTokenHealthCheck(intervalMinutes = 10) {
             )?.content;
             if (metaToken) {
                 axios.defaults.headers.common["X-CSRF-TOKEN"] = metaToken;
-                localStorage.setItem("csrf_token_backup", metaToken);
+                sessionStorage.setItem("csrf_token_backup", metaToken);
             }
         }
     }, intervalMinutes * 60 * 1000);
@@ -300,7 +319,7 @@ axios.interceptors.request.use(
             const metaToken = document.querySelector(
                 'meta[name="csrf-token"]'
             )?.content;
-            const backupToken = localStorage.getItem("csrf_token_backup");
+            const backupToken = sessionStorage.getItem("csrf_token_backup");
             const token = metaToken || backupToken;
 
             if (token) {
@@ -317,7 +336,7 @@ axios.interceptors.request.use(
 );
 
 // ============================================
-// ⭐ NEW: IDLE DETECTION & MANAGEMENT
+// ⭐ IDLE DETECTION & MANAGEMENT
 // ============================================
 
 let lastActivityTime = Date.now();
@@ -326,9 +345,10 @@ let sessionStartTime = Date.now();
 let heartbeatTimer = null;
 let isUserIdle = false;
 
-localStorage.setItem("session_start_time", sessionStartTime.toString());
+sessionStorage.setItem("session_start_time", sessionStartTime.toString());
 
-function updateActivity() {
+// Debounced activity update
+const updateActivity = debounce(() => {
     const now = Date.now();
     const wasIdle = isUserIdle;
 
@@ -341,20 +361,23 @@ function updateActivity() {
         refreshTokenAfterIdle();
     }
 
-    localStorage.setItem("last_activity_time", now.toString());
-}
+    sessionStorage.setItem("last_activity_time", now.toString());
+}, IDLE_CONFIG.ACTIVITY_DEBOUNCE);
 
-// Listen for all user activity
+// Listen for user activity (document level - single listener)
 const activityEvents = [
     "mousedown",
-    "mousemove",
     "keypress",
     "scroll",
     "touchstart",
     "click",
 ];
+
 activityEvents.forEach((event) => {
-    document.addEventListener(event, updateActivity, { passive: true });
+    document.addEventListener(event, updateActivity, {
+        passive: true,
+        capture: true,
+    });
 });
 
 function checkIdleState() {
@@ -373,14 +396,16 @@ function checkIdleState() {
     }
 }
 
-// Check idle state every minute
-setInterval(checkIdleState, 60 * 1000);
+// Check idle state every 5 minutes (optimized from 1 minute)
+setInterval(checkIdleState, 5 * 60 * 1000);
 
 async function refreshTokenAfterIdle() {
     try {
         const sessionAge =
             Date.now() -
-            parseInt(localStorage.getItem("session_start_time") || Date.now());
+            parseInt(
+                sessionStorage.getItem("session_start_time") || Date.now()
+            );
 
         if (sessionAge > IDLE_CONFIG.SESSION_LIFETIME * 0.95) {
             console.warn("⚠️ Session is about to expire, reloading page...");
@@ -475,7 +500,7 @@ async function keepSessionAlive(forceRefresh = false) {
         );
 
         logSession("✅ Session kept alive successfully", response.data);
-        localStorage.setItem("last_session_ping", Date.now().toString());
+        sessionStorage.setItem("last_session_ping", Date.now().toString());
         updateSessionStatus("active");
 
         return response.data;
@@ -529,8 +554,8 @@ import ASINList from "./page/asinlist/asinlist.vue";
 import PrinterModule from "./page/printer/printer.vue";
 import HumanResource from "./page/hr/hr.vue";
 import RTS from "./page/rts/rts.vue";
-import Training from "./page/aiTraining/training.vue";
 import Kanban from "./page/kanban/kanban.vue";
+import Training from "./page/aiTraining/training.vue";
 
 import Navbar from "./components/Navbar/Navbar.vue";
 
@@ -565,37 +590,10 @@ const componentMapping = {
 };
 
 // ============================================
-// SESSION MIXIN (Updated to use new activity tracking)
+// SESSION MIXIN (Simplified - no duplicate listeners)
 // ============================================
 
 const sessionMixin = {
-    mounted() {
-        this.$nextTick(() => {
-            if (this.$el && this.$el.addEventListener) {
-                const activityHandler = () => {
-                    updateActivity(); // Use new activity tracker
-                };
-
-                this.$el.addEventListener("click", activityHandler);
-                this.$el.addEventListener("keydown", activityHandler);
-
-                this._sessionActivityHandler = activityHandler;
-                this._sessionElement = this.$el;
-            }
-        });
-    },
-    beforeUnmount() {
-        if (this._sessionActivityHandler && this._sessionElement) {
-            this._sessionElement.removeEventListener(
-                "click",
-                this._sessionActivityHandler
-            );
-            this._sessionElement.removeEventListener(
-                "keydown",
-                this._sessionActivityHandler
-            );
-        }
-    },
     methods: {
         extendSession() {
             keepSessionAlive();
@@ -604,7 +602,7 @@ const sessionMixin = {
 };
 
 // ============================================
-// CREATE VUE APP (Simplified - removed duplicate activity tracking)
+// CREATE VUE APP
 // ============================================
 
 const app = createApp({
@@ -857,48 +855,11 @@ const app = createApp({
     },
 });
 
-// Global activity tracking mixin
-app.mixin({
-    mounted() {
-        this.$nextTick(() => {
-            const eventHandlers = [
-                "click",
-                "keydown",
-                "mousedown",
-                "touchstart",
-            ];
-            const activityHandler = () => {
-                updateActivity(); // Use new unified activity tracker
-            };
-
-            if (this.$el && this.$el.addEventListener) {
-                eventHandlers.forEach((event) => {
-                    this.$el.addEventListener(event, activityHandler, {
-                        passive: true,
-                    });
-                });
-
-                this._sessionEvents = eventHandlers;
-                this._sessionHandler = activityHandler;
-                this._sessionElement = this.$el;
-            }
-        });
-    },
-    beforeUnmount() {
-        if (
-            this._sessionHandler &&
-            this._sessionElement &&
-            this._sessionEvents
-        ) {
-            this._sessionEvents.forEach((event) => {
-                this._sessionElement.removeEventListener(
-                    event,
-                    this._sessionHandler
-                );
-            });
-        }
-    },
-});
+// ============================================
+// GLOBAL MIXIN - REMOVED DUPLICATE LISTENERS
+// ============================================
+// Note: Activity tracking now handled at document level
+// No need for per-component listeners
 
 // ============================================
 // PRIMEVUE SETUP FOR BLADE APPS
@@ -914,7 +875,7 @@ app.use(PrimeVue, {
     theme: {
         preset: Aura,
         options: {
-            darkModeSelector: false, // Keep it light to match Bootstrap
+            darkModeSelector: false,
         },
     },
 });
@@ -971,20 +932,11 @@ const searchApp = createApp({
         navbar: Navbar,
     },
     mounted() {
-        this.$nextTick(() => {
-            const searchElement = document.getElementById("appsearch");
-            if (searchElement) {
-                ["input", "focus", "click"].forEach((event) => {
-                    searchElement.addEventListener(event, () => {
-                        updateActivity();
-                    });
-                });
-            }
-        });
+        // Activity already tracked at document level
+        logSession("Search app mounted");
     },
 });
 
-// Add PrimeVue to search app too
 searchApp.use(PrimeVue, {
     theme: {
         preset: Aura,
@@ -1095,3 +1047,4 @@ if (document.getElementById("ai-app")) {
 console.log("✅ CSRF Handler loaded");
 console.log("✅ Idle Handler loaded");
 console.log("✅ Session Management loaded");
+console.log("✅ Activity tracking optimized (debounced + document-level)");

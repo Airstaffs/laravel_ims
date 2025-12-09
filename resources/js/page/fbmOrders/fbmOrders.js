@@ -7,6 +7,7 @@ import ScrollFab from "../../components/ScrollFab.vue";
 import PrintInvoiceModal from "./modals/printinvoice.vue";
 import ManualShipmentLabelModal from "./modals/manualshipmentlabel.vue";
 import ManualDispenseModal from './modals/manualdispense.vue';
+import Swal from "sweetalert2";
 
 export default {
     name: "FbmOrderModule",
@@ -495,55 +496,72 @@ export default {
         async exportWorkHistory() {
             try {
                 // Check if date filters are applied
-                const isDateFiltered =
-                    this.workHistoryFilters.startDate &&
-                    this.workHistoryFilters.endDate;
+            const isDateFiltered =
+    this.workHistoryFilters.startDate &&
+    this.workHistoryFilters.endDate;
 
-                // Build confirmation message
-                let confirmMessage = "Export Work History to Excel\n\n";
-                confirmMessage +=
-                    "⚠️ Note: This will export ALL matching records, not just the current page.\n\n";
-                confirmMessage += "Export Details:\n";
+// Build confirmation message HTML
+let confirmMessageHtml = "<div style='text-align: left;'>";
+confirmMessageHtml +=
+    "<p style='margin-bottom: 15px;'><strong>⚠️ Note:</strong> This will export ALL matching records, not just the current page.</p>";
+confirmMessageHtml += "<p style='margin-bottom: 10px;'><strong>Export Details:</strong></p>";
+confirmMessageHtml += "<ul style='list-style: none; padding-left: 0;'>";
 
-                if (isDateFiltered) {
-                    const startDate = new Date(
-                        this.workHistoryFilters.startDate
-                    ).toLocaleDateString();
-                    const endDate = new Date(
-                        this.workHistoryFilters.endDate
-                    ).toLocaleDateString();
-                    confirmMessage += `📅 Date Range: ${startDate} to ${endDate}\n`;
-                } else {
-                    confirmMessage +=
-                        "📅 Date Range: All available data (no date filter applied)\n";
-                }
+if (isDateFiltered) {
+    const startDate = new Date(
+        this.workHistoryFilters.startDate
+    ).toLocaleDateString();
+    const endDate = new Date(
+        this.workHistoryFilters.endDate
+    ).toLocaleDateString();
+    confirmMessageHtml += `<li style='margin-bottom: 8px;'>📅 <strong>Date Range:</strong> ${startDate} to ${endDate}</li>`;
+} else {
+    confirmMessageHtml +=
+        "<li style='margin-bottom: 8px;'>📅 <strong>Date Range:</strong> All available data (no date filter applied)</li>";
+}
 
-                if (this.workHistoryFilters.userId !== "all") {
-                    confirmMessage += `👤 User: ${this.workHistoryFilters.userId}\n`;
-                }
+if (this.workHistoryFilters.userId !== "all") {
+    confirmMessageHtml += `<li style='margin-bottom: 8px;'>👤 <strong>User:</strong> ${this.workHistoryFilters.userId}</li>`;
+}
 
-                if (this.workHistoryFilters.searchQuery) {
-                    confirmMessage += `🔍 Search: "${this.workHistoryFilters.searchQuery}"\n`;
-                }
+if (this.workHistoryFilters.searchQuery) {
+    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🔍 <strong>Search:</strong> "${this.workHistoryFilters.searchQuery}"</li>`;
+}
 
-                if (this.workHistoryFilters.carrierFilter) {
-                    confirmMessage += `🚚 Carrier: ${this.workHistoryFilters.carrierFilter}\n`;
-                }
+if (this.workHistoryFilters.carrierFilter) {
+    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🚚 <strong>Carrier:</strong> ${this.workHistoryFilters.carrierFilter}</li>`;
+}
 
-                if (this.workHistoryFilters.storeFilter) {
-                    confirmMessage += `🏪 Store: ${this.workHistoryFilters.storeFilter}\n`;
-                }
+if (this.workHistoryFilters.storeFilter) {
+    confirmMessageHtml += `<li style='margin-bottom: 8px;'>🏪 <strong>Store:</strong> ${this.workHistoryFilters.storeFilter}</li>`;
+}
 
-                if (this.workHistoryFilters.lateOrders) {
-                    confirmMessage += `⏰ Late Orders: ${this.workHistoryFilters.lateOrders}\n`;
-                }
+if (this.workHistoryFilters.lateOrders) {
+    confirmMessageHtml += `<li style='margin-bottom: 8px;'>⏰ <strong>Late Orders:</strong> ${this.workHistoryFilters.lateOrders}</li>`;
+}
 
-                confirmMessage += "\nProceed with export?";
+confirmMessageHtml += "</ul></div>";
 
-                // Show confirmation dialog
-                if (!confirm(confirmMessage)) {
-                    return;
-                }
+// Show SweetAlert confirmation dialog
+const result = await Swal.fire({
+    title: 'Export Work History to Excel',
+    html: confirmMessageHtml,
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#3085d6',
+    cancelButtonColor: '#d33',
+    confirmButtonText: 'Yes, export it!',
+    cancelButtonText: 'Cancel',
+    customClass: {
+        popup: 'swal-wide'
+    }
+});
+
+if (!result.isConfirmed) {
+    return;
+}
+
+// Continue with export...
 
                 // Show loading state
                 const exportButton = document.querySelector(
@@ -653,7 +671,12 @@ export default {
                     exportButton.disabled = false;
                 }
 
-                alert("Work history exported successfully!");
+                // alert("Work history exported successfully!");
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Work history exported successfully!',
+                    confirmButtonText: 'Ok'
+                })
             } catch (error) {
                 console.error("Error exporting work history:", error);
 
@@ -698,7 +721,14 @@ export default {
                     errorMessage += error.message || "Unknown error occurred.";
                 }
 
-                alert(errorMessage);
+                // alert(errorMessage);
+
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text : errorMessage,
+                    confirmButtonText: 'Ok'
+                })
             }
         },
 
@@ -1518,7 +1548,13 @@ export default {
                 }
             } catch (error) {
                 console.error("Error in standalone auto dispense:", error);
-                alert("Failed to perform auto-dispensing. Please try again.");
+                // alert("Failed to perform auto-dispensing. Please try again.");
+                await Swal.fire({
+                    icon:'error',
+                    title: 'Operation Failed',
+                    text: 'Failed to perform auto-dispensing. Please try again.',
+                    confirmButtonText: 'Ok'
+                })
             }
         },
 
@@ -1534,14 +1570,15 @@ export default {
         async cancelDispense(order) {
             if (!this.hasDispensedItems(order)) return;
 
-            if (
-                !confirm(
-                    "Are you sure you want to cancel dispense for this order?"
-                )
-            ) {
-                return;
-            }
-
+               const result = await Swal.fire({
+                    title: "Are you sure?",
+                    text: "Are you sure you want to cancel dispense for this order?",
+                    icon: "warning",
+                    showCancelButton: true,
+                    confirmButtonText: "Yes, cancel it",
+                    cancelButtonText: "No",
+                });
+                if (!result.isConfirmed) return;
             try {
                 const itemIds = order.items
                     .filter((item) => this.isItemDispensed(item))
@@ -1575,7 +1612,13 @@ export default {
                 );
 
                 if (response.data && response.data.success) {
-                    alert("Dispense canceled successfully");
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Operation Success',
+                        text: 'Dispense canceled successfully',
+                        confirmButtonText: 'Ok'
+                    })
+                    // alert("Dispense canceled successfully");
 
                     // COMPREHENSIVE REFRESH STRATEGY
                     const orderId = order.outboundorderid;
@@ -1945,7 +1988,13 @@ export default {
             const selectedOrderIds = this.persistentSelectedOrderIds;
 
             if (selectedOrderIds.length === 0) {
-                alert("Please select at least one order to process");
+                // alert("Please select at least one order to process");
+                 Swal.fire({
+                    icon: 'warning',
+                    title: 'Ooops',
+                    text: 'Please select at least one order to process',
+                    confirmButtonText: 'Ok'
+                })
                 return;
             }
 
@@ -2046,21 +2095,42 @@ export default {
                 );
 
                 if (response.data && response.data.success) {
-                    alert("Shipping label generated successfully");
+                    // alert("Shipping label generated successfully");
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Operation Success',
+                        text: 'Shipping label generated successfully',
+                        confirmButtonText: 'Ok'
+                    })
                     if (response.data.label_url) {
                         window.open(response.data.label_url, "_blank");
                     }
                 } else {
-                    alert(
-                        `Error: ${
+                    // alert(
+                    //     `Error: ${
+                    //         response.data.message ||
+                    //         "Failed to generate shipping label"
+                    //     }`
+                    // );
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Operation Failed',
+                        text: `${
                             response.data.message ||
                             "Failed to generate shipping label"
-                        }`
-                    );
+                        }`,
+                        confirmButtonText: 'Ok'
+                    })
                 }
             } catch (error) {
                 console.error("Error generating shipping label:", error);
-                alert("Failed to generate shipping label. Please try again.");
+                // alert("Failed to generate shipping label. Please try again.");
+                await Swal.fire({
+                        icon: 'success',
+                        title: 'Operation Failed',
+                        text: 'Failed to generate shipping label. Please try again.',
+                        confirmButtonText: 'Ok'
+                    })
             }
         },
 
@@ -2158,29 +2228,76 @@ export default {
                     }
                 );
 
+                // if (response.data && response.data.success) {
+                //     let message = 'Product marked as "Not Found" successfully.';
+
+                //     if (response.data.replacement_found) {
+                //         message += `\n\nReplacement product automatically selected:\n• ${response.data.replacement_details.title}\n• Location: ${response.data.replacement_details.warehouseLocation}`;
+                //     } else {
+                //         message +=
+                //             "\n\nNo replacement product was found in inventory.";
+                //     }
+
+                //     alert(message);
+                //     await this.refreshCurrentContext();
+                // } 
+                
                 if (response.data && response.data.success) {
-                    let message = 'Product marked as "Not Found" successfully.';
+                        const hasReplacement = response.data.replacement_found;
 
-                    if (response.data.replacement_found) {
-                        message += `\n\nReplacement product automatically selected:\n• ${response.data.replacement_details.title}\n• Location: ${response.data.replacement_details.warehouseLocation}`;
-                    } else {
-                        message +=
-                            "\n\nNo replacement product was found in inventory.";
-                    }
+                        let htmlMessage = `
+                            <div style="text-align:left;">
+                                Product marked as <strong>"Not Found"</strong> successfully.<br><br>
+                        `;
 
-                    alert(message);
-                    await this.refreshCurrentContext();
-                } else {
-                    alert(
-                        `Error: ${
+                        if (hasReplacement) {
+                            htmlMessage += `
+                                <strong>Replacement product automatically selected:</strong><br>
+                                • ${response.data.replacement_details.title}<br>
+                                • Location: ${response.data.replacement_details.warehouseLocation}<br>
+                            `;
+                        } else {
+                            htmlMessage += `
+                                <strong>No replacement product was found in inventory.</strong><br>
+                            `;
+                        }
+
+                        htmlMessage += `</div>`;
+
+                        Swal.fire({
+                            icon: hasReplacement ? "success" : "warning",
+                            title: hasReplacement ? "Replacement Found" : "No Replacement Found",
+                            html: htmlMessage,
+                            confirmButtonText: "OK",
+                        }).then(() => {
+                            this.refreshCurrentContext();
+                        });
+                    }else {
+                    // alert(
+                    //     `Error: ${
+                    //         response.data.message ||
+                    //         "Failed to mark product as not found"
+                    //     }`
+                    // );
+                    Swal.fire({
+                    icon: 'error',
+                    title: 'Operation Failed',
+                    text: `${
                             response.data.message ||
                             "Failed to mark product as not found"
-                        }`
-                    );
+                        }`,
+                    confirmButtonText: 'Ok'
+                })
                 }
             } catch (error) {
                 console.error("Error marking product as not found:", error);
-                alert("Failed to mark product as not found. Please try again.");
+                // alert("Failed to mark product as not found. Please try again.");
+                  Swal.fire({
+                    icon: 'error',
+                    title: 'Operation Failed',
+                    text: 'Failed to mark product as not found. Please try again.',
+                    confirmButtonText: 'Ok'
+                })
             }
         },
 
@@ -2220,7 +2337,13 @@ export default {
         printShippingLabels() {
             const selectedOrderIds = this.persistentSelectedOrderIds;
             if (selectedOrderIds.length === 0) {
-                alert("Please select at least one order to print labels");
+                // alert("Please select at least one order to print labels");
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Ooops',
+                    text: 'Please select at least one order to print labels',
+                    confirmButtonText: 'Ok'
+                })
                 return;
             }
             selectedOrderIds.forEach((id) => this.printShippingLabel(id));
@@ -2229,9 +2352,15 @@ export default {
         generatePackingSlips() {
             const selectedOrderIds = this.persistentSelectedOrderIds;
             if (selectedOrderIds.length === 0) {
-                alert(
-                    "Please select at least one order to generate packing slips"
-                );
+                // alert(
+                //     "Please select at least one order to generate packing slips"
+                // );
+                  Swal.fire({
+                    icon: 'warning',
+                    title: 'Ooops',
+                    text: 'Please select at least one order to generate packing slips',
+                    confirmButtonText: 'Ok'
+                })
                 return;
             }
             selectedOrderIds.forEach((id) => this.generatePackingSlip(id));
@@ -2349,7 +2478,13 @@ export default {
                 );
 
                 if (response.data && response.data.success) {
-                    alert("Items dispensed successfully");
+                    // alert("Items dispensed successfully");
+                    await Swal.fire({
+                        icon: 'success',
+                        title: 'Operation Successful',
+                        text: 'Items dispensed successfully',
+                        confirmButtonText: 'Ok'
+                    })
 
                     // Close the auto dispense modal first
                     this.closeAutoDispenseModal();
@@ -2434,7 +2569,13 @@ export default {
                 }
             } catch (error) {
                 console.error("Error confirming dispense:", error);
-                alert("Failed to dispense items. Please try again.");
+                // alert("Failed to dispense items. Please try again.");
+                await Swal.fire({
+                    icon: 'error',
+                    title: 'Dispense Failed',
+                    text: 'Failed to dispense items. Please try again.',
+                    confirmButtonText: 'Ok'
+                })
             }
         },
 
@@ -2480,43 +2621,84 @@ export default {
                         "The following products will be auto-dispensed:\n\n";
                     let totalItemsToDispense = 0;
 
+                    let htmlMessage = `
+                        <div style="text-align:left">
+                            <strong>The following products will be auto-dispensed:</strong><br><br>
+                    `;
+
+                    // Build the message
                     dispenseData.forEach((item) => {
                         if (
                             item.auto_selected_products &&
                             item.auto_selected_products.length > 0
                         ) {
-                            dispenseMessage += `${item.ordered_item.platform_title}\n`;
-                            dispenseMessage += `  - Quantity needed: ${item.quantity_remaining}\n`;
-                            dispenseMessage += `  - Products selected: ${item.auto_selected_products.length}\n`;
+                            htmlMessage += `
+                                <strong>${item.ordered_item.platform_title}</strong><br>
+                                &nbsp;&nbsp;• Quantity needed: ${item.quantity_remaining}<br>
+                                &nbsp;&nbsp;• Products selected: ${item.auto_selected_products.length}<br>
+                            `;
 
                             item.auto_selected_products.forEach((product) => {
-                                dispenseMessage += `    • Product ID: ${
-                                    product.ProductID
-                                } (${
-                                    product.warehouseLocation || "No location"
-                                })\n`;
+                                htmlMessage += `
+                                    &nbsp;&nbsp;&nbsp;&nbsp;◦ Product ID: ${product.ProductID} (${product.warehouseLocation || "No location"})<br>
+                                `;
                                 totalItemsToDispense++;
                             });
-                            dispenseMessage += "\n";
+
+                            htmlMessage += `<br>`;
                         }
                     });
 
+                    htmlMessage += `
+                        <strong>Total products to dispense:</strong> ${totalItemsToDispense}<br><br>
+                        Proceed with auto-dispensing?
+                        </div>
+                    `;
+
+
+                    if(totalItemsToDispense > 0) {
+
+                    // SHOW SWEET ALERT
+                    const result = await Swal.fire({
+                        title: "Auto-Dispense Confirmation",
+                        html: htmlMessage,
+                        icon: "question",
+                        showCancelButton: true,
+                        confirmButtonText: "Yes, proceed",
+                        cancelButtonText: "Cancel"
+                    });
+                    if(result.isConfirmed) {
+                        await this.performAutoDispense(itemIds);
+                    }
+                    else {
+                        this.processingAutoDispense = false
+                        return
+                    }
+                    }
+
+
                     if (totalItemsToDispense === 0) {
-                        alert(
-                            "No products available for auto-dispensing at this time."
-                        );
+                        await Swal.fire({
+                            icon: 'error',
+                            title: 'Dispense Failed',
+                            text: 'No products available for auto-dispensing at this time.',
+                             confirmButtonText: "OK",
+                        })
+                        // alert(
+                        //     "No products available for auto-dispensing at this time."
+                        // );
                         this.processingAutoDispense = false;
                         this.loadingDispenseProducts = false;
                         return;
                     }
 
-                    dispenseMessage += `Total products to dispense: ${totalItemsToDispense}\n\nProceed with auto-dispensing?`;
+                   
 
-                    if (confirm(dispenseMessage)) {
-                        await this.performAutoDispense(itemIds);
-                    } else {
-                        this.processingAutoDispense = false;
-                    }
+                    // if (confirm(dispenseMessage)) {
+                    //     await this.performAutoDispense(itemIds);
+                    // } else {
+                    //     this.processingAutoDispense = false;
+                    // }
                 } else {
                     alert(
                         "No matching products found in inventory for auto-dispensing."
@@ -2562,9 +2744,21 @@ export default {
                 );
 
                 if (response.data && response.data.success) {
-                    alert(
-                        `Auto-dispensing completed successfully!\n\nDispensed ${response.data.dispensed_count} products across ${response.data.items_processed} items.`
-                    );
+                    // alert(
+                    //     `Auto-dispensing completed successfully!\n\nDispensed ${response.data.dispensed_count} products across ${response.data.items_processed} items.`
+                    // );
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Auto-Dispensing Completed!",
+                        html: `
+                            <div style="text-align:left;">
+                                Auto-dispensing completed successfully!<br><br>
+                                <strong>${response.data.dispensed_count}</strong> product/s were dispensed<br>
+                                across <strong>${response.data.items_processed}</strong> items.
+                            </div>
+                        `,
+                        confirmButtonText: "OK"
+                    });
 
                     // IMMEDIATE STATE CLEANUP
                     this.processingAutoDispense = false;
