@@ -5,6 +5,7 @@ use App\Http\Controllers\Amzn\FBAShipmentController;
 use App\Http\Controllers\Amzn\Listing\CatalogController;
 use App\Http\Controllers\Amzn\OutboundOrders\ShippingLabel\ShippingLabelController;
 use App\Http\Controllers\ASINlistController;
+use App\Http\Controllers\AsinMappingController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AwsInventoryController;
 use App\Http\Controllers\Ebay\EbayController;
@@ -52,7 +53,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Session;
-use App\Http\Controllers\AsinMappingController;
 
 // ASIN Mappings Routes
 // ✅ Public API routes
@@ -68,7 +68,7 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-//🚧 TEMPORARY DEV-ONLY LOGIN BYPASS
+// 🚧 TEMPORARY DEV-ONLY LOGIN BYPASS
 Route::get('/dev-login', function () {
     // Never allow this in production
     if (app()->environment('production')) {
@@ -712,6 +712,7 @@ Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, '
 // timezone system
 Route::post('/update-timezone', [UserController::class, 'updateTimezone'])->name('update-timezone');
 Route::get('/user/settings/timezone', [UserController::class, 'showTimezoneSettings'])->name('timezone.settings');
+Route::get('/api/timezone/current', [UserController::class, 'getCurrentTimezone'])->name('timezone.current');
 
 // user accounts
 Route::get('/user/getAllUsers', [UserController::class, 'getAllUsers']);

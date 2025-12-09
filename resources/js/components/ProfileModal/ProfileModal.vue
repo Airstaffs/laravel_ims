@@ -1234,6 +1234,7 @@ export default {
             currentTime: "",
             currentDay: "",
             timeInterval: null,
+            userTimezone: "UTC",
 
             activeAccountTab: "details",
             accountDetails: {
@@ -1416,6 +1417,7 @@ export default {
     watch: {
         visible(newVal) {
             if (newVal) {
+                this.loadUserTimezone();
                 this.loadAttendanceData();
                 this.startClock();
 
@@ -1444,6 +1446,7 @@ export default {
     },
     mounted() {
         if (this.visible) {
+            this.loadUserTimezone();
             this.loadAttendanceData();
             this.startClock();
         }
@@ -1597,20 +1600,106 @@ export default {
             }
         },
 
+        async loadUserTimezone() {
+            try {
+                const response = await axios.get("/api/timezone/current");
+                this.userTimezone = response.data.usertimezone || "UTC";
+
+                console.log("User timezone loaded:", this.userTimezone);
+            } catch (error) {
+                console.error("Error loading user timezone:", error);
+                this.userTimezone = "UTC"; // Fallback to UTC
+            }
+        },
+
         updateCurrentTime() {
             const now = new Date();
-            this.currentTime = now.toLocaleTimeString("en-US", {
+
+            // Convert to user's timezone
+            const options = {
+                timeZone: this.userTimezone,
                 hour: "2-digit",
                 minute: "2-digit",
                 second: "2-digit",
                 hour12: true,
-            });
-            this.currentDay = now.toLocaleDateString("en-US", {
+            };
+
+            const dateOptions = {
+                timeZone: this.userTimezone,
                 weekday: "long",
                 year: "numeric",
                 month: "long",
                 day: "numeric",
-            });
+            };
+
+            this.currentTime = now.toLocaleTimeString("en-US", options);
+            this.currentDay = now.toLocaleDateString("en-US", dateOptions);
+        },
+
+        async loadTimezones() {
+            try {
+                // Common timezones list
+                this.timezones = [
+                    // Americas
+                    {
+                        tz: "America/Los_Angeles",
+                        label: "(UTC -08:00) Pacific Time - Los Angeles",
+                    },
+
+                    // Asia
+                    {
+                        tz: "Asia/Manila",
+                        label: "(UTC +08:00) Philippine Time - Manila",
+                    },
+
+                    // Others
+                    {
+                        tz: "UTC",
+                        label: "(UTC +00:00) Coordinated Universal Time",
+                    },
+                ];
+
+                // Load current timezone setting
+                const response = await axios.get("/api/timezone/current");
+                this.timezoneForm.usertimezone = response.data.usertimezone;
+                this.timezoneForm.auto_sync = response.data.auto_sync;
+
+                this.timezonesLoaded = true;
+            } catch (error) {
+                console.error("Error loading timezones:", error);
+            }
+        },
+
+        async updateTimezone() {
+            this.updatingTimezone = true;
+            try {
+                const response = await axios.post(
+                    "/update-timezone",
+                    this.timezoneForm
+                );
+
+                if (response.data.success) {
+                    // Update the userTimezone for immediate effect
+                    this.userTimezone = this.timezoneForm.usertimezone;
+
+                    await Swal.fire({
+                        title: "Success!",
+                        text: response.data.message,
+                        icon: "success",
+                        confirmButtonText: "OK",
+                    });
+                }
+            } catch (error) {
+                console.error("Error updating timezone:", error);
+                Swal.fire({
+                    title: "Error!",
+                    text: "Failed to update timezone",
+                    icon: "error",
+                    confirmButtonText: "OK",
+                });
+            } finally {
+                this.updatingTimezone = false;
+            }
         },
 
         async confirmClockIn() {
@@ -1959,34 +2048,6 @@ export default {
             }
         },
 
-        async loadTimezones() {
-            try {
-                // You'll need to create an endpoint that returns timezones
-                // For now, using a hardcoded list
-                this.timezones = [
-                    {
-                        tz: "America/Los_Angeles",
-                        label: "(UTC -08:00) America/Los_Angeles",
-                    },
-                    {
-                        tz: "America/New_York",
-                        label: "(UTC -05:00) America/New_York",
-                    },
-                    { tz: "UTC", label: "(UTC +00:00) UTC" },
-                    // Add more timezones as needed
-                ];
-
-                // Load current timezone setting
-                const response = await axios.get("/api/timezone/current");
-                this.timezoneForm.usertimezone = response.data.usertimezone;
-                this.timezoneForm.auto_sync = response.data.auto_sync;
-
-                this.timezonesLoaded = true;
-            } catch (error) {
-                console.error("Error loading timezones:", error);
-            }
-        },
-
         async saveAccountDetails() {
             this.savingDetails = true;
 
@@ -2098,35 +2159,6 @@ export default {
                 });
             } finally {
                 this.changingPassword = false;
-            }
-        },
-
-        async updateTimezone() {
-            this.updatingTimezone = true;
-            try {
-                const response = await axios.post(
-                    "/update-timezone",
-                    this.timezoneForm
-                );
-
-                if (response.data.success) {
-                    await Swal.fire({
-                        title: "Success!",
-                        text: response.data.message,
-                        icon: "success",
-                        confirmButtonText: "OK",
-                    });
-                }
-            } catch (error) {
-                console.error("Error updating timezone:", error);
-                Swal.fire({
-                    title: "Error!",
-                    text: "Failed to update timezone",
-                    icon: "error",
-                    confirmButtonText: "OK",
-                });
-            } finally {
-                this.updatingTimezone = false;
             }
         },
 

@@ -2,20 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Http\Request;
 use App\Models\User;
+use App\Services\UserLogService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Schema;
-use App\Services\UserLogService;
 
 class UserController extends Controller
 {
-
     protected $userLogService;
 
     public function __construct(UserLogService $userLogService)
@@ -60,7 +57,7 @@ class UserController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'User privileges retrieved successfully',
-            'data' => $myprivileges
+            'data' => $myprivileges,
         ]);
     }
 
@@ -83,7 +80,7 @@ class UserController extends Controller
                 'company' => $companyColumn,
             ]);
 
-            $this->userLogService->log('add user - ' . $validated['username']);
+            $this->userLogService->log('add user - '.$validated['username']);
 
             return response()->json([
                 'success' => true,
@@ -97,7 +94,8 @@ class UserController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Failed to add user: ' . $e->getMessage());
+            Log::error('Failed to add user: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to add user. Please try again.',
@@ -128,14 +126,15 @@ class UserController extends Controller
 
             return back()->with('success', 'Password updated successfully!');
         } catch (\Exception $e) {
-            Log::error('Failed to update password: ' . $e->getMessage());
+            Log::error('Failed to update password: '.$e->getMessage());
+
             return back()->with('error', 'Failed to update password. Please try again.');
         }
     }
 
     public function showStoreColumns()
     {
-        $user = new User();
+        $user = new User;
         $storeColumns = $user->getStoreColumns();
 
         return response()->json($storeColumns); // Returns the list of store columns as JSON
@@ -155,7 +154,6 @@ class UserController extends Controller
         return response()->json(['stores' => array_values($storeColumns)]);
     }
 
-
     // Controller method to get user privileges
     public function getUserPrivileges($userId)
     {
@@ -172,6 +170,7 @@ class UserController extends Controller
                 ->map(function ($store) use ($selectedUser) {
                     $storeName = str_replace('store_', '', $store); // Remove 'store_' prefix
                     $storeName = str_replace('_', ' ', $storeName); // Replace underscores with spaces
+
                     return [
                         'store_column' => $store, // Original column name
                         'store_name' => $storeName, // User-friendly name
@@ -224,7 +223,7 @@ class UserController extends Controller
         // First, let's log that we've received the request
         Log::info('Starting store fetch process', [
             'user_id' => $request->input('user_id'),
-            'request_url' => $request->fullUrl()
+            'request_url' => $request->fullUrl(),
         ]);
 
         try {
@@ -237,7 +236,7 @@ class UserController extends Controller
                 Log::info('Database connection successful');
             } catch (\Exception $e) {
                 Log::error('Database connection failed', ['error' => $e->getMessage()]);
-                throw new \Exception('Database connection failed: ' . $e->getMessage());
+                throw new \Exception('Database connection failed: '.$e->getMessage());
             }
 
             // Check if we can access the schema
@@ -246,14 +245,15 @@ class UserController extends Controller
                 Log::info('Successfully retrieved columns', ['columns' => $storeColumns]);
             } catch (\Exception $e) {
                 Log::error('Failed to get table columns', ['error' => $e->getMessage()]);
-                throw new \Exception('Schema access failed: ' . $e->getMessage());
+                throw new \Exception('Schema access failed: '.$e->getMessage());
             }
 
             // Verify user exists if user_id is provided
             if ($userId) {
                 $user = User::find($userId);
-                if (!$user) {
+                if (! $user) {
                     Log::warning('User not found', ['user_id' => $userId]);
+
                     return response()->json(['error' => 'User not found'], 404);
                 }
                 Log::info('User found', ['user_id' => $userId]);
@@ -279,9 +279,9 @@ class UserController extends Controller
                     } catch (\Exception $e) {
                         Log::error('Error checking store privileges', [
                             'store' => $store,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ]);
-                        throw new \Exception('Privilege check failed: ' . $e->getMessage());
+                        throw new \Exception('Privilege check failed: '.$e->getMessage());
                     }
 
                     return [
@@ -293,18 +293,19 @@ class UserController extends Controller
                 ->values();
 
             Log::info('Successfully processed stores', ['store_count' => count($stores)]);
+
             return response()->json(['stores' => $stores]);
         } catch (\Exception $e) {
             Log::error('Store fetching failed', [
                 'error_message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'error' => 'Failed to fetch stores',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -330,7 +331,7 @@ class UserController extends Controller
             $user = User::find($data['user_id']);
             $username = $user->username;
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json(['success' => false, 'message' => 'User not found']);
             }
 
@@ -372,7 +373,7 @@ class UserController extends Controller
             }
 
             // If no mapping found, try to convert it directly
-            if (!$mainModuleDb) {
+            if (! $mainModuleDb) {
                 $mainModuleDb = strtolower(str_replace(' ', '', $data['main_module']));
             }
 
@@ -401,7 +402,7 @@ class UserController extends Controller
                 'houseage',
                 'asinlist',
                 'printer',
-                'announcement'
+                'announcement',
             ];
 
             // First reset all modules to 0
@@ -410,7 +411,7 @@ class UserController extends Controller
             }
 
             // Process sub-modules - they're already coming as database column names
-            if (!empty($data['sub_modules'])) {
+            if (! empty($data['sub_modules'])) {
                 Log::info('Processing sub_modules:', $data['sub_modules']);
 
                 foreach ($data['sub_modules'] as $selectedModule) {
@@ -430,7 +431,7 @@ class UserController extends Controller
 
             // Handle stores (rest of the code remains the same)
             $storeColumns = DB::select("SHOW COLUMNS FROM tbluser LIKE 'store_%'");
-            $storeColumns = array_map(fn($column) => $column->Field, $storeColumns);
+            $storeColumns = array_map(fn ($column) => $column->Field, $storeColumns);
 
             // Reset all store columns to 0
             foreach ($storeColumns as $storeColumn) {
@@ -438,7 +439,7 @@ class UserController extends Controller
             }
 
             // Enable selected stores
-            if (!empty($data['privileges_stores'])) {
+            if (! empty($data['privileges_stores'])) {
                 foreach ($data['privileges_stores'] as $store) {
                     if (in_array($store, $storeColumns)) {
                         $user->{$store} = 1;
@@ -495,33 +496,31 @@ class UserController extends Controller
                 'success' => true,
                 'message' => 'User privileges updated successfully!',
                 'main_module' => $mainModuleDb,
-                'sub_modules' => $responseSubModules
+                'sub_modules' => $responseSubModules,
             ]);
         } catch (\Exception $e) {
             Log::error('Error saving user privileges:', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json(['success' => false, 'message' => $e->getMessage()]);
         }
     }
-
-
-
 
     public function refreshUserSession(Request $request)
     {
         try {
             $user = Auth::user();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json(['success' => false, 'message' => 'User not authenticated']);
             }
 
             // Get fresh user data from database
             $freshUser = User::find($user->id);
 
-            if (!$freshUser) {
+            if (! $freshUser) {
                 return response()->json(['success' => false, 'message' => 'User not found']);
             }
 
@@ -546,7 +545,7 @@ class UserController extends Controller
                 'asinoption',
                 'houseage',
                 'asinlist',
-                'printer'  // 🔴 MAKE SURE printer is here
+                'printer',  // 🔴 MAKE SURE printer is here
             ];
 
             // Get main module and ensure it's lowercase with no spaces
@@ -586,7 +585,7 @@ class UserController extends Controller
                 'main_module' => $mainModule,
                 'sub_modules' => $activeModules,
                 'printer_enabled' => $freshUser->printer ?? 'not_found',
-                'main_module_enabled' => $freshUser->{$mainModule} ?? 'not_found'
+                'main_module_enabled' => $freshUser->{$mainModule} ?? 'not_found',
             ]);
 
             return response()->json([
@@ -600,18 +599,19 @@ class UserController extends Controller
                     'printer_value' => $freshUser->printer,  // 🔴 ADDED: Debug printer value
                     'all_enabled_modules' => array_filter($modules, function ($mod) use ($freshUser) {
                         return $freshUser->{$mod} == 1;
-                    })
-                ]
+                    }),
+                ],
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to refresh user session: ' . $e->getMessage(), [
+            Log::error('Failed to refresh user session: '.$e->getMessage(), [
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'user_id' => Auth::id()
+                'user_id' => Auth::id(),
             ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to refresh user session: ' . $e->getMessage()
+                'message' => 'Failed to refresh user session: '.$e->getMessage(),
             ]);
         }
     }
@@ -626,7 +626,7 @@ class UserController extends Controller
         return response()->json([
             'status' => 'success',
             'message' => 'Users retrieved successfully',
-            'data' => $user
+            'data' => $user,
         ]);
     }
 
@@ -646,13 +646,13 @@ class UserController extends Controller
                 'role' => $validated['role'],
             ];
 
-            if (!empty($validated['password'])) {
+            if (! empty($validated['password'])) {
                 $updateData['password'] = Hash::make($validated['password']);
             }
 
             $user->update($updateData);
 
-            $this->userLogService->log('Update data of User - ' . $user->username);
+            $this->userLogService->log('Update data of User - '.$user->username);
 
             return response()->json([
                 'success' => true,
@@ -665,7 +665,8 @@ class UserController extends Controller
                 'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
-            Log::error('Failed to update user: ' . $e->getMessage());
+            Log::error('Failed to update user: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update user. Please try again.',
@@ -684,17 +685,18 @@ class UserController extends Controller
             $user->delete();
 
             // Log using service
-            $this->userLogService->log('Deleted User - ' . $username);
+            $this->userLogService->log('Deleted User - '.$username);
 
             return response()->json([
                 'success' => true,
-                'message' => 'User deleted successfully!'
+                'message' => 'User deleted successfully!',
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to delete user: ' . $e->getMessage());
+            Log::error('Failed to delete user: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete user. Please try again.'
+                'message' => 'Failed to delete user. Please try again.',
             ]);
         }
     }
@@ -711,7 +713,7 @@ class UserController extends Controller
         ]);
 
         DB::table('tbluser')->where('id', $userId)->update([
-            'timezone_setting' => $tzSetting
+            'timezone_setting' => $tzSetting,
         ]);
 
         return response()->json([
@@ -728,16 +730,37 @@ class UserController extends Controller
         $setting = json_decode($settingJson, true) ?? ['auto_sync' => true, 'usertimezone' => 'UTC'];
 
         return view('dashboard.Systemdashboard', [
-            'timezone_setting' => $setting
+            'timezone_setting' => $setting,
         ]);
     }
-    
-    public function getAllUsers() {
+
+    public function getAllUsers()
+    {
         $users = DB::table('tbluser')->select('id', 'username', 'role', 'profile_picture')->get();
 
         return response()->json([
             'success' => true,
-            'data' => $users
+            'data' => $users,
+        ]);
+    }
+
+    public function getCurrentTimezone()
+    {
+        $userId = Auth::id();
+
+        $settingJson = DB::table('tbluser')
+            ->where('id', $userId)
+            ->value('timezone_setting');
+
+        $setting = json_decode($settingJson, true) ?? [
+            'auto_sync' => true,
+            'usertimezone' => 'UTC',
+        ];
+
+        return response()->json([
+            'success' => true,
+            'usertimezone' => $setting['usertimezone'] ?? 'UTC',
+            'auto_sync' => $setting['auto_sync'] ?? true,
         ]);
     }
 }
