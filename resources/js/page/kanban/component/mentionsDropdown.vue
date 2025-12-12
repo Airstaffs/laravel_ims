@@ -1,30 +1,31 @@
 <template>
-    <div class="mentions-dropdown position-relative">
-        <!-- Selected Mentions -->
-        <div class="mb-2">
-            <span v-for="(mention, index) in selectedMentions" :key="mention.id" class="badge bg-primary me-1">
-                {{ mention.username }}
-                <button type="button" class="btn-close btn-close-white btn-sm ms-1"
-                    @click="removeMention(index)"></button>
-            </span>
-        </div>
+    <div class="mentions-dropdown">
+        <MultiSelect v-model="selectedMentions" :options="props.users" optionLabel="username"
+            placeholder="Select Mentions" :maxSelectedLabels="3" class="w-100" display="chip"
+            @update:modelValue="handleUpdate" dataKey="id">
+            <template #value="slotProps">
+                <div v-if="slotProps.value && slotProps.value.length" class="d-flex flex-wrap gap-1">
+                    <Chip v-for="mention in slotProps.value" :key="mention.id" :label="mention.username" removable
+                        @remove="removeMention(mention)" />
+                </div>
+                <span v-else class="text-secondary">
+                    {{ slotProps.placeholder }}
+                </span>
+            </template>
 
-        <!-- Dropdown -->
-        <div class="dropdown w-100">
-            <button class="btn btn-outline-secondary w-100 dropdown-toggle" type="button" @click="toggleDropdown">
-                Select Mentions
-            </button>
-            <ul v-show="isOpen" class="dropdown-menu w-100 show" style="max-height: 150px; overflow-y: auto">
-                <li v-for="user in filteredUsers" :key="user.id" class="dropdown-item" @click="addMention(user)">
-                    {{ user.username }}
-                </li>
-            </ul>
-        </div>
+            <template #option="slotProps">
+                <div class="d-flex align-items-center">
+                    <span>{{ slotProps.option.username }}</span>
+                </div>
+            </template>
+        </MultiSelect>
     </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, watch } from 'vue'
+import MultiSelect from 'primevue/multiselect'
+import Chip from 'primevue/chip'
 
 const props = defineProps({
     users: {
@@ -40,37 +41,47 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-const isOpen = ref(false)
-const selectedMentions = ref([...props.modelValue])
+const selectedMentions = ref([])
 
-function toggleDropdown() {
-    isOpen.value = !isOpen.value
-}
-
-function addMention(user) {
-    if (!selectedMentions.value.some(m => m.id === user.id)) {
-        selectedMentions.value.push({ id: user.id, username: user.username })
-        emit('update:modelValue', selectedMentions.value)
+// Initialize with matching object references from props.users
+function syncSelectedMentions(value) {
+    if (!value || value.length === 0) {
+        selectedMentions.value = []
+        return
     }
+
+    // Map modelValue IDs to actual objects from props.users
+    selectedMentions.value = value.map(v => {
+        const userId = typeof v === 'object' ? v.id : v
+        return props.users.find(u => u.id === userId) || v
+    }).filter(Boolean)
 }
 
-function removeMention(index) {
-    selectedMentions.value.splice(index, 1)
+function handleUpdate(value) {
+    emit('update:modelValue', value)
+}
+
+function removeMention(mention) {
+    selectedMentions.value = selectedMentions.value.filter(m => m.id !== mention.id)
     emit('update:modelValue', selectedMentions.value)
 }
 
-// Hide names if it is already mentioned
-const filteredUsers = computed(() => {
-    return props.users.filter(u => !selectedMentions.value.some(m => m.id === u.id))
-})
-
 watch(() => props.modelValue, val => {
-    selectedMentions.value = [...val]
-})
+    syncSelectedMentions(val)
+}, { immediate: true, deep: true })
+
+watch(() => props.users, () => {
+    // Re-sync when users list changes
+    syncSelectedMentions(props.modelValue)
+}, { deep: true })
 </script>
 
 <style scoped>
-.mentions-dropdown {
-    z-index: 1055;
+:deep(.p-multiselect) {
+    width: 100%;
+}
+
+:deep(.p-multiselect-panel) {
+    max-height: 250px;
 }
 </style>

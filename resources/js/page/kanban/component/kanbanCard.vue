@@ -1,10 +1,12 @@
 <template>
-	<div class="card mb-2">
-		<div class="card-body">
-			<!-- New Task Badge -->
-			<span v-if="isNewTask" class="badge text-bg-success mb-4">New Task</span>
+	<Card class="kanban-card">
+		<!-- New Task Badge -->
+		<template #title>
+			<Tag v-if="isNewTask" severity="success" value="New Task" class="mb-2" />
+		</template>
 
-			<div class="d-flex justify-content-between align-items-center">
+		<template #content>
+			<div class="d-flex justify-content-between align-items-center mb-3">
 				<!-- Priority Badge -->
 				<PriorityBadge :priority="task.priority || 'medium'" />
 
@@ -13,69 +15,52 @@
 					<span class="text-secondary" style="font-size: 12px;">{{ formatDate(task.created_at) }}</span>
 
 					<div class="ms-2 position-relative">
-						<button class="btn btn-light btn-sm" @click="toggleDropdown">
-							<i class="bi bi-three-dots-vertical"></i>
-						</button>
+						<Button icon="pi pi-ellipsis-v" text rounded @click="toggleDropdown" size="small" />
 
-						<div v-if="isDropdownOpen" class="dropdown-menu dropdown-menu-end show custom-dropdown"
-							@click.stop>
-							<button @click="openModal('view', task)" class="dropdown-item">
-								<i class="bi bi-eye me-2"></i>View
-							</button>
-
-							<button v-if="hasPermission('edit')" @click.prevent="openModal('edit', task)"
-								class="dropdown-item">
-								<i class="bi bi-pencil me-2"></i>Edit
-							</button>
-
-							<button v-if="hasPermission('permission')" @click.prevent="openModal('permission', task)"
-								class="dropdown-item">
-								<i class="bi bi-shield-lock me-2"></i>Permission
-							</button>
-
-							<button v-if="hasPermission('delete')" @click.prevent="openModal('delete', task)"
-								class="dropdown-item text-danger">
-								<i class="bi bi-trash me-2"></i>Delete
-							</button>
-						</div>
+						<Menu ref="menu" :model="menuItems" :popup="true" @hide="isDropdownOpen = false" />
 					</div>
 				</div>
 			</div>
 
 			<!-- Task Title & Mentions -->
-			<div class="card-title mt-1 text-break">{{ task.title }}</div>
+			<div class="card-title mb-2 text-break fw-semibold">{{ task.title }}</div>
 			<MentionedProfile v-if="task.mentions?.length" :mentions="task.mentions" />
-			<div class="d-flex align-items-center justify-content-between mt-2">
+
+			<div class="d-flex align-items-center justify-content-between mt-3">
 				<div class="text-secondary" style="font-size: 12px;">Created by: {{ task.createdBy }}</div>
 				<div class="d-flex gap-2 text-secondary" style="font-size: 14px;">
 					<div class="d-flex gap-1 align-items-center">
 						<span>{{ task.fileCount }}</span>
-						<i class="bi bi-paperclip"></i>
+						<i class="pi pi-paperclip"></i>
 					</div>
-					<div class="d-flex gap-1 align-items-center ">
+					<div class="d-flex gap-1 align-items-center">
 						<span>{{ task.commentCount }}</span>
-						<i class="bi bi-chat"></i>
+						<i class="pi pi-comments"></i>
 					</div>
 				</div>
 			</div>
+		</template>
+	</Card>
 
-		</div>
-
-		<!-- Modals -->
-		<ViewTaskModal v-if="activeModals.view && selectedTask" :task="selectedTask" @close="closeModal('view')" />
-		<DeleteTaskModal v-if="activeModals.delete && selectedTask" :task="selectedTask" :loading="loading"
-			@close="closeModal('delete')" @confirm="deleteTask" />
-		<PermissionModal v-if="activeModals.permission && selectedTask" :task="selectedTask"
-			@close="closeModal('permission')" />
-		<EditTaskModal v-if="activeModals.edit && selectedTask" ref="editTaskModalRef" :taskData="selectedTask"
-			:allUsers="allUsers" @task-updated="handleTaskUpdate" @close="closeModal('edit')" />
-	</div>
+	<!-- Modals -->
+	<ViewTaskModal v-if="activeModals.view && selectedTask" :task="selectedTask" @close="closeModal('view')" />
+	<DeleteTaskModal v-if="activeModals.delete && selectedTask" :task="selectedTask" :loading="loading"
+		@close="closeModal('delete')" @confirm="deleteTask" />
+	<PermissionModal v-if="activeModals.permission && selectedTask" :task="selectedTask"
+		@close="closeModal('permission')" />
+	<EditTaskModal v-if="activeModals.edit && selectedTask" ref="editTaskModalRef" :taskData="selectedTask"
+		:allUsers="allUsers" @task-updated="handleTaskUpdate" @close="closeModal('edit')" />
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import axios from 'axios'
 import Swal from 'sweetalert2'
+
+import Card from 'primevue/card'
+import Button from 'primevue/button'
+import Menu from 'primevue/menu'
+import Tag from 'primevue/tag'
 
 import PriorityBadge from './priorityBadge.vue'
 import MentionedProfile from './mentionedProfile.vue'
@@ -99,7 +84,7 @@ const activeModals = ref({
 const dropdownRef = ref(null)
 const editTaskModalRef = ref(null)
 const isNewTask = ref(false)
-
+const menu = ref(null)
 
 const hasPermission = (type) => {
 	const userId = window.user.id
@@ -111,12 +96,56 @@ const hasPermission = (type) => {
 	return false
 }
 
+// Menu items for dropdown
+const menuItems = computed(() => {
+	const items = [
+		{
+			label: 'View',
+			icon: 'pi pi-eye',
+			command: () => openModal('view', props.task)
+		}
+	]
+
+	if (hasPermission('edit')) {
+		items.push({
+			label: 'Edit',
+			icon: 'pi pi-pencil',
+			command: () => openModal('edit', props.task)
+		})
+	}
+
+	if (hasPermission('permission')) {
+		items.push({
+			label: 'Permission',
+			icon: 'pi pi-shield',
+			command: () => openModal('permission', props.task)
+		})
+	}
+
+	if (hasPermission('delete')) {
+		items.push({
+			separator: true
+		})
+		items.push({
+			label: 'Delete',
+			icon: 'pi pi-trash',
+			class: 'text-danger',
+			command: () => openModal('delete', props.task)
+		})
+	}
+
+	return items
+})
+
 // Dropdown
-const toggleDropdown = () => (isDropdownOpen.value = !isDropdownOpen.value)
+const toggleDropdown = (event) => {
+	menu.value.toggle(event)
+	isDropdownOpen.value = !isDropdownOpen.value
+}
+
 const handleClickOutside = (e) => {
 	if (!dropdownRef.value?.contains(e.target)) isDropdownOpen.value = false
 }
-
 
 const openModal = (type, task) => {
 	if (type === 'view' || hasPermission(type)) {
@@ -129,22 +158,21 @@ const openModal = (type, task) => {
 		}
 
 		if (type === 'view' && isNewTask.value) {
-			markAsRead();
-			isNewTask.value = false;
+			markAsRead()
+			isNewTask.value = false
 
-			const notifIds = ['kanbanNotifDesktop', 'kanbanNotifMobile'];
+			const notifIds = ['kanbanNotifDesktop', 'kanbanNotifMobile']
 
 			notifIds.forEach(id => {
-				const elem = document.getElementById(id);
+				const elem = document.getElementById(id)
 				if (elem) {
-					let count = parseInt(elem.textContent || '0', 10);
-					count = Math.max(0, count - 1);
-					elem.textContent = count;
-					elem.style.display = count > 0 ? 'inline' : 'none';
+					let count = parseInt(elem.textContent || '0', 10)
+					count = Math.max(0, count - 1)
+					elem.textContent = count
+					elem.style.display = count > 0 ? 'inline' : 'none'
 				}
-			});
+			})
 		}
-
 	} else {
 		Swal.fire('Access Denied', 'You do not have permission to use this button', 'error')
 	}
@@ -154,7 +182,6 @@ const closeModal = (type) => {
 	activeModals.value[type] = false
 	selectedTask.value = null
 }
-
 
 const deleteTask = async () => {
 	if (!selectedTask.value) return
@@ -177,33 +204,31 @@ const handleTaskUpdate = () => {
 	closeModal('edit')
 }
 
-
 const updateTaskReadStatus = () => {
-	const task = props.task;
-	const userId = window.user.id;
+	const task = props.task
+	const userId = window.user.id
 
 	// Normalize readBy
-	let readBy = [];
+	let readBy = []
 	if (Array.isArray(task.readBy)) {
-		readBy = task.readBy;
+		readBy = task.readBy
 	} else if (typeof task.readBy === 'string' && task.readBy.length) {
 		try {
-			readBy = JSON.parse(task.readBy);
+			readBy = JSON.parse(task.readBy)
 		} catch {
-			readBy = [];
+			readBy = []
 		}
 	}
 
 	// Task creator has no "new" badge
 	if (userId === task.userId) {
-		isNewTask.value = false;
-		return;
+		isNewTask.value = false
+		return
 	}
 
 	// If user already read, it's not new
-	isNewTask.value = !readBy.includes(userId);
-};
-
+	isNewTask.value = !readBy.includes(userId)
+}
 
 const markAsRead = () => {
 	if (isNewTask.value) {
@@ -218,25 +243,24 @@ const markAsRead = () => {
 
 // Date formatting
 function formatDate(dateString) {
-	const date = new Date(dateString);
+	const date = new Date(dateString)
 
 	const months = [
 		"January", "February", "March", "April", "May", "June",
 		"July", "August", "September", "October", "November", "December"
-	];
+	]
 
-	const month = months[date.getUTCMonth()];
-	const day = date.getUTCDate();
-	const year = date.getUTCFullYear();
+	const month = months[date.getUTCMonth()]
+	const day = date.getUTCDate()
+	const year = date.getUTCFullYear()
 
-	let hours = date.getUTCHours();
-	const minutes = date.getUTCMinutes().toString().padStart(2, '0');
-	const ampm = hours >= 12 ? 'pm' : 'am';
-	hours = hours % 12 || 12;
+	let hours = date.getUTCHours()
+	const minutes = date.getUTCMinutes().toString().padStart(2, '0')
+	const ampm = hours >= 12 ? 'pm' : 'am'
+	hours = hours % 12 || 12
 
-	return `${month} ${day}, ${year} ${hours}:${minutes}${ampm}`;
+	return `${month} ${day}, ${year} ${hours}:${minutes}${ampm}`
 }
-
 
 onMounted(() => {
 	document.addEventListener('click', handleClickOutside)
@@ -247,3 +271,22 @@ onBeforeUnmount(() => {
 	document.removeEventListener('click', handleClickOutside)
 })
 </script>
+
+<style scoped>
+.kanban-card {
+	margin-bottom: 0.5rem;
+}
+
+.kanban-card :deep(.p-card-body) {
+	padding: 1rem;
+}
+
+.kanban-card :deep(.p-card-content) {
+	padding: 0;
+}
+
+.card-title {
+	font-size: 1rem;
+	line-height: 1.4;
+}
+</style>

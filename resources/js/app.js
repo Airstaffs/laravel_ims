@@ -672,6 +672,7 @@ const app = createApp({
             if (navName === "kanban") {
                 const componentName = this.mapToComponentName(navName);
                 this.safeComponentUpdate(componentName, navName);
+                getKanbanNotif();
                 return;
             }
 
@@ -831,6 +832,50 @@ const app = createApp({
                 });
             }
             this.collapses[id].toggle();
+        },
+
+        // ============================================
+        // KANBAN NOTIFICATION
+        // ============================================
+        getKanbanNotif() {
+            const user = ref(window.user || {});
+
+            fetch("/user/kanban/notification", {
+                method: "POST",
+                body: JSON.stringify({
+                    userId: user.id,
+                }),
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-TOKEN": document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
+                },
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(
+                        data.mentionedCount || 0,
+                        "data.mentionedCount || 0;"
+                    );
+                    window.kanbanMentionedCount = data.mentionedCount || 0;
+
+                    if (data.mentionedCount > 0) {
+                        ["kanbanNotifMobile", "kanbanNotifDesktop"].forEach(
+                            (id) => {
+                                const el = document.getElementById(id);
+                                if (el) {
+                                    el.style.display = "inline";
+                                    el.textContent = data.mentionedCount;
+                                }
+                            }
+                        );
+                    }
+                })
+                .catch((error) =>
+                    console.error("Error fetching notifications:", error)
+                );
         },
     },
     components: {
@@ -1007,6 +1052,8 @@ document.addEventListener("DOMContentLoaded", function () {
     keepSessionAlive();
 
     logSession("✅ App initialized successfully");
+
+    getKanbanNotif();
 });
 
 function createSessionIndicator() {
@@ -1069,4 +1116,105 @@ console.log("✅ CSRF Handler loaded");
 console.log("✅ Idle Handler loaded");
 console.log("✅ Session Management loaded");
 console.log("✅ Activity tracking optimized (debounced + document-level)");
-console.log("✅ TimeFormatter Plugin loaded");
+
+function showPrinterModal() {
+    console.log("Opening printer modal...");
+
+    // Check if container exists, if not create it
+    let container = document.getElementById("printer-app-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "printer-app-container";
+        document.body.appendChild(container);
+    }
+
+    // Load the printer Vue component if not already loaded
+    if (!window.printerApp) {
+        loadPrinterComponent();
+    }
+}
+
+function loadPrinterComponent() {
+    console.log("Loading printer component...");
+
+    function checkReady() {
+        if (!window.appInstance) {
+            console.log("Main app not ready yet...");
+            return false;
+        }
+
+        if (!window.createApp) {
+            console.log("createApp not available yet...");
+            return false;
+        }
+
+        if (!window.appInstance.$options.components.printer) {
+            console.log("Printer component not registered yet...");
+            return false;
+        }
+
+        return true;
+    }
+
+    if (!checkReady()) {
+        setTimeout(loadPrinterComponent, 200);
+        return;
+    }
+
+    const printerComponent = window.appInstance.$options.components.printer;
+    createPrinterApp(printerComponent);
+}
+
+function createPrinterApp(PrinterComponent) {
+    console.log("Creating printer app with component");
+
+    const createApp = window.createApp;
+
+    if (!createApp) {
+        console.error("createApp function not available");
+        return;
+    }
+
+    try {
+        window.printerApp = createApp(PrinterComponent);
+
+        if (
+            window.appInstance &&
+            window.appInstance.config &&
+            window.appInstance.config.globalProperties
+        ) {
+            const globalProps = window.appInstance.config.globalProperties;
+            Object.keys(globalProps).forEach((key) => {
+                if (key !== "$el" && key !== "$root") {
+                    window.printerApp.config.globalProperties[key] =
+                        globalProps[key];
+                }
+            });
+        }
+
+        window.printerApp.mount("#printer-app-container");
+        console.log("Printer app mounted successfully");
+    } catch (error) {
+        console.error("Failed to mount printer app:", error);
+    }
+}
+
+function cleanupPrinterApp() {
+    console.log("Cleaning up printer app...");
+    if (window.printerApp) {
+        try {
+            window.printerApp.unmount();
+        } catch (error) {
+            console.error("Error unmounting printer app:", error);
+        }
+        window.printerApp = null;
+        const container = document.getElementById("printer-app-container");
+        if (container) {
+            container.innerHTML = "";
+        }
+    }
+}
+
+// Expose globally
+window.showPrinterModal = showPrinterModal;
+window.cleanupPrinterApp = cleanupPrinterApp;
