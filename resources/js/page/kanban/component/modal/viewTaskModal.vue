@@ -1,65 +1,34 @@
 <template>
-    <div class="modal fade show" tabindex="-1" style="display: block;">
-        <div class="modal-dialog modal-dialog-centered modal-responsive">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">View Task</h5>
-                    <button type="button" class="btn-close" @click="$emit('close')"></button>
-                </div>
+    <Dialog :visible="true" modal header="View Task" :style="{ width: '90vw', maxWidth: '900px' }"
+        :breakpoints="{ '768px': '95vw' }" :draggable="false" @update:visible="$emit('close')"
+        :contentStyle="{ maxHeight: '80vh', overflowY: 'auto' }">
+        <TabView @tab-change="handleTabChange" v-model:activeIndex="activeTab">
+            <TabPanel header="Details">
+                <TaskDetails :task="task" />
+            </TabPanel>
 
-                <div class="modal-body">
-                    <!-- Responsive Tabs -->
-                    <div class="tab-container">
-                        <ul class="nav nav-tabs flex-nowrap" id="myTab" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="details-tab" data-bs-toggle="tab"
-                                    data-bs-target="#details-pane" type="button" role="tab">
-                                    Details
-                                </button>
-                            </li>
+            <TabPanel header="Comments">
+                <TaskComments v-if="showComments" :task-id="task.id" :mentions="task.mentions" />
+            </TabPanel>
 
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="comment-tab" data-bs-toggle="tab"
-                                    data-bs-target="#comment-tab-pane" type="button" role="tab">
-                                    Comments
-                                </button>
-                            </li>
+            <TabPanel header="Activity Logs">
+                <TaskActivityLogs v-if="showActivityLogs" :task-id="task.id" />
+            </TabPanel>
+        </TabView>
 
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="activity-log-tab" data-bs-toggle="tab"
-                                    data-bs-target="#activity-log-tab-pane" type="button" role="tab">
-                                    Activity Logs
-                                </button>
-                            </li>
-                        </ul>
-                    </div>
-
-                    <div class="tab-content mt-3" id="myTabContent">
-                        <div class="tab-pane fade show active" id="details-pane" role="tabpanel" tabindex="0">
-                            <TaskDetails :task="task" />
-                        </div>
-
-                        <div class="tab-pane fade" id="comment-tab-pane" role="tabpanel" tabindex="0">
-                            <TaskComments v-if="showComments" :task-id="task.id" :mentions="task.mentions" />
-                        </div>
-
-                        <div class="tab-pane fade" id="activity-log-tab-pane" role="tabpanel" tabindex="0">
-                            <TaskActivityLogs v-if="showActivityLogs" :task-id="props.task.id" />
-                        </div>
-                    </div>
-                </div>
-
-                <div class="modal-footer">
-                    <button class="btn btn-primary  w-sm-auto" @click="$emit('close')">Close</button>
-                </div>
-            </div>
-        </div>
-        <div class="modal-backdrop fade show" />
-    </div>
+        <template #footer>
+            <Button label="Close" @click="$emit('close')" class="w-full sm:w-auto" />
+        </template>
+    </Dialog>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref } from 'vue'
+import Dialog from 'primevue/dialog'
+import Button from 'primevue/button'
+import TabView from 'primevue/tabview'
+import TabPanel from 'primevue/tabpanel'
+
 import TaskComments from '../taskComments.vue'
 import TaskDetails from '../taskDetails.vue'
 import TaskActivityLogs from '../taskActivityLogs.vue'
@@ -68,105 +37,78 @@ const props = defineProps({
     task: { type: Object, required: true }
 })
 
+defineEmits(['close'])
+
+const activeTab = ref(0)
 const showComments = ref(false)
 const showActivityLogs = ref(false)
 
-function handleTabShown(e) {
-    const targetId = e.target.getAttribute('data-bs-target')
-    if (targetId === '#comment-tab-pane') {
-        showComments.value = true
-    } else if (targetId === '#activity-log-tab-pane') {
-        showActivityLogs.value = true
-    } else {
+function handleTabChange(event) {
+    const index = event.index
+
+    if (index === 0) {
+        // Details tab
         showComments.value = false
         showActivityLogs.value = false
+    } else if (index === 1) {
+        // Comments tab
+        showComments.value = true
+        showActivityLogs.value = false
+    } else if (index === 2) {
+        // Activity Logs tab
+        showComments.value = false
+        showActivityLogs.value = true
     }
 }
-
-
-onMounted(() => {
-    document.addEventListener('shown.bs.tab', handleTabShown)
-})
-
-onBeforeUnmount(() => {
-    document.removeEventListener('shown.bs.tab', handleTabShown)
-})
 </script>
 
-<style>
-.modal-responsive {
-    max-width: 600px;
-    width: 90%;
+<style scoped>
+/* Responsive button width */
+.w-full {
+    width: 100%;
 }
 
-.modal-dialog {
-    display: flex;
-    align-items: center;
-    min-height: calc(100vh - 1rem);
-}
-
-.modal-content {
-    max-height: 90vh;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
-.modal-body {
-    overflow-y: auto;
-    max-height: calc(80vh - 100px);
-    padding-right: 8px;
-}
-
-/* Scrollable tabs container */
-.tab-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-}
-
-.tab-container::-webkit-scrollbar {
-    display: none;
-}
-
-.nav-tabs {
-    flex-wrap: nowrap;
-    border-bottom: 1px solid #dee2e6;
-}
-
-.nav-tabs .nav-item {
-    flex: 0 0 auto;
-    white-space: nowrap;
-}
-
-.nav-tabs .nav-link {
-    padding: 0.5rem 1rem;
-}
-
-/* --- Responsive --- */
-@media (max-width: 768px) {
-    .modal-responsive {
-        width: 95%;
-        max-width: none;
-        margin: 0 auto;
+@media (min-width: 640px) {
+    .sm\:w-auto {
+        width: auto;
     }
+}
 
-    .modal-body {
-        max-height: calc(80vh - 80px);
+/* TabView customization */
+:deep(.p-tabview) {
+    overflow: visible;
+}
+
+:deep(.p-tabview-nav) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+}
+
+:deep(.p-tabview-nav::-webkit-scrollbar) {
+    height: 4px;
+}
+
+:deep(.p-tabview-nav::-webkit-scrollbar-thumb) {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+:deep(.p-tabview-panels) {
+    padding: 1rem;
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+    :deep(.p-tabview-panels) {
         padding: 0.75rem;
     }
 
-    .modal-footer {
-        flex-direction: column;
-        gap: 0.5rem;
-    }
-
-    .btn {
-        width: 100%;
-    }
-
-    .tab-container {
-        margin-bottom: 0.5rem;
+    :deep(.p-tabview-nav-link) {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.9rem;
     }
 }
 </style>

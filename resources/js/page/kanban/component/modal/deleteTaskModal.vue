@@ -1,83 +1,46 @@
 <template>
-    <div class="modal fade show" tabindex="-1" style="display: block;">
-        <div class="modal-dialog modal-dialog-centered modal-delete-width">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Delete Task</h5>
-                    <button type="button" class="btn-close" @click="$emit('close')"></button>
-                </div>
-                <div class="modal-body">
-                    <p v-if="task">
-                        Are you sure you want to delete <strong>{{ task.title }}</strong>?
-                    </p>
-                    <p v-else>Loading...</p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" @click="$emit('close')" :disabled="loading">Cancel</button>
-                    <button class="btn btn-danger" @click="$emit('confirm')" :disabled="loading">
-                        <span v-if="loading"><i class="bi bi-arrow-repeat spin me-1"></i>Deleting...</span>
-                        <span v-else>Yes, Delete</span>
-                    </button>
-                </div>
-            </div>
+    <Dialog :visible="true" modal header="Delete Task" :style="{ width: '40vw' }"
+        :breakpoints="{ '992px': '60vw', '480px': '90vw' }" :draggable="false" @update:visible="$emit('close')">
+        <div class="dialog-content">
+            <p v-if="task">
+                Are you sure you want to delete <strong>{{ task.title }}</strong>?
+            </p>
+            <p v-else>Loading...</p>
         </div>
-        <div class="modal-backdrop fade show"></div>
-    </div>
+
+        <template #footer>
+            <Button size="small" label="Cancel" severity="secondary" @click="$emit('close')" :disabled="loading" text />
+            <Button size="small" :label="loading ? 'Deleting...' : 'Yes, Delete'" severity="danger"
+                @click="$emit('confirm')" :loading="loading" :disabled="loading" />
+        </template>
+    </Dialog>
 </template>
 
 <script setup>
+import Dialog from 'primevue/dialog'
+import Button from 'primevue/button'
+
 const props = defineProps({
     task: Object,
     loading: { type: Boolean, default: false }
 })
+
+defineEmits(['close', 'confirm'])
 </script>
 
-
 <style scoped>
-.modal-delete-width {
-    width: 40%;
-    max-width: 400px;
-    min-width: 280px;
+.dialog-content {
+    padding: .5rem 0;
 }
 
-/* Tablet */
-@media (max-width: 992px) {
-    .modal-delete-width {
-        width: 60%;
-    }
+.dialog-content p {
+    margin-bottom: 0;
+    font-size: 1rem;
+    line-height: 1.5;
 }
 
-/* Mobile */
-@media (max-width: 480px) {
-    .modal-delete-width {
-        width: 90%;
-        margin: 0;
-        border-radius: 8px;
-    }
-}
-
-.spin {
-    display: inline-block;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-.modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 1040;
+.dialog-content strong {
+    color: var(--p-text-color);
+    font-weight: 600;
 }
 </style>
