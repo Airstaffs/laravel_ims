@@ -7,7 +7,7 @@
         :style="{ width: '90%', height: '80vh' }"
         class="profile-modal"
     >
-        <TabView class="profile-tabs">
+        <TabView class="profile-tabs" @tab-change="onTabChange">
             <!-- Attendance Tab -->
             <TabPanel>
                 <template #header>
@@ -16,7 +16,9 @@
                 </template>
 
                 <div class="scrollable-content">
+                    <!-- Your attendance content here -->
                     <div class="attendance-container">
+                        <!-- Time Display Section -->
                         <div class="text-center mb-4">
                             <h3 class="mb-3">
                                 Attendance / Clock-in & Clock-out
@@ -31,13 +33,28 @@
                                             id="current-time"
                                             class="current-time"
                                         >
-                                            {{ currentTime }}
+                                            {{
+                                                $timeFormatter.getCurrentTime()
+                                            }}
                                         </div>
                                         <div
                                             id="current-day"
                                             class="current-day"
                                         >
-                                            {{ currentDay }}
+                                            {{
+                                                $timeFormatter.getCurrentDate()
+                                            }}
+                                        </div>
+                                        <div
+                                            class="current-timezone"
+                                            v-if="
+                                                $timeFormatter.getTimezoneDisplay()
+                                            "
+                                        >
+                                            <i class="pi pi-globe"></i>
+                                            {{
+                                                $timeFormatter.getTimezoneDisplay()
+                                            }}
                                         </div>
                                     </div>
 
@@ -125,14 +142,14 @@
                                     <div class="time-cell">
                                         <div class="time-value">
                                             {{
-                                                formatTime(
+                                                $formatTime(
                                                     slotProps.data.timeIn
                                                 )
                                             }}
                                         </div>
                                         <div class="date-value">
                                             {{
-                                                formatDate(
+                                                $formatDate(
                                                     slotProps.data.timeIn
                                                 )
                                             }}
@@ -153,14 +170,14 @@
                                     >
                                         <div class="time-value">
                                             {{
-                                                formatTime(
+                                                $formatTime(
                                                     slotProps.data.timeOut
                                                 )
                                             }}
                                         </div>
                                         <div class="date-value">
                                             {{
-                                                formatDate(
+                                                $formatDate(
                                                     slotProps.data.timeOut
                                                 )
                                             }}
@@ -185,7 +202,7 @@
                                         class="computed-hours"
                                     >
                                         {{
-                                            calculateHours(
+                                            $calculateHours(
                                                 slotProps.data.timeIn,
                                                 slotProps.data.timeOut
                                             )
@@ -571,17 +588,14 @@
 
                                             <div class="field-checkbox">
                                                 <Checkbox
-                                                    id="auto_sync"
                                                     v-model="
                                                         timezoneForm.auto_sync
                                                     "
                                                     :binary="true"
                                                 />
-                                                <label
-                                                    for="auto_sync"
-                                                    class="ml-2"
-                                                >
-                                                    Automatically Sync Timezone
+                                                <label>
+                                                    Automatically detect
+                                                    timezone from browser
                                                 </label>
                                             </div>
 
@@ -600,8 +614,17 @@
                                             <Button
                                                 type="submit"
                                                 label="Update Timezone"
-                                                icon="pi pi-globe"
+                                                icon="pi pi-check"
                                                 :loading="updatingTimezone"
+                                            />
+                                            <Button
+                                                type="button"
+                                                label="Detect Now"
+                                                icon="pi pi-refresh"
+                                                @click="detectCurrentTimezone"
+                                                severity="secondary"
+                                                outlined
+                                                class="ml-2"
                                             />
                                         </div>
                                     </form>
@@ -726,8 +749,9 @@
                                         <template #body="slotProps">
                                             <div class="record-date">
                                                 <i class="pi pi-calendar"></i>
+                                                <!-- ✅ Using universal formatter -->
                                                 <strong>{{
-                                                    formatRecordDate(
+                                                    $formatDate(
                                                         slotProps.data.time_in
                                                     )
                                                 }}</strong>
@@ -739,8 +763,9 @@
                                         <template #body="slotProps">
                                             <div class="record-time">
                                                 <i class="pi pi-sign-in"></i>
+                                                <!-- ✅ Using universal formatter -->
                                                 {{
-                                                    formatTime(
+                                                    $formatTime(
                                                         slotProps.data.time_in
                                                     )
                                                 }}
@@ -755,8 +780,9 @@
                                                 class="record-time"
                                             >
                                                 <i class="pi pi-sign-out"></i>
+                                                <!-- ✅ Using universal formatter -->
                                                 {{
-                                                    formatTime(
+                                                    $formatTime(
                                                         slotProps.data.time_out
                                                     )
                                                 }}
@@ -776,8 +802,9 @@
                                         <template #body="slotProps">
                                             <div class="computed-hours-badge">
                                                 <i class="pi pi-clock"></i>
+                                                <!-- ✅ Using universal formatter -->
                                                 <strong>{{
-                                                    calculateRecordHours(
+                                                    $calculateHours(
                                                         slotProps.data.time_in,
                                                         slotProps.data.time_out
                                                     )
@@ -1189,6 +1216,8 @@ import Dropdown from "primevue/dropdown";
 import Checkbox from "primevue/checkbox";
 import Message from "primevue/message";
 
+import ProgressSpinner from "primevue/progressspinner";
+import Tooltip from "primevue/tooltip";
 import Swal from "sweetalert2";
 
 export default {
@@ -1210,6 +1239,10 @@ export default {
         Dropdown,
         Checkbox,
         Message,
+        ProgressSpinner,
+    },
+    directives: {
+        tooltip: Tooltip,
     },
     props: {
         visible: {
@@ -1231,10 +1264,10 @@ export default {
             selectedRecordId: null,
             loading: false,
             savingNotes: false,
-            currentTime: "",
-            currentDay: "",
             timeInterval: null,
-            userTimezone: "UTC",
+
+            timeUpdateKey: 0,
+            currentTabIndex: 0,
 
             activeAccountTab: "details",
             accountDetails: {
@@ -1264,6 +1297,7 @@ export default {
             updatingTimezone: false,
             accountDetailsLoaded: false,
             timezonesLoaded: false,
+            detectedTimezone: "Detecting...",
 
             recordFilter: {
                 startDate: null,
@@ -1417,39 +1451,50 @@ export default {
     watch: {
         visible(newVal) {
             if (newVal) {
-                this.loadUserTimezone();
-                this.loadAttendanceData();
-                this.startClock();
+                this.$timeFormatter.init().then(() => {
+                    this.loadAttendanceData();
+                    this.startClock();
 
-                // Preload account details
-                if (!this.accountDetailsLoaded) {
-                    this.loadAccountDetails();
-                }
+                    // Preload account details
+                    if (!this.accountDetailsLoaded) {
+                        this.loadAccountDetails();
+                    }
 
-                // Preload timezones
-                if (!this.timezonesLoaded) {
-                    this.loadTimezones();
-                }
+                    // Preload timezones
+                    if (!this.timezonesLoaded) {
+                        this.loadTimezones();
+                    }
 
-                // Load time records
-                this.filterAttendanceRecords();
+                    // Load time records
+                    this.filterAttendanceRecords();
 
-                // Load privileges
-                this.loadUserPrivileges();
+                    // Load privileges
+                    this.loadUserPrivileges();
 
-                // Preload schedule
-                this.loadScheduleData();
+                    // Preload schedule
+                    this.loadScheduleData();
+                });
             } else {
                 this.stopClock();
             }
         },
+
+        "timezoneForm.auto_sync"(newVal) {
+            if (newVal) {
+                // When auto-sync is enabled, detect and set timezone
+                console.log("🔄 Auto-sync enabled, detecting timezone...");
+                const detected = this.detectCurrentTimezone();
+                this.timezoneForm.usertimezone = detected;
+            }
+        },
     },
     mounted() {
-        if (this.visible) {
-            this.loadUserTimezone();
-            this.loadAttendanceData();
-            this.startClock();
-        }
+        this.$timeFormatter.init().then(() => {
+            if (this.visible) {
+                this.loadAttendanceData();
+                this.startClock();
+            }
+        });
     },
     beforeUnmount() {
         this.stopClock();
@@ -1558,6 +1603,72 @@ export default {
         },
     },
     methods: {
+        onTabChange(event) {
+            this.currentTabIndex = event.index;
+
+            // Tab index 0 = Attendance Tab
+            if (event.index === 0) {
+                console.log("👁️ Attendance tab visited, refreshing data...");
+                this.refreshAttendanceTab();
+            }
+
+            // Tab index 1 = Account Tab
+            if (event.index === 1 && !this.accountDetailsLoaded) {
+                this.loadAccountDetails();
+            }
+
+            // Tab index 2 = Record Tab
+            if (event.index === 2) {
+                this.filterAttendanceRecords();
+            }
+
+            // Tab index 3 = My Privileges Tab
+            if (event.index === 3 && !this.privilegesLoaded) {
+                this.loadUserPrivileges();
+            }
+
+            // Tab index 4 = My Schedule Tab
+            if (event.index === 4) {
+                this.loadScheduleData();
+            }
+        },
+
+        formatTime(datetime) {
+            return this.$formatTime(datetime);
+        },
+
+        formatDate(datetime) {
+            return this.$formatDate(datetime);
+        },
+
+        calculateHours(timeIn, timeOut) {
+            return this.$calculateHours(timeIn, timeOut);
+        },
+
+        formatRecordDate(datetime) {
+            return this.$formatDate(datetime);
+        },
+
+        calculateRecordHours(timeIn, timeOut) {
+            return this.$calculateHours(timeIn, timeOut);
+        },
+
+        async refreshAttendanceTab() {
+            try {
+                // Refresh attendance data
+                await this.loadAttendanceData();
+
+                // Restart clock if not running
+                if (!this.timeInterval) {
+                    this.startClock();
+                }
+
+                console.log("✅ Attendance tab refreshed");
+            } catch (error) {
+                console.error("❌ Failed to refresh attendance tab:", error);
+            }
+        },
+
         async loadAttendanceData() {
             this.loading = true;
             try {
@@ -1571,7 +1682,6 @@ export default {
                 this.canClockIn = data.canClockIn || false;
                 this.canClockOut = data.canClockOut || false;
 
-                // Check for auto clock-out after loading data
                 if (data.hasPreviousDayOpenRecord) {
                     await this.checkAndAutoClockOut();
                 }
@@ -1589,8 +1699,11 @@ export default {
         },
 
         startClock() {
-            this.updateCurrentTime();
-            this.timeInterval = setInterval(this.updateCurrentTime, 1000);
+            // Force update every second to refresh the time display
+            this.timeInterval = setInterval(() => {
+                this.timeUpdateKey++; // Trigger reactivity
+                this.$forceUpdate(); // Force Vue to re-render
+            }, 1000);
         },
 
         stopClock() {
@@ -1600,40 +1713,38 @@ export default {
             }
         },
 
-        async loadUserTimezone() {
+        detectCurrentTimezone() {
             try {
-                const response = await axios.get("/api/timezone/current");
-                this.userTimezone = response.data.usertimezone || "UTC";
+                let detected = "UTC";
 
-                console.log("User timezone loaded:", this.userTimezone);
+                if (this.$timeFormatter?.detectBrowserTimezone) {
+                    detected = this.$timeFormatter.detectBrowserTimezone();
+                } else {
+                    detected =
+                        Intl.DateTimeFormat().resolvedOptions().timeZone ||
+                        "UTC";
+                }
+
+                console.log("🌍 Detected timezone:", detected);
+
+                // Update form value if auto-sync is enabled
+                if (this.timezoneForm.auto_sync) {
+                    this.timezoneForm.usertimezone = detected;
+                    console.log("✅ Form updated to:", detected);
+                }
+
+                // Find friendly name
+                const timezone = this.timezones?.find(
+                    (tz) => tz.tz === detected
+                );
+                this.detectedTimezone = timezone?.label || detected;
+
+                return detected;
             } catch (error) {
-                console.error("Error loading user timezone:", error);
-                this.userTimezone = "UTC"; // Fallback to UTC
+                console.error("❌ Error:", error);
+                this.detectedTimezone = "Unable to detect";
+                return "UTC";
             }
-        },
-
-        updateCurrentTime() {
-            const now = new Date();
-
-            // Convert to user's timezone
-            const options = {
-                timeZone: this.userTimezone,
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-            };
-
-            const dateOptions = {
-                timeZone: this.userTimezone,
-                weekday: "long",
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-            };
-
-            this.currentTime = now.toLocaleTimeString("en-US", options);
-            this.currentDay = now.toLocaleDateString("en-US", dateOptions);
         },
 
         async loadTimezones() {
@@ -1645,11 +1756,92 @@ export default {
                         tz: "America/Los_Angeles",
                         label: "(UTC -08:00) Pacific Time - Los Angeles",
                     },
+                    {
+                        tz: "America/Denver",
+                        label: "(UTC -07:00) Mountain Time - Denver",
+                    },
+                    {
+                        tz: "America/Chicago",
+                        label: "(UTC -06:00) Central Time - Chicago",
+                    },
+                    {
+                        tz: "America/New_York",
+                        label: "(UTC -05:00) Eastern Time - New York",
+                    },
+                    {
+                        tz: "America/Anchorage",
+                        label: "(UTC -09:00) Alaska Time - Anchorage",
+                    },
+                    {
+                        tz: "Pacific/Honolulu",
+                        label: "(UTC -10:00) Hawaii Time - Honolulu",
+                    },
 
                     // Asia
                     {
                         tz: "Asia/Manila",
                         label: "(UTC +08:00) Philippine Time - Manila",
+                    },
+                    {
+                        tz: "Asia/Tokyo",
+                        label: "(UTC +09:00) Japan Time - Tokyo",
+                    },
+                    {
+                        tz: "Asia/Shanghai",
+                        label: "(UTC +08:00) China Time - Shanghai",
+                    },
+                    {
+                        tz: "Asia/Hong_Kong",
+                        label: "(UTC +08:00) Hong Kong Time",
+                    },
+                    {
+                        tz: "Asia/Singapore",
+                        label: "(UTC +08:00) Singapore Time",
+                    },
+                    {
+                        tz: "Asia/Seoul",
+                        label: "(UTC +09:00) Korea Time - Seoul",
+                    },
+                    {
+                        tz: "Asia/Bangkok",
+                        label: "(UTC +07:00) Thailand Time - Bangkok",
+                    },
+                    {
+                        tz: "Asia/Dubai",
+                        label: "(UTC +04:00) UAE Time - Dubai",
+                    },
+                    {
+                        tz: "Asia/Kolkata",
+                        label: "(UTC +05:30) India Time - Kolkata",
+                    },
+
+                    // Europe
+                    {
+                        tz: "Europe/London",
+                        label: "(UTC +00:00) UK Time - London",
+                    },
+                    {
+                        tz: "Europe/Paris",
+                        label: "(UTC +01:00) Central European Time - Paris",
+                    },
+                    {
+                        tz: "Europe/Berlin",
+                        label: "(UTC +01:00) Central European Time - Berlin",
+                    },
+                    { tz: "Europe/Moscow", label: "(UTC +03:00) Moscow Time" },
+
+                    // Australia
+                    {
+                        tz: "Australia/Sydney",
+                        label: "(UTC +10:00) Australian Eastern Time - Sydney",
+                    },
+                    {
+                        tz: "Australia/Melbourne",
+                        label: "(UTC +10:00) Australian Eastern Time - Melbourne",
+                    },
+                    {
+                        tz: "Australia/Perth",
+                        label: "(UTC +08:00) Australian Western Time - Perth",
                     },
 
                     // Others
@@ -1659,28 +1851,56 @@ export default {
                     },
                 ];
 
-                // Load current timezone setting
+                // Load current timezone setting from backend
                 const response = await axios.get("/api/timezone/current");
-                this.timezoneForm.usertimezone = response.data.usertimezone;
-                this.timezoneForm.auto_sync = response.data.auto_sync;
+                this.timezoneForm.usertimezone =
+                    response.data.usertimezone || "UTC";
+                this.timezoneForm.auto_sync = response.data.auto_sync ?? false;
+
+                // ✅ Detect current timezone AFTER timezones list is loaded
+                // Use $nextTick to ensure everything is ready
+                this.$nextTick(() => {
+                    this.detectCurrentTimezone();
+                });
 
                 this.timezonesLoaded = true;
             } catch (error) {
                 console.error("Error loading timezones:", error);
+                // Set fallback even on error
+                this.detectedTimezone = "UTC";
             }
         },
 
         async updateTimezone() {
             this.updatingTimezone = true;
             try {
+                // If auto-sync is enabled, detect and use browser timezone
+                if (this.timezoneForm.auto_sync) {
+                    const detected = this.detectCurrentTimezone();
+                    this.timezoneForm.usertimezone = detected;
+                }
+
                 const response = await axios.post(
                     "/update-timezone",
                     this.timezoneForm
                 );
 
                 if (response.data.success) {
-                    // Update the userTimezone for immediate effect
-                    this.userTimezone = this.timezoneForm.usertimezone;
+                    // Update the timeFormatter's timezone if available
+                    if (
+                        this.$timeFormatter &&
+                        typeof this.$timeFormatter.setTimezone === "function"
+                    ) {
+                        if (this.timezoneForm.auto_sync) {
+                            this.$timeFormatter.setTimezone(
+                                this.detectCurrentTimezone()
+                            );
+                        } else {
+                            this.$timeFormatter.setTimezone(
+                                this.timezoneForm.usertimezone
+                            );
+                        }
+                    }
 
                     await Swal.fire({
                         title: "Success!",

@@ -11,6 +11,10 @@ import axios from "axios";
 import Swal from "sweetalert2";
 window.Swal = Swal;
 
+// ⭐ IMPORT TIME FORMATTER
+import timeFormatter from "./utils/timeformatter";
+import timeFormatterPlugin from "./plugins/timeFormatterPlugin";
+
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -856,12 +860,6 @@ const app = createApp({
 });
 
 // ============================================
-// GLOBAL MIXIN - REMOVED DUPLICATE LISTENERS
-// ============================================
-// Note: Activity tracking now handled at document level
-// No need for per-component listeners
-
-// ============================================
 // PRIMEVUE SETUP FOR BLADE APPS
 // ============================================
 
@@ -869,6 +867,9 @@ import PrimeVue from "primevue/config";
 import Aura from "@primevue/themes/aura";
 import ToastService from "primevue/toastservice";
 import Tooltip from "primevue/tooltip";
+
+// ⭐ REGISTER TIME FORMATTER PLUGIN
+app.use(timeFormatterPlugin);
 
 // Configure main app with PrimeVue
 app.use(PrimeVue, {
@@ -884,6 +885,20 @@ app.directive("tooltip", Tooltip);
 
 // Mount main app
 window.appInstance = app.mount("#app");
+
+// ⭐ INITIALIZE TIME FORMATTER GLOBALLY
+window.timeFormatter = timeFormatter;
+timeFormatter
+    .init()
+    .then(() => {
+        console.log(
+            "✅ TimeFormatter initialized with timezone:",
+            timeFormatter.getTimezone()
+        );
+    })
+    .catch((error) => {
+        console.error("❌ TimeFormatter initialization failed:", error);
+    });
 
 // ============================================
 // EXPOSE GLOBALLY
@@ -946,6 +961,8 @@ searchApp.use(PrimeVue, {
     },
 });
 searchApp.use(ToastService);
+// ⭐ REGISTER TIME FORMATTER FOR SEARCH APP
+searchApp.use(timeFormatterPlugin);
 
 searchApp.mount("#appsearch");
 
@@ -962,6 +979,8 @@ if (document.getElementById("navbar-app")) {
             },
         },
     });
+    // ⭐ REGISTER TIME FORMATTER FOR NAVBAR APP
+    navbarApp.use(timeFormatterPlugin);
 
     navbarApp.mount("#navbar-app");
 }
@@ -1040,6 +1059,8 @@ function createSessionIndicator() {
 if (document.getElementById("ai-app")) {
     const aiApp = createApp({});
     aiApp.component("training", Training);
+    // ⭐ REGISTER TIME FORMATTER FOR AI APP
+    aiApp.use(timeFormatterPlugin);
     aiApp.mount("#ai-app");
 }
 
@@ -1048,3 +1069,4 @@ console.log("✅ CSRF Handler loaded");
 console.log("✅ Idle Handler loaded");
 console.log("✅ Session Management loaded");
 console.log("✅ Activity tracking optimized (debounced + document-level)");
+console.log("✅ TimeFormatter Plugin loaded");
