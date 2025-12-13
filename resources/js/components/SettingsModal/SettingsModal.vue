@@ -1,7 +1,7 @@
 <template>
     <Dialog
         :visible="settingsVisible"
-        @update:visible="$emit('update:settingsVisible', $event)"
+        @update:visible="handleClose"
         modal
         header="Settings"
         :style="{ width: '90%', maxWidth: '1200px' }"
@@ -2187,58 +2187,22 @@ export default {
         };
     },
     watch: {
-        "designForm.themeColor"(newColor) {
-            // Update theme preview in real-time
-            this.currentThemeColor = newColor;
-            this.applyThemeColor();
-        },
-        "editStoreForm.selectedMarketplaces"(newValue) {
-            // Update Marketplace and MarketplaceID when selection changes
-            if (newValue && newValue.length > 0) {
-                const names = [];
-                const ids = [];
-
-                newValue.forEach((value) => {
-                    const marketplace = this.marketplaceOptions.find(
-                        (m) => m.value === value
-                    );
-                    if (marketplace) {
-                        names.push(marketplace.name);
-                        ids.push(marketplace.value);
-                    }
-                });
-
-                this.editStoreForm.Marketplace = names.join(", ");
-                this.editStoreForm.MarketplaceID = ids.join(", ");
-            } else {
-                this.editStoreForm.Marketplace = "";
-                this.editStoreForm.MarketplaceID = "";
-            }
-        },
-
         activeTabIndex(newIndex, oldIndex) {
-            console.log(`Tab changed from ${oldIndex} to ${newIndex}`);
-
             switch (newIndex) {
-                case 0: // Title & Design
+                case 0:
                     this.loadCurrentSettings();
                     break;
-
-                case 1: // Add User
+                case 1:
                     this.fetchUsers();
                     break;
-
-                case 2: // Store List
+                case 2:
                     this.fetchStores();
                     break;
-
-                case 3: // Privileges
-                    this.fetchUsers(); // Need users for privileges dropdown
+                case 3:
+                    this.fetchUsers();
                     break;
-
-                case 4: // Time Record
-                    this.fetchUsers(); // Need users for time record dropdown
-                    // Clear previous filters when entering tab
+                case 4:
+                    this.fetchUsers();
                     if (oldIndex !== newIndex) {
                         this.timeRecordForm.selectedUserId = null;
                         this.timeRecordForm.startDate = null;
@@ -2247,10 +2211,8 @@ export default {
                         this.hasFiltered = false;
                     }
                     break;
-
-                case 5: // User Logs
-                    this.fetchUsers(); // Need users for user logs dropdown
-                    // Clear previous filters when entering tab
+                case 5:
+                    this.fetchUsers();
                     if (oldIndex !== newIndex) {
                         this.userLogsForm.selectedUserId = null;
                         this.userLogsForm.startDate = null;
@@ -2259,54 +2221,12 @@ export default {
                         this.hasFilteredLogs = false;
                     }
                     break;
-
-                case 6: // Printers
+                case 6:
                     this.fetchPrinters();
                     if (this.activePrinterTab === "married") {
                         this.fetchMarriedPrinters();
                     }
                     break;
-            }
-        },
-
-        settingsVisible(newVal) {
-            if (newVal) {
-                console.log(
-                    "Settings modal opened, refreshing current tab data..."
-                );
-
-                switch (this.activeTabIndex) {
-                    case 0: // Title & Design
-                        this.loadCurrentSettings();
-                        break;
-
-                    case 1: // Add User
-                        this.fetchUsers();
-                        break;
-
-                    case 2: // Store List
-                        this.fetchStores();
-                        break;
-
-                    case 3: // Privileges
-                        this.fetchUsers();
-                        break;
-
-                    case 4: // Time Record
-                        this.fetchUsers();
-                        break;
-
-                    case 5: // User Logs
-                        this.fetchUsers();
-                        break;
-
-                    case 6: // Printers
-                        this.fetchPrinters();
-                        if (this.activePrinterTab === "married") {
-                            this.fetchMarriedPrinters();
-                        }
-                        break;
-                }
             }
         },
 
@@ -3904,6 +3824,14 @@ export default {
                     confirmButtonText: "OK",
                 });
             }
+        },
+
+        handleClose(value) {
+            if (!value) {
+                this.activeTabIndex = 0;
+            }
+
+            this.$emit("update:settingsVisible", value);
         },
     },
 };
