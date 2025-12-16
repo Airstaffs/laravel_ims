@@ -563,6 +563,37 @@ import Training from "./page/aiTraining/training.vue";
 
 import Navbar from "./components/Navbar/Navbar.vue";
 
+import Login from "./components/Login/Login.vue";
+
+// ============================================
+// LOGIN APP WITH PRIMEVUE
+// ============================================
+
+if (document.getElementById("login-app")) {
+    const loginApp = createApp({});
+
+    // Register Login component
+    loginApp.component("LoginComponent", Login);
+
+    // Use PrimeVue with same config as main app
+    loginApp.use(PrimeVue, {
+        theme: {
+            preset: Aura,
+            options: {
+                darkModeSelector: false,
+            },
+        },
+    });
+
+    // Use time formatter plugin
+    loginApp.use(timeFormatterPlugin);
+
+    // Mount the login app
+    loginApp.mount("#login-app");
+
+    console.log("✅ Login app mounted");
+}
+
 const asyncComponentMap = {
     printcustominvoice: () =>
         import("./page/stockroom/print_invoice/print_custom_invoice.vue"),
