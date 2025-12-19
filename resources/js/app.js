@@ -550,7 +550,6 @@ import Unreceived from "./page/unreceived/unreceived.vue";
 import Validation from "./page/validation/validation.vue";
 import ProductionArea from "./page/production/production.vue";
 import ReturnScanner from "./page/returnScanner/returnscanner.vue";
-import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 import FBMorders from "./page/fbmOrders/fbmOrders.vue";
 import Notfound from "./page/notfound/notfound.vue";
 import Houseage from "./page/houseage/houseage.vue";
@@ -560,9 +559,10 @@ import HumanResource from "./page/hr/hr.vue";
 import RTS from "./page/rts/rts.vue";
 import Kanban from "./page/kanban/kanban.vue";
 import Training from "./page/aiTraining/training.vue";
+import History from "./page/history/history.vue";
 
+import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
-
 import Login from "./components/Login/Login.vue";
 
 // ============================================
@@ -622,6 +622,7 @@ const componentMapping = {
     Training: "training",
     RTS: "rts",
     Kanban: "kanban",
+    History: "history",
 };
 
 // ============================================
@@ -707,6 +708,13 @@ const app = createApp({
                 return;
             }
 
+            // ADD THIS: Handle History directly without permission check
+            if (navName === "history") {
+                const componentName = this.mapToComponentName(navName);
+                this.safeComponentUpdate(componentName, navName);
+                return;
+            }
+
             // Handle Printer modal
             if (navName === "printer") {
                 if (typeof showPrinterModal === "function") {
@@ -749,6 +757,7 @@ const app = createApp({
 
             const hasAccess =
                 navName === "fbashipmentinbound" ||
+                navName === "history" ||
                 allowedModules.includes(navName) ||
                 navName === mainModule ||
                 customModules.includes(navName);
@@ -932,6 +941,7 @@ const app = createApp({
         rts: RTS,
         training: Training,
         kanban: Kanban,
+        history: History,
     },
 });
 

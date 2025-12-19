@@ -16,6 +16,7 @@ use App\Http\Controllers\Fbmorders\PrintInvoiceController;
 use App\Http\Controllers\Fbmorders\PrintShippingLabelController;
 use App\Http\Controllers\Fbmorders\WorkhistoryController;
 use App\Http\Controllers\FnskuController;
+use App\Http\Controllers\HistoryTrackingController;
 use App\Http\Controllers\HouseageController;
 use App\Http\Controllers\HrController;
 use App\Http\Controllers\KanbanActivityLogController;
@@ -466,9 +467,13 @@ Route::prefix('api/received')->group(function () {
 Route::post('api/images/upload', [App\Http\Controllers\ImageUploadController::class, 'upload']);
 
 // Routes Orders
-Route::prefix('api/orders')->group(function () {
+Route::prefix('api/orders')->middleware(['auth'])->group(function () {
     Route::get('products', [OrdersController::class, 'index']);
     Route::post('products', [OrdersController::class, 'store']);
+    Route::get('next-product-id', [OrdersController::class, 'getNextProductId']);
+    Route::patch('{id}/status', [OrdersController::class, 'updateStatus']);
+    Route::patch('{id}/tracking', [OrdersController::class, 'updateTracking']);
+    Route::delete('{id}', [OrdersController::class, 'destroy']);
 });
 
 // Routes Production Area
@@ -712,7 +717,7 @@ Route::post('/fbm-orders-shippinglabel', [PrintShippingLabelController::class, '
 // timezone system
 Route::post('/update-timezone', [UserController::class, 'updateTimezone'])->name('update-timezone');
 Route::get('/user/settings/timezone', [UserController::class, 'showTimezoneSettings'])->name('timezone.settings');
-Route::get('/api/timezone/current', [UserController::class, 'getCurrentTimezone'])->name('timezone.current');
+Route::get('/api/timezone/current', [UserController::class, 'getCurrentTimezone'])->middleware('auth');
 
 // user accounts
 Route::get('/user/getAllUsers', [UserController::class, 'getAllUsers']);
@@ -854,3 +859,15 @@ Route::middleware(['auth'])->get('/account/complete', function () {
 Route::get('/aiTraining', function () {
     return view('aiTraining'); // Blade file wrapper for Vue
 })->middleware(['auth']); // if you want it only for logged users
+
+Route::prefix('api/history')->middleware(['auth'])->group(function () {
+    Route::get('/', [HistoryTrackingController::class, 'getHistory']);
+    Route::get('/stats', [HistoryTrackingController::class, 'getHistoryStats']);
+    Route::get('/module/{module}', [HistoryTrackingController::class, 'getModuleHistory']);
+    Route::get('/employee/{employeeName}', [HistoryTrackingController::class, 'getEmployeeHistory']);
+    Route::delete('/cleanup/{daysOld}', [HistoryTrackingController::class, 'cleanupOldHistory']);
+});
+
+Route::get('/history', function () {
+    return view('dashboard');
+})->middleware(['auth'])->name('history.page');

@@ -2,53 +2,54 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Product;
 use App\Models\Rpn;
+use App\Traits\TracksHistory;
+use DateTime;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use DateTime;
-use DateTimeZone;  
 
 class UnreceivedController extends BasetablesController
-{   
-    
+{
+    use TracksHistory;
+
     public function index(Request $request)
     {
         $perPage = $request->input('per_page', 10);
         $search = $request->input('search', '');
         $location = $request->input('location', 'Orders');
-        
+
         $products = DB::table($this->productTable)
             ->where('ProductModuleLoc', $location)
-            ->when($search, function($query) use ($search) {
-                return $query->where(function($q) use ($search) {
+            ->when($search, function ($query) use ($search) {
+                return $query->where(function ($q) use ($search) {
                     $q->where('ProductTitle', 'like', "%{$search}%")
-                      ->orWhere('rtid', 'like', "%{$search}%")
-                      ->orWhere('itemnumber', 'like', "%{$search}%")
-                      ->orWhere('trackingnumber', 'like', "%{$search}%")
-                      ->orWhere('rtcounter', 'like', "%{$search}%");
+                        ->orWhere('rtid', 'like', "%{$search}%")
+                        ->orWhere('itemnumber', 'like', "%{$search}%")
+                        ->orWhere('trackingnumber', 'like', "%{$search}%")
+                        ->orWhere('rtcounter', 'like', "%{$search}%");
                 });
             })
             ->paginate($perPage);
-        
+
         return response()->json($products);
     }
 
     public function verifyTracking(Request $request)
     {
         $tracking = $request->input('tracking');
-        
+
         // Extract the last 12 digits
         $last12Digits = substr($tracking, -12);
-        
+
         // First, check if the product exists in Received status (already scanned)
         $receivedProduct = DB::table($this->productTable)
-            ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
+            ->where('trackingnumber', 'like', '%'.$last12Digits.'%')
             ->whereIn('ProductModuleLoc', ['Received', 'Labeling'])
             ->first();
-            
+
         if ($receivedProduct) {
             // Product exists but has already been received
             return response()->json([
@@ -56,17 +57,17 @@ class UnreceivedController extends BasetablesController
                 'productId' => $receivedProduct->ProductID,
                 'rtcounter' => $receivedProduct->rtcounter,
                 'trackingnumber' => $receivedProduct->trackingnumber,
-                'itemStatus' => $receivedProduct->itemstatus ?? 'Unknown', // Include item status
-                'alreadyScanned' => true
+                'itemStatus' => $receivedProduct->itemstatus ?? 'Unknown',
+                'alreadyScanned' => true,
             ]);
         }
-        
+
         // If not found in Received, check in Orders
         $ordersProduct = DB::table($this->productTable)
-            ->where('trackingnumber', 'like', '%' . $last12Digits . '%')
+            ->where('trackingnumber', 'like', '%'.$last12Digits.'%')
             ->where('ProductModuleLoc', 'Orders')
             ->first();
-            
+
         if ($ordersProduct) {
             // Product found in Orders and ready for receiving
             return response()->json([
@@ -74,16 +75,15 @@ class UnreceivedController extends BasetablesController
                 'productId' => $ordersProduct->ProductID,
                 'rtcounter' => $ordersProduct->rtcounter,
                 'trackingnumber' => $ordersProduct->trackingnumber,
-                'itemStatus' => $ordersProduct->itemstatus ?? 'Unknown', // Include item status
-                'alreadyScanned' => false
+                'itemStatus' => $ordersProduct->itemstatus ?? 'Unknown',
+                'alreadyScanned' => false,
             ]);
         }
-        
+
         // Product not found anywhere
         return response()->json(['found' => false]);
     }
-    
-            
+
     public function getNextRpn()
     {
         try {
@@ -91,63 +91,64 @@ class UnreceivedController extends BasetablesController
             $currentRpn = DB::table($this->rpnStickerTable)
                 ->where('RPNid', 1)
                 ->first();
-                
-            if (!$currentRpn) {
+
+            if (! $currentRpn) {
                 return response()->json(['error' => 'RPN record not found'], 404);
             }
-            
+
             // Calculate the next RPN value
             $nextRpnValue = $currentRpn->RPNstart + 1;
-            $formattedRpn = 'RPN' . str_pad($nextRpnValue, 5, '0', STR_PAD_LEFT);
-            
+            $formattedRpn = 'RPN'.str_pad($nextRpnValue, 5, '0', STR_PAD_LEFT);
+
             return response()->json(['rpn' => $formattedRpn, 'rawValue' => $nextRpnValue]);
         } catch (\Exception $e) {
             $this->logError('Error getting next RPN', $e);
+
             return response()->json(['error' => 'Could not retrieve next RPN'], 500);
         }
     }
- 
 
-     private function getCurrentUserName()
+    private function getCurrentUserName()
     {
         $user = Auth::user();
+
         return $user ? ($user->username ?? $user->name ?? 'Unknown') : 'Unknown';
     }
-    
+
     public function processScan(Request $request)
     {
         // Log all incoming data
         Log::info('Received data:', $request->all());
-        
+
         try {
             // Modified validation - RPN and PRD are now optional (will be auto-generated)
             $request->validate([
                 'trackingNumber' => 'required',
                 'prdDate' => 'required|date',
                 'productId' => 'required',
-                'rtcounter' => 'required'
+                'rtcounter' => 'required',
             ]);
-            
+
             DB::beginTransaction();
-            
+
             // Auto-generate RPN if not provided
             $rpnNumber = null;
             $rpnValue = null;
-            
+
             if ($request->has('autoGenerate') && $request->autoGenerate) {
                 // Get the current RPN from RPN sticker table
                 $currentRpn = DB::table($this->rpnStickerTable)
                     ->where('RPNid', 1)
                     ->first();
-                    
-                if (!$currentRpn) {
+
+                if (! $currentRpn) {
                     throw new \Exception('RPN record not found for auto-generation');
                 }
-                
+
                 // Calculate the next RPN value
                 $rpnValue = $currentRpn->RPNstart + 1;
-                $rpnNumber = 'RPN' . str_pad($rpnValue, 5, '0', STR_PAD_LEFT);
-                
+                $rpnNumber = 'RPN'.str_pad($rpnValue, 5, '0', STR_PAD_LEFT);
+
                 Log::info('Auto-generated RPN:', ['rpn' => $rpnNumber, 'value' => $rpnValue]);
             } else {
                 // Use provided RPN (backward compatibility)
@@ -158,39 +159,36 @@ class UnreceivedController extends BasetablesController
                     $rpnValue = intval($rpnNumber);
                 }
             }
-            
+
             // Format the date for PRD
             $prdDate = new DateTime($request->prdDate);
-            $formattedPRD = 'PRD' . $prdDate->format('mdy');
-            
+            $formattedPRD = 'PRD'.$prdDate->format('mdy');
+
             Log::info('Formatted PRD value:', ['PRD' => $formattedPRD]);
             Log::info('Using RPN:', ['RPN' => $rpnNumber, 'value' => $rpnValue]);
-            
+
             // Get the last 12 digits of the tracking number
             $last12Digits = substr($request->trackingNumber, -12);
-            
-            // Get current user ID from session
-            $User = $this->getCurrentUserName();
-            
-            // Get California time
-            $californiaTimezone = new DateTimeZone('America/Los_Angeles');
-            $currentDatetime = new DateTime('now', $californiaTimezone);
-            $formattedDatetime = $currentDatetime->format('Y-m-d H:i:s');
-            
+
             // Check if the product exists before updating
             $productExists = DB::table($this->productTable)
                 ->where('ProductID', $request->productId)
                 ->where('ProductModuleLoc', 'Orders')
                 ->exists();
-                
-            if (!$productExists) {
+
+            if (! $productExists) {
                 Log::error('Product not found', [
                     'productId' => $request->productId,
-                    'location' => 'Orders'
+                    'location' => 'Orders',
                 ]);
-                throw new \Exception('Product not found with ID: ' . $request->productId);
+                throw new \Exception('Product not found with ID: '.$request->productId);
             }
-            
+
+            // Get product details before update for history
+            $product = DB::table($this->productTable)
+                ->where('ProductID', $request->productId)
+                ->first();
+
             // Update the specific product using its ID
             $updateResult = DB::table($this->productTable)
                 ->where('ProductID', $request->productId)
@@ -198,78 +196,77 @@ class UnreceivedController extends BasetablesController
                 ->update([
                     'RPN' => $rpnNumber,
                     'PRD' => $formattedPRD,
-                    'ProductModuleLoc' => 'Received'
+                    'ProductModuleLoc' => 'Received',
                 ]);
-                
+
             Log::info('Update result:', ['rowsAffected' => $updateResult]);
-                
+
             if ($updateResult === 0) {
                 Log::warning('No rows were updated', [
                     'productId' => $request->productId,
-                    'ProductModuleLoc' => 'Orders'
+                    'ProductModuleLoc' => 'Orders',
                 ]);
             }
-            
+
             // Update the RPN in rpnsticker table with ID 1 only if we auto-generated it
             if ($request->has('autoGenerate') && $request->autoGenerate && $rpnValue) {
                 $nextRpnValue = $rpnValue + 1;
-                
+
                 DB::table($this->rpnStickerTable)
                     ->where('RPNid', 1)
                     ->update([
                         'RPNstart' => $nextRpnValue,
                         'RPNend' => $nextRpnValue,
-                        'RPNsticker' => $nextRpnValue
+                        'RPNsticker' => $nextRpnValue,
                     ]);
-                    
+
                 Log::info('Updated RPN sticker table with next value:', ['nextValue' => $nextRpnValue]);
             }
-            
-            // Record history with rtcounter
-            DB::table($this->itemProcessHistoryTable)->insert([
-                'employeeName' => $User,
-                'editDate' => $formattedDatetime,
-                'Module' => 'Unreceived Module',
-                'Action' => 'Scan and Received (Auto)',
-                'rtcounter' => $request->rtcounter
-            ]);
-            
+
+            // UPDATED: Use TracksHistory trait for consistent tracking
+            $this->trackLocationChange(
+                'Unreceived Module',
+                "Tracking: {$last12Digits} | RPN: {$rpnNumber}",
+                'Orders',
+                'Received'
+            );
+
             // Save images if provided
-            if ($request->has('Images') && !empty($request->Images)) {
+            if ($request->has('Images') && ! empty($request->Images)) {
                 // Code to save images
                 Log::info('Processing images:', ['count' => count($request->Images)]);
             }
-            
+
             DB::commit();
             Log::info('Transaction committed successfully');
-            
+
             return response()->json([
                 'success' => true,
-                'item' => $request->trackingNumber . ' processed successfully',
-                'rpnGenerated' => $rpnNumber, // Return the generated RPN
-                'prdGenerated' => $formattedPRD, // Return the formatted PRD
+                'item' => $request->trackingNumber.' processed successfully',
+                'rpnGenerated' => $rpnNumber,
+                'prdGenerated' => $formattedPRD,
                 'last12Digits' => $last12Digits,
-                'playsound' => 1
+                'playsound' => 1,
             ]);
-            
+
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
             Log::error('Validation error:', ['errors' => $e->errors()]);
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Validation error: ' . json_encode($e->errors()),
-                'reason' => 'validation_error'
+                'message' => 'Validation error: '.json_encode($e->errors()),
+                'reason' => 'validation_error',
             ], 422);
-            
+
         } catch (\Exception $e) {
             DB::rollBack();
             $this->logError('Error processing scan', $e, $request->all());
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error processing scan: ' . $e->getMessage(),
-                'reason' => 'server_error'
+                'message' => 'Error processing scan: '.$e->getMessage(),
+                'reason' => 'server_error',
             ], 500);
         }
     }
