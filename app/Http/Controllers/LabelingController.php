@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use App\Models\Product;
-use App\Models\Rpn;
+use App\Traits\TracksHistory;
+use Illuminate\Http\Request; // ✅ ADD THIS
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
-use DateTime;
-use DateTimeZone;
 
 class LabelingController extends BasetablesController
 {
+    use TracksHistory;
+
     /**
      * Extract base FNSKU from prefixed FNSKU (same as StockroomController)
      */
@@ -32,66 +32,6 @@ class LabelingController extends BasetablesController
         return $fnsku; // Return as-is if not prefixed
     }
 
-    /**
-     * Helper method to insert item processing history using BasetablesController pattern
-     */
-    private function insertItemHistory($rtCounter, $action, $additionalData = [])
-    {
-        try {
-            // Get current user
-            $username = Auth::id() ?? (Auth::user()->name ?? 'system');
-
-            // Use the itemProcessHistoryTable from BasetablesController pattern
-            $historyTable = $this->itemProcessHistoryTable;
-
-            Log::info('Attempting to insert history', [
-                'table' => $historyTable,
-                'rtcounter' => $rtCounter,
-                'action' => $action,
-                'username' => $username,
-                'additional_data' => $additionalData
-            ]);
-
-            if (Schema::hasTable($historyTable)) {
-                $historyData = [
-                    'rtcounter' => $rtCounter,
-                    'employeeName' => $username,
-                    'EditDate' => now()->format('Y-m-d H:i:s'),
-                    'Module' => 'Labeling',
-                    'Action' => $action,
-                ];
-
-                // Add any additional data if provided
-                $historyData = array_merge($historyData, $additionalData);
-
-                DB::table($historyTable)->insert($historyData);
-
-                Log::info('Item history inserted successfully', [
-                    'rtcounter' => $rtCounter,
-                    'action' => $action,
-                    'table' => $historyTable,
-                    'data' => $historyData
-                ]);
-
-                return true;
-            } else {
-                Log::warning('History table does not exist, skipping history insert', [
-                    'table' => $historyTable,
-                    'company' => $this->company
-                ]);
-                return false;
-            }
-        } catch (\Exception $e) {
-            Log::error('Failed to insert item history', [
-                'rtcounter' => $rtCounter,
-                'action' => $action,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            return false;
-        }
-    }
-
     public function index(Request $request)
     {
         try {
@@ -101,7 +41,7 @@ class LabelingController extends BasetablesController
                 'capturedImagesTable' => $this->capturedImagesTable,
                 'fnskuTable' => $this->fnskuTable,
                 'asinTable' => $this->asinTable,
-                'company' => $this->company
+                'company' => $this->company,
             ]);
 
             $perPage = $request->input('per_page', 10);
@@ -110,15 +50,15 @@ class LabelingController extends BasetablesController
             $includeImages = $request->boolean('include_images', false);
 
             // UPDATED: Build query with proper joins to include ASIN and metakeyword in search
-            $productsQuery = DB::table($this->productTable . ' as prod')
-                ->leftJoin($this->fnskuTable . ' as fnsku', function($join) {
+            $productsQuery = DB::table($this->productTable.' as prod')
+                ->leftJoin($this->fnskuTable.' as fnsku', function ($join) {
                     $join->on(DB::raw("CASE 
                         WHEN prod.FNSKUviewer REGEXP '^C[0-9]+' 
                         THEN SUBSTRING(prod.FNSKUviewer, LOCATE(REGEXP_REPLACE(prod.FNSKUviewer, '^C[0-9]+', ''), prod.FNSKUviewer))
                         ELSE prod.FNSKUviewer 
                     END"), '=', 'fnsku.FNSKU');
                 })
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->select([
                     'prod.*',
                     'fnsku.ASIN',
@@ -126,12 +66,12 @@ class LabelingController extends BasetablesController
                     'fnsku.grading',
                     'fnsku.storename',
                     'asin.internal as AStitle',
-                    'asin.metakeyword'
+                    'asin.metakeyword',
                 ])
                 ->where('prod.ProductModuleLoc', $location);
 
             // Apply comprehensive search including ASIN and metakeyword
-            if (!empty($search)) {
+            if (! empty($search)) {
                 $productsQuery->where(function ($q) use ($search) {
                     $q->where('prod.serialnumber', 'like', "%{$search}%")
                         ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
@@ -157,10 +97,10 @@ class LabelingController extends BasetablesController
             $products->getCollection()->transform(function ($product) {
                 // Keep the original FNSKU as displayed (with prefix if it exists)
                 $product->FNSKU = $product->FNSKUviewer;
-                
+
                 // Ensure we have the company for proper path construction
                 $product->company = $this->company;
-                
+
                 return $product;
             });
 
@@ -173,17 +113,18 @@ class LabelingController extends BasetablesController
                     $capturedImagesTableName = $this->capturedImagesTable;
 
                     Log::info('Checking table existence', [
-                        'table' => $capturedImagesTableName
+                        'table' => $capturedImagesTableName,
                     ]);
 
-                    if (!Schema::hasTable($capturedImagesTableName)) {
+                    if (! Schema::hasTable($capturedImagesTableName)) {
                         Log::warning('Captured images table does not exist', [
-                            'table' => $capturedImagesTableName
+                            'table' => $capturedImagesTableName,
                         ]);
-                        
+
                         // Add empty capturedImages object to prevent JS errors
                         $products->getCollection()->transform(function ($product) {
                             $product->capturedImages = (object) [];
+
                             return $product;
                         });
                     } else {
@@ -196,7 +137,7 @@ class LabelingController extends BasetablesController
 
                         Log::info('Captured images fetched', [
                             'count' => $capturedImages->count(),
-                            'sample' => $capturedImages->take(1)
+                            'sample' => $capturedImages->take(1),
                         ]);
 
                         // Create a lookup by ProductID for efficient access
@@ -212,17 +153,17 @@ class LabelingController extends BasetablesController
                                 $product->capturedImages = $imagesByProductId[$product->ProductID];
 
                                 // Set img1 directly for the main thumbnail display if not already set
-                                if (empty($product->img1) && !empty($product->capturedImages->capturedimg1)) {
+                                if (empty($product->img1) && ! empty($product->capturedImages->capturedimg1)) {
                                     $product->img1 = $product->capturedImages->capturedimg1;
                                 }
 
                                 Log::info('Added captured images to product', [
                                     'ProductID' => $product->ProductID,
-                                    'capturedImages' => json_encode($product->capturedImages)
+                                    'capturedImages' => json_encode($product->capturedImages),
                                 ]);
                             } else {
                                 Log::info('No captured images found for product', [
-                                    'ProductID' => $product->ProductID
+                                    'ProductID' => $product->ProductID,
                                 ]);
 
                                 $product->capturedImages = (object) [];
@@ -234,12 +175,13 @@ class LabelingController extends BasetablesController
                 } catch (\Exception $e) {
                     Log::error('Error fetching images', [
                         'message' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'trace' => $e->getTraceAsString(),
                     ]);
 
                     // Continue without images but add empty capturedImages object
                     $products->getCollection()->transform(function ($product) {
                         $product->capturedImages = (object) [];
+
                         return $product;
                     });
                 }
@@ -247,6 +189,7 @@ class LabelingController extends BasetablesController
                 // Even if images are not requested, initialize empty capturedImages
                 $products->getCollection()->transform(function ($product) {
                     $product->capturedImages = (object) [];
+
                     return $product;
                 });
             }
@@ -255,12 +198,12 @@ class LabelingController extends BasetablesController
         } catch (\Exception $e) {
             Log::error('Error in LabelingController index', [
                 'message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'error' => 'An error occurred while fetching products',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -271,11 +214,11 @@ class LabelingController extends BasetablesController
         $location = $request->input('location');
 
         // UPDATED: Use the same approach as index method
-        $productsQuery = DB::table($this->productTable . ' as prod')
+        $productsQuery = DB::table($this->productTable.' as prod')
             ->select(['prod.*'])
             ->where('prod.ProductModuleLoc', $location);
 
-        if (!empty($search)) {
+        if (! empty($search)) {
             $productsQuery->where(function ($q) use ($search) {
                 $q->where('prod.serialnumber', 'like', "%{$search}%")
                     ->orWhere('prod.FNSKUviewer', 'like', "%{$search}%")
@@ -288,7 +231,7 @@ class LabelingController extends BasetablesController
         // Extract base FNSKUs and get related data
         $baseFnskus = [];
         foreach ($products as $product) {
-            if (!empty($product->FNSKUviewer)) {
+            if (! empty($product->FNSKUviewer)) {
                 $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
                 $baseFnskus[] = $baseFnsku;
             }
@@ -297,7 +240,7 @@ class LabelingController extends BasetablesController
 
         // Get FNSKU data
         $fnskuData = [];
-        if (!empty($baseFnskus)) {
+        if (! empty($baseFnskus)) {
             $fnskuRecords = DB::table($this->fnskuTable)
                 ->select('ASIN', 'FNSKU', 'MSKU', 'grading', 'storename')
                 ->whereIn('FNSKU', $baseFnskus)
@@ -316,7 +259,7 @@ class LabelingController extends BasetablesController
         $asinList = array_unique($asinList);
 
         $asinData = [];
-        if (!empty($asinList)) {
+        if (! empty($asinList)) {
             $asinRecords = DB::table($this->asinTable)
                 ->select('ASIN', 'internal')
                 ->whereIn('ASIN', $asinList)
@@ -328,7 +271,7 @@ class LabelingController extends BasetablesController
         }
 
         // Combine data
-        $results = $products->map(function ($product) use ($fnskuData, $asinData, $search) {
+        $results = $products->map(function ($product) use ($fnskuData, $asinData) {
             $baseFnsku = $this->extractBaseFnsku($product->FNSKUviewer);
 
             if (isset($fnskuData[$baseFnsku])) {
@@ -348,7 +291,7 @@ class LabelingController extends BasetablesController
         });
 
         // Apply additional filtering if search term matches FNSKU/ASIN data
-        if (!empty($search)) {
+        if (! empty($search)) {
             $results = $results->filter(function ($product) use ($search) {
                 return stripos($product->MSKU ?? '', $search) !== false ||
                     stripos($product->ASIN ?? '', $search) !== false ||
@@ -364,13 +307,12 @@ class LabelingController extends BasetablesController
 
     public function moveToValidation(Request $request)
     {
-        // Log that the method was called
         Log::info('=== MOVE TO VALIDATION CALLED ===');
-        Log::info('Request method: ' . $request->method());
-        Log::info('Request URL: ' . $request->fullUrl());
+        Log::info('Request method: '.$request->method());
+        Log::info('Request URL: '.$request->fullUrl());
         Log::info('Request headers: ', $request->headers->all());
         Log::info('Request body: ', $request->all());
-        Log::info('Product table: ' . $this->productTable);
+        Log::info('Product table: '.$this->productTable);
 
         try {
             // Validate the incoming request
@@ -383,44 +325,46 @@ class LabelingController extends BasetablesController
             if ($validator->fails()) {
                 Log::error('Validation failed in moveToValidation', [
                     'errors' => $validator->errors(),
-                    'request_data' => $request->all()
+                    'request_data' => $request->all(),
                 ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             Log::info('Validation passed, attempting to update product', [
                 'product_id' => $request->product_id,
                 'rt_counter' => $request->rt_counter,
-                'current_location' => $request->current_location
+                'current_location' => $request->current_location,
             ]);
 
-            // UPDATED: Check if product exists first and get FNSKU data using base FNSKU
+            // Check if product exists first and get FNSKU data using base FNSKU
             $existingProduct = DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->first();
 
-            if (!$existingProduct) {
+            if (! $existingProduct) {
                 Log::error('Product not found for moveToValidation', [
                     'product_id' => $request->product_id,
-                    'table' => $this->productTable
+                    'table' => $this->productTable,
                 ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Product not found'
+                    'message' => 'Product not found',
                 ], 404);
             }
 
-            Log::info('Product found, current location: ' . $existingProduct->ProductModuleLoc);
+            Log::info('Product found, current location: '.$existingProduct->ProductModuleLoc);
 
-            // UPDATED: Extract base FNSKU and get related data
+            // Extract base FNSKU and get related data
             $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
 
             $fnskuRecord = null;
-            if (!empty($baseFnsku)) {
+            if (! empty($baseFnsku)) {
                 $fnskuRecord = DB::table($this->fnskuTable)
                     ->where('FNSKU', $baseFnsku)
                     ->first();
@@ -429,136 +373,105 @@ class LabelingController extends BasetablesController
             // Check for required fields (ASIN, FNSKU, MSKU)
             $missingFields = [];
 
-            // Check FNSKU from product table
             if (empty($existingProduct->FNSKUviewer)) {
                 $missingFields[] = 'FNSKU';
             }
 
-            // Check MSKU from fnsku table
-            if (!$fnskuRecord || empty($fnskuRecord->MSKU)) {
+            if (! $fnskuRecord || empty($fnskuRecord->MSKU)) {
                 $missingFields[] = 'MSKU';
             }
 
-            // Check ASIN from fnsku table
-            if (!$fnskuRecord || empty($fnskuRecord->ASIN)) {
+            if (! $fnskuRecord || empty($fnskuRecord->ASIN)) {
                 $missingFields[] = 'ASIN';
             }
 
             // If any required fields are missing, return error
-            if (!empty($missingFields)) {
+            if (! empty($missingFields)) {
                 $missingFieldsText = implode(', ', $missingFields);
                 Log::warning('Cannot move to Validation - missing required fields', [
                     'product_id' => $request->product_id,
                     'rt_counter' => $request->rt_counter,
                     'missing_fields' => $missingFields,
-                    'existing_product' => [
-                        'FNSKUviewer' => $existingProduct->FNSKUviewer,
-                        'base_fnsku' => $baseFnsku,
-                        'MSKU' => $fnskuRecord->MSKU ?? null,
-                        'ASIN' => $fnskuRecord->ASIN ?? null
-                    ]
                 ]);
 
-                // Insert history for failed attempt
-                $this->insertItemHistory($request->rt_counter, 'Move to Validation Failed - Missing Fields', [
-                    'reason' => $missingFieldsText,
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
+                // ✅ Track failed attempt with TracksHistory
+                $this->trackHistory(
+                    'Labeling',
+                    'Move to Validation Failed',
+                    "RTC: {$request->rt_counter}",
+                    "Missing: {$missingFieldsText}"
+                );
 
                 return response()->json([
                     'success' => false,
                     'message' => "Cannot move to Validation. Missing required fields: {$missingFieldsText}. Please set the FNSKU first.",
                     'missing_fields' => $missingFields,
-                    'requires_fnsku_setup' => true
+                    'requires_fnsku_setup' => true,
                 ], 422);
             }
 
             // All required fields are present, proceed with the move
-            Log::info('All required fields present, proceeding with move to Validation', [
-                'FNSKU' => $existingProduct->FNSKUviewer,
-                'base_fnsku' => $baseFnsku,
-                'MSKU' => $fnskuRecord->MSKU,
-                'ASIN' => $fnskuRecord->ASIN
-            ]);
+            Log::info('All required fields present, proceeding with move to Validation');
 
             // Update the product location in the database
             $updateResult = DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->update([
                     'ProductModuleLoc' => 'Validation',
-                    'lastDateUpdate' => now()->format('Y-m-d H:i:s')
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
                 ]);
 
-            Log::info('Update result: ' . $updateResult . ' rows affected');
+            Log::info('Update result: '.$updateResult.' rows affected');
 
-            // Insert success history
-            $this->insertItemHistory($request->rt_counter, 'Moved to Validation', [
-                'from_location' => $request->current_location,
-                'to_location' => 'Validation',
-                'fnsku' => $existingProduct->FNSKUviewer,
-                'asin' => $fnskuRecord->ASIN,
-                'msku' => $fnskuRecord->MSKU,
-                'moved_by' => Auth::user()->name ?? 'system'
-            ]);
-
-            // Verify the update worked
-            $updatedProduct = DB::table($this->productTable)
-                ->where('ProductID', $request->product_id)
-                ->first();
-
-            Log::info('Product after update:', [
-                'ProductID' => $updatedProduct->ProductID,
-                'ProductModuleLoc' => $updatedProduct->ProductModuleLoc,
-                'lastDateUpdate' => $updatedProduct->lastDateUpdate
-            ]);
+            // ✅ Track successful move with TracksHistory
+            $this->trackLocationChange(
+                'Labeling',
+                "RTC: {$request->rt_counter} | FNSKU: {$baseFnsku}",
+                $request->current_location,
+                'Validation'
+            );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Product successfully moved to Validation',
                 'debug_info' => [
                     'rows_affected' => $updateResult,
-                    'new_location' => $updatedProduct->ProductModuleLoc
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
-            // Log the error with full details
             Log::error('Exception in moveToValidation', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
+                'request_data' => $request->all(),
             ]);
 
-            // Insert error history
+            // ✅ Track error with TracksHistory
             if (isset($request->rt_counter)) {
-                $this->insertItemHistory($request->rt_counter, 'Move to Validation Error', [
-                    'error' => $e->getMessage(),
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
+                $this->trackHistory(
+                    'Labeling',
+                    'Move to Validation Error',
+                    "RTC: {$request->rt_counter}",
+                    "Error: {$e->getMessage()}"
+                );
             }
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to move product to Validation',
                 'error' => $e->getMessage(),
-                'debug_info' => [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine()
-                ]
             ], 500);
         }
     }
 
     public function moveToStockroom(Request $request)
     {
-        // Log that the method was called
         Log::info('=== MOVE TO STOCKROOM CALLED ===');
-        Log::info('Request method: ' . $request->method());
-        Log::info('Request URL: ' . $request->fullUrl());
+        Log::info('Request method: '.$request->method());
+        Log::info('Request URL: '.$request->fullUrl());
         Log::info('Request headers: ', $request->headers->all());
         Log::info('Request body: ', $request->all());
-        Log::info('Product table: ' . $this->productTable);
+        Log::info('Product table: '.$this->productTable);
 
         try {
             // Validate the incoming request
@@ -571,44 +484,46 @@ class LabelingController extends BasetablesController
             if ($validator->fails()) {
                 Log::error('Validation failed in moveToStockroom', [
                     'errors' => $validator->errors(),
-                    'request_data' => $request->all()
+                    'request_data' => $request->all(),
                 ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             Log::info('Validation passed, attempting to update product', [
                 'product_id' => $request->product_id,
                 'rt_counter' => $request->rt_counter,
-                'current_location' => $request->current_location
+                'current_location' => $request->current_location,
             ]);
 
-            // UPDATED: Check if product exists first and get FNSKU data using base FNSKU
+            // Check if product exists first and get FNSKU data using base FNSKU
             $existingProduct = DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->first();
 
-            if (!$existingProduct) {
+            if (! $existingProduct) {
                 Log::error('Product not found for moveToStockroom', [
                     'product_id' => $request->product_id,
-                    'table' => $this->productTable
+                    'table' => $this->productTable,
                 ]);
+
                 return response()->json([
                     'success' => false,
-                    'message' => 'Product not found'
+                    'message' => 'Product not found',
                 ], 404);
             }
 
-            Log::info('Product found, current location: ' . $existingProduct->ProductModuleLoc);
+            Log::info('Product found, current location: '.$existingProduct->ProductModuleLoc);
 
-            // UPDATED: Extract base FNSKU and get related data
+            // Extract base FNSKU and get related data
             $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
 
             $fnskuRecord = null;
-            if (!empty($baseFnsku)) {
+            if (! empty($baseFnsku)) {
                 $fnskuRecord = DB::table($this->fnskuTable)
                     ->where('FNSKU', $baseFnsku)
                     ->first();
@@ -617,123 +532,93 @@ class LabelingController extends BasetablesController
             // Check for required fields (ASIN, FNSKU, MSKU)
             $missingFields = [];
 
-            // Check FNSKU from product table
             if (empty($existingProduct->FNSKUviewer)) {
                 $missingFields[] = 'FNSKU';
             }
 
-            // Check MSKU from fnsku table
-            if (!$fnskuRecord || empty($fnskuRecord->MSKU)) {
+            if (! $fnskuRecord || empty($fnskuRecord->MSKU)) {
                 $missingFields[] = 'MSKU';
             }
 
-            // Check ASIN from fnsku table
-            if (!$fnskuRecord || empty($fnskuRecord->ASIN)) {
+            if (! $fnskuRecord || empty($fnskuRecord->ASIN)) {
                 $missingFields[] = 'ASIN';
             }
 
             // If any required fields are missing, return error
-            if (!empty($missingFields)) {
+            if (! empty($missingFields)) {
                 $missingFieldsText = implode(', ', $missingFields);
                 Log::warning('Cannot move to Stockroom - missing required fields', [
                     'product_id' => $request->product_id,
                     'rt_counter' => $request->rt_counter,
                     'missing_fields' => $missingFields,
-                    'existing_product' => [
-                        'FNSKUviewer' => $existingProduct->FNSKUviewer,
-                        'base_fnsku' => $baseFnsku,
-                        'MSKU' => $fnskuRecord->MSKU ?? null,
-                        'ASIN' => $fnskuRecord->ASIN ?? null
-                    ]
                 ]);
 
-                // Insert history for failed attempt
-                $this->insertItemHistory($request->rt_counter, 'Move to Stockroom Failed - Missing Fields', [
-                    'reason' => $missingFieldsText,
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
+                // ✅ Track failed attempt with TracksHistory
+                $this->trackHistory(
+                    'Labeling',
+                    'Move to Stockroom Failed',
+                    "RTC: {$request->rt_counter}",
+                    "Missing: {$missingFieldsText}"
+                );
 
                 return response()->json([
                     'success' => false,
                     'message' => "Cannot move to Stockroom. Missing required fields: {$missingFieldsText}. Please set the FNSKU first.",
                     'missing_fields' => $missingFields,
-                    'requires_fnsku_setup' => true
+                    'requires_fnsku_setup' => true,
                 ], 422);
             }
 
             // All required fields are present, proceed with the move
-            Log::info('All required fields present, proceeding with move to Stockroom', [
-                'FNSKU' => $existingProduct->FNSKUviewer,
-                'base_fnsku' => $baseFnsku,
-                'MSKU' => $fnskuRecord->MSKU,
-                'ASIN' => $fnskuRecord->ASIN
-            ]);
+            Log::info('All required fields present, proceeding with move to Stockroom');
 
             // Update the product location in the database
             $updateResult = DB::table($this->productTable)
                 ->where('ProductID', $request->product_id)
                 ->update([
                     'ProductModuleLoc' => 'Stockroom',
-                    'lastDateUpdate' => now()->format('Y-m-d H:i:s')
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
                 ]);
 
-            Log::info('Update result: ' . $updateResult . ' rows affected');
+            Log::info('Update result: '.$updateResult.' rows affected');
 
-            // Insert success history
-            $this->insertItemHistory($request->rt_counter, 'Moved to Stockroom', [
-                'from_location' => $request->current_location,
-                'to_location' => 'Stockroom',
-                'fnsku' => $existingProduct->FNSKUviewer,
-                'asin' => $fnskuRecord->ASIN,
-                'msku' => $fnskuRecord->MSKU,
-                'moved_by' => Auth::user()->name ?? 'system'
-            ]);
-
-            // Verify the update worked
-            $updatedProduct = DB::table($this->productTable)
-                ->where('ProductID', $request->product_id)
-                ->first();
-
-            Log::info('Product after update:', [
-                'ProductID' => $updatedProduct->ProductID,
-                'ProductModuleLoc' => $updatedProduct->ProductModuleLoc,
-                'lastDateUpdate' => $updatedProduct->lastDateUpdate
-            ]);
+            // ✅ Track successful move with TracksHistory
+            $this->trackLocationChange(
+                'Labeling',
+                "RTC: {$request->rt_counter} | FNSKU: {$baseFnsku}",
+                $request->current_location,
+                'Stockroom'
+            );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Product successfully moved to Stockroom',
                 'debug_info' => [
                     'rows_affected' => $updateResult,
-                    'new_location' => $updatedProduct->ProductModuleLoc
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
-            // Log the error with full details
             Log::error('Exception in moveToStockroom', [
                 'message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
+                'request_data' => $request->all(),
             ]);
 
-            // Insert error history
+            // ✅ Track error with TracksHistory
             if (isset($request->rt_counter)) {
-                $this->insertItemHistory($request->rt_counter, 'Move to Stockroom Error', [
-                    'error' => $e->getMessage(),
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
+                $this->trackHistory(
+                    'Labeling',
+                    'Move to Stockroom Error',
+                    "RTC: {$request->rt_counter}",
+                    "Error: {$e->getMessage()}"
+                );
             }
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to move product to Stockroom',
                 'error' => $e->getMessage(),
-                'debug_info' => [
-                    'file' => $e->getFile(),
-                    'line' => $e->getLine()
-                ]
             ], 500);
         }
     }
@@ -746,11 +631,11 @@ class LabelingController extends BasetablesController
         Log::info('=== SPLIT ITEM CALLED ===', [
             'request_data' => $request->all(),
             'product_table' => $this->productTable,
-            'user' => Auth::user()->name ?? 'system'
+            'user' => Auth::user()->name ?? 'system',
         ]);
 
         try {
-            // Updated validation - handle all three price fields separately
+            // Validation
             $validator = Validator::make($request->all(), [
                 'product_id' => 'required|integer',
                 'rt_counter' => 'required',
@@ -764,21 +649,23 @@ class LabelingController extends BasetablesController
             if ($validator->fails()) {
                 Log::error('Validation failed in splitItem', [
                     'errors' => $validator->errors(),
-                    'request_data' => $request->all()
+                    'request_data' => $request->all(),
                 ]);
 
-                // Insert history for failed validation
+                // ✅ Track validation failure
                 if ($request->rt_counter) {
-                    $this->insertItemHistory($request->rt_counter, 'Split Item Failed - Validation Error', [
-                        'errors' => $validator->errors()->toArray(),
-                        'attempted_by' => Auth::user()->name ?? 'system'
-                    ]);
+                    $this->trackHistory(
+                        'Labeling',
+                        'Split Item Failed',
+                        "RTC: {$request->rt_counter}",
+                        'Validation Error'
+                    );
                 }
 
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -796,22 +683,22 @@ class LabelingController extends BasetablesController
                 'product_id' => $productId,
                 'rt_counter' => $rtCounter,
                 'current_quantity' => $currentQuantity,
-                'original_price' => $originalPrice,
-                'original_priceshipping' => $originalPriceShipping,
-                'original_tax' => $originalTax,
-                'total_price' => $totalPrice
+                'total_price' => $totalPrice,
             ]);
 
             // Check if quantity is valid for splitting
             if ($currentQuantity <= 1) {
-                $this->insertItemHistory($rtCounter, 'Split Item Failed - Invalid Quantity', [
-                    'quantity' => $currentQuantity,
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
+                // ✅ Track invalid quantity
+                $this->trackHistory(
+                    'Labeling',
+                    'Split Item Failed',
+                    "RTC: {$rtCounter}",
+                    "Invalid Quantity: {$currentQuantity}"
+                );
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Split not possible. Quantity must be greater than 1.'
+                    'message' => 'Split not possible. Quantity must be greater than 1.',
                 ], 422);
             }
 
@@ -820,50 +707,42 @@ class LabelingController extends BasetablesController
                 ->where('ProductID', $productId)
                 ->first();
 
-            if (!$originalProduct) {
+            if (! $originalProduct) {
                 Log::error('Product not found for splitting', [
                     'product_id' => $productId,
-                    'table' => $this->productTable
+                    'table' => $this->productTable,
                 ]);
 
-                $this->insertItemHistory($rtCounter, 'Split Item Failed - Product Not Found', [
-                    'product_id' => $productId,
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
+                // ✅ Track product not found
+                $this->trackHistory(
+                    'Labeling',
+                    'Split Item Failed',
+                    "RTC: {$rtCounter}",
+                    'Product Not Found'
+                );
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Product not found'
+                    'message' => 'Product not found',
                 ], 404);
             }
 
-            Log::info('Original product found', [
-                'ProductID' => $originalProduct->ProductID,
-                'rtcounter' => $originalProduct->rtcounter,
-                'quantity' => $originalProduct->quantity,
-                'price' => $originalProduct->price ?? 'null',
-                'priceshipping' => $originalProduct->priceshipping ?? 'null',
-                'tax' => $originalProduct->tax ?? 'null'
-            ]);
-
-            // Verify the quantity matches what was sent
+            // Verify the quantity matches
             $dbQuantity = (int) ($originalProduct->quantity ?? 0);
             if ($dbQuantity !== $currentQuantity) {
-                Log::warning('Quantity mismatch detected', [
-                    'sent_quantity' => $currentQuantity,
-                    'db_quantity' => $dbQuantity,
-                    'product_id' => $productId
-                ]);
+                Log::warning('Quantity mismatch detected');
 
-                $this->insertItemHistory($rtCounter, 'Split Item Failed - Quantity Mismatch', [
-                    'sent_quantity' => $currentQuantity,
-                    'db_quantity' => $dbQuantity,
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
+                // ✅ Track quantity mismatch
+                $this->trackHistory(
+                    'Labeling',
+                    'Split Item Failed',
+                    "RTC: {$rtCounter} | Qty: {$currentQuantity}",
+                    "DB Qty: {$dbQuantity} (Mismatch)"
+                );
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Quantity mismatch. The item may have been modified by another user.'
+                    'message' => 'Quantity mismatch. The item may have been modified by another user.',
                 ], 422);
             }
 
@@ -871,19 +750,6 @@ class LabelingController extends BasetablesController
             $unitPrice = $currentQuantity > 0 ? round($originalPrice / $currentQuantity, 2) : 0;
             $unitPriceShipping = $currentQuantity > 0 ? round($originalPriceShipping / $currentQuantity, 2) : 0;
             $unitTax = $currentQuantity > 0 ? round($originalTax / $currentQuantity, 2) : 0;
-            $totalUnitPrice = $unitPrice + $unitPriceShipping + $unitTax;
-
-            Log::info('Calculated unit prices for all three fields', [
-                'original_price' => $originalPrice,
-                'original_priceshipping' => $originalPriceShipping,
-                'original_tax' => $originalTax,
-                'total_original' => $totalPrice,
-                'quantity' => $currentQuantity,
-                'unit_price' => $unitPrice,
-                'unit_priceshipping' => $unitPriceShipping,
-                'unit_tax' => $unitTax,
-                'total_unit_price' => $totalUnitPrice
-            ]);
 
             // Get current max rtcounter to generate new RT numbers
             $maxRtResult = DB::table($this->productTable)
@@ -892,69 +758,34 @@ class LabelingController extends BasetablesController
 
             $newRt = (int) ($maxRtResult->maxrt ?? 0);
 
-            Log::info('Current max RT counter', [
-                'max_rt' => $newRt,
-                'will_start_new_items_from' => $newRt + 1
-            ]);
-
             // Start database transaction
             DB::beginTransaction();
 
             try {
-                // Insert history for split start
-                $this->insertItemHistory($rtCounter, 'Split Item', [
-                    'original_quantity' => $currentQuantity,
-                    'original_price' => $originalPrice,
-                    'original_priceshipping' => $originalPriceShipping,
-                    'original_tax' => $originalTax,
-                    'total_original_price' => $totalPrice,
-                    'unit_price' => $unitPrice,
-                    'unit_priceshipping' => $unitPriceShipping,
-                    'unit_tax' => $unitTax,
-                    'total_unit_price' => $totalUnitPrice,
-                    'split_by' => Auth::user()->name ?? 'system'
-                ]);
+                // ✅ Track split start
+                $this->trackHistory(
+                    'Labeling',
+                    'Split Item Started',
+                    "RTC: {$rtCounter}",
+                    "Qty: {$currentQuantity} → {$currentQuantity} items @ ${unitPrice} each"
+                );
 
-                // Prepare update data for original item - update ALL THREE price fields
+                // Update original item to quantity = 1
                 $updateData = [
                     'quantity' => 1,
-                    'lastDateUpdate' => now()->format('Y-m-d H:i:s')
+                    'price' => $unitPrice,
+                    'priceshipping' => $unitPriceShipping,
+                    'tax' => $unitTax,
+                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
                 ];
 
-                // Always update all three fields (even if they're 0)
-                $updateData['price'] = $unitPrice;
-                $updateData['priceshipping'] = $unitPriceShipping;
-                $updateData['tax'] = $unitTax;
-
-                // Update original item to quantity = 1 and unit prices
                 $updateResult = DB::table($this->productTable)
                     ->where('ProductID', $productId)
                     ->update($updateData);
 
-                Log::info('Original product updated with all three price fields', [
-                    'updated_rows' => $updateResult,
-                    'new_price' => $unitPrice,
-                    'new_priceshipping' => $unitPriceShipping,
-                    'new_tax' => $unitTax,
-                    'update_data' => $updateData
-                ]);
-
                 if ($updateResult === 0) {
-                    throw new \Exception("Failed to update original product quantity and prices");
+                    throw new \Exception('Failed to update original product');
                 }
-
-                // Insert history for original item update
-                $this->insertItemHistory($rtCounter, 'Original Item Updated After Split', [
-                    'new_quantity' => 1,
-                    'new_price' => $unitPrice,
-                    'new_priceshipping' => $unitPriceShipping,
-                    'new_tax' => $unitTax,
-                    'original_quantity' => $currentQuantity,
-                    'original_price' => $originalPrice,
-                    'original_priceshipping' => $originalPriceShipping,
-                    'original_tax' => $originalTax,
-                    'updated_by' => Auth::user()->name ?? 'system'
-                ]);
 
                 $newItemsCreated = 0;
                 $newRtCounters = [];
@@ -964,14 +795,12 @@ class LabelingController extends BasetablesController
                     $newRt++;
                     $newRtCounters[] = $newRt;
 
-                    // Create new item data based on the original product
                     $newItemData = [
                         'ProductTitle' => $originalProduct->ProductTitle ?? null,
                         'itemnumber' => $originalProduct->itemnumber ?? null,
                         'RPN' => $originalProduct->RPN ?? null,
                         'PRD' => $originalProduct->PRD ?? null,
                         'quantity' => 1,
-                        // Set ALL THREE price fields to their respective unit prices
                         'price' => $unitPrice,
                         'priceshipping' => $unitPriceShipping,
                         'tax' => $unitTax,
@@ -984,125 +813,70 @@ class LabelingController extends BasetablesController
                         'employeeNotes' => $originalProduct->employeeNotes ?? null,
                         'stickerNotes' => $originalProduct->stickerNotes ?? null,
                         'trackingnumber' => $originalProduct->trackingnumber ?? null,
-                        'trackingnumber2' => $originalProduct->trackingnumber2 ?? null,
-                        'trackingnumber3' => $originalProduct->trackingnumber3 ?? null,
-                        'trackingnumber4' => $originalProduct->trackingnumber4 ?? null,
-                        'trackingnumber5' => $originalProduct->trackingnumber5 ?? null,
-                        'ProductModuleLoc' => 'Labeling', // Keep in same location
+                        'ProductModuleLoc' => 'Labeling',
                         'rtcounter' => $newRt,
-                        'splitfromRT' => $rtCounter, // Track original RT
+                        'splitfromRT' => $rtCounter,
                         'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
                     ];
 
-                    // Remove null/empty values to prevent database issues
                     $newItemData = array_filter($newItemData, function ($value) {
                         return $value !== null && $value !== '';
                     });
 
-                    Log::info('Preparing to insert new item with all three price fields', [
-                        'new_rt' => $newRt,
-                        'unit_price' => $unitPrice,
-                        'unit_priceshipping' => $unitPriceShipping,
-                        'unit_tax' => $unitTax,
-                        'data_fields_count' => count($newItemData),
-                        'table' => $this->productTable
-                    ]);
-
                     $insertResult = DB::table($this->productTable)->insert($newItemData);
 
-                    if (!$insertResult) {
+                    if (! $insertResult) {
                         throw new \Exception("Failed to create new item with RT: $newRt");
                     }
 
                     $newItemsCreated++;
 
-                    // Insert history for new item
-                    $this->insertItemHistory($newRt, 'New Item Created from Split', [
-                        'split_from_rt' => $rtCounter,
-                        'quantity' => 1,
-                        'price' => $unitPrice,
-                        'priceshipping' => $unitPriceShipping,
-                        'tax' => $unitTax,
-                        'total_unit_price' => $totalUnitPrice,
-                        'created_by' => Auth::user()->name ?? 'system'
-                    ]);
-
-                    Log::info('New item created successfully with all three price fields', [
-                        'new_rt' => $newRt,
-                        'price' => $unitPrice,
-                        'priceshipping' => $unitPriceShipping,
-                        'tax' => $unitTax,
-                        'split_from' => $rtCounter,
-                        'items_created_so_far' => $newItemsCreated
-                    ]);
+                    // ✅ Track new item creation
+                    $this->trackCreate(
+                        'Labeling',
+                        "RTC: {$newRt} (Split from {$rtCounter})"
+                    );
                 }
 
-                // Insert final history for split completion
-                $this->insertItemHistory($rtCounter, 'Split Item Completed Successfully', [
-                    'original_quantity' => $currentQuantity,
-                    'new_items_created' => $newItemsCreated,
-                    'new_rt_counters' => implode(', ', $newRtCounters),
-                    'unit_price' => $unitPrice,
-                    'unit_priceshipping' => $unitPriceShipping,
-                    'unit_tax' => $unitTax,
-                    'total_unit_price' => $totalUnitPrice,
-                    'all_three_price_fields_split' => true,
-                    'completed_by' => Auth::user()->name ?? 'system'
-                ]);
+                // ✅ Track split completion
+                $newRtList = implode(', ', $newRtCounters);
+                $this->trackHistory(
+                    'Labeling',
+                    'Split Item Completed',
+                    "RTC: {$rtCounter} | Qty: {$currentQuantity}",
+                    "Created {$newItemsCreated} items: {$newRtList}"
+                );
 
                 // Commit transaction
                 DB::commit();
 
-                Log::info('Split operation completed successfully with all three price fields', [
-                    'original_rt' => $rtCounter,
-                    'original_quantity' => $currentQuantity,
-                    'new_items_created' => $newItemsCreated,
-                    'new_rt_counters' => $newRtCounters,
-                    'unit_price' => $unitPrice,
-                    'unit_priceshipping' => $unitPriceShipping,
-                    'unit_tax' => $unitTax,
-                    'total_unit_price' => $totalUnitPrice,
-                    'total_items_after' => $currentQuantity
-                ]);
-
                 return response()->json([
                     'success' => true,
-                    'message' => 'Successfully split item into individual units with proportional price distribution across all fields',
+                    'message' => 'Successfully split item into individual units',
                     'data' => [
                         'original_rt' => $rtCounter,
                         'original_quantity' => $currentQuantity,
                         'new_items_count' => $newItemsCreated,
                         'new_rt_counters' => $newRtCounters,
-                        'price_breakdown' => [
-                            'original_price' => $originalPrice,
-                            'original_priceshipping' => $originalPriceShipping,
-                            'original_tax' => $originalTax,
-                            'original_total' => $totalPrice,
-                            'unit_price' => $unitPrice,
-                            'unit_priceshipping' => $unitPriceShipping,
-                            'unit_tax' => $unitTax,
-                            'unit_total' => $totalUnitPrice,
-                        ],
-                        'total_items_after_split' => $currentQuantity,
-                        'all_three_fields_split' => true
-                    ]
+                        'unit_price' => $unitPrice,
+                        'unit_priceshipping' => $unitPriceShipping,
+                        'unit_tax' => $unitTax,
+                    ],
                 ]);
 
             } catch (\Exception $e) {
-                // Rollback transaction on any error
                 DB::rollback();
-
                 Log::error('Database transaction failed during split', [
                     'error' => $e->getMessage(),
-                    'original_rt' => $rtCounter,
-                    'product_id' => $productId
                 ]);
 
-                // Insert error history
-                $this->insertItemHistory($rtCounter, 'Split Item Failed - Database Error', [
-                    'error' => $e->getMessage(),
-                    'attempted_by' => Auth::user()->name ?? 'system'
-                ]);
+                // ✅ Track split error
+                $this->trackHistory(
+                    'Labeling',
+                    'Split Item Error',
+                    "RTC: {$rtCounter}",
+                    "Error: {$e->getMessage()}"
+                );
 
                 throw $e;
             }
@@ -1110,15 +884,11 @@ class LabelingController extends BasetablesController
         } catch (\Exception $e) {
             Log::error('Exception in splitItem', [
                 'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
-                'request_data' => $request->all()
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to split item: ' . $e->getMessage(),
-                'error' => $e->getMessage()
+                'message' => 'Failed to split item: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1182,50 +952,66 @@ class LabelingController extends BasetablesController
                         if ($oldValue != $value) {
                             $changes[$key] = [
                                 'from' => $oldValue,
-                                'to' => $value
+                                'to' => $value,
                             ];
                         }
                     }
                 }
             }
 
-            // Insert history record
-            $action = $isUpdate ? 'Product Updated' : 'Product Created';
-            $this->insertItemHistory($rtCounter, $action, [
-                'changes' => $changes,
-                'total_fields_changed' => count($changes),
-                'updated_by' => Auth::user()->name ?? 'system'
-            ]);
+            // ✅ Track with TracksHistory trait
+            if ($isUpdate && count($changes) > 0) {
+                // Build a summary of changes
+                $changedFields = array_keys($changes);
+                $changesSummary = implode(', ', array_slice($changedFields, 0, 3));
+                if (count($changedFields) > 3) {
+                    $changesSummary .= '... +'.(count($changedFields) - 3).' more';
+                }
+
+                $this->trackUpdate(
+                    'Labeling',
+                    "RTC: {$rtCounter}",
+                    "Updated fields: {$changesSummary}",
+                    count($changes).' fields changed'
+                );
+            } elseif (! $isUpdate) {
+                $this->trackCreate(
+                    'Labeling',
+                    "RTC: {$rtCounter}"
+                );
+            }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Labeling product saved successfully',
                 'product' => $result,
-                'action' => $action,
-                'changes_made' => count($changes)
+                'action' => $isUpdate ? 'updated' : 'created',
+                'changes_made' => count($changes),
             ]);
         } catch (\Exception $e) {
             Log::error('Error in store method', [
                 'message' => $e->getMessage(),
-                'request_data' => $request->all()
+                'request_data' => $request->all(),
             ]);
 
-            // Try to insert error history if we have an RT counter
+            // ✅ Track error
             if ($request->ProductID) {
                 $product = DB::table($this->productTable)
                     ->where('ProductID', $request->ProductID)
                     ->first();
                 if ($product && isset($product->rtcounter)) {
-                    $this->insertItemHistory($product->rtcounter, 'Product Save Failed', [
-                        'error' => $e->getMessage(),
-                        'attempted_by' => Auth::user()->name ?? 'system'
-                    ]);
+                    $this->trackHistory(
+                        'Labeling',
+                        'Product Save Failed',
+                        "RTC: {$product->rtcounter}",
+                        "Error: {$e->getMessage()}"
+                    );
                 }
             }
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to save product: ' . $e->getMessage()
+                'message' => 'Failed to save product: '.$e->getMessage(),
             ], 500);
         }
     }
