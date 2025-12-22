@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\TracksHistory;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Http\Request;
-use Carbon\Carbon;
-use App\Models\tblproduct;
 
 class FnskuController extends BasetablesController
 {
+    use TracksHistory;
+
     /**
      * Extract base FNSKU from prefixed FNSKU
      */
@@ -40,7 +41,7 @@ class FnskuController extends BasetablesController
             ->where('storename', $storename)
             ->first();
 
-        if (!$fnskuRecord) {
+        if (! $fnskuRecord) {
             throw new \Exception("FNSKU not found: {$baseFnsku}");
         }
 
@@ -61,8 +62,8 @@ class FnskuController extends BasetablesController
             $actualFnsku = $baseFnsku;
         } else {
             // Subsequent usage - add prefix
-            $prefix = 'C' . $timesUsed;
-            $actualFnsku = $prefix . $baseFnsku;
+            $prefix = 'C'.$timesUsed;
+            $actualFnsku = $prefix.$baseFnsku;
         }
 
         return [
@@ -70,7 +71,7 @@ class FnskuController extends BasetablesController
             'times_used' => $timesUsed,
             'remaining_units' => $remainingUnits - 1, // After this use
             'base_fnsku' => $baseFnsku,
-            'fnsku_id' => $fnskuRecord->FNSKUID ?? null
+            'fnsku_id' => $fnskuRecord->FNSKUID ?? null,
         ];
     }
 
@@ -89,7 +90,7 @@ class FnskuController extends BasetablesController
             ->decrement('Units');
 
         if ($affected == 0) {
-            throw new \Exception("Could not update FNSKU units - no available units");
+            throw new \Exception('Could not update FNSKU units - no available units');
         }
 
         // Check if FNSKU should become unavailable (Units = 0)
@@ -130,8 +131,9 @@ class FnskuController extends BasetablesController
             ->where('FNSKU', $baseFnsku)
             ->first();
 
-        if (!$fnskuRecord) {
+        if (! $fnskuRecord) {
             Log::warning("Base FNSKU not found for return: {$baseFnsku}");
+
             return false;
         }
 
@@ -140,12 +142,12 @@ class FnskuController extends BasetablesController
             ->where('FNSKU', $baseFnsku)
             ->update([
                 'Units' => DB::raw('Units + 1'),
-                'fnsku_status' => 'available' // Make sure it's marked as available
+                'fnsku_status' => 'available', // Make sure it's marked as available
             ]);
 
         Log::info('Successfully returned 1 unit to base FNSKU', [
             'original_fnsku_viewer' => $fnskuViewer,
-            'base_fnsku' => $baseFnsku
+            'base_fnsku' => $baseFnsku,
         ]);
 
         return true;
@@ -197,20 +199,21 @@ class FnskuController extends BasetablesController
             Log::info('Processed parameters:', [
                 'per_page' => $perPage,
                 'search' => $search,
-                'exclude_assigned' => $exclude_assigned
+                'exclude_assigned' => $exclude_assigned,
             ]);
 
             // Check if table properties are set
-            if (!isset($this->fnskuTable) || !isset($this->asinTable) || !isset($this->productTable)) {
+            if (! isset($this->fnskuTable) || ! isset($this->asinTable) || ! isset($this->productTable)) {
                 Log::error('Table properties not set');
+
                 return response()->json([
                     'error' => 'Database configuration error',
-                    'data' => []
+                    'data' => [],
                 ], 500);
             }
 
             // Updated to join with ASIN table to get the title
-            $query = DB::table($this->fnskuTable . ' as fnsku')
+            $query = DB::table($this->fnskuTable.' as fnsku')
                 ->select([
                     'fnsku.FNSKU',
                     'fnsku.MSKU',
@@ -219,9 +222,9 @@ class FnskuController extends BasetablesController
                     'fnsku.Units',
                     'fnsku.storename',
                     'fnsku.fnsku_status',
-                    'asin.internal as astitle'
+                    'asin.internal as astitle',
                 ])
-                ->leftJoin($this->asinTable . ' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
+                ->leftJoin($this->asinTable.' as asin', 'fnsku.ASIN', '=', 'asin.ASIN')
                 ->where('fnsku.fnsku_status', 'available')
                 ->where('fnsku.Units', '>', 0)
                 // IMPORTANT: Filter out empty/null FNSKUs
@@ -249,7 +252,7 @@ class FnskuController extends BasetablesController
             }
 
             // IMPROVED: Add search functionality with priority ordering
-            if (!empty($search)) {
+            if (! empty($search)) {
                 $query->where(function ($q) use ($search) {
                     $q->where('fnsku.FNSKU', 'like', "%{$search}%")
                         ->orWhere('fnsku.ASIN', 'like', "%{$search}%")
@@ -258,16 +261,16 @@ class FnskuController extends BasetablesController
                 });
 
                 // When searching, prioritize exact matches and ASIN matches
-                $query->orderByRaw("
+                $query->orderByRaw('
                 CASE 
                     WHEN fnsku.ASIN = ? THEN 1
                     WHEN fnsku.FNSKU LIKE ? THEN 2
                     WHEN fnsku.ASIN LIKE ? THEN 3
                     ELSE 4
                 END, fnsku.FNSKU
-            ", [$search, $search . '%', '%' . $search . '%']);
+            ', [$search, $search.'%', '%'.$search.'%']);
 
-                Log::info('Search filters applied for: ' . $search);
+                Log::info('Search filters applied for: '.$search);
             } else {
                 $query->orderBy('fnsku.ASIN')
                     ->orderBy('fnsku.FNSKU');
@@ -284,12 +287,12 @@ class FnskuController extends BasetablesController
             Log::info('Query executed successfully', [
                 'current_page_count' => $fnskuList->count(),
                 'per_page' => $perPage,
-                'current_page' => $fnskuList->currentPage()
+                'current_page' => $fnskuList->currentPage(),
             ]);
 
             // Filter out any remaining empty FNSKUs (extra safety)
             $filteredItems = $fnskuList->getCollection()->filter(function ($item) {
-                return !empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
+                return ! empty($item->FNSKU) && $item->FNSKU !== 'NULL' && trim($item->FNSKU) !== '';
             })->values();
 
             // Replace the collection with filtered items
@@ -308,20 +311,20 @@ class FnskuController extends BasetablesController
                 'to' => $fnskuList->lastItem(),
                 'total' => $totalCount, // Add this
                 'excluded_assigned' => $exclude_assigned,
-                'search_applied' => !empty($search)
+                'search_applied' => ! empty($search),
             ]);
 
         } catch (\Exception $e) {
             Log::error('=== FNSKU LIST ERROR ===');
-            Log::error('Error message: ' . $e->getMessage());
-            Log::error('Error line: ' . $e->getLine());
-            Log::error('Error file: ' . $e->getFile());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            Log::error('Error message: '.$e->getMessage());
+            Log::error('Error line: '.$e->getLine());
+            Log::error('Error file: '.$e->getFile());
+            Log::error('Stack trace: '.$e->getTraceAsString());
 
             return response()->json([
                 'error' => 'Failed to fetch FNSKU list',
                 'message' => $e->getMessage(),
-                'data' => []
+                'data' => [],
             ], 500);
         }
     }
@@ -330,7 +333,7 @@ class FnskuController extends BasetablesController
     {
         try {
             $request->validate([
-                'fnsku' => 'required|string|unique:' . $this->fnskuTable . ',FNSKU',
+                'fnsku' => 'required|string|unique:'.$this->fnskuTable.',FNSKU',
                 'asin' => 'required|string',
                 'grading' => 'required|string',
                 'msku' => 'nullable|string',
@@ -346,24 +349,25 @@ class FnskuController extends BasetablesController
                 'storename' => $request->storename,
                 'fnsku_status' => 'available',
                 'Units' => 11, // Default units
-                'insert_date' => now()
+                'insert_date' => now(),
             ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'FNSKU added successfully with 11 units'
+                'message' => 'FNSKU added successfully with 11 units',
             ]);
         } catch (\Exception $e) {
-            Log::error('Error adding FNSKU: ' . $e->getMessage());
+            Log::error('Error adding FNSKU: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to add FNSKU: ' . $e->getMessage()
+                'message' => 'Failed to add FNSKU: '.$e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * UPDATED updateFnsku method with FNSKU prefix system
+     * UPDATED updateFnsku method with improved history tracking
      */
     public function updateFnsku(Request $request)
     {
@@ -376,7 +380,7 @@ class FnskuController extends BasetablesController
                 'fnsku' => 'required|string|min:1',
                 'msku' => 'nullable|string',
                 'asin' => 'nullable|string',
-                'grading' => 'nullable|string'
+                'grading' => 'nullable|string',
             ]);
 
             // Begin transaction
@@ -388,33 +392,35 @@ class FnskuController extends BasetablesController
                 ->lockForUpdate()
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 DB::rollBack();
                 Log::error('Product not found:', ['product_id' => $request->product_id]);
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Product not found'
+                    'message' => 'Product not found',
                 ], 404);
             }
 
             // Store the old and new FNSKU values
             $oldFnskuViewer = $product->FNSKUviewer;
             $newBaseFnsku = $request->fnsku;
+            $rtCounter = $product->rtcounter ?? 'Unknown';
 
             Log::info('FNSKU Update Details:', [
                 'product_id' => $request->product_id,
+                'rt_counter' => $rtCounter,
                 'old_fnsku_viewer' => $oldFnskuViewer,
-                'new_base_fnsku' => $newBaseFnsku
+                'new_base_fnsku' => $newBaseFnsku,
             ]);
 
             // Handle OLD FNSKU - Return unit back to inventory if it exists
-            if (!empty($oldFnskuViewer) && $oldFnskuViewer !== 'NULL' && trim($oldFnskuViewer) !== '') {
-                Log::info('Returning unit to old FNSKU: ' . $oldFnskuViewer);
+            if (! empty($oldFnskuViewer) && $oldFnskuViewer !== 'NULL' && trim($oldFnskuViewer) !== '') {
+                Log::info('Returning unit to old FNSKU: '.$oldFnskuViewer);
                 $returnSuccess = $this->returnFnskuUnits($oldFnskuViewer);
 
-                if (!$returnSuccess) {
-                    Log::warning('Failed to return units to old FNSKU: ' . $oldFnskuViewer);
+                if (! $returnSuccess) {
+                    Log::warning('Failed to return units to old FNSKU: '.$oldFnskuViewer);
                 }
             }
 
@@ -425,13 +431,25 @@ class FnskuController extends BasetablesController
                 ->where('Units', '>', 0)
                 ->first();
 
-            if (!$newFnskuRecord) {
+            if (! $newFnskuRecord) {
                 DB::rollBack();
                 Log::error('New FNSKU not available:', ['fnsku' => $newBaseFnsku]);
 
+                // ✅ Track failed FNSKU assignment
+                $beforeState = empty($oldFnskuViewer) || $oldFnskuViewer === 'NULL' || trim($oldFnskuViewer) === ''
+                    ? "RTC: {$rtCounter} | No FNSKU"
+                    : "RTC: {$rtCounter} | FNSKU: {$oldFnskuViewer}";
+
+                $this->trackHistory(
+                    'Labeling',
+                    'Set FNSKU Failed',
+                    $beforeState,
+                    "FNSKU not available: {$newBaseFnsku}"
+                );
+
                 return response()->json([
                     'success' => false,
-                    'message' => "FNSKU not available or not found: {$newBaseFnsku}"
+                    'message' => "FNSKU not available or not found: {$newBaseFnsku}",
                 ], 400);
             }
 
@@ -449,7 +467,7 @@ class FnskuController extends BasetablesController
                 'base_fnsku' => $newBaseFnsku,
                 'actual_fnsku_to_use' => $actualFnskuToUse,
                 'times_used' => $fnskuInfo['times_used'],
-                'remaining_units' => $fnskuInfo['remaining_units']
+                'remaining_units' => $fnskuInfo['remaining_units'],
             ]);
 
             // Update the product with the new prefixed FNSKU
@@ -465,13 +483,26 @@ class FnskuController extends BasetablesController
                 $newFnskuRecord->storename
             );
 
+            // ✅ UPDATED: Better history tracking with clear before/after states
+            $beforeState = empty($oldFnskuViewer) || $oldFnskuViewer === 'NULL' || trim($oldFnskuViewer) === ''
+                ? "RTC: {$rtCounter} | No FNSKU"
+                : "RTC: {$rtCounter} | FNSKU: {$oldFnskuViewer}";
+
+            $afterState = "RTC: {$rtCounter} | FNSKU: {$actualFnskuToUse} | ASIN: {$newFnskuRecord->ASIN} | Grade: {$newFnskuRecord->grading} | Units Left: {$fnskuInfo['remaining_units']}";
+
+            $this->trackHistory(
+                'Labeling',
+                'Set FNSKU',
+                $beforeState,
+                $afterState
+            );
+
             // Commit the transaction
             DB::commit();
 
             Log::info('✅ FNSKU update transaction completed successfully');
             Log::info('=== FNSKU UPDATE REQUEST END ===');
 
-            // IMPORTANT: Return consistent success response
             return response()->json([
                 'success' => true,
                 'message' => 'FNSKU updated successfully',
@@ -481,39 +512,74 @@ class FnskuController extends BasetablesController
                     'actual_fnsku_assigned' => $actualFnskuToUse,
                     'remaining_units' => $fnskuInfo['remaining_units'],
                     'times_used' => $fnskuInfo['times_used'],
-                    'became_unavailable' => $becameUnavailable
-                ]
-            ], 200); // Explicitly set 200 status
+                    'became_unavailable' => $becameUnavailable,
+                ],
+            ], 200);
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
-            Log::error('❌ Validation error: ' . json_encode($e->errors()));
+            Log::error('❌ Validation error: '.json_encode($e->errors()));
+
+            // ✅ Track validation error
+            if (isset($request->product_id)) {
+                $product = DB::table($this->productTable)
+                    ->where('ProductID', $request->product_id)
+                    ->first();
+                if ($product) {
+                    $beforeState = empty($product->FNSKUviewer) || $product->FNSKUviewer === 'NULL' || trim($product->FNSKUviewer) === ''
+                        ? "RTC: {$product->rtcounter} | No FNSKU"
+                        : "RTC: {$product->rtcounter} | FNSKU: {$product->FNSKUviewer}";
+
+                    $this->trackHistory(
+                        'Labeling',
+                        'Set FNSKU Failed',
+                        $beforeState,
+                        'Validation Error'
+                    );
+                }
+            }
 
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
 
         } catch (\Exception $e) {
-            // Rollback the transaction in case of error
             DB::rollBack();
+            Log::error('❌ Error updating FNSKU: '.$e->getMessage());
+            Log::error('Stack trace: '.$e->getTraceAsString());
 
-            Log::error('❌ Error updating FNSKU: ' . $e->getMessage());
-            Log::error('Stack trace: ' . $e->getTraceAsString());
+            // ✅ Track error
+            if (isset($request->product_id)) {
+                $product = DB::table($this->productTable)
+                    ->where('ProductID', $request->product_id)
+                    ->first();
+                if ($product) {
+                    $beforeState = empty($product->FNSKUviewer) || $product->FNSKUviewer === 'NULL' || trim($product->FNSKUviewer) === ''
+                        ? "RTC: {$product->rtcounter} | No FNSKU"
+                        : "RTC: {$product->rtcounter} | FNSKU: {$product->FNSKUviewer}";
+
+                    $this->trackHistory(
+                        'Labeling',
+                        'Set FNSKU Failed',
+                        $beforeState,
+                        "Error: {$e->getMessage()}"
+                    );
+                }
+            }
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update FNSKU: ' . $e->getMessage(),
+                'message' => 'Failed to update FNSKU: '.$e->getMessage(),
                 'debug' => [
                     'error' => $e->getMessage(),
                     'line' => $e->getLine(),
-                    'file' => basename($e->getFile())
-                ]
+                    'file' => basename($e->getFile()),
+                ],
             ], 500);
         }
     }
-
 
     public function getProduct($productId)
     {
@@ -521,7 +587,7 @@ class FnskuController extends BasetablesController
             Log::info('Fetching single product:', ['product_id' => $productId]);
 
             // Get the product with all necessary joins
-            $product = DB::table($this->productTable . ' as prod')
+            $product = DB::table($this->productTable.' as prod')
                 ->select([
                     'prod.*',
                     'prod.FNSKUviewer as FNSKU', // Make sure FNSKU field is available
@@ -530,34 +596,34 @@ class FnskuController extends BasetablesController
                 ->where('prod.ProductID', $productId)
                 ->first();
 
-            if (!$product) {
+            if (! $product) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Product not found'
+                    'message' => 'Product not found',
                 ], 404);
             }
 
             Log::info('Product found:', [
                 'ProductID' => $product->ProductID,
                 'FNSKUviewer' => $product->FNSKUviewer,
-                'rtcounter' => $product->rtcounter ?? 'N/A'
+                'rtcounter' => $product->rtcounter ?? 'N/A',
             ]);
 
             return response()->json([
                 'success' => true,
                 'data' => $product,
-                'message' => 'Product retrieved successfully'
+                'message' => 'Product retrieved successfully',
             ]);
 
         } catch (\Exception $e) {
             Log::error('Error fetching single product:', [
                 'product_id' => $productId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving product: ' . $e->getMessage()
+                'message' => 'Error retrieving product: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -573,7 +639,7 @@ class FnskuController extends BasetablesController
             if (empty($fnsku)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'FNSKU is required'
+                    'message' => 'FNSKU is required',
                 ]);
             }
 
@@ -584,11 +650,11 @@ class FnskuController extends BasetablesController
                 ->where('Units', '>', 0)
                 ->first();
 
-            if (!$fnskuRecord) {
+            if (! $fnskuRecord) {
                 return response()->json([
                     'success' => false,
                     'message' => 'FNSKU not available or not found',
-                    'available' => false
+                    'available' => false,
                 ]);
             }
 
@@ -612,23 +678,24 @@ class FnskuController extends BasetablesController
                         'units_after_use' => $fnskuInfo['remaining_units'],
                         'asin' => $fnskuRecord->ASIN,
                         'grading' => $fnskuRecord->grading,
-                        'storename' => $fnskuRecord->storename
-                    ]
+                        'storename' => $fnskuRecord->storename,
+                    ],
                 ]);
 
             } catch (\Exception $e) {
                 return response()->json([
                     'success' => false,
                     'message' => $e->getMessage(),
-                    'available' => false
+                    'available' => false,
                 ]);
             }
 
         } catch (\Exception $e) {
-            Log::error('Error checking FNSKU availability: ' . $e->getMessage());
+            Log::error('Error checking FNSKU availability: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error checking FNSKU availability'
+                'message' => 'Error checking FNSKU availability',
             ], 500);
         }
     }

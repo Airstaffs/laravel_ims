@@ -1,7 +1,7 @@
 <template>
     <Dialog
         :visible="settingsVisible"
-        @update:visible="$emit('update:settingsVisible', $event)"
+        @update:visible="handleClose"
         modal
         header="Settings"
         :style="{ width: '90%', maxWidth: '1200px' }"
@@ -917,10 +917,18 @@
                                     <template #body="slotProps">
                                         <Tag
                                             :value="
-                                                slotProps.data.total_hours +
-                                                ' hrs'
+                                                slotProps.data.total_hours ===
+                                                'In Progress'
+                                                    ? slotProps.data.total_hours
+                                                    : slotProps.data
+                                                          .total_hours + ' hrs'
                                             "
-                                            severity="info"
+                                            :severity="
+                                                slotProps.data.total_hours ===
+                                                'In Progress'
+                                                    ? 'warning'
+                                                    : 'info'
+                                            "
                                         />
                                     </template>
                                 </Column>
@@ -2179,32 +2187,52 @@ export default {
         };
     },
     watch: {
-        "designForm.themeColor"(newColor) {
-            // Update theme preview in real-time
-            this.currentThemeColor = newColor;
-            this.applyThemeColor();
-        },
-        "editStoreForm.selectedMarketplaces"(newValue) {
-            // Update Marketplace and MarketplaceID when selection changes
-            if (newValue && newValue.length > 0) {
-                const names = [];
-                const ids = [];
-
-                newValue.forEach((value) => {
-                    const marketplace = this.marketplaceOptions.find(
-                        (m) => m.value === value
-                    );
-                    if (marketplace) {
-                        names.push(marketplace.name);
-                        ids.push(marketplace.value);
+        activeTabIndex(newIndex, oldIndex) {
+            switch (newIndex) {
+                case 0:
+                    this.loadCurrentSettings();
+                    break;
+                case 1:
+                    this.fetchUsers();
+                    break;
+                case 2:
+                    this.fetchStores();
+                    break;
+                case 3:
+                    this.fetchUsers();
+                    break;
+                case 4:
+                    this.fetchUsers();
+                    if (oldIndex !== newIndex) {
+                        this.timeRecordForm.selectedUserId = null;
+                        this.timeRecordForm.startDate = null;
+                        this.timeRecordForm.endDate = null;
+                        this.timeRecords = [];
+                        this.hasFiltered = false;
                     }
-                });
+                    break;
+                case 5:
+                    this.fetchUsers();
+                    if (oldIndex !== newIndex) {
+                        this.userLogsForm.selectedUserId = null;
+                        this.userLogsForm.startDate = null;
+                        this.userLogsForm.endDate = null;
+                        this.userLogs = [];
+                        this.hasFilteredLogs = false;
+                    }
+                    break;
+                case 6:
+                    this.fetchPrinters();
+                    if (this.activePrinterTab === "married") {
+                        this.fetchMarriedPrinters();
+                    }
+                    break;
+            }
+        },
 
-                this.editStoreForm.Marketplace = names.join(", ");
-                this.editStoreForm.MarketplaceID = ids.join(", ");
-            } else {
-                this.editStoreForm.Marketplace = "";
-                this.editStoreForm.MarketplaceID = "";
+        activePrinterTab(newTab) {
+            if (newTab === "married" && this.marriedPrinters.length === 0) {
+                this.fetchMarriedPrinters();
             }
         },
     },
@@ -3192,10 +3220,12 @@ export default {
             this.hasFiltered = true;
 
             try {
-                const startDate = this.formatDate(
+                const startDate = this.formatDateForAPI(
                     this.timeRecordForm.startDate
                 );
-                const endDate = this.formatDate(this.timeRecordForm.endDate);
+                const endDate = this.formatDateForAPI(
+                    this.timeRecordForm.endDate
+                );
 
                 const response = await fetch(
                     `/get-time-records/${this.timeRecordForm.selectedUserId}?start_date=${startDate}&end_date=${endDate}`,
@@ -3222,28 +3252,31 @@ export default {
                 const data = await response.json();
 
                 if (response.ok) {
-                    // Transform the data to match our display format
+                    // Transform the data using timezone formatter
                     this.timeRecords = data.map((record) => {
-                        const timeIn = new Date(record.TimeIn);
-                        const timeOut = record.TimeOut
-                            ? new Date(record.TimeOut)
+                        // Use timezone formatter for dates and times
+                        const timeInFormatted = this.$formatDateTime(
+                            record.TimeIn
+                        );
+                        const timeOutFormatted = record.TimeOut
+                            ? this.$formatDateTime(record.TimeOut)
                             : null;
 
-                        // Calculate total hours
-                        let totalHours = 0;
-                        if (timeOut) {
-                            const diff = timeOut - timeIn;
-                            totalHours = (diff / (1000 * 60 * 60)).toFixed(2);
-                        }
+                        // Calculate total hours using the formatter
+                        const totalHours = this.$calculateHours(
+                            record.TimeIn,
+                            record.TimeOut
+                        );
 
                         return {
-                            details: `${timeIn.toLocaleDateString()} - ${timeIn.toLocaleTimeString()}${
-                                timeOut
-                                    ? " to " + timeOut.toLocaleTimeString()
+                            details: `${this.$formatDate(
+                                record.TimeIn
+                            )} - ${this.$formatTime(record.TimeIn)}${
+                                timeOutFormatted
+                                    ? " to " + this.$formatTime(record.TimeOut)
                                     : " (Still clocked in)"
                             }`,
-                            total_hours:
-                                totalHours > 0 ? totalHours : "In Progress",
+                            total_hours: totalHours || "In Progress",
                             notes: record.notes || "No notes",
                             timeIn: record.TimeIn,
                             timeOut: record.TimeOut,
@@ -3255,6 +3288,11 @@ export default {
             } catch (error) {
                 console.error("Fetch time records error:", error);
                 this.timeRecords = [];
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text: error.message || "Failed to load time records.",
+                });
             } finally {
                 this.loadingTimeRecords = false;
             }
@@ -3268,6 +3306,8 @@ export default {
             const day = String(d.getDate()).padStart(2, "0");
             return `${year}-${month}-${day}`;
         },
+
+        // ==================== USER LOGS WITH TIMEZONE ====================
 
         async filterUserLogs() {
             this.loadingUserLogs = true;
@@ -3325,7 +3365,7 @@ export default {
             } catch (error) {
                 console.error("Fetch user logs error:", error);
                 this.userLogs = [];
-                Swal.fire({
+                await Swal.fire({
                     icon: "error",
                     title: "Error",
                     text: "Failed to load user logs. Please try again.",
@@ -3345,17 +3385,12 @@ export default {
             this.hasFilteredLogs = false;
         },
 
+        // Updated method to use timezone formatter
         formatLogDate(dateString) {
             if (!dateString) return "";
-            const date = new Date(dateString);
-            return date.toLocaleString("en-US", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-            });
+
+            // Use the timezone formatter
+            return this.$formatDateTime(dateString);
         },
 
         formatDateForAPI(date) {
@@ -3789,6 +3824,14 @@ export default {
                     confirmButtonText: "OK",
                 });
             }
+        },
+
+        handleClose(value) {
+            if (!value) {
+                this.activeTabIndex = 0;
+            }
+
+            this.$emit("update:settingsVisible", value);
         },
     },
 };

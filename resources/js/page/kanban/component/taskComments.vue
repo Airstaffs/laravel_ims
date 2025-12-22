@@ -2,59 +2,57 @@
     <div>
         <h4 class="mb-3">Comments</h4>
 
-        <!-- ✅ No comments -->
+        <!-- No comments -->
         <p v-if="!comments.length" class="text-secondary">No comments yet</p>
 
-        <!-- ✅ Comments list -->
+        <!-- Comments list -->
         <div v-else class="mb-3">
-            <div v-for="comment in comments" :key="comment.id" class="border rounded p-2 mb-2 bg-light">
-                <div class="d-flex align-items-center mb-1">
-                    <!-- Avatar / Fallback -->
-                    <div class="me-2">
-                        <template v-if="comment.profile_picture">
-                            <img :src="comment.profile_picture" alt="avatar" class="rounded-circle border" width="32"
-                                height="32" @error="comment.profile_picture = ''" />
-                        </template>
+            <Card v-for="comment in comments" :key="comment.id" class="mb-2">
+                <template #content>
+                    <div class="d-flex align-items-center mb-2">
+                        <!-- Avatar / Fallback -->
+                        <div class="mr-2">
+                            <Avatar v-if="comment.profile_picture" :image="comment.profile_picture" shape="circle"
+                                size="normal" @error="comment.profile_picture = ''" />
+                            <Avatar v-else :label="comment.username ? comment.username.charAt(0).toUpperCase() : '?'"
+                                shape="circle" size="normal"
+                                style="background-color: var(--primary-color); color: var(--primary-color-text)" />
+                        </div>
 
-                        <template v-else>
-                            <div class="rounded-circle border bg-primary text-white d-flex align-items-center justify-content-center fw-bold"
-                                style="width: 32px; height: 32px; font-size: 0.9rem;">
-                                {{ comment.username ? comment.username.charAt(0).toUpperCase() : '?' }}
-                            </div>
-                        </template>
+                        <!-- User Info -->
+                        <div>
+                            <strong>{{ comment.userId === userId ? "(Me)" : comment.username }}</strong>
+                            <small class="text-secondary ms-2">{{ formatDate(comment.created_at) }}</small>
+                        </div>
                     </div>
 
-                    <!-- User Info -->
-                    <div>
-                        <strong>{{ ` ${comment.userId === userId ? "(Me)" : comment.username}` }}</strong>
-                        <small class="text-muted ms-1">{{ formatDate(comment.created_at) }}</small>
-                    </div>
-                </div>
-
-                <p class="mb-0 text-dark text-break">{{ comment.content }}</p>
-            </div>
+                    <p class="m-0 text-color" style="word-break: break-word;">{{ comment.content }}</p>
+                </template>
+            </Card>
         </div>
 
-        <form v-if="ifHasPermission()" @submit.prevent="addComment" class="d-flex flex-column gap-2">
-            <textarea v-model="newComment" class="form-control" placeholder="Write a comment..." rows="2"
-                :disabled="isSubmitting"></textarea>
+        <!-- Comment form -->
+        <form v-if="ifHasPermission()" @submit.prevent="addComment" class="flex flex-column gap-2">
+            <Textarea v-model="newComment" placeholder="Write a comment..." :autoResize="true" rows="2"
+                :disabled="isSubmitting" fluid />
 
-            <div class="d-flex justify-content-end">
-                <button class="btn btn-primary btn-sm d-flex align-items-center gap-2 px-4"
-                    :disabled="isSubmitting || !newComment.trim()">
-                    <i class="bi bi-send"></i>
-                    <span>{{ isSubmitting ? 'Sending...' : 'Send' }}</span>
-                </button>
+            <div class="flex justify-content-end">
+                <Button type="submit" label="Send" icon="pi pi-send" :disabled="isSubmitting || !newComment.trim()"
+                    :loading="isSubmitting" size="small" />
             </div>
         </form>
 
-        <small v-else class="text-secondary">You dont have a permission to comment</small>
+        <small v-else class="text-secondary">You don't have permission to comment</small>
     </div>
 </template>
 
 <script setup>
 import axios from 'axios'
 import { ref, onMounted } from 'vue'
+import Card from 'primevue/card'
+import Avatar from 'primevue/avatar'
+import Textarea from 'primevue/textarea'
+import Button from 'primevue/button'
 
 const props = defineProps({
     taskId: {
@@ -129,15 +127,11 @@ onMounted(getTaskComments)
 </script>
 
 <style scoped>
-textarea {
-    resize: none;
+.text-secondary {
+    color: var(--text-color-secondary);
 }
 
-.border {
-    border-color: #dee2e6 !important;
-}
-
-.bg-light {
-    background-color: #f9fafb !important;
+.text-color {
+    color: var(--text-color);
 }
 </style>

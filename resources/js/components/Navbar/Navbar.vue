@@ -5,8 +5,6 @@
             <div class="navbar-row-mobile">
                 <!-- Burger + Logo -->
                 <div class="navbar-left">
-                    <!-- <Button icon="pi pi-bars" @click="toggleSidebar" severity="secondary" text rounded
-                        class="burger-menu" aria-label="Toggle Menu" /> -->
                     <Button
                         icon="pi pi-bars"
                         class="border-0"
@@ -28,6 +26,18 @@
 
                 <!-- Mobile Icons -->
                 <div class="navbar-mobile">
+                    <!-- ADD HISTORY BUTTON FOR MOBILE -->
+                    <Button
+                        icon="pi pi-history"
+                        @click="goToHistory"
+                        severity="secondary"
+                        text
+                        rounded
+                        size="small"
+                        aria-label="History"
+                        v-tooltip.bottom="'History Tracking'"
+                    />
+
                     <div class="notification-wrapper">
                         <Button
                             icon="pi pi-list-check"
@@ -98,9 +108,6 @@
             <div class="navbar-row-desktop">
                 <!-- Left Section -->
                 <div class="navbar-left">
-                    <!-- <Button icon="pi pi-bars" @click="toggleSidebar" severity="secondary" text rounded
-                        class="burger-menu" aria-label="Toggle Menu" /> -->
-
                     <Button
                         icon="pi pi-bars"
                         class="border-0"
@@ -127,8 +134,17 @@
 
                 <!-- Right Section -->
                 <div class="navbar-right">
-                    <!-- Announcements -->
+                    <!-- ADD HISTORY BUTTON FOR DESKTOP -->
+                    <Button
+                        icon="pi pi-history"
+                        label="History"
+                        @click="goToHistory"
+                        severity="secondary"
+                        text
+                        class="nav-button with-label"
+                    />
 
+                    <!-- Announcements -->
                     <div class="notification-wrapper">
                         <Button
                             icon="pi pi-list-check"
@@ -367,8 +383,14 @@ export default {
                 showLogoutModal();
             }
         },
+
         goToKanban() {
             window.loadContent("kanban");
+        },
+
+        // ADD THIS NEW METHOD
+        goToHistory() {
+            window.loadContent("history");
         },
     },
 };

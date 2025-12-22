@@ -2,56 +2,61 @@
 	<div class="p-2" v-if="!isLoading">
 		<div class="grid_container">
 			<!-- Loop through each status -->
-			<div v-for="(tasks, status) in tasksByStatus" :key="status" class="status_container" :class="{
-				'status-todo': status === 'To Do',
-				'status-inprogress': status === 'In Progress',
-				'status-review': status === 'Under Review',
-				'status-done': status === 'Done'
-			}">
-				<div class="header_status">
-					<h3>{{ status }} ({{ tasks.length }})</h3>
-					<div class="d-flex align-items-center gap-2">
-						<AddTaskModal :allUsers="userData" @task-added="fetchTasks" v-show="status === 'To Do'" />
-						<button @click="toggleHidden(status)" class="btn btn-sm">
-							<i class="bi bi-chevron-down" />
-						</button>
+			<Panel v-for="(tasks, status) in tasksByStatus" :key="status" :toggleable="true"
+				:collapsed="isHidden[status]" @update:collapsed="(value) => isHidden[status] = value" :class="{
+					'status-todo': status === 'To Do',
+					'status-inprogress': status === 'In Progress',
+					'status-review': status === 'Under Review',
+					'status-done': status === 'Done'
+				}" class="status_container">
+				<template #header>
+					<div class="header_content">
+						<h3>{{ status }} ({{ tasks.length }})</h3>
+						<div class="header_actions">
+							<AddTaskModal :allUsers="userData" @task-added="fetchTasks" v-show="status === 'To Do'" />
+						</div>
 					</div>
-				</div>
+				</template>
 
-				<div v-show="!isHidden[status]">
-					<div v-for="task in tasks.slice(0, visibleCounts[status])" :key="task.id"
-						style="margin-bottom: 10px;">
-						<KanbanCard :task="task" @fetch-tasks="fetchTasks" :allUsers="userData" />
+				<template #default>
+					<div class="panel-content">
+						<div v-for="task in tasks.slice(0, visibleCounts[status])" :key="task.id" class="task-item">
+							<KanbanCard :task="task" @fetch-tasks="fetchTasks" :allUsers="userData" />
+						</div>
+
+						<Button v-if="visibleCounts[status] < tasks.length" @click="loadMore(status)" label="Load More"
+							class="w-full mt-3" size="small" severity="primary" />
 					</div>
-
-					<button v-if="visibleCounts[status] < tasks.length" @click="loadMore(status)"
-						style="width: 100%; margin-top: 10px;" class="btn btn-primary btn-sm">
-						Load More
-					</button>
-				</div>
-			</div>
+				</template>
+			</Panel>
 		</div>
 	</div>
 	<div v-else>
-		<div class="w-100 text-center my-5">
-			<span class="d-flex align-items-center justify-content-center gap-2 fs-4">
-				<div class="spinner-border text-primary" role="status">
-					<span class="visually-hidden">Loading...</span>
-				</div>
+		<div class="w-100 text-center my-5	">
+			<span class="d-flex flex-column align-items-center justify-content-center gap-2 fs-4">
+				<ProgressSpinner style="width: 50px; height: 50px" strokeWidth="4" animationDuration="1s" />
 				Loading Kanban
 			</span>
 		</div>
-
-
 	</div>
 </template>
 
-
 <script>
+import Panel from 'primevue/panel';
+import Button from 'primevue/button';
+import ProgressSpinner from 'primevue/progressspinner';
 import kanban from './kanban';
-export default kanban
-</script>
 
+export default {
+	...kanban,
+	components: {
+		...kanban.components,
+		Panel,
+		Button,
+		ProgressSpinner
+	}
+}
+</script>
 
 <style scoped>
 .grid_container {
@@ -65,66 +70,93 @@ export default kanban
 }
 
 .status_container {
-	padding: 15px;
-	border-radius: 10px;
-	background-color: #f1f5f9;
-	display: flex;
-	flex-direction: column;
-	gap: 15px;
 	box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
-.status_container h3 {
-	margin: 0 0 10px 0;
-	font-size: 1.1rem;
-	font-weight: 600;
+/* Override PrimeVue Panel styles for different statuses */
+.status_container :deep(.p-panel) {
+	border-radius: 10px;
+	background-color: #f1f5f9;
 }
 
-.status-todo {
+.status-todo :deep(.p-panel) {
 	background-color: #e0f2fe;
 	border-left: 5px solid #60a5fa;
 }
 
-.status-inprogress {
+.status-inprogress :deep(.p-panel) {
 	background-color: #fef3c7;
 	border-left: 5px solid #fbbf24;
 }
 
-.status-review {
+.status-review :deep(.p-panel) {
 	background-color: #ede9fe;
 	border-left: 5px solid #a78bfa;
 }
 
-.status-done {
+.status-done :deep(.p-panel) {
 	background-color: #d1fae5;
 	border-left: 5px solid #34d399;
 }
 
-.header_status {
+.status_container :deep(.p-panel-header) {
+	background-color: transparent;
+	border: none;
+	padding: 1rem;
+}
+
+.status_container :deep(.p-panel-content) {
+	padding: 0 1rem 1rem 1rem;
+	background-color: transparent;
+}
+
+/* Header layout fix */
+.header_content {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	width: 100%;
+	gap: 1rem;
 }
 
-.header_status button {
-	width: auto;
-	padding: 0.25rem 0.5rem;
+.header_content h3 {
+	margin: 0;
+	font-size: 1.1rem;
+	font-weight: 600;
+	flex-grow: 1;
+}
+
+.header_actions {
+	display: flex;
+	align-items: center;
+	gap: 0.5rem;
 	flex-shrink: 0;
 }
 
-@media (max-width: 600px) {
-	.header_status button {
-		padding: 0.2rem 0.4rem;
+/* Ensure toggle button stays on the right */
+.status_container :deep(.p-panel-header-icon) {
+	margin-left: 0.5rem;
+}
 
-		font-size: 0.85rem;
+.panel-content {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
 
-	}
+.task-item {
+	margin-bottom: 0;
 }
 
 /* Responsive */
 @media (max-width: 600px) {
 	.grid_container {
 		grid-template-columns: 1fr;
+		padding: 10px;
+	}
+
+	.header_content h3 {
+		font-size: 1rem;
 	}
 }
 </style>

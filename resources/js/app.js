@@ -11,6 +11,10 @@ import axios from "axios";
 import Swal from "sweetalert2";
 window.Swal = Swal;
 
+// ⭐ IMPORT TIME FORMATTER
+import timeFormatter from "./utils/timeformatter";
+import timeFormatterPlugin from "./plugins/timeFormatterPlugin";
+
 // ============================================
 // CONFIGURATION
 // ============================================
@@ -546,7 +550,6 @@ import Unreceived from "./page/unreceived/unreceived.vue";
 import Validation from "./page/validation/validation.vue";
 import ProductionArea from "./page/production/production.vue";
 import ReturnScanner from "./page/returnScanner/returnscanner.vue";
-import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 import FBMorders from "./page/fbmOrders/fbmOrders.vue";
 import Notfound from "./page/notfound/notfound.vue";
 import Houseage from "./page/houseage/houseage.vue";
@@ -556,8 +559,40 @@ import HumanResource from "./page/hr/hr.vue";
 import RTS from "./page/rts/rts.vue";
 import Kanban from "./page/kanban/kanban.vue";
 import Training from "./page/aiTraining/training.vue";
+import History from "./page/history/history.vue";
 
+import FbaInboundShipment from "./components/Stockroom/fba_inbound/fba_inbound_shipment.vue";
 import Navbar from "./components/Navbar/Navbar.vue";
+import Login from "./components/Login/Login.vue";
+
+// ============================================
+// LOGIN APP WITH PRIMEVUE
+// ============================================
+
+if (document.getElementById("login-app")) {
+    const loginApp = createApp({});
+
+    // Register Login component
+    loginApp.component("LoginComponent", Login);
+
+    // Use PrimeVue with same config as main app
+    loginApp.use(PrimeVue, {
+        theme: {
+            preset: Aura,
+            options: {
+                darkModeSelector: false,
+            },
+        },
+    });
+
+    // Use time formatter plugin
+    loginApp.use(timeFormatterPlugin);
+
+    // Mount the login app
+    loginApp.mount("#login-app");
+
+    console.log("✅ Login app mounted");
+}
 
 const asyncComponentMap = {
     printcustominvoice: () =>
@@ -587,6 +622,7 @@ const componentMapping = {
     Training: "training",
     RTS: "rts",
     Kanban: "kanban",
+    History: "history",
 };
 
 // ============================================
@@ -668,6 +704,14 @@ const app = createApp({
             if (navName === "kanban") {
                 const componentName = this.mapToComponentName(navName);
                 this.safeComponentUpdate(componentName, navName);
+                getKanbanNotif();
+                return;
+            }
+
+            // ADD THIS: Handle History directly without permission check
+            if (navName === "history") {
+                const componentName = this.mapToComponentName(navName);
+                this.safeComponentUpdate(componentName, navName);
                 return;
             }
 
@@ -713,6 +757,7 @@ const app = createApp({
 
             const hasAccess =
                 navName === "fbashipmentinbound" ||
+                navName === "history" ||
                 allowedModules.includes(navName) ||
                 navName === mainModule ||
                 customModules.includes(navName);
@@ -828,6 +873,50 @@ const app = createApp({
             }
             this.collapses[id].toggle();
         },
+
+        // ============================================
+        // KANBAN NOTIFICATION
+        // ============================================
+        getKanbanNotif() {
+            const user = ref(window.user || {});
+
+            fetch("/user/kanban/notification", {
+                method: "POST",
+                body: JSON.stringify({
+                    userId: user.id,
+                }),
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-TOKEN": document
+                        .querySelector('meta[name="csrf-token"]')
+                        .getAttribute("content"),
+                },
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    console.log(
+                        data.mentionedCount || 0,
+                        "data.mentionedCount || 0;"
+                    );
+                    window.kanbanMentionedCount = data.mentionedCount || 0;
+
+                    if (data.mentionedCount > 0) {
+                        ["kanbanNotifMobile", "kanbanNotifDesktop"].forEach(
+                            (id) => {
+                                const el = document.getElementById(id);
+                                if (el) {
+                                    el.style.display = "inline";
+                                    el.textContent = data.mentionedCount;
+                                }
+                            }
+                        );
+                    }
+                })
+                .catch((error) =>
+                    console.error("Error fetching notifications:", error)
+                );
+        },
     },
     components: {
         order: Order,
@@ -852,14 +941,9 @@ const app = createApp({
         rts: RTS,
         training: Training,
         kanban: Kanban,
+        history: History,
     },
 });
-
-// ============================================
-// GLOBAL MIXIN - REMOVED DUPLICATE LISTENERS
-// ============================================
-// Note: Activity tracking now handled at document level
-// No need for per-component listeners
 
 // ============================================
 // PRIMEVUE SETUP FOR BLADE APPS
@@ -869,6 +953,9 @@ import PrimeVue from "primevue/config";
 import Aura from "@primevue/themes/aura";
 import ToastService from "primevue/toastservice";
 import Tooltip from "primevue/tooltip";
+
+// ⭐ REGISTER TIME FORMATTER PLUGIN
+app.use(timeFormatterPlugin);
 
 // Configure main app with PrimeVue
 app.use(PrimeVue, {
@@ -884,6 +971,20 @@ app.directive("tooltip", Tooltip);
 
 // Mount main app
 window.appInstance = app.mount("#app");
+
+// ⭐ INITIALIZE TIME FORMATTER GLOBALLY
+window.timeFormatter = timeFormatter;
+timeFormatter
+    .init()
+    .then(() => {
+        console.log(
+            "✅ TimeFormatter initialized with timezone:",
+            timeFormatter.getTimezone()
+        );
+    })
+    .catch((error) => {
+        console.error("❌ TimeFormatter initialization failed:", error);
+    });
 
 // ============================================
 // EXPOSE GLOBALLY
@@ -946,6 +1047,8 @@ searchApp.use(PrimeVue, {
     },
 });
 searchApp.use(ToastService);
+// ⭐ REGISTER TIME FORMATTER FOR SEARCH APP
+searchApp.use(timeFormatterPlugin);
 
 searchApp.mount("#appsearch");
 
@@ -962,6 +1065,8 @@ if (document.getElementById("navbar-app")) {
             },
         },
     });
+    // ⭐ REGISTER TIME FORMATTER FOR NAVBAR APP
+    navbarApp.use(timeFormatterPlugin);
 
     navbarApp.mount("#navbar-app");
 }
@@ -988,6 +1093,8 @@ document.addEventListener("DOMContentLoaded", function () {
     keepSessionAlive();
 
     logSession("✅ App initialized successfully");
+
+    getKanbanNotif();
 });
 
 function createSessionIndicator() {
@@ -1040,6 +1147,8 @@ function createSessionIndicator() {
 if (document.getElementById("ai-app")) {
     const aiApp = createApp({});
     aiApp.component("training", Training);
+    // ⭐ REGISTER TIME FORMATTER FOR AI APP
+    aiApp.use(timeFormatterPlugin);
     aiApp.mount("#ai-app");
 }
 
@@ -1048,3 +1157,105 @@ console.log("✅ CSRF Handler loaded");
 console.log("✅ Idle Handler loaded");
 console.log("✅ Session Management loaded");
 console.log("✅ Activity tracking optimized (debounced + document-level)");
+
+function showPrinterModal() {
+    console.log("Opening printer modal...");
+
+    // Check if container exists, if not create it
+    let container = document.getElementById("printer-app-container");
+    if (!container) {
+        container = document.createElement("div");
+        container.id = "printer-app-container";
+        document.body.appendChild(container);
+    }
+
+    // Load the printer Vue component if not already loaded
+    if (!window.printerApp) {
+        loadPrinterComponent();
+    }
+}
+
+function loadPrinterComponent() {
+    console.log("Loading printer component...");
+
+    function checkReady() {
+        if (!window.appInstance) {
+            console.log("Main app not ready yet...");
+            return false;
+        }
+
+        if (!window.createApp) {
+            console.log("createApp not available yet...");
+            return false;
+        }
+
+        if (!window.appInstance.$options.components.printer) {
+            console.log("Printer component not registered yet...");
+            return false;
+        }
+
+        return true;
+    }
+
+    if (!checkReady()) {
+        setTimeout(loadPrinterComponent, 200);
+        return;
+    }
+
+    const printerComponent = window.appInstance.$options.components.printer;
+    createPrinterApp(printerComponent);
+}
+
+function createPrinterApp(PrinterComponent) {
+    console.log("Creating printer app with component");
+
+    const createApp = window.createApp;
+
+    if (!createApp) {
+        console.error("createApp function not available");
+        return;
+    }
+
+    try {
+        window.printerApp = createApp(PrinterComponent);
+
+        if (
+            window.appInstance &&
+            window.appInstance.config &&
+            window.appInstance.config.globalProperties
+        ) {
+            const globalProps = window.appInstance.config.globalProperties;
+            Object.keys(globalProps).forEach((key) => {
+                if (key !== "$el" && key !== "$root") {
+                    window.printerApp.config.globalProperties[key] =
+                        globalProps[key];
+                }
+            });
+        }
+
+        window.printerApp.mount("#printer-app-container");
+        console.log("Printer app mounted successfully");
+    } catch (error) {
+        console.error("Failed to mount printer app:", error);
+    }
+}
+
+function cleanupPrinterApp() {
+    console.log("Cleaning up printer app...");
+    if (window.printerApp) {
+        try {
+            window.printerApp.unmount();
+        } catch (error) {
+            console.error("Error unmounting printer app:", error);
+        }
+        window.printerApp = null;
+        const container = document.getElementById("printer-app-container");
+        if (container) {
+            container.innerHTML = "";
+        }
+    }
+}
+
+// Expose globally
+window.showPrinterModal = showPrinterModal;
+window.cleanupPrinterApp = cleanupPrinterApp;

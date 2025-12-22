@@ -415,7 +415,8 @@ public function kanbanNotif(Request $request)
 
     return response()->json([
         'success' => true,
-        'mentionedCount' => $mentionedCount
+        'mentionedCount' => $mentionedCount,
+        'desc' => "kanban Notif po ito"
     ]);
 }
 

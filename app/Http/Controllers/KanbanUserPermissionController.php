@@ -73,5 +73,4 @@ public function saveUserPermissions(Request $request)
     }
 }
 
-
 }
