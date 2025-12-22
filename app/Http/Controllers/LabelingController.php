@@ -652,7 +652,7 @@ class LabelingController extends BasetablesController
                     'request_data' => $request->all(),
                 ]);
 
-                // ✅ Track validation failure
+                // ✅ Track validation failure (one entry)
                 if ($request->rt_counter) {
                     $this->trackHistory(
                         'Labeling',
@@ -679,7 +679,7 @@ class LabelingController extends BasetablesController
             $originalTax = (float) ($request->tax ?? 0);
             $totalPrice = $originalPrice + $originalPriceShipping + $originalTax;
 
-            Log::info('Processing split request with all three price fields', [
+            Log::info('Processing split request', [
                 'product_id' => $productId,
                 'rt_counter' => $rtCounter,
                 'current_quantity' => $currentQuantity,
@@ -688,7 +688,7 @@ class LabelingController extends BasetablesController
 
             // Check if quantity is valid for splitting
             if ($currentQuantity <= 1) {
-                // ✅ Track invalid quantity
+                // ✅ Track invalid quantity (one entry)
                 $this->trackHistory(
                     'Labeling',
                     'Split Item Failed',
@@ -708,12 +708,9 @@ class LabelingController extends BasetablesController
                 ->first();
 
             if (! $originalProduct) {
-                Log::error('Product not found for splitting', [
-                    'product_id' => $productId,
-                    'table' => $this->productTable,
-                ]);
+                Log::error('Product not found for splitting');
 
-                // ✅ Track product not found
+                // ✅ Track product not found (one entry)
                 $this->trackHistory(
                     'Labeling',
                     'Split Item Failed',
@@ -732,7 +729,7 @@ class LabelingController extends BasetablesController
             if ($dbQuantity !== $currentQuantity) {
                 Log::warning('Quantity mismatch detected');
 
-                // ✅ Track quantity mismatch
+                // ✅ Track quantity mismatch (one entry)
                 $this->trackHistory(
                     'Labeling',
                     'Split Item Failed',
@@ -750,6 +747,7 @@ class LabelingController extends BasetablesController
             $unitPrice = $currentQuantity > 0 ? round($originalPrice / $currentQuantity, 2) : 0;
             $unitPriceShipping = $currentQuantity > 0 ? round($originalPriceShipping / $currentQuantity, 2) : 0;
             $unitTax = $currentQuantity > 0 ? round($originalTax / $currentQuantity, 2) : 0;
+            $totalUnitPrice = $unitPrice + $unitPriceShipping + $unitTax;
 
             // Get current max rtcounter to generate new RT numbers
             $maxRtResult = DB::table($this->productTable)
@@ -762,14 +760,6 @@ class LabelingController extends BasetablesController
             DB::beginTransaction();
 
             try {
-                // ✅ Track split start
-                $this->trackHistory(
-                    'Labeling',
-                    'Split Item Started',
-                    "RTC: {$rtCounter}",
-                    "Qty: {$currentQuantity} → {$currentQuantity} items @ ${unitPrice} each"
-                );
-
                 // Update original item to quantity = 1
                 $updateData = [
                     'quantity' => 1,
@@ -830,21 +820,18 @@ class LabelingController extends BasetablesController
                     }
 
                     $newItemsCreated++;
-
-                    // ✅ Track new item creation
-                    $this->trackCreate(
-                        'Labeling',
-                        "RTC: {$newRt} (Split from {$rtCounter})"
-                    );
                 }
 
-                // ✅ Track split completion
+                // ✅ UPDATED: Single consolidated history entry
                 $newRtList = implode(', ', $newRtCounters);
+                $beforeState = "RTC: {$rtCounter} | Qty: {$currentQuantity} | Price: $".number_format($totalPrice, 2);
+                $afterState = "Split into {$currentQuantity} items (RTC: {$rtCounter}, {$newRtList}) @ $".number_format($totalUnitPrice, 2).' each';
+
                 $this->trackHistory(
                     'Labeling',
-                    'Split Item Completed',
-                    "RTC: {$rtCounter} | Qty: {$currentQuantity}",
-                    "Created {$newItemsCreated} items: {$newRtList}"
+                    'Split Item',
+                    $beforeState,
+                    $afterState
                 );
 
                 // Commit transaction
@@ -870,10 +857,10 @@ class LabelingController extends BasetablesController
                     'error' => $e->getMessage(),
                 ]);
 
-                // ✅ Track split error
+                // ✅ Track split error (one entry)
                 $this->trackHistory(
                     'Labeling',
-                    'Split Item Error',
+                    'Split Item Failed',
                     "RTC: {$rtCounter}",
                     "Error: {$e->getMessage()}"
                 );
@@ -943,38 +930,57 @@ class LabelingController extends BasetablesController
                     array_merge($validated, ['lastDateUpdate' => now()->format('Y-m-d H:i:s')])
                 );
 
-            // Determine what changed for history
-            $changes = [];
+            // ✅ UPDATED: Track with exact before/after values
             if ($isUpdate && $originalProduct) {
-                foreach ($validated as $key => $value) {
+                // Collect only the fields that actually changed
+                $changes = [];
+                foreach ($validated as $key => $newValue) {
                     if (property_exists($originalProduct, $key)) {
                         $oldValue = $originalProduct->$key;
-                        if ($oldValue != $value) {
+
+                        // Compare values (handle null, empty strings, etc.)
+                        $oldValueNormalized = $oldValue === null ? '' : (string) $oldValue;
+                        $newValueNormalized = $newValue === null ? '' : (string) $newValue;
+
+                        if ($oldValueNormalized !== $newValueNormalized) {
                             $changes[$key] = [
-                                'from' => $oldValue,
-                                'to' => $value,
+                                'old' => $oldValue ?? 'null',
+                                'new' => $newValue ?? 'null',
                             ];
                         }
                     }
                 }
-            }
 
-            // ✅ Track with TracksHistory trait
-            if ($isUpdate && count($changes) > 0) {
-                // Build a summary of changes
-                $changedFields = array_keys($changes);
-                $changesSummary = implode(', ', array_slice($changedFields, 0, 3));
-                if (count($changedFields) > 3) {
-                    $changesSummary .= '... +'.(count($changedFields) - 3).' more';
+                // Only log if there are actual changes
+                if (count($changes) > 0) {
+                    // Build before and after strings with exact values
+                    $beforeParts = ["RTC: {$rtCounter}"];
+                    $afterParts = ["RTC: {$rtCounter}"];
+
+                    foreach ($changes as $field => $change) {
+                        // Format field names for readability
+                        $fieldDisplay = ucfirst(str_replace('_', ' ', $field));
+
+                        // Truncate long values for readability
+                        $oldDisplay = $this->truncateForDisplay($change['old'], 50);
+                        $newDisplay = $this->truncateForDisplay($change['new'], 50);
+
+                        $beforeParts[] = "{$fieldDisplay}: {$oldDisplay}";
+                        $afterParts[] = "{$fieldDisplay}: {$newDisplay}";
+                    }
+
+                    $beforeState = implode(' | ', $beforeParts);
+                    $afterState = implode(' | ', $afterParts);
+
+                    $this->trackHistory(
+                        'Labeling',
+                        'Update',
+                        $beforeState,
+                        $afterState
+                    );
                 }
-
-                $this->trackUpdate(
-                    'Labeling',
-                    "RTC: {$rtCounter}",
-                    "Updated fields: {$changesSummary}",
-                    count($changes).' fields changed'
-                );
             } elseif (! $isUpdate) {
+                // New product created
                 $this->trackCreate(
                     'Labeling',
                     "RTC: {$rtCounter}"
@@ -986,7 +992,7 @@ class LabelingController extends BasetablesController
                 'message' => 'Labeling product saved successfully',
                 'product' => $result,
                 'action' => $isUpdate ? 'updated' : 'created',
-                'changes_made' => count($changes),
+                'changes_made' => $isUpdate ? count($changes ?? []) : 0,
             ]);
         } catch (\Exception $e) {
             Log::error('Error in store method', [
@@ -1002,7 +1008,7 @@ class LabelingController extends BasetablesController
                 if ($product && isset($product->rtcounter)) {
                     $this->trackHistory(
                         'Labeling',
-                        'Product Save Failed',
+                        'Update Failed',
                         "RTC: {$product->rtcounter}",
                         "Error: {$e->getMessage()}"
                     );
@@ -1014,5 +1020,23 @@ class LabelingController extends BasetablesController
                 'message' => 'Failed to save product: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Helper method to truncate long values for display
+     */
+    private function truncateForDisplay($value, $maxLength = 50)
+    {
+        if ($value === null || $value === 'null') {
+            return 'null';
+        }
+
+        $strValue = (string) $value;
+
+        if (mb_strlen($strValue) <= $maxLength) {
+            return $strValue;
+        }
+
+        return mb_substr($strValue, 0, $maxLength - 3).'...';
     }
 }

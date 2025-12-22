@@ -367,7 +367,7 @@ class FnskuController extends BasetablesController
     }
 
     /**
-     * UPDATED updateFnsku method with FNSKU prefix system and HISTORY TRACKING
+     * UPDATED updateFnsku method with improved history tracking
      */
     public function updateFnsku(Request $request)
     {
@@ -436,10 +436,14 @@ class FnskuController extends BasetablesController
                 Log::error('New FNSKU not available:', ['fnsku' => $newBaseFnsku]);
 
                 // ✅ Track failed FNSKU assignment
+                $beforeState = empty($oldFnskuViewer) || $oldFnskuViewer === 'NULL' || trim($oldFnskuViewer) === ''
+                    ? "RTC: {$rtCounter} | No FNSKU"
+                    : "RTC: {$rtCounter} | FNSKU: {$oldFnskuViewer}";
+
                 $this->trackHistory(
                     'Labeling',
-                    'FNSKU Assignment Failed',
-                    "RTC: {$rtCounter}",
+                    'Set FNSKU Failed',
+                    $beforeState,
                     "FNSKU not available: {$newBaseFnsku}"
                 );
 
@@ -479,24 +483,19 @@ class FnskuController extends BasetablesController
                 $newFnskuRecord->storename
             );
 
-            // ✅ Track FNSKU assignment/update with TracksHistory
-            if (empty($oldFnskuViewer) || $oldFnskuViewer === 'NULL' || trim($oldFnskuViewer) === '') {
-                // NEW FNSKU Assignment
-                $this->trackHistory(
-                    'Labeling',
-                    'FNSKU Assigned',
-                    "RTC: {$rtCounter}",
-                    "FNSKU: {$actualFnskuToUse} | ASIN: {$newFnskuRecord->ASIN} | Units Left: {$fnskuInfo['remaining_units']}"
-                );
-            } else {
-                // FNSKU Updated (changed from one to another)
-                $this->trackUpdate(
-                    'Labeling',
-                    "RTC: {$rtCounter}",
-                    "Old FNSKU: {$oldFnskuViewer}",
-                    "New FNSKU: {$actualFnskuToUse} | ASIN: {$newFnskuRecord->ASIN}"
-                );
-            }
+            // ✅ UPDATED: Better history tracking with clear before/after states
+            $beforeState = empty($oldFnskuViewer) || $oldFnskuViewer === 'NULL' || trim($oldFnskuViewer) === ''
+                ? "RTC: {$rtCounter} | No FNSKU"
+                : "RTC: {$rtCounter} | FNSKU: {$oldFnskuViewer}";
+
+            $afterState = "RTC: {$rtCounter} | FNSKU: {$actualFnskuToUse} | ASIN: {$newFnskuRecord->ASIN} | Grade: {$newFnskuRecord->grading} | Units Left: {$fnskuInfo['remaining_units']}";
+
+            $this->trackHistory(
+                'Labeling',
+                'Set FNSKU',
+                $beforeState,
+                $afterState
+            );
 
             // Commit the transaction
             DB::commit();
@@ -504,7 +503,6 @@ class FnskuController extends BasetablesController
             Log::info('✅ FNSKU update transaction completed successfully');
             Log::info('=== FNSKU UPDATE REQUEST END ===');
 
-            // IMPORTANT: Return consistent success response
             return response()->json([
                 'success' => true,
                 'message' => 'FNSKU updated successfully',
@@ -528,10 +526,14 @@ class FnskuController extends BasetablesController
                     ->where('ProductID', $request->product_id)
                     ->first();
                 if ($product) {
+                    $beforeState = empty($product->FNSKUviewer) || $product->FNSKUviewer === 'NULL' || trim($product->FNSKUviewer) === ''
+                        ? "RTC: {$product->rtcounter} | No FNSKU"
+                        : "RTC: {$product->rtcounter} | FNSKU: {$product->FNSKUviewer}";
+
                     $this->trackHistory(
                         'Labeling',
-                        'FNSKU Update Failed',
-                        "RTC: {$product->rtcounter}",
+                        'Set FNSKU Failed',
+                        $beforeState,
                         'Validation Error'
                     );
                 }
@@ -544,9 +546,7 @@ class FnskuController extends BasetablesController
             ], 422);
 
         } catch (\Exception $e) {
-            // Rollback the transaction in case of error
             DB::rollBack();
-
             Log::error('❌ Error updating FNSKU: '.$e->getMessage());
             Log::error('Stack trace: '.$e->getTraceAsString());
 
@@ -556,10 +556,14 @@ class FnskuController extends BasetablesController
                     ->where('ProductID', $request->product_id)
                     ->first();
                 if ($product) {
+                    $beforeState = empty($product->FNSKUviewer) || $product->FNSKUviewer === 'NULL' || trim($product->FNSKUviewer) === ''
+                        ? "RTC: {$product->rtcounter} | No FNSKU"
+                        : "RTC: {$product->rtcounter} | FNSKU: {$product->FNSKUviewer}";
+
                     $this->trackHistory(
                         'Labeling',
-                        'FNSKU Update Error',
-                        "RTC: {$product->rtcounter}",
+                        'Set FNSKU Failed',
+                        $beforeState,
                         "Error: {$e->getMessage()}"
                     );
                 }
