@@ -10,9 +10,9 @@ import bootstrap from "bootstrap/dist/js/bootstrap.bundle.min.js";
 import AnnouncementModal from "./components/announcementmodal.vue";
 import scheduling from "./components/scheduling.vue";
 import History from "./components/history.vue";
-import Menu from 'primevue/menu';
-import Select from 'primevue/select';
-import { PrimeIcons } from '@primevue/core/api';
+import Menu from "primevue/menu";
+import Select from "primevue/select";
+import { PrimeIcons } from "@primevue/core/api";
 import Button from "primevue/button";
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -281,7 +281,7 @@ export default {
         History,
         Menu,
         Select,
-        Button
+        Button,
     },
 
     data() {
@@ -292,39 +292,38 @@ export default {
                 {
                     label: "Employee",
                     icon: PrimeIcons.USERS,
-                    command: () => this.setView("Employee")
+                    command: () => this.setView("Employee"),
                 },
                 {
                     label: "Time Record",
                     icon: PrimeIcons.CLOCK,
-                    command: () => this.setView("Time Record")
+                    command: () => this.setView("Time Record"),
                 },
                 {
                     label: "Violations",
                     icon: PrimeIcons.EXCLAMATION_TRIANGLE,
-                    command: () => this.setView("Violations")
+                    command: () => this.setView("Violations"),
                 },
                 {
                     label: "Announcement",
                     icon: PrimeIcons.BELL,
-                    command: () => this.setView("Announcement")
+                    command: () => this.setView("Announcement"),
                 },
                 {
                     label: "Holiday",
                     icon: PrimeIcons.CALENDAR_TIMES,
-                    command: () => this.setView("Holiday")
+                    command: () => this.setView("Holiday"),
                 },
                 {
                     label: "History",
                     icon: PrimeIcons.HISTORY,
-                    command: () => this.setView("History")
-                    
+                    command: () => this.setView("History"),
                 },
                 {
                     label: "Scheduling",
-                    icon: PrimeIcons.CALENDAR ,
-                    command: () => this.setView("Scheduling")
-                }
+                    icon: PrimeIcons.CALENDAR,
+                    command: () => this.setView("Scheduling"),
+                },
             ],
             tabs: [
                 "Employee",
@@ -333,7 +332,7 @@ export default {
                 "Announcement",
                 "Holiday",
                 "History",
-                "Scheduling"
+                "Scheduling",
             ],
             dropdownOpen: false,
             showFilters: true,
@@ -1008,7 +1007,7 @@ export default {
 
         // Time Records
         async fetchRecords() {
-            this.loadingTimeRecords = true
+            this.loadingTimeRecords = true;
             try {
                 const res = await axios.get(`${API_BASE_URL}/hr/time-records`, {
                     params: {
@@ -1045,7 +1044,7 @@ export default {
             } catch (err) {
                 console.error("Failed to fetch records", err);
             } finally {
-                this.loadingTimeRecords = false
+                this.loadingTimeRecords = false;
             }
         },
 
@@ -1679,6 +1678,10 @@ export default {
                 const { data } = await axios.post(
                     TOGGLE_URL,
                     {
+                        username:
+                            this.$store?.state?.user?.username ||
+                            window.username ||
+                            "admin",
                         id: row.id,
                         make_active: !row.is_active,
                     },

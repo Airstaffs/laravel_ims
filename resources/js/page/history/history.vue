@@ -22,80 +22,6 @@
             </template>
         </Card>
 
-        <!-- Statistics Cards -->
-        <div class="row g-3 mb-4">
-            <div class="col-md-3">
-                <Card class="stat-card stat-primary h-100">
-                    <template #content>
-                        <div class="d-flex align-items-center gap-3">
-                            <i
-                                class="pi pi-chart-line fs-1 text-primary opacity-75"
-                            ></i>
-                            <div>
-                                <div class="text-muted small">
-                                    Total Actions
-                                </div>
-                                <div class="fs-2 fw-bold">
-                                    {{ stats.total_actions || 0 }}
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-            </div>
-            <div class="col-md-3">
-                <Card class="stat-card stat-success h-100">
-                    <template #content>
-                        <div class="d-flex align-items-center gap-3">
-                            <i
-                                class="pi pi-calendar fs-1 text-success opacity-75"
-                            ></i>
-                            <div>
-                                <div class="text-muted small">This Week</div>
-                                <div class="fs-2 fw-bold">
-                                    {{ stats.week_actions || 0 }}
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-            </div>
-            <div class="col-md-3">
-                <Card class="stat-card stat-info h-100">
-                    <template #content>
-                        <div class="d-flex align-items-center gap-3">
-                            <i
-                                class="pi pi-clock fs-1 text-info opacity-75"
-                            ></i>
-                            <div>
-                                <div class="text-muted small">Today</div>
-                                <div class="fs-2 fw-bold">
-                                    {{ stats.today_actions || 0 }}
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-            </div>
-            <div class="col-md-3">
-                <Card class="stat-card stat-warning h-100">
-                    <template #content>
-                        <div class="d-flex align-items-center gap-3">
-                            <i
-                                class="pi pi-users fs-1 text-warning opacity-75"
-                            ></i>
-                            <div>
-                                <div class="text-muted small">Active Users</div>
-                                <div class="fs-2 fw-bold">
-                                    {{ stats.active_users || 0 }}
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                </Card>
-            </div>
-        </div>
-
         <!-- Filters -->
         <Card class="mb-4">
             <template #title>
@@ -187,44 +113,6 @@
                             :loading="loading"
                         />
                     </div>
-                </div>
-            </template>
-        </Card>
-
-        <!-- Test Actions -->
-        <Card class="mb-4">
-            <template #title>
-                <div class="d-flex align-items-center gap-2">
-                    <i class="pi pi-flask"></i>
-                    <span>Test Actions</span>
-                </div>
-            </template>
-            <template #content>
-                <div class="d-flex gap-2 flex-wrap">
-                    <Button
-                        label="Test Create Order"
-                        icon="pi pi-plus-circle"
-                        @click="testCreateOrder"
-                        severity="success"
-                        :loading="testLoading"
-                        size="small"
-                    />
-                    <Button
-                        label="Test Update Order"
-                        icon="pi pi-pencil"
-                        @click="testUpdateOrder"
-                        severity="warning"
-                        :loading="testLoading"
-                        size="small"
-                    />
-                    <Button
-                        label="Test Delete Order"
-                        icon="pi pi-trash"
-                        @click="testDeleteOrder"
-                        severity="danger"
-                        :loading="testLoading"
-                        size="small"
-                    />
                 </div>
             </template>
         </Card>
