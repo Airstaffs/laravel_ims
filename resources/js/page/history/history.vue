@@ -164,34 +164,13 @@
                         style="min-width: 280px"
                     >
                         <template #body="slotProps">
-                            <div class="d-flex flex-column">
-                                <!-- Primary Time (User's Timezone) -->
-                                <div
-                                    class="d-flex align-items-center gap-2 mb-1"
-                                >
-                                    <!-- <i class="pi pi-clock text-primary"></i> -->
-                                    <span class="fw-semibold text-primary">
-                                        {{
-                                            formatUserTime(
-                                                slotProps.data.editDate
-                                            )
-                                        }}
-                                    </span>
-                                </div>
-
-                                <!-- Secondary Time (Other Timezone) -->
-                                <div
-                                    class="d-flex align-items-center gap-2 ms-4"
-                                >
-                                    <!-- <i class="pi pi-globe text-muted small"></i> -->
-                                    <span class="text-muted small">
-                                        {{
-                                            formatOtherTime(
-                                                slotProps.data.editDate
-                                            )
-                                        }}
-                                    </span>
-                                </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="pi pi-clock text-primary"></i>
+                                <span class="fw-semibold">
+                                    {{
+                                        formatDateTime(slotProps.data.editDate)
+                                    }}
+                                </span>
                             </div>
                         </template>
                     </Column>
@@ -379,7 +358,6 @@ const historyRecords = ref([]);
 const totalRecords = ref(0);
 const currentPage = ref(1);
 const userTimezone = ref("America/Los_Angeles");
-const isPhilippineUser = ref(false);
 
 const stats = ref({
     total_actions: 0,
@@ -424,20 +402,64 @@ const actionOptions = [
 
 // Get user's timezone from backend or browser
 const getUserTimezone = async () => {
-    // Use browser timezone directly
-    userTimezone.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    try {
+        const response = await window.axios.get("/api/timezone/current");
 
-    // ✅ FIXED: Check for both Asia/Manila AND Asia/Shanghai (both are UTC+8)
-    isPhilippineUser.value =
-        userTimezone.value === "Asia/Manila" ||
-        userTimezone.value === "Asia/Shanghai" ||
-        userTimezone.value === "Asia/Hong_Kong" ||
-        userTimezone.value === "Asia/Taipei" ||
-        userTimezone.value === "Asia/Singapore" ||
-        userTimezone.value === "Asia/Kuala_Lumpur";
+        if (response.data.success && response.data.usertimezone) {
+            userTimezone.value = response.data.usertimezone;
+        } else {
+            userTimezone.value =
+                Intl.DateTimeFormat().resolvedOptions().timeZone;
+        }
+    } catch (error) {
+        userTimezone.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        console.log("Using browser timezone:", userTimezone.value);
+    }
 
-    console.log("🌍 Detected Timezone:", userTimezone.value);
-    console.log("🇵🇭 Is Philippine User:", isPhilippineUser.value);
+    console.log("User Timezone:", userTimezone.value);
+};
+
+// ✅ UPDATED: Single timezone display based on user's profile setting
+const formatDateTime = (dateString) => {
+    if (!dateString) return "N/A";
+    try {
+        // Parse the date string as UTC
+        const date = new Date(dateString.replace(" ", "T") + "Z");
+
+        // Format in user's selected timezone
+        const options = {
+            timeZone: userTimezone.value,
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: true,
+        };
+        const formatted = date.toLocaleString("en-US", options);
+
+        // ✅ FIXED: Calculate GMT offset for the USER'S SELECTED timezone, not browser's
+        // Get the date in UTC
+        const utcDate = new Date(
+            date.toLocaleString("en-US", { timeZone: "UTC" })
+        );
+        // Get the date in user's timezone
+        const userTzDate = new Date(
+            date.toLocaleString("en-US", { timeZone: userTimezone.value })
+        );
+
+        // Calculate offset in hours
+        const offsetMs = userTzDate - utcDate;
+        const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
+        const offsetSign = offsetHours >= 0 ? "+" : "-";
+        const gmtOffset = `GMT${offsetSign}${Math.abs(offsetHours)}`;
+
+        return `${formatted} (${gmtOffset})`;
+    } catch (error) {
+        console.error("Error formatting date time:", error);
+        return dateString;
+    }
 };
 
 // Helper functions - MUST be defined before they're used
@@ -494,62 +516,6 @@ const formatUserTime = (dateString) => {
     }
 };
 
-const formatOtherTime = (dateString) => {
-    if (!dateString) return "N/A";
-    try {
-        const date = new Date(dateString.replace(" ", "T") + "Z");
-
-        // If user is in LA, show Manila time instead to avoid duplicate
-        if (userTimezone.value.includes("Los_Angeles")) {
-            const otherTimezone = "Asia/Manila";
-            const label = "Manila";
-            const flag = "🇵🇭";
-
-            const options = {
-                timeZone: otherTimezone,
-                year: "numeric",
-                month: "short",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: true,
-            };
-            const formatted = date.toLocaleString("en-US", options);
-
-            return `${formatted} (GMT+8)`;
-        }
-
-        // For all other timezones, show LA time
-        const otherTimezone = "America/Los_Angeles";
-        const label = "Los Angeles";
-        const flag = "🇺🇸";
-
-        const options = {
-            timeZone: otherTimezone,
-            year: "numeric",
-            month: "short",
-            day: "2-digit",
-            hour: "2-digit",
-            minute: "2-digit",
-            second: "2-digit",
-            hour12: true,
-        };
-        const formatted = date.toLocaleString("en-US", options);
-
-        // ✅ FIXED: Simple DST check for LA timezone
-        // DST runs from second Sunday in March to first Sunday in November
-        const month = date.getUTCMonth(); // Use UTC month
-        const isDST = month >= 2 && month <= 10; // March (2) through November (10)
-        const gmtOffset = isDST ? "GMT-7" : "GMT-8";
-
-        return `${formatted} (${gmtOffset})`;
-    } catch (error) {
-        console.error("Error formatting other time:", error);
-        return dateString;
-    }
-};
-
 const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -593,6 +559,8 @@ const cleanModuleName = (moduleName) => {
 const loadHistory = async () => {
     loading.value = true;
     try {
+        await getUserTimezone();
+
         const params = {
             page: currentPage.value,
             per_page: 20,

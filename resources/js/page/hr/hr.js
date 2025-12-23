@@ -561,6 +561,13 @@ export default {
     },
 
     mounted() {
+        console.log("Auth check:", {
+            store: this.$store?.state?.user,
+            window: window.username,
+            localStorage: localStorage.getItem("username"),
+            session: sessionStorage.getItem("username"),
+        });
+
         this.setView("Employee");
         // Initialize Holiday modal
         const el = document.getElementById("holidayModal");
@@ -1672,16 +1679,24 @@ export default {
             };
         },
 
+        getCurrentUsername() {
+            return (
+                this.$store?.state?.user?.username ||
+                window.username ||
+                localStorage.getItem("username") ||
+                sessionStorage.getItem("username") ||
+                "admin"
+            );
+        },
+
         async toggleAnnouncementActive(row) {
             try {
+                const username = this.getCurrentUsername();
                 const TOGGLE_URL = `${API_BASE_URL}/hr/announcements/toggle-active`;
                 const { data } = await axios.post(
                     TOGGLE_URL,
                     {
-                        username:
-                            this.$store?.state?.user?.username ||
-                            window.username ||
-                            "admin",
+                        username: username,
                         id: row.id,
                         make_active: !row.is_active,
                     },
@@ -1700,7 +1715,11 @@ export default {
                 }
             } catch (e) {
                 console.error("toggleAnnouncementActive error:", e);
-                alert(e?.message || "Failed to update status.");
+                Swal.fire(
+                    "Error",
+                    e?.message || "Failed to update status.",
+                    "error"
+                );
             }
         },
 
