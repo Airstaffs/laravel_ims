@@ -604,43 +604,61 @@ class HrController extends Controller
         }
     }
 
-    public function acknowledgeAnnouncement(Request $request)
-    {
-        $request->validate([
-            'announcement_id' => 'required|integer|exists:tblannouncements,id',
-        ]);
+public function acknowledgeAnnouncement(Request $request)
+{
+    $request->validate([
+        'announcement_id' => 'required|integer|exists:tblannouncements,id',
+    ]);
 
-        $username = $request->input('username', session('user_name'));
-        if (!$username) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Username missing (session or payload).',
-            ], 422);
-        }
+    // ✅ Prefer logged-in user (most reliable)
+    $user = auth()->user();
 
-        $ann = DB::table('tblannouncements')->where('id', $request->announcement_id)->first();
-        if (!$ann) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Announcement not found.',
-            ], 404);
-        }
+    $username =
+        $user->username ??              // if you have "username"
+        $user->name ??                  // or "name"
+        $user->email ??                 // fallback
+        session('user_name') ??         // your old session key
+        session('username') ??          // common variant
+        session('name') ??              // common variant
+        $request->input('username');    // last resort (payload)
 
-        // ----- Option A: Simple read-modify-write (good enough for low contention) -----
-        $readby = is_array($ann->readby) ? $ann->readby : (json_decode($ann->readby, true) ?? []);
-        if (!in_array($username, $readby, true)) {
-            $readby[] = $username;
-            DB::table('tblannouncements')
-                ->where('id', $ann->id)
-                ->update(['readby' => json_encode(array_values(array_unique($readby)))]);
-        }
-
+    if (!$username) {
         return response()->json([
-            'success' => true,
-            'announcement_id' => $ann->id,
-            'readby' => $readby,
-        ]);
+            'success' => false,
+            'message' => 'Username missing (not authenticated / not in session).',
+        ], 422);
     }
+
+    $ann = DB::table('tblannouncements')
+        ->where('id', $request->announcement_id)
+        ->first();
+
+    if (!$ann) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Announcement not found.',
+        ], 404);
+    }
+
+    $readby = json_decode($ann->readby ?? '[]', true);
+    if (!is_array($readby)) $readby = [];
+
+    if (!in_array($username, $readby, true)) {
+        $readby[] = $username;
+
+        DB::table('tblannouncements')
+            ->where('id', $ann->id)
+            ->update([
+                'readby' => json_encode(array_values(array_unique($readby))),
+            ]);
+    }
+
+    return response()->json([
+        'success' => true,
+        'announcement_id' => $ann->id,
+        'readby' => $readby,
+    ]);
+}
 
     public function saveAnnouncement(Request $request)
     {

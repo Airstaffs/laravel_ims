@@ -9,7 +9,7 @@ date_default_timezone_set('America/Los_Angeles');
 // exit("RAWR");
 
 $success = false;
-$strname = "RT";
+$strname = "AR";
 $platform = "Amazon";
 
 $db = dbDatabase();
@@ -20,7 +20,8 @@ if (true) {
 
     $row = array();
 
-    $stores = ['RenovarTech'];
+    $stores = ['AllRenewed'];
+
 
     foreach ($stores as $store) {
 

@@ -511,33 +511,46 @@ const acknowledgeAnnouncement = async () => {
         xhr.withCredentials = true;
 
         xhr.onload = function () {
+            let payload = null;
+            try {
+                payload = JSON.parse(xhr.responseText);
+            } catch {}
+
             if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    const result = JSON.parse(xhr.responseText);
-                    if (result && result.success) {
-                        announcementVisible.value = false;
-                        lastShownId.value = annId;
-                    } else {
-                        Swal.fire({
-                            icon: "error",
-                            title: "Error",
-                            text: result?.message || "Failed to acknowledge",
-                        });
-                    }
-                } catch (parseError) {
-                    Swal.fire({
-                        icon: "error",
-                        title: "Error",
-                        text: "Invalid response from server",
-                    });
+                if (payload?.success) {
+                    announcementVisible.value = false;
+                    lastShownId.value = annId;
+                    return;
                 }
-            } else {
                 Swal.fire({
                     icon: "error",
                     title: "Error",
-                    text: "Failed to acknowledge",
+                    text: payload?.message || "Failed to acknowledge",
                 });
+                return;
             }
+
+            // ✅ show Laravel validation errors
+            if (xhr.status === 422) {
+                const msg =
+                    payload?.message ||
+                    Object.values(payload?.errors || {})
+                        .flat()
+                        .join("\n") ||
+                    "Validation failed (422).";
+                Swal.fire({
+                    icon: "error",
+                    title: "Validation Error",
+                    text: msg,
+                });
+                return;
+            }
+
+            Swal.fire({
+                icon: "error",
+                title: "Error",
+                text: payload?.message || "Failed to acknowledge",
+            });
         };
 
         xhr.onerror = function () {
