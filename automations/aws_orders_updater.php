@@ -20,7 +20,7 @@ if (true) {
 
     $row = array();
 
-    $stores = ['RenovarTech', 'AllRenewed'];
+    $stores = ['AllRenewed', 'RenovarTechAllRenewed'];
 
     foreach ($stores as $store) {
 
