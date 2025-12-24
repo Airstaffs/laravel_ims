@@ -48,6 +48,7 @@ use App\Http\Controllers\UserSessionController;
 use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
+use App\Http\Controllers\TestingController;
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -602,6 +603,19 @@ Route::prefix('api/houseage')->group(function () {
         ->name('houseage.serial-image');
 
     Route::get('serial-image', [HouseageController::class, 'getSerialImage']);
+});
+
+// Testing module routes
+Route::middleware(['auth'])->prefix('api/testing')->group(function () {
+    Route::get('products', [TestingController::class, 'index']);
+    
+    // Item condition routes
+    Route::get('condition/{itemNumber}', [TestingController::class, 'getCondition']);
+    Route::post('condition', [TestingController::class, 'saveCondition']);
+    Route::get('condition-history/{itemNumber}', [TestingController::class, 'getConditionHistory']);
+    Route::get('condition-compare/{itemNumber}', [TestingController::class, 'compareConditions']);
+    Route::get('testing-overview', [TestingController::class, 'getTestingOverview']);
+    Route::delete('condition/{id}', [TestingController::class, 'deleteCondition']);
 });
 
 // Printer API routes

@@ -32,8 +32,13 @@
                 </template>
 
                 <template #actions="{ data }">
-                    <Button size="small" severity="contrast" variant="text" label="View Details" class="text-primary"
-                        icon="pi pi-exclamation-circle" @click="openEditModal(data)" />
+                    <div class="d-flex gap-2">
+                        <Button size="small" severity="success" variant="text" label="Condition" 
+                            icon="pi pi-check-square" @click="openConditionModal(data)" 
+                            class="text-success" />
+                        <Button size="small" severity="contrast" variant="text" label="View Details" class="text-primary"
+                            icon="pi pi-exclamation-circle" @click="openEditModal(data)" />
+                    </div>
                 </template>
             </XDataTable>
         </AnimateDiv>
@@ -41,9 +46,17 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <MobileCard1 :data="item" :showDetails="showDetails" :sortedInventory="sortedInventory"
-                :expandedRows="expandedRows" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                :countAdditionalImages="countAdditionalImages" :openEditModal="openEditModal" :loading="loading" />
+            <MobileCard1 
+                :showDetails="showDetails" 
+                :sortedInventory="sortedInventory"
+                :expandedRows="expandedRows" 
+                :openImageModal="openImageModal" 
+                :handleImageError="handleImageError"
+                :countAdditionalImages="countAdditionalImages" 
+                :openEditModal="openEditModal"
+                :openConditionModal="openConditionModal"
+                :loading="loading" 
+            />
         </div>
 
         <!-- Pagination with centered layout -->
@@ -74,6 +87,13 @@
         <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
             :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
             @close="closeImageModal" />
+
+        <!-- Condition Checklist Modal -->
+        <ReceivedConditionModal 
+            v-model:visible="showConditionModal"
+            :item="selectedItem"
+            @saved="handleConditionSaved"
+        />
 
         <Dialog v-model:visible="showEditModal" class="view-modal" modal
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;" :pt="{
@@ -322,6 +342,7 @@ import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import ReceivedConditionModal from "./receivedCondtion_modal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [
@@ -369,12 +390,15 @@ export default {
         TitlePage,
         ViewImageModal,
         AnimateDiv,
-        Select
+        Select,
+        ReceivedConditionModal
     },
     data() {
         return {
             columns: TABLE_COLUMNS,
-            rowsPerPage: ROWS_PER_PAGE
+            rowsPerPage: ROWS_PER_PAGE,
+            showConditionModal: false,
+            selectedItem: null
         };
     },
     computed: {
@@ -383,15 +407,58 @@ export default {
 
             //columns can be showed or hidden
             const detailFields = ["FBMAvailable", "FbaAvailable", "Outbound", "Inbound", "Reserved", "Unfulfillable"];
-
+            // Mandatory fields that should always be visible
+            const mandatoryFields = ["gallery", "ProductTitle"];
 
             return this.columns.filter(col => {
+                // Always show mandatory fields
+                if (mandatoryFields.includes(col.field)) {
+                    return true;
+                }
+                
+                // Hide detail fields if showDetails is false
                 if (!this.showDetails && detailFields.includes(col.field)) {
                     return false;
                 }
+                
                 return true;
             });
         },
     },
+    methods: {
+        openConditionModal(item) {
+            this.selectedItem = item;
+            this.showConditionModal = true;
+        },
+
+        handleConditionSaved(conditionData) {
+            console.log('Condition saved:', conditionData);
+            
+            // Try multiple notification methods
+            if (typeof this.$swal !== 'undefined') {
+                this.$swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Received condition saved successfully',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Received condition saved successfully',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            } else {
+                // Fallback to native alert
+                alert('Success! Received condition saved successfully');
+            }
+            
+            // Refresh inventory to show any updates
+            this.fetchInventory();
+        }
+    }
 };
 </script>
