@@ -146,6 +146,19 @@ if (!empty($rdtResponse['restrictedDataToken'])) {
     $rdt = $rdtResponse['restrictedDataToken'];
 }
 
+echo "<br>Access TOken";
+
+echo "<pre>";
+print_r($accessToken);
+echo "</pre>";
+
+echo "<br>RDT TOken";
+
+echo "<pre>";
+print_r($rdt);
+echo "</pre>";
+
+
 foreach ($orderIds as $amazonOrderIdInput) {
     echo "<hr><h4>Importing: {$amazonOrderIdInput}</h4>";
 
