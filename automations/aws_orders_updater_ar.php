@@ -102,18 +102,24 @@ if (true) {
 
                 $ordertype = $db->real_escape_string($order['OrderType'] ?? '');
 
-                // Step 1: Check if order exists
-                $outboundorders_stmt = $db->prepare("SELECT platform_order_id FROM tbloutboundorders WHERE platform_order_id = ? AND platform = ? AND storename = ?");
-                $outboundorders_stmt->bind_param("sss", $AmazonOrderId, $platform, $store);
-                $outboundorders_stmt->execute();
-                $outboundorders_stmt->store_result();
 
-                echo "$AmazonOrderId <br>";
 
-                if ($outboundorders_stmt->num_rows > 0) {
-                    $value_sheesh = [];
-                    // Step 2: Update if exists
-                    $updateStmt_outboundorders = $db->prepare("UPDATE tbloutboundorders SET 
+                $orderItems = fetchOrderItems($credentials, $accessToken, $amazonOrderId);
+
+                if (isset($orderItems['payload']['OrderItems'])) {
+
+                    // Step 1: Check if order exists
+                    $outboundorders_stmt = $db->prepare("SELECT platform_order_id FROM tbloutboundorders WHERE platform_order_id = ? AND platform = ? AND storename = ?");
+                    $outboundorders_stmt->bind_param("sss", $AmazonOrderId, $platform, $store);
+                    $outboundorders_stmt->execute();
+                    $outboundorders_stmt->store_result();
+
+                    echo "$AmazonOrderId <br>";
+
+                    if ($outboundorders_stmt->num_rows > 0) {
+                        $value_sheesh = [];
+                        // Step 2: Update if exists
+                        $updateStmt_outboundorders = $db->prepare("UPDATE tbloutboundorders SET 
                         address_line1 = ?, 
                         StateOrRegion = ?,
                         postal_code = ?,
@@ -138,46 +144,46 @@ if (true) {
                         AND platform = ? 
                         AND storename = ?");
 
-                    $value_sheesh = [
-                        $AddressLine1,
-                        $state,
-                        $postalcode,
-                        $city,
-                        $countrycode,
-                        $paymentMethod,
-                        $BuyerName,
-                        $buyerEmail,
-                        $purchaseDate,
-                        $earliestShipDate,
-                        $latestShipDate,
-                        $earliestDeliveryDate,
-                        $latestDeliveryDate,
-                        $shipmentservice,
-                        $ordertype,
-                        $replacementOrder,
-                        $fulfillmentChannel,
-                        $ship_to_name,
-                        $itemsUnshipped,
-                        $itemsShipped,
-                        $AmazonOrderId,
-                        $platform,
-                        $store
-                    ];
+                        $value_sheesh = [
+                            $AddressLine1,
+                            $state,
+                            $postalcode,
+                            $city,
+                            $countrycode,
+                            $paymentMethod,
+                            $BuyerName,
+                            $buyerEmail,
+                            $purchaseDate,
+                            $earliestShipDate,
+                            $latestShipDate,
+                            $earliestDeliveryDate,
+                            $latestDeliveryDate,
+                            $shipmentservice,
+                            $ordertype,
+                            $replacementOrder,
+                            $fulfillmentChannel,
+                            $ship_to_name,
+                            $itemsUnshipped,
+                            $itemsShipped,
+                            $AmazonOrderId,
+                            $platform,
+                            $store
+                        ];
 
-                    if (count($value_sheesh) !== 23) {
-                        echo "❌ Expected 23 values for outbound order UPDATE. Got: " . count($value_sheesh);
-                        print_r($value_sheesh);
-                        exit;
-                    }
+                        if (count($value_sheesh) !== 23) {
+                            echo "❌ Expected 23 values for outbound order UPDATE. Got: " . count($value_sheesh);
+                            print_r($value_sheesh);
+                            exit;
+                        }
 
-                    $updateStmt_outboundorders->bind_param('ssssssssssssssssssiisss', ...$value_sheesh);
-                    $updateStmt_outboundorders->execute();
-                    echo "--- Order updated. <br>";
-                    $updateStmt_outboundorders->close();
+                        $updateStmt_outboundorders->bind_param('ssssssssssssssssssiisss', ...$value_sheesh);
+                        $updateStmt_outboundorders->execute();
+                        echo "--- Order updated. <br>";
+                        $updateStmt_outboundorders->close();
 
-                } else {
-                    // Step 3: Insert if not exists
-                    $insertStmt = $db->prepare("INSERT INTO tbloutboundorders (
+                    } else {
+                        // Step 3: Insert if not exists
+                        $insertStmt = $db->prepare("INSERT INTO tbloutboundorders (
                         platform,
                         storename,
                         platform_order_id,
@@ -203,44 +209,41 @@ if (true) {
                         ShiptoName
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-                    $value_sheesh = [
-                        $platform,
-                        $store,
-                        $AmazonOrderId,
-                        $AddressLine1,
-                        $state,
-                        $postalcode,
-                        $city,
-                        $countrycode,
-                        $paymentMethod,
-                        $BuyerName,
-                        $buyerEmail,
-                        $purchaseDate,
-                        $earliestShipDate,
-                        $latestShipDate,
-                        $earliestDeliveryDate,
-                        $latestDeliveryDate,
-                        $shipmentservice,
-                        $ordertype,
-                        $replacementOrder,
-                        $fulfillmentChannel,
-                        $itemsShipped,
-                        $itemsUnshipped,
-                        $ship_to_name,
-                    ];
+                        $value_sheesh = [
+                            $platform,
+                            $store,
+                            $AmazonOrderId,
+                            $AddressLine1,
+                            $state,
+                            $postalcode,
+                            $city,
+                            $countrycode,
+                            $paymentMethod,
+                            $BuyerName,
+                            $buyerEmail,
+                            $purchaseDate,
+                            $earliestShipDate,
+                            $latestShipDate,
+                            $earliestDeliveryDate,
+                            $latestDeliveryDate,
+                            $shipmentservice,
+                            $ordertype,
+                            $replacementOrder,
+                            $fulfillmentChannel,
+                            $itemsShipped,
+                            $itemsUnshipped,
+                            $ship_to_name,
+                        ];
 
-                    $insertStmt->bind_param(str_repeat("s", count($value_sheesh)), ...$value_sheesh);
-                    $insertStmt->execute();
-                    echo "--- New order inserted. <br>";
-                    $insertStmt->close();
-                }
+                        $insertStmt->bind_param(str_repeat("s", count($value_sheesh)), ...$value_sheesh);
+                        $insertStmt->execute();
+                        echo "--- New order inserted. <br>";
+                        $insertStmt->close();
+                    }
 
-                $outboundorders_stmt->close();
+                    $outboundorders_stmt->close();
 
 
-                $orderItems = fetchOrderItems($credentials, $accessToken, $amazonOrderId);
-
-                if (isset($orderItems['payload']['OrderItems'])) {
                     foreach ($orderItems['payload']['OrderItems'] as $item) {
 
                         $sellerSKU = $db->real_escape_string($item['SellerSKU'] ?? '');
@@ -772,12 +775,12 @@ function dbDatabase()
             break;
 
         case "laravel_ims":
-        $hostname = 'localhost';
-        $username = 'imsv2_dbims_user';
-        $password = 'Imsv2_dbims_user';
-        $database = 'imsv2_dbims';
+            $hostname = 'localhost';
+            $username = 'imsv2_dbims_user';
+            $password = 'Imsv2_dbims_user';
+            $database = 'imsv2_dbims';
             break;
- 
+
         default:
             die("❌ Invalid server type: Set \$servertype properly.");
     }
@@ -1182,7 +1185,8 @@ function getAWSCredentials($db, $store)
 
 function isoToMysqlDatetime($isoString)
 {
-    if (empty($isoString)) return null;
+    if (empty($isoString))
+        return null;
 
     $date = new DateTime($isoString, new DateTimeZone('UTC'));
     $date->setTimezone(new DateTimeZone('America/Los_Angeles'));
