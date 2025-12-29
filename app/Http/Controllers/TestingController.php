@@ -111,11 +111,11 @@ class TestingController extends BasetablesController
      * Save condition checklist
      * ALWAYS creates a NEW record (allows multiple receive/release for returned items)
      */
-    public function saveCondition(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
+   public function saveCondition(Request $request)
+{
+    $validator = Validator::make($request->all(), [
         'item_number' => 'required|string',
-        'product_id' => 'nullable',
+        'product_id' => 'required|string', // Changed to required
         'condition_type' => 'required|in:receive,release',
         'physical_damage' => 'nullable|boolean',
         'scratches' => 'nullable|boolean',
@@ -135,47 +135,62 @@ class TestingController extends BasetablesController
         'notes' => 'nullable|string|max:1000',
     ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        try {
-            $data = $validator->validated();
-            $data['inspected_by'] = $this->getCurrentUserName(); 
-            $data['inspected_at'] = now();
-
-            // Check if trying to add release before receive
-            if ($data['condition_type'] === 'release') {
-                $hasReceive = ItemCondition::hasReceiveCondition($data['item_number']);
-                if (!$hasReceive) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Cannot add release condition without a receive condition first',
-                    ], 422);
-                }
-            }
-
-            // ALWAYS create NEW record - allows tracking history for returned items
-            $condition = ItemCondition::create($data);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Condition checklist saved successfully',
-                'condition' => $condition,
-                'score' => $condition->condition_score
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to save condition data',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+    if ($validator->fails()) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Validation failed',
+            'errors' => $validator->errors()
+        ], 422);
     }
+
+    try {
+        $data = $validator->validated();
+        $data['inspected_by'] = $this->getCurrentUserName();
+        $data['inspected_at'] = now();
+
+        // Check if trying to add release before receive
+        if ($data['condition_type'] === 'release') {
+            $hasReceive = ItemCondition::where('item_number', $data['item_number'])
+                ->where('product_id', $data['product_id'])
+                ->where('condition_type', 'receive')
+                ->exists();
+                
+            if (!$hasReceive) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot add release condition without a receive condition first',
+                ], 422);
+            }
+        }
+
+        // UPDATE OR CREATE based on item_number + product_id + condition_type
+        $condition = ItemCondition::updateOrCreate(
+            [
+                'item_number' => $data['item_number'],
+                'product_id' => $data['product_id'],
+                'condition_type' => $data['condition_type']
+            ],
+            $data
+        );
+
+        $wasRecentlyCreated = $condition->wasRecentlyCreated;
+        
+        return response()->json([
+            'success' => true,
+            'message' => $wasRecentlyCreated 
+                ? 'Condition checklist created successfully' 
+                : 'Condition checklist updated successfully',
+            'condition' => $condition,
+            'score' => $condition->condition_score
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to save condition data',
+            'error' => $e->getMessage()
+        ], 500);
+    }
+}
 
     /**
      * Get complete condition history for an item

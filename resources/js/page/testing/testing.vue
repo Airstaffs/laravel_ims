@@ -342,7 +342,7 @@ import MobileCard1 from "../../components/MobileCard1/MobileCard1.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
-import ReceivedConditionModal from "./receivedCondtion_modal.vue";
+import ReceivedConditionModal from "./modals/receivedCondtion_modal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
 
 const TABLE_COLUMNS = [

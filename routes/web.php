@@ -618,6 +618,21 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
     Route::delete('condition/{id}', [TestingController::class, 'deleteCondition']);
 });
 
+
+
+// Testing module routes
+Route::middleware(['auth'])->prefix('api/cleaning')->group(function () {
+    Route::get('products', [TestingController::class, 'index']);
+    
+    // Item condition routes
+    Route::get('condition/{itemNumber}', [TestingController::class, 'getCondition']);
+    Route::post('condition', [TestingController::class, 'saveCondition']);
+    Route::get('condition-history/{itemNumber}', [TestingController::class, 'getConditionHistory']);
+    Route::get('condition-compare/{itemNumber}', [TestingController::class, 'compareConditions']);
+    Route::get('testing-overview', [TestingController::class, 'getTestingOverview']);
+    Route::delete('condition/{id}', [TestingController::class, 'deleteCondition']);
+});
+
 // Printer API routes
 Route::prefix('api/printer')->group(function () {
     // Check if serial number meets print conditions

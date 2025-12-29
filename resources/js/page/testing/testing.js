@@ -310,7 +310,7 @@ export default {
                             search: this.searchQuery,
                             page: this.currentPage,
                             per_page: this.perPage,
-                            location: "Received",
+                            location: "Testing",
                         },
                     }
                 );
