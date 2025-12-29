@@ -7,6 +7,7 @@ date_default_timezone_set('America/Los_Angeles');
 
 
 // exit("RAWR");
+echo "Rawr";
 
 $success = false;
 $strname = "AR";
