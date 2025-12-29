@@ -12,13 +12,15 @@ export default {
             loading: true,
             currentPage: 1,
             totalPages: 1,
-            perPage: 10, // Default rows per page
+            perPage: 10,
             selectAll: false,
             expandedRows: {},
             sortColumn: "",
             sortOrder: "asc",
             showDetails: false,
             defaultImage: DEFAULT_IMAGE,
+            ProductTitle: "",
+            isLoadingImages: false,
             // Modal state
             showImageModal: false,
             modalImages: [],
@@ -34,7 +36,6 @@ export default {
             items: [],
             activeIndex: 0,
             basePath: "/images/thumbnails/",
-            loading: false,
             error: null,
         };
     },
@@ -43,7 +44,12 @@ export default {
             return eventBus.searchQuery;
         },
         sortedInventory() {
+            if (!this.inventory || !Array.isArray(this.inventory)) {
+                return [];
+            }
+            
             if (!this.sortColumn) return this.inventory;
+            
             return [...this.inventory].sort((a, b) => {
                 const valueA = a[this.sortColumn];
                 const valueB = b[this.sortColumn];
@@ -80,7 +86,6 @@ export default {
             );
         },
 
-        // Safe numeric getters
         qty() {
             return Number(this.item.quantity) || 0;
         },
@@ -89,10 +94,10 @@ export default {
         },
         discountValue() {
             return Number(this.item.Discount) || 0;
-        }, // fixed amount
+        },
         taxValue() {
             return Number(this.item.tax) || 0;
-        }, // fixed amount
+        },
         shipping() {
             return Number(this.item.priceshipping) || 0;
         },
@@ -187,7 +192,6 @@ export default {
         },
 
         displaySerialImage() {
-            // priority: local preview -> server path -> default
             return (
                 this.serialImageUrl ||
                 this.serialImagePath ||
@@ -197,17 +201,14 @@ export default {
     },
     methods: {
         handleImageError(event) {
-            // If image fails to load, use an inline SVG placeholder
             event.target.src = this.defaultImage;
-            event.target.onerror = null; // Prevent infinite error loop
+            event.target.onerror = null;
         },
 
-        // Count additional images based on the image fields (img2-img15)
         countAdditionalImages(item) {
             if (!item) return 0;
 
             let count = 0;
-            // Check fields img2 through img15
             for (let i = 2; i <= 15; i++) {
                 const fieldName = `img${i}`;
                 if (
@@ -286,7 +287,7 @@ export default {
             if (this.activeIndex > 0) {
                 this.activeIndex--;
             } else {
-                this.activeIndex = this.imageList.length - 1; // Loop to end
+                this.activeIndex = this.imageList.length - 1;
             }
         },
 
@@ -294,27 +295,44 @@ export default {
             if (this.activeIndex < this.imageList.length - 1) {
                 this.activeIndex++;
             } else {
-                this.activeIndex = 0; // Loop to start
+                this.activeIndex = 0;
             }
         },
 
-        // Fetch inventory data from the API
+        // ✅ Updated to match received.js pattern
         async fetchInventory() {
             this.loading = true;
             try {
-                const response = await axios.get(`${API_BASE_URL}/products`, {
-                    params: {
-                        search: this.searchQuery,
-                        page: this.currentPage,
-                        per_page: this.perPage,
-                        location: "Orders",
-                    },
-                });
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/testing/products`,
+                    {
+                        params: {
+                            search: this.searchQuery,
+                            page: this.currentPage,
+                            per_page: this.perPage,
+                            location: "Testing",
+                        },
+                    }
+                );
 
-                this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                console.log('API Response:', response.data);
+
+                // Handle the response data
+                this.inventory = Array.isArray(response.data.data) 
+                    ? response.data.data 
+                    : [];
+                this.totalPages = response.data.last_page || 1;
+                this.currentPage = response.data.current_page || 1;
+                
+                console.log('Inventory loaded:', this.inventory.length, 'items');
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
+                console.error("Error response:", error.response);
+                
+                // Set empty array on error
+                this.inventory = [];
+                this.totalPages = 1;
+                this.currentPage = 1;
             } finally {
                 this.loading = false;
             }
@@ -376,25 +394,28 @@ export default {
             this.showEditModal = true;
             document.body.style.overflow = "hidden";
 
-            // If you want to proactively load any existing serial image for this item:
             await this.$nextTick();
-            await this.fetchSerialImageIfAny?.(); // safe if you added this earlier
+            if (this.fetchSerialImageIfAny) {
+                await this.fetchSerialImageIfAny();
+            }
         },
 
         closeEditModal() {
             this.showEditModal = false;
 
-            // Reset image state on close too
-            this.resetSerialImage({ clearServer: true });
+            if (this.resetSerialImage) {
+                this.resetSerialImage({ clearServer: true });
+            }
 
             setTimeout(() => {
                 document.body.style.overflow = "auto";
-            }, 300); // match your animation
+            }, 300);
         },
 
         onImageErrorMain(event) {
             event.target.src = this.defaultImage;
         },
+        
         onThumbnailError(event, index) {
             event.target.src = this.defaultImage;
         },
@@ -416,23 +437,26 @@ export default {
         },
 
         getLabel(index) {
-            // Convert 0 => A, 1 => B, etc.
             return String.fromCharCode(65 + index);
         },
 
         async fetchItems() {
             this.loading = true;
             try {
-                const response = await axios.get("/api/testing/products");
+                const response = await axios.get(`${API_BASE_URL}/api/testing/products`, {
+                    params: {
+                        location: "Received",
+                        per_page: 999 // Get all items for dropdown filters
+                    }
+                });
                 const payload = response.data;
 
-                // handle both array or wrapped array
                 this.items = Array.isArray(payload)
                     ? payload
                     : payload.data || [];
             } catch (err) {
                 console.error("Fetch failed:", err);
-                this.items = []; // fallback
+                this.items = [];
                 this.error = "Failed to load items.";
             } finally {
                 this.loading = false;
@@ -450,7 +474,6 @@ export default {
     mounted() {
         this.fetchInventory();
 
-        // Handle keyboard navigation for the modal
         const handleKeyDown = (e) => {
             if (!this.showImageModal) return;
 
@@ -468,11 +491,10 @@ export default {
         };
 
         window.addEventListener("keydown", handleKeyDown);
-        this.handleKeyDown = handleKeyDown; // Store for cleanup
+        this.handleKeyDown = handleKeyDown;
     },
 
     beforeDestroy() {
-        // Clean up keyboard event listener
         if (this.handleKeyDown) {
             window.removeEventListener("keydown", this.handleKeyDown);
         }

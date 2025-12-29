@@ -2,3 +2,22 @@
 .testing-module td:nth-child(2) {
     min-width: 360px;
 }
+
+.mobile-card-wrapper {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.mobile-actions-footer {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+.mobile-actions-footer .flex-fill {
+    flex: 1;
+}

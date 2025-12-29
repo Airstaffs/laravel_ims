@@ -298,22 +298,39 @@ export default {
         },
 
         // Fetch inventory data from the API
-        async fetchInventory() {
+       async fetchInventory() {
             this.loading = true;
             try {
-                const response = await axios.get(`${API_BASE_URL}/products`, {
-                    params: {
-                        search: this.searchQuery,
-                        page: this.currentPage,
-                        per_page: this.perPage,
-                        location: "Cleaning",
-                    },
-                });
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/cleaning/products`,
+                    {
+                        params: {
+                            search: this.searchQuery,
+                            page: this.currentPage,
+                            per_page: this.perPage,
+                            location: "Cleaning",
+                        },
+                    }
+                );
 
-                this.inventory = response.data.data;
-                this.totalPages = response.data.last_page;
+                console.log('API Response:', response.data);
+
+                // Handle the response data
+                this.inventory = Array.isArray(response.data.data) 
+                    ? response.data.data 
+                    : [];
+                this.totalPages = response.data.last_page || 1;
+                this.currentPage = response.data.current_page || 1;
+                
+                console.log('Inventory loaded:', this.inventory.length, 'items');
             } catch (error) {
                 console.error("Error fetching inventory data:", error);
+                console.error("Error response:", error.response);
+                
+                // Set empty array on error
+                this.inventory = [];
+                this.totalPages = 1;
+                this.currentPage = 1;
             } finally {
                 this.loading = false;
             }
