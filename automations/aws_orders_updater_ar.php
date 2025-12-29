@@ -57,7 +57,7 @@ if (true) {
         // gets the orders!
         $orders = fetchDataFromAPI($credentials, $rdtResponse['restrictedDataToken']);
         echo "<pre>";
-        //print_r($orders);
+        print_r($orders);
         echo "</pre>";
         $try = 0;
 
@@ -1127,7 +1127,7 @@ function fetchOrderItems($credentials, $accessToken, $amazonOrderId)
     $data = json_decode($result, true);
 
     echo "<pre>";
-    // print_r($data);
+    print_r($data);
     echo "</pre>";
 
     if (isset($data['errors'])) {
