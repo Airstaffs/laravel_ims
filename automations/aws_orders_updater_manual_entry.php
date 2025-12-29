@@ -433,6 +433,8 @@ function spapiGet($credentials, $accessToken, $path, $queryString = '')
     // Build signature for *this exact path/query*
     $headers = buildHeadersForPath($credentials, $accessToken, $path, $queryString);
 
+    echo "<br> $url <br>";
+
     do {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
