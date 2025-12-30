@@ -5,11 +5,305 @@ error_reporting(E_ALL);
 session_start();
 date_default_timezone_set('America/Los_Angeles');
 
+function upsert_tbloutboundorders(mysqli $db, array $data): void
+{
+    // Required identifiers
+    $platform = $data['platform'];
+    $store = $data['storename'];
+    $orderId = $data['platform_order_id'];
+
+    // Check if exists
+    $check = $db->prepare("
+        SELECT platform_order_id
+        FROM tbloutboundorders
+        WHERE platform_order_id = ? AND platform = ? AND storename = ?
+        LIMIT 1
+    ");
+    $check->bind_param("sss", $orderId, $platform, $store);
+    $check->execute();
+    $check->store_result();
+
+    if ($check->num_rows > 0) {
+        // Update
+        $stmt = $db->prepare("
+            UPDATE tbloutboundorders SET
+                address_line1 = ?,
+                StateOrRegion = ?,
+                postal_code = ?,
+                city = ?,
+                CountryCode = ?,
+                PaymentMethod = ?,
+                BuyerName = ?,
+                BuyerEmail = ?,
+                PurchaseDate = ?,
+                EarliestShipDate = ?,
+                LatestShipDate = ?,
+                EarliestDeliveryDate = ?,
+                LatestDeliveryDate = ?,
+                ShipmentServiceLevelCategory = ?,
+                OrderType = ?,
+                IsReplacementOrder = ?,
+                FulfillmentChannel = ?,
+                ShiptoName = ?,
+                NumberOfItemsUnshipped = ?,
+                NumberOfItemsShipped = ?
+            WHERE platform_order_id = ? AND platform = ? AND storename = ?
+        ");
+
+        // Note: keep ints as ints for binding
+        $numUnshipped = (int) ($data['NumberOfItemsUnshipped'] ?? 0);
+        $numShipped = (int) ($data['NumberOfItemsShipped'] ?? 0);
+
+        $stmt->bind_param(
+            "ssssssssssssssssssii" . "sss",
+            $data['address_line1'],
+            $data['StateOrRegion'],
+            $data['postal_code'],
+            $data['city'],
+            $data['CountryCode'],
+            $data['PaymentMethod'],
+            $data['BuyerName'],
+            $data['BuyerEmail'],
+            $data['PurchaseDate'],
+            $data['EarliestShipDate'],
+            $data['LatestShipDate'],
+            $data['EarliestDeliveryDate'],
+            $data['LatestDeliveryDate'],
+            $data['ShipmentServiceLevelCategory'],
+            $data['OrderType'],
+            $data['IsReplacementOrder'],
+            $data['FulfillmentChannel'],
+            $data['ShiptoName'],
+            $numUnshipped,
+            $numShipped,
+            $orderId,
+            $platform,
+            $store
+        );
+
+        if (!$stmt->execute()) {
+            echo "<br>❌ tbloutboundorders UPDATE failed: " . $stmt->error;
+        } else {
+            echo "<br>✅ tbloutboundorders updated: {$orderId}";
+        }
+
+        $stmt->close();
+    } else {
+        // Insert
+        $stmt = $db->prepare("
+            INSERT INTO tbloutboundorders (
+                platform,
+                storename,
+                platform_order_id,
+                address_line1,
+                StateOrRegion,
+                postal_code,
+                city,
+                CountryCode,
+                PaymentMethod,
+                BuyerName,
+                BuyerEmail,
+                PurchaseDate,
+                EarliestShipDate,
+                LatestShipDate,
+                EarliestDeliveryDate,
+                LatestDeliveryDate,
+                ShipmentServiceLevelCategory,
+                OrderType,
+                IsReplacementOrder,
+                FulfillmentChannel,
+                NumberOfItemsShipped,
+                NumberOfItemsUnshipped,
+                ShiptoName
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $numShipped = (int) ($data['NumberOfItemsShipped'] ?? 0);
+        $numUnshipped = (int) ($data['NumberOfItemsUnshipped'] ?? 0);
+
+        $stmt->bind_param(
+            "ssssssssssssssssssssii" . "s",
+            $platform,
+            $store,
+            $orderId,
+            $data['address_line1'],
+            $data['StateOrRegion'],
+            $data['postal_code'],
+            $data['city'],
+            $data['CountryCode'],
+            $data['PaymentMethod'],
+            $data['BuyerName'],
+            $data['BuyerEmail'],
+            $data['PurchaseDate'],
+            $data['EarliestShipDate'],
+            $data['LatestShipDate'],
+            $data['EarliestDeliveryDate'],
+            $data['LatestDeliveryDate'],
+            $data['ShipmentServiceLevelCategory'],
+            $data['OrderType'],
+            $data['IsReplacementOrder'],
+            $data['FulfillmentChannel'],
+            $numShipped,
+            $numUnshipped,
+            $data['ShiptoName']
+        );
+
+        if (!$stmt->execute()) {
+            echo "<br>❌ tbloutboundorders INSERT failed: " . $stmt->error;
+        } else {
+            echo "<br>✅ tbloutboundorders inserted: {$orderId}";
+        }
+
+        $stmt->close();
+    }
+
+    $check->close();
+}
+
+function upsert_tbloutboundordersitem(mysqli $db, array $data): void
+{
+    // Required identifiers
+    $platform = $data['platform'];
+    $store = $data['storename'];
+    $orderId = $data['platform_order_id'];
+    $itemId = $data['platform_order_item_id'];
+
+    $check = $db->prepare("
+        SELECT platform_order_id
+        FROM tbloutboundordersitem
+        WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?
+        LIMIT 1
+    ");
+    $check->bind_param("sss", $orderId, $itemId, $platform);
+    $check->execute();
+    $check->store_result();
+
+    if ($check->num_rows > 0) {
+        $stmt = $db->prepare("
+            UPDATE tbloutboundordersitem SET
+                storename = ?,
+                platform_sku = ?,
+                platform_asin = ?,
+                platform_title = ?,
+                ConditionSubtypeId = ?,
+                ConditionId = ?,
+                FulfillmentChannel = ?,
+                order_status = ?,
+                QuantityOrdered = ?,
+                QuantityShipped = ?,
+                unit_price = ?,
+                unit_tax = ?,
+                ShippingPrice = ?,
+                IsBuyerRequestedCancel = ?,
+                BuyerCancelReason = ?
+            WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?
+        ");
+
+        $qtyOrdered = (int) ($data['QuantityOrdered'] ?? 0);
+        $qtyShipped = (int) ($data['QuantityShipped'] ?? 0);
+
+        $unitPrice = (float) ($data['unit_price'] ?? 0);
+        $unitTax = (float) ($data['unit_tax'] ?? 0);
+        $shipPrice = (float) ($data['ShippingPrice'] ?? 0);
+
+        // NOTE: types must match the values count (18 total binds)
+        $stmt->bind_param(
+            "ssssssssii" . "ddd" . "ss" . "sss",
+            $store,
+            $data['platform_sku'],
+            $data['platform_asin'],
+            $data['platform_title'],
+            $data['ConditionSubtypeId'],
+            $data['ConditionId'],
+            $data['FulfillmentChannel'],
+            $data['order_status'],
+            $qtyOrdered,
+            $qtyShipped,
+            $unitPrice,
+            $unitTax,
+            $shipPrice,
+            $data['IsBuyerRequestedCancel'],
+            $data['BuyerCancelReason'],
+            $orderId,
+            $itemId,
+            $platform
+        );
+
+        if (!$stmt->execute()) {
+            echo "<br>❌ tbloutboundordersitem UPDATE failed: " . $stmt->error;
+        } else {
+            echo "<br>✅ tbloutboundordersitem updated: {$orderId} / {$itemId}";
+        }
+
+        $stmt->close();
+    } else {
+        $stmt = $db->prepare("
+            INSERT INTO tbloutboundordersitem (
+                storename,
+                platform,
+                platform_order_id,
+                platform_order_item_id,
+                platform_sku,
+                platform_asin,
+                platform_title,
+                ConditionSubtypeId,
+                ConditionId,
+                FulfillmentChannel,
+                order_status,
+                QuantityOrdered,
+                QuantityShipped,
+                unit_price,
+                unit_tax,
+                shippingPrice,
+                IsBuyerRequestedCancel,
+                BuyerCancelReason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $qtyOrdered = (int) ($data['QuantityOrdered'] ?? 0);
+        $qtyShipped = (int) ($data['QuantityShipped'] ?? 0);
+
+        $unitPrice = (float) ($data['unit_price'] ?? 0);
+        $unitTax = (float) ($data['unit_tax'] ?? 0);
+        $shipPrice = (float) ($data['ShippingPrice'] ?? 0);
+
+        $stmt->bind_param(
+            "sssssssssssii" . "ddd" . "ss",
+            $store,
+            $platform,
+            $orderId,
+            $itemId,
+            $data['platform_sku'],
+            $data['platform_asin'],
+            $data['platform_title'],
+            $data['ConditionSubtypeId'],
+            $data['ConditionId'],
+            $data['FulfillmentChannel'],
+            $data['order_status'],
+            $qtyOrdered,
+            $qtyShipped,
+            $unitPrice,
+            $unitTax,
+            $shipPrice,
+            $data['IsBuyerRequestedCancel'],
+            $data['BuyerCancelReason']
+        );
+
+        if (!$stmt->execute()) {
+            echo "<br>❌ tbloutboundordersitem INSERT failed: " . $stmt->error;
+        } else {
+            echo "<br>✅ tbloutboundordersitem inserted: {$orderId} / {$itemId}";
+        }
+
+        $stmt->close();
+    }
+
+    $check->close();
+}
 
 // exit("RAWR");
-echo "Rawr";
 
-$success = false;
+$success = true;
 $strname = "AR";
 $platform = "Amazon";
 
@@ -22,7 +316,6 @@ if (true) {
     $row = array();
 
     $stores = ['AllRenewed'];
-
 
     foreach ($stores as $store) {
 
@@ -57,7 +350,7 @@ if (true) {
         // gets the orders!
         $orders = fetchDataFromAPI($credentials, $rdtResponse['restrictedDataToken']);
         echo "<pre>";
-        print_r($orders);
+        //print_r($orders);
         echo "</pre>";
         $try = 0;
 
@@ -103,147 +396,41 @@ if (true) {
 
                 $ordertype = $db->real_escape_string($order['OrderType'] ?? '');
 
+                // Always upsert order header (no status branching)
+                upsert_tbloutboundorders($db, [
+                    'platform' => $platform,
+                    'storename' => $store,
+                    'platform_order_id' => $AmazonOrderId,
+
+                    'address_line1' => $AddressLine1,
+                    'StateOrRegion' => $state,
+                    'postal_code' => $postalcode,
+                    'city' => $city,
+                    'CountryCode' => $countrycode,
+                    'PaymentMethod' => $paymentMethod,
+                    'BuyerName' => $BuyerName,
+                    'BuyerEmail' => $buyerEmail,
+
+                    'PurchaseDate' => $purchaseDate,
+                    'EarliestShipDate' => $earliestShipDate,
+                    'LatestShipDate' => $latestShipDate,
+                    'EarliestDeliveryDate' => $earliestDeliveryDate,
+                    'LatestDeliveryDate' => $latestDeliveryDate,
+
+                    'ShipmentServiceLevelCategory' => $shipmentservice,
+                    'OrderType' => $ordertype,
+                    'IsReplacementOrder' => $replacementOrder,
+                    'FulfillmentChannel' => $fulfillmentChannel,
+
+                    'ShiptoName' => $ship_to_name,
+                    'NumberOfItemsUnshipped' => $itemsUnshipped,
+                    'NumberOfItemsShipped' => $itemsShipped,
+                ]);
 
 
                 $orderItems = fetchOrderItems($credentials, $accessToken, $amazonOrderId);
 
                 if (isset($orderItems['payload']['OrderItems'])) {
-
-                    // Step 1: Check if order exists
-                    $outboundorders_stmt = $db->prepare("SELECT platform_order_id FROM tbloutboundorders WHERE platform_order_id = ? AND platform = ? AND storename = ?");
-                    $outboundorders_stmt->bind_param("sss", $AmazonOrderId, $platform, $store);
-                    $outboundorders_stmt->execute();
-                    $outboundorders_stmt->store_result();
-
-                    echo "$AmazonOrderId <br>";
-
-                    if ($outboundorders_stmt->num_rows > 0) {
-                        $value_sheesh = [];
-                        // Step 2: Update if exists
-                        $updateStmt_outboundorders = $db->prepare("UPDATE tbloutboundorders SET 
-                        address_line1 = ?, 
-                        StateOrRegion = ?,
-                        postal_code = ?,
-                        city = ?,
-                        CountryCode = ?,
-                        PaymentMethod = ?,
-                        BuyerName = ?,
-                        BuyerEmail = ?,
-                        PurchaseDate = ?,
-                        EarliestShipDate = ?,
-                        LatestShipDate = ?,
-                        EarliestDeliveryDate = ?,
-                        LatestDeliveryDate = ?,
-                        ShipmentServiceLevelCategory = ?,
-                        OrderType = ?,
-                        IsReplacementOrder = ?,
-                        FulfillmentChannel = ?,
-                        ShiptoName = ?,
-                        NumberOfItemsUnshipped = ?,
-                        NumberOfItemsShipped = ?
-                        WHERE platform_order_id = ? 
-                        AND platform = ? 
-                        AND storename = ?");
-
-                        $value_sheesh = [
-                            $AddressLine1,
-                            $state,
-                            $postalcode,
-                            $city,
-                            $countrycode,
-                            $paymentMethod,
-                            $BuyerName,
-                            $buyerEmail,
-                            $purchaseDate,
-                            $earliestShipDate,
-                            $latestShipDate,
-                            $earliestDeliveryDate,
-                            $latestDeliveryDate,
-                            $shipmentservice,
-                            $ordertype,
-                            $replacementOrder,
-                            $fulfillmentChannel,
-                            $ship_to_name,
-                            $itemsUnshipped,
-                            $itemsShipped,
-                            $AmazonOrderId,
-                            $platform,
-                            $store
-                        ];
-
-                        if (count($value_sheesh) !== 23) {
-                            echo "❌ Expected 23 values for outbound order UPDATE. Got: " . count($value_sheesh);
-                            print_r($value_sheesh);
-                            exit;
-                        }
-
-                        $updateStmt_outboundorders->bind_param('ssssssssssssssssssiisss', ...$value_sheesh);
-                        $updateStmt_outboundorders->execute();
-                        echo "--- Order updated. <br>";
-                        $updateStmt_outboundorders->close();
-
-                    } else {
-                        // Step 3: Insert if not exists
-                        $insertStmt = $db->prepare("INSERT INTO tbloutboundorders (
-                        platform,
-                        storename,
-                        platform_order_id,
-                        address_line1,
-                        StateOrRegion,
-                        postal_code,
-                        city,
-                        CountryCode,
-                        PaymentMethod,
-                        BuyerName,
-                        BuyerEmail,
-                        PurchaseDate,
-                        EarliestShipDate,
-                        LatestShipDate,
-                        EarliestDeliveryDate,
-                        LatestDeliveryDate,
-                        ShipmentServiceLevelCategory,
-                        OrderType,
-                        IsReplacementOrder,
-                        FulfillmentChannel,
-                        NumberOfItemsShipped,
-                        NumberOfItemsUnshipped,
-                        ShiptoName
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-                        $value_sheesh = [
-                            $platform,
-                            $store,
-                            $AmazonOrderId,
-                            $AddressLine1,
-                            $state,
-                            $postalcode,
-                            $city,
-                            $countrycode,
-                            $paymentMethod,
-                            $BuyerName,
-                            $buyerEmail,
-                            $purchaseDate,
-                            $earliestShipDate,
-                            $latestShipDate,
-                            $earliestDeliveryDate,
-                            $latestDeliveryDate,
-                            $shipmentservice,
-                            $ordertype,
-                            $replacementOrder,
-                            $fulfillmentChannel,
-                            $itemsShipped,
-                            $itemsUnshipped,
-                            $ship_to_name,
-                        ];
-
-                        $insertStmt->bind_param(str_repeat("s", count($value_sheesh)), ...$value_sheesh);
-                        $insertStmt->execute();
-                        echo "--- New order inserted. <br>";
-                        $insertStmt->close();
-                    }
-
-                    $outboundorders_stmt->close();
-
 
                     foreach ($orderItems['payload']['OrderItems'] as $item) {
 
@@ -262,379 +449,40 @@ if (true) {
                         $orderItemId = $db->real_escape_string($item['OrderItemId'] ?? '');
                         $ShippingPrice = $db->real_escape_string($item['ShippingPrice']['Amount'] ?? '');
 
+                        upsert_tbloutboundordersitem($db, [
+                            'storename' => $store,
+                            'platform' => $platform,
+                            'platform_order_id' => $AmazonOrderId,
+                            'platform_order_item_id' => $orderItemId,
 
+                            'platform_sku' => $sellerSKU,
+                            'platform_asin' => $asin,
+                            'platform_title' => $title,
 
+                            'ConditionSubtypeId' => $conditionSubtypeId,
+                            'ConditionId' => $conditionId,
 
+                            'FulfillmentChannel' => $fulfillmentChannel,
+                            'order_status' => $orderStatus,
 
-                        $outbounditems_check = $db->prepare("SELECT platform_order_id FROM tbloutboundordersitem WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?");
-                        $outbounditems_check->bind_param("sss", $AmazonOrderId, $orderItemId, $platform);
-                        $outbounditems_check->execute();
-                        $outbounditems_check->store_result();
+                            'QuantityOrdered' => $QuantityOrdered,
+                            'QuantityShipped' => $QuantityShipped,
 
-                        echo "$AmazonOrderId <br>";
-                        echo "Orderitems query $orderItemId <br>";
+                            'unit_price' => $itemprice,
+                            'unit_tax' => $itemtax,
+                            'ShippingPrice' => $ShippingPrice,
 
-                        if ($outbounditems_check->num_rows > 0) {
-                            // Step 2: Update if exists
-                            $updateStmt_outbounditems = $db->prepare("UPDATE tbloutboundordersitem SET 
-                                storename = ?,
-                                platform_sku = ?, 
-                                platform_asin = ?,
-                                platform_title = ?,
-                                ConditionSubtypeId = ?,
-                                ConditionId = ?,
-                                FulfillmentChannel = ?,
-                                order_status = ?,
-                                QuantityOrdered = ?,
-                                QuantityShipped = ?,
-                                unit_price = ?,
-                                unit_tax = ?,
-                                ShippingPrice = ?,
-                                IsBuyerRequestedCancel = ?,
-                                BuyerCancelReason = ?
-                            WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?");
-
-                            $value_sheesh = [
-                                $store,
-                                $sellerSKU,               // 1
-                                $asin,                    // 2
-                                $title,                   // 3
-                                $conditionSubtypeId,      // 4
-                                $conditionId,             // 5
-                                $fulfillmentChannel,      // 6
-                                $orderStatus,             // 7
-                                (int) $QuantityOrdered,    // 8
-                                (int) $QuantityShipped,    // 9
-                                (float) $itemprice,        // 10
-                                (float) $itemtax,          // 11
-                                (float) $ShippingPrice,     // 17
-                                $IsBuyerRequestedCancel,  // 12
-                                $BuyerCancelReason,       // 13
-                                $AmazonOrderId,           // 14
-                                $orderItemId,             // 15
-                                $platform,                 // 16
-
-                            ];
-
-                            $updateStmt_outbounditems->bind_param('ssssssssiiidddssss', ...$value_sheesh);
-                            $updateStmt_outbounditems->execute();
-                            echo "------ Orderitem updated. <br>";
-                            $updateStmt_outbounditems->close();
-
-                        } else {
-                            // Step 3: Insert if not exists
-                            $insertStmt_outbounditems = $db->prepare("INSERT INTO tbloutboundordersitem (
-                                storename,
-                                platform,
-                                platform_order_id,
-                                platform_order_item_id,
-                                platform_sku,
-                                platform_asin,
-                                platform_title,
-                                ConditionSubtypeId,
-                                ConditionId,
-                                FulfillmentChannel,
-                                order_status,
-                                QuantityOrdered,
-                                QuantityShipped,
-                                unit_price,
-                                unit_tax,
-                                shippingPrice,
-                                IsBuyerRequestedCancel,
-                                BuyerCancelReason
-                            ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-                            $valueInsert = [
-                                $store,
-                                $platform,
-                                $AmazonOrderId,
-                                $orderItemId,
-                                $sellerSKU,
-                                $asin,
-                                $title,
-                                $conditionSubtypeId,
-                                $conditionId,
-                                $fulfillmentChannel,
-                                $orderStatus,
-                                $QuantityOrdered,
-                                $QuantityShipped,
-                                $itemprice,
-                                $itemtax,
-                                $ShippingPrice,
-                                $IsBuyerRequestedCancel,
-                                $BuyerCancelReason
-                            ];
-
-                            $insertStmt_outbounditems->bind_param('sssssssssssiidddss', ...$valueInsert);
-                            $insertStmt_outbounditems->execute();
-                            echo "------ Orderitem inserted. <br>";
-                            $insertStmt_outbounditems->close();
-                        }
-
-                        $outbounditems_check->close();
-
-
-                        // translate to local vocab
-                        if ($fulfillmentChannel == 'MFN') {
-                            $fulfilledby = "FBM";
-
-                            if ($orderStatus === 'Cancelled') {
-
-                                $stmt = $db->prepare("UPDATE tblshiphistory SET OrderStatus = ? WHERE AmazonOrderId = ? AND orderitemid = ?");
-                                $stmt->bind_param('sss', $orderStatus, $amazonOrderId, $orderItemId);
-
-                                if ($stmt->execute()) {
-                                } else {
-                                    echo "<br>Error Updating Record: " . $stmt->error;
-                                }
-                                $stmt->close();
-                            }
-                        }
-
-                        if ($fulfillmentChannel === 'AFN') {
-                            $fulfilledby = "FBA";
-                            echo "<br>FBA Update";
-                            // if order is FBA
-                            $getedited = "SELECT edited FROM tblshiphistory WHERE AmazonOrderId = '$amazonOrderId' AND orderitemid = '$orderItemId'";
-                            $editedresult = $db->query($getedited);
-
-                            if ($editedresult->num_rows > 0) {
-                                // output the data
-                                while ($row = $editedresult->fetch_assoc()) {
-                                    $edited = $row["edited"];
-                                }
-                            } else {
-                                $edited = "FALSE";
-                            }
-
-                            $prodidquery = "SELECT ProductID FROM tblproduct WHERE ASINviewer = '$asin' AND MSKUviewer = '$sellerSKU' AND ProductModuleLoc = 'Stockroom'";
-                            $result = $db->query($prodidquery);
-
-                            if ($result->num_rows > 0) {
-                                $row = $result->fetch_assoc();
-                                $rowprodid = $row['ProductID'];
-
-                                if ($orderStatus === "Pending") {
-
-                                    // insert or update orders data except column ProductID
-                                    InsertORUpdate_tblhistory($edited);
-
-                                    $updateQuery = "UPDATE tblshiphistory SET ProductID = '' WHERE AmazonOrderId = ? AND orderitemid = ?";
-                                    $updateStmt = $db->prepare($updateQuery);
-
-                                    // Check if the statement was prepared successfully
-                                    if ($updateStmt === false) {
-                                        die("Error preparing the query: " . $db->error);
-                                    }
-
-                                    $updateStmt->bind_param("ss", $amazonOrderId, $orderItemId);
-                                    // Execute the statement and check if it was successful
-                                    if ($updateStmt->execute()) {
-                                        echo "Record updated successfully.";
-
-                                        // You can also check if any rows were affected
-                                        if ($updateStmt->affected_rows > 0) {
-                                            echo " Number of rows updated: " . $updateStmt->affected_rows;
-                                        } else {
-                                            echo " No rows were updated.";
-                                        }
-                                    } else {
-                                        echo "Error updating record: " . $updateStmt->error;
-                                    }
-                                    $updateStmt->close();
-
-                                    echo "<br> Product data: " . $orderStatus . " ProductID: " . $rowprodid . " AmazonOrderId: " . $amazonOrderId . "<br>";
-                                }
-
-                                if ($orderStatus === "Unshipped") {
-
-                                    // insert or update orders data except column ProductID
-                                    InsertORUpdate_tblhistory($edited);
-
-                                    // inserts the ProductID where data is similar!
-                                    $updateQuery = "UPDATE tblshiphistory SET ProductID = ? WHERE ASIN = ? AND SellerSKU = ? AND AmazonOrderId = ?";
-                                    $updateStmt = $db->prepare($updateQuery);
-                                    // Check if the statement was prepared successfully
-                                    if ($updateStmt === false) {
-                                        die("Error preparing the query: " . $db->error);
-                                    }
-
-                                    $updateStmt->bind_param("isss", $rowprodid, $asin, $sellerSKU, $amazonOrderId);
-
-                                    // Execute the statement and check if it was successful
-                                    if ($updateStmt->execute()) {
-                                        echo "Record updated successfully.";
-
-                                        // You can also check if any rows were affected
-                                        if ($updateStmt->affected_rows > 0) {
-                                            echo " Number of rows updated: " . $updateStmt->affected_rows;
-                                        } else {
-                                            echo " No rows were updated.";
-                                        }
-                                    } else {
-                                        echo "Error updating record: " . $updateStmt->error;
-                                    }
-
-                                    $updateStmt->close();
-
-
-                                    $updateQuery = "UPDATE tblproduct SET shipmentstatus = ? WHERE ASINviewer = ? AND MSKUviewer = ? AND ProductModuleLoc = 'Stockroom'";
-                                    $updateStmt = $db->prepare($updateQuery);
-
-                                    // Check if the statement was prepared successfully
-                                    if ($updateStmt === false) {
-                                        die("Error preparing the query: " . $db->error);
-                                    }
-
-                                    $updateStmt->bind_param("sss", $orderStatus, $asin, $sellerSKU);
-                                    // Execute the statement and check if it was successful
-                                    if ($updateStmt->execute()) {
-                                        echo "Record updated successfully.";
-
-                                        // You can also check if any rows were affected
-                                        if ($updateStmt->affected_rows > 0) {
-                                            echo " Number of rows updated: " . $updateStmt->affected_rows;
-                                        } else {
-                                            echo " No rows were updated.";
-                                        }
-                                    } else {
-                                        echo "Error updating record: " . $updateStmt->error;
-                                    }
-                                    $updateStmt->close();
-                                }
-
-                                if ($orderStatus === "Shipped") {
-                                    $orderStatus = 'Shipped to Customer';
-                                    // insert or update orders data except column ProductID
-                                    InsertORUpdate_tblhistory($edited);
-
-                                    $updateQuery = "UPDATE tblproduct SET shipmentstatus = ? WHERE ASINviewer = ? AND MSKUviewer = ? AND ProductModuleLoc = 'Stockroom'";
-                                    $updateStmt = $db->prepare($updateQuery);
-
-                                    // Check if the statement was prepared successfully
-                                    if ($updateStmt === false) {
-                                        die("Error preparing the query: " . $db->error);
-                                    }
-
-                                    $updateStmt->bind_param("sss", $orderStatus, $asin, $sellerSKU);
-                                    // Execute the statement and check if it was successful
-                                    if ($updateStmt->execute()) {
-                                        echo "Record updated successfully.";
-
-                                        // You can also check if any rows were affected
-                                        if ($updateStmt->affected_rows > 0) {
-                                            echo " Number of rows updated: " . $updateStmt->affected_rows;
-                                        } else {
-                                            echo " No rows were updated.";
-                                        }
-                                    } else {
-                                        echo "Error updating record: " . $updateStmt->error;
-                                    }
-                                    $updateStmt->close();
-
-                                    echo "<br> Product data: " . $orderStatus . " ProductID: " . $rowprodid . " AmazonOrderId: " . $amazonOrderId;
-                                }
-
-                                if ($orderStatus == 'Cancelled' || $orderStatus == 'Unfulfillable') {
-                                    // inserts the ProductID where data is similar!
-                                    InsertORUpdate_tblhistory($edited);
-
-                                    $updateQuery = "UPDATE tblproduct SET shipmentstatus = '' WHERE ASINviewer = ? AND MSKUviewer = ? AND ProductModuleLoc = 'Stockroom'";
-                                    $updateStmt = $db->prepare($updateQuery);
-
-                                    // Check if the statement was prepared successfully
-                                    if ($updateStmt === false) {
-                                        die("Error preparing the query: " . $db->error);
-                                    }
-
-                                    $updateStmt->bind_param("ss", $asin, $sellerSKU);
-                                    // Execute the statement and check if it was successful
-                                    if ($updateStmt->execute()) {
-                                        echo "Record updated successfully.";
-
-                                        // You can also check if any rows were affected
-                                        if ($updateStmt->affected_rows > 0) {
-                                            echo " Number of rows updated: " . $updateStmt->affected_rows;
-                                        } else {
-                                            echo " No rows were updated.";
-                                        }
-                                    } else {
-                                        echo "Error updating record: " . $updateStmt->error;
-                                    }
-                                    $updateStmt->close();
-
-                                    $updateQuery = "UPDATE tblshiphistory SET ProductID = '' WHERE AmazonOrderId = ? AND orderitemid = ?";
-                                    $updateStmt = $db->prepare($updateQuery);
-
-                                    // Check if the statement was prepared successfully
-                                    if ($updateStmt === false) {
-                                        die("Error preparing the query: " . $db->error);
-                                    }
-
-                                    $updateStmt->bind_param("ss", $amazonOrderId, $orderItemId);
-                                    // Execute the statement and check if it was successful
-                                    if ($updateStmt->execute()) {
-                                        echo "Record updated successfully.";
-
-                                        // You can also check if any rows were affected
-                                        if ($updateStmt->affected_rows > 0) {
-                                            echo " Number of rows updated: " . $updateStmt->affected_rows;
-                                        } else {
-                                            echo " No rows were updated.";
-                                        }
-                                    } else {
-                                        echo "Error updating record: " . $updateStmt->error;
-                                    }
-                                    $updateStmt->close();
-                                    echo "<br> Product data: " . $orderStatus . " ProductID: " . $rowprodid . " AmazonOrderId: " . $amazonOrderId;
-                                }
-                            }
-                            $success = true;
-                        }
+                            'IsBuyerRequestedCancel' => $IsBuyerRequestedCancel,
+                            'BuyerCancelReason' => $BuyerCancelReason,
+                        ]);
+                        
                         echo " <br>Number of Entry" . $try++ . " <br>";
                     }
                 }
             }
 
 
-            if ($success) {
-                $expirationTime = date("Y-m-d H:i:s", strtotime("+0 seconds"));
-                $last_updated_time = date("Y-m-d H:i:s", strtotime("-60 minutes"));
 
-                // Use prepared statements to avoid SQL Injection
-                $insertQuery = "INSERT INTO aws_orders_reference (date_last_update, start_time) VALUES (?, ?)";
-                $stmtInsert = $db->prepare($insertQuery);
-                $stmtInsert->bind_param("ss", $expirationTime, $last_updated_time);
-
-                if ($stmtInsert->execute()) {
-                    // Fetch the latest ID
-                    $sqlorders = "SELECT id FROM aws_orders_reference ORDER BY id DESC LIMIT 1";
-                    $result = $db->query($sqlorders);
-
-                    if ($result->num_rows > 0) {
-                        $row = $result->fetch_assoc();
-                        echo "Latest ID: " . $row["id"];
-                        $latestid = $row['id'];
-                        $subtractedValue = $latestid - 100;
-
-                        // Corrected table name in DELETE query
-                        $sqldelete = "DELETE FROM aws_orders_reference WHERE id < ?";
-                        $stmtDelete = $db->prepare($sqldelete);
-                        $stmtDelete->bind_param("i", $subtractedValue);
-
-                        if ($stmtDelete->execute()) {
-                            $affectedRows = $stmtDelete->affected_rows;
-                            // Consider echoing the number of affected rows
-                        } else {
-                            echo "Error in delete operation: " . $db->error;
-                        }
-                    } else {
-                        echo "0 results after insert operation";
-                    }
-                } else {
-                    echo "Error in insert operation: " . $db->error;
-                }
-            }
         }
     }
 
@@ -776,12 +624,12 @@ function dbDatabase()
             break;
 
         case "laravel_ims":
-            $hostname = 'localhost';
-            $username = 'imsv2_dbims_user';
-            $password = 'Imsv2_dbims_user';
-            $database = 'imsv2_dbims';
+        $hostname = 'localhost';
+        $username = 'imsv2_dbims_user';
+        $password = 'Imsv2_dbims_user';
+        $database = 'imsv2_dbims';
             break;
-
+ 
         default:
             die("❌ Invalid server type: Set \$servertype properly.");
     }
@@ -1127,7 +975,7 @@ function fetchOrderItems($credentials, $accessToken, $amazonOrderId)
     $data = json_decode($result, true);
 
     echo "<pre>";
-    print_r($data);
+    // print_r($data);
     echo "</pre>";
 
     if (isset($data['errors'])) {
@@ -1186,8 +1034,7 @@ function getAWSCredentials($db, $store)
 
 function isoToMysqlDatetime($isoString)
 {
-    if (empty($isoString))
-        return null;
+    if (empty($isoString)) return null;
 
     $date = new DateTime($isoString, new DateTimeZone('UTC'));
     $date->setTimezone(new DateTimeZone('America/Los_Angeles'));

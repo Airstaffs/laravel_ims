@@ -49,6 +49,9 @@ use App\Http\Controllers\USPSController;
 use App\Http\Controllers\ValidationController;
 use App\Http\Middleware\PreventBackHistory;
 use App\Http\Controllers\TestingController;
+use App\Http\Controllers\CleaningController;
+
+
 use App\Http\Models\Store;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -616,21 +619,16 @@ Route::middleware(['auth'])->prefix('api/testing')->group(function () {
     Route::get('condition-compare/{itemNumber}', [TestingController::class, 'compareConditions']);
     Route::get('testing-overview', [TestingController::class, 'getTestingOverview']);
     Route::delete('condition/{id}', [TestingController::class, 'deleteCondition']);
+
+     Route::post('/move-to-cleaning', [TestingController::class, 'moveToCleaning']);
 });
 
 
 
-// Testing module routes
+// Cleaning module routes
 Route::middleware(['auth'])->prefix('api/cleaning')->group(function () {
-    Route::get('products', [TestingController::class, 'index']);
-    
-    // Item condition routes
-    Route::get('condition/{itemNumber}', [TestingController::class, 'getCondition']);
-    Route::post('condition', [TestingController::class, 'saveCondition']);
-    Route::get('condition-history/{itemNumber}', [TestingController::class, 'getConditionHistory']);
-    Route::get('condition-compare/{itemNumber}', [TestingController::class, 'compareConditions']);
-    Route::get('testing-overview', [TestingController::class, 'getTestingOverview']);
-    Route::delete('condition/{id}', [TestingController::class, 'deleteCondition']);
+    Route::get('products', [CleaningController::class, 'index']);
+
 });
 
 // Printer API routes
