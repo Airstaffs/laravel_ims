@@ -365,7 +365,7 @@ export default {
             if (
                 item.capturedImages &&
                 typeof item.capturedImages === "object" &&
-                  Object.values(item.capturedImages || {}).some(v => v)
+                Object.values(item.capturedImages || {}).some((v) => v)
             ) {
                 for (let i = 1; i <= 12; i++) {
                     const filename = `${item.rtcounter}_img${i}.jpg`;
@@ -1162,36 +1162,37 @@ export default {
         },
 
         // data will show from a modal not in alert for better ui experience
-     async showFnskuAvailabilityInfo(fnsku) {
-    try {
-        const response = await axios.get(
-            `${API_BASE_URL}/api/fnsku/availability`,
-            {
-                params: { fnsku: fnsku.FNSKU },
-                withCredentials: true,
+        async showFnskuAvailabilityInfo(fnsku) {
+            try {
+                const response = await axios.get(
+                    `${API_BASE_URL}/api/fnsku/availability`,
+                    {
+                        params: { fnsku: fnsku.FNSKU },
+                        withCredentials: true,
+                    }
+                );
+
+                if (response.data.success && response.data.fnsku_info) {
+                    return {
+                        info: response.data.fnsku_info,
+                        errorMessage: "",
+                    };
+                } else {
+                    return {
+                        info: {},
+                        errorMessage:
+                            "FNSKU availability information not available",
+                    };
+                }
+            } catch (error) {
+                console.error("Error fetching FNSKU availability:", error);
+                return {
+                    info: {},
+                    errorMessage:
+                        "Error fetching FNSKU availability information",
+                };
             }
-        );
-
-        if (response.data.success && response.data.fnsku_info) {
-            return {
-                info: response.data.fnsku_info,
-                errorMessage: ""
-            };
-        } else {
-            return {
-                info: {},
-                errorMessage: "FNSKU availability information not available"
-            };
-        }
-    } catch (error) {
-        console.error("Error fetching FNSKU availability:", error);
-        return {
-            info: {},
-            errorMessage: "Error fetching FNSKU availability information"
-        };
-    }
-},
-
+        },
 
         /**
          * Add a method to display FNSKU prefix information in the UI
@@ -1554,6 +1555,9 @@ export default {
             this.item = { ...(freshItem || item) };
 
             console.log(this.item);
+
+            // ✅ ADD THIS: Reload timezone when opening modal
+            await this.loadUserTimezone();
 
             this.showEditModal = true;
             this.autoResize();
