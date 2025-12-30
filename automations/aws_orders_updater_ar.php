@@ -187,44 +187,7 @@ if (true) {
             }
 
 
-            if ($success) {
-                $expirationTime = date("Y-m-d H:i:s", strtotime("+0 seconds"));
-                $last_updated_time = date("Y-m-d H:i:s", strtotime("-60 minutes"));
 
-                // Use prepared statements to avoid SQL Injection
-                $insertQuery = "INSERT INTO aws_orders_reference (date_last_update, start_time) VALUES (?, ?)";
-                $stmtInsert = $db->prepare($insertQuery);
-                $stmtInsert->bind_param("ss", $expirationTime, $last_updated_time);
-
-                if ($stmtInsert->execute()) {
-                    // Fetch the latest ID
-                    $sqlorders = "SELECT id FROM aws_orders_reference ORDER BY id DESC LIMIT 1";
-                    $result = $db->query($sqlorders);
-
-                    if ($result->num_rows > 0) {
-                        $row = $result->fetch_assoc();
-                        echo "Latest ID: " . $row["id"];
-                        $latestid = $row['id'];
-                        $subtractedValue = $latestid - 100;
-
-                        // Corrected table name in DELETE query
-                        $sqldelete = "DELETE FROM aws_orders_reference WHERE id < ?";
-                        $stmtDelete = $db->prepare($sqldelete);
-                        $stmtDelete->bind_param("i", $subtractedValue);
-
-                        if ($stmtDelete->execute()) {
-                            $affectedRows = $stmtDelete->affected_rows;
-                            // Consider echoing the number of affected rows
-                        } else {
-                            echo "Error in delete operation: " . $db->error;
-                        }
-                    } else {
-                        echo "0 results after insert operation";
-                    }
-                } else {
-                    echo "Error in insert operation: " . $db->error;
-                }
-            }
         }
     }
 
