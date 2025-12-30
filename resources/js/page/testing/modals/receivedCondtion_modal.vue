@@ -65,12 +65,8 @@
                     </div>
                 </fieldset>
 
-                <!-- Overall Assessment -->
-                <div class="overall-assessment mt-4">
-                    <label for="overall_condition" class="fw-bold mb-2 d-block">Overall Condition</label>
-                    <Select v-model="conditionData.overall_condition" :options="conditionOptions" optionLabel="label"
-                        optionValue="value" placeholder="Select overall condition" class="w-100 mb-3" />
-
+                <!-- Inspector Notes -->
+                <div class="notes-section mt-4">
                     <label for="notes" class="fw-bold mb-2 d-block">Inspector Notes</label>
                     <Textarea v-model="conditionData.notes" rows="4" class="w-100" 
                         placeholder="Enter any additional observations, issues found, or recommendations..." />
@@ -102,7 +98,7 @@
 </template>
 
 <script>
-import { Dialog, Button, Checkbox, Select, Textarea, Message, Card } from 'primevue';
+import { Dialog, Button, Checkbox, Textarea, Message, Card } from 'primevue';
 import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
@@ -113,7 +109,6 @@ export default {
         Dialog,
         Button,
         Checkbox,
-        Select,
         Textarea,
         Message,
         Card
@@ -139,7 +134,7 @@ export default {
             conditionData: {
                 item_number: '',
                 product_id: '',
-                condition_type: 'receive', // Always 'receive' for this modal
+                condition_type: 'receive',
                 physical_damage: false,
                 scratches: false,
                 dents: false,
@@ -154,17 +149,10 @@ export default {
                 manual_included: false,
                 cables_included: false,
                 warranty_card: false,
-                overall_condition: null,
                 notes: '',
                 inspected_by: '',
                 inspected_at: null
-            },
-            conditionOptions: [
-                { label: 'Excellent', value: 'excellent' },
-                { label: 'Good', value: 'good' },
-                { label: 'Fair', value: 'fair' },
-                { label: 'Poor', value: 'poor' }
-            ]
+            }
         };
     },
     computed: {
@@ -209,12 +197,14 @@ export default {
                 }
             } catch (error) {
                 console.error('Failed to load condition data:', error);
-                this.$toast.add({
-                    severity: 'error',
-                    summary: 'Error',
-                    detail: 'Failed to load condition data',
-                    life: 3000
-                });
+                if (this.$toast) {
+                    this.$toast.add({
+                        severity: 'error',
+                        summary: 'Error',
+                        detail: 'Failed to load condition data',
+                        life: 3000
+                    });
+                }
             } finally {
                 this.loading = false;
             }
@@ -223,7 +213,7 @@ export default {
         async saveCondition() {
             this.saving = true;
             try {
-                // Only send the fields that are actually used in validation
+                // FIXED: Removed overall_condition from the data being sent
                 const dataToSend = {
                     item_number: this.conditionData.item_number,
                     product_id: String(this.conditionData.product_id),
@@ -236,9 +226,10 @@ export default {
                     all_functions_work: this.conditionData.all_functions_work,
                     connectivity_tested: this.conditionData.connectivity_tested,
                     display_condition: this.conditionData.display_condition,
-                    overall_condition: this.conditionData.overall_condition,
                     notes: this.conditionData.notes
                 };
+
+                console.log('Sending condition data:', dataToSend);
                 
                 const response = await axios.post(
                     `${API_BASE_URL}/api/testing/condition`,
@@ -258,13 +249,22 @@ export default {
                     ? Object.values(error.response.data.errors).flat().join(', ')
                     : error.response?.data?.message || 'Failed to save condition';
                 
-                if (this.$swal) {
+                if (typeof this.$swal !== 'undefined') {
                     this.$swal({
                         icon: 'error',
                         title: 'Error',
                         text: errorMessage,
                         confirmButtonText: 'OK'
                     });
+                } else if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: errorMessage,
+                        confirmButtonText: 'OK'
+                    });
+                } else {
+                    alert('Error: ' + errorMessage);
                 }
             } finally {
                 this.saving = false;
@@ -295,7 +295,6 @@ export default {
                 manual_included: false,
                 cables_included: false,
                 warranty_card: false,
-                overall_condition: null,
                 notes: '',
                 inspected_by: '',
                 inspected_at: null
@@ -321,7 +320,7 @@ export default {
 
 <style scoped>
 .condition-checklist {
-    /* Removed max-height and overflow-y to let Dialog handle scrolling */
+    /* Let Dialog handle scrolling */
 }
 
 .condition-section {
@@ -355,7 +354,7 @@ export default {
     cursor: pointer;
 }
 
-.overall-assessment {
+.notes-section {
     border-top: 1px solid #dee2e6;
     padding-top: 1rem;
 }

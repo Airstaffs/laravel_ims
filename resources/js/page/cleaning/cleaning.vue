@@ -6,7 +6,7 @@
 
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="p-4">
-            <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
+            <XDataTable :value="sortedInventory" :loading="loading" :columns="visibleColumns" :paginator="false"
                 tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
                 <template #gallery="{ data }">
                     <div class="d-flex justify-content-center align-items-center">
@@ -26,11 +26,17 @@
                 </template>
 
                 <template #actions="{ data }">
-                    <Button size="small" severity="contrast" variant="text" icon="pi pi-info-circle" label="Details"
-                        class="text-primary" @click="openEditModal(data)" />
+                    <div class="d-flex gap-2">
+                        <Button size="small" severity="success" variant="text" label="Release Condition" 
+                            icon="pi pi-check-circle" @click="openConditionModal(data)" 
+                            class="text-success" />
+                        <Button size="small" severity="contrast" variant="text" icon="pi pi-info-circle" label="Details"
+                            class="text-primary" @click="openEditModal(data)" />
+                    </div>
                 </template>
             </XDataTable>
         </AnimateDiv>
+
         <!-- Mobile Cards View -->
         <div class="mobile-view">
             <div class="mobile-cards">
@@ -136,6 +142,8 @@
                     <hr />
 
                     <div class="mobile-card-actions">
+                        <Button @click="openConditionModal(item)" icon="pi pi-check-circle" size="small" severity="success"
+                            label="Release Condition" :style="{ width: '100%', marginBottom: '0.5rem' }" />
                         <Button @click="openEditModal(item)" icon="pi pi-info-circle" size="small" severity="info"
                             label="More Details" :style="{ width: '100%' }" />
                     </div>
@@ -157,11 +165,6 @@
                     <span>Rows per page</span>
                     <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
                         optionLabel="label" optionValue="value" />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
                 </div>
 
                 <div class="pagination">
@@ -178,6 +181,13 @@
         <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
             :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
             @close="closeImageModal" />
+
+        <!-- Receive & Release Condition Modal -->
+        <ReceiveReleaseConditionModal 
+            v-model:visible="showConditionModal"
+            :item="selectedItem"
+            @saved="handleConditionSaved"
+        />
 
         <Dialog class="view-modal" v-model:visible="showEditModal" modal
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;" :pt="{
@@ -422,7 +432,9 @@ import Gallery from "../../components/Gallery/gallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
+import ReceiveReleaseConditionModal from "./modals/receiveAndReleaseCondition_modal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+
 const TABLE_COLUMNS = [
     {
         field: "gallery",
@@ -455,7 +467,7 @@ const TABLE_COLUMNS = [
     },
     {
         field: "MSKUviewer",
-        header: "MNSKU",
+        header: "MSKU",
         bodyStyle: { fontSize: "14px" }
     },
     {
@@ -477,15 +489,60 @@ const TABLE_COLUMNS = [
         field: "serialnumber",
         header: "Serial Number",
         bodyStyle: { fontSize: "14px" }
-    }
-]
+    },
+
+];
+
 export default {
     mixins: [Cleaning],
-    components: { XDataTable, TableGallery, Button, Gallery, Dialog, Card, ScrollTop, TitlePage, ViewImageModal, AnimateDiv, Select },
+    components: { 
+        XDataTable, 
+        TableGallery, 
+        Button, 
+        Gallery, 
+        Dialog, 
+        Card, 
+        ScrollTop, 
+        TitlePage, 
+        ViewImageModal, 
+        AnimateDiv, 
+        Select,
+        ReceiveReleaseConditionModal
+    },
     data() {
         return {
             columns: TABLE_COLUMNS,
-            rowsPerPage: ROWS_PER_PAGE
+            rowsPerPage: ROWS_PER_PAGE,
+            showConditionModal: false,
+            selectedItem: null
+        }
+    },
+    computed: {
+        visibleColumns() {
+            return this.columns;
+        }
+    },
+    methods: {
+        openConditionModal(item) {
+            this.selectedItem = item;
+            this.showConditionModal = true;
+        },
+
+        handleConditionSaved(conditionData) {
+            console.log('Release condition saved:', conditionData);
+            
+            if (typeof this.$swal !== 'undefined') {
+                this.$swal.fire({
+                    icon: 'success',
+                    title: 'Success!',
+                    text: 'Release condition saved successfully',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+            
+            // Refresh inventory
+            this.fetchInventory();
         }
     }
 };

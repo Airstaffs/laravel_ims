@@ -1,10 +1,5 @@
 <template>
     <div class="vue-container testing-module">
-        <!-- <div class="top-header">
-            <span>Top Header</span>
-        </div> -->
-
-        <!-- <h2 class="module-title">Testing Module</h2> -->
         <TitlePage title="Testing Module"
             subtitle="Manage and log quality assurance and functional testing results for products prior to inventory staging." />
 
@@ -43,7 +38,6 @@
             </XDataTable>
         </AnimateDiv>
 
-
         <!-- Mobile Cards View -->
         <div class="mobile-view">
             <MobileCard1 
@@ -59,18 +53,13 @@
             />
         </div>
 
-        <!-- Pagination with centered layout -->
+        <!-- Pagination -->
         <div class="pagination-container">
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
                     <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" optionLabel="label"
                         optionValue="value" size="small" />
-                    <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
-                        <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
-                            {{ option }}
-                        </option>
-                    </select> -->
                 </div>
 
                 <div class="pagination">
@@ -95,6 +84,32 @@
             @saved="handleConditionSaved"
         />
 
+        <!-- Move to Cleaning Confirmation Dialog -->
+        <Dialog v-model:visible="showMoveConfirmation" modal header="Move to Cleaning & Prepping?" 
+            style="width: 35rem;" :pt="{ root: { class: 'mobile-fullscreen-dialog' } }">
+            <div class="confirmation-content">
+                <i class="pi pi-arrow-right-arrow-left" style="font-size: 3rem; color: var(--primary-color); display: block; text-align: center; margin-bottom: 1rem;"></i>
+                <p class="text-center mb-3">
+                    <strong>{{ moveItemDetails?.ProductTitle }}</strong>
+                </p>
+                <p class="text-center">
+                    Testing complete! Would you like to move this item to <strong>Cleaning & Prepping</strong> module?
+                </p>
+                <div class="mt-3 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="pi pi-info-circle"></i> 
+                        This will update the item location from <strong>Testing</strong> to <strong>Cleaning</strong>
+                    </small>
+                </div>
+            </div>
+            <template #footer>
+                <Button label="Cancel" icon="pi pi-times" @click="cancelMove" severity="secondary" />
+                <Button label="Move to Cleaning" icon="pi pi-arrow-right" @click="confirmMoveToCleaning" 
+                    :loading="movingItem" severity="success" />
+            </template>
+        </Dialog>
+
+        <!-- View Details Modal -->
         <Dialog v-model:visible="showEditModal" class="view-modal" modal
             :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;" :pt="{
                 root: { class: 'mobile-fullscreen-dialog' }
@@ -110,10 +125,9 @@
                                     <h5 class="text-primary fw-bolder">Description</h5>
                                 </template>
                                 <template #content>
-                                    <p
-                                        style="word-break: break-all; max-height: 450px; overflow-y: auto; font-size: 14px;">
-                                        {{
-                                            item.description }}</p>
+                                    <p style="word-break: break-all; max-height: 450px; overflow-y: auto; font-size: 14px;">
+                                        {{ item.description }}
+                                    </p>
                                 </template>
                             </Card>
                         </div>
@@ -128,33 +142,19 @@
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>Module:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.ProductModuleLoc
-                                                    }}
-                                                </dd>
+                                                <dd>{{ item.ProductModuleLoc }}</dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Warehouse Location:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.warehouselocation
-                                                    }}
-                                                </dd>
+                                                <dd>{{ item.warehouselocation }}</dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Serial Number:</dt>
-                                                <dd>
-                                                    {{ item.serialnumber }}
-                                                </dd>
+                                                <dd>{{ item.serialnumber }}</dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Tracking Number:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.trackingnumber
-                                                    }}
-                                                </dd>
+                                                <dd>{{ item.trackingnumber }}</dd>
                                             </div>
                                         </dl>
                                     </section>
@@ -164,9 +164,7 @@
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>RT:</dt>
-                                                <dd>
-                                                    {{ item.ProductID }}
-                                                </dd>
+                                                <dd>{{ item.ProductID }}</dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>ASIN:</dt>
@@ -209,27 +207,19 @@
                                             </div>
                                             <div class="info-item">
                                                 <dt>Item Number:</dt>
-                                                <dd>
-                                                    {{ item.itemnumber }}
-                                                </dd>
+                                                <dd>{{ item.itemnumber }}</dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Basket Number:</dt>
-                                                <dd>
-                                                    {{ item.basketnumber }}
-                                                </dd>
+                                                <dd>{{ item.basketnumber }}</dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Order Date:</dt>
-                                                <dd>
-                                                    {{ item.orderdate }}
-                                                </dd>
+                                                <dd>{{ item.orderdate }}</dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Delivered Date:</dt>
-                                                <dd>
-                                                    {{ item.datedelivered }}
-                                                </dd>
+                                                <dd>{{ item.datedelivered }}</dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Seller:</dt>
@@ -237,8 +227,6 @@
                                             </div>
                                         </dl>
                                     </section>
-
-
 
                                     <!-- Additional Info -->
                                     <section class="info-section" v-if="item.grading || item.notes">
@@ -261,37 +249,21 @@
                                     <section class="pricing-section">
                                         <h3 class="text-primary fw-bolder">Pricing</h3>
                                         <dl class="pricing-list">
-                                            <!-- Base Pricing -->
                                             <div class="pricing-item">
                                                 <dt>Unit Price:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.formattedUnitprice ||
-                                                        "0.00"
-                                                    }}
-                                                </dd>
+                                                <dd>{{ item.formattedUnitprice || "0.00" }}</dd>
                                             </div>
                                             <div class="pricing-item">
                                                 <dt>Quantity:</dt>
-                                                <dd>
-                                                    {{ item.quantity || 0 }}
-                                                </dd>
+                                                <dd>{{ item.quantity || 0 }}</dd>
                                             </div>
                                             <div class="pricing-item subtotal-line">
                                                 <dt>Subtotal:</dt>
-                                                <dd>
-                                                    {{
-                                                        item.price || "0.00"
-                                                    }}
-                                                </dd>
+                                                <dd>{{ item.price || "0.00" }}</dd>
                                             </div>
-
-                                            <!-- Adjustments -->
                                             <div class="pricing-item" v-if="item.Discount">
                                                 <dt>Discount:</dt>
-                                                <dd class="discount">
-                                                    -{{ item.Discount }}
-                                                </dd>
+                                                <dd class="discount">-{{ item.Discount }}</dd>
                                             </div>
                                             <div class="pricing-item">
                                                 <dt>Tax:</dt>
@@ -299,25 +271,15 @@
                                             </div>
                                             <div class="pricing-item">
                                                 <dt>Shipping:</dt>
-                                                <dd>
-                                                    {{ item.priceshipping }}
-                                                </dd>
+                                                <dd>{{ item.priceshipping }}</dd>
                                             </div>
-
-                                            <!-- Total -->
                                             <div class="pricing-item total-line">
                                                 <dt>Total Price:</dt>
-                                                <dd class="total-amount">
-                                                    {{ grandTotal }}
-                                                </dd>
+                                                <dd class="total-amount">{{ grandTotal }}</dd>
                                             </div>
-
-                                            <!-- Refund -->
                                             <div class="pricing-item refund-line" v-if="item.refund">
                                                 <dt>Refund:</dt>
-                                                <dd class="refund">
-                                                    {{ item.refund }}
-                                                </dd>
+                                                <dd class="refund">{{ item.refund }}</dd>
                                             </div>
                                         </dl>
                                     </section>
@@ -344,6 +306,9 @@ import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ReceivedConditionModal from "./modals/receivedCondtion_modal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
+import axios from 'axios';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 const TABLE_COLUMNS = [
     {
@@ -398,25 +363,24 @@ export default {
             columns: TABLE_COLUMNS,
             rowsPerPage: ROWS_PER_PAGE,
             showConditionModal: false,
-            selectedItem: null
+            selectedItem: null,
+            showMoveConfirmation: false,
+            moveItemDetails: null,
+            movingItem: false
         };
     },
     computed: {
         visibleColumns() {
             if (!this.columns) return [];
 
-            //columns can be showed or hidden
             const detailFields = ["FBMAvailable", "FbaAvailable", "Outbound", "Inbound", "Reserved", "Unfulfillable"];
-            // Mandatory fields that should always be visible
             const mandatoryFields = ["gallery", "ProductTitle"];
 
             return this.columns.filter(col => {
-                // Always show mandatory fields
                 if (mandatoryFields.includes(col.field)) {
                     return true;
                 }
                 
-                // Hide detail fields if showDetails is false
                 if (!this.showDetails && detailFields.includes(col.field)) {
                     return false;
                 }
@@ -431,12 +395,12 @@ export default {
             this.showConditionModal = true;
         },
 
-        handleConditionSaved(conditionData) {
+        async handleConditionSaved(conditionData) {
             console.log('Condition saved:', conditionData);
             
-            // Try multiple notification methods
+            // Show success notification
             if (typeof this.$swal !== 'undefined') {
-                this.$swal.fire({
+                await this.$swal.fire({
                     icon: 'success',
                     title: 'Success!',
                     text: 'Received condition saved successfully',
@@ -444,21 +408,128 @@ export default {
                     showConfirmButton: false
                 });
             } else if (typeof Swal !== 'undefined') {
-                Swal.fire({
+                await Swal.fire({
                     icon: 'success',
                     title: 'Success!',
                     text: 'Received condition saved successfully',
                     timer: 2000,
                     showConfirmButton: false
                 });
-            } else {
-                // Fallback to native alert
-                alert('Success! Received condition saved successfully');
             }
             
-            // Refresh inventory to show any updates
+            // Store item details for move confirmation
+            this.moveItemDetails = this.selectedItem;
+            
+            // Show move to cleaning confirmation
+            this.showMoveConfirmation = true;
+        },
+
+        async confirmMoveToCleaning() {
+            if (!this.moveItemDetails) return;
+
+            this.movingItem = true;
+            try {
+                const dataToSend = {
+                    item_number: this.moveItemDetails.itemnumber,
+                    product_id: String(this.moveItemDetails.ProductID)
+                };
+                
+                console.log('Moving to cleaning:', dataToSend);
+                
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/testing/move-to-cleaning`,
+                    dataToSend
+                );
+
+                if (response.data.success) {
+                    // Success notification
+                    if (typeof this.$swal !== 'undefined') {
+                        this.$swal.fire({
+                            icon: 'success',
+                            title: 'Moved!',
+                            text: 'Item moved to Cleaning & Prepping module successfully',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    } else if (typeof Swal !== 'undefined') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Moved!',
+                            text: 'Item moved to Cleaning & Prepping module successfully',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    } else {
+                        alert('Success! Item moved to Cleaning & Prepping module');
+                    }
+
+                    // Close modal and refresh
+                    this.showMoveConfirmation = false;
+                    this.moveItemDetails = null;
+                    
+                    // Refresh inventory to remove the moved item
+                    await this.fetchInventory();
+                }
+            } catch (error) {
+                console.error('Failed to move item:', error);
+                console.error('Error response data:', error.response?.data);
+                console.error('Validation errors:', error.response?.data?.errors);
+                
+                let errorMessage = 'Failed to move item to Cleaning module';
+                
+                // Handle validation errors
+                if (error.response?.data?.errors) {
+                    const errors = error.response.data.errors;
+                    errorMessage = Object.values(errors).flat().join('\n');
+                } else if (error.response?.data?.message) {
+                    errorMessage = error.response.data.message;
+                }
+                
+                if (typeof this.$swal !== 'undefined') {
+                    this.$swal.fire({
+                        icon: 'error',
+                        title: 'Error Moving Item',
+                        text: errorMessage,
+                        confirmButtonText: 'OK'
+                    });
+                } else if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error Moving Item',
+                        text: errorMessage,
+                        confirmButtonText: 'OK'
+                    });
+                } else {
+                    alert('Error: ' + errorMessage);
+                }
+            } finally {
+                this.movingItem = false;
+            }
+        },
+
+        cancelMove() {
+            this.showMoveConfirmation = false;
+            this.moveItemDetails = null;
+            
+            // Still refresh inventory to show updated condition
             this.fetchInventory();
         }
     }
 };
 </script>
+
+<style scoped>
+.confirmation-content {
+    padding: 1rem 0;
+}
+
+.confirmation-content p {
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.confirmation-content .bg-light {
+    background-color: #f8f9fa !important;
+    border-left: 3px solid var(--primary-color);
+}
+</style>
