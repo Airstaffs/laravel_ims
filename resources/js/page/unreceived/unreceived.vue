@@ -6,29 +6,58 @@
             </div>
         </div> -->
 
-        <div class="d-flex align-items-center justify-content-between flex-wrap mb-4">
-            <TitlePage title="Unreceived Module"
-                subtitle="Track and manage all inbound inventory shipments that have not yet been received or confirmed." />
-            <Button class="mx-4" @click="openScannerModal" label="Scan Items" size="small" icon="pi pi-barcode"
-                severity="secondary" outlined />
+        <div
+            class="d-flex align-items-center justify-content-between flex-wrap mb-4"
+        >
+            <TitlePage
+                title="Unreceived Module"
+                subtitle="Track and manage all inbound inventory shipments that have not yet been received or confirmed."
+            />
+            <Button
+                class="mx-4"
+                @click="openScannerModal"
+                label="Scan Items"
+                size="small"
+                icon="pi pi-barcode"
+                severity="secondary"
+                outlined
+            />
         </div>
 
-
         <!-- Simplified Scanner Component -->
-        <scanner-component scanner-title="Unreceived Scanner" storage-prefix="unreceived" :enable-camera="true"
-            :display-fields="['Trackingnumber', 'RPN', 'PRD', 'Status']" :api-endpoint="'/api/unreceived/process-scan'"
-            :hide-button="true" @process-scan="handleScanProcess" @hardware-scan="handleHardwareScan"
-            @scanner-opened="handleScannerOpened" @scanner-closed="handleScannerClosed"
-            @scanner-reset="handleScannerReset" @mode-changed="handleModeChange" ref="scanner">
+        <scanner-component
+            scanner-title="Unreceived Scanner"
+            storage-prefix="unreceived"
+            :enable-camera="true"
+            :display-fields="['Trackingnumber', 'RPN', 'PRD', 'Status']"
+            :api-endpoint="'/api/unreceived/process-scan'"
+            :hide-button="true"
+            @process-scan="handleScanProcess"
+            @hardware-scan="handleHardwareScan"
+            @scanner-opened="handleScannerOpened"
+            @scanner-closed="handleScannerClosed"
+            @scanner-reset="handleScannerReset"
+            @mode-changed="handleModeChange"
+            ref="scanner"
+        >
             <!-- Simplified input - only tracking number needed -->
             <template #input-fields>
                 <div class="input-group">
                     <label>Tracking Number:</label>
-                    <input type="text" v-model="trackingNumber"
+                    <input
+                        type="text"
+                        v-model="trackingNumber"
                         placeholder="Enter Tracking Number (RPN & PRD will be auto-generated)..."
-                        @input="handleTrackingInput" @keyup.enter="verifyAndProcessTracking" ref="trackingInput" />
+                        @input="handleTrackingInput"
+                        @keyup.enter="verifyAndProcessTracking"
+                        ref="trackingInput"
+                    />
                     <!-- Only show manual process button in Manual mode -->
-                    <button v-if="showManualInput" @click="verifyAndProcessTracking" class="verify-button">
+                    <button
+                        v-if="showManualInput"
+                        @click="verifyAndProcessTracking"
+                        class="verify-button"
+                    >
                         Process Tracking
                     </button>
                     <div class="scanner-info">
@@ -44,19 +73,41 @@
 
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="px-4">
-            <XDataTable :value="sortedInventory" :loading="loading" :columns="visibleColumns" :paginator="false"
-                selectionMode="multiple" dataKey="ProductID" tableClass="desktop-view">
+            <XDataTable
+                :value="sortedInventory"
+                :loading="loading"
+                :columns="visibleColumns"
+                :paginator="false"
+                selectionMode="multiple"
+                dataKey="ProductID"
+                tableClass="desktop-view"
+            >
                 <template #gallery="{ data }">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" />
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
+                        <TableGallery
+                            :data="data"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAdditionalImages"
+                        />
                     </div>
                 </template>
 
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
-                        <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
-                            <p style="font-size: .8rem;">RT# {{ data.rtcounter }}</p>
+                        <div
+                            style="
+                                word-break: break-word;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                flex: 1;
+                            "
+                        >
+                            <p style="font-size: 0.8rem">
+                                RT# {{ data.rtcounter }}
+                            </p>
                             <p class="fw-semibold">
                                 {{ data.ProductTitle }}
                             </p>
@@ -65,36 +116,71 @@
                 </template>
 
                 <template #actions="{ data }">
-                    <Button size="small" severity="contrast" variant="text" label="View Details" class="text-primary"
-                        icon="pi pi-exclamation-circle" @click="openEditModal(data)" />
+                    <Button
+                        size="small"
+                        severity="contrast"
+                        variant="text"
+                        label="View Details"
+                        class="text-primary"
+                        icon="pi pi-exclamation-circle"
+                        @click="openEditModal(data)"
+                    />
                 </template>
             </XDataTable>
         </AnimateDiv>
 
-
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <MobileCard1 :data="item" :showDetails="showDetails" :sortedInventory="sortedInventory"
-                :expandedRows="expandedRows" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                :countAdditionalImages="countAdditionalImages" :openEditModal="openEditModal" :loading="loading" />
+            <MobileCard1
+                :sortedInventory="sortedInventory"
+                :expandedRows="expandedRows"
+                :openImageModal="openImageModal"
+                :handleImageError="handleImageError"
+                :countAdditionalImages="countAdditionalImages"
+                :openEditModal="openEditModal"
+                :loading="loading"
+                :showDetails="showDetails"
+                :visibleFields="[
+                    'price',
+                    'serialnumber',
+                    'trackingnumber',
+                    'datedelivered',
+                ]"
+            />
         </div>
 
         <!-- Image Modal -->
-        <div v-if="showImageModal" class="image-modal-overlay" @click="closeImageModal">
+        <div
+            v-if="showImageModal"
+            class="image-modal-overlay"
+            @click="closeImageModal"
+        >
             <div class="image-modal-content" @click.stop>
                 <button class="modal-close-btn" @click="closeImageModal">
                     <i class="fas fa-times"></i>
                 </button>
 
                 <div class="modal-image-container">
-                    <button v-if="modalImages.length > 1" class="modal-nav-btn prev-btn" @click="prevImage">
+                    <button
+                        v-if="modalImages.length > 1"
+                        class="modal-nav-btn prev-btn"
+                        @click="prevImage"
+                    >
                         <i class="fas fa-chevron-left"></i>
                     </button>
 
-                    <img :src="modalImages[currentImageIndex]" alt="Product Image" class="modal-image"
-                        @error="handleImageError($event)" />
+                    <img
+                        :src="modalImages[currentImageIndex]"
+                        alt="Product Image"
+                        class="modal-image"
+                        @error="handleImageError($event)"
+                    />
 
-                    <button v-if="modalImages.length > 1" class="modal-nav-btn next-btn" @click="nextImage">
+                    <button
+                        v-if="modalImages.length > 1"
+                        class="modal-nav-btn next-btn"
+                        @click="nextImage"
+                    >
                         <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
@@ -110,8 +196,14 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" optionValue="value"
-                        optionLabel="label" size="small" />
+                    <Select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        :options="rowsPerPage"
+                        optionValue="value"
+                        optionLabel="label"
+                        size="small"
+                    />
                     <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
@@ -120,63 +212,94 @@
                 </div>
 
                 <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" label="Back" icon="pi pi-angle-left"
-                        size="small" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" label="Next"
-                        icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
+                    <Button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        label="Back"
+                        icon="pi pi-angle-left"
+                        size="small"
+                        severity="info"
+                    />
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <Button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        label="Next"
+                        icon="pi pi-angle-right"
+                        size="small"
+                        severity="info"
+                        iconPos="right"
+                    />
                 </div>
             </div>
         </div>
 
         <!-- Image Modal -->
-        <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
-            :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
-            @close="closeImageModal" />
+        <ViewImageModal
+            v-model:visible="showImageModal"
+            :title="ProductTitle"
+            :imageList="imageList"
+            :basePath="basePath"
+            :onImageErrorMain="onImageErrorMain"
+            :onThumbnailError="onThumbnailError"
+            @close="closeImageModal"
+        />
 
-        <Dialog class="view-modal" v-model:visible="showEditModal" modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" :style="{ width: '95%' }" :pt="{
-                root: { class: 'mobile-fullscreen-dialog' }
-            }">
+        <Dialog
+            class="view-modal"
+            v-model:visible="showEditModal"
+            modal
+            :header="`RT # ${item.ProductID} ${item.ProductTitle}`"
+            :style="{ width: '95%' }"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+        >
             <div class="view-info-container">
                 <div class="view-grid-wrapper">
-
                     <div class="form-col-left">
                         <gallery :item="item" />
                         <Card>
                             <template #title>
-                                <h5 class="text-primary fw-bolder">Description</h5>
+                                <h5 class="text-primary fw-bolder">
+                                    Description
+                                </h5>
                             </template>
                             <template #content>
-                                <p style="word-break: break-all; max-height: 450px; overflow-y: auto; font-size: 14px;">
-                                    {{
-                                        item.description }}</p>
+                                <p
+                                    style="
+                                        word-break: break-all;
+                                        max-height: 450px;
+                                        overflow-y: auto;
+                                        font-size: 14px;
+                                    "
+                                >
+                                    {{ item.description }}
+                                </p>
                             </template>
                         </Card>
                     </div>
 
-
                     <div class="form-col-right">
                         <div class="row">
                             <div class="col-lg-6">
-
                                 <section class="info-section">
-                                    <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
+                                    <h3 class="text-primary fw-bolder">
+                                        Warehouse & Tracking
+                                    </h3>
                                     <dl class="info-list">
                                         <div class="info-item">
                                             <dt>Module:</dt>
                                             <dd>
-                                                {{
-                                                    item.ProductModuleLoc
-                                                }}
+                                                {{ item.ProductModuleLoc }}
                                             </dd>
                                         </div>
                                         <div class="info-item">
                                             <dt>Warehouse Location:</dt>
                                             <dd>
-                                                {{
-                                                    item.warehouselocation
-                                                }}
+                                                {{ item.warehouselocation }}
                                             </dd>
                                         </div>
                                         <div class="info-item">
@@ -188,16 +311,16 @@
                                         <div class="info-item">
                                             <dt>Tracking Number:</dt>
                                             <dd>
-                                                {{
-                                                    item.trackingnumber
-                                                }}
+                                                {{ item.trackingnumber }}
                                             </dd>
                                         </div>
                                     </dl>
                                 </section>
 
                                 <section class="info-section">
-                                    <h3 class="text-primary fw-bolder">Product Identifiers</h3>
+                                    <h3 class="text-primary fw-bolder">
+                                        Product Identifiers
+                                    </h3>
                                     <dl class="info-list">
                                         <div class="info-item">
                                             <dt>RT:</dt>
@@ -236,9 +359,10 @@
                                     </dl>
                                 </section>
 
-
                                 <section class="info-section">
-                                    <h3 class="text-primary fw-bolder">Order Information</h3>
+                                    <h3 class="text-primary fw-bolder">
+                                        Order Information
+                                    </h3>
                                     <dl class="info-list">
                                         <div class="info-item">
                                             <dt>Order Number:</dt>
@@ -275,18 +399,25 @@
                                     </dl>
                                 </section>
 
-
-
-
-
-                                <section class="info-section" v-if="item.grading || item.notes">
-                                    <h3 class="text-primary fw-bolder">Additional Info</h3>
+                                <section
+                                    class="info-section"
+                                    v-if="item.grading || item.notes"
+                                >
+                                    <h3 class="text-primary fw-bolder">
+                                        Additional Info
+                                    </h3>
                                     <dl class="info-list">
-                                        <div class="info-item" v-if="item.grading">
+                                        <div
+                                            class="info-item"
+                                            v-if="item.grading"
+                                        >
                                             <dt>Grading:</dt>
                                             <dd>{{ item.grading }}</dd>
                                         </div>
-                                        <div class="info-item" v-if="item.notes">
+                                        <div
+                                            class="info-item"
+                                            v-if="item.notes"
+                                        >
                                             <dt>Notes:</dt>
                                             <dd>{{ item.notes }}</dd>
                                         </div>
@@ -294,12 +425,12 @@
                                 </section>
                             </div>
 
-
                             <div class="col-lg-6">
                                 <section class="pricing-section">
-                                    <h3 class="text-primary fw-bolder">Pricing</h3>
+                                    <h3 class="text-primary fw-bolder">
+                                        Pricing
+                                    </h3>
                                     <dl class="pricing-list">
-
                                         <div class="pricing-item">
                                             <dt>Unit Price:</dt>
                                             <dd>
@@ -318,14 +449,14 @@
                                         <div class="pricing-item subtotal-line">
                                             <dt>Subtotal:</dt>
                                             <dd>
-                                                {{
-                                                    item.price || "0.00"
-                                                }}
+                                                {{ item.price || "0.00" }}
                                             </dd>
                                         </div>
 
-
-                                        <div class="pricing-item" v-if="item.Discount">
+                                        <div
+                                            class="pricing-item"
+                                            v-if="item.Discount"
+                                        >
                                             <dt>Discount:</dt>
                                             <dd class="discount">
                                                 -{{ item.Discount }}
@@ -342,7 +473,6 @@
                                             </dd>
                                         </div>
 
-
                                         <div class="pricing-item total-line">
                                             <dt>Total Price:</dt>
                                             <dd class="total-amount">
@@ -350,8 +480,10 @@
                                             </dd>
                                         </div>
 
-
-                                        <div class="pricing-item refund-line" v-if="item.refund">
+                                        <div
+                                            class="pricing-item refund-line"
+                                            v-if="item.refund"
+                                        >
                                             <dt>Refund:</dt>
                                             <dd class="refund">
                                                 {{ item.refund }}
@@ -396,20 +528,30 @@ const TABLE_COLUMNS = [
         slot: "ProductTitle",
         style: { maxWidth: "20rem" },
     },
-    { field: "datedelivered", header: "Added Date", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "lastDateUpdate", header: "Updated Date", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "FNSKUviewer", header: "Fnsku", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "MSKUviewer", header: "Msku", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "ASINviewer", header: "Asin", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "FBMAvailable", header: "FBM", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "FbaAvailable", header: "FBA", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Outbound", header: "Outbound", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Inbound", header: "Inbound", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Reserved", header: "Reserved", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Unfulfillable", header: "Unfulfillable", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Fulfilledby", header: "Fulfillment", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Status", header: "Status", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "serialNumber", header: "Serial Number", sortable: true, bodyStyle: "font-size: 14px;" },
+    {
+        field: "price",
+        header: "Price",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
+    },
+    {
+        field: "serialNumber",
+        header: "Serial Number",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
+    },
+    {
+        field: "trackingnumber",
+        header: "Tracking Number",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
+    },
+    {
+        field: "datedelivered",
+        header: "Date Delivered",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
+    },
 ];
 
 export default {
@@ -426,12 +568,12 @@ export default {
         TitlePage,
         ViewImageModal,
         AnimateDiv,
-        Select
+        Select,
     },
     data() {
         return {
             columns: TABLE_COLUMNS,
-            rowsPerPage: ROWS_PER_PAGE
+            rowsPerPage: ROWS_PER_PAGE,
         };
     },
     computed: {
@@ -439,10 +581,16 @@ export default {
             if (!this.columns) return [];
 
             //columns can be showed or hidden
-            const detailFields = ["FBMAvailable", "FbaAvailable", "Outbound", "Inbound", "Reserved", "Unfulfillable"];
+            const detailFields = [
+                "FBMAvailable",
+                "FbaAvailable",
+                "Outbound",
+                "Inbound",
+                "Reserved",
+                "Unfulfillable",
+            ];
 
-
-            return this.columns.filter(col => {
+            return this.columns.filter((col) => {
                 if (!this.showDetails && detailFields.includes(col.field)) {
                     return false;
                 }
