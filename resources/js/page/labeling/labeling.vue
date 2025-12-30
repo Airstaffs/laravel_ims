@@ -5,23 +5,47 @@
         </div> -->
 
         <!-- <h2 class="module-title">Labeling Module</h2> -->
-        <TitlePage title="Labeling Module"
-            subtitle="Prepare and manage the details required to generate inventory, shipment, or fulfillment labels for products." />
+        <TitlePage
+            title="Labeling Module"
+            subtitle="Prepare and manage the details required to generate inventory, shipment, or fulfillment labels for products."
+        />
 
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="px-4">
-            <XDataTable :value="sortedInventory" :loading=loading :columns="columns" :paginator="false"
-                tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
+            <XDataTable
+                :value="sortedInventory"
+                :loading="loading"
+                :columns="columns"
+                :paginator="false"
+                tableClass="desktop-view"
+                selectionMode="multiple"
+                dataKey="ProductID"
+            >
                 <template #gallery="{ data }">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAllImages" />
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
+                        <TableGallery
+                            :data="data"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAllImages"
+                        />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
-                        <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
-                            <p style="font-size: .8rem;">RT# {{ data.rtcounter }}</p>
+                        <div
+                            style="
+                                word-break: break-word;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                flex: 1;
+                            "
+                        >
+                            <p style="font-size: 0.8rem">
+                                RT# {{ data.rtcounter }}
+                            </p>
                             <p class="fw-semibold">
                                 {{ data.ProductTitle }}
                             </p>
@@ -35,14 +59,41 @@
                 </template>
                 <template #actions="{ data }">
                     <div class="d-flex flex-column align-items-start">
-                        <Button label="Copy Details" icon="pi pi-clone" size=small severity="contrast" variant="text"
-                            class="text-success" @click="openCopyDetailsModal(data)" />
-                        <Button label="Edit" icon="pi pi-pencil" size=small severity="contrast" variant="text"
-                            class="text-primary" @click="openEditModal(data)" />
-                        <Button type="button" severity="contrast" variant="text" icon="pi pi-list"
-                            @click="toggle($event, data)" aria-haspopup="true" aria-controls="overlay_menu" size="small"
-                            label="More Actions" />
-                        <Menu ref="menu" id="overlay_menu" :model="menuActions" :popup="true" />
+                        <Button
+                            label="Copy Details"
+                            icon="pi pi-clone"
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            class="text-success"
+                            @click="openCopyDetailsModal(data)"
+                        />
+                        <Button
+                            label="Edit"
+                            icon="pi pi-pencil"
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            class="text-primary"
+                            @click="openEditModal(data)"
+                        />
+                        <Button
+                            type="button"
+                            severity="contrast"
+                            variant="text"
+                            icon="pi pi-list"
+                            @click="toggle($event, data)"
+                            aria-haspopup="true"
+                            aria-controls="overlay_menu"
+                            size="small"
+                            label="More Actions"
+                        />
+                        <Menu
+                            ref="menu"
+                            id="overlay_menu"
+                            :model="menuActions"
+                            :popup="true"
+                        />
                     </div>
                 </template>
             </XDataTable>
@@ -55,10 +106,18 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
+                <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
                     No data found
                 </div>
-                <div class="mobile-card" v-else v-for="(item, index) in sortedInventory" :key="item.id">
+                <div
+                    class="mobile-card"
+                    v-else
+                    v-for="(item, index) in sortedInventory"
+                    :key="item.id"
+                >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
@@ -71,11 +130,17 @@
                                 +{{ countAllImages(item) }}
                             </div>
                         </div> -->
-                        <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAllImages" />
+                        <TableGallery
+                            :data="item"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAllImages"
+                        />
                         <div class="mobile-product-info">
                             <h6 class="mobile-product-name clickable">
-                                <span style="font-size: 1rem;">RT# : {{ item.rtcounter }}</span>
+                                <span style="font-size: 1rem"
+                                    >RT# : {{ item.rtcounter }}</span
+                                >
                                 <span>{{ item.ProductTitle }}</span>
                             </h6>
                         </div>
@@ -85,65 +150,108 @@
 
                     <div class="mobile-card-details">
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Date Delivered:</span>
+                            <span class="mobile-detail-label"
+                                >Date Delivered:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.datedelivered }}</span>
+                                {{ item.datedelivered }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ASIN }}</span>
+                                {{ item.ASIN }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">FNSKU:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FNSKUviewer }}</span>
+                                {{ item.FNSKUviewer }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Quantity:</span>
                             <span class="mobile-detal-value">
-                                {{ item.quantity }} unit/s</span>
+                                {{ item.quantity }} unit/s</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Serial Number:</span>
+                            <span class="mobile-detail-label"
+                                >Serial Number:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.serialnumber }}</span>
+                                {{ item.serialnumber }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Tracking Number:</span>
+                            <span class="mobile-detail-label"
+                                >Tracking Number:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.trackingnumber }}</span>
+                                {{ item.trackingnumber }}</span
+                            >
                         </div>
                     </div>
 
                     <Divider />
 
                     <div class="d-flex flex-nowrap overflow-auto gap-2 pb-3">
-                        <div class="flex-shrink-0"> <Button @click="openCopyDetailsModal(item)" icon="pi pi-clone"
-                                label="Copy Details" size="small" severity="info" /></div>
                         <div class="flex-shrink-0">
-                            <Button @click="openEditModal(item)" icon="pi pi-pencil" label="Edit" size="small" />
+                            <Button
+                                @click="openCopyDetailsModal(item)"
+                                icon="pi pi-clone"
+                                label="Copy Details"
+                                size="small"
+                                severity="info"
+                            />
                         </div>
                         <div class="flex-shrink-0">
-                            <Button @click="confirmSplitItem(item)" :disabled="isProcessing || !canSplit(item)"
-                                icon="pi pi-arrow-up-right-and-arrow-down-left-from-center" label="Split" size="small"
-                                severity="contrast" />
+                            <Button
+                                @click="openEditModal(item)"
+                                icon="pi pi-pencil"
+                                label="Edit"
+                                size="small"
+                            />
                         </div>
                         <div class="flex-shrink-0">
-                            <Button @click="showFnskuModal(item)" icon="pi pi-file-check" label="Set FNSKU" size="small"
-                                severity="help" />
+                            <Button
+                                @click="confirmSplitItem(item)"
+                                :disabled="isProcessing || !canSplit(item)"
+                                icon="pi pi-arrow-up-right-and-arrow-down-left-from-center"
+                                label="Split"
+                                size="small"
+                                severity="contrast"
+                            />
+                        </div>
+                        <div class="flex-shrink-0">
+                            <Button
+                                @click="showFnskuModal(item)"
+                                icon="pi pi-file-check"
+                                label="Set FNSKU"
+                                size="small"
+                                severity="help"
+                            />
                         </div>
 
-
-                        <div class="flex-shrink-0"><Button @click="confirmMoveToValidation(item)"
-                                icon="pi pi-check-circle" label="Move to Validation" :disabled="isProcessing"
-                                size="small" /></div>
-                        <div class="flex-shrink-0"> <Button @click="confirmMoveToStockroom(item)"
-                                :disabled="isProcessing" icon="pi pi-box" label="Move to Stockroom" severity="warn"
-                                size="small" /></div>
-
-
-
+                        <div class="flex-shrink-0">
+                            <Button
+                                @click="confirmMoveToValidation(item)"
+                                icon="pi pi-check-circle"
+                                label="Move to Validation"
+                                :disabled="isProcessing"
+                                size="small"
+                            />
+                        </div>
+                        <div class="flex-shrink-0">
+                            <Button
+                                @click="confirmMoveToStockroom(item)"
+                                :disabled="isProcessing"
+                                icon="pi pi-box"
+                                label="Move to Stockroom"
+                                severity="warn"
+                                size="small"
+                            />
+                        </div>
                     </div>
                 </div>
             </div>
@@ -154,8 +262,14 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" size="small" :options="rowsPerPage"
-                        optionLabel="label" optionValue="value" />
+                    <Select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        size="small"
+                        :options="rowsPerPage"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
                     <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
@@ -164,24 +278,51 @@
                 </div>
 
                 <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
-                        icon="pi pi-angle-left" size="small" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
+                    <Button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                        label="Back"
+                        icon="pi pi-angle-left"
+                        size="small"
+                        severity="info"
+                    />
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <Button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                        label="Next"
+                        icon="pi pi-angle-right"
+                        size="small"
+                        severity="info"
+                        iconPos="right"
+                    />
                 </div>
             </div>
         </div>
 
         <!-- Image Modal with Tabs -->
-        <ViewImageGalleryModal :showImageModal="showImageModal" :closeImageModal="closeImageModal"
-            :ProductTitle="ProductTitle" :regularImages="regularImages" :capturedImages="capturedImages"
-            :handleImageError="handleImageError" />
+        <ViewImageGalleryModal
+            :showImageModal="showImageModal"
+            :closeImageModal="closeImageModal"
+            :ProductTitle="ProductTitle"
+            :regularImages="regularImages"
+            :capturedImages="capturedImages"
+            :handleImageError="handleImageError"
+        />
 
-
-        <Dialog v-model:visible="showEditModal" header="Edit Product" modal :style="{ width: '90%' }" :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }">
+        <Dialog
+            v-model:visible="showEditModal"
+            header="Edit Product"
+            modal
+            :style="{ width: '90%' }"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+        >
             <div class="edit-order-container">
                 <form method="POST" class="editOrderForm">
                     <div class="form-grid-wrapper">
@@ -189,54 +330,90 @@
                             <div class="image-section" v-if="imageList.length">
                                 <!-- Main Image -->
                                 <div class="main-image">
-                                    <img :src="activeImageUrl" alt="Main Product Image" loading="lazy"
-                                        @error="onImageErrorMain" />
+                                    <img
+                                        :src="activeImageUrl"
+                                        alt="Main Product Image"
+                                        loading="lazy"
+                                        @error="onImageErrorMain"
+                                    />
                                 </div>
 
                                 <!-- Thumbnails -->
                                 <div class="thumbnail-carousel">
-                                    <div v-for="(
-img, index
-                                                ) in imageList" :key="index" :class="[
-                                                    'thumbnail',
-                                                    {
-                                                        active:
-                                                            index ===
-                                                            activeIndex,
-                                                    },
-                                                ]" @click="activeIndex = index" @mouseenter="
-                                                    activeIndex = index
-                                                    ">
-                                        <img :src="basePath + img" alt="Thumbnail" loading="lazy" @error="
-                                            onThumbnailError($event)
-                                            " />
+                                    <div
+                                        v-for="(img, index) in imageList"
+                                        :key="index"
+                                        :class="[
+                                            'thumbnail',
+                                            {
+                                                active: index === activeIndex,
+                                            },
+                                        ]"
+                                        @click="activeIndex = index"
+                                        @mouseenter="activeIndex = index"
+                                    >
+                                        <img
+                                            :src="basePath + img"
+                                            alt="Thumbnail"
+                                            loading="lazy"
+                                            @error="onThumbnailError($event)"
+                                        />
                                     </div>
                                 </div>
-
                             </div>
                             <Card>
                                 <template #title>
-                                    <div>
-                                        <h6 class="text-primary">Dates</h6>
-                                        <Divider />
+                                    <div
+                                        class="d-flex justify-content-between align-items-center"
+                                    >
+                                        <h6 class="text-primary mb-0">Dates</h6>
+                                        <div>
+                                            <Tag
+                                                :value="timezoneLabel"
+                                                severity="info"
+                                                icon="pi pi-clock"
+                                                class="timezone-badge"
+                                            />
+                                        </div>
                                     </div>
+                                    <Divider />
                                 </template>
                                 <template #content>
                                     <fieldset>
                                         <label>Order Date:</label>
-                                        <InputText type="date" v-model="item.orderdate" size="small" fluid />
+                                        <InputText
+                                            type="date"
+                                            v-model="localOrderDate"
+                                            size="small"
+                                            fluid
+                                        />
                                     </fieldset>
                                     <fieldset>
                                         <label>Payment Date:</label>
-                                        <InputText type="date" v-model="item.paymentdate" size="small" fluid />
+                                        <InputText
+                                            type="date"
+                                            v-model="localPaymentDate"
+                                            size="small"
+                                            fluid
+                                        />
                                     </fieldset>
                                     <fieldset>
                                         <label>Shipped Date:</label>
-                                        <InputText type="date" v-model="item.shipdate" size="small" fluid />
+                                        <InputText
+                                            type="date"
+                                            v-model="localShipDate"
+                                            size="small"
+                                            fluid
+                                        />
                                     </fieldset>
                                     <fieldset>
                                         <label>Delivered Date:</label>
-                                        <InputText type="date" v-model="item.datedelivered" size="small" fluid />
+                                        <InputText
+                                            type="date"
+                                            v-model="localDeliveredDate"
+                                            size="small"
+                                            fluid
+                                        />
                                     </fieldset>
                                 </template>
                             </Card>
@@ -244,52 +421,100 @@ img, index
 
                         <!-- CENTER: ALL OTHER INFO EXCEPT PRICING -->
                         <div class="form-col-center">
-
-                            <div class="form-section other-section bg-white border-0">
+                            <div
+                                class="form-section other-section bg-white border-0"
+                            >
                                 <!-- SECTION: Dates -->
                                 <div class="dates-section">
                                     <Card>
                                         <template #title>
                                             <div>
-                                                <h6 class="text-primary">General Information</h6>
+                                                <h6 class="text-primary">
+                                                    General Information
+                                                </h6>
                                                 <Divider />
                                             </div>
                                         </template>
                                         <template #content>
                                             <div>
                                                 <fieldset>
-                                                    <label>External Title</label>
-                                                    <Textarea ref="productTextarea" class="form-control no-resize"
-                                                        v-model="item.ProductTitle" placeholder="Product Title"
-                                                        @input="autoResize" fluid size="small" />
+                                                    <label
+                                                        >External Title</label
+                                                    >
+                                                    <Textarea
+                                                        ref="productTextarea"
+                                                        class="form-control no-resize"
+                                                        v-model="
+                                                            item.ProductTitle
+                                                        "
+                                                        placeholder="Product Title"
+                                                        @input="autoResize"
+                                                        fluid
+                                                        size="small"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label>Internal Title</label>
-                                                    <Textarea ref="productTextarea" class="form-control no-resize"
-                                                        v-model="item.ProductTitle" placeholder="Product Title" rows="1"
-                                                        @input="autoResize" fluid size="small" disabled />
+                                                    <label
+                                                        >Internal Title</label
+                                                    >
+                                                    <Textarea
+                                                        ref="productTextarea"
+                                                        class="form-control no-resize"
+                                                        v-model="
+                                                            item.ProductTitle
+                                                        "
+                                                        placeholder="Product Title"
+                                                        rows="1"
+                                                        @input="autoResize"
+                                                        fluid
+                                                        size="small"
+                                                        disabled
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>RT:</label>
-                                                    <InputText type="text" size="small" fluid v-model="item.rtcounter"
-                                                        placeholder="RT Counter" />
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item.rtcounter"
+                                                        placeholder="RT Counter"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>
                                                         <span>ASIN:</span>
                                                         <span>*</span>
                                                     </label>
-                                                    <InputText type="text" :value="item.ASIN" size="small" fluid
-                                                        readonly disabled />
+                                                    <InputText
+                                                        type="text"
+                                                        :value="item.ASIN"
+                                                        size="small"
+                                                        fluid
+                                                        readonly
+                                                        disabled
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Description</span></label>
-                                                    <Textarea ref="descriptionarea" class="no-resize" fluid
-                                                        v-model="item.description" placeholder="Description" rows="11"
-                                                        @input="autoResize" size="small" />
+                                                    <label
+                                                        ><span
+                                                            >Description</span
+                                                        ></label
+                                                    >
+                                                    <Textarea
+                                                        ref="descriptionarea"
+                                                        class="no-resize"
+                                                        fluid
+                                                        v-model="
+                                                            item.description
+                                                        "
+                                                        placeholder="Description"
+                                                        rows="11"
+                                                        @input="autoResize"
+                                                        size="small"
+                                                    />
                                                 </fieldset>
                                             </div>
-
                                         </template>
                                     </Card>
                                 </div>
@@ -299,34 +524,62 @@ img, index
                                     <Card>
                                         <template #title>
                                             <div>
-                                                <h6 class="text-primary">Serial & Tracking</h6>
+                                                <h6 class="text-primary">
+                                                    Serial & Tracking
+                                                </h6>
                                                 <Divider />
                                             </div>
                                         </template>
                                         <template #content>
                                             <template v-if="serialKeys.length">
-                                                <fieldset v-for="(
-key, index
-                                                    ) in serialKeys" :key="key">
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in serialKeys"
+                                                    :key="key"
+                                                >
                                                     <label>
-                                                        <span>Serial Number
+                                                        <span
+                                                            >Serial Number
                                                             {{
                                                                 getLabel(index)
-                                                            }}:</span>
-                                                        <span v-if="index === 0">*</span>
+                                                            }}:</span
+                                                        >
+                                                        <span v-if="index === 0"
+                                                            >*</span
+                                                        >
                                                     </label>
-                                                    <InputText type="text" size="small" fluid v-model="item[key]" />
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item[key]"
+                                                    />
                                                 </fieldset>
                                             </template>
-                                            <template v-if="trackingKeys.length">
-                                                <fieldset v-for="(
-key, index
-                                                    ) in trackingKeys" :key="key">
-                                                    <label><span>Tracking Number
+                                            <template
+                                                v-if="trackingKeys.length"
+                                            >
+                                                <fieldset
+                                                    v-for="(
+                                                        key, index
+                                                    ) in trackingKeys"
+                                                    :key="key"
+                                                >
+                                                    <label
+                                                        ><span
+                                                            >Tracking Number
                                                             {{
                                                                 index + 1
-                                                            }}:</span></label>
-                                                    <InputText type="text" size="small" fluid v-model="item[key]" />
+                                                            }}:</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="item[key]"
+                                                    />
                                                 </fieldset>
                                             </template>
                                         </template>
@@ -348,93 +601,180 @@ key, index
                                             <div>
                                                 <fieldset>
                                                     <label>Order Number</label>
-                                                    <InputText type="text" v-model="item.rtid"
-                                                        placeholder="Order Number" size="small" fluid />
+                                                    <InputText
+                                                        type="text"
+                                                        v-model="item.rtid"
+                                                        placeholder="Order Number"
+                                                        size="small"
+                                                        fluid
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>Item Number</label>
-                                                    <InputText type="text" size="small" fluid
-                                                        v-model="item.itemnumber" />
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.itemnumber
+                                                        "
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>
-                                                        <span>Basket Number</span>
+                                                        <span
+                                                            >Basket Number</span
+                                                        >
                                                         <span>*</span>
                                                     </label>
-                                                    <InputText type="text" size="small" fluid
-                                                        v-model="item.basketnumber" />
+                                                    <InputText
+                                                        type="text"
+                                                        size="small"
+                                                        fluid
+                                                        v-model="
+                                                            item.basketnumber
+                                                        "
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>
                                                         <span>RPN</span>
                                                         <span>*</span>
                                                     </label>
-                                                    <InputText size="small" fluid type="text" v-model="item.RPN" />
+                                                    <InputText
+                                                        size="small"
+                                                        fluid
+                                                        type="text"
+                                                        v-model="item.RPN"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>
                                                         <span>PRD</span>
                                                         <span>*</span>
                                                     </label>
-                                                    <InputText size="small" fluid type="text" v-model="item.PRD" />
+                                                    <InputText
+                                                        size="small"
+                                                        fluid
+                                                        type="text"
+                                                        v-model="item.PRD"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
                                                     <label>
                                                         <span>PCN</span>
                                                         <span>*</span>
                                                     </label>
-                                                    <InputText size="small" fluid type="text" v-model="item.PCN" />
+                                                    <InputText
+                                                        size="small"
+                                                        fluid
+                                                        type="text"
+                                                        v-model="item.PCN"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Priority Rank</span></label>
-                                                    <Select v-model="item.priorityrank" :options="priorityRanksOptions"
-                                                        optionLabel="label" optionValue="value" size="small" fluid
-                                                        placeholder="Select Priority Bank" />
+                                                    <label
+                                                        ><span
+                                                            >Priority Rank</span
+                                                        ></label
+                                                    >
+                                                    <Select
+                                                        v-model="
+                                                            item.priorityrank
+                                                        "
+                                                        :options="
+                                                            priorityRanksOptions
+                                                        "
+                                                        optionLabel="label"
+                                                        optionValue="value"
+                                                        size="small"
+                                                        fluid
+                                                        placeholder="Select Priority Bank"
+                                                    />
                                                 </fieldset>
                                                 <fieldset>
-                                                    <label><span>Return Status</span></label>
-                                                    <InputText size="small" fluid type="text"
-                                                        v-model="item.returnstatus" readonly disabled />
+                                                    <label
+                                                        ><span
+                                                            >Return Status</span
+                                                        ></label
+                                                    >
+                                                    <InputText
+                                                        size="small"
+                                                        fluid
+                                                        type="text"
+                                                        v-model="
+                                                            item.returnstatus
+                                                        "
+                                                        readonly
+                                                        disabled
+                                                    />
                                                 </fieldset>
                                             </div>
                                         </template>
                                     </Card>
-
-
                                 </div>
                             </div>
+
                             <Card>
                                 <template #content>
                                     <div class="row">
                                         <div class="col-md-4">
                                             <fieldset>
-                                                <label><span>Supplier Notes</span></label>
-                                                <Textarea ref="supplierNotesarea" class="no-resize" fluid
-                                                    v-model="item.supplierNotes" placeholder="Supplier Notes" rows="2"
-                                                    @input="autoResize" size="small" />
+                                                <label
+                                                    ><span
+                                                        >Supplier Notes</span
+                                                    ></label
+                                                >
+                                                <Textarea
+                                                    ref="supplierNotesarea"
+                                                    class="no-resize"
+                                                    fluid
+                                                    v-model="item.supplierNotes"
+                                                    placeholder="Supplier Notes"
+                                                    rows="2"
+                                                    @input="autoResize"
+                                                    size="small"
+                                                />
                                             </fieldset>
                                         </div>
                                         <div class="col-md-4">
                                             <fieldset>
-                                                <label><span>Employee Notes</span></label>
-                                                <Textarea ref="employeeNotesarea" class="no-resize" fluid
-                                                    v-model="item.employeeNotes" placeholder="Employee Notes" rows="2"
-                                                    @input="autoResize" size="small" />
+                                                <label
+                                                    ><span
+                                                        >Employee Notes</span
+                                                    ></label
+                                                >
+                                                <Textarea
+                                                    ref="employeeNotesarea"
+                                                    class="no-resize"
+                                                    fluid
+                                                    v-model="item.employeeNotes"
+                                                    placeholder="Employee Notes"
+                                                    rows="2"
+                                                    @input="autoResize"
+                                                    size="small"
+                                                />
                                             </fieldset>
                                         </div>
                                         <div class="col-md-4">
                                             <fieldset>
-                                                <label><span>Sticker Notes</span></label>
-                                                <Textarea ref="stickerNotesarea" class="no-resize" fluid
-                                                    v-model="item.stickerNotes" placeholder="Sticker Notes" rows="2"
-                                                    @input="autoResize" size="small" />
+                                                <label
+                                                    ><span
+                                                        >Sticker Notes</span
+                                                    ></label
+                                                >
+                                                <Textarea
+                                                    ref="stickerNotesarea"
+                                                    class="no-resize"
+                                                    fluid
+                                                    v-model="item.stickerNotes"
+                                                    placeholder="Sticker Notes"
+                                                    rows="2"
+                                                    @input="autoResize"
+                                                    size="small"
+                                                />
                                             </fieldset>
                                         </div>
-
-
-
-
-
                                     </div>
                                 </template>
                             </Card>
@@ -453,83 +793,149 @@ key, index
                                     <div>
                                         <fieldset>
                                             <label>Quantity</label>
-                                            <InputText type="number" class=" text-end" size="small" fluid
-                                                v-model="item.quantity" />
+                                            <InputText
+                                                type="number"
+                                                class="text-end"
+                                                size="small"
+                                                fluid
+                                                v-model="item.quantity"
+                                            />
                                         </fieldset>
                                         <fieldset>
                                             <label>Total Price</label>
-                                            <InputText type="number" class="text-end" size="small" fluid
-                                                v-model="item.price" />
+                                            <InputText
+                                                type="number"
+                                                class="text-end"
+                                                size="small"
+                                                fluid
+                                                v-model="item.price"
+                                            />
                                         </fieldset>
                                         <fieldset>
                                             <label>Discount</label>
-                                            <InputText type="number" class=" text-end" size="small" fluid
-                                                v-model="item.Discount" />
+                                            <InputText
+                                                type="number"
+                                                class="text-end"
+                                                size="small"
+                                                fluid
+                                                v-model="item.Discount"
+                                            />
                                         </fieldset>
 
                                         <fieldset>
                                             <label>Tax</label>
-                                            <InputText type="number" class=" text-end" size="small" fluid
-                                                v-model="item.tax" />
+                                            <InputText
+                                                type="number"
+                                                class="text-end"
+                                                size="small"
+                                                fluid
+                                                v-model="item.tax"
+                                            />
                                         </fieldset>
                                         <fieldset>
                                             <label>Shipping</label>
-                                            <InputText type="number" class="text-end" size="small" fluid
-                                                v-model="item.priceshipping" />
+                                            <InputText
+                                                type="number"
+                                                class="text-end"
+                                                size="small"
+                                                fluid
+                                                v-model="item.priceshipping"
+                                            />
                                         </fieldset>
 
                                         <fieldset>
                                             <label>Refund</label>
-                                            <InputText type="number" class="text-end" size="small" fluid
-                                                v-model="item.refund" />
+                                            <InputText
+                                                type="number"
+                                                class="text-end"
+                                                size="small"
+                                                fluid
+                                                v-model="item.refund"
+                                            />
                                         </fieldset>
                                         <Divider />
                                         <fieldset>
                                             <label>Unit price</label>
-                                            <InputText type="text" class="text-end bg-light" size="small" fluid
-                                                :value="formattedUnitprice" readonly />
+                                            <InputText
+                                                type="text"
+                                                class="text-end bg-light"
+                                                size="small"
+                                                fluid
+                                                :value="formattedUnitprice"
+                                                readonly
+                                            />
                                         </fieldset>
 
                                         <fieldset>
                                             <label>Grand Totalprice</label>
-                                            <InputText type="text" class="text-end bg-light fw-bold text-success"
-                                                size="small" fluid :value="grandTotal" readonly />
+                                            <InputText
+                                                type="text"
+                                                class="text-end bg-light fw-bold text-success"
+                                                size="small"
+                                                fluid
+                                                :value="grandTotal"
+                                                readonly
+                                            />
                                         </fieldset>
                                     </div>
                                 </template>
                             </Card>
-
                         </div>
                     </div>
                 </form>
             </div>
             <template #footer>
                 <div class="pt-2 pr-2">
-                    <Button label="Save" severity="info" size="small" @click="saveEditModal" icon="pi pi-save" />
+                    <Button
+                        label="Save"
+                        severity="info"
+                        size="small"
+                        @click="saveEditModal"
+                        icon="pi pi-save"
+                    />
                 </div>
             </template>
         </Dialog>
 
-        <Dialog v-model:visible="isFnskuModalVisible" header="Select FNSKU" modal :style="{ width: '95%' }" :pt="{
-            root: { class: 'mobile-fullscreen-dialog' }
-        }">
-
+        <Dialog
+            v-model:visible="isFnskuModalVisible"
+            header="Select FNSKU"
+            modal
+            :style="{ width: '95%' }"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+        >
             <div class="row">
                 <div class="col-md-3">
                     <div class="fnsku-image-column">
                         <div v-if="productImages.length" class="image-display">
                             <div class="hover-image-container">
-                                <img :src="selectedImage || mainImage" alt="Main Image" class="preview-image" />
+                                <img
+                                    :src="selectedImage || mainImage"
+                                    alt="Main Image"
+                                    class="preview-image"
+                                />
                                 <div class="hover-preview">
-                                    <img :src="selectedImage || mainImage" alt="Zoomed Preview" />
+                                    <img
+                                        :src="selectedImage || mainImage"
+                                        alt="Zoomed Preview"
+                                    />
                                 </div>
                             </div>
 
                             <div class="thumbnail-list overflow-auto">
-                                <img v-for="(img, index) in productImages" :key="index" :src="img" alt="Thumbnail"
-                                    class="thumbnail" :class="{
+                                <img
+                                    v-for="(img, index) in productImages"
+                                    :key="index"
+                                    :src="img"
+                                    alt="Thumbnail"
+                                    class="thumbnail"
+                                    :class="{
                                         active: selectedImage === img,
-                                    }" @click="selectedImage = img" />
+                                    }"
+                                    @click="selectedImage = img"
+                                />
                             </div>
                         </div>
 
@@ -539,7 +945,6 @@ key, index
                     </div>
 
                     <div class="my-4">
-
                         <h5>{{ currentItem.ProductTitle }}</h5>
 
                         <div class="mt-4">
@@ -549,70 +954,123 @@ key, index
 
                         <div class="mt-2">
                             <span class="fw-semibold">Current FNSKU: </span>
-                            <span>{{ currentItem?.FNSKUviewer || "None" }}</span>
+                            <span>{{
+                                currentItem?.FNSKUviewer || "None"
+                            }}</span>
                         </div>
-
-
                     </div>
                 </div>
                 <div class="col-md-9">
-                    <div class="d-flex align-items-center justify-content-between">
+                    <div
+                        class="d-flex align-items-center justify-content-between"
+                    >
                         <p class="fs-5 fw-semibold">Search and Filters</p>
-                        <Button :icon="showFilters ? 'pi pi-filter-slash' : 'pi pi-filter'"
-                            :label="showFilters ? 'Hide Filters' : 'Show Filters'" @click="showFilters = !showFilters"
-                            size=small severity="contrast" variant="text" class="text-primary" />
+                        <Button
+                            :icon="
+                                showFilters
+                                    ? 'pi pi-filter-slash'
+                                    : 'pi pi-filter'
+                            "
+                            :label="
+                                showFilters ? 'Hide Filters' : 'Show Filters'
+                            "
+                            @click="showFilters = !showFilters"
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            class="text-primary"
+                        />
                     </div>
                     <div v-if="showFilters" class="mb-4">
                         <fieldset>
                             <label>Search Title or Asin</label>
-                            <InputText fluid size="small" placeholder="Enter Title or Asin" @input="filterFnskuList"
-                                v-model="fnskuSearch" />
+                            <InputText
+                                fluid
+                                size="small"
+                                placeholder="Enter Title or Asin"
+                                @input="filterFnskuList"
+                                v-model="fnskuSearch"
+                            />
                         </fieldset>
                         <div class="row">
                             <div class="col-md-4">
                                 <fieldset>
                                     <label>Filter by Store</label>
-                                    <Select v-model="selectedStore" :options="storeListOptions" optionLabel="label"
-                                        optionValue="value" fluid size="small" placeholder="Select Store"
-                                        :disabled="isSearching" @change="filterFnskuList" />
-
+                                    <Select
+                                        v-model="selectedStore"
+                                        :options="storeListOptions"
+                                        optionLabel="label"
+                                        optionValue="value"
+                                        fluid
+                                        size="small"
+                                        placeholder="Select Store"
+                                        :disabled="isSearching"
+                                        @change="filterFnskuList"
+                                    />
                                 </fieldset>
                             </div>
                             <div class="col-md-4">
                                 <fieldset>
                                     <label>Filter by FNSKU</label>
-                                    <InputText placeholder="Exact of partial FNSKU" v-model="fnskuExact"
-                                        @input="filterFnskuList" size="small" :disabled="isSearching" fluid />
+                                    <InputText
+                                        placeholder="Exact of partial FNSKU"
+                                        v-model="fnskuExact"
+                                        @input="filterFnskuList"
+                                        size="small"
+                                        :disabled="isSearching"
+                                        fluid
+                                    />
                                 </fieldset>
                             </div>
                             <div class="col-md-4">
                                 <fieldset>
                                     <label>Filter by Condition</label>
-                                    <Select v-model="selectedGrading" @change="filterFnskuList"
-                                        :options="conditionListOptions" optionLabel="label" optionValue="value" fluid
-                                        size="small" placeholder="Select Condition" :disabled="isSearching" />
+                                    <Select
+                                        v-model="selectedGrading"
+                                        @change="filterFnskuList"
+                                        :options="conditionListOptions"
+                                        optionLabel="label"
+                                        optionValue="value"
+                                        fluid
+                                        size="small"
+                                        placeholder="Select Condition"
+                                        :disabled="isSearching"
+                                    />
                                 </fieldset>
                             </div>
                         </div>
                     </div>
 
-                    <XDataTable :value="validFnskuList" :columns="fnskuColumn" :pagination="false" :actionsFrozen="true"
-                        :loading="isSearching" scrollable scrollHeight="400px" tableClass="mt-4 desktop-view"
-                        :actionsHeaderClass="my - actions - header">
+                    <XDataTable
+                        :value="validFnskuList"
+                        :columns="fnskuColumn"
+                        :pagination="false"
+                        :actionsFrozen="true"
+                        :loading="isSearching"
+                        scrollable
+                        scrollHeight="400px"
+                        tableClass="mt-4 desktop-view"
+                        :actionsHeaderClass="my - actions - header"
+                    >
                         <template #image="{ data }">
-                            <img :src="getImageSrc(
-                                data.ASIN,
-                                0
-                            )
-                                " :alt="`Main image for ${data.ASIN}`" class="asin-thumbnail"
-                                @error="setDefaultImage" />
-
+                            <img
+                                :src="getImageSrc(data.ASIN, 0)"
+                                :alt="`Main image for ${data.ASIN}`"
+                                class="asin-thumbnail"
+                                @error="setDefaultImage"
+                            />
                         </template>
 
                         <template #ProductTitle="{ data }">
                             <div class="d-flex align-items-start gap-4">
                                 <div
-                                    style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
+                                    style="
+                                        word-break: break-word;
+                                        white-space: normal;
+                                        overflow-wrap: break-word;
+                                        flex: 1;
+                                    "
+                                >
                                     <p class="fw-semibold">
                                         {{ data.astitle }}
                                     </p>
@@ -623,19 +1081,17 @@ key, index
                         <template #units="{ data }">
                             <div>
                                 <p>{{ data.Units }} items in stock</p>
-                                <span v-if="
-                                    data.Units < 11
-                                " class="badge bg-warning ms-1">
+                                <span
+                                    v-if="data.Units < 11"
+                                    class="badge bg-warning ms-1"
+                                >
                                     Used
-                                    {{
-                                        11 - data.Units
-                                    }}
+                                    {{ 11 - data.Units }}
                                     times
                                 </span>
                                 <span v-else class="badge bg-success ms-1">
                                     First use
                                 </span>
-
                             </div>
                         </template>
 
@@ -646,133 +1102,186 @@ key, index
                                     <i class="fas fa-arrow-right"></i>
                                     Will assign:
                                     <strong>{{
-                                        getNextFnskuToUse(
-                                            data
-                                        )
+                                        getNextFnskuToUse(data)
                                     }}</strong>
                                 </div>
                             </div>
-
                         </template>
                         <template #grading="{ data }">
                             <div>
-                                {{
-                                    getGradingLabel(
-                                        data.grading
-                                    )
-                                }}
+                                {{ getGradingLabel(data.grading) }}
                             </div>
                         </template>
 
-                        <template #actions="{ data }" headerStyle="background-color: black">
+                        <template
+                            #actions="{ data }"
+                            headerStyle="background-color: black"
+                        >
                             <div class="d-flex gap-2 align-items-center">
-                                <Button size="small" severity="contrast" variant="text" class="text-primary" outlined
-                                    :label="data.ASIN ===
-                                        currentItem?.ASINviewer
-                                        ? 'Recommended' : 'Select'" @click=" selectFnsku(data)" />
-                                <Button size="small" variant="text" rounded icon="pi pi-info-circle" @click="
-                                    showOtherFNSKUInfos(data)" />
+                                <Button
+                                    size="small"
+                                    severity="contrast"
+                                    variant="text"
+                                    class="text-primary"
+                                    outlined
+                                    :label="
+                                        data.ASIN === currentItem?.ASINviewer
+                                            ? 'Recommended'
+                                            : 'Select'
+                                    "
+                                    @click="selectFnsku(data)"
+                                />
+                                <Button
+                                    size="small"
+                                    variant="text"
+                                    rounded
+                                    icon="pi pi-info-circle"
+                                    @click="showOtherFNSKUInfos(data)"
+                                />
                             </div>
                         </template>
                     </XDataTable>
 
                     <div class="mobile-view p-0 mt-4">
                         <div class="mobile-cards">
-                            <div v-if="isSearching" class="loading-spinner-mobile">
+                            <div
+                                v-if="isSearching"
+                                class="loading-spinner-mobile"
+                            >
                                 <i class="fas fa-spinner fa-spin"></i>
                                 Loading...
                             </div>
-                            <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
+                            <div
+                                v-else-if="sortedInventory.length === 0"
+                                class="no-data-mobile"
+                            >
                                 No data found
                             </div>
 
-                            <div class="mobile-card" v-else v-for="(item, index) in validFnskuList" :key="item.id">
+                            <div
+                                class="mobile-card"
+                                v-else
+                                v-for="(item, index) in validFnskuList"
+                                :key="item.id"
+                            >
                                 <div class="mobile-card-header">
                                     <div class="mobile-checkbox">
-                                        <input type="checkbox" v-model="item.checked" />
+                                        <input
+                                            type="checkbox"
+                                            v-model="item.checked"
+                                        />
                                     </div>
-                                    <img :src="getImageSrc(
-                                        item.ASIN,
-                                        0
-                                    )
-                                        " :alt="`Main image for ${item.ASIN}`" class="asin-thumbnail"
-                                        :style="{ maxWidth: '5rem' }" @error="setDefaultImage" />
+                                    <img
+                                        :src="getImageSrc(item.ASIN, 0)"
+                                        :alt="`Main image for ${item.ASIN}`"
+                                        class="asin-thumbnail"
+                                        :style="{ maxWidth: '5rem' }"
+                                        @error="setDefaultImage"
+                                    />
                                     <div class="mobile-product-info">
                                         <div class="mobile-product-name">
-                                            <h6>{{ item.astitle || "----" }}</h6>
+                                            <h6>
+                                                {{ item.astitle || "----" }}
+                                            </h6>
                                         </div>
                                     </div>
                                 </div>
                                 <hr />
                                 <div class="mobile-card-details">
                                     <div class="mobile-detail-row mb-2">
-                                        <span class="mobile-detail-label">ASIN:</span>
+                                        <span class="mobile-detail-label"
+                                            >ASIN:</span
+                                        >
                                         <span class="mobile-detal-value">
-                                            {{ item.ASIN }}</span>
+                                            {{ item.ASIN }}</span
+                                        >
                                     </div>
 
                                     <div class="mobile-detail-row mb-2">
-                                        <span class="mobile-detail-label">Inventory:</span>
+                                        <span class="mobile-detail-label"
+                                            >Inventory:</span
+                                        >
                                         <span class="mobile-detal-value">
-                                            <span>{{ item.Units }} items in stock</span>
-                                            <span v-if="
-                                                item.Units < 11
-                                            " class="badge bg-warning ms-1">
+                                            <span
+                                                >{{ item.Units }} items in
+                                                stock</span
+                                            >
+                                            <span
+                                                v-if="item.Units < 11"
+                                                class="badge bg-warning ms-1"
+                                            >
                                                 Used
-                                                {{
-                                                    11 - item.Units
-                                                }}
+                                                {{ 11 - item.Units }}
                                                 times
                                             </span>
-                                            <span v-else class="badge bg-success ms-1">
+                                            <span
+                                                v-else
+                                                class="badge bg-success ms-1"
+                                            >
                                                 First use
-                                            </span></span>
+                                            </span></span
+                                        >
                                     </div>
                                     <div class="mobile-detail-row mb-2">
-                                        <span class="mobile-detail-label">FNSKU:</span>
+                                        <span class="mobile-detail-label"
+                                            >FNSKU:</span
+                                        >
                                         <div class="mobile-detal-value">
                                             <span>{{ item.FNSKU }}</span>
                                             <div class="small text-muted">
-                                                <i class="fas fa-arrow-right"></i>
+                                                <i
+                                                    class="fas fa-arrow-right"
+                                                ></i>
                                                 Will assign:
                                                 <strong>{{
-                                                    getNextFnskuToUse(
-                                                        item
-                                                    )
+                                                    getNextFnskuToUse(item)
                                                 }}</strong>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="mobile-detail-row mb-2">
-                                        <span class="mobile-detail-label">MSKU:</span>
+                                        <span class="mobile-detail-label"
+                                            >MSKU:</span
+                                        >
                                         <span class="mobile-detal-value">
-                                            {{ item.MSKU }}</span>
+                                            {{ item.MSKU }}</span
+                                        >
                                     </div>
                                     <div class="mobile-detail-row mb-2">
-                                        <span class="mobile-detail-label">Grading:</span>
+                                        <span class="mobile-detail-label"
+                                            >Grading:</span
+                                        >
                                         <span class="mobile-detal-value">
                                             {{
-                                                getGradingLabel(
-                                                    item.grading
-                                                )
-                                            }}</span>
+                                                getGradingLabel(item.grading)
+                                            }}</span
+                                        >
                                     </div>
                                     <div class="mobile-detail-row mb-2">
-                                        <span class="mobile-detail-label">Store:</span>
+                                        <span class="mobile-detail-label"
+                                            >Store:</span
+                                        >
                                         <span class="mobile-detal-value">
-                                            {{ item.storename }}</span>
+                                            {{ item.storename }}</span
+                                        >
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light flex-wrap">
+                    <div
+                        class="d-flex justify-content-between align-items-center mt-3 p-3 bg-light flex-wrap"
+                    >
                         <div>
-                            <span v-if="isInitialLoad || isSearching">Loading...</span>
-                            <span v-else-if="
-                                paginationInfo.from && paginationInfo.to
-                            ">
+                            <span v-if="isInitialLoad || isSearching"
+                                >Loading...</span
+                            >
+                            <span
+                                v-else-if="
+                                    paginationInfo.from && paginationInfo.to
+                                "
+                            >
                                 Showing {{ paginationInfo.from }} to
                                 {{ paginationInfo.to }} entries of
                                 {{ totalRecords }}
@@ -781,9 +1290,17 @@ key, index
                         </div>
 
                         <div class="d-flex align-items-center gap-3">
-                            <Select v-model="pageSize" @change="changePageSize"
-                                :options="[{ label: '5', value: 5 }, ...rowsPerPage]" size="small" optionLabel="label"
-                                optionValue="value" />
+                            <Select
+                                v-model="pageSize"
+                                @change="changePageSize"
+                                :options="[
+                                    { label: '5', value: 5 },
+                                    ...rowsPerPage,
+                                ]"
+                                size="small"
+                                optionLabel="label"
+                                optionValue="value"
+                            />
                             <!-- <select v-model="pageSize" @change="changePageSize" class="form-select form-select-sm"
                                 style="width: 80px">
                                 <option value="5">5</option>
@@ -794,29 +1311,45 @@ key, index
 
                             <nav>
                                 <ul class="pagination pagination-sm mb-0">
-                                    <li class="page-item" :class="{ disabled: currentPage === 1 }">
-                                        <Button @click="prevPage" :disabled="currentPage === 1" size="small"
-                                            label="Previous" icon="pi pi-angle-left" severity="info" />
+                                    <li
+                                        class="page-item"
+                                        :class="{ disabled: currentPage === 1 }"
+                                    >
+                                        <Button
+                                            @click="prevPage"
+                                            :disabled="currentPage === 1"
+                                            size="small"
+                                            label="Previous"
+                                            icon="pi pi-angle-left"
+                                            severity="info"
+                                        />
                                     </li>
 
                                     <li class="page-item active">
                                         <span>Page {{ currentPage }}</span>
                                     </li>
 
-                                    <li class="page-item" :class="{ disabled: !hasMorePages }">
-                                        <Button @click="nextPage" :disabled="!hasMorePages" size="small" severity="info"
-                                            label="Next" icon="pi pi-angle-right" iconPos="right" />
+                                    <li
+                                        class="page-item"
+                                        :class="{ disabled: !hasMorePages }"
+                                    >
+                                        <Button
+                                            @click="nextPage"
+                                            :disabled="!hasMorePages"
+                                            size="small"
+                                            severity="info"
+                                            label="Next"
+                                            icon="pi pi-angle-right"
+                                            iconPos="right"
+                                        />
                                     </li>
                                 </ul>
                             </nav>
                         </div>
                     </div>
-
                 </div>
             </div>
         </Dialog>
-
-
 
         <!-- Confirmation Modal -->
         <div v-if="showConfirmationModal" class="modal confirmation-modal">
@@ -825,7 +1358,10 @@ key, index
             <div class="modal-content">
                 <div class="modal-header">
                     <h3>{{ confirmationTitle }}</h3>
-                    <button class="btn btn-modal-close" @click="cancelConfirmation">
+                    <button
+                        class="btn btn-modal-close"
+                        @click="cancelConfirmation"
+                    >
                         &times;
                     </button>
                 </div>
@@ -838,12 +1374,16 @@ key, index
                     <button class="btn-cancel" @click="cancelConfirmation">
                         Cancel
                     </button>
-                    <button class="btn-confirm" @click="confirmAction" :class="{
-                        'btn-validation':
-                            confirmationActionType === 'validation',
-                        'btn-stockroom':
-                            confirmationActionType === 'stockroom',
-                    }">
+                    <button
+                        class="btn-confirm"
+                        @click="confirmAction"
+                        :class="{
+                            'btn-validation':
+                                confirmationActionType === 'validation',
+                            'btn-stockroom':
+                                confirmationActionType === 'stockroom',
+                        }"
+                    >
                         Yes, Proceed
                     </button>
                 </div>
@@ -851,30 +1391,44 @@ key, index
         </div>
 
         <!-- split modal  -->
-        <splittingModal :show-modal="showSplitModal" :split-item="currentSplitItem" @close="closeSplitModal"
-            @split-success="onSplitSuccess" />
+        <splittingModal
+            :show-modal="showSplitModal"
+            :split-item="currentSplitItem"
+            @close="closeSplitModal"
+            @split-success="onSplitSuccess"
+        />
 
         <!--OPY DETAILS MODAL-->
-        <copyDetailsModal :show-modal="showCopyDetailsModal" :item-data="currentCopyItem"
-            @close="closeCopyDetailsModal" />
+        <copyDetailsModal
+            :show-modal="showCopyDetailsModal"
+            :item-data="currentCopyItem"
+            @close="closeCopyDetailsModal"
+        />
 
         <!----SHOW OTHER FNSKU INFOS--->
-        <Dialog v-model:visible="showOtherFNSKUInfoModal" modal header="Other FNSKU Information"
-            :style="{ width: '40rem' }">
-
-
+        <Dialog
+            v-model:visible="showOtherFNSKUInfoModal"
+            modal
+            header="Other FNSKU Information"
+            :style="{ width: '40rem' }"
+        >
             <div v-if="!otherFNSKUInfoState.loading">
-                <div v-if="otherFNSKUInfoState.errorMessage" class="text-danger">
+                <div
+                    v-if="otherFNSKUInfoState.errorMessage"
+                    class="text-danger"
+                >
                     {{ otherFNSKUInfoState.errorMessage }}
                 </div>
-                <div v-else class="info-container ">
+                <div v-else class="info-container">
                     <div class="info-items">
                         <span>FNSKU:</span>
                         <span>{{ otherFNSKUInfoState.info.base_fnsku }}</span>
                     </div>
                     <div class="info-items">
                         <span>Next FNSKU to use:</span>
-                        <span>{{ otherFNSKUInfoState.info.next_fnsku_to_use }}</span>
+                        <span>{{
+                            otherFNSKUInfoState.info.next_fnsku_to_use
+                        }}</span>
                     </div>
                     <div class="info-items">
                         <span>ASIN:</span>
@@ -894,22 +1448,35 @@ key, index
                     </div>
                     <div class="info-items">
                         <span>Units after used:</span>
-                        <span>{{ otherFNSKUInfoState.info.units_after_use }}</span>
+                        <span>{{
+                            otherFNSKUInfoState.info.units_after_use
+                        }}</span>
                     </div>
                     <div class="info-items">
                         <span>Current units:</span>
-                        <span>{{ otherFNSKUInfoState.info.remaining_units }}</span>
+                        <span>{{
+                            otherFNSKUInfoState.info.remaining_units
+                        }}</span>
                     </div>
                 </div>
             </div>
-            <div v-else class="d-flex justify-content-center align-items-center" style="height:100px;">
+            <div
+                v-else
+                class="d-flex justify-content-center align-items-center"
+                style="height: 100px"
+            >
                 <div class="spinner-border text-primary" role="status">
                     <span class="visually-hidden">Loading...</span>
                 </div>
             </div>
 
             <template #footer>
-                <Button size="small" severity="danger" @click="showOtherFNSKUInfoModal = false">Close</Button>
+                <Button
+                    size="small"
+                    severity="danger"
+                    @click="showOtherFNSKUInfoModal = false"
+                    >Close</Button
+                >
             </template>
         </Dialog>
         <ScrollTop />
@@ -919,7 +1486,19 @@ key, index
 <script>
 import Labeling from "./labeling.js";
 import XDataTable from "../../components/DataTable/XDataTable.vue";
-import { Button, Menu, SplitButton, Divider, Dialog, InputText, Select, Card, Textarea, ScrollTop } from "primevue";
+import {
+    Button,
+    Menu,
+    SplitButton,
+    Divider,
+    Dialog,
+    InputText,
+    Select,
+    Card,
+    Textarea,
+    ScrollTop,
+    Tag,
+} from "primevue";
 import TableGallery from "../../components/Gallery/tableGallery.vue";
 import TitlePage from "../../components/TitlePage/TitlePage.vue";
 import ViewImageGalleryModal from "../../components/ViewImageGalleryModal/ViewImageGalleryModal.vue";
@@ -985,7 +1564,7 @@ const TABLE_COLUMNS = [
         sortable: true,
         headerStyle: "font-size: 16px;",
     },
-]
+];
 
 const FNSKU_COLUMN = [
     {
@@ -1028,15 +1607,14 @@ const FNSKU_COLUMN = [
         field: "grading",
         header: "Grading",
         bodyStyle: "font-size: 14px",
-        slot: "grading"
+        slot: "grading",
     },
     {
         field: "storename",
         header: "Store",
         bodyStyle: "font-size: 14px",
-    }
-]
-
+    },
+];
 
 export default {
     mixins: [Labeling],
@@ -1056,7 +1634,8 @@ export default {
         ScrollTop,
         TitlePage,
         ViewImageGalleryModal,
-        AnimateDiv
+        AnimateDiv,
+        Tag,
     },
     data() {
         return {
@@ -1068,10 +1647,15 @@ export default {
             otherFNSKUInfoState: {
                 loading: false,
                 info: {},
-                errorMessage: ""
+                errorMessage: "",
             },
-            rowsPerPage: ROWS_PER_PAGE
-        }
+            rowsPerPage: ROWS_PER_PAGE,
+            currentTimezone: "UTC",
+            timezoneLabel: "Loading...",
+        };
+    },
+    async mounted() {
+        await this.loadUserTimezone();
     },
     methods: {
         toggle(event, item) {
@@ -1084,26 +1668,26 @@ export default {
         getMoreActionItems(item) {
             return [
                 {
-                    label: 'Split',
-                    icon: 'pi pi-arrow-up-right-and-arrow-down-left-from-center',
+                    label: "Split",
+                    icon: "pi pi-arrow-up-right-and-arrow-down-left-from-center",
                     command: () => this.confirmSplitItem(item),
-                    disabled: !this.canSplit(item) || this.isProcessing
+                    disabled: !this.canSplit(item) || this.isProcessing,
                 },
                 {
-                    label: 'Set FNSKU',
-                    icon: 'pi pi-file-check',
-                    command: () => this.showFnskuModal(item)
+                    label: "Set FNSKU",
+                    icon: "pi pi-file-check",
+                    command: () => this.showFnskuModal(item),
                 },
                 {
-                    label: 'Move to Validation',
-                    icon: 'pi pi-check-circle',
-                    command: () => this.confirmMoveToValidation(item)
+                    label: "Move to Validation",
+                    icon: "pi pi-check-circle",
+                    command: () => this.confirmMoveToValidation(item),
                 },
                 {
-                    label: 'Move to Stockroom',
-                    icon: 'pi pi-box',
-                    command: () => this.confirmMoveToStockroom(item)
-                }
+                    label: "Move to Stockroom",
+                    icon: "pi pi-box",
+                    command: () => this.confirmMoveToStockroom(item),
+                },
             ];
         },
         async showOtherFNSKUInfos(data) {
@@ -1115,7 +1699,8 @@ export default {
             this.otherFNSKUInfoState.errorMessage = "";
 
             try {
-                const { info, errorMessage } = await this.showFnskuAvailabilityInfo(data);
+                const { info, errorMessage } =
+                    await this.showFnskuAvailabilityInfo(data);
 
                 this.otherFNSKUInfoState.info = info;
                 this.otherFNSKUInfoState.errorMessage = errorMessage;
@@ -1127,24 +1712,166 @@ export default {
                 // ✅ Vue will now properly detect this change
                 this.otherFNSKUInfoState.loading = false;
             }
-        }
+        },
 
+        convertToLocalDate(dateString) {
+            if (!dateString) return "";
 
+            try {
+                // Parse the date from database (assumed to be in UTC or server timezone)
+                const date = new Date(dateString);
+
+                // Format to YYYY-MM-DD for date input in user's timezone
+                const options = {
+                    timeZone: this.currentTimezone,
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                };
+
+                const formatter = new Intl.DateTimeFormat("en-CA", options); // en-CA gives YYYY-MM-DD format
+                return formatter.format(date);
+            } catch (error) {
+                console.error("Error converting to local date:", error);
+                return dateString;
+            }
+        },
+
+        convertFromLocalDate(localDateString) {
+            if (!localDateString) return null;
+
+            try {
+                // The input gives us YYYY-MM-DD in user's timezone
+                // We need to convert it to a proper datetime for storage
+
+                // Create a date object at noon in the user's timezone to avoid day boundary issues
+                const [year, month, day] = localDateString.split("-");
+                const dateInUserTz = new Date(
+                    `${year}-${month}-${day}T12:00:00`
+                );
+
+                // Format for database storage (ISO format)
+                return dateInUserTz.toISOString().split("T")[0]; // Returns YYYY-MM-DD
+            } catch (error) {
+                console.error("Error converting from local date:", error);
+                return localDateString;
+            }
+        },
+
+        async loadUserTimezone() {
+            try {
+                const response = await axios.get("/api/timezone/current");
+
+                if (response.data.success && response.data.usertimezone) {
+                    this.currentTimezone = response.data.usertimezone;
+
+                    // Format timezone for display
+                    const timezoneParts = this.currentTimezone.split("/");
+                    const location = timezoneParts[
+                        timezoneParts.length - 1
+                    ].replace("_", " ");
+
+                    // ✅ FIXED: Calculate GMT offset for the SELECTED timezone, not browser's
+                    const date = new Date();
+
+                    // Get the date in UTC
+                    const utcDate = new Date(
+                        date.toLocaleString("en-US", { timeZone: "UTC" })
+                    );
+
+                    // Get the date in user's selected timezone
+                    const userTzDate = new Date(
+                        date.toLocaleString("en-US", {
+                            timeZone: this.currentTimezone,
+                        })
+                    );
+
+                    // Calculate offset in hours
+                    const offsetMs = userTzDate - utcDate;
+                    const offsetHours = Math.round(offsetMs / (1000 * 60 * 60));
+                    const offsetSign = offsetHours >= 0 ? "+" : "-";
+                    const gmtOffset = `GMT${offsetSign}${Math.abs(
+                        offsetHours
+                    )}`;
+
+                    this.timezoneLabel = `(${gmtOffset})`;
+                } else {
+                    // Fallback to browser timezone
+                    const browserTz =
+                        Intl.DateTimeFormat().resolvedOptions().timeZone;
+                    this.currentTimezone = browserTz;
+                    const location = browserTz
+                        .split("/")
+                        .pop()
+                        .replace("_", " ");
+                    this.timezoneLabel = location;
+                }
+
+                console.log("📍 Timezone loaded:", this.timezoneLabel);
+            } catch (error) {
+                console.error("Error loading timezone:", error);
+                this.currentTimezone = "UTC";
+                this.timezoneLabel = "UTC";
+            }
+        },
     },
     computed: {
         storeListOptions() {
-            const options = this.uniqueStores.map((store) => ({ label: store, value: store }))
-            return [{ label: "All Store", value: "" }, ...options]
+            const options = this.uniqueStores.map((store) => ({
+                label: store,
+                value: store,
+            }));
+            return [{ label: "All Store", value: "" }, ...options];
         },
         conditionListOptions() {
-            const options = this.gradingOptions.map((grade) => ({ label: grade.label, value: grade.value }))
-            return [{ label: "All Conditions", value: "" }, ...options]
+            const options = this.gradingOptions.map((grade) => ({
+                label: grade.label,
+                value: grade.value,
+            }));
+            return [{ label: "All Conditions", value: "" }, ...options];
         },
         priorityRanksOptions() {
-            return this.priorityRanks.map((type) => ({ label: type, value: type }))
-        }
-    }
-}
+            return this.priorityRanks.map((type) => ({
+                label: type,
+                value: type,
+            }));
+        },
+
+        // ✅ ADD THESE COMPUTED PROPERTIES FOR DATE CONVERSION
+        localOrderDate: {
+            get() {
+                return this.convertToLocalDate(this.item.orderdate);
+            },
+            set(value) {
+                this.item.orderdate = this.convertFromLocalDate(value);
+            },
+        },
+        localPaymentDate: {
+            get() {
+                return this.convertToLocalDate(this.item.paymentdate);
+            },
+            set(value) {
+                this.item.paymentdate = this.convertFromLocalDate(value);
+            },
+        },
+        localShipDate: {
+            get() {
+                return this.convertToLocalDate(this.item.shipdate);
+            },
+            set(value) {
+                this.item.shipdate = this.convertFromLocalDate(value);
+            },
+        },
+        localDeliveredDate: {
+            get() {
+                return this.convertToLocalDate(this.item.datedelivered);
+            },
+            set(value) {
+                this.item.datedelivered = this.convertFromLocalDate(value);
+            },
+        },
+    },
+};
 </script>
 
 <style scoped>
