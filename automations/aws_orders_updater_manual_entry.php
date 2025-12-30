@@ -20,47 +20,84 @@ date_default_timezone_set('America/Los_Angeles');
    UI (GET)
 ========================= */
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-?>
-<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>Manual Amazon Order Import</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 18px; }
-    label { font-weight: 600; display:block; margin-top: 12px; }
-    select, textarea, button { width: 560px; max-width: 100%; }
-    textarea { height: 160px; padding: 10px; }
-    button { margin-top: 12px; padding: 10px; cursor: pointer; }
-    .hint { color:#666; font-size: 13px; margin-top: 6px; }
-    .card { border:1px solid #ddd; padding:12px; border-radius:8px; max-width: 720px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h2 style="margin:0 0 8px 0;">Manual Amazon Order Import</h2>
-    <div class="hint">One file. No NextToken. Just paste order IDs.</div>
+    ?>
+    <!doctype html>
+    <html>
 
-    <form method="POST">
-      <label>Store</label>
-      <select name="store" required>
-        <option value="AllRenewed">AllRenewed</option>
-        <option value="RenovarTech">RenovarTech</option>
-      </select>
+    <head>
+        <meta charset="utf-8">
+        <title>Manual Amazon Order Import</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                padding: 18px;
+            }
 
-      <label>Amazon Order ID(s)</label>
-      <textarea name="order_ids" placeholder="Example:
+            label {
+                font-weight: 600;
+                display: block;
+                margin-top: 12px;
+            }
+
+            select,
+            textarea,
+            button {
+                width: 560px;
+                max-width: 100%;
+            }
+
+            textarea {
+                height: 160px;
+                padding: 10px;
+            }
+
+            button {
+                margin-top: 12px;
+                padding: 10px;
+                cursor: pointer;
+            }
+
+            .hint {
+                color: #666;
+                font-size: 13px;
+                margin-top: 6px;
+            }
+
+            .card {
+                border: 1px solid #ddd;
+                padding: 12px;
+                border-radius: 8px;
+                max-width: 720px;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="card">
+            <h2 style="margin:0 0 8px 0;">Manual Amazon Order Import</h2>
+            <div class="hint">One file. No NextToken. Just paste order IDs.</div>
+
+            <form method="POST">
+                <label>Store</label>
+                <select name="store" required>
+                    <option value="AllRenewed">AllRenewed</option>
+                    <option value="RenovarTech">RenovarTech</option>
+                </select>
+
+                <label>Amazon Order ID(s)</label>
+                <textarea name="order_ids" placeholder="Example:
 112-1234567-1234567
 112-7654321-7654321" required></textarea>
-      <div class="hint">Accepts one per line, comma-separated, or space-separated.</div>
+                <div class="hint">Accepts one per line, comma-separated, or space-separated.</div>
 
-      <button type="submit">Import</button>
-    </form>
-  </div>
-</body>
-</html>
-<?php
-  exit;
+                <button type="submit">Import</button>
+            </form>
+        </div>
+    </body>
+
+    </html>
+    <?php
+    exit;
 }
 
 /* =========================
@@ -71,7 +108,7 @@ $store = $_POST['store'] ?? '';
 $orderIdsRaw = $_POST['order_ids'] ?? '';
 
 if (!in_array($store, ['AllRenewed', 'RenovarTech'], true)) {
-  die("Invalid store selected.");
+    die("Invalid store selected.");
 }
 
 // Parse order IDs: newline / comma / spaces
@@ -79,7 +116,7 @@ $orderIds = preg_split('/[\r\n,\s]+/', $orderIdsRaw);
 $orderIds = array_values(array_filter(array_map('trim', $orderIds)));
 
 if (empty($orderIds)) {
-  die("No Amazon Order IDs provided.");
+    die("No Amazon Order IDs provided.");
 }
 
 echo "<h3>Manual Import Running...</h3>";
@@ -91,7 +128,7 @@ echo "<b>Count:</b> " . count($orderIds) . "<br><hr>";
 ========================= */
 $db = dbDatabase();
 if (!$db || $db->connect_error) {
-  die("DB connection failed: " . ($db->connect_error ?? 'unknown'));
+    die("DB connection failed: " . ($db->connect_error ?? 'unknown'));
 }
 
 $platform = "Amazon";
@@ -106,141 +143,156 @@ $accessToken = fetchAccessToken($credentials);
 $rdt = null;
 $rdtResponse = getRestrictedDataToken($credentials, 'us-east-1', $accessToken);
 if (!empty($rdtResponse['restrictedDataToken'])) {
-  $rdt = $rdtResponse['restrictedDataToken'];
+    $rdt = $rdtResponse['restrictedDataToken'];
 }
 
+echo "<br>Access TOken";
+
+echo "<pre>";
+print_r($accessToken);
+echo "</pre>";
+
+echo "<br>RDT TOken";
+
+echo "<pre>";
+print_r($rdt);
+echo "</pre>";
+
+
 foreach ($orderIds as $amazonOrderIdInput) {
-  echo "<hr><h4>Importing: {$amazonOrderIdInput}</h4>";
+    echo "<hr><h4>Importing: {$amazonOrderIdInput}</h4>";
 
-  // Fetch order by ID
-  $orderData = spapiGet($credentials, ($rdt ?: $accessToken), "/orders/v0/orders/" . rawurlencode($amazonOrderIdInput));
+    // Fetch order by ID
+    $orderData = spapiGet($credentials, ($rdt ?: $accessToken), "/orders/v0/orders/" . rawurlencode($amazonOrderIdInput));
 
-  if (empty($orderData['payload'])) {
-    $msg = $orderData['errors'][0]['message'] ?? 'No payload returned';
-    echo "❌ Order fetch failed: {$msg}<br>";
-    continue;
-  }
+    if (empty($orderData['payload'])) {
+        $msg = $orderData['errors'][0]['message'] ?? 'No payload returned';
+        echo "❌ Order fetch failed: {$msg}<br>";
+        continue;
+    }
 
-  $order = $orderData['payload'];
+    $order = $orderData['payload'];
 
-  // Map order fields (same as your current script)
-  $AmazonOrderId = $db->real_escape_string($order['AmazonOrderId'] ?? '');
-  $purchaseDate = isoToMysqlDatetime($order['PurchaseDate'] ?? '');
-  $lastUpdateDate = isoToMysqlDatetime($order['LastUpdateDate'] ?? '');
-  $orderStatus = $db->real_escape_string($order['OrderStatus'] ?? '');
+    // Map order fields (same as your current script)
+    $AmazonOrderId = $db->real_escape_string($order['AmazonOrderId'] ?? '');
+    $purchaseDate = isoToMysqlDatetime($order['PurchaseDate'] ?? '');
+    $lastUpdateDate = isoToMysqlDatetime($order['LastUpdateDate'] ?? '');
+    $orderStatus = $db->real_escape_string($order['OrderStatus'] ?? '');
 
-  $fulfillmentChannel = $db->real_escape_string($order['FulfillmentChannel'] ?? '');
-  // Normalize to your vocab
-  if ($fulfillmentChannel === 'MFN') $fulfillmentChannel = 'FBM';
-  else if ($fulfillmentChannel === 'AFN') $fulfillmentChannel = 'FBA';
+    $fulfillmentChannel = $db->real_escape_string($order['FulfillmentChannel'] ?? '');
+    // Normalize to your vocab
+    if ($fulfillmentChannel === 'MFN')
+        $fulfillmentChannel = 'FBM';
+    else if ($fulfillmentChannel === 'AFN')
+        $fulfillmentChannel = 'FBA';
 
-  $itemsShipped = $db->real_escape_string($order['NumberOfItemsShipped'] ?? '');
-  $itemsUnshipped = $db->real_escape_string($order['NumberOfItemsUnshipped'] ?? '');
+    $itemsShipped = $db->real_escape_string($order['NumberOfItemsShipped'] ?? '');
+    $itemsUnshipped = $db->real_escape_string($order['NumberOfItemsUnshipped'] ?? '');
 
-  $AddressLine1 = $db->real_escape_string($order['ShippingAddress']['AddressLine1'] ?? '');
-  $state       = $db->real_escape_string($order['ShippingAddress']['StateOrRegion'] ?? '');
-  $postalcode  = $db->real_escape_string($order['ShippingAddress']['PostalCode'] ?? '');
-  $city        = $db->real_escape_string($order['ShippingAddress']['City'] ?? '');
-  $countrycode = $db->real_escape_string($order['ShippingAddress']['CountryCode'] ?? '');
+    $AddressLine1 = $db->real_escape_string($order['ShippingAddress']['AddressLine1'] ?? '');
+    $state = $db->real_escape_string($order['ShippingAddress']['StateOrRegion'] ?? '');
+    $postalcode = $db->real_escape_string($order['ShippingAddress']['PostalCode'] ?? '');
+    $city = $db->real_escape_string($order['ShippingAddress']['City'] ?? '');
+    $countrycode = $db->real_escape_string($order['ShippingAddress']['CountryCode'] ?? '');
 
-  $paymentMethod = $db->real_escape_string($order['PaymentMethod'] ?? '');
-  $BuyerName     = $db->real_escape_string($order['BuyerInfo']['BuyerName'] ?? '');
-  $buyerEmail    = $db->real_escape_string($order['BuyerInfo']['BuyerEmail'] ?? '');
+    $paymentMethod = $db->real_escape_string($order['PaymentMethod'] ?? '');
+    $BuyerName = $db->real_escape_string($order['BuyerInfo']['BuyerName'] ?? '');
+    $buyerEmail = $db->real_escape_string($order['BuyerInfo']['BuyerEmail'] ?? '');
 
-  $earliestShipDate     = isoToMysqlDatetime($order['EarliestShipDate'] ?? '');
-  $latestShipDate       = isoToMysqlDatetime($order['LatestShipDate'] ?? '');
-  $earliestDeliveryDate = isoToMysqlDatetime($order['EarliestDeliveryDate'] ?? '');
-  $latestDeliveryDate   = isoToMysqlDatetime($order['LatestDeliveryDate'] ?? '');
+    $earliestShipDate = isoToMysqlDatetime($order['EarliestShipDate'] ?? '');
+    $latestShipDate = isoToMysqlDatetime($order['LatestShipDate'] ?? '');
+    $earliestDeliveryDate = isoToMysqlDatetime($order['EarliestDeliveryDate'] ?? '');
+    $latestDeliveryDate = isoToMysqlDatetime($order['LatestDeliveryDate'] ?? '');
 
-  $ship_to_name    = $db->real_escape_string($order['ShippingAddress']['Name'] ?? '');
-  $shipmentservice = $db->real_escape_string($order['ShipmentServiceLevelCategory'] ?? '');
-  $replacementOrder= $db->real_escape_string($order['IsReplacementOrder'] ?? '');
-  $ordertype       = $db->real_escape_string($order['OrderType'] ?? '');
+    $ship_to_name = $db->real_escape_string($order['ShippingAddress']['Name'] ?? '');
+    $shipmentservice = $db->real_escape_string($order['ShipmentServiceLevelCategory'] ?? '');
+    $replacementOrder = $db->real_escape_string($order['IsReplacementOrder'] ?? '');
+    $ordertype = $db->real_escape_string($order['OrderType'] ?? '');
 
-  // Upsert tbloutboundorders
-  upsertOutboundOrder(
-    $db,
-    $platform,
-    $store,
-    $AmazonOrderId,
-    $AddressLine1,
-    $state,
-    $postalcode,
-    $city,
-    $countrycode,
-    $paymentMethod,
-    $BuyerName,
-    $buyerEmail,
-    $purchaseDate,
-    $earliestShipDate,
-    $latestShipDate,
-    $earliestDeliveryDate,
-    $latestDeliveryDate,
-    $shipmentservice,
-    $ordertype,
-    $replacementOrder,
-    $fulfillmentChannel,
-    $itemsShipped,
-    $itemsUnshipped,
-    $ship_to_name
-  );
-
-  // Fetch order items
-  $itemsData = spapiGet($credentials, $accessToken, "/orders/v0/orders/" . rawurlencode($AmazonOrderId) . "/orderItems");
-  if (empty($itemsData['payload']['OrderItems'])) {
-    $msg = $itemsData['errors'][0]['message'] ?? 'No OrderItems returned';
-    echo "⚠️ OrderItems fetch issue: {$msg}<br>";
-    continue;
-  }
-
-  // Upsert tbloutboundordersitem rows
-  foreach ($itemsData['payload']['OrderItems'] as $item) {
-    $sellerSKU = $db->real_escape_string($item['SellerSKU'] ?? '');
-    $asin      = $db->real_escape_string($item['ASIN'] ?? '');
-    $title     = $db->real_escape_string($item['Title'] ?? '');
-    $conditionSubtypeId = $db->real_escape_string($item['ConditionSubtypeId'] ?? '');
-    $conditionId        = $db->real_escape_string($item['ConditionId'] ?? '');
-
-    $QuantityOrdered = (int)($item['QuantityOrdered'] ?? 0);
-    $QuantityShipped = (int)($item['QuantityShipped'] ?? 0);
-
-    $itemprice = (float)($item['ItemPrice']['Amount'] ?? 0);
-    $itemtax   = (float)($item['ItemTax']['Amount'] ?? 0);
-    $ShippingPrice = (float)($item['ShippingPrice']['Amount'] ?? 0);
-
-    $IsBuyerRequestedCancel = $db->real_escape_string($item['BuyerRequestedCancel']['IsBuyerRequestedCancel'] ?? '');
-    $BuyerCancelReason      = $db->real_escape_string($item['BuyerRequestedCancel']['BuyerCancelReason'] ?? '');
-    $orderItemId = $db->real_escape_string($item['OrderItemId'] ?? '');
-
-    upsertOutboundOrderItem(
-      $db,
-      $store,
-      $platform,
-      $AmazonOrderId,
-      $orderItemId,
-      $sellerSKU,
-      $asin,
-      $title,
-      $conditionSubtypeId,
-      $conditionId,
-      $fulfillmentChannel,
-      $orderStatus,
-      $QuantityOrdered,
-      $QuantityShipped,
-      $itemprice,
-      $itemtax,
-      $ShippingPrice,
-      $IsBuyerRequestedCancel,
-      $BuyerCancelReason
+    // Upsert tbloutboundorders
+    upsertOutboundOrder(
+        $db,
+        $platform,
+        $store,
+        $AmazonOrderId,
+        $AddressLine1,
+        $state,
+        $postalcode,
+        $city,
+        $countrycode,
+        $paymentMethod,
+        $BuyerName,
+        $buyerEmail,
+        $purchaseDate,
+        $earliestShipDate,
+        $latestShipDate,
+        $earliestDeliveryDate,
+        $latestDeliveryDate,
+        $shipmentservice,
+        $ordertype,
+        $replacementOrder,
+        $fulfillmentChannel,
+        $itemsShipped,
+        $itemsUnshipped,
+        $ship_to_name
     );
 
-    // OPTIONAL: hook your existing tblshiphistory logic here
-    // If you want, paste your InsertORUpdate_tblhistory() and call it here.
-    // InsertORUpdate_tblhistory($edited);
+    // Fetch order items
+    $itemsData = spapiGet($credentials, $accessToken, "/orders/v0/orders/" . rawurlencode($AmazonOrderId) . "/orderItems");
+    if (empty($itemsData['payload']['OrderItems'])) {
+        $msg = $itemsData['errors'][0]['message'] ?? 'No OrderItems returned';
+        echo "⚠️ OrderItems fetch issue: {$msg}<br>";
+        continue;
+    }
 
-  }
+    // Upsert tbloutboundordersitem rows
+    foreach ($itemsData['payload']['OrderItems'] as $item) {
+        $sellerSKU = $db->real_escape_string($item['SellerSKU'] ?? '');
+        $asin = $db->real_escape_string($item['ASIN'] ?? '');
+        $title = $db->real_escape_string($item['Title'] ?? '');
+        $conditionSubtypeId = $db->real_escape_string($item['ConditionSubtypeId'] ?? '');
+        $conditionId = $db->real_escape_string($item['ConditionId'] ?? '');
 
-  echo "✅ Imported: {$AmazonOrderId} (items: " . count($itemsData['payload']['OrderItems']) . ")<br>";
+        $QuantityOrdered = (int) ($item['QuantityOrdered'] ?? 0);
+        $QuantityShipped = (int) ($item['QuantityShipped'] ?? 0);
+
+        $itemprice = (float) ($item['ItemPrice']['Amount'] ?? 0);
+        $itemtax = (float) ($item['ItemTax']['Amount'] ?? 0);
+        $ShippingPrice = (float) ($item['ShippingPrice']['Amount'] ?? 0);
+
+        $IsBuyerRequestedCancel = $db->real_escape_string($item['BuyerRequestedCancel']['IsBuyerRequestedCancel'] ?? '');
+        $BuyerCancelReason = $db->real_escape_string($item['BuyerRequestedCancel']['BuyerCancelReason'] ?? '');
+        $orderItemId = $db->real_escape_string($item['OrderItemId'] ?? '');
+
+        upsertOutboundOrderItem(
+            $db,
+            $store,
+            $platform,
+            $AmazonOrderId,
+            $orderItemId,
+            $sellerSKU,
+            $asin,
+            $title,
+            $conditionSubtypeId,
+            $conditionId,
+            $fulfillmentChannel,
+            $orderStatus,
+            $QuantityOrdered,
+            $QuantityShipped,
+            $itemprice,
+            $itemtax,
+            $ShippingPrice,
+            $IsBuyerRequestedCancel,
+            $BuyerCancelReason
+        );
+
+        // OPTIONAL: hook your existing tblshiphistory logic here
+        // If you want, paste your InsertORUpdate_tblhistory() and call it here.
+        // InsertORUpdate_tblhistory($edited);
+
+    }
+
+    echo "✅ Imported: {$AmazonOrderId} (items: " . count($itemsData['payload']['OrderItems']) . ")<br>";
 }
 
 echo "<hr><b>Done.</b>";
@@ -286,7 +338,8 @@ function fetchAccessToken($credentials, $returnRaw = false)
     ]);
 
     $response = curl_exec($ch);
-    if ($response === FALSE) die('cURL Error: ' . curl_error($ch));
+    if ($response === FALSE)
+        die('cURL Error: ' . curl_error($ch));
     curl_close($ch);
 
     $decoded = json_decode($response, true);
@@ -295,15 +348,19 @@ function fetchAccessToken($credentials, $returnRaw = false)
 
 function getAWSCredentials($db, $store)
 {
-    if ($store === 'RenovarTech') $id = 6;
-    else if ($store === 'AllRenewed') $id = 10;
-    else die("Invalid store.");
+    if ($store === 'RenovarTech')
+        $id = 6;
+    else if ($store === 'AllRenewed')
+        $id = 10;
+    else
+        die("Invalid store.");
 
     $sql = "SELECT client_id, client_secret, refresh_token FROM tblstores WHERE store_id = $id";
     $result = $db->query($sql);
     $row = $result ? $result->fetch_assoc() : null;
 
-    if (!$row) die("No keys found for the selected store.");
+    if (!$row)
+        die("No keys found for the selected store.");
     return $row;
 }
 
@@ -376,13 +433,20 @@ function spapiGet($credentials, $accessToken, $path, $queryString = '')
     // Build signature for *this exact path/query*
     $headers = buildHeadersForPath($credentials, $accessToken, $path, $queryString);
 
+    echo "<br> $url <br>";
+
     do {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         $result = curl_exec($ch);
         $http = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $http_data = curl_getinfo($ch);
         curl_close($ch);
+
+        echo "<pre>";
+        print_r($http_data);
+        echo "</pre>";
 
         if ($http == 429) {
             echo "<br>Rate limit hit (429). Sleeping 60 seconds...<br>";
@@ -397,6 +461,10 @@ function spapiGet($credentials, $accessToken, $path, $queryString = '')
     } while (true);
 
     $data = json_decode($result, true);
+
+    echo "<pre>";
+    print_r($data);
+    echo "</pre>";
     return is_array($data) ? $data : [];
 }
 
@@ -405,8 +473,8 @@ function buildHeadersForPath($credentials, $accessToken, $path, $queryString = '
     $amzDate = gmdate('Ymd\THis\Z');
 
     $service = 'execute-api';
-    $region  = 'us-east-1';
-    $method  = 'GET';
+    $region = 'us-east-1';
+    $method = 'GET';
 
     $canonicalUri = $path;
     $canonicalQueryString = $queryString;
@@ -448,7 +516,8 @@ function getSignatureKey($key, $dateStamp, $regionName, $serviceName)
 
 function isoToMysqlDatetime($isoString)
 {
-    if (empty($isoString)) return null;
+    if (empty($isoString))
+        return null;
     $date = new DateTime($isoString, new DateTimeZone('UTC'));
     $date->setTimezone(new DateTimeZone('America/Los_Angeles'));
     return $date->format('Y-m-d H:i:s');
@@ -499,10 +568,29 @@ function upsertOutboundOrder(
             WHERE platform_order_id = ? AND platform = ? AND storename = ?");
 
         $vals = [
-            $AddressLine1,$state,$postalcode,$city,$countrycode,$paymentMethod,$BuyerName,$buyerEmail,
-            $purchaseDate,$earliestShipDate,$latestShipDate,$earliestDeliveryDate,$latestDeliveryDate,
-            $shipmentservice,$ordertype,$replacementOrder,$fulfillmentChannel,$ship_to_name,
-            $itemsUnshipped,$itemsShipped,$AmazonOrderId,$platform,$store
+            $AddressLine1,
+            $state,
+            $postalcode,
+            $city,
+            $countrycode,
+            $paymentMethod,
+            $BuyerName,
+            $buyerEmail,
+            $purchaseDate,
+            $earliestShipDate,
+            $latestShipDate,
+            $earliestDeliveryDate,
+            $latestDeliveryDate,
+            $shipmentservice,
+            $ordertype,
+            $replacementOrder,
+            $fulfillmentChannel,
+            $ship_to_name,
+            $itemsUnshipped,
+            $itemsShipped,
+            $AmazonOrderId,
+            $platform,
+            $store
         ];
         $u->bind_param('ssssssssssssssssssiisss', ...$vals);
         $u->execute();
@@ -517,10 +605,29 @@ function upsertOutboundOrder(
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
         $vals = [
-            $platform,$store,$AmazonOrderId,$AddressLine1,$state,$postalcode,$city,$countrycode,
-            $paymentMethod,$BuyerName,$buyerEmail,$purchaseDate,$earliestShipDate,$latestShipDate,
-            $earliestDeliveryDate,$latestDeliveryDate,$shipmentservice,$ordertype,$replacementOrder,
-            $fulfillmentChannel,$itemsShipped,$itemsUnshipped,$ship_to_name
+            $platform,
+            $store,
+            $AmazonOrderId,
+            $AddressLine1,
+            $state,
+            $postalcode,
+            $city,
+            $countrycode,
+            $paymentMethod,
+            $BuyerName,
+            $buyerEmail,
+            $purchaseDate,
+            $earliestShipDate,
+            $latestShipDate,
+            $earliestDeliveryDate,
+            $latestDeliveryDate,
+            $shipmentservice,
+            $ordertype,
+            $replacementOrder,
+            $fulfillmentChannel,
+            $itemsShipped,
+            $itemsUnshipped,
+            $ship_to_name
         ];
         $i->bind_param(str_repeat("s", count($vals)), ...$vals);
         $i->execute();
@@ -569,13 +676,24 @@ function upsertOutboundOrderItem(
         WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?");
 
         $vals = [
-            $store, $sellerSKU, $asin, $title,
-            $conditionSubtypeId, $conditionId,
-            $fulfillmentChannel, $orderStatus,
-            (int)$QuantityOrdered, (int)$QuantityShipped,
-            (float)$itemprice, (float)$itemtax, (float)$ShippingPrice,
-            $IsBuyerRequestedCancel, $BuyerCancelReason,
-            $AmazonOrderId, $orderItemId, $platform
+            $store,
+            $sellerSKU,
+            $asin,
+            $title,
+            $conditionSubtypeId,
+            $conditionId,
+            $fulfillmentChannel,
+            $orderStatus,
+            (int) $QuantityOrdered,
+            (int) $QuantityShipped,
+            (float) $itemprice,
+            (float) $itemtax,
+            (float) $ShippingPrice,
+            $IsBuyerRequestedCancel,
+            $BuyerCancelReason,
+            $AmazonOrderId,
+            $orderItemId,
+            $platform
         ];
 
         // types: ssssssssii ddd sss sss (match vals count)
@@ -595,13 +713,24 @@ function upsertOutboundOrderItem(
         ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
 
         $vals = [
-            $store, $platform, $AmazonOrderId, $orderItemId,
-            $sellerSKU, $asin, $title,
-            $conditionSubtypeId, $conditionId,
-            $fulfillmentChannel, $orderStatus,
-            (int)$QuantityOrdered, (int)$QuantityShipped,
-            (float)$itemprice, (float)$itemtax, (float)$ShippingPrice,
-            $IsBuyerRequestedCancel, $BuyerCancelReason
+            $store,
+            $platform,
+            $AmazonOrderId,
+            $orderItemId,
+            $sellerSKU,
+            $asin,
+            $title,
+            $conditionSubtypeId,
+            $conditionId,
+            $fulfillmentChannel,
+            $orderStatus,
+            (int) $QuantityOrdered,
+            (int) $QuantityShipped,
+            (float) $itemprice,
+            (float) $itemtax,
+            (float) $ShippingPrice,
+            $IsBuyerRequestedCancel,
+            $BuyerCancelReason
         ];
 
         $i->bind_param('sssssssssssiidddss', ...$vals);
