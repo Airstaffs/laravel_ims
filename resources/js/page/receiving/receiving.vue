@@ -352,7 +352,7 @@
                     <input
                         type="text"
                         v-model="basketNumber"
-                        placeholder="Enter BKT/SH/ENV + numbers..."
+                        placeholder="Enter BKT/SI/ENV + numbers..."
                         @input="handleBasketInput"
                         @keyup.enter="processBasketNumber"
                         ref="basketInput"
