@@ -404,7 +404,7 @@ export default {
         },
 
         validateBasketNumber() {
-            const basketRegex = /^(BKT|SH|ENV)\d+$/i;
+            const basketRegex = /^(BKT|SI|ENV)\d+$/i;
             this.basketNumberValid = basketRegex.test(this.basketNumber.trim());
             if (!this.basketNumberValid) {
                 SoundService.error();
@@ -702,7 +702,7 @@ export default {
         processBasketNumber() {
             if (!this.validateBasketNumber()) {
                 this.$refs.scanner.showScanError(
-                    "Basket number must start with BKT, SH, or ENV followed by numbers"
+                    "Basket number must start with BKT, SI, or ENV followed by numbers"
                 );
                 SoundService.error();
                 this.$refs.basketInput.select();
@@ -734,7 +734,7 @@ export default {
             try {
                 if (!this.validateBasketNumber()) {
                     this.$refs.scanner.showScanError(
-                        "Basket number must start with BKT, SH, or ENV followed by numbers"
+                        "Basket number must start with BKT, SI, or ENV followed by numbers"
                     );
                     SoundService.error();
                     return;

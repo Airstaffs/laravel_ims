@@ -358,7 +358,7 @@
                         ref="basketInput"
                     />
                     <div class="container-type-hint">
-                        Enter numbers with prefix: BKT (Basket), SH (Shelf), or
+                        Enter numbers with prefix: BKT (Basket), SI (Shelf), or
                         ENV (Envelope)
                     </div>
                     <button

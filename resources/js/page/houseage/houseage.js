@@ -882,12 +882,12 @@ export default {
                 errors.push("PCN must start with 'PCN' followed by numbers.");
             }
 
-            if (
+           if (
                 this.item.basketnumber &&
-                !/^BKT\d+$/i.test(this.item.basketnumber)
+                !/^(BKT|SI|ENV)\d+$/i.test(this.item.basketnumber)
             ) {
                 errors.push(
-                    "Basket Number must start with 'BKT' followed by numbers."
+                    "Basket Number must start with 'BKT', 'SI', or 'ENV' followed by numbers."
                 );
             }
 
