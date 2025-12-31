@@ -79,7 +79,7 @@ class HouseageController extends BasetablesController
                         ->orWhere('prod.ProductTitle', 'like', "%{$search}%")
                         ->orWhere('prod.rtid', 'like', "%{$search}%")
                         ->orWhere('prod.itemnumber', 'like', "%{$search}%")
-                        ->orWhere('prod.trackingnumber', 'like', "%{$search}%")
+                        ->orWhere('trackingnumber', 'like', '%'.substr($search, -12).'%')
                         ->orWhere('prod.PCN', 'like', "%{$search}%")
                         ->orWhere('prod.RPN', 'like', "%{$search}%")
                         ->orWhere('prod.PRD', 'like', "%{$search}%")

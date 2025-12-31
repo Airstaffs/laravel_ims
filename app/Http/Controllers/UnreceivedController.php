@@ -28,8 +28,8 @@ class UnreceivedController extends BasetablesController
                     $q->where('ProductTitle', 'like', "%{$search}%")
                         ->orWhere('rtid', 'like', "%{$search}%")
                         ->orWhere('itemnumber', 'like', "%{$search}%")
-                        ->orWhere('trackingnumber', 'like', "%{$search}%")
-                        ->orWhere('rtcounter', 'like', "%{$search}%");
+                        ->orWhere('rtcounter', 'like', "%{$search}%")
+                        ->orWhere('trackingnumber', 'like', '%'.substr($search, -12).'%');
                 });
             })
             ->paginate($perPage);

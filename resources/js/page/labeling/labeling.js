@@ -325,14 +325,31 @@ export default {
         },
 
         // Count captured images (capturedimg1 - capturedimg12)
-        countCapturedImages(item) {
-            return this.countImages(
-                item,
-                "capturedimg",
-                1,
-                12,
-                "capturedImages"
-            );
+       countCapturedImages(item) {
+            if (!item || !item.capturedImages) return 0;
+            
+            console.log('🔍 Counting captured images for item:', {
+                ProductID: item.ProductID,
+                capturedImages: item.capturedImages
+            });
+            
+            let count = 0;
+            const capturedImagesObj = item.capturedImages;
+            
+            // Check both capturedimg1-12 AND serialimg1-2
+            for (let i = 1; i <= 12; i++) {
+                const fieldName = `capturedimg${i}`;
+                if (this.isValidImage(capturedImagesObj[fieldName])) {
+                    count++;
+                }
+            }
+            
+            // Also check serial images
+            if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
+            if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
+            
+            console.log('🔍 Total captured images found:', count);
+            return count;
         },
 
         // Count all images (regular + captured)
@@ -344,55 +361,82 @@ export default {
 
         // Open the image modal and prepare images
         openImageModal(item) {
-            if (!item) return;
+    if (!item) return;
 
-            this.regularImages = [];
-            this.capturedImages = [];
-            this.currentImageIndex = 0;
-            this.ProductTitle = item.ProductTitle;
-            const companyFolder = item.company || "Airstaffs";
+    this.regularImages = [];
+    this.capturedImages = [];
+    this.currentImageIndex = 0;
+    this.ProductTitle = item.ProductTitle;
+    const companyFolder = item.company || "Airstaffs";
 
-            // Load regular images (img1 - img15)
-            for (let i = 1; i <= 15; i++) {
-                const fieldName = `img${i}`;
-                if (this.isValidImage(item[fieldName])) {
-                    const path = `/images/thumbnails/${item[fieldName]}`;
-                    this.regularImages.push(path);
-                }
+    console.log('🔍 Opening image modal for item:', {
+        ProductID: item.ProductID,
+        rtcounter: item.rtcounter,
+        company: companyFolder,
+        capturedImages: item.capturedImages
+    });
+
+    // Load regular images (img1 - img15)
+    for (let i = 1; i <= 15; i++) {
+        const fieldName = `img${i}`;
+        if (this.isValidImage(item[fieldName])) {
+            const path = `/images/thumbnails/${item[fieldName]}`;
+            this.regularImages.push(path);
+        }
+    }
+
+    console.log('📸 Regular images loaded:', this.regularImages.length);
+
+    // ✅ FIXED: Load captured images properly
+    if (item.capturedImages && typeof item.capturedImages === 'object') {
+        const capturedImagesObj = item.capturedImages;
+        
+        console.log('🔍 Processing captured images:', capturedImagesObj);
+
+        // Load capturedimg1 - capturedimg12
+        for (let i = 1; i <= 12; i++) {
+            const fieldName = `capturedimg${i}`;
+            if (this.isValidImage(capturedImagesObj[fieldName])) {
+                const filename = capturedImagesObj[fieldName];
+                const path = `/images/product_images/${companyFolder}/${filename}`;
+                this.capturedImages.push(path);
+                console.log(`✅ Added captured image ${i}:`, path);
             }
+        }
 
-            // Load captured images (capturedimg1 - capturedimg12)
-            if (
-                item.capturedImages &&
-                typeof item.capturedImages === "object" &&
-                Object.values(item.capturedImages || {}).some((v) => v)
-            ) {
-                for (let i = 1; i <= 12; i++) {
-                    const filename = `${item.rtcounter}_img${i}.jpg`;
-                    const path = `/images/product_images/${companyFolder}/${filename}`;
-                    this.capturedImages.push(path);
-                }
-            }
+        // Load serial images (serialimg1 and serialimg2)
+        if (this.isValidImage(capturedImagesObj.serialimg1)) {
+            const filename = capturedImagesObj.serialimg1;
+            const path = `/images/product_images/${companyFolder}/${filename}`;
+            this.capturedImages.push(path);
+            console.log('✅ Added serial image 1:', path);
+        }
 
-            // Fallback if no images exist
-            if (
-                this.regularImages.length === 0 &&
-                this.capturedImages.length === 0
-            ) {
-                this.regularImages.push(this.defaultImage);
-            }
+        if (this.isValidImage(capturedImagesObj.serialimg2)) {
+            const filename = capturedImagesObj.serialimg2;
+            const path = `/images/product_images/${companyFolder}/${filename}`;
+            this.capturedImages.push(path);
+            console.log('✅ Added serial image 2:', path);
+        }
+    }
 
-            // Set default active tab
-            this.activeTab = this.regularImages.length ? "regular" : "captured";
-            this.currentImageSet =
-                this.activeTab === "regular"
-                    ? this.regularImages
-                    : this.capturedImages;
+    console.log('📸 Total captured images loaded:', this.capturedImages.length);
 
-            // Show modal and disable page scrolling
-            this.showImageModal = true;
-            document.body.style.overflow = "hidden";
-        },
+    // Fallback if no images exist
+    if (this.regularImages.length === 0 && this.capturedImages.length === 0) {
+        this.regularImages.push(this.defaultImage);
+    }
+
+    // Set default active tab
+    this.activeTab = this.regularImages.length ? 'regular' : 'captured';
+    this.currentImageSet = this.activeTab === 'regular' 
+        ? this.regularImages 
+        : this.capturedImages;
+
+    // Show modal and disable page scrolling
+    this.showImageModal = true;
+    document.body.style.overflow = 'hidden';
+},
 
         // Method to switch tabs
         switchTab(tab) {

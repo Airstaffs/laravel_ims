@@ -13,11 +13,14 @@ class ImageUploadController extends BasetablesController
 
     public function upload(Request $request)
     {
-        Log::info('Received image upload request:', [
+        Log::info('=== IMAGE UPLOAD REQUEST RECEIVED ===', [
             'productId' => $request->input('productId'),
             'imageIndex' => $request->input('imageIndex'),
+            'isSerial' => $request->input('isSerial', false),
+            'serialIndex' => $request->input('serialIndex', 0),
             'company' => $this->company,
-            'capturedImagesTable' => $this->capturedImagesTable
+            'capturedImagesTable' => $this->capturedImagesTable,
+            'productTable' => $this->productTable,
         ]);
         
         try {
@@ -28,14 +31,30 @@ class ImageUploadController extends BasetablesController
             
             // Quick validation of critical fields
             if (empty($productId) || !is_numeric($productId) || empty($imageData)) {
+                Log::error('Missing required fields', [
+                    'productId' => $productId,
+                    'imageIndex' => $imageIndex,
+                    'hasImageData' => !empty($imageData)
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Missing required fields'
                 ], 400);
             }
             
-            // Check if product exists and continue if it does
-            if (!DB::table($this->productTable)->where('ProductID', $productId)->exists()) {
+            // Check if product exists
+            $productExists = DB::table($this->productTable)->where('ProductID', $productId)->exists();
+            Log::info('Product existence check', [
+                'productId' => $productId,
+                'exists' => $productExists,
+                'table' => $this->productTable
+            ]);
+            
+            if (!$productExists) {
+                Log::error('Product not found', [
+                    'productId' => $productId,
+                    'table' => $this->productTable
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Product not found with ID: ' . $productId
@@ -54,17 +73,21 @@ class ImageUploadController extends BasetablesController
                 $directory = public_path("images/product_images/{$companyFolder}");
                 if (!File::exists($directory)) {
                     File::makeDirectory($directory, 0755, true);
+                    Log::info('Created directory', ['directory' => $directory]);
                 }
                 
                 // Simplified filename calculation
                 $imageNumber = $imageIndex + 1;
-                $filename = $productId . '_img' . $imageNumber . '.jpg';
 
                 // 🧠 Detect if this upload is for serial images
-                // We'll use a special index or request flag from the front end.
-                // Example: send `isSerial: true` + `serialIndex: 1` or `2` when uploading serial images.
                 $isSerial = $request->input('isSerial', false);
                 $serialIndex = (int) $request->input('serialIndex', 0);
+
+                Log::info('Image type detection', [
+                    'isSerial' => $isSerial,
+                    'serialIndex' => $serialIndex,
+                    'imageNumber' => $imageNumber
+                ]);
 
                 if ($isSerial && $serialIndex === 1) {
                     $capturedImgColumn = 'serialimg1';
@@ -80,8 +103,25 @@ class ImageUploadController extends BasetablesController
                 
                 $path = $directory . '/' . $filename;
                 
+                Log::info('Saving image to disk', [
+                    'path' => $path,
+                    'filename' => $filename,
+                    'column' => $capturedImgColumn,
+                    'dataSize' => strlen($imageData)
+                ]);
+                
                 // Store the image
                 File::put($path, $imageData);
+                
+                if (!File::exists($path)) {
+                    Log::error('File was not created on disk', ['path' => $path]);
+                    throw new \Exception('Failed to save image file to disk');
+                }
+                
+                Log::info('Image file saved successfully', [
+                    'path' => $path,
+                    'fileSize' => File::size($path)
+                ]);
                 
                 // Begin transaction
                 DB::beginTransaction();
@@ -92,35 +132,75 @@ class ImageUploadController extends BasetablesController
                         ->where('ProductID', $productId)
                         ->first();
                     
+                    Log::info('Checking for existing record', [
+                        'productId' => $productId,
+                        'existingRecordFound' => $existingRecord ? true : false,
+                        'existingRecordId' => $existingRecord ? $existingRecord->id : null,
+                        'table' => $this->capturedImagesTable
+                    ]);
+                    
                     if ($existingRecord) {
                         // Update existing record with the new image
-                        DB::table($this->capturedImagesTable)
+                        $updateData = [
+                            $capturedImgColumn => $filename,
+                            'UpdatedAt' => now()
+                        ];
+                        
+                        Log::info('Updating existing record', [
+                            'id' => $existingRecord->id,
+                            'updateData' => $updateData
+                        ]);
+                        
+                        $updateResult = DB::table($this->capturedImagesTable)
                             ->where('id', $existingRecord->id)
-                            ->update([
-                                $capturedImgColumn => $filename,
-                                'UpdatedAt' => now()
-                            ]);
+                            ->update($updateData);
+                        
+                        Log::info('Update result', [
+                            'rowsAffected' => $updateResult,
+                            'id' => $existingRecord->id
+                        ]);
                         
                         $imageRecordId = $existingRecord->id;
                     } else {
                         // Insert new record
-                        $imageRecordId = DB::table($this->capturedImagesTable)->insertGetId([
+                        $insertData = [
                             'ProductID' => $productId,
                             $capturedImgColumn => $filename,
                             'CreatedAt' => now(),
                             'UpdatedAt' => now()
+                        ];
+                        
+                        Log::info('Inserting new record', [
+                            'insertData' => $insertData,
+                            'table' => $this->capturedImagesTable
+                        ]);
+                        
+                        $imageRecordId = DB::table($this->capturedImagesTable)->insertGetId($insertData);
+                        
+                        Log::info('Insert result', [
+                            'newRecordId' => $imageRecordId
                         ]);
                     }
                     
-                    // No longer need to update the product table since columns have been removed
+                    // Verify the record was saved
+                    $verifyRecord = DB::table($this->capturedImagesTable)
+                        ->where('ProductID', $productId)
+                        ->first();
+                    
+                    Log::info('Verification check', [
+                        'recordFound' => $verifyRecord ? true : false,
+                        'recordId' => $verifyRecord ? $verifyRecord->id : null,
+                        'columnValue' => $verifyRecord ? $verifyRecord->{$capturedImgColumn} : null
+                    ]);
                     
                     DB::commit();
                     
-                    Log::info('Image saved:', [
+                    Log::info('=== IMAGE UPLOAD SUCCESS ===', [
                         'path' => $path, 
                         'filename' => $filename, 
                         'column' => $capturedImgColumn,
                         'imageRecordId' => $imageRecordId,
+                        'productId' => $productId,
                         'company' => $this->company,
                         'capturedImagesTable' => $this->capturedImagesTable
                     ]);
@@ -129,20 +209,30 @@ class ImageUploadController extends BasetablesController
                         'success' => true,
                         'filename' => $filename,
                         'column' => $capturedImgColumn,
-                        'imageRecordId' => $imageRecordId
+                        'imageRecordId' => $imageRecordId,
+                        'productId' => $productId
                     ]);
                 } catch (\Exception $e) {
                     DB::rollBack();
+                    Log::error('Database transaction failed', [
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
                     throw $e;
                 }
             } else {
+                Log::error('Invalid image data format', [
+                    'dataPrefix' => substr($imageData, 0, 50)
+                ]);
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid image data format'
                 ], 400);
             }
         } catch (\Exception $e) {
-            $this->logError('Error uploading image', $e, [
+            Log::error('=== IMAGE UPLOAD ERROR ===', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'productId' => $request->input('productId'),
                 'imageIndex' => $request->input('imageIndex'),
                 'company' => $this->company,
