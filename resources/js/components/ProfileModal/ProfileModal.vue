@@ -617,7 +617,7 @@
                                                 icon="pi pi-check"
                                                 :loading="updatingTimezone"
                                             />
-                                            <Button
+                                            <!-- <Button
                                                 type="button"
                                                 label="Detect Now"
                                                 icon="pi pi-refresh"
@@ -625,7 +625,7 @@
                                                 severity="secondary"
                                                 outlined
                                                 class="ml-2"
-                                            />
+                                            /> -->
                                         </div>
                                     </form>
                                 </template>
@@ -1479,12 +1479,30 @@ export default {
             }
         },
 
-        "timezoneForm.auto_sync"(newVal) {
-            if (newVal) {
-                // When auto-sync is enabled, detect and set timezone
-                console.log("🔄 Auto-sync enabled, detecting timezone...");
-                const detected = this.detectCurrentTimezone();
-                this.timezoneForm.usertimezone = detected;
+        "timezoneForm.auto_sync"(newVal, oldVal) {
+            // Only trigger if this is a user action (not initial load)
+            if (this.timezonesLoaded && oldVal !== undefined) {
+                if (newVal) {
+                    console.log("🔄 Auto-sync enabled, detecting timezone...");
+                    const detected = this.detectCurrentTimezone();
+                    this.timezoneForm.usertimezone = detected;
+
+                    // Show confirmation before auto-saving
+                    Swal.fire({
+                        title: "Auto-Sync Enabled",
+                        html: `Your timezone will be automatically detected as:<br><strong>${this.detectedTimezone}</strong><br><br>Save this setting now?`,
+                        icon: "info",
+                        showCancelButton: true,
+                        confirmButtonText: "Yes, Save",
+                        cancelButtonText: "Not Now",
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            this.updateTimezone();
+                        }
+                    });
+                } else {
+                    console.log("🔄 Auto-sync disabled");
+                }
             }
         },
     },
@@ -1727,13 +1745,7 @@ export default {
 
                 console.log("🌍 Detected timezone:", detected);
 
-                // Update form value if auto-sync is enabled
-                if (this.timezoneForm.auto_sync) {
-                    this.timezoneForm.usertimezone = detected;
-                    console.log("✅ Form updated to:", detected);
-                }
-
-                // Find friendly name
+                // Find friendly name for display
                 const timezone = this.timezones?.find(
                     (tz) => tz.tz === detected
                 );
@@ -1741,7 +1753,7 @@ export default {
 
                 return detected;
             } catch (error) {
-                console.error("❌ Error:", error);
+                console.error("❌ Timezone detection error:", error);
                 this.detectedTimezone = "Unable to detect";
                 return "UTC";
             }
@@ -1875,45 +1887,70 @@ export default {
             this.updatingTimezone = true;
             try {
                 // If auto-sync is enabled, detect and use browser timezone
+                let timezoneToSave = this.timezoneForm.usertimezone;
                 if (this.timezoneForm.auto_sync) {
                     const detected = this.detectCurrentTimezone();
-                    this.timezoneForm.usertimezone = detected;
+                    timezoneToSave = detected;
+                    this.timezoneForm.usertimezone = detected; // Update form to show detected timezone
                 }
+
+                // Prepare the data to send (matching your backend structure)
+                const timezoneData = {
+                    usertimezone: timezoneToSave,
+                    auto_sync: this.timezoneForm.auto_sync ? 1 : 0, // Send as 1/0 for backend
+                };
+
+                console.log("💾 Saving timezone:", timezoneData);
 
                 const response = await axios.post(
                     "/update-timezone",
-                    this.timezoneForm
+                    timezoneData
                 );
 
                 if (response.data.success) {
-                    // Update the timeFormatter's timezone if available
+                    // Update the timeFormatter's timezone
                     if (
                         this.$timeFormatter &&
                         typeof this.$timeFormatter.setTimezone === "function"
                     ) {
-                        if (this.timezoneForm.auto_sync) {
-                            this.$timeFormatter.setTimezone(
-                                this.detectCurrentTimezone()
-                            );
-                        } else {
-                            this.$timeFormatter.setTimezone(
-                                this.timezoneForm.usertimezone
-                            );
-                        }
+                        this.$timeFormatter.setTimezone(timezoneToSave);
+                        console.log(
+                            "✅ TimeFormatter updated to:",
+                            timezoneToSave
+                        );
                     }
 
+                    // Show success message
                     await Swal.fire({
                         title: "Success!",
-                        text: response.data.message,
+                        text:
+                            response.data.message ||
+                            "Timezone updated successfully",
                         icon: "success",
                         confirmButtonText: "OK",
+                        timer: 2000,
                     });
+
+                    // Refresh the attendance data to reflect new timezone
+                    if (this.currentTabIndex === 0) {
+                        await this.loadAttendanceData();
+                    }
+
+                    // Refresh filtered records if on Record tab
+                    if (this.currentTabIndex === 2) {
+                        await this.filterAttendanceRecords();
+                    }
                 }
             } catch (error) {
-                console.error("Error updating timezone:", error);
-                Swal.fire({
+                console.error("❌ Error updating timezone:", error);
+
+                const errorMessage =
+                    error.response?.data?.message ||
+                    "Failed to update timezone";
+
+                await Swal.fire({
                     title: "Error!",
-                    text: "Failed to update timezone",
+                    text: errorMessage,
                     icon: "error",
                     confirmButtonText: "OK",
                 });

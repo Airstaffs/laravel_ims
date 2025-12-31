@@ -5,10 +5,305 @@ error_reporting(E_ALL);
 session_start();
 date_default_timezone_set('America/Los_Angeles');
 
+function upsert_tbloutboundorders(mysqli $db, array $data): void
+{
+    // Required identifiers
+    $platform = $data['platform'];
+    $store = $data['storename'];
+    $orderId = $data['platform_order_id'];
+
+    // Check if exists
+    $check = $db->prepare("
+        SELECT platform_order_id
+        FROM tbloutboundorders
+        WHERE platform_order_id = ? AND platform = ? AND storename = ?
+        LIMIT 1
+    ");
+    $check->bind_param("sss", $orderId, $platform, $store);
+    $check->execute();
+    $check->store_result();
+
+    if ($check->num_rows > 0) {
+        // Update
+        $stmt = $db->prepare("
+            UPDATE tbloutboundorders SET
+                address_line1 = ?,
+                StateOrRegion = ?,
+                postal_code = ?,
+                city = ?,
+                CountryCode = ?,
+                PaymentMethod = ?,
+                BuyerName = ?,
+                BuyerEmail = ?,
+                PurchaseDate = ?,
+                EarliestShipDate = ?,
+                LatestShipDate = ?,
+                EarliestDeliveryDate = ?,
+                LatestDeliveryDate = ?,
+                ShipmentServiceLevelCategory = ?,
+                OrderType = ?,
+                IsReplacementOrder = ?,
+                FulfillmentChannel = ?,
+                ShiptoName = ?,
+                NumberOfItemsUnshipped = ?,
+                NumberOfItemsShipped = ?
+            WHERE platform_order_id = ? AND platform = ? AND storename = ?
+        ");
+
+        // Note: keep ints as ints for binding
+        $numUnshipped = (int) ($data['NumberOfItemsUnshipped'] ?? 0);
+        $numShipped = (int) ($data['NumberOfItemsShipped'] ?? 0);
+
+        $stmt->bind_param(
+            "ssssssssssssssssssii" . "sss",
+            $data['address_line1'],
+            $data['StateOrRegion'],
+            $data['postal_code'],
+            $data['city'],
+            $data['CountryCode'],
+            $data['PaymentMethod'],
+            $data['BuyerName'],
+            $data['BuyerEmail'],
+            $data['PurchaseDate'],
+            $data['EarliestShipDate'],
+            $data['LatestShipDate'],
+            $data['EarliestDeliveryDate'],
+            $data['LatestDeliveryDate'],
+            $data['ShipmentServiceLevelCategory'],
+            $data['OrderType'],
+            $data['IsReplacementOrder'],
+            $data['FulfillmentChannel'],
+            $data['ShiptoName'],
+            $numUnshipped,
+            $numShipped,
+            $orderId,
+            $platform,
+            $store
+        );
+
+        if (!$stmt->execute()) {
+            echo "<br>❌ tbloutboundorders UPDATE failed: " . $stmt->error;
+        } else {
+            echo "<br>✅ tbloutboundorders updated: {$orderId}";
+        }
+
+        $stmt->close();
+    } else {
+        // Insert
+        $stmt = $db->prepare("
+            INSERT INTO tbloutboundorders (
+                platform,
+                storename,
+                platform_order_id,
+                address_line1,
+                StateOrRegion,
+                postal_code,
+                city,
+                CountryCode,
+                PaymentMethod,
+                BuyerName,
+                BuyerEmail,
+                PurchaseDate,
+                EarliestShipDate,
+                LatestShipDate,
+                EarliestDeliveryDate,
+                LatestDeliveryDate,
+                ShipmentServiceLevelCategory,
+                OrderType,
+                IsReplacementOrder,
+                FulfillmentChannel,
+                NumberOfItemsShipped,
+                NumberOfItemsUnshipped,
+                ShiptoName
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $numShipped = (int) ($data['NumberOfItemsShipped'] ?? 0);
+        $numUnshipped = (int) ($data['NumberOfItemsUnshipped'] ?? 0);
+
+        $stmt->bind_param(
+            "ssssssssssssssssssssii" . "s",
+            $platform,
+            $store,
+            $orderId,
+            $data['address_line1'],
+            $data['StateOrRegion'],
+            $data['postal_code'],
+            $data['city'],
+            $data['CountryCode'],
+            $data['PaymentMethod'],
+            $data['BuyerName'],
+            $data['BuyerEmail'],
+            $data['PurchaseDate'],
+            $data['EarliestShipDate'],
+            $data['LatestShipDate'],
+            $data['EarliestDeliveryDate'],
+            $data['LatestDeliveryDate'],
+            $data['ShipmentServiceLevelCategory'],
+            $data['OrderType'],
+            $data['IsReplacementOrder'],
+            $data['FulfillmentChannel'],
+            $numShipped,
+            $numUnshipped,
+            $data['ShiptoName']
+        );
+
+        if (!$stmt->execute()) {
+            echo "<br>❌ tbloutboundorders INSERT failed: " . $stmt->error;
+        } else {
+            echo "<br>✅ tbloutboundorders inserted: {$orderId}";
+        }
+
+        $stmt->close();
+    }
+
+    $check->close();
+}
+
+function upsert_tbloutboundordersitem(mysqli $db, array $data): void
+{
+    // Required identifiers
+    $platform = $data['platform'];
+    $store = $data['storename'];
+    $orderId = $data['platform_order_id'];
+    $itemId = $data['platform_order_item_id'];
+
+    $check = $db->prepare("
+        SELECT platform_order_id
+        FROM tbloutboundordersitem
+        WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?
+        LIMIT 1
+    ");
+    $check->bind_param("sss", $orderId, $itemId, $platform);
+    $check->execute();
+    $check->store_result();
+
+    if ($check->num_rows > 0) {
+        $stmt = $db->prepare("
+            UPDATE tbloutboundordersitem SET
+                storename = ?,
+                platform_sku = ?,
+                platform_asin = ?,
+                platform_title = ?,
+                ConditionSubtypeId = ?,
+                ConditionId = ?,
+                FulfillmentChannel = ?,
+                order_status = ?,
+                QuantityOrdered = ?,
+                QuantityShipped = ?,
+                unit_price = ?,
+                unit_tax = ?,
+                ShippingPrice = ?,
+                IsBuyerRequestedCancel = ?,
+                BuyerCancelReason = ?
+            WHERE platform_order_id = ? AND platform_order_item_id = ? AND platform = ?
+        ");
+
+        $qtyOrdered = (int) ($data['QuantityOrdered'] ?? 0);
+        $qtyShipped = (int) ($data['QuantityShipped'] ?? 0);
+
+        $unitPrice = (float) ($data['unit_price'] ?? 0);
+        $unitTax = (float) ($data['unit_tax'] ?? 0);
+        $shipPrice = (float) ($data['ShippingPrice'] ?? 0);
+
+        // NOTE: types must match the values count (18 total binds)
+        $stmt->bind_param(
+            "ssssssssii" . "ddd" . "ss" . "sss",
+            $store,
+            $data['platform_sku'],
+            $data['platform_asin'],
+            $data['platform_title'],
+            $data['ConditionSubtypeId'],
+            $data['ConditionId'],
+            $data['FulfillmentChannel'],
+            $data['order_status'],
+            $qtyOrdered,
+            $qtyShipped,
+            $unitPrice,
+            $unitTax,
+            $shipPrice,
+            $data['IsBuyerRequestedCancel'],
+            $data['BuyerCancelReason'],
+            $orderId,
+            $itemId,
+            $platform
+        );
+
+        if (!$stmt->execute()) {
+            echo "<br>❌ tbloutboundordersitem UPDATE failed: " . $stmt->error;
+        } else {
+            echo "<br>✅ tbloutboundordersitem updated: {$orderId} / {$itemId}";
+        }
+
+        $stmt->close();
+    } else {
+        $stmt = $db->prepare("
+            INSERT INTO tbloutboundordersitem (
+                storename,
+                platform,
+                platform_order_id,
+                platform_order_item_id,
+                platform_sku,
+                platform_asin,
+                platform_title,
+                ConditionSubtypeId,
+                ConditionId,
+                FulfillmentChannel,
+                order_status,
+                QuantityOrdered,
+                QuantityShipped,
+                unit_price,
+                unit_tax,
+                shippingPrice,
+                IsBuyerRequestedCancel,
+                BuyerCancelReason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $qtyOrdered = (int) ($data['QuantityOrdered'] ?? 0);
+        $qtyShipped = (int) ($data['QuantityShipped'] ?? 0);
+
+        $unitPrice = (float) ($data['unit_price'] ?? 0);
+        $unitTax = (float) ($data['unit_tax'] ?? 0);
+        $shipPrice = (float) ($data['ShippingPrice'] ?? 0);
+
+        $stmt->bind_param(
+            "sssssssssssii" . "ddd" . "ss",
+            $store,
+            $platform,
+            $orderId,
+            $itemId,
+            $data['platform_sku'],
+            $data['platform_asin'],
+            $data['platform_title'],
+            $data['ConditionSubtypeId'],
+            $data['ConditionId'],
+            $data['FulfillmentChannel'],
+            $data['order_status'],
+            $qtyOrdered,
+            $qtyShipped,
+            $unitPrice,
+            $unitTax,
+            $shipPrice,
+            $data['IsBuyerRequestedCancel'],
+            $data['BuyerCancelReason']
+        );
+
+        if (!$stmt->execute()) {
+            echo "<br>❌ tbloutboundordersitem INSERT failed: " . $stmt->error;
+        } else {
+            echo "<br>✅ tbloutboundordersitem inserted: {$orderId} / {$itemId}";
+        }
+
+        $stmt->close();
+    }
+
+    $check->close();
+}
 
 // exit("RAWR");
 
-$success = false;
+$success = true;
 $strname = "AR";
 $platform = "Amazon";
 

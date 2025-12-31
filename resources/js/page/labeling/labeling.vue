@@ -1558,12 +1558,12 @@ const TABLE_COLUMNS = [
         slot: "quantity",
         headerStyle: "font-size: 16px;",
     },
-    {
-        field: "datedelivered",
-        header: "Date Delivered",
-        sortable: true,
-        headerStyle: "font-size: 16px;",
-    },
+    // {
+    //     field: "datedelivered",
+    //     header: "Date Delivered",
+    //     sortable: true,
+    //     headerStyle: "font-size: 16px;",
+    // },
 ];
 
 const FNSKU_COLUMN = [

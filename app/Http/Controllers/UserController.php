@@ -703,23 +703,92 @@ class UserController extends Controller
 
     public function updateTimezone(Request $request)
     {
-        $userId = session('userid');
-        $autoSync = $request->has('auto_sync');
-        $timezone = $request->input('usertimezone', 'UTC');
+        try {
+            // Validate the request
+            $validated = $request->validate([
+                'usertimezone' => 'required|string|max:255',
+                'auto_sync' => 'required|boolean|integer|in:0,1',
+            ]);
 
-        $tzSetting = json_encode([
-            'auto_sync' => $autoSync,
-            'usertimezone' => $timezone,
-        ]);
+            $userId = Auth::id(); // Use Auth instead of session for better security
 
-        DB::table('tbluser')->where('id', $userId)->update([
-            'timezone_setting' => $tzSetting,
-        ]);
+            if (! $userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated',
+                ], 401);
+            }
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Timezone updated successfully!',
-        ]);
+            // Convert auto_sync to boolean for JSON storage
+            $autoSync = (bool) $validated['auto_sync'];
+            $timezone = $validated['usertimezone'];
+
+            // Create timezone setting JSON
+            $tzSetting = json_encode([
+                'auto_sync' => $autoSync,
+                'usertimezone' => $timezone,
+            ]);
+
+            // Update user's timezone setting
+            $updated = DB::table('tbluser')
+                ->where('id', $userId)
+                ->update([
+                    'timezone_setting' => $tzSetting,
+                    'updated_at' => now(), // Track when settings were last updated
+                ]);
+
+            if (! $updated) {
+                Log::warning('Timezone update had no effect', [
+                    'user_id' => $userId,
+                    'timezone' => $timezone,
+                    'auto_sync' => $autoSync,
+                ]);
+            }
+
+            // Log the timezone update
+            Log::info('Timezone updated successfully', [
+                'user_id' => $userId,
+                'timezone' => $timezone,
+                'auto_sync' => $autoSync,
+                'updated_rows' => $updated,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $autoSync
+                    ? 'Timezone auto-sync enabled successfully!'
+                    : 'Timezone updated successfully!',
+                'data' => [
+                    'usertimezone' => $timezone,
+                    'auto_sync' => $autoSync,
+                ],
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Timezone validation failed', [
+                'errors' => $e->errors(),
+                'user_id' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Invalid timezone data provided',
+                'errors' => $e->errors(),
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to update timezone', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update timezone. Please try again.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
+        }
     }
 
     public function showTimezoneSettings(Request $request)
@@ -746,21 +815,56 @@ class UserController extends Controller
 
     public function getCurrentTimezone()
     {
-        $userId = Auth::id();
+        try {
+            $userId = Auth::id();
 
-        $settingJson = DB::table('tbluser')
-            ->where('id', $userId)
-            ->value('timezone_setting');
+            if (! $userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User not authenticated',
+                    'usertimezone' => 'UTC',
+                    'auto_sync' => true,
+                ], 401);
+            }
 
-        $setting = json_decode($settingJson, true) ?? [
-            'auto_sync' => true,
-            'usertimezone' => 'UTC',
-        ];
+            $settingJson = DB::table('tbluser')
+                ->where('id', $userId)
+                ->value('timezone_setting');
 
-        return response()->json([
-            'success' => true,
-            'usertimezone' => $setting['usertimezone'] ?? 'UTC',
-            'auto_sync' => $setting['auto_sync'] ?? true,
-        ]);
+            // Parse JSON or use defaults
+            $setting = json_decode($settingJson, true) ?? [
+                'auto_sync' => true,
+                'usertimezone' => 'UTC',
+            ];
+
+            // Ensure keys exist
+            $usertimezone = $setting['usertimezone'] ?? 'UTC';
+            $autoSync = $setting['auto_sync'] ?? true;
+
+            Log::info('Timezone settings retrieved', [
+                'user_id' => $userId,
+                'timezone' => $usertimezone,
+                'auto_sync' => $autoSync,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'usertimezone' => $usertimezone,
+                'auto_sync' => $autoSync,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get timezone settings', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to retrieve timezone settings',
+                'usertimezone' => 'UTC',
+                'auto_sync' => true,
+            ], 500);
+        }
     }
 }
