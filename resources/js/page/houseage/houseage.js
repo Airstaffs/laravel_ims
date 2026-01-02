@@ -887,7 +887,7 @@ export default {
                 !/^(BKT|SI|ENV)\d+$/i.test(this.item.basketnumber)
             ) {
                 errors.push(
-                    "Basket Number must start with 'BKT', 'SI', or 'ENV' followed by numbers."
+                    "Basket/Shelf/Envelope Number must start with 'BKT', 'SI', or 'ENV' followed by numbers."
                 );
             }
 

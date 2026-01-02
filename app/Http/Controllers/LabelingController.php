@@ -306,163 +306,193 @@ class LabelingController extends BasetablesController
     }
 
     public function moveToValidation(Request $request)
-    {
-        Log::info('=== MOVE TO VALIDATION CALLED ===');
-        Log::info('Request method: '.$request->method());
-        Log::info('Request URL: '.$request->fullUrl());
-        Log::info('Request headers: ', $request->headers->all());
-        Log::info('Request body: ', $request->all());
-        Log::info('Product table: '.$this->productTable);
+{
+    Log::info('=== MOVE TO VALIDATION CALLED ===');
+    Log::info('Request method: ' . $request->method());
+    Log::info('Request URL: ' . $request->fullUrl());
+    Log::info('Request headers: ', $request->headers->all());
+    Log::info('Request body: ', $request->all());
+    Log::info('Product table: ' . $this->productTable);
 
-        try {
-            // Validate the incoming request
-            $validator = Validator::make($request->all(), [
-                'product_id' => 'required',
-                'rt_counter' => 'required',
-                'current_location' => 'required',
-            ]);
+    try {
+        // Validate the incoming request
+        $validator = Validator::make($request->all(), [
+            'product_id' => 'required',
+            'rt_counter' => 'required',
+            'current_location' => 'required',
+        ]);
 
-            if ($validator->fails()) {
-                Log::error('Validation failed in moveToValidation', [
-                    'errors' => $validator->errors(),
-                    'request_data' => $request->all(),
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation error',
-                    'errors' => $validator->errors(),
-                ], 422);
-            }
-
-            Log::info('Validation passed, attempting to update product', [
-                'product_id' => $request->product_id,
-                'rt_counter' => $request->rt_counter,
-                'current_location' => $request->current_location,
-            ]);
-
-            // Check if product exists first and get FNSKU data using base FNSKU
-            $existingProduct = DB::table($this->productTable)
-                ->where('ProductID', $request->product_id)
-                ->first();
-
-            if (! $existingProduct) {
-                Log::error('Product not found for moveToValidation', [
-                    'product_id' => $request->product_id,
-                    'table' => $this->productTable,
-                ]);
-
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Product not found',
-                ], 404);
-            }
-
-            Log::info('Product found, current location: '.$existingProduct->ProductModuleLoc);
-
-            // Extract base FNSKU and get related data
-            $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
-
-            $fnskuRecord = null;
-            if (! empty($baseFnsku)) {
-                $fnskuRecord = DB::table($this->fnskuTable)
-                    ->where('FNSKU', $baseFnsku)
-                    ->first();
-            }
-
-            // Check for required fields (ASIN, FNSKU, MSKU)
-            $missingFields = [];
-
-            if (empty($existingProduct->FNSKUviewer)) {
-                $missingFields[] = 'FNSKU';
-            }
-
-            if (! $fnskuRecord || empty($fnskuRecord->MSKU)) {
-                $missingFields[] = 'MSKU';
-            }
-
-            if (! $fnskuRecord || empty($fnskuRecord->ASIN)) {
-                $missingFields[] = 'ASIN';
-            }
-
-            // If any required fields are missing, return error
-            if (! empty($missingFields)) {
-                $missingFieldsText = implode(', ', $missingFields);
-                Log::warning('Cannot move to Validation - missing required fields', [
-                    'product_id' => $request->product_id,
-                    'rt_counter' => $request->rt_counter,
-                    'missing_fields' => $missingFields,
-                ]);
-
-                // ✅ Track failed attempt with TracksHistory
-                $this->trackHistory(
-                    'Labeling',
-                    'Move to Validation Failed',
-                    "RTC: {$request->rt_counter}",
-                    "Missing: {$missingFieldsText}"
-                );
-
-                return response()->json([
-                    'success' => false,
-                    'message' => "Cannot move to Validation. Missing required fields: {$missingFieldsText}. Please set the FNSKU first.",
-                    'missing_fields' => $missingFields,
-                    'requires_fnsku_setup' => true,
-                ], 422);
-            }
-
-            // All required fields are present, proceed with the move
-            Log::info('All required fields present, proceeding with move to Validation');
-
-            // Update the product location in the database
-            $updateResult = DB::table($this->productTable)
-                ->where('ProductID', $request->product_id)
-                ->update([
-                    'ProductModuleLoc' => 'Validation',
-                    'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
-                ]);
-
-            Log::info('Update result: '.$updateResult.' rows affected');
-
-            // ✅ Track successful move with TracksHistory
-            $this->trackLocationChange(
-                'Labeling',
-                "RTC: {$request->rt_counter} | FNSKU: {$baseFnsku}",
-                $request->current_location,
-                'Validation'
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Product successfully moved to Validation',
-                'debug_info' => [
-                    'rows_affected' => $updateResult,
-                ],
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Exception in moveToValidation', [
-                'message' => $e->getMessage(),
-                'file' => $e->getFile(),
-                'line' => $e->getLine(),
+        if ($validator->fails()) {
+            Log::error('Validation failed in moveToValidation', [
+                'errors' => $validator->errors(),
                 'request_data' => $request->all(),
             ]);
 
-            // ✅ Track error with TracksHistory
-            if (isset($request->rt_counter)) {
-                $this->trackHistory(
-                    'Labeling',
-                    'Move to Validation Error',
-                    "RTC: {$request->rt_counter}",
-                    "Error: {$e->getMessage()}"
-                );
-            }
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation error',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        Log::info('Validation passed, attempting to update product', [
+            'product_id' => $request->product_id,
+            'rt_counter' => $request->rt_counter,
+            'current_location' => $request->current_location,
+        ]);
+
+        // Check if product exists first and get FNSKU data using base FNSKU
+        $existingProduct = DB::table($this->productTable)
+            ->where('ProductID', $request->product_id)
+            ->first();
+
+        if (!$existingProduct) {
+            Log::error('Product not found for moveToValidation', [
+                'product_id' => $request->product_id,
+                'table' => $this->productTable,
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to move product to Validation',
-                'error' => $e->getMessage(),
-            ], 500);
+                'message' => 'Product not found',
+            ], 404);
         }
+
+        Log::info('Product found, current location: ' . $existingProduct->ProductModuleLoc);
+
+        // ✅ NEW: Check if quantity > 1
+        $quantity = (int) ($existingProduct->quantity ?? 0);
+        if ($quantity > 1) {
+            Log::warning('Cannot move to Validation - quantity is greater than 1', [
+                'product_id' => $request->product_id,
+                'rt_counter' => $request->rt_counter,
+                'quantity' => $quantity,
+            ]);
+
+            $this->trackHistory(
+                'Labeling',
+                'Move to Validation Failed',
+                "RTC: {$request->rt_counter}",
+                "Quantity: {$quantity} (Split Required)"
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot move to Validation. This item has a quantity of {$quantity}. Please split the item into individual units first.",
+                'requires_split' => true,
+                'quantity' => $quantity,
+                'product_data' => [
+                    'ProductID' => $existingProduct->ProductID,
+                    'rtcounter' => $existingProduct->rtcounter,
+                    'ProductTitle' => $existingProduct->ProductTitle,
+                    'quantity' => $quantity,
+                    'price' => $existingProduct->price ?? 0,
+                    'priceshipping' => $existingProduct->priceshipping ?? 0,
+                    'tax' => $existingProduct->tax ?? 0,
+                ],
+            ], 422);
+        }
+
+        // Extract base FNSKU and get related data
+        $baseFnsku = $this->extractBaseFnsku($existingProduct->FNSKUviewer);
+
+        $fnskuRecord = null;
+        if (!empty($baseFnsku)) {
+            $fnskuRecord = DB::table($this->fnskuTable)
+                ->where('FNSKU', $baseFnsku)
+                ->first();
+        }
+
+        // Check for required fields (ASIN, FNSKU, MSKU)
+        $missingFields = [];
+
+        if (empty($existingProduct->FNSKUviewer)) {
+            $missingFields[] = 'FNSKU';
+        }
+
+        if (!$fnskuRecord || empty($fnskuRecord->MSKU)) {
+            $missingFields[] = 'MSKU';
+        }
+
+        if (!$fnskuRecord || empty($fnskuRecord->ASIN)) {
+            $missingFields[] = 'ASIN';
+        }
+
+        // If any required fields are missing, return error
+        if (!empty($missingFields)) {
+            $missingFieldsText = implode(', ', $missingFields);
+            Log::warning('Cannot move to Validation - missing required fields', [
+                'product_id' => $request->product_id,
+                'rt_counter' => $request->rt_counter,
+                'missing_fields' => $missingFields,
+            ]);
+
+            $this->trackHistory(
+                'Labeling',
+                'Move to Validation Failed',
+                "RTC: {$request->rt_counter}",
+                "Missing: {$missingFieldsText}"
+            );
+
+            return response()->json([
+                'success' => false,
+                'message' => "Cannot move to Validation. Missing required fields: {$missingFieldsText}. Please set the FNSKU first.",
+                'missing_fields' => $missingFields,
+                'requires_fnsku_setup' => true,
+            ], 422);
+        }
+
+        // All required fields are present, proceed with the move
+        Log::info('All required fields present, proceeding with move to Validation');
+
+        // Update the product location in the database
+        $updateResult = DB::table($this->productTable)
+            ->where('ProductID', $request->product_id)
+            ->update([
+                'ProductModuleLoc' => 'Validation',
+                'lastDateUpdate' => now()->format('Y-m-d H:i:s'),
+            ]);
+
+        Log::info('Update result: ' . $updateResult . ' rows affected');
+
+        $this->trackLocationChange(
+            'Labeling',
+            "RTC: {$request->rt_counter} | FNSKU: {$baseFnsku}",
+            $request->current_location,
+            'Validation'
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Product successfully moved to Validation',
+            'debug_info' => [
+                'rows_affected' => $updateResult,
+            ],
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Exception in moveToValidation', [
+            'message' => $e->getMessage(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine(),
+            'request_data' => $request->all(),
+        ]);
+
+        if (isset($request->rt_counter)) {
+            $this->trackHistory(
+                'Labeling',
+                'Move to Validation Error',
+                "RTC: {$request->rt_counter}",
+                "Error: {$e->getMessage()}"
+            );
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed to move product to Validation',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
 
     public function moveToStockroom(Request $request)
     {

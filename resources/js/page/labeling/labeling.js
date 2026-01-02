@@ -1319,117 +1319,147 @@ export default {
         },
 
         async moveToValidation(item) {
-            if (!item || !item.ProductID) {
-                await Swal.fire({
-                    icon: "error",
-                    title: "Missing Product ID",
-                    text: "ProductID is required to move this item to Validation.",
-                });
-                return;
+    if (!item || !item.ProductID) {
+        await Swal.fire({
+            icon: "error",
+            title: "Missing Product ID",
+            text: "ProductID is required to move this item to Validation.",
+        });
+        return;
+    }
+
+    const idFields = {
+        ASIN: item?.ASIN,
+        FNSKU: item?.FNSKU,
+        "Serial Number": item?.serialnumber,
+        "Basket Number": item?.basketnumber,
+        RPN: item?.RPN,
+        PRD: item?.PRD,
+        PCN: item?.PCN,
+    };
+
+    const isFilled = (v) =>
+        v !== undefined && v !== null && String(v).trim() !== "";
+
+    const allKeys = Object.keys(idFields);
+    const filledFields = allKeys.filter((k) => isFilled(idFields[k]));
+    const missingFields = allKeys.filter((k) => !isFilled(idFields[k]));
+
+    if (filledFields.length === 0) {
+        await Swal.fire({
+            icon: "error",
+            title: "Missing Required Fields",
+            html: `<p>Please provide at least one identification field.</p>
+               <ul style="text-align:left;margin:0;padding-left:1.2rem;">
+                 ${missingFields.map((f) => `<li>${f}</li>`).join("")}
+               </ul>`,
+        });
+        return;
+    }
+
+    if (missingFields.length > 0) {
+        await Swal.fire({
+            icon: "error",
+            title: "Some Identification Fields Are Missing",
+            html: `<p>Please fill in all required identification fields before proceeding.</p>
+               <ul style="text-align:left;margin:0;padding-left:1.2rem;">
+                 ${missingFields.map((f) => `<li>${f}</li>`).join("")}
+               </ul>`,
+            confirmButtonText: "OK",
+        });
+        return;
+    }
+
+    try {
+        const csrfToken = document
+            .querySelector('meta[name="csrf-token"]')
+            .getAttribute("content");
+
+        Swal.fire({
+            title: "Moving to Validation...",
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            },
+        });
+
+        const response = await axios.post(
+            `${API_BASE_URL}/api/labeling/move-to-validation`,
+            {
+                product_id: item.ProductID,
+                rt_counter: item.rtcounter,
+                current_location: "Labeling",
+                new_location: "Validation",
+            },
+            {
+                headers: {
+                    "X-CSRF-TOKEN": csrfToken,
+                },
             }
+        );
 
-            const idFields = {
-                ASIN: item?.ASIN,
-                FNSKU: item?.FNSKU,
-                "Serial Number": item?.serialnumber,
-                "Basket Number": item?.basketnumber,
-                RPN: item?.RPN,
-                PRD: item?.PRD,
-                PCN: item?.PCN,
-            };
+        Swal.close();
 
-            const isFilled = (v) =>
-                v !== undefined && v !== null && String(v).trim() !== "";
-
-            const allKeys = Object.keys(idFields);
-            const filledFields = allKeys.filter((k) => isFilled(idFields[k]));
-            const missingFields = allKeys.filter((k) => !isFilled(idFields[k]));
-
-            if (filledFields.length === 0) {
-                await Swal.fire({
-                    icon: "error",
-                    title: "Missing Required Fields",
-                    html: `<p>Please provide at least one identification field.</p>
-                   <ul style="text-align:left;margin:0;padding-left:1.2rem;">
-                     ${missingFields.map((f) => `<li>${f}</li>`).join("")}
-                   </ul>`,
-                });
-                return;
+        if (response.data.success) {
+            await Swal.fire({
+                icon: "success",
+                title: "Success",
+                text: `Item ${item.rtcounter} successfully moved to Validation.`,
+                confirmButtonText: "OK",
+            });
+            if (this && typeof this.fetchInventory === "function") {
+                this.fetchInventory();
             }
+        } else {
+            await Swal.fire({
+                icon: "warning",
+                title: "Failed",
+                text:
+                    response.data.message ||
+                    "Failed to move item to Validation.",
+            });
+            return;
+        }
+    } catch (error) {
+        console.error("Error moving item to Validation:", error);
+        
+        Swal.close();
 
-            if (missingFields.length > 0) {
-                await Swal.fire({
-                    icon: "error", // use "error" instead of "info"
-                    title: "Some Identification Fields Are Missing",
-                    html: `<p>Please fill in all required identification fields before proceeding.</p>
-                   <ul style="text-align:left;margin:0;padding-left:1.2rem;">
-                     ${missingFields.map((f) => `<li>${f}</li>`).join("")}
-                   </ul>`,
-                    confirmButtonText: "OK",
-                });
-                return;
+        // ✅ NEW: Handle quantity > 1 error with split prompt
+        if (error.response?.data?.requires_split) {
+            const result = await Swal.fire({
+                icon: "warning",
+                title: "Split Required",
+                html: `
+                    <p><strong>${item.ProductTitle || 'This item'}</strong> has a quantity of <strong>${error.response.data.quantity}</strong>.</p>
+                    <p>Items must be split into individual units (quantity = 1) before moving to Validation.</p>
+                    <p class="mt-3">Would you like to split this item now?</p>
+                `,
+                showCancelButton: true,
+                confirmButtonText: "Yes, Split Item",
+                cancelButtonText: "Cancel",
+                confirmButtonColor: "#3085d6",
+                cancelButtonColor: "#6c757d",
+                reverseButtons: true,
+            });
+
+            if (result.isConfirmed) {
+                // Open the split modal with the product data from error response
+                const productData = error.response.data.product_data || item;
+                this.confirmSplitItem(productData);
             }
+            return;
+        }
 
-            try {
-                const csrfToken = document
-                    .querySelector('meta[name="csrf-token"]')
-                    .getAttribute("content");
-
-                Swal.fire({
-                    title: "Moving to Validation...",
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    },
-                });
-
-                const response = await axios.post(
-                    `${API_BASE_URL}/api/labeling/move-to-validation`,
-                    {
-                        product_id: item.ProductID,
-                        rt_counter: item.rtcounter,
-                        current_location: "Labeling",
-                        new_location: "Validation",
-                    },
-                    {
-                        headers: {
-                            "X-CSRF-TOKEN": csrfToken,
-                        },
-                    }
-                );
-
-                Swal.close();
-
-                if (response.data.success) {
-                    await Swal.fire({
-                        icon: "success",
-                        title: "Success",
-                        text: `Item ${item.rtcounter} successfully moved to Validation.`,
-                        confirmButtonText: "OK",
-                    });
-                    if (this && typeof this.fetchInventory === "function") {
-                        this.fetchInventory();
-                    }
-                } else {
-                    await Swal.fire({
-                        icon: "warning",
-                        title: "Failed",
-                        text:
-                            response.data.message ||
-                            "Failed to move item to Validation.",
-                    });
-                    return;
-                }
-            } catch (error) {
-                console.error("Error moving item to Validation:", error);
-                await Swal.fire({
-                    icon: "error",
-                    title: "Error",
-                    text: "An error occurred while moving the item. Please try again.",
-                });
-                return;
-            }
-        },
+        // Handle other errors
+        await Swal.fire({
+            icon: "error",
+            title: "Error",
+            text: error.response?.data?.message || "An error occurred while moving the item. Please try again.",
+        });
+        return;
+    }
+},
 
         async confirmMoveToStockroom(item) {
             if (!item || !item.ProductID) {
@@ -1668,13 +1698,14 @@ export default {
                 errors.push("PRD must start with 'PRD' followed by numbers.");
             if (this.item.PCN && !/^PCN\d+$/.test(this.item.PCN))
                 errors.push("PCN must start with 'PCN' followed by numbers.");
-            if (
+           if (
                 this.item.basketnumber &&
-                !/^BKT\d+$/.test(this.item.basketnumber)
-            )
+                !/^(BKT|SI|ENV)\d+$/i.test(this.item.basketnumber)
+            ) {
                 errors.push(
-                    "Basket Number must start with 'BKT' followed by numbers."
+                    "Basket/Shelf/Envelope Number must start with 'BKT', 'SI', or 'ENV' followed by numbers."
                 );
+            }
 
             if (errors.length) {
                 this.loading = false;
