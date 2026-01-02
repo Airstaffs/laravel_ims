@@ -25,7 +25,51 @@
                     <div
                         class="d-flex justify-content-center align-items-center"
                     >
+                        <!-- Use custom image display for captured images -->
+                        <div
+                            v-if="
+                                data.capturedImages &&
+                                data.capturedImages.capturedimg1
+                            "
+                            class="gallery-thumbnail position-relative"
+                            @click="openImageModal(data)"
+                            style="cursor: pointer"
+                        >
+                            <img
+                                :src="`/images/product_images/${
+                                    data.company || 'Airstaffs'
+                                }/${data.capturedImages.capturedimg1}`"
+                                :alt="data.ProductTitle"
+                                style="
+                                    width: 50px;
+                                    height: 50px;
+                                    object-fit: cover;
+                                    border-radius: 4px;
+                                "
+                                @error="handleImageError"
+                            />
+                            <span
+                                v-if="countCapturedImages(data) > 1"
+                                class="position-absolute bg-primary text-white rounded-circle"
+                                style="
+                                    top: -5px;
+                                    right: -5px;
+                                    min-width: 20px;
+                                    height: 20px;
+                                    font-size: 0.65rem;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 0 4px;
+                                "
+                            >
+                                +{{ countCapturedImages(data) - 1 }}
+                            </span>
+                        </div>
+
+                        <!-- Use TableGallery for regular product images -->
                         <TableGallery
+                            v-else
                             :data="data"
                             :openImageModal="openImageModal"
                             :handleImageError="handleImageError"
@@ -122,20 +166,56 @@
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
-                        <!-- <div class="mobile-product-image clickable">
-                            <img :src="'/images/thumbnails/' + item.img1" :alt="item.ProductTitle || 'Product'"
-                                class="product-thumbnail clickable-image" @error="handleImageError($event)"
-                                @click="openImageModal(item)" />
-                            <div class="image-count-badge" v-if="countAllImages(item) > 0">
-                                +{{ countAllImages(item) }}
+
+                        <!-- Updated mobile gallery with captured images support -->
+                        <div class="mobile-product-image clickable">
+                            <!-- Show captured image if available -->
+                            <div
+                                v-if="
+                                    item.capturedImages &&
+                                    item.capturedImages.capturedimg1
+                                "
+                                class="gallery-thumbnail position-relative"
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="`/images/product_images/${
+                                        item.company || 'Airstaffs'
+                                    }/${item.capturedImages.capturedimg1}`"
+                                    :alt="item.ProductTitle || 'Product'"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countCapturedImages(item) > 1"
+                                >
+                                    +{{ countCapturedImages(item) - 1 }}
+                                </div>
                             </div>
-                        </div> -->
-                        <TableGallery
-                            :data="item"
-                            :openImageModal="openImageModal"
-                            :handleImageError="handleImageError"
-                            :countAdditionalImages="countAllImages"
-                        />
+
+                            <!-- Fallback to regular product image -->
+                            <div
+                                v-else
+                                @click="openImageModal(item)"
+                                style="cursor: pointer"
+                            >
+                                <img
+                                    :src="'/images/thumbnails/' + item.img1"
+                                    :alt="item.ProductTitle || 'Product'"
+                                    class="product-thumbnail clickable-image"
+                                    @error="handleImageError($event)"
+                                />
+                                <div
+                                    class="image-count-badge"
+                                    v-if="countAllImages(item) > 0"
+                                >
+                                    +{{ countAllImages(item) }}
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="mobile-product-info">
                             <h6 class="mobile-product-name clickable">
                                 <span style="font-size: 1rem"
@@ -1813,6 +1893,71 @@ export default {
                 this.currentTimezone = "UTC";
                 this.timezoneLabel = "UTC";
             }
+        },
+
+        transformDataForGallery(data) {
+            // Safety check
+            if (!data) {
+                return {};
+            }
+
+            // If captured images exist, use them with full path
+            if (data.capturedImages && data.capturedImages.capturedimg1) {
+                const transformedData = { ...data };
+
+                // Map capturedimg1-12 to img1-12 with full path
+                for (let i = 1; i <= 12; i++) {
+                    const capturedImg = data.capturedImages[`capturedimg${i}`];
+                    if (capturedImg) {
+                        // Add full path: /images/product_images/Airstaffs/
+                        transformedData[
+                            `img${i}`
+                        ] = `/images/product_images/Airstaffs/${capturedImg}`;
+                    } else {
+                        transformedData[`img${i}`] = null;
+                    }
+                }
+
+                // Clear img13-15 since captured images only go up to 12
+                for (let i = 13; i <= 15; i++) {
+                    transformedData[`img${i}`] = null;
+                }
+
+                return transformedData;
+            }
+
+            // Return original data if no captured images exist (fallback to product images)
+            return data;
+        },
+
+        countAllImages(data) {
+            // Safety check
+            if (!data) {
+                return 0;
+            }
+
+            // If captured images exist, count them
+            if (data.capturedImages) {
+                let count = 0;
+                for (let i = 1; i <= 12; i++) {
+                    if (data.capturedImages[`capturedimg${i}`]) {
+                        count++;
+                    }
+                }
+                // Return count if captured images exist
+                if (count > 0) {
+                    return count;
+                }
+            }
+
+            // Otherwise count product images (fallback)
+            let count = 0;
+            for (let i = 1; i <= 15; i++) {
+                if (data[`img${i}`]) {
+                    count++;
+                }
+            }
+            return count;
         },
     },
     computed: {

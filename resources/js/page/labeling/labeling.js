@@ -325,17 +325,17 @@ export default {
         },
 
         // Count captured images (capturedimg1 - capturedimg12)
-       countCapturedImages(item) {
+        countCapturedImages(item) {
             if (!item || !item.capturedImages) return 0;
-            
-            console.log('🔍 Counting captured images for item:', {
+
+            console.log("🔍 Counting captured images for item:", {
                 ProductID: item.ProductID,
-                capturedImages: item.capturedImages
+                capturedImages: item.capturedImages,
             });
-            
+
             let count = 0;
             const capturedImagesObj = item.capturedImages;
-            
+
             // Check both capturedimg1-12 AND serialimg1-2
             for (let i = 1; i <= 12; i++) {
                 const fieldName = `capturedimg${i}`;
@@ -343,100 +343,165 @@ export default {
                     count++;
                 }
             }
-            
+
             // Also check serial images
             if (this.isValidImage(capturedImagesObj.serialimg1)) count++;
             if (this.isValidImage(capturedImagesObj.serialimg2)) count++;
-            
-            console.log('🔍 Total captured images found:', count);
+
+            console.log("🔍 Total captured images found:", count);
             return count;
         },
 
         // Count all images (regular + captured)
         countAllImages(item) {
-            return (
-                this.countRegularImages(item) + this.countCapturedImages(item)
-            );
+            if (!item) {
+                return 0;
+            }
+
+            // If captured images exist, count them
+            if (item.capturedImages) {
+                let capturedCount = 0;
+                const capturedImagesObj = item.capturedImages;
+
+                // Count capturedimg1-12
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `capturedimg${i}`;
+                    if (this.isValidImage(capturedImagesObj[fieldName])) {
+                        capturedCount++;
+                    }
+                }
+
+                // If we have captured images, return that count
+                if (capturedCount > 0) {
+                    return capturedCount;
+                }
+            }
+
+            // Otherwise count regular product images (fallback)
+            return this.countRegularImages(item);
+        },
+
+        transformDataForGallery(data) {
+            if (!data) {
+                return {};
+            }
+
+            if (data.capturedImages && data.capturedImages.capturedimg1) {
+                const transformedData = { ...data };
+                const companyFolder = data.company || "Airstaffs";
+
+                for (let i = 1; i <= 12; i++) {
+                    const capturedImg = data.capturedImages[`capturedimg${i}`];
+                    if (capturedImg) {
+                        transformedData[
+                            `img${i}`
+                        ] = `/images/product_images/${companyFolder}/${capturedImg}`;
+                    } else {
+                        transformedData[`img${i}`] = null;
+                    }
+                }
+
+                for (let i = 13; i <= 15; i++) {
+                    transformedData[`img${i}`] = null;
+                }
+
+                return transformedData;
+            }
+
+            return data;
         },
 
         // Open the image modal and prepare images
         openImageModal(item) {
-    if (!item) return;
+            if (!item) return;
 
-    this.regularImages = [];
-    this.capturedImages = [];
-    this.currentImageIndex = 0;
-    this.ProductTitle = item.ProductTitle;
-    const companyFolder = item.company || "Airstaffs";
+            this.regularImages = [];
+            this.capturedImages = [];
+            this.currentImageIndex = 0;
+            this.ProductTitle = item.ProductTitle;
+            const companyFolder = item.company || "Airstaffs";
 
-    console.log('🔍 Opening image modal for item:', {
-        ProductID: item.ProductID,
-        rtcounter: item.rtcounter,
-        company: companyFolder,
-        capturedImages: item.capturedImages
-    });
+            console.log("🔍 Opening image modal for item:", {
+                ProductID: item.ProductID,
+                rtcounter: item.rtcounter,
+                company: companyFolder,
+                capturedImages: item.capturedImages,
+            });
 
-    // Load regular images (img1 - img15)
-    for (let i = 1; i <= 15; i++) {
-        const fieldName = `img${i}`;
-        if (this.isValidImage(item[fieldName])) {
-            const path = `/images/thumbnails/${item[fieldName]}`;
-            this.regularImages.push(path);
-        }
-    }
-
-    console.log('📸 Regular images loaded:', this.regularImages.length);
-
-    // ✅ FIXED: Load captured images properly
-    if (item.capturedImages && typeof item.capturedImages === 'object') {
-        const capturedImagesObj = item.capturedImages;
-        
-        console.log('🔍 Processing captured images:', capturedImagesObj);
-
-        // Load capturedimg1 - capturedimg12
-        for (let i = 1; i <= 12; i++) {
-            const fieldName = `capturedimg${i}`;
-            if (this.isValidImage(capturedImagesObj[fieldName])) {
-                const filename = capturedImagesObj[fieldName];
-                const path = `/images/product_images/${companyFolder}/${filename}`;
-                this.capturedImages.push(path);
-                console.log(`✅ Added captured image ${i}:`, path);
+            // Load regular images (img1 - img15)
+            for (let i = 1; i <= 15; i++) {
+                const fieldName = `img${i}`;
+                if (this.isValidImage(item[fieldName])) {
+                    const path = `/images/thumbnails/${item[fieldName]}`;
+                    this.regularImages.push(path);
+                }
             }
-        }
 
-        // Load serial images (serialimg1 and serialimg2)
-        if (this.isValidImage(capturedImagesObj.serialimg1)) {
-            const filename = capturedImagesObj.serialimg1;
-            const path = `/images/product_images/${companyFolder}/${filename}`;
-            this.capturedImages.push(path);
-            console.log('✅ Added serial image 1:', path);
-        }
+            console.log("📸 Regular images loaded:", this.regularImages.length);
 
-        if (this.isValidImage(capturedImagesObj.serialimg2)) {
-            const filename = capturedImagesObj.serialimg2;
-            const path = `/images/product_images/${companyFolder}/${filename}`;
-            this.capturedImages.push(path);
-            console.log('✅ Added serial image 2:', path);
-        }
-    }
+            // ✅ FIXED: Load captured images properly
+            if (
+                item.capturedImages &&
+                typeof item.capturedImages === "object"
+            ) {
+                const capturedImagesObj = item.capturedImages;
 
-    console.log('📸 Total captured images loaded:', this.capturedImages.length);
+                console.log(
+                    "🔍 Processing captured images:",
+                    capturedImagesObj
+                );
 
-    // Fallback if no images exist
-    if (this.regularImages.length === 0 && this.capturedImages.length === 0) {
-        this.regularImages.push(this.defaultImage);
-    }
+                // Load capturedimg1 - capturedimg12
+                for (let i = 1; i <= 12; i++) {
+                    const fieldName = `capturedimg${i}`;
+                    if (this.isValidImage(capturedImagesObj[fieldName])) {
+                        const filename = capturedImagesObj[fieldName];
+                        const path = `/images/product_images/${companyFolder}/${filename}`;
+                        this.capturedImages.push(path);
+                        console.log(`✅ Added captured image ${i}:`, path);
+                    }
+                }
 
-    // Set default active tab
-    this.activeTab = this.regularImages.length ? 'regular' : 'captured';
-    this.currentImageSet = this.activeTab === 'regular' 
-        ? this.regularImages 
-        : this.capturedImages;
+                // Load serial images (serialimg1 and serialimg2)
+                if (this.isValidImage(capturedImagesObj.serialimg1)) {
+                    const filename = capturedImagesObj.serialimg1;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added serial image 1:", path);
+                }
 
-    // Show modal and disable page scrolling
-    this.showImageModal = true;
-    document.body.style.overflow = 'hidden';
-},
+                if (this.isValidImage(capturedImagesObj.serialimg2)) {
+                    const filename = capturedImagesObj.serialimg2;
+                    const path = `/images/product_images/${companyFolder}/${filename}`;
+                    this.capturedImages.push(path);
+                    console.log("✅ Added serial image 2:", path);
+                }
+            }
+
+            console.log(
+                "📸 Total captured images loaded:",
+                this.capturedImages.length
+            );
+
+            // Fallback if no images exist
+            if (
+                this.regularImages.length === 0 &&
+                this.capturedImages.length === 0
+            ) {
+                this.regularImages.push(this.defaultImage);
+            }
+
+            // Set default active tab
+            this.activeTab = this.regularImages.length ? "regular" : "captured";
+            this.currentImageSet =
+                this.activeTab === "regular"
+                    ? this.regularImages
+                    : this.capturedImages;
+
+            // Show modal and disable page scrolling
+            this.showImageModal = true;
+            document.body.style.overflow = "hidden";
+        },
 
         // Method to switch tabs
         switchTab(tab) {
@@ -1319,147 +1384,154 @@ export default {
         },
 
         async moveToValidation(item) {
-    if (!item || !item.ProductID) {
-        await Swal.fire({
-            icon: "error",
-            title: "Missing Product ID",
-            text: "ProductID is required to move this item to Validation.",
-        });
-        return;
-    }
+            if (!item || !item.ProductID) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Missing Product ID",
+                    text: "ProductID is required to move this item to Validation.",
+                });
+                return;
+            }
 
-    const idFields = {
-        ASIN: item?.ASIN,
-        FNSKU: item?.FNSKU,
-        "Serial Number": item?.serialnumber,
-        "Basket Number": item?.basketnumber,
-        RPN: item?.RPN,
-        PRD: item?.PRD,
-        PCN: item?.PCN,
-    };
+            const idFields = {
+                ASIN: item?.ASIN,
+                FNSKU: item?.FNSKU,
+                "Serial Number": item?.serialnumber,
+                "Basket Number": item?.basketnumber,
+                RPN: item?.RPN,
+                PRD: item?.PRD,
+                PCN: item?.PCN,
+            };
 
-    const isFilled = (v) =>
-        v !== undefined && v !== null && String(v).trim() !== "";
+            const isFilled = (v) =>
+                v !== undefined && v !== null && String(v).trim() !== "";
 
-    const allKeys = Object.keys(idFields);
-    const filledFields = allKeys.filter((k) => isFilled(idFields[k]));
-    const missingFields = allKeys.filter((k) => !isFilled(idFields[k]));
+            const allKeys = Object.keys(idFields);
+            const filledFields = allKeys.filter((k) => isFilled(idFields[k]));
+            const missingFields = allKeys.filter((k) => !isFilled(idFields[k]));
 
-    if (filledFields.length === 0) {
-        await Swal.fire({
-            icon: "error",
-            title: "Missing Required Fields",
-            html: `<p>Please provide at least one identification field.</p>
+            if (filledFields.length === 0) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Missing Required Fields",
+                    html: `<p>Please provide at least one identification field.</p>
                <ul style="text-align:left;margin:0;padding-left:1.2rem;">
                  ${missingFields.map((f) => `<li>${f}</li>`).join("")}
                </ul>`,
-        });
-        return;
-    }
+                });
+                return;
+            }
 
-    if (missingFields.length > 0) {
-        await Swal.fire({
-            icon: "error",
-            title: "Some Identification Fields Are Missing",
-            html: `<p>Please fill in all required identification fields before proceeding.</p>
+            if (missingFields.length > 0) {
+                await Swal.fire({
+                    icon: "error",
+                    title: "Some Identification Fields Are Missing",
+                    html: `<p>Please fill in all required identification fields before proceeding.</p>
                <ul style="text-align:left;margin:0;padding-left:1.2rem;">
                  ${missingFields.map((f) => `<li>${f}</li>`).join("")}
                </ul>`,
-            confirmButtonText: "OK",
-        });
-        return;
-    }
-
-    try {
-        const csrfToken = document
-            .querySelector('meta[name="csrf-token"]')
-            .getAttribute("content");
-
-        Swal.fire({
-            title: "Moving to Validation...",
-            allowOutsideClick: false,
-            didOpen: () => {
-                Swal.showLoading();
-            },
-        });
-
-        const response = await axios.post(
-            `${API_BASE_URL}/api/labeling/move-to-validation`,
-            {
-                product_id: item.ProductID,
-                rt_counter: item.rtcounter,
-                current_location: "Labeling",
-                new_location: "Validation",
-            },
-            {
-                headers: {
-                    "X-CSRF-TOKEN": csrfToken,
-                },
+                    confirmButtonText: "OK",
+                });
+                return;
             }
-        );
 
-        Swal.close();
+            try {
+                const csrfToken = document
+                    .querySelector('meta[name="csrf-token"]')
+                    .getAttribute("content");
 
-        if (response.data.success) {
-            await Swal.fire({
-                icon: "success",
-                title: "Success",
-                text: `Item ${item.rtcounter} successfully moved to Validation.`,
-                confirmButtonText: "OK",
-            });
-            if (this && typeof this.fetchInventory === "function") {
-                this.fetchInventory();
-            }
-        } else {
-            await Swal.fire({
-                icon: "warning",
-                title: "Failed",
-                text:
-                    response.data.message ||
-                    "Failed to move item to Validation.",
-            });
-            return;
-        }
-    } catch (error) {
-        console.error("Error moving item to Validation:", error);
-        
-        Swal.close();
+                Swal.fire({
+                    title: "Moving to Validation...",
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    },
+                });
 
-        // ✅ NEW: Handle quantity > 1 error with split prompt
-        if (error.response?.data?.requires_split) {
-            const result = await Swal.fire({
-                icon: "warning",
-                title: "Split Required",
-                html: `
-                    <p><strong>${item.ProductTitle || 'This item'}</strong> has a quantity of <strong>${error.response.data.quantity}</strong>.</p>
+                const response = await axios.post(
+                    `${API_BASE_URL}/api/labeling/move-to-validation`,
+                    {
+                        product_id: item.ProductID,
+                        rt_counter: item.rtcounter,
+                        current_location: "Labeling",
+                        new_location: "Validation",
+                    },
+                    {
+                        headers: {
+                            "X-CSRF-TOKEN": csrfToken,
+                        },
+                    }
+                );
+
+                Swal.close();
+
+                if (response.data.success) {
+                    await Swal.fire({
+                        icon: "success",
+                        title: "Success",
+                        text: `Item ${item.rtcounter} successfully moved to Validation.`,
+                        confirmButtonText: "OK",
+                    });
+                    if (this && typeof this.fetchInventory === "function") {
+                        this.fetchInventory();
+                    }
+                } else {
+                    await Swal.fire({
+                        icon: "warning",
+                        title: "Failed",
+                        text:
+                            response.data.message ||
+                            "Failed to move item to Validation.",
+                    });
+                    return;
+                }
+            } catch (error) {
+                console.error("Error moving item to Validation:", error);
+
+                Swal.close();
+
+                // ✅ NEW: Handle quantity > 1 error with split prompt
+                if (error.response?.data?.requires_split) {
+                    const result = await Swal.fire({
+                        icon: "warning",
+                        title: "Split Required",
+                        html: `
+                    <p><strong>${
+                        item.ProductTitle || "This item"
+                    }</strong> has a quantity of <strong>${
+                            error.response.data.quantity
+                        }</strong>.</p>
                     <p>Items must be split into individual units (quantity = 1) before moving to Validation.</p>
                     <p class="mt-3">Would you like to split this item now?</p>
                 `,
-                showCancelButton: true,
-                confirmButtonText: "Yes, Split Item",
-                cancelButtonText: "Cancel",
-                confirmButtonColor: "#3085d6",
-                cancelButtonColor: "#6c757d",
-                reverseButtons: true,
-            });
+                        showCancelButton: true,
+                        confirmButtonText: "Yes, Split Item",
+                        cancelButtonText: "Cancel",
+                        confirmButtonColor: "#3085d6",
+                        cancelButtonColor: "#6c757d",
+                        reverseButtons: true,
+                    });
 
-            if (result.isConfirmed) {
-                // Open the split modal with the product data from error response
-                const productData = error.response.data.product_data || item;
-                this.confirmSplitItem(productData);
+                    if (result.isConfirmed) {
+                        // Open the split modal with the product data from error response
+                        const productData =
+                            error.response.data.product_data || item;
+                        this.confirmSplitItem(productData);
+                    }
+                    return;
+                }
+
+                // Handle other errors
+                await Swal.fire({
+                    icon: "error",
+                    title: "Error",
+                    text:
+                        error.response?.data?.message ||
+                        "An error occurred while moving the item. Please try again.",
+                });
+                return;
             }
-            return;
-        }
-
-        // Handle other errors
-        await Swal.fire({
-            icon: "error",
-            title: "Error",
-            text: error.response?.data?.message || "An error occurred while moving the item. Please try again.",
-        });
-        return;
-    }
-},
+        },
 
         async confirmMoveToStockroom(item) {
             if (!item || !item.ProductID) {
@@ -1698,7 +1770,7 @@ export default {
                 errors.push("PRD must start with 'PRD' followed by numbers.");
             if (this.item.PCN && !/^PCN\d+$/.test(this.item.PCN))
                 errors.push("PCN must start with 'PCN' followed by numbers.");
-           if (
+            if (
                 this.item.basketnumber &&
                 !/^(BKT|SI|ENV)\d+$/i.test(this.item.basketnumber)
             ) {
