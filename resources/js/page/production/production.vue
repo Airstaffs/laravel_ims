@@ -1,22 +1,45 @@
 <template>
     <div class="vue-container production-module">
-
-        <TitlePage title="Production Module"
-            subtitle="Track and manage products through the internal assembly, manufacturing, or customization process before final staging." />
+        <TitlePage
+            title="Production Module"
+            subtitle="Track and manage products through the internal assembly, manufacturing, or customization process before final staging."
+        />
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="p-4">
-            <XDataTable :value="sortedInventory" :loading="loading" :columns="columns" :paginator="false"
-                tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
+            <XDataTable
+                :value="sortedInventory"
+                :loading="loading"
+                :columns="columns"
+                :paginator="false"
+                tableClass="desktop-view"
+                selectionMode="multiple"
+                dataKey="ProductID"
+            >
                 <template #gallery="{ data }">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" />
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
+                        <TableGallery
+                            :data="data"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAdditionalImages"
+                        />
                     </div>
                 </template>
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
-                        <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
-                            <p style="font-size: .8rem;">ID# {{ data.rtcounter }}</p>
+                        <div
+                            style="
+                                word-break: break-word;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                flex: 1;
+                            "
+                        >
+                            <p style="font-size: 0.8rem">
+                                ID# {{ data.rtcounter }}
+                            </p>
                             <p class="fw-semibold">
                                 {{ data.ProductTitle }}
                             </p>
@@ -25,8 +48,15 @@
                 </template>
 
                 <template #actions="{ data }">
-                    <Button size="small" severity="contrast" variant="text" icon="pi pi-info-circle" label="Details"
-                        class="text-primary" @click="openEditModal(data)" />
+                    <Button
+                        size="small"
+                        severity="contrast"
+                        variant="text"
+                        icon="pi pi-info-circle"
+                        label="Details"
+                        class="text-primary"
+                        @click="openEditModal(data)"
+                    />
                 </template>
             </XDataTable>
         </AnimateDiv>
@@ -38,16 +68,28 @@
                     <i class="fas fa-spinner fa-spin"></i>
                     Loading...
                 </div>
-                <div v-else-if="sortedInventory.length === 0" class="no-data-mobile">
+                <div
+                    v-else-if="sortedInventory.length === 0"
+                    class="no-data-mobile"
+                >
                     No data found
                 </div>
-                <div class="mobile-card" v-else v-for="(item, index) in sortedInventory" :key="item.id">
+                <div
+                    class="mobile-card"
+                    v-else
+                    v-for="(item, index) in sortedInventory"
+                    :key="item.id"
+                >
                     <div class="mobile-card-header">
                         <div class="mobile-checkbox">
                             <input type="checkbox" v-model="item.checked" />
                         </div>
-                        <TableGallery :data="item" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" />
+                        <TableGallery
+                            :data="item"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAdditionalImages"
+                        />
                         <div class="mobile-product-info">
                             <h6 class="mobile-product-name clickable">
                                 <p>RT# : {{ item.rtcounter }}</p>
@@ -62,87 +104,118 @@
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Added date:</span>
                             <span class="mobile-detal-value">
-                                {{ item.datedelivered }}</span>
+                                {{ item.datedelivered }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Updated date:</span>
+                            <span class="mobile-detail-label"
+                                >Updated date:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.lastDateUpdate }}</span>
+                                {{ item.lastDateUpdate }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">FNSKU:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FNSKUviewer }}</span>
+                                {{ item.FNSKUviewer }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">MSKU:</span>
                             <span class="mobile-detal-value">
-                                {{ item.MSKUviewer }}</span>
+                                {{ item.MSKUviewer }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">ASIN:</span>
                             <span class="mobile-detal-value">
-                                {{ item.ASINviewer }}</span>
+                                {{ item.ASINviewer }}</span
+                            >
                         </div>
                         <!-- Insert Hidden Here -->
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">FBM:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FBMAvailable }}</span>
+                                {{ item.FBMAvailable }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">FBA:</span>
                             <span class="mobile-detal-value">
-                                {{ item.FbaAvailable }}</span>
+                                {{ item.FbaAvailable }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">Outbound:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Outbound }}</span>
+                                {{ item.Outbound }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">Inbound:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Inbound }}</span>
+                                {{ item.Inbound }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
-                            <span class="mobile-detail-label">Unfulfillable:</span>
+                            <span class="mobile-detail-label"
+                                >Unfulfillable:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.Unfulfillable }}</span>
+                                {{ item.Unfulfillable }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2" v-if="showDetails">
                             <span class="mobile-detail-label">Reserved:</span>
                             <span class="mobile-detal-value">
-                                {{ item.Reserved }}</span>
+                                {{ item.Reserved }}</span
+                            >
                         </div>
                         <!--  -->
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Fullfilment:</span>
+                            <span class="mobile-detail-label"
+                                >Fullfilment:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.Fulfilledby }}</span>
+                                {{ item.Fulfilledby }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
                             <span class="mobile-detail-label">Status:</span>
                             <span class="mobile-detal-value">
-                                {{ item.status }}</span>
+                                {{ item.status }}</span
+                            >
                         </div>
                         <div class="mobile-detail-row mb-2">
-                            <span class="mobile-detail-label">Serial Number:</span>
+                            <span class="mobile-detail-label"
+                                >Serial Number:</span
+                            >
                             <span class="mobile-detal-value">
-                                {{ item.serialnumber }}</span>
+                                {{ item.serialnumber }}</span
+                            >
                         </div>
                     </div>
 
                     <hr />
 
                     <div class="mobile-card-actions">
-                        <Button @click="openEditModal(item)" icon="pi pi-info-circle" size="small" severity="info"
-                            label="More Details" :style="{ width: '100%' }" />
+                        <Button
+                            @click="openEditModal(item)"
+                            icon="pi pi-info-circle"
+                            size="small"
+                            severity="info"
+                            label="More Details"
+                            :style="{ width: '100%' }"
+                        />
                     </div>
 
                     <hr v-if="expandedRows[index]" />
 
-                    <div v-if="expandedRows[index]" class="mobile-expanded-content">
+                    <div
+                        v-if="expandedRows[index]"
+                        class="mobile-expanded-content"
+                    >
                         <p><strong>Expanded Rows Here</strong></p>
                         <p><strong>Product Name:</strong> {{ item.AStitle }}</p>
                     </div>
@@ -155,8 +228,14 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" size="small"
-                        optionLabel="label" optionValue="value" />
+                    <Select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        :options="rowsPerPage"
+                        size="small"
+                        optionLabel="label"
+                        optionValue="value"
+                    />
                     <!-- <select v-model="perPage" @change="changePerPage" class="per-page-select">
                         <option v-for="option in [10, 15, 20, 50, 100]" :key="option" :value="option">
                             {{ option }}
@@ -165,61 +244,93 @@
                 </div>
 
                 <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
-                        size="small" icon="pi pi-angle-left" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        label="Next" size="small" icon="pi pi-angle-right" severity="info" iconPos="right" />
+                    <Button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                        label="Back"
+                        size="small"
+                        icon="pi pi-angle-left"
+                        severity="info"
+                    />
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <Button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                        label="Next"
+                        size="small"
+                        icon="pi pi-angle-right"
+                        severity="info"
+                        iconPos="right"
+                    />
                 </div>
             </div>
         </div>
 
         <!-- Image Modal -->
-        <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
-            :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
-            @close="closeImageModal" />
+        <ViewImageModal
+            v-model:visible="showImageModal"
+            :title="ProductTitle"
+            :imageList="imageList"
+            :basePath="basePath"
+            :onImageErrorMain="onImageErrorMain"
+            :onThumbnailError="onThumbnailError"
+            @close="closeImageModal"
+        />
 
-
-        <Dialog class="view-modal" v-model:visible="showEditModal" modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;">
+        <Dialog
+            class="view-modal"
+            v-model:visible="showEditModal"
+            modal
+            :header="`RT # ${item.ProductID} ${item.ProductTitle}`"
+            style="width: 110rem"
+        >
             <div class="modal-body">
                 <div class="view-info-container">
                     <div class="view-grid-wrapper">
-
                         <div class="form-col-left">
                             <gallery :item="item" />
                             <Card>
                                 <template #title>
-                                    <h5 class="text-primary fw-bolder">Description</h5>
+                                    <h5 class="text-primary fw-bolder">
+                                        Description
+                                    </h5>
                                 </template>
                                 <template #content>
-                                    <p style="word-break: break-all; max-height: 450px; overflow-y: auto;">{{
-                                        item.description }}</p>
+                                    <p
+                                        style="
+                                            word-break: break-all;
+                                            max-height: 450px;
+                                            overflow-y: auto;
+                                        "
+                                    >
+                                        {{ item.description }}
+                                    </p>
                                 </template>
                             </Card>
                         </div>
-
 
                         <div class="form-col-right">
                             <div class="row">
                                 <div class="col-lg-6">
                                     <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
+                                        <h3 class="text-primary fw-bolder">
+                                            Warehouse & Tracking
+                                        </h3>
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>Module:</dt>
                                                 <dd>
-                                                    {{
-                                                        item.ProductModuleLoc
-                                                    }}
+                                                    {{ item.ProductModuleLoc }}
                                                 </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Warehouse Location:</dt>
                                                 <dd>
-                                                    {{
-                                                        item.warehouselocation
-                                                    }}
+                                                    {{ item.warehouselocation }}
                                                 </dd>
                                             </div>
                                             <div class="info-item">
@@ -231,16 +342,16 @@
                                             <div class="info-item">
                                                 <dt>Tracking Number:</dt>
                                                 <dd>
-                                                    {{
-                                                        item.trackingnumber
-                                                    }}
+                                                    {{ item.trackingnumber }}
                                                 </dd>
                                             </div>
                                         </dl>
                                     </section>
 
                                     <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Product Identifiers</h3>
+                                        <h3 class="text-primary fw-bolder">
+                                            Product Identifiers
+                                        </h3>
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>RT:</dt>
@@ -279,9 +390,10 @@
                                         </dl>
                                     </section>
 
-
                                     <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Order Information</h3>
+                                        <h3 class="text-primary fw-bolder">
+                                            Order Information
+                                        </h3>
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>Order Number:</dt>
@@ -318,14 +430,25 @@
                                         </dl>
                                     </section>
 
-                                    <section class="info-section" v-if="item.grading || item.notes">
-                                        <h3 class="text-primary fw-bolder">Additional Info</h3>
+                                    <section
+                                        class="info-section"
+                                        v-if="item.grading || item.notes"
+                                    >
+                                        <h3 class="text-primary fw-bolder">
+                                            Additional Info
+                                        </h3>
                                         <dl class="info-list">
-                                            <div class="info-item" v-if="item.grading">
+                                            <div
+                                                class="info-item"
+                                                v-if="item.grading"
+                                            >
                                                 <dt>Grading:</dt>
                                                 <dd>{{ item.grading }}</dd>
                                             </div>
-                                            <div class="info-item" v-if="item.notes">
+                                            <div
+                                                class="info-item"
+                                                v-if="item.notes"
+                                            >
                                                 <dt>Notes:</dt>
                                                 <dd>{{ item.notes }}</dd>
                                             </div>
@@ -333,12 +456,12 @@
                                     </section>
                                 </div>
 
-
                                 <div class="col-lg-6">
                                     <section class="pricing-section">
-                                        <h3 class="text-primary fw-bolder">Pricing</h3>
+                                        <h3 class="text-primary fw-bolder">
+                                            Pricing
+                                        </h3>
                                         <dl class="pricing-list">
-
                                             <div class="pricing-item">
                                                 <dt>Unit Price:</dt>
                                                 <dd>
@@ -354,17 +477,19 @@
                                                     {{ item.quantity || 0 }}
                                                 </dd>
                                             </div>
-                                            <div class="pricing-item subtotal-line">
+                                            <div
+                                                class="pricing-item subtotal-line"
+                                            >
                                                 <dt>Subtotal:</dt>
                                                 <dd>
-                                                    {{
-                                                        item.price || "0.00"
-                                                    }}
+                                                    {{ item.price || "0.00" }}
                                                 </dd>
                                             </div>
 
-
-                                            <div class="pricing-item" v-if="item.Discount">
+                                            <div
+                                                class="pricing-item"
+                                                v-if="item.Discount"
+                                            >
                                                 <dt>Discount:</dt>
                                                 <dd class="discount">
                                                     -{{ item.Discount }}
@@ -381,16 +506,19 @@
                                                 </dd>
                                             </div>
 
-
-                                            <div class="pricing-item total-line">
+                                            <div
+                                                class="pricing-item total-line"
+                                            >
                                                 <dt>Total Price:</dt>
                                                 <dd class="total-amount">
                                                     {{ grandTotal }}
                                                 </dd>
                                             </div>
 
-
-                                            <div class="pricing-item refund-line" v-if="item.refund">
+                                            <div
+                                                class="pricing-item refund-line"
+                                                v-if="item.refund"
+                                            >
                                                 <dt>Refund:</dt>
                                                 <dd class="refund">
                                                     {{ item.refund }}
@@ -435,55 +563,57 @@ const TABLE_COLUMNS = [
         slot: "ProductTitle",
         style: { minWidth: "15rem", maxWidth: "20rem" },
     },
+
     {
-        field: "datedelivered",
-        header: "Added Date",
-        bodyStyle: { fontSize: "14px" }
-    },
-    {
-        field: "lastDateUpdate",
-        header: "Updated Date",
-        bodyStyle: { fontSize: "14px" }
+        field: "ASIN",
+        header: "ASIN",
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "FNSKUviewer",
         header: "FNSKU",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "MSKUviewer",
         header: "MNSKU",
-        bodyStyle: { fontSize: "14px" }
+        bodyStyle: { fontSize: "14px" },
     },
     {
-        field: "ASINviewer",
-        header: "ASIN",
-        bodyStyle: { fontSize: "14px" }
+        field: "grading",
+        header: "Grade",
+        bodyStyle: { fontSize: "14px" },
+    },
+    {
+        field: "ProductModuleLoc",
+        header: "Module Location",
+        bodyStyle: { fontSize: "14px" },
     },
     {
         field: "Fulfilledby",
-        header: "Fulfillment",
-        bodyStyle: { fontSize: "14px" }
+        header: "Fulfilledby",
+        bodyStyle: { fontSize: "14px" },
     },
-    {
-        field: "Status",
-        header: "Status",
-        bodyStyle: { fontSize: "14px" }
-    },
-    {
-        field: "serialnumber",
-        header: "Serial Number",
-        bodyStyle: { fontSize: "14px" }
-    }
-]
+];
 export default {
     mixins: [Production],
-    components: { XDataTable, Dialog, TableGallery, Gallery, Button, ScrollTop, TitlePage, ViewImageModal, AnimateDiv, Select },
+    components: {
+        XDataTable,
+        Dialog,
+        TableGallery,
+        Gallery,
+        Button,
+        ScrollTop,
+        TitlePage,
+        ViewImageModal,
+        AnimateDiv,
+        Select,
+    },
     data() {
         return {
             columns: TABLE_COLUMNS,
-            rowsPerPage: ROWS_PER_PAGE
-        }
-    }
+            rowsPerPage: ROWS_PER_PAGE,
+        };
+    },
 };
 </script>
