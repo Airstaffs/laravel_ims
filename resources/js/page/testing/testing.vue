@@ -1,24 +1,47 @@
 <template>
     <div class="vue-container testing-module">
-        <TitlePage title="Testing Module"
-            subtitle="Manage and log quality assurance and functional testing results for products prior to inventory staging." />
+        <TitlePage
+            title="Testing Module"
+            subtitle="Manage and log quality assurance and functional testing results for products prior to inventory staging."
+        />
 
         <!-- Desktop Table Container -->
         <AnimateDiv :delay="200" class="px-4">
-            <XDataTable :value="sortedInventory" :loading="loading" :columns="visibleColumns" :paginator="false"
-                tableClass="desktop-view" selectionMode="multiple" dataKey="ProductID">
-
+            <XDataTable
+                :value="sortedInventory"
+                :loading="loading"
+                :columns="visibleColumns"
+                :paginator="false"
+                tableClass="desktop-view"
+                selectionMode="multiple"
+                dataKey="ProductID"
+            >
                 <template #gallery="{ data }">
-                    <div class="d-flex justify-content-center align-items-center">
-                        <TableGallery :data="data" :openImageModal="openImageModal" :handleImageError="handleImageError"
-                            :countAdditionalImages="countAdditionalImages" />
+                    <div
+                        class="d-flex justify-content-center align-items-center"
+                    >
+                        <TableGallery
+                            :data="data"
+                            :openImageModal="openImageModal"
+                            :handleImageError="handleImageError"
+                            :countAdditionalImages="countAdditionalImages"
+                        />
                     </div>
                 </template>
 
                 <template #ProductTitle="{ data }">
                     <div class="d-flex align-items-start gap-4">
-                        <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
-                            <p style="font-size: .8rem;">RT# {{ data.rtcounter }}</p>
+                        <div
+                            style="
+                                word-break: break-word;
+                                white-space: normal;
+                                overflow-wrap: break-word;
+                                flex: 1;
+                            "
+                        >
+                            <p style="font-size: 0.8rem">
+                                RT# {{ data.rtcounter }}
+                            </p>
                             <p class="fw-semibold">
                                 {{ data.ProductTitle }}
                             </p>
@@ -27,12 +50,25 @@
                 </template>
 
                 <template #actions="{ data }">
-                    <div class="d-flex gap-2">
-                        <Button size="small" severity="success" variant="text" label="Condition" 
-                            icon="pi pi-check-square" @click="openConditionModal(data)" 
-                            class="text-success" />
-                        <Button size="small" severity="contrast" variant="text" label="View Details" class="text-primary"
-                            icon="pi pi-exclamation-circle" @click="openEditModal(data)" />
+                    <div class="d-flex flex-column align-items-start">
+                        <Button
+                            size="small"
+                            severity="success"
+                            variant="text"
+                            label="Condition"
+                            icon="pi pi-check-square"
+                            @click="openConditionModal(data)"
+                            class="text-success"
+                        />
+                        <Button
+                            size="small"
+                            severity="contrast"
+                            variant="text"
+                            label="View Details"
+                            class="text-primary"
+                            icon="pi pi-exclamation-circle"
+                            @click="openEditModal(data)"
+                        />
                     </div>
                 </template>
             </XDataTable>
@@ -40,16 +76,21 @@
 
         <!-- Mobile Cards View -->
         <div class="mobile-view">
-            <MobileCard1 
-                :showDetails="showDetails" 
+            <MobileCard1
                 :sortedInventory="sortedInventory"
-                :expandedRows="expandedRows" 
-                :openImageModal="openImageModal" 
+                :expandedRows="expandedRows"
+                :openImageModal="openImageModal"
                 :handleImageError="handleImageError"
-                :countAdditionalImages="countAdditionalImages" 
+                :countAdditionalImages="countAdditionalImages"
                 :openEditModal="openEditModal"
-                :openConditionModal="openConditionModal"
-                :loading="loading" 
+                :loading="loading"
+                :showDetails="showDetails"
+                :visibleFields="[
+                    'price',
+                    'serialnumber',
+                    'trackingnumber',
+                    'datedelivered',
+                ]"
             />
         </div>
 
@@ -58,62 +99,123 @@
             <div class="pagination-wrapper">
                 <div class="per-page-selector">
                     <span>Rows per page</span>
-                    <Select v-model="perPage" @change="changePerPage" :options="rowsPerPage" optionLabel="label"
-                        optionValue="value" size="small" />
+                    <Select
+                        v-model="perPage"
+                        @change="changePerPage"
+                        :options="rowsPerPage"
+                        optionLabel="label"
+                        optionValue="value"
+                        size="small"
+                    />
                 </div>
 
                 <div class="pagination">
-                    <Button @click="prevPage" :disabled="currentPage === 1" class="pagination-button" label="Back"
-                        icon="pi pi-angle-left" size="small" severity="info" />
-                    <span class="pagination-info">Page {{ currentPage }} of {{ totalPages }}</span>
-                    <Button @click="nextPage" :disabled="currentPage === totalPages" class="pagination-button"
-                        label="Next" icon="pi pi-angle-right" size="small" severity="info" iconPos="right" />
+                    <Button
+                        @click="prevPage"
+                        :disabled="currentPage === 1"
+                        class="pagination-button"
+                        label="Back"
+                        icon="pi pi-angle-left"
+                        size="small"
+                        severity="info"
+                    />
+                    <span class="pagination-info"
+                        >Page {{ currentPage }} of {{ totalPages }}</span
+                    >
+                    <Button
+                        @click="nextPage"
+                        :disabled="currentPage === totalPages"
+                        class="pagination-button"
+                        label="Next"
+                        icon="pi pi-angle-right"
+                        size="small"
+                        severity="info"
+                        iconPos="right"
+                    />
                 </div>
             </div>
         </div>
 
         <!-- Image Modal -->
-        <ViewImageModal v-model:visible="showImageModal" :title="ProductTitle" :imageList="imageList"
-            :basePath="basePath" :onImageErrorMain="onImageErrorMain" :onThumbnailError="onThumbnailError"
-            @close="closeImageModal" />
+        <ViewImageModal
+            v-model:visible="showImageModal"
+            :title="ProductTitle"
+            :imageList="imageList"
+            :basePath="basePath"
+            :onImageErrorMain="onImageErrorMain"
+            :onThumbnailError="onThumbnailError"
+            @close="closeImageModal"
+        />
 
         <!-- Condition Checklist Modal -->
-        <ReceivedConditionModal 
+        <ReceivedConditionModal
             v-model:visible="showConditionModal"
             :item="selectedItem"
             @saved="handleConditionSaved"
         />
 
         <!-- Move to Cleaning Confirmation Dialog -->
-        <Dialog v-model:visible="showMoveConfirmation" modal header="Move to Cleaning & Prepping?" 
-            style="width: 35rem;" :pt="{ root: { class: 'mobile-fullscreen-dialog' } }">
+        <Dialog
+            v-model:visible="showMoveConfirmation"
+            modal
+            header="Move to Cleaning & Prepping?"
+            style="width: 35rem"
+            :pt="{ root: { class: 'mobile-fullscreen-dialog' } }"
+        >
             <div class="confirmation-content">
-                <i class="pi pi-arrow-right-arrow-left" style="font-size: 3rem; color: var(--primary-color); display: block; text-align: center; margin-bottom: 1rem;"></i>
+                <i
+                    class="pi pi-arrow-right-arrow-left"
+                    style="
+                        font-size: 3rem;
+                        color: var(--primary-color);
+                        display: block;
+                        text-align: center;
+                        margin-bottom: 1rem;
+                    "
+                ></i>
                 <p class="text-center mb-3">
                     <strong>{{ moveItemDetails?.ProductTitle }}</strong>
                 </p>
                 <p class="text-center">
-                    Testing complete! Would you like to move this item to <strong>Cleaning & Prepping</strong> module?
+                    Testing complete! Would you like to move this item to
+                    <strong>Cleaning & Prepping</strong> module?
                 </p>
                 <div class="mt-3 p-3 bg-light rounded">
                     <small class="text-muted">
-                        <i class="pi pi-info-circle"></i> 
-                        This will update the item location from <strong>Testing</strong> to <strong>Cleaning</strong>
+                        <i class="pi pi-info-circle"></i>
+                        This will update the item location from
+                        <strong>Testing</strong> to <strong>Cleaning</strong>
                     </small>
                 </div>
             </div>
             <template #footer>
-                <Button label="Cancel" icon="pi pi-times" @click="cancelMove" severity="secondary" />
-                <Button label="Move to Cleaning" icon="pi pi-arrow-right" @click="confirmMoveToCleaning" 
-                    :loading="movingItem" severity="success" />
+                <Button
+                    label="Cancel"
+                    icon="pi pi-times"
+                    @click="cancelMove"
+                    severity="secondary"
+                />
+                <Button
+                    label="Move to Cleaning"
+                    icon="pi pi-arrow-right"
+                    @click="confirmMoveToCleaning"
+                    :loading="movingItem"
+                    severity="success"
+                />
             </template>
         </Dialog>
 
         <!-- View Details Modal -->
-        <Dialog v-model:visible="showEditModal" class="view-modal" modal
-            :header="`RT # ${item.ProductID} ${item.ProductTitle}`" style="width: 110rem;" :pt="{
-                root: { class: 'mobile-fullscreen-dialog' }
-            }">
+        <Dialog
+            v-model:visible="showEditModal"
+            class="view-modal"
+            modal
+            :header="`RT # ${item.ProductID} ${item.ProductTitle}`"
+            style="width: 110rem"
+            :pt="{
+                root: { class: 'mobile-fullscreen-dialog' },
+            }"
+        >
             <div>
                 <div class="view-info-container">
                     <div class="view-grid-wrapper">
@@ -122,10 +224,19 @@
                             <gallery :item="item" />
                             <Card>
                                 <template #title>
-                                    <h5 class="text-primary fw-bolder">Description</h5>
+                                    <h5 class="text-primary fw-bolder">
+                                        Description
+                                    </h5>
                                 </template>
                                 <template #content>
-                                    <p style="word-break: break-all; max-height: 450px; overflow-y: auto; font-size: 14px;">
+                                    <p
+                                        style="
+                                            word-break: break-all;
+                                            max-height: 450px;
+                                            overflow-y: auto;
+                                            font-size: 14px;
+                                        "
+                                    >
                                         {{ item.description }}
                                     </p>
                                 </template>
@@ -138,15 +249,21 @@
                                 <div class="col-md-6">
                                     <!-- Warehouse & Tracking -->
                                     <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Warehouse & Tracking</h3>
+                                        <h3 class="text-primary fw-bolder">
+                                            Warehouse & Tracking
+                                        </h3>
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>Module:</dt>
-                                                <dd>{{ item.ProductModuleLoc }}</dd>
+                                                <dd>
+                                                    {{ item.ProductModuleLoc }}
+                                                </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Warehouse Location:</dt>
-                                                <dd>{{ item.warehouselocation }}</dd>
+                                                <dd>
+                                                    {{ item.warehouselocation }}
+                                                </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Serial Number:</dt>
@@ -154,13 +271,17 @@
                                             </div>
                                             <div class="info-item">
                                                 <dt>Tracking Number:</dt>
-                                                <dd>{{ item.trackingnumber }}</dd>
+                                                <dd>
+                                                    {{ item.trackingnumber }}
+                                                </dd>
                                             </div>
                                         </dl>
                                     </section>
                                     <!-- Product Identifiers -->
                                     <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Product Identifiers</h3>
+                                        <h3 class="text-primary fw-bolder">
+                                            Product Identifiers
+                                        </h3>
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>RT:</dt>
@@ -199,7 +320,9 @@
 
                                     <!-- Order Information -->
                                     <section class="info-section">
-                                        <h3 class="text-primary fw-bolder">Order Information</h3>
+                                        <h3 class="text-primary fw-bolder">
+                                            Order Information
+                                        </h3>
                                         <dl class="info-list">
                                             <div class="info-item">
                                                 <dt>Order Number:</dt>
@@ -219,7 +342,9 @@
                                             </div>
                                             <div class="info-item">
                                                 <dt>Delivered Date:</dt>
-                                                <dd>{{ item.datedelivered }}</dd>
+                                                <dd>
+                                                    {{ item.datedelivered }}
+                                                </dd>
                                             </div>
                                             <div class="info-item">
                                                 <dt>Seller:</dt>
@@ -229,14 +354,25 @@
                                     </section>
 
                                     <!-- Additional Info -->
-                                    <section class="info-section" v-if="item.grading || item.notes">
-                                        <h3 class="text-primary fw-bolder">Additional Info</h3>
+                                    <section
+                                        class="info-section"
+                                        v-if="item.grading || item.notes"
+                                    >
+                                        <h3 class="text-primary fw-bolder">
+                                            Additional Info
+                                        </h3>
                                         <dl class="info-list">
-                                            <div class="info-item" v-if="item.grading">
+                                            <div
+                                                class="info-item"
+                                                v-if="item.grading"
+                                            >
                                                 <dt>Grading:</dt>
                                                 <dd>{{ item.grading }}</dd>
                                             </div>
-                                            <div class="info-item" v-if="item.notes">
+                                            <div
+                                                class="info-item"
+                                                v-if="item.notes"
+                                            >
                                                 <dt>Notes:</dt>
                                                 <dd>{{ item.notes }}</dd>
                                             </div>
@@ -247,23 +383,41 @@
                                 <!-- Right Column: Pricing -->
                                 <div class="col-md-6">
                                     <section class="pricing-section">
-                                        <h3 class="text-primary fw-bolder">Pricing</h3>
+                                        <h3 class="text-primary fw-bolder">
+                                            Pricing
+                                        </h3>
                                         <dl class="pricing-list">
                                             <div class="pricing-item">
                                                 <dt>Unit Price:</dt>
-                                                <dd>{{ item.formattedUnitprice || "0.00" }}</dd>
+                                                <dd>
+                                                    {{
+                                                        item.formattedUnitprice ||
+                                                        "0.00"
+                                                    }}
+                                                </dd>
                                             </div>
                                             <div class="pricing-item">
                                                 <dt>Quantity:</dt>
-                                                <dd>{{ item.quantity || 0 }}</dd>
+                                                <dd>
+                                                    {{ item.quantity || 0 }}
+                                                </dd>
                                             </div>
-                                            <div class="pricing-item subtotal-line">
+                                            <div
+                                                class="pricing-item subtotal-line"
+                                            >
                                                 <dt>Subtotal:</dt>
-                                                <dd>{{ item.price || "0.00" }}</dd>
+                                                <dd>
+                                                    {{ item.price || "0.00" }}
+                                                </dd>
                                             </div>
-                                            <div class="pricing-item" v-if="item.Discount">
+                                            <div
+                                                class="pricing-item"
+                                                v-if="item.Discount"
+                                            >
                                                 <dt>Discount:</dt>
-                                                <dd class="discount">-{{ item.Discount }}</dd>
+                                                <dd class="discount">
+                                                    -{{ item.Discount }}
+                                                </dd>
                                             </div>
                                             <div class="pricing-item">
                                                 <dt>Tax:</dt>
@@ -271,15 +425,26 @@
                                             </div>
                                             <div class="pricing-item">
                                                 <dt>Shipping:</dt>
-                                                <dd>{{ item.priceshipping }}</dd>
+                                                <dd>
+                                                    {{ item.priceshipping }}
+                                                </dd>
                                             </div>
-                                            <div class="pricing-item total-line">
+                                            <div
+                                                class="pricing-item total-line"
+                                            >
                                                 <dt>Total Price:</dt>
-                                                <dd class="total-amount">{{ grandTotal }}</dd>
+                                                <dd class="total-amount">
+                                                    {{ grandTotal }}
+                                                </dd>
                                             </div>
-                                            <div class="pricing-item refund-line" v-if="item.refund">
+                                            <div
+                                                class="pricing-item refund-line"
+                                                v-if="item.refund"
+                                            >
                                                 <dt>Refund:</dt>
-                                                <dd class="refund">{{ item.refund }}</dd>
+                                                <dd class="refund">
+                                                    {{ item.refund }}
+                                                </dd>
                                             </div>
                                         </dl>
                                     </section>
@@ -306,7 +471,7 @@ import ViewImageModal from "../../components/ViewImageModal/ViewImageModal.vue";
 import AnimateDiv from "../../components/AnimationDiv/AnimateDiv.vue";
 import ReceivedConditionModal from "./modals/receivedCondtion_modal.vue";
 import { ROWS_PER_PAGE } from "../../constant.js";
-import axios from 'axios';
+import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
@@ -325,20 +490,30 @@ const TABLE_COLUMNS = [
         slot: "ProductTitle",
         style: { maxWidth: "20rem" },
     },
-    { field: "datedelivered", header: "Added Date", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "lastDateUpdate", header: "Updated Date", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "FNSKUviewer", header: "Fnsku", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "MSKUviewer", header: "Msku", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "ASINviewer", header: "Asin", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "FBMAvailable", header: "FBM", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "FbaAvailable", header: "FBA", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Outbound", header: "Outbound", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Inbound", header: "Inbound", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Reserved", header: "Reserved", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Unfulfillable", header: "Unfulfillable", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Fulfilledby", header: "Fulfillment", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "Status", header: "Status", sortable: true, bodyStyle: "font-size: 14px;" },
-    { field: "serialNumber", header: "Serial Number", sortable: true, bodyStyle: "font-size: 14px;" },
+    {
+        field: "price",
+        header: "Price",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
+    },
+    {
+        field: "serialNumber",
+        header: "Serial Number",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
+    },
+    {
+        field: "trackingnumber",
+        header: "Tracking Number",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
+    },
+    {
+        field: "datedelivered",
+        header: "Date Delivered",
+        sortable: true,
+        bodyStyle: "font-size: 14px;",
+    },
 ];
 
 export default {
@@ -356,7 +531,7 @@ export default {
         ViewImageModal,
         AnimateDiv,
         Select,
-        ReceivedConditionModal
+        ReceivedConditionModal,
     },
     data() {
         return {
@@ -366,25 +541,32 @@ export default {
             selectedItem: null,
             showMoveConfirmation: false,
             moveItemDetails: null,
-            movingItem: false
+            movingItem: false,
         };
     },
     computed: {
         visibleColumns() {
             if (!this.columns) return [];
 
-            const detailFields = ["FBMAvailable", "FbaAvailable", "Outbound", "Inbound", "Reserved", "Unfulfillable"];
+            const detailFields = [
+                "FBMAvailable",
+                "FbaAvailable",
+                "Outbound",
+                "Inbound",
+                "Reserved",
+                "Unfulfillable",
+            ];
             const mandatoryFields = ["gallery", "ProductTitle"];
 
-            return this.columns.filter(col => {
+            return this.columns.filter((col) => {
                 if (mandatoryFields.includes(col.field)) {
                     return true;
                 }
-                
+
                 if (!this.showDetails && detailFields.includes(col.field)) {
                     return false;
                 }
-                
+
                 return true;
             });
         },
@@ -396,30 +578,30 @@ export default {
         },
 
         async handleConditionSaved(conditionData) {
-            console.log('Condition saved:', conditionData);
-            
+            console.log("Condition saved:", conditionData);
+
             // Show success notification
-            if (typeof this.$swal !== 'undefined') {
+            if (typeof this.$swal !== "undefined") {
                 await this.$swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: 'Received condition saved successfully',
+                    icon: "success",
+                    title: "Success!",
+                    text: "Received condition saved successfully",
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
-            } else if (typeof Swal !== 'undefined') {
+            } else if (typeof Swal !== "undefined") {
                 await Swal.fire({
-                    icon: 'success',
-                    title: 'Success!',
-                    text: 'Received condition saved successfully',
+                    icon: "success",
+                    title: "Success!",
+                    text: "Received condition saved successfully",
                     timer: 2000,
-                    showConfirmButton: false
+                    showConfirmButton: false,
                 });
             }
-            
+
             // Store item details for move confirmation
             this.moveItemDetails = this.selectedItem;
-            
+
             // Show move to cleaning confirmation
             this.showMoveConfirmation = true;
         },
@@ -431,11 +613,11 @@ export default {
             try {
                 const dataToSend = {
                     item_number: this.moveItemDetails.itemnumber,
-                    product_id: String(this.moveItemDetails.ProductID)
+                    product_id: String(this.moveItemDetails.ProductID),
                 };
-                
-                console.log('Moving to cleaning:', dataToSend);
-                
+
+                console.log("Moving to cleaning:", dataToSend);
+
                 const response = await axios.post(
                     `${API_BASE_URL}/api/testing/move-to-cleaning`,
                     dataToSend
@@ -443,64 +625,69 @@ export default {
 
                 if (response.data.success) {
                     // Success notification
-                    if (typeof this.$swal !== 'undefined') {
+                    if (typeof this.$swal !== "undefined") {
                         this.$swal.fire({
-                            icon: 'success',
-                            title: 'Moved!',
-                            text: 'Item moved to Cleaning & Prepping module successfully',
+                            icon: "success",
+                            title: "Moved!",
+                            text: "Item moved to Cleaning & Prepping module successfully",
                             timer: 2000,
-                            showConfirmButton: false
+                            showConfirmButton: false,
                         });
-                    } else if (typeof Swal !== 'undefined') {
+                    } else if (typeof Swal !== "undefined") {
                         Swal.fire({
-                            icon: 'success',
-                            title: 'Moved!',
-                            text: 'Item moved to Cleaning & Prepping module successfully',
+                            icon: "success",
+                            title: "Moved!",
+                            text: "Item moved to Cleaning & Prepping module successfully",
                             timer: 2000,
-                            showConfirmButton: false
+                            showConfirmButton: false,
                         });
                     } else {
-                        alert('Success! Item moved to Cleaning & Prepping module');
+                        alert(
+                            "Success! Item moved to Cleaning & Prepping module"
+                        );
                     }
 
                     // Close modal and refresh
                     this.showMoveConfirmation = false;
                     this.moveItemDetails = null;
-                    
+
                     // Refresh inventory to remove the moved item
                     await this.fetchInventory();
                 }
             } catch (error) {
-                console.error('Failed to move item:', error);
-                console.error('Error response data:', error.response?.data);
-                console.error('Validation errors:', error.response?.data?.errors);
-                
-                let errorMessage = 'Failed to move item to Cleaning module';
-                
+                console.error("Failed to move item:", error);
+                console.error("Error response data:", error.response?.data);
+                console.error(
+                    "Validation errors:",
+                    error.response?.data?.errors
+                );
+
+                let errorMessage = "Failed to move item to Cleaning module";
+
                 // Handle validation errors
                 if (error.response?.data?.errors) {
                     const errors = error.response.data.errors;
-                    errorMessage = Object.values(errors).flat().join('\n');
+                    errorMessage = Object.values(errors).flat().join("\n");
                 } else if (error.response?.data?.message) {
                     errorMessage = error.response.data.message;
                 }
-                
-                if (typeof this.$swal !== 'undefined') {
+
+                if (typeof this.$swal !== "undefined") {
                     this.$swal.fire({
-                        icon: 'error',
-                        title: 'Error Moving Item',
+                        icon: "error",
+                        title: "Error Moving Item",
                         text: errorMessage,
-                        confirmButtonText: 'OK'
+                        confirmButtonText: "OK",
                     });
-                } else if (typeof Swal !== 'undefined') {
+                } else if (typeof Swal !== "undefined") {
                     Swal.fire({
-                        icon: 'error',
-                        title: 'Error Moving Item',
+                        icon: "error",
+                        title: "Error Moving Item",
                         text: errorMessage,
-                        confirmButtonText: 'OK'
+                        confirmButtonText: "OK",
                     });
                 } else {
-                    alert('Error: ' + errorMessage);
+                    alert("Error: " + errorMessage);
                 }
             } finally {
                 this.movingItem = false;
@@ -510,11 +697,11 @@ export default {
         cancelMove() {
             this.showMoveConfirmation = false;
             this.moveItemDetails = null;
-            
+
             // Still refresh inventory to show updated condition
             this.fetchInventory();
-        }
-    }
+        },
+    },
 };
 </script>
 
