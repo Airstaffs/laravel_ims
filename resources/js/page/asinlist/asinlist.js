@@ -108,6 +108,10 @@ export default {
         isMobile() {
             return window.innerWidth <= 768;
         },
+
+        getDisplayTitle(item) {
+        return item.system_title || item.AStitle || item.internal;
+       },
     },
     methods: {
         // NEW: Method to force image refresh - Vue 3 Compatible
@@ -541,7 +545,8 @@ export default {
                     instructionlink: this.selectedAsin.instructionlink || "",
                     metakeyword: this.selectedAsin.metakeyword || "",
                     TRANSPARENCY_QR_STATUS:this.selectedAsin.TRANSPARENCY_QR_STATUS || "",
-                    QuantityInside: this.selectedAsin.QuantityInside || null,    
+                    QuantityInside: this.selectedAsin.QuantityInside || null,   
+                    system_title: this.selectedAsin.system_title || "", // Added system_title 
                     ParentAsin: this.selectedAsin.ParentAsin || "",
                     CousinASIN: this.selectedAsin.CousinASIN || "",
                     UpgradeASIN: this.selectedAsin.UpgradeASIN || "",
@@ -574,7 +579,8 @@ export default {
                     instruction_link: this.editedAsin.instructionlink,
                     metakeyword: this.editedAsin.metakeyword,
                     transparency_qr_status:
-                        this.editedAsin.TRANSPARENCY_QR_STATUS,
+                   this.editedAsin.TRANSPARENCY_QR_STATUS,
+                    system_title: this.editedAsin.system_title, // Added system_title
                 });
 
                 const response = await axios.post(
@@ -589,6 +595,7 @@ export default {
                         transparency_qr_status:
                             this.editedAsin.TRANSPARENCY_QR_STATUS || null,
                          quantity_inside: this.editedAsin.QuantityInside || null,     
+                         system_title: this.editedAsin.system_title || null, // Added system_title
                     },
                     {
                         withCredentials: true,
@@ -611,6 +618,10 @@ export default {
                     this.selectedAsin.TRANSPARENCY_QR_STATUS =
                         this.editedAsin.TRANSPARENCY_QR_STATUS;
                  this.selectedAsin.QuantityInside = this.editedAsin.QuantityInside;    
+                 this.selectedAsin.system_title = this.editedAsin.system_title; // Added system_title
+
+                // Update display_title based on system_title priority
+                this.selectedAsin.display_title = this.editedAsin.system_title || this.selectedAsin.AStitle;
 
                     // Update the main data array
                     const asinIndex = this.asinData.findIndex(
@@ -626,6 +637,9 @@ export default {
                         this.asinData[asinIndex].TRANSPARENCY_QR_STATUS =
                             this.editedAsin.TRANSPARENCY_QR_STATUS;
                         this.asinData[asinIndex].QuantityInside = this.editedAsin.QuantityInside;    
+                         this.asinData[asinIndex].system_title = this.editedAsin.system_title; // Added system_title
+                         this.asinData[asinIndex].display_title = this.editedAsin.system_title || this.asinData[asinIndex].AStitle;
+
                     }
 
                     alert("ASIN details updated successfully");

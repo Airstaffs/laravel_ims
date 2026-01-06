@@ -114,7 +114,7 @@ class ManualShipmentLabelController extends Controller
         // Get existing record or create new
         $record = DB::table('tbladditionaldetails')
             ->where('name', 'carrierdescription')
-            ->where('condition', 'operational')
+            ->where('operational_status', 'operational')
             ->first();
 
         if ($record) {
@@ -133,7 +133,7 @@ class ManualShipmentLabelController extends Controller
         } else {
             DB::table('tbladditionaldetails')->insert([
                 'name' => 'carrierdescription',
-                'condition' => 'operational',
+                'operational_status' => 'operational',
                 'value' => json_encode([$newOption]),
                 'created_at' => now(),
                 'updated_at' => now()
@@ -147,7 +147,7 @@ class ManualShipmentLabelController extends Controller
     {
         $record = DB::table('tbladditionaldetails')
             ->where('name', 'carrierdescription')
-            ->where('condition', 'operational')
+            ->where('operational_status', 'operational')
             ->first();
 
         $options = [];

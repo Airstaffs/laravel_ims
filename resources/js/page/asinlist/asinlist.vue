@@ -30,12 +30,13 @@
 
                 </template>
 
-                <template #productName="{ data }">
-                    <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
-                        <h6>{{ data.AStitle }}</h6>
-                        <h6 v-if="data.metakeyword">{{ data.metakeyword }}</h6>
-                    </div>
-                </template>
+             <template #productName="{ data }">
+                <div style="word-break: break-word; white-space: normal; overflow-wrap: break-word; flex: 1;">
+                    <!-- Show system_title if available, otherwise show AStitle -->
+                    <h6>{{ data.system_title || data.AStitle }}</h6>
+                    <h6 v-if="data.metakeyword">{{ data.metakeyword }}</h6>
+                </div>
+            </template>
 
                 <template #EANUPC="{ data }">
                     <div class="codes-container">
@@ -152,7 +153,8 @@
                         </div>
                         <div class="mobile-product-info">
                             <h6 class="mobile-product-name">
-                                {{ item.AStitle }}
+                                {{ item.system_title || item.AStitle }}
+
                             </h6>
                         </div>
                     </div>
@@ -506,6 +508,31 @@
                                     selectedAsin.ASIN
                                 }}</span>
                             </div>
+
+                            <!-- NEW: System Title Field -->
+                            <div class="asin-details-row">
+                                <span class="asin-details-label">System Title:</span>
+                                <textarea 
+                                    v-if="editMode" 
+                                    v-model="editedAsin.system_title" 
+                                    class="details-textarea"
+                                    placeholder="Enter custom system title (overrides product name)" 
+                                    rows="2"
+                                ></textarea>
+                                <span v-else class="asin-details-value">
+                                    {{ selectedAsin.system_title || "-" }}
+                                </span>
+                            </div>
+
+                            <!-- Amazon Title (read-only reference) -->
+                            <div class="asin-details-row">
+                                <span class="asin-details-label">Amazon Title:</span>
+                                <span class="asin-details-value" style="font-size: 11px; color: #6c757d;">
+                                    {{ selectedAsin.AStitle }}
+                                </span>
+                            </div>
+
+
                             <div class="asin-details-row">
                                 <span class="asin-details-label">Meta Keyword:</span>
                                 <textarea v-if="editMode" v-model="editedAsin.metakeyword" class="details-textarea"

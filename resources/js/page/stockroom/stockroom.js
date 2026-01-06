@@ -703,8 +703,12 @@ export default {
     console.log("- Total QOH (quantity with QuantityInside):", qohCount);
 },
 
-        // Modified fetchInventory with count validation
-        // Update your fetchInventory method to call calculateInventoryCounts:
+       getDisplayTitle(item) {
+        if (!item) return '';
+        return item.display_title || item.system_title || item.AStitle || '';
+    },
+
+        // etchInventory with count validation
         async fetchInventory() {
             this.loading = true;
             try {
@@ -740,6 +744,11 @@ export default {
                         unit_count: item.unit_count || item.box_count || 0,
                         item_count: item.item_count || 0,
                         box_count: item.box_count || item.unit_count || 0,
+
+                        // ADDED: Ensure display_title is set with proper priority
+                        display_title: item.display_title || item.system_title || item.AStitle || '',
+                        system_title: item.system_title || '',
+                        AStitle: item.AStitle || ''
                     };
 
                
